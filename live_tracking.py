@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from bson import ObjectId
 from pymongo.collection import Collection
@@ -14,8 +14,8 @@ from utils import haversine
 
 logger = logging.getLogger(__name__)
 
-live_trips_collection_global: Optional[Collection] = None
-archived_live_trips_collection_global: Optional[Collection] = None
+live_trips_collection_global: Collection | None = None
+archived_live_trips_collection_global: Collection | None = None
 
 
 def initialize_db(db_live_trips, db_archived_live_trips):
@@ -27,8 +27,8 @@ def initialize_db(db_live_trips, db_archived_live_trips):
 
 
 def _parse_iso_datetime(
-    timestamp_str: Optional[str],
-) -> Optional[datetime]:
+    timestamp_str: str | None,
+) -> datetime | None:
     """Safely parse an ISO 8601 timestamp string into a timezone-aware datetime object (UTC)."""
     if not timestamp_str or not isinstance(timestamp_str, str):
         return None
@@ -53,8 +53,8 @@ def _parse_iso_datetime(
 
 
 def _parse_mongo_date_dict(
-    date_dict: Dict[str, str],
-) -> Optional[datetime]:
+    date_dict: dict[str, str],
+) -> datetime | None:
     """Parses a MongoDB extended JSON date dict like {'$date': 'ISO_STRING'}"""
     if isinstance(date_dict, dict) and "$date" in date_dict:
         return _parse_iso_datetime(date_dict["$date"])
@@ -62,7 +62,7 @@ def _parse_mongo_date_dict(
 
 
 async def process_trip_start(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     live_collection: Collection,
 ) -> None:
     """Process a tripStart event from the Bouncie webhook.
@@ -190,7 +190,7 @@ async def process_trip_start(
 
 
 async def process_trip_data(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     live_collection: Collection,
     archive_collection: Collection,
 ) -> None:
@@ -265,7 +265,7 @@ async def process_trip_data(
     )
 
     try:
-        new_coords: List[Dict[str, Any]] = sort_and_filter_trip_coordinates(
+        new_coords: list[dict[str, Any]] = sort_and_filter_trip_coordinates(
             trip_data_points
         )
     except Exception as e:
@@ -296,10 +296,10 @@ async def process_trip_data(
         )
         return
 
-    existing_coords: List[Dict[str, Any]] = (
+    existing_coords: list[dict[str, Any]] = (
         trip_doc.get("coordinates", []) or []
     )
-    all_coords_map: Dict[str, Dict[str, Any]] = {}
+    all_coords_map: dict[str, dict[str, Any]] = {}
     for c in existing_coords:
         ts = c.get("timestamp")
         if isinstance(ts, datetime):
@@ -557,7 +557,7 @@ async def process_trip_data(
 
 
 async def process_trip_metrics(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     live_collection: Collection,
     archive_collection: Collection,
 ) -> None:
@@ -757,7 +757,7 @@ async def process_trip_metrics(
 
 
 async def process_trip_end(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     live_collection: Collection,
     archive_collection: Collection,
 ) -> None:
@@ -832,7 +832,7 @@ async def process_trip_end(
         )
         end_time = datetime.now(timezone.utc)
 
-    trip: Optional[Dict[str, Any]] = None
+    trip: dict[str, Any] | None = None
     try:
         trip = await live_collection.find_one(
             {
@@ -1049,8 +1049,8 @@ async def process_trip_end(
 
 
 async def get_active_trip(
-    since_sequence: Optional[int] = None,
-) -> Optional[Dict[str, Any]]:
+    since_sequence: int | None = None,
+) -> dict[str, Any] | None:
     """Get the currently active trip document from DB.
 
     Uses the global collection variable set during initialization.
@@ -1067,8 +1067,8 @@ async def get_active_trip(
         )
         return None
 
-    query: Dict[str, Any] = {"status": "active"}
-    valid_since_sequence: Optional[int] = None
+    query: dict[str, Any] = {"status": "active"}
+    valid_since_sequence: int | None = None
     if since_sequence is not None:
         try:
             parsed_sequence = int(since_sequence)
@@ -1132,7 +1132,7 @@ async def cleanup_stale_trips_logic(
     archive_collection: Collection,
     stale_minutes: int = 15,
     max_archive_age_days: int = 30,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """Archives active trips that haven't been updated recently ('stale') and
     removes very old archived trips. Uses passed collection objects.
 
@@ -1297,8 +1297,8 @@ async def cleanup_stale_trips_logic(
 
 
 async def get_trip_updates(
-    last_sequence: Union[int, str, None] = 0,
-) -> Dict[str, Any]:
+    last_sequence: int | str | None = 0,
+) -> dict[str, Any]:
     """API endpoint logic to get updates about the currently active trip.
 
     Uses the global collection variable set during initialization.

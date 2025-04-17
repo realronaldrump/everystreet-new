@@ -56,7 +56,7 @@ class Config:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(Config, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance.mapbox_access_token = None
 
         return cls._instance
@@ -86,7 +86,7 @@ class RateLimiter:
 
     async def check_rate_limit(
         self,
-    ) -> Tuple[bool, float]:
+    ) -> tuple[bool, float]:
         """Check if we're about to exceed rate limit.
 
         Returns (need_to_wait, wait_time_seconds)
@@ -120,7 +120,7 @@ class TripProcessor:
 
     def __init__(
         self,
-        mapbox_token: Optional[str] = None,
+        mapbox_token: str | None = None,
         source: str = "api",
     ):
         """Initialize the trip processor.
@@ -137,10 +137,10 @@ class TripProcessor:
 
         self.state = TripState.NEW
         self.state_history = []
-        self.errors: Dict[str, str] = {}
+        self.errors: dict[str, str] = {}
 
-        self.trip_data: Dict[str, Any] = {}
-        self.processed_data: Dict[str, Any] = {}
+        self.trip_data: dict[str, Any] = {}
+        self.processed_data: dict[str, Any] = {}
 
         self.utm_proj = None
         self.project_to_utm = None
@@ -148,7 +148,7 @@ class TripProcessor:
     def _set_state(
         self,
         new_state: TripState,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """Update the processing state and record it in history.
 
@@ -171,7 +171,7 @@ class TripProcessor:
 
         self.state_history.append(state_change)
 
-    def set_trip_data(self, trip_data: Dict[str, Any]) -> None:
+    def set_trip_data(self, trip_data: dict[str, Any]) -> None:
         """Set the raw trip data to be processed.
 
         Args:
@@ -184,7 +184,7 @@ class TripProcessor:
 
     def get_processing_status(
         self,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get the current processing status.
 
         Returns:
@@ -197,7 +197,7 @@ class TripProcessor:
             "transaction_id": self.trip_data.get("transactionId", "unknown"),
         }
 
-    async def process(self, do_map_match: bool = True) -> Dict[str, Any]:
+    async def process(self, do_map_match: bool = True) -> dict[str, Any]:
         """Process the trip through all appropriate stages based on current
         state.
 
@@ -478,7 +478,7 @@ class TripProcessor:
     @staticmethod
     async def get_place_at_point(
         point: Point,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Find a custom place that contains the given point.
 
         Args:
@@ -964,7 +964,7 @@ class TripProcessor:
             self._set_state(TripState.FAILED, error_message)
             return False
 
-    def _initialize_projections(self, coords: List[List[float]]) -> None:
+    def _initialize_projections(self, coords: list[list[float]]) -> None:
         """Initialize projections for map matching.
 
         Args:
@@ -989,13 +989,13 @@ class TripProcessor:
 
     async def _map_match_coordinates(
         self,
-        coordinates: List[List[float]],
+        coordinates: list[list[float]],
         chunk_size: int = 100,
         overlap: int = 10,
         max_retries: int = 3,
         min_sub_chunk: int = 20,
         jump_threshold_m: float = 200.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Map match coordinates using the Mapbox API with advanced chunking
         and stitching.
 
@@ -1029,8 +1029,8 @@ class TripProcessor:
         async with aiohttp.ClientSession(timeout=timeout) as session:
 
             async def call_mapbox_api(
-                coords: List[List[float]],
-            ) -> Dict[str, Any]:
+                coords: list[list[float]],
+            ) -> dict[str, Any]:
                 base_url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
                 coords_str = ";".join(f"{lon},{lat}" for lon, lat in coords)
                 url = base_url + coords_str
@@ -1100,11 +1100,15 @@ class TripProcessor:
                                 if 400 <= response.status < 500:
                                     error_text = await response.text()
                                     logger.warning(
-                                        f"Mapbox API client error: {response.status} - {error_text}",
+                                        f"Mapbox API client error: {
+                                            response.status
+                                        } - {error_text}",
                                     )
                                     return {
                                         "code": "Error",
-                                        "message": f"Mapbox API error: {response.status}",
+                                        "message": f"Mapbox API error: {
+                                            response.status
+                                        }",
                                         "details": error_text,
                                     }
 
@@ -1123,7 +1127,9 @@ class TripProcessor:
                                     error_text = await response.text()
                                     return {
                                         "code": "Error",
-                                        "message": f"Mapbox server error: {response.status}",
+                                        "message": f"Mapbox server error: {
+                                            response.status
+                                        }",
                                         "details": error_text,
                                     }
 
@@ -1152,7 +1158,9 @@ class TripProcessor:
                             )
                             return {
                                 "code": "Error",
-                                "message": f"Mapbox API error after {max_attempts_for_429} retries: {str(e)}",
+                                "message": f"Mapbox API error after {
+                                    max_attempts_for_429
+                                } retries: {str(e)}",
                             }
 
                     return {
@@ -1161,9 +1169,9 @@ class TripProcessor:
                     }
 
             async def match_chunk(
-                chunk_coords: List[List[float]],
+                chunk_coords: list[list[float]],
                 depth: int = 0,
-            ) -> Optional[List[List[float]]]:
+            ) -> list[list[float]] | None:
                 if len(chunk_coords) < 2:
                     return []
                 if len(chunk_coords) > 100:
@@ -1240,8 +1248,8 @@ class TripProcessor:
                 return None
 
             def filter_invalid_coordinates(
-                coords: List[List[float]],
-            ) -> List[List[float]]:
+                coords: list[list[float]],
+            ) -> list[list[float]]:
                 """Filter out potentially invalid coordinates."""
                 valid_coords = []
                 for coord in coords:
@@ -1274,7 +1282,7 @@ class TripProcessor:
                 overlap,
             )
 
-            final_matched: List[List[float]] = []
+            final_matched: list[list[float]] = []
             for cindex, (
                 start_i,
                 end_i,
@@ -1288,7 +1296,9 @@ class TripProcessor:
                 )
                 result = await match_chunk(chunk_coords, depth=0)
                 if result is None:
-                    msg = f"Chunk {cindex} of {len(chunk_indices)} failed map matching."
+                    msg = f"Chunk {cindex} of {
+                        len(chunk_indices)
+                    } failed map matching."
                     logger.error(msg)
                     return {
                         "code": "Error",
@@ -1307,9 +1317,9 @@ class TripProcessor:
             )
 
             def detect_big_jumps(
-                coords: List[List[float]],
+                coords: list[list[float]],
                 threshold_m: float = 200,
-            ) -> List[int]:
+            ) -> list[int]:
                 suspicious_indices = []
                 for i in range(len(coords) - 1):
                     lon1, lat1 = coords[i]
@@ -1394,8 +1404,8 @@ class TripProcessor:
 
     async def save(
         self,
-        map_match_result: Optional[bool] = None,
-    ) -> Optional[str]:
+        map_match_result: bool | None = None,
+    ) -> str | None:
         """Save the processed trip to the trips collection.
 
         Args:
@@ -1580,14 +1590,14 @@ class TripProcessor:
     @classmethod
     async def process_from_coordinates(
         cls,
-        coords_data: List[Dict[str, Any]],
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        transaction_id: Optional[str] = None,
+        coords_data: list[dict[str, Any]],
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        transaction_id: str | None = None,
         imei: str = "UPLOADED",
         source: str = "upload",
-        mapbox_token: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        mapbox_token: str | None = None,
+    ) -> dict[str, Any]:
         """Create and process a trip from raw coordinates data.
 
         Args:

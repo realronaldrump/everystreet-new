@@ -6,13 +6,13 @@ import math
 import statistics
 from typing import (
     Any,
-    Coroutine,
     Dict,
     List,
     Optional,
     Tuple,
     TypeVar,
 )
+from collections.abc import Coroutine
 
 import aiohttp
 from aiohttp import (
@@ -29,7 +29,7 @@ EARTH_RADIUS_KM = 6371.0
 
 T = TypeVar("T")
 
-_SESSION: Optional[aiohttp.ClientSession] = None
+_SESSION: aiohttp.ClientSession | None = None
 _SESSION_LOCK = asyncio.Lock()
 
 
@@ -123,7 +123,7 @@ def retry_async(
 @retry_async()
 async def validate_location_osm(
     location: str, locationType: str
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Validate a location using the OSM Nominatim search API."""
     params = {
         "q": location,
@@ -154,8 +154,8 @@ async def validate_location_osm(
 
 
 def validate_trip_data(
-    trip: Dict[str, Any],
-) -> Tuple[bool, Optional[str]]:
+    trip: dict[str, Any],
+) -> tuple[bool, str | None]:
     """Validate that a trip dictionary contains the required fields."""
     required = [
         "transactionId",
@@ -207,7 +207,7 @@ def validate_trip_data(
 @retry_async(max_retries=3, retry_delay=2.0)
 async def reverse_geocode_nominatim(
     lat: float, lon: float
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Reverse geocode coordinates using OSM Nominatim."""
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {
@@ -372,7 +372,7 @@ def run_async_from_sync(
 
 
 def calculate_circular_average_hour(
-    hours_list: List[float],
+    hours_list: list[float],
 ) -> float:
     """Calculates the circular average of a list of hours (0-23)."""
     if not hours_list:

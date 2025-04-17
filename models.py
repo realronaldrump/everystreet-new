@@ -9,9 +9,6 @@ from datetime import datetime
 from typing import (
     Annotated,
     Any,
-    Dict,
-    List,
-    Optional,
     Union,
 )
 
@@ -45,8 +42,8 @@ class TripUpdateModel(BaseModel):
     """Model for trip update data."""
 
     type: str
-    geometry: Optional[Dict[str, Any]] = None
-    properties: Dict[str, Any] = Field(default_factory=dict)
+    geometry: dict[str, Any] | None = None
+    properties: dict[str, Any] = Field(default_factory=dict)
 
 
 class DateRangeModel(BaseModel):
@@ -60,22 +57,22 @@ class DateRangeModel(BaseModel):
 class BulkProcessModel(BaseModel):
     """Model for bulk processing parameters."""
 
-    query: Dict[str, Any] = Field(default_factory=dict)
-    options: Dict[str, bool] = Field(default_factory=dict)
+    query: dict[str, Any] = Field(default_factory=dict)
+    options: dict[str, bool] = Field(default_factory=dict)
     limit: int = 100
 
 
 class BackgroundTasksConfigModel(BaseModel):
     """Model for background tasks configuration."""
 
-    globalDisable: Optional[bool] = None
-    tasks: Optional[Dict[str, Dict[str, Any]]] = None
+    globalDisable: bool | None = None
+    tasks: dict[str, dict[str, Any]] | None = None
 
 
 class TaskRunModel(BaseModel):
     """Model for manual task run."""
 
-    tasks: List[str]
+    tasks: list[str]
 
 
 class ValidateLocationModel(BaseModel):
@@ -97,7 +94,7 @@ class CoordinatePointModel(BaseModel):
     timestamp: datetime
     lat: float
     lon: float
-    speed: Optional[float] = None
+    speed: float | None = None
 
     class Config:
         extra = "allow"
@@ -110,30 +107,30 @@ class TripDataModel(BaseModel):
     """
 
     id: PyObjectId = Field(alias="_id")
-    transactionId: Optional[str] = None
-    vin: Optional[str] = None
-    imei: Optional[str] = None
-    status: Optional[str] = None
-    startTime: Optional[datetime] = None
-    startTimeZone: Optional[str] = None
-    startOdometer: Optional[float] = None
-    endTime: Optional[datetime] = None
-    endTimeZone: Optional[str] = None
-    endOdometer: Optional[float] = None
-    coordinates: List[CoordinatePointModel] = Field(default_factory=list)
-    lastUpdate: Optional[datetime] = None
-    distance: Optional[float] = None
-    currentSpeed: Optional[float] = None
-    maxSpeed: Optional[float] = None
-    avgSpeed: Optional[float] = None
-    duration: Optional[float] = None
-    pointsRecorded: Optional[int] = None
-    sequence: Optional[int] = None
-    totalIdlingTime: Optional[float] = None
-    hardBrakingCounts: Optional[int] = None
-    hardAccelerationCounts: Optional[int] = None
-    fuelConsumed: Optional[float] = None
-    closed_reason: Optional[str] = None
+    transactionId: str | None = None
+    vin: str | None = None
+    imei: str | None = None
+    status: str | None = None
+    startTime: datetime | None = None
+    startTimeZone: str | None = None
+    startOdometer: float | None = None
+    endTime: datetime | None = None
+    endTimeZone: str | None = None
+    endOdometer: float | None = None
+    coordinates: list[CoordinatePointModel] = Field(default_factory=list)
+    lastUpdate: datetime | None = None
+    distance: float | None = None
+    currentSpeed: float | None = None
+    maxSpeed: float | None = None
+    avgSpeed: float | None = None
+    duration: float | None = None
+    pointsRecorded: int | None = None
+    sequence: int | None = None
+    totalIdlingTime: float | None = None
+    hardBrakingCounts: int | None = None
+    hardAccelerationCounts: int | None = None
+    fuelConsumed: float | None = None
+    closed_reason: str | None = None
 
     class Config:
         populate_by_name = True
@@ -153,7 +150,8 @@ class ActiveTripSuccessResponse(BaseModel):
 
 class NoActiveTripResponse(BaseModel):
     """
-    Response model for when no active trip is found (or it's not newer than requested sequence).
+    Response model for when no active trip is found (or it's not newer than requested
+    sequence).
     """
 
     status: str = "success"

@@ -38,8 +38,8 @@ EXCLUDED_HIGHWAY_TYPES_REGEX = (
 
 
 async def process_elements(
-    elements: List[Dict], streets_only: bool
-) -> List[Dict]:
+    elements: list[dict], streets_only: bool
+) -> list[dict]:
     """Process OSM elements and convert them to GeoJSON features.
 
     Args:
@@ -110,9 +110,9 @@ async def process_elements(
 
 
 async def generate_geojson_osm(
-    location: Dict[str, Any],
+    location: dict[str, Any],
     streets_only: bool = False,
-) -> Tuple[Optional[Dict], Optional[str]]:
+) -> tuple[dict | None, str | None]:
     """Generate GeoJSON data from OpenStreetMap for a location.
 
     Filters out non-vehicular ways if streets_only is True.

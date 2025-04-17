@@ -13,7 +13,7 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import bson
 import geojson as geojson_module
@@ -203,7 +203,9 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid GPS JSON for trip {trip.get('transactionId', 'unknown')}",
+                detail=f"Invalid GPS JSON for trip {
+                    trip.get('transactionId', 'unknown')
+                }",
             ) from e
 
     processor = TripProcessor(
@@ -217,7 +219,7 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
 
 async def process_geojson_trip(
     geojson_data: dict,
-) -> Optional[List[dict]]:
+) -> list[dict] | None:
     """Process GeoJSON trip data into trip dictionaries.
 
     Args:
@@ -594,9 +596,7 @@ async def get_background_tasks_config():
                     else:
                         last_run_dt = last_run
                     if last_run_dt.tzinfo is None:
-                        last_run_dt = last_run_dt.replace(
-                            tzinfo=datetime.timezone.utc
-                        )
+                        last_run_dt = last_run_dt.replace(tzinfo=datetime.UTC)
                     next_run_dt = last_run_dt + datetime.timedelta(
                         minutes=interval
                     )
@@ -788,7 +788,7 @@ async def disable_all_background_tasks():
 
 @app.post("/api/background_tasks/run")
 async def manual_run_tasks(
-    tasks_to_run: List[str] = Body(...),
+    tasks_to_run: list[str] = Body(...),
 ):
     """Manually trigger one or more background tasks."""
     if not tasks_to_run:
@@ -2219,9 +2219,9 @@ async def generate_geojson_endpoint(
 
 @app.post("/api/map_match_trips")
 async def map_match_trips_endpoint(
-    trip_id: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    trip_id: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ):
     """Map match trips within a date range or a specific trip.
 
@@ -2450,7 +2450,7 @@ async def delete_matched_trips(
 
 @app.post("/api/matched_trips/remap")
 async def remap_matched_trips(
-    data: Optional[DateRangeModel] = None,
+    data: DateRangeModel | None = None,
 ):
     """Remap matched trips, optionally within a date range."""
     try:
@@ -3069,7 +3069,7 @@ async def get_first_trip_date():
 
 @app.post("/api/upload_gpx")
 async def upload_gpx_endpoint(
-    files: List[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
 ):
     """Upload GPX or GeoJSON files and process them into the trips
     collection."""
@@ -3179,7 +3179,7 @@ async def upload_gpx_endpoint(
 
 @app.post("/api/upload")
 async def upload_files(
-    files: List[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
 ):
     """Upload GPX or GeoJSON files and process them into the trips
     collection."""
@@ -3425,7 +3425,7 @@ async def regeocode_all_trips():
 
 @app.post("/api/trips/refresh_geocoding")
 async def refresh_geocoding_for_trips(
-    trip_ids: List[str],
+    trip_ids: list[str],
 ):
     """Refresh geocoding for specific trips."""
     if not trip_ids:
@@ -3723,7 +3723,7 @@ async def clear_collection(data: CollectionModel):
 
 async def _recalculate_coverage_stats(
     location_id: ObjectId,
-) -> Optional[Dict]:
+) -> dict | None:
     """Internal helper to recalculate stats for a coverage area based on
     streets_collection."""
     try:
@@ -3936,7 +3936,7 @@ async def _recalculate_coverage_stats(
 async def _mark_segment(
     location_id_str: str,
     segment_id: str,
-    updates: Dict,
+    updates: dict,
     action_name: str,
 ):
     """Helper function to mark a street segment."""
@@ -3975,11 +3975,7 @@ async def _mark_segment(
             {"_id": location_id},
             {"location.display_name": 1},
         )
-    ).get(
-        "location", {}
-    ).get(
-        "display_name"
-    ):
+    ).get("location", {}).get("display_name"):
         logger.warning(
             "Segment %s found but does not belong to location %s. Proceeding anyway.",
             segment_id,
@@ -4564,15 +4560,17 @@ async def get_coverage_area_details(
 
         raise HTTPException(
             status_code=500,
-            detail=f"Internal server error fetching coverage details: {str(e)}",
+            detail=f"Internal server error fetching coverage details: {
+                str(e)
+            }",
         )
 
 
 async def _get_mapbox_optimization_route(
     start_lon: float,
     start_lat: float,
-    end_points: List[tuple] = None,
-) -> Dict[str, Any]:
+    end_points: list[tuple] = None,
+) -> dict[str, Any]:
     """Calls Mapbox Optimization API v1 to get an optimized route for multiple
     points."""
     mapbox_token = MAPBOX_ACCESS_TOKEN
@@ -4915,7 +4913,7 @@ async def _get_mapbox_directions_route(
     start_lat: float,
     end_lon: float,
     end_lat: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Calls Mapbox Directions API to get a route between two points."""
     mapbox_token = MAPBOX_ACCESS_TOKEN
     if not mapbox_token:
@@ -4981,9 +4979,9 @@ async def _get_mapbox_directions_route(
 
 
 async def _cluster_segments(
-    segments: List[Dict],
+    segments: list[dict],
     max_points_per_cluster: int = 11,
-) -> List[List[Dict]]:
+) -> list[list[dict]]:
     """Cluster segments into groups based on geographic proximity."""
     if len(segments) <= max_points_per_cluster:
         return [segments]
@@ -5021,8 +5019,8 @@ async def _cluster_segments(
 
 
 async def _optimize_route_for_clusters(
-    start_point: tuple, clusters: List[List[Dict]]
-) -> Dict[str, Any]:
+    start_point: tuple, clusters: list[list[dict]]
+) -> dict[str, Any]:
     """Optimize route for multiple clusters, connecting them with directions."""
     if not clusters:
         raise HTTPException(
@@ -5379,7 +5377,9 @@ async def get_coverage_driving_route(
         total_distance_meters = optimization_result["distance"]
 
         segments_covered = sum(len(cluster) for cluster in clusters)
-        message = f"Full coverage route generated for {segments_covered} segments across {len(clusters)} clusters."
+        message = f"Full coverage route generated for {
+            segments_covered
+        } segments across {len(clusters)} clusters."
 
         logger.info(
             "Coverage Route: Generated optimized route for %s covering %d segments. Total Duration: %.1fs, Total Distance: %.1fm",

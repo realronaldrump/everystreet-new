@@ -20,11 +20,6 @@ from concurrent.futures import (
 from datetime import datetime, timezone
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
 )
 
 import bson.json_util
@@ -91,14 +86,14 @@ DEFAULT_MIN_MATCH_LENGTH_METERS = 5.0
 
 
 def process_trip_worker(
-    trip_coords_list: List[List[Any]],
-    candidate_utm_geoms: Dict[str, Any],
-    candidate_utm_bboxes: Dict[str, Tuple[float, float, float, float]],
+    trip_coords_list: list[list[Any]],
+    candidate_utm_geoms: dict[str, Any],
+    candidate_utm_bboxes: dict[str, tuple[float, float, float, float]],
     utm_proj_string: str,
     wgs84_proj_string: str,
     match_buffer: float,
     min_match_length: float,
-) -> Dict[int, Set[str]]:
+) -> dict[int, set[str]]:
     """Processes a batch of trips against candidate street UTM geometries."""
     start_time = datetime.now(timezone.utc)
     worker_pid = os.getpid()
@@ -109,7 +104,7 @@ def process_trip_worker(
         len(candidate_utm_geoms),
     )
 
-    results: Dict[int, Set[str]] = defaultdict(set)
+    results: dict[int, set[str]] = defaultdict(set)
     if not trip_coords_list or not candidate_utm_geoms:
         logger.warning(
             "Worker %d: Empty trip list or candidate UTM geometries received.",
@@ -237,7 +232,7 @@ class CoverageCalculator:
 
     def __init__(
         self,
-        location: Dict[str, Any],
+        location: dict[str, Any],
         task_id: str,
     ) -> None:
         self.location = location
@@ -245,14 +240,14 @@ class CoverageCalculator:
         self.task_id = task_id
 
         self.streets_index = rtree.index.Index()
-        self.streets_lookup: Dict[int, Dict[str, Any]] = {}
-        self.street_utm_geoms_cache: Dict[str, Any] = {}
-        self.street_utm_bboxes_cache: Dict[
-            str, Tuple[float, float, float, float]
+        self.streets_lookup: dict[int, dict[str, Any]] = {}
+        self.street_utm_geoms_cache: dict[str, Any] = {}
+        self.street_utm_bboxes_cache: dict[
+            str, tuple[float, float, float, float]
         ] = {}
-        self.street_wgs84_geoms_cache: Dict[str, Dict] = {}
+        self.street_wgs84_geoms_cache: dict[str, dict] = {}
 
-        self.utm_proj: Optional[pyproj.CRS] = None
+        self.utm_proj: pyproj.CRS | None = None
         self.project_to_utm = None
 
         self.match_buffer: float = DEFAULT_MATCH_BUFFER_METERS
@@ -261,7 +256,7 @@ class CoverageCalculator:
         self.street_index_batch_size: int = MAX_STREETS_PER_INDEX_BATCH
         self.trip_batch_size: int = MAX_TRIPS_PER_BATCH
         self.trip_worker_sub_batch: int = TRIP_WORKER_SUB_BATCH
-        self.process_pool: Optional[ProcessPoolExecutor] = None
+        self.process_pool: ProcessPoolExecutor | None = None
         self.max_workers = int(
             os.getenv(
                 "MAX_COVERAGE_WORKERS",
@@ -276,8 +271,8 @@ class CoverageCalculator:
         self.total_length_calculated: float = 0.0
         self.total_driveable_length: float = 0.0
         self.initial_driven_length: float = 0.0
-        self.initial_covered_segments: Set[str] = set()
-        self.newly_covered_segments: Set[str] = set()
+        self.initial_covered_segments: set[str] = set()
+        self.newly_covered_segments: set[str] = set()
         self.total_trips_to_process: int = 0
         self.processed_trips_count: int = 0
         self.submitted_trips_count: int = 0
@@ -742,8 +737,8 @@ class CoverageCalculator:
 
     @staticmethod
     def _get_trip_bounding_box(
-        coords: List[Any],
-    ) -> Optional[Tuple[float, float, float, float]]:
+        coords: list[Any],
+    ) -> tuple[float, float, float, float] | None:
         """Calculate the WGS84 bounding box for a list of coordinates."""
         if not coords or len(coords) < 1:
             return None
@@ -783,7 +778,7 @@ class CoverageCalculator:
     @staticmethod
     def _is_valid_trip(
         gps_data: Any,
-    ) -> Tuple[bool, List[Any]]:
+    ) -> tuple[bool, list[Any]]:
         """Validates GPS data structure and basic coordinate validity."""
         try:
             if isinstance(gps_data, (dict, list)):
@@ -823,7 +818,7 @@ class CoverageCalculator:
         except Exception:
             return False, []
 
-    async def process_trips(self, processed_trip_ids_set: Set[str]) -> bool:
+    async def process_trips(self, processed_trip_ids_set: set[str]) -> bool:
         """Processes trips to find newly covered street segments."""
         await self.update_progress(
             "processing_trips",
@@ -831,7 +826,7 @@ class CoverageCalculator:
             f"Starting trip analysis for {self.location_name}",
         )
 
-        base_trip_filter: Dict[str, Any] = {
+        base_trip_filter: dict[str, Any] = {
             "gps": {
                 "$exists": True,
                 "$ne": None,
@@ -839,7 +834,7 @@ class CoverageCalculator:
             }
         }
 
-        location_bbox_wgs84: Optional[box] = None
+        location_bbox_wgs84: box | None = None
         bbox = self.location.get("boundingbox")
         if bbox and len(bbox) == 4:
             try:
@@ -999,7 +994,7 @@ class CoverageCalculator:
             {"gps": 1, "_id": 1},
         ).batch_size(self.trip_batch_size)
 
-        pending_futures_map: Dict[Future, List[Tuple[str, List[Any]]]] = {}
+        pending_futures_map: dict[Future, list[tuple[str, list[Any]]]] = {}
         processed_count_local = 0
         completed_futures_count = 0
         failed_futures_count = 0
@@ -1013,7 +1008,7 @@ class CoverageCalculator:
                 trips_cursor, self.trip_batch_size
             ):
                 batch_num += 1
-                valid_trips_for_processing: List[Tuple[str, List[Any]]] = []
+                valid_trips_for_processing: list[tuple[str, list[Any]]] = []
 
                 logger.debug(
                     "Task %s: Processing main trip batch %d (%d docs)...",
@@ -1137,10 +1132,10 @@ class CoverageCalculator:
                     )
                     continue
 
-                batch_candidate_utm_geoms: Dict[str, Any] = {}
-                batch_candidate_utm_bboxes: Dict[
+                batch_candidate_utm_geoms: dict[str, Any] = {}
+                batch_candidate_utm_bboxes: dict[
                     str,
-                    Tuple[float, float, float, float],
+                    tuple[float, float, float, float],
                 ] = {}
                 missing_geoms = []
 
@@ -1405,9 +1400,13 @@ class CoverageCalculator:
                     )
 
                     message = (
-                        f"Processed {self.processed_trips_count:,}/{self.total_trips_to_process:,} trips | "
+                        f"Processed {self.processed_trips_count:,}/{
+                            self.total_trips_to_process:,
+                        } trips | "
                         f"Submitted: {self.submitted_trips_count:,} | "
-                        f"Done OK: {completed_futures_count:,} | Failed: {failed_futures_count:,} | Pending: {len(pending_futures_map):,} | "
+                        f"Done OK: {completed_futures_count:,} | Failed: {
+                            failed_futures_count:,
+                        } | Pending: {len(pending_futures_map):,} | "
                         f"New Segments Found: {new_segments_found_count:,}"
                     )
 
@@ -1600,8 +1599,8 @@ class CoverageCalculator:
             await self.shutdown_workers()
 
     async def finalize_coverage(
-        self, processed_trip_ids_set: Set[str]
-    ) -> Optional[Dict[str, Any]]:
+        self, processed_trip_ids_set: set[str]
+    ) -> dict[str, Any] | None:
         """Updates street 'driven' status in DB, calculates final stats, and updates
         metadata."""
 
@@ -1753,17 +1752,17 @@ class CoverageCalculator:
                 street_type_stats[highway]["length_m"] += length
 
                 if is_undriveable:
-                    street_type_stats[highway][
-                        "undriveable_length_m"
-                    ] += length
+                    street_type_stats[highway]["undriveable_length_m"] += (
+                        length
+                    )
                 else:
                     final_driveable_length += length
                     if is_driven:
                         final_driven_length += length
                         street_type_stats[highway]["covered"] += 1
-                        street_type_stats[highway][
-                            "covered_length_m"
-                        ] += length
+                        street_type_stats[highway]["covered_length_m"] += (
+                            length
+                        )
                         final_covered_segments_count += 1
 
             final_coverage_percentage = (
@@ -1927,7 +1926,7 @@ class CoverageCalculator:
     async def compute_coverage(
         self,
         run_incremental: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Main orchestration method for the coverage calculation process."""
         start_time = datetime.now(timezone.utc)
         run_type = "incremental" if run_incremental else "full"
@@ -1985,7 +1984,7 @@ class CoverageCalculator:
                     self.task_id,
                     self.location_name,
                 )
-                processed_trip_ids_set: Set[str] = set()
+                processed_trip_ids_set: set[str] = set()
                 final_stats = await self.finalize_coverage(
                     processed_trip_ids_set
                 )
@@ -2205,8 +2204,8 @@ class CoverageCalculator:
 
 
 async def compute_coverage_for_location(
-    location: Dict[str, Any], task_id: str
-) -> Optional[Dict[str, Any]]:
+    location: dict[str, Any], task_id: str
+) -> dict[str, Any] | None:
     """Entry point for a full coverage calculation."""
     location_name = location.get("display_name", "Unknown Location")
     logger.info(
@@ -2247,7 +2246,7 @@ async def compute_coverage_for_location(
 
         return result
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         error_msg = (
             f"Full calculation timed out after {PROCESS_TIMEOUT_OVERALL}s"
         )
@@ -2316,8 +2315,8 @@ async def compute_coverage_for_location(
 
 
 async def compute_incremental_coverage(
-    location: Dict[str, Any], task_id: str
-) -> Optional[Dict[str, Any]]:
+    location: dict[str, Any], task_id: str
+) -> dict[str, Any] | None:
     """Entry point for an incremental coverage calculation."""
     location_name = location.get("display_name", "Unknown Location")
     logger.info(
@@ -2370,7 +2369,7 @@ async def compute_incremental_coverage(
 
         return result
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         error_msg = f"Incremental calculation timed out after {PROCESS_TIMEOUT_INCREMENTAL}s"
         logger.error(
             "Task %s: %s for %s.",
@@ -2437,7 +2436,7 @@ async def compute_incremental_coverage(
 
 
 async def generate_and_store_geojson(
-    location_name: Optional[str], task_id: str
+    location_name: str | None, task_id: str
 ) -> None:
     """Generates a GeoJSON FeatureCollection of streets and stores it in GridFS.
 
@@ -2608,14 +2607,13 @@ async def generate_and_store_geojson(
         metadata_json = bson.json_util.dumps(geojson_metadata)
 
         await upload_stream.write(
-            f'\n], "metadata": {metadata_json}\n}}'.encode("utf-8")
+            f'\n], "metadata": {metadata_json}\n}}'.encode()
         )
 
         await upload_stream.close()
         file_id = upload_stream._id
 
         if file_id:
-
             logger.info(
                 "Task %s: Finished streaming %d features to GridFS for %s (File ID: %s).",
                 task_id,

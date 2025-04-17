@@ -77,7 +77,7 @@ async def update_geo_points(
             return 0
 
         async def process_batch(
-            batch_docs: List[Dict[str, Any]],
+            batch_docs: list[dict[str, Any]],
             batch_num: int,
         ) -> int:
             async with semaphore:

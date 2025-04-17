@@ -15,9 +15,6 @@ import threading
 from datetime import datetime, timezone
 from typing import (
     Any,
-    AsyncIterator,
-    Awaitable,
-    Callable,
     Dict,
     List,
     Optional,
@@ -25,6 +22,7 @@ from typing import (
     TypeVar,
     Union,
 )
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 import bson
 import certifi
@@ -55,10 +53,10 @@ class DatabaseManager:
     """Singleton class to manage the MongoDB client, database connection, and
     GridFS."""
 
-    _instance: Optional["DatabaseManager"] = None
+    _instance: DatabaseManager | None = None
     _lock = threading.Lock()
 
-    def __new__(cls) -> "DatabaseManager":
+    def __new__(cls) -> DatabaseManager:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
@@ -67,15 +65,15 @@ class DatabaseManager:
 
     def __init__(self) -> None:
         if not getattr(self, "_initialized", False):
-            self._client: Optional[AsyncIOMotorClient] = None
-            self._db: Optional[AsyncIOMotorDatabase] = None
-            self._gridfs_bucket_instance: Optional[
+            self._client: AsyncIOMotorClient | None = None
+            self._db: AsyncIOMotorDatabase | None = None
+            self._gridfs_bucket_instance: None | (
                 AsyncIOMotorGridFSBucket
-            ] = None
+            ) = None
             self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
-            self._collections: Dict[str, AsyncIOMotorCollection] = {}
+            self._collections: dict[str, AsyncIOMotorCollection] = {}
             self._initialized = True
             self._conn_retry_backoff = [
                 1,
@@ -212,7 +210,7 @@ class DatabaseManager:
     async def execute_with_retry(
         self,
         operation: Callable[[], Awaitable[T]],
-        max_attempts: Optional[int] = None,
+        max_attempts: int | None = None,
         operation_name: str = "database operation",
     ) -> T:
         """Execute a database operation with retry logic.
@@ -327,7 +325,7 @@ class DatabaseManager:
 
     async def check_quota(
         self,
-    ) -> Tuple[Optional[float], Optional[float]]:
+    ) -> tuple[float | None, float | None]:
         """Check if the database quota is exceeded.
 
         Returns:
@@ -335,7 +333,7 @@ class DatabaseManager:
         """
         try:
 
-            async def _check_quota() -> Tuple[float, float]:
+            async def _check_quota() -> tuple[float, float]:
                 stats = await self.db.command("dbStats")
                 data_size = stats.get("dataSize", 0)
                 used_mb = data_size / (1024 * 1024)
@@ -359,9 +357,9 @@ class DatabaseManager:
     async def safe_create_index(
         self,
         collection_name: str,
-        keys: Union[str, List[Tuple[str, int]]],
+        keys: str | list[tuple[str, int]],
         **kwargs: Any,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Create an index on a collection if quota is not exceeded.
 
         Args:
@@ -610,8 +608,8 @@ class SerializationHelper:
 
     @staticmethod
     def serialize_datetime(
-        dt: Optional[datetime],
-    ) -> Optional[str]:
+        dt: datetime | None,
+    ) -> str | None:
         """Return ISO formatted datetime string if dt is not None.
 
         Args:
@@ -628,8 +626,8 @@ class SerializationHelper:
 
     @staticmethod
     def serialize_document(
-        doc: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        doc: dict[str, Any],
+    ) -> dict[str, Any]:
         """Convert MongoDB document to a dictionary suitable for internal use,
         ensuring BSON types like dates and ObjectIds are converted to standard Python types.
 
@@ -674,8 +672,8 @@ class SerializationHelper:
 
     @staticmethod
     def serialize_trip(
-        trip: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        trip: dict[str, Any],
+    ) -> dict[str, Any]:
         """Convert trip document to JSON serializable dictionary. Handles
         special fields specific to trip documents. (Relies on serialize_document)
 
@@ -692,7 +690,7 @@ async def batch_cursor(
     cursor: AsyncIOMotorCursor,
     batch_size: int = 100,
     no_timeout: bool = True,
-) -> AsyncIterator[List[Dict[str, Any]]]:
+) -> AsyncIterator[list[dict[str, Any]]]:
     """Process an AsyncIOMotorCursor in manageable batches to limit memory
     usage.
 
@@ -721,9 +719,9 @@ async def batch_cursor(
 
 
 def parse_query_date(
-    date_str: Optional[str],
+    date_str: str | None,
     end_of_day: bool = False,
-) -> Optional[datetime]:
+) -> datetime | None:
     """Parse a date string into a timezone-aware UTC datetime object. Handles
     ISO formats (including 'Z') and 'YYYY-MM-DD'.
 
@@ -780,8 +778,8 @@ class DateFilter:
 
     def __init__(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         field_name: str = "startTime",
     ):
         """Initialize date filter. Dates should be timezone-aware (UTC).
@@ -847,8 +845,8 @@ async def build_query_from_request(
     date_field: str = "startTime",
     end_of_day: bool = True,
     include_imei: bool = True,
-    additional_filters: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    additional_filters: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Build a MongoDB query from request parameters.
 
     Args:
@@ -880,10 +878,10 @@ async def build_query_from_request(
 
 async def find_one_with_retry(
     collection: AsyncIOMotorCollection,
-    query: Dict[str, Any],
+    query: dict[str, Any],
     projection: Any = None,
     sort: Any = None,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Execute find_one with retry logic.
 
     Args:
@@ -917,13 +915,13 @@ async def find_one_with_retry(
 
 async def find_with_retry(
     collection: AsyncIOMotorCollection,
-    query: Dict[str, Any],
+    query: dict[str, Any],
     projection: Any = None,
     sort: Any = None,
-    limit: Optional[int] = None,
-    skip: Optional[int] = None,
+    limit: int | None = None,
+    skip: int | None = None,
     batch_size: int = 100,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Execute find with retry logic and return a list.
 
     Args:
@@ -963,8 +961,8 @@ async def find_with_retry(
 
 async def update_one_with_retry(
     collection: AsyncIOMotorCollection,
-    filter_query: Dict[str, Any],
-    update: Dict[str, Any],
+    filter_query: dict[str, Any],
+    update: dict[str, Any],
     upsert: bool = False,
 ) -> UpdateResult:
     """Execute update_one with retry logic.
@@ -990,8 +988,8 @@ async def update_one_with_retry(
 
 async def update_many_with_retry(
     collection: AsyncIOMotorCollection,
-    filter_query: Dict[str, Any],
-    update: Dict[str, Any],
+    filter_query: dict[str, Any],
+    update: dict[str, Any],
     upsert: bool = False,
 ) -> UpdateResult:
     """Execute update_many with retry logic.
@@ -1019,7 +1017,7 @@ async def update_many_with_retry(
 
 async def insert_one_with_retry(
     collection: AsyncIOMotorCollection,
-    document: Dict[str, Any],
+    document: dict[str, Any],
 ) -> InsertOneResult:
     """Execute insert_one with retry logic.
 
@@ -1042,7 +1040,7 @@ async def insert_one_with_retry(
 
 async def delete_one_with_retry(
     collection: AsyncIOMotorCollection,
-    filter_query: Dict[str, Any],
+    filter_query: dict[str, Any],
 ) -> DeleteResult:
     """Execute delete_one with retry logic.
 
@@ -1065,7 +1063,7 @@ async def delete_one_with_retry(
 
 async def delete_many_with_retry(
     collection: AsyncIOMotorCollection,
-    filter_query: Dict[str, Any],
+    filter_query: dict[str, Any],
 ) -> DeleteResult:
     """Execute delete_many with retry logic.
 
@@ -1088,10 +1086,10 @@ async def delete_many_with_retry(
 
 async def aggregate_with_retry(
     collection: AsyncIOMotorCollection,
-    pipeline: List[Dict[str, Any]],
+    pipeline: list[dict[str, Any]],
     batch_size: int = 100,
     allow_disk_use: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Execute aggregate with retry logic.
 
     Args:
@@ -1119,7 +1117,7 @@ async def aggregate_with_retry(
 
 async def count_documents_with_retry(
     collection: AsyncIOMotorCollection,
-    filter_query: Dict[str, Any],
+    filter_query: dict[str, Any],
     **kwargs: Any,
 ) -> int:
     """Execute count_documents with retry logic.
@@ -1144,9 +1142,9 @@ async def count_documents_with_retry(
 
 async def get_trip_by_id(
     trip_id: str,
-    collection: Optional[AsyncIOMotorCollection] = None,
+    collection: AsyncIOMotorCollection | None = None,
     check_both_id_types: bool = True,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Get a trip by transaction ID or ObjectId.
 
     Args:
@@ -1397,7 +1395,7 @@ async def ensure_location_indexes() -> None:
 
 
 async def run_transaction(
-    operations: List[Callable[[], Awaitable[Any]]],
+    operations: list[Callable[[], Awaitable[Any]]],
     max_retries: int = 3,
 ) -> bool:
     """

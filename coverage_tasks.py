@@ -34,8 +34,8 @@ logger = logging.getLogger(__name__)
 
 
 def collect_street_type_stats(
-    features: List[Dict],
-) -> List[Dict[str, Any]]:
+    features: list[dict],
+) -> list[dict[str, Any]]:
     """
     Collect statistics about street types and their coverage from GeoJSON features.
 
@@ -111,7 +111,7 @@ def collect_street_type_stats(
 
 
 async def process_coverage_calculation(
-    location: Dict[str, Any], task_id: str
+    location: dict[str, Any], task_id: str
 ) -> None:
     """Orchestrates the full coverage calculation process in the background.
 
@@ -168,7 +168,9 @@ async def process_coverage_calculation(
             )
 
     except Exception as e:
-        error_msg = f"Unhandled error in coverage task orchestration {task_id} for {display_name}: {str(e)}"
+        error_msg = f"Unhandled error in coverage task orchestration {
+            task_id
+        } for {display_name}: {str(e)}"
         logger.exception(error_msg)
 
         try:
@@ -206,7 +208,7 @@ async def process_coverage_calculation(
 
 
 async def process_incremental_coverage_calculation(
-    location: Dict[str, Any], task_id: str
+    location: dict[str, Any], task_id: str
 ) -> None:
     """Orchestrates the incremental coverage calculation process.
 
@@ -262,7 +264,9 @@ async def process_incremental_coverage_calculation(
             )
 
     except Exception as e:
-        error_msg = f"Unhandled error in incremental coverage task orchestration {task_id} for {display_name}: {str(e)}"
+        error_msg = f"Unhandled error in incremental coverage task orchestration {
+            task_id
+        } for {display_name}: {str(e)}"
         logger.exception(error_msg)
 
         try:
@@ -299,7 +303,7 @@ async def process_incremental_coverage_calculation(
             )
 
 
-async def process_area(location: Dict[str, Any], task_id: str) -> None:
+async def process_area(location: dict[str, Any], task_id: str) -> None:
     """
     Orchestrates the processing of a full area: preprocess streets then calculate coverage.
 
@@ -455,7 +459,9 @@ async def process_area(location: Dict[str, Any], task_id: str) -> None:
 
     except Exception as e:
         overall_status = "error"
-        error_msg = f"Unhandled error during area processing task {task_id} for {display_name}: {str(e)}"
+        error_msg = f"Unhandled error during area processing task {
+            task_id
+        } for {display_name}: {str(e)}"
         logger.exception(error_msg)
 
         try:

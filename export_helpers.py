@@ -40,7 +40,7 @@ def default_serializer(obj: Any) -> str:
 
 
 async def create_geojson(
-    trips: List[Dict[str, Any]],
+    trips: list[dict[str, Any]],
 ) -> str:
     """Convert trip dictionaries to a GeoJSON FeatureCollection string.
 
@@ -113,7 +113,7 @@ async def create_geojson(
 
 
 async def create_gpx(
-    trips: List[Dict[str, Any]],
+    trips: list[dict[str, Any]],
 ) -> str:
     """Convert trip dictionaries to a GPX file (XML string).
 
@@ -151,7 +151,9 @@ async def create_gpx(
             track.name = f"Trip {trip.get('transactionId', 'UNKNOWN')}"
 
             if trip.get("startLocation") and trip.get("destination"):
-                track.description = f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                track.description = f"From {trip.get('startLocation')} to {
+                    trip.get('destination')
+                }"
 
             gpx.tracks.append(track)
 
@@ -203,7 +205,7 @@ async def create_gpx(
 
 
 async def create_shapefile(
-    geojson_data: Dict[str, Any], output_name: str
+    geojson_data: dict[str, Any], output_name: str
 ) -> io.BytesIO:
     """Convert GeoJSON data to a shapefile ZIP archive.
 
@@ -328,7 +330,7 @@ async def export_shapefile_response(
 
 
 async def create_export_response(
-    data: Union[List[Dict[str, Any]], Dict[str, Any]],
+    data: list[dict[str, Any]] | dict[str, Any],
     fmt: str,
     filename_base: str,
     include_gps_in_csv: bool = False,
@@ -410,7 +412,7 @@ async def create_export_response(
 
 
 def extract_date_range_string(
-    query: Dict[str, Any],
+    query: dict[str, Any],
 ) -> str:
     """Extract a date range string from a query dictionary for use in
     filenames.
@@ -438,7 +440,7 @@ def extract_date_range_string(
 
 
 def get_location_filename(
-    location: Dict[str, Any],
+    location: dict[str, Any],
 ) -> str:
     """Create a safe filename from a location dictionary.
 
@@ -458,14 +460,14 @@ def get_location_filename(
 
 
 async def process_trip_for_export(
-    trip: Dict[str, Any],
+    trip: dict[str, Any],
     include_basic_info: bool = True,
     include_locations: bool = True,
     include_telemetry: bool = True,
     include_geometry: bool = True,
     include_meta: bool = True,
     include_custom: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Process a trip dictionary based on field preferences for export.
 
     Args:
@@ -567,7 +569,7 @@ async def process_trip_for_export(
 
 
 async def create_csv_export(
-    trips: List[Dict[str, Any]],
+    trips: list[dict[str, Any]],
     include_gps_in_csv: bool = False,
     flatten_location_fields: bool = True,
 ) -> str:

@@ -36,7 +36,7 @@ class PlaceModel(BaseModel):
     """Model for custom place data."""
 
     name: str
-    geometry: Dict[str, Any]
+    geometry: dict[str, Any]
 
 
 class CustomPlace:
@@ -46,7 +46,7 @@ class CustomPlace:
         self,
         name: str,
         geometry: dict,
-        created_at: Optional[datetime] = None,
+        created_at: datetime | None = None,
     ):
         """Initialize a CustomPlace.
 
@@ -59,7 +59,7 @@ class CustomPlace:
         self.geometry = geometry
         self.created_at = created_at or datetime.now(timezone.utc)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the CustomPlace to a dictionary for storage.
 
         Returns:
@@ -160,8 +160,8 @@ async def delete_place(place_id: str):
 class PlaceUpdateModel(BaseModel):
     """Model for updating a custom place."""
 
-    name: Optional[str] = None
-    geometry: Optional[Dict[str, Any]] = None
+    name: str | None = None
+    geometry: dict[str, Any] | None = None
 
 
 @router.patch("/places/{place_id}")

@@ -17,11 +17,11 @@ from concurrent.futures import (
 from datetime import datetime, timezone
 from typing import (
     Any,
-    Callable,
     Dict,
     List,
     Optional,
 )
+from collections.abc import Callable
 
 import aiohttp
 import pyproj
@@ -105,7 +105,7 @@ def get_dynamic_utm_crs(latitude: float, longitude: float) -> pyproj.CRS:
         return pyproj.CRS(f"EPSG:{fallback_crs_epsg}")
 
 
-async def fetch_osm_data(query: str, timeout: int = 30) -> Dict[str, Any]:
+async def fetch_osm_data(query: str, timeout: int = 30) -> dict[str, Any]:
     """Fetch OSM data via Overpass API, with proper cleanup and error propagation."""
     async with aiohttp.ClientSession() as session:
         try:
@@ -116,7 +116,7 @@ async def fetch_osm_data(query: str, timeout: int = 30) -> Dict[str, Any]:
             ) as resp:
                 resp.raise_for_status()
                 return await resp.json()
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             logger.error("Timeout fetching OSM data: %s", e)
             raise
         except aiohttp.ClientError as e:
@@ -127,9 +127,7 @@ async def fetch_osm_data(query: str, timeout: int = 30) -> Dict[str, Any]:
             raise
 
 
-def substring(
-    line: LineString, start: float, end: float
-) -> Optional[LineString]:
+def substring(line: LineString, start: float, end: float) -> LineString | None:
     """Return a sub-linestring from 'start' to 'end' along the line (UTM
     coords)."""
     if (
@@ -247,7 +245,7 @@ def substring(
 def segment_street(
     line: LineString,
     segment_length_meters: float = SEGMENT_LENGTH_METERS,
-) -> List[LineString]:
+) -> list[LineString]:
     """Split a linestring (in UTM) into segments of approximately
     segment_length_meters."""
     segments = []
@@ -277,8 +275,8 @@ def segment_street(
 
 
 def process_element_parallel(
-    element_data: Dict[str, Any],
-) -> List[Dict[str, Any]]:
+    element_data: dict[str, Any],
+) -> list[dict[str, Any]]:
     """Process a single street element in parallel.
 
     Uses the provided projection functions and minimal element data.
@@ -359,8 +357,8 @@ def process_element_parallel(
 
 
 async def process_osm_data(
-    osm_data: Dict[str, Any],
-    location: Dict[str, Any],
+    osm_data: dict[str, Any],
+    location: dict[str, Any],
     project_to_utm_func: Callable,
     project_to_wgs84_func: Callable,
 ) -> None:
@@ -459,7 +457,11 @@ async def process_osm_data(
                                 total_length += length
                             else:
                                 logger.warning(
-                                    f"Segment {feature.get('properties', {}).get('segment_id')} missing valid length."
+                                    f"Segment {
+                                        feature.get('properties', {}).get(
+                                            'segment_id'
+                                        )
+                                    } missing valid length."
                                 )
 
                     if len(batch_to_insert) >= BATCH_SIZE:
@@ -491,7 +493,11 @@ async def process_osm_data(
                             ]
                             if dup_keys:
                                 logger.warning(
-                                    f"Skipped {len(dup_keys)} duplicate segments during batch insert for {location_name}."
+                                    f"Skipped {
+                                        len(dup_keys)
+                                    } duplicate segments during batch insert for {
+                                        location_name
+                                    }."
                                 )
                             other_errors = [
                                 e
@@ -553,7 +559,11 @@ async def process_osm_data(
                     ]
                     if dup_keys:
                         logger.warning(
-                            f"Skipped {len(dup_keys)} duplicate segments during final batch insert for {location_name}."
+                            f"Skipped {
+                                len(dup_keys)
+                            } duplicate segments during final batch insert for {
+                                location_name
+                            }."
                         )
                     other_errors = [
                         e for e in write_errors if e.get("code") != 11000
@@ -635,7 +645,7 @@ async def process_osm_data(
 
 
 async def preprocess_streets(
-    validated_location: Dict[str, Any],
+    validated_location: dict[str, Any],
 ) -> None:
     """
     Preprocess street data for a validated location:
@@ -752,7 +762,7 @@ async def preprocess_streets(
                 ),
                 timeout=300,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(
                 "Timeout fetching OSM data for %s",
                 location_name,
@@ -825,7 +835,7 @@ async def preprocess_streets(
                 location_name,
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(
                 "Timeout processing OSM data for %s",
                 location_name,

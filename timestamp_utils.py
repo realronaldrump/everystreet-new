@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def parse_bouncie_timestamp(
     ts: str,
-) -> Optional[datetime]:
+) -> datetime | None:
     """Parse an ISO 8601 timestamp from Bouncie, ensure it's timezone-aware,
     default UTC."""
     if not ts:
@@ -37,8 +37,8 @@ def parse_bouncie_timestamp(
 
 
 def sort_and_filter_trip_coordinates(
-    trip_data: List[dict],
-) -> List[Dict]:
+    trip_data: list[dict],
+) -> list[dict]:
     """Extract, sort, and deduplicate trip coordinates from 'tripData' Bouncie
     event chunks Each point is a dict with 'timestamp', 'lat', 'lon'.
     """

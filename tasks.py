@@ -14,7 +14,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, Optional, TypeVar
+from typing import Any, TypeVar
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -156,7 +156,7 @@ class TaskStatusManager:
     async def update_status(
         task_id: str,
         status: str,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> bool:
         """
         Updates the status of a specific task in the global task configuration document.
@@ -209,7 +209,7 @@ class TaskStatusManager:
             return False
 
 
-async def get_task_config() -> Dict[str, Any]:
+async def get_task_config() -> dict[str, Any]:
     """
     Retrieves the global task configuration document from the database.
     If the document doesn't exist, it creates a default configuration based
@@ -295,7 +295,7 @@ async def get_task_config() -> Dict[str, Any]:
 
 async def check_dependencies(
     task_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Checks if the dependencies for a given task are met (i.e., not currently running
     or recently failed).
@@ -381,10 +381,10 @@ async def update_task_history_entry(
     status: str,
     manual_run: bool = False,
     result: Any = None,
-    error: Optional[str] = None,
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
-    runtime_ms: Optional[float] = None,
+    error: str | None = None,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+    runtime_ms: float | None = None,
 ):
     """
     Creates or updates an entry in the task history collection.
@@ -453,7 +453,7 @@ async def update_task_history_entry(
 
 async def periodic_fetch_trips_async(
     self,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Async logic for fetching periodic trips since the last stored trip."""
     task_name = "periodic_fetch_trips"
     status_manager = TaskStatusManager.get_instance()
@@ -517,7 +517,9 @@ async def periodic_fetch_trips_async(
 
                     start_date_fetch = latest_trip_end
                     logger.info(
-                        f"Using latest trip endTime as start_date_fetch: {start_date_fetch.isoformat()}"
+                        f"Using latest trip endTime as start_date_fetch: {
+                            start_date_fetch.isoformat()
+                        }"
                     )
                 else:
                     logger.warning(
@@ -525,7 +527,9 @@ async def periodic_fetch_trips_async(
                     )
                     start_date_fetch = now_utc - timedelta(hours=48)
                     logger.info(
-                        f"Using fallback start date (48 hours ago): {start_date_fetch.isoformat()}"
+                        f"Using fallback start date (48 hours ago): {
+                            start_date_fetch.isoformat()
+                        }"
                     )
             else:
                 logger.warning(
@@ -533,14 +537,18 @@ async def periodic_fetch_trips_async(
                 )
                 start_date_fetch = now_utc - timedelta(hours=48)
                 logger.info(
-                    f"Using fallback start date (48 hours ago): {start_date_fetch.isoformat()}"
+                    f"Using fallback start date (48 hours ago): {
+                        start_date_fetch.isoformat()
+                    }"
                 )
 
         except Exception as e:
             logger.exception(f"Error finding latest trip: {e}")
             start_date_fetch = now_utc - timedelta(hours=48)
             logger.info(
-                f"Using fallback start date after error (48 hours ago): {start_date_fetch.isoformat()}"
+                f"Using fallback start date after error (48 hours ago): {
+                    start_date_fetch.isoformat()
+                }"
             )
 
         max_lookback = now_utc - timedelta(days=7)
@@ -548,11 +556,15 @@ async def periodic_fetch_trips_async(
             old_start = start_date_fetch
             start_date_fetch = max_lookback
             logger.info(
-                f"Limited start date from {old_start.isoformat()} to {start_date_fetch.isoformat()} (7 day max)"
+                f"Limited start date from {old_start.isoformat()} to {
+                    start_date_fetch.isoformat()
+                } (7 day max)"
             )
 
         logger.info(
-            f"FINAL DATE RANGE: Fetching Bouncie trips from {start_date_fetch.isoformat()} to {now_utc.isoformat()}"
+            f"FINAL DATE RANGE: Fetching Bouncie trips from {
+                start_date_fetch.isoformat()
+            } to {now_utc.isoformat()}"
         )
 
         logger.info("Calling fetch_bouncie_trips_in_range...")
@@ -563,7 +575,9 @@ async def periodic_fetch_trips_async(
                 do_map_match=True,
             )
             logger.info(
-                f"fetch_bouncie_trips_in_range returned {len(fetched_trips)} trips"
+                f"fetch_bouncie_trips_in_range returned {
+                    len(fetched_trips)
+                } trips"
             )
 
             if fetched_trips:
@@ -590,7 +604,9 @@ async def periodic_fetch_trips_async(
                 upsert=True,
             )
             logger.info(
-                f"Config update result: modified_count={update_result.modified_count}, "
+                f"Config update result: modified_count={
+                    update_result.modified_count
+                }, "
                 f"upserted_id={update_result.upserted_id}"
             )
         except Exception as update_err:
@@ -613,7 +629,9 @@ async def periodic_fetch_trips_async(
                 },
             )
             logger.info(
-                f"Trips with source='bouncie' since {start_date_fetch.isoformat()}: {trips_recent}"
+                f"Trips with source='bouncie' since {
+                    start_date_fetch.isoformat()
+                }: {trips_recent}"
             )
         except Exception as count_err:
             logger.exception(f"Error counting trips in database: {count_err}")
@@ -630,7 +648,9 @@ async def periodic_fetch_trips_async(
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
         logger.info(
-            f"Task {task_name} completed successfully. Runtime: {runtime:.0f}ms"
+            f"Task {task_name} completed successfully. Runtime: {
+                runtime:.0f
+            }ms"
         )
 
         await status_manager.update_status(
@@ -645,7 +665,9 @@ async def periodic_fetch_trips_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms."
+            f"Task {task_name} ({celery_task_id}) completed in {
+                runtime:.0f
+            }ms."
         )
         return result_data
 
@@ -694,7 +716,7 @@ def periodic_fetch_trips(self):
 
 async def update_coverage_for_new_trips_async(
     self,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Async logic for updating coverage incrementally."""
     task_name = "update_coverage_for_new_trips"
     status_manager = TaskStatusManager.get_instance()
@@ -719,7 +741,9 @@ async def update_coverage_for_new_trips_async(
             coverage_metadata_collection, {}
         )
         logger.info(
-            f"Found {len(coverage_areas)} coverage areas to check for incremental updates."
+            f"Found {
+                len(coverage_areas)
+            } coverage areas to check for incremental updates."
         )
 
         for area in coverage_areas:
@@ -750,7 +774,11 @@ async def update_coverage_for_new_trips_async(
 
                 if result:
                     logger.info(
-                        f"Successfully updated coverage for '{display_name}'. New coverage: {result.get('coverage_percentage', 0):.2f}%"
+                        f"Successfully updated coverage for '{
+                            display_name
+                        }'. New coverage: {
+                            result.get('coverage_percentage', 0):.2f
+                        }%"
                     )
                     processed_areas += 1
                 else:
@@ -811,7 +839,9 @@ async def update_coverage_for_new_trips_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms."
+            f"Task {task_name} ({celery_task_id}) completed in {
+                runtime:.0f
+            }ms."
         )
         return result_data
 
@@ -857,7 +887,7 @@ def update_coverage_for_new_trips(self):
 
 async def cleanup_stale_trips_async(
     self,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Async logic for cleaning up stale live tracking trips.
     Fetches collections explicitly before calling the logic function.
     """
@@ -933,7 +963,9 @@ async def cleanup_stale_trips_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed successfully in {runtime:.0f}ms."
+            f"Task {task_name} ({celery_task_id}) completed successfully in {
+                runtime:.0f
+            }ms."
         )
         return result_data
 
@@ -1009,7 +1041,7 @@ def cleanup_stale_trips(self):
 
 async def cleanup_invalid_trips_async(
     self,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Async logic for identifying and marking invalid trip records."""
     task_name = "cleanup_invalid_trips"
     status_manager = TaskStatusManager.get_instance()
@@ -1082,11 +1114,15 @@ async def cleanup_invalid_trips_async(
                                 ordered=False,
                             )
                             logger.info(
-                                f"Executed validation batch: Matched={result.matched_count}, Modified={result.modified_count}"
+                                f"Executed validation batch: Matched={
+                                    result.matched_count
+                                }, Modified={result.modified_count}"
                             )
                         except BulkWriteError as bwe:
                             logger.error(
-                                f"Bulk write error during validation: {bwe.details}"
+                                f"Bulk write error during validation: {
+                                    bwe.details
+                                }"
                             )
                         except Exception as bulk_err:
                             logger.error(
@@ -1105,11 +1141,15 @@ async def cleanup_invalid_trips_async(
                         ordered=False,
                     )
                     logger.info(
-                        f"Executed final validation batch: Matched={result.matched_count}, Modified={result.modified_count}"
+                        f"Executed final validation batch: Matched={
+                            result.matched_count
+                        }, Modified={result.modified_count}"
                     )
                 except BulkWriteError as bwe:
                     logger.error(
-                        f"Bulk write error during final validation batch: {bwe.details}"
+                        f"Bulk write error during final validation batch: {
+                            bwe.details
+                        }"
                     )
                 except Exception as bulk_err:
                     logger.error(
@@ -1137,7 +1177,9 @@ async def cleanup_invalid_trips_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms."
+            f"Task {task_name} ({celery_task_id}) completed in {
+                runtime:.0f
+            }ms."
         )
         return result_data
 
@@ -1183,7 +1225,7 @@ def cleanup_invalid_trips(self):
 
 async def update_geocoding_async(
     self,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Async logic for updating geocoding for trips missing location data."""
     task_name = "update_geocoding"
     status_manager = TaskStatusManager.get_instance()
@@ -1217,7 +1259,9 @@ async def update_geocoding_async(
             trips_collection, query, limit=limit
         )
         logger.info(
-            f"Found {len(trips_to_process)} trips needing geocoding (limit {limit})."
+            f"Found {len(trips_to_process)} trips needing geocoding (limit {
+                limit
+            })."
         )
 
         mapbox_token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
@@ -1264,13 +1308,19 @@ async def update_geocoding_async(
                         failed_count += 1
                         status_info = processor.get_processing_status()
                         logger.warning(
-                            f"Geocoding failed for trip {trip_id}. State: {processor.state.value}, Errors: {status_info.get('errors')}"
+                            f"Geocoding failed for trip {trip_id}. State: {
+                                processor.state.value
+                            }, Errors: {status_info.get('errors')}"
                         )
                 else:
                     failed_count += 1
                     status_info = processor.get_processing_status()
                     logger.warning(
-                        f"Skipping geocoding for trip {trip_id} due to prior processing failure. State: {processor.state.value}, Errors: {status_info.get('errors')}"
+                        f"Skipping geocoding for trip {
+                            trip_id
+                        } due to prior processing failure. State: {
+                            processor.state.value
+                        }, Errors: {status_info.get('errors')}"
                     )
 
             except Exception as e:
@@ -1289,7 +1339,9 @@ async def update_geocoding_async(
             "status": "success",
             "geocoded_count": geocoded_count,
             "failed_count": failed_count,
-            "message": f"Attempted geocoding for {len(trips_to_process)} trips. Succeeded: {geocoded_count}, Failed: {failed_count}",
+            "message": f"Attempted geocoding for {
+                len(trips_to_process)
+            } trips. Succeeded: {geocoded_count}, Failed: {failed_count}",
         }
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
@@ -1305,7 +1357,9 @@ async def update_geocoding_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms."
+            f"Task {task_name} ({celery_task_id}) completed in {
+                runtime:.0f
+            }ms."
         )
         return result_data
 
@@ -1351,7 +1405,7 @@ def update_geocoding(self):
 
 async def remap_unmatched_trips_async(
     self,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Async logic for attempting to map-match trips that previously failed or were not
     matched."""
     task_name = "remap_unmatched_trips"
@@ -1414,7 +1468,9 @@ async def remap_unmatched_trips_async(
             trips_collection, query, limit=limit
         )
         logger.info(
-            f"Found {len(trips_to_process)} trips to attempt remapping (limit {limit})."
+            f"Found {len(trips_to_process)} trips to attempt remapping (limit {
+                limit
+            })."
         )
 
         mapbox_token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
@@ -1459,7 +1515,9 @@ async def remap_unmatched_trips_async(
                     failed_count += 1
                     status_info = processor.get_processing_status()
                     logger.warning(
-                        f"Failed to remap trip {trip_id}. Final State: {processor.state.value}, Errors: {status_info.get('errors')}"
+                        f"Failed to remap trip {trip_id}. Final State: {
+                            processor.state.value
+                        }, Errors: {status_info.get('errors')}"
                     )
 
             except Exception as e:
@@ -1478,7 +1536,9 @@ async def remap_unmatched_trips_async(
             "status": "success",
             "remapped_count": remap_count,
             "failed_count": failed_count,
-            "message": f"Attempted remapping for {len(trips_to_process)} trips. Succeeded: {remap_count}, Failed: {failed_count}",
+            "message": f"Attempted remapping for {
+                len(trips_to_process)
+            } trips. Succeeded: {remap_count}, Failed: {failed_count}",
         }
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
@@ -1494,7 +1554,9 @@ async def remap_unmatched_trips_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms."
+            f"Task {task_name} ({celery_task_id}) completed in {
+                runtime:.0f
+            }ms."
         )
         return result_data
 
@@ -1540,7 +1602,7 @@ def remap_unmatched_trips(self):
 
 async def validate_trip_data_async(
     self,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Async logic for validating trip data integrity."""
     task_name = "validate_trip_data"
     status_manager = TaskStatusManager.get_instance()
@@ -1574,7 +1636,9 @@ async def validate_trip_data_async(
             trips_collection, query, limit=limit
         )
         logger.info(
-            f"Found {len(trips_to_process)} trips needing validation (limit {limit})."
+            f"Found {len(trips_to_process)} trips needing validation (limit {
+                limit
+            })."
         )
 
         mapbox_token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
@@ -1649,11 +1713,15 @@ async def validate_trip_data_async(
                             ordered=False,
                         )
                         logger.debug(
-                            f"Executed validation update batch: Matched={result.matched_count}, Modified={result.modified_count}"
+                            f"Executed validation update batch: Matched={
+                                result.matched_count
+                            }, Modified={result.modified_count}"
                         )
                     except BulkWriteError as bwe:
                         logger.error(
-                            f"Bulk write error during validation update: {bwe.details}"
+                            f"Bulk write error during validation update: {
+                                bwe.details
+                            }"
                         )
                     except Exception as bulk_err:
                         logger.error(
@@ -1668,11 +1736,15 @@ async def validate_trip_data_async(
                     batch_updates, ordered=False
                 )
                 logger.debug(
-                    f"Executed final validation update batch: Matched={result.matched_count}, Modified={result.modified_count}"
+                    f"Executed final validation update batch: Matched={
+                        result.matched_count
+                    }, Modified={result.modified_count}"
                 )
             except BulkWriteError as bwe:
                 logger.error(
-                    f"Bulk write error during final validation update: {bwe.details}"
+                    f"Bulk write error during final validation update: {
+                        bwe.details
+                    }"
                 )
             except Exception as bulk_err:
                 logger.error(
@@ -1704,7 +1776,9 @@ async def validate_trip_data_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms."
+            f"Task {task_name} ({celery_task_id}) completed in {
+                runtime:.0f
+            }ms."
         )
         return result_data
 
@@ -1844,7 +1918,11 @@ async def run_task_scheduler_async(self) -> None:
                 if now_utc >= next_due_time:
                     is_due = True
                     logger.debug(
-                        f"Task '{task_id}' is due (Last run: {last_run.isoformat()}, Interval: {interval_minutes}m, Due: {next_due_time.isoformat()})"
+                        f"Task '{task_id}' is due (Last run: {
+                            last_run.isoformat()
+                        }, Interval: {interval_minutes}m, Due: {
+                            next_due_time.isoformat()
+                        })"
                     )
 
             if is_due:
@@ -1853,7 +1931,9 @@ async def run_task_scheduler_async(self) -> None:
                     tasks_to_trigger.append(task_id)
                 else:
                     logger.warning(
-                        f"Task '{task_id}' is due but dependencies not met: {dependency_check.get('reason')}"
+                        f"Task '{task_id}' is due but dependencies not met: {
+                            dependency_check.get('reason')
+                        }"
                     )
                     skipped_count += 1
             else:
@@ -1864,7 +1944,9 @@ async def run_task_scheduler_async(self) -> None:
             return
 
         logger.info(
-            f"Scheduler identified {len(tasks_to_trigger)} tasks to trigger: {', '.join(tasks_to_trigger)}"
+            f"Scheduler identified {len(tasks_to_trigger)} tasks to trigger: {
+                ', '.join(tasks_to_trigger)
+            }"
         )
 
         for task_id_to_run in tasks_to_trigger:
@@ -1943,7 +2025,7 @@ def run_task_scheduler(self):
     run_async_from_sync(run_task_scheduler_async(self))
 
 
-async def get_all_task_metadata() -> Dict[str, Any]:
+async def get_all_task_metadata() -> dict[str, Any]:
     """
     Retrieves metadata for all defined tasks, enriched with current status
     and configuration from the database.
@@ -2057,7 +2139,7 @@ async def get_all_task_metadata() -> Dict[str, Any]:
 
 async def manual_run_task(
     task_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Manually triggers one or all specified background tasks via Celery.
 
@@ -2122,7 +2204,7 @@ async def manual_run_task(
 
 async def _send_manual_task(
     task_name: str, celery_task_string_name: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Internal helper to check dependencies and send a single manual task to Celery.
 
@@ -2196,8 +2278,8 @@ async def _send_manual_task(
 
 
 async def update_task_schedule(
-    task_config_update: Dict[str, Any],
-) -> Dict[str, Any]:
+    task_config_update: dict[str, Any],
+) -> dict[str, Any]:
     """
     Updates the task scheduling configuration (enabled status, interval) in the
     database.
@@ -2341,7 +2423,7 @@ async def update_task_schedule(
     acks_late=True,
     queue="default",
 )
-def process_webhook_event_task(self, data: Dict[str, Any]) -> Dict[str, Any]:
+def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
     """
     Celery task to process Bouncie webhook data asynchronously.
     Obtains DB collections reliably at the start of execution via db_manager.
@@ -2536,7 +2618,9 @@ def process_webhook_event_task(self, data: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
-        error_msg = f"Unhandled error processing webhook event {event_type or 'Unknown'} (TxID: {transaction_id or 'N/A'})"
+        error_msg = f"Unhandled error processing webhook event {
+            event_type or 'Unknown'
+        } (TxID: {transaction_id or 'N/A'})"
         logger.exception(
             "Celery Task %s (%s) FAILED processing webhook: %s. Runtime: %.0fms",
             task_name,
