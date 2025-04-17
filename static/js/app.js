@@ -1775,7 +1775,7 @@
   async function lazyFetchUndrivenStreets() {
     if (!undrivenStreetsLoaded) {
       undrivenStreetsLoaded = true;
-      return await fetchUndrivenStreets();
+      return fetchUndrivenStreets();
     }
     return AppState.mapLayers.undrivenStreets.layer;
   }
