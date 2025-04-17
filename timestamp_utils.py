@@ -7,6 +7,7 @@ objects and for sorting/filtering coordinate data from Bouncie trip events.
 
 import logging
 from datetime import datetime, timezone
+
 from dateutil import parser
 
 logger = logging.getLogger(__name__)
