@@ -2355,7 +2355,7 @@ async def update_task_schedule(
     acks_late=True,
     queue="default",
 )
-def process_webhook_event_task(self, data: Dict[str, Any]):
+def process_webhook_event_task(self, data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Celery task to process Bouncie webhook data asynchronously.
     Obtains DB collections reliably at the start of execution via db_manager.
