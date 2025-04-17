@@ -19,7 +19,8 @@ archived_live_trips_collection_global: Collection | None = None
 
 
 def initialize_db(db_live_trips, db_archived_live_trips):
-    """Initialize the database collections used by this module (primarily for non-task access)."""
+    """Initialize the database collections used by this module (primarily
+    for non-task access)."""
     global live_trips_collection_global, archived_live_trips_collection_global
     live_trips_collection_global = db_live_trips
     archived_live_trips_collection_global = db_archived_live_trips

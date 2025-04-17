@@ -578,7 +578,8 @@ async def create_csv_export(
     Args:
         trips: List of trip dictionaries
         include_gps_in_csv: Whether to include GPS data as JSON strings
-        flatten_location_fields: Whether to flatten location fields into separate columns
+        flatten_location_fields: Whether to flatten location fields
+        into separate columns
 
     Returns:
         str: CSV data as a string

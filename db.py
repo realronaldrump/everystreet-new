@@ -624,7 +624,8 @@ class SerializationHelper:
         doc: dict[str, Any],
     ) -> dict[str, Any]:
         """Convert MongoDB document to a dictionary suitable for internal use,
-        ensuring BSON types like dates and ObjectIds are converted to standard Python types.
+        ensuring BSON types like dates and ObjectIds are converted to
+        standard Python types.
 
         Args:
             doc: MongoDB document (dictionary)
@@ -1394,8 +1395,10 @@ async def run_transaction(
     max_retries: int = 3,
 ) -> bool:
     """
-    Run a series of operations within a MongoDB transaction with retry logic for write conflicts.
-    Note: Requires replica set or sharded cluster. Standalone instances do not support transactions.
+    Run a series of operations within a MongoDB transaction with retry logic for
+    write conflicts.
+    Note: Requires replica set or sharded cluster. Standalone instances do not support
+    transactions.
 
     Args:
         operations: List of async operations to execute

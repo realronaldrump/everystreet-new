@@ -49,7 +49,8 @@ def collect_street_type_stats(
                   'highway', 'segment_length', and 'driven' properties.
 
     Returns:
-        List of dictionaries with statistics for each street type, sorted by length desc.
+        List of dictionaries with statistics for each street type,
+        sorted by length desc.
     """
     street_types = defaultdict(
         lambda: {
@@ -305,7 +306,8 @@ async def process_incremental_coverage_calculation(
 
 async def process_area(location: dict[str, Any], task_id: str) -> None:
     """
-    Orchestrates the processing of a full area: preprocess streets then calculate coverage.
+    Orchestrates the processing of a full area: preprocess streets
+    then calculate coverage.
 
     Manages progress updates and status throughout the combined process.
 
