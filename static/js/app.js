@@ -101,7 +101,10 @@
       window.notificationManager.show(message, type);
       return true;
     }
-    console.log(`${type.toUpperCase()}: ${message}`);
+    // Fallback: display as alert if notificationManager is not available
+    if (type === "danger" || type === "error") {
+      alert(`${type.toUpperCase()}: ${message}`);
+    }
     return false;
   };
 
@@ -588,7 +591,6 @@
 
         if (!startDate || !endDate) {
           showNotification("Invalid date range for fetching trips.", "warning");
-          console.warn("Invalid dates selected for fetching trips.");
           return;
         }
 
@@ -728,10 +730,7 @@
       let location;
       try {
         location = JSON.parse(locationSelect.value);
-        console.log(
-          "[fetchUndrivenStreets] Parsed location object from dropdown:",
-          JSON.stringify(location, null, 2),
-        );
+        showNotification(`[fetchUndrivenStreets] Parsed location object from dropdown: ${JSON.stringify(location, null, 2)}`, "info");
         if (
           !location ||
           typeof location !== "object" ||
@@ -771,9 +770,7 @@
         body: JSON.stringify(location),
       });
 
-      console.log(
-        `[fetchUndrivenStreets] Received response status: ${response.status}`,
-      );
+      showNotification(`[fetchUndrivenStreets] Received response status: ${response.status}`, "info");
 
       if (!response.ok) {
         let errorDetail = `HTTP error ${response.status}`;
@@ -785,10 +782,7 @@
       }
 
       const geojson = await response.json();
-      console.log(
-        "[fetchUndrivenStreets] Received GeoJSON data:",
-        JSON.stringify(geojson, null, 2),
-      );
+      showNotification(`[fetchUndrivenStreets] Received GeoJSON data: ${JSON.stringify(geojson, null, 2)}`, "info");
 
       if (!geojson.features || geojson.features.length === 0) {
         console.log(
@@ -812,7 +806,7 @@
       await updateMap();
       return geojson;
     } catch (error) {
-      console.error("Error fetching undriven streets:", error);
+      handleError(error, "Error fetching undriven streets");
       showNotification(
         `Failed to load undriven streets: ${error.message}`,
         "danger",
