@@ -45,7 +45,7 @@
       visible: true,
       highlightColor: "#FFD700",
       name: "Trips",
-      weight: 3,
+      weight: 2,
     },
     matchedTrips: {
       order: 3,
@@ -54,7 +54,7 @@
       visible: false,
       highlightColor: "#40E0D0",
       name: "Matched Trips",
-      weight: 3,
+      weight: 2,
     },
     undrivenStreets: {
       order: 2,
@@ -62,7 +62,7 @@
       opacity: 0.8,
       visible: false,
       name: "Undriven Streets",
-      weight: 2,
+      weight: 1.5,
     },
   };
 
@@ -181,20 +181,20 @@
           transactionId.replace("MATCHED-", "") === AppState.selectedTripId));
 
     let color = layerInfo.color;
-    let weight = layerInfo.weight || 3;
+    let weight = layerInfo.weight || 2;
     let opacity = layerInfo.opacity;
 
     if (isSelected) {
       color = layerInfo.highlightColor || "#FFD700";
-      weight = 5;
+      weight = 3;
       opacity = 1;
     } else if (isMatchedPair) {
       color = "#03DAC6";
-      weight = 4;
+      weight = 2.5;
       opacity = 0.8;
     } else if (isRecent) {
       color = "#FFA500";
-      weight = 4;
+      weight = 2.5;
       opacity = 0.9;
     }
 
@@ -372,10 +372,10 @@
         const layerInfo = AppState.mapLayers[layerName];
 
         if (zoom > 14) {
-          let weight = (layerInfo.weight || 2) * 1.5;
+          let weight = (layerInfo.weight || 1.5) * 1.5;
           layer.setStyle({ weight });
         } else {
-          layer.setStyle({ weight: layerInfo.weight || 2 });
+          layer.setStyle({ weight: layerInfo.weight || 1.5 });
         }
       }
     });
