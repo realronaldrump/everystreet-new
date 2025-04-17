@@ -1,5 +1,4 @@
 /* global bootstrap, notificationManager, confirmationDialog, L, leafletImage, Chart */
-
 "use strict";
 
 const STATUS = window.STATUS || {
@@ -100,16 +99,18 @@ const STATUS = window.STATUS || {
       this.streetTypeChartInstance = null;
 
       this.notificationManager = window.notificationManager || {
-        show: (message, type = "info") =>
-          console.log(`[${type.toUpperCase()}] ${message}`),
+        show: () => {},
       };
       this.confirmationDialog = window.confirmationDialog || {
-        show: async (options) => confirm(options.message || "Are you sure?"),
+        show: (options) => {
+          console.warn("ConfirmationDialog fallback used. Ensure utils.js loads before coverage-management.js.", options);
+          return Promise.resolve(false);
+        },
       };
 
       this.setupAutoRefresh();
       this.checkForInterruptedTasks();
-      this.setupConnectionMonitoring();
+      CoverageManager.setupConnectionMonitoring();
       this.initTooltips();
       this.createMapInfoPanel();
       this.setupEventListeners();
@@ -714,7 +715,7 @@ const STATUS = window.STATUS || {
         return;
       }
 
-      let locationData;
+      let locationData = null;
       try {
         const response = await fetch(`/api/coverage_areas/${locationId}`);
         const data = await response.json();
@@ -948,7 +949,7 @@ const STATUS = window.STATUS || {
         console.error("Error deleting coverage area:", error);
         let detailMessage = error.message;
 
-        let errorResponse = error.cause || error;
+        const errorResponse = error.cause || error;
 
         try {
           if (errorResponse && typeof errorResponse.json === "function") {
@@ -999,7 +1000,7 @@ const STATUS = window.STATUS || {
           throw new Error(data.error || "API returned failure");
 
         CoverageManager.updateCoverageTable(data.areas, this);
-        this.enhanceResponsiveTables();
+        CoverageManager.enhanceResponsiveTables();
         this.initTooltips();
       } catch (error) {
         console.error("Error loading coverage areas:", error);
@@ -1035,7 +1036,9 @@ const STATUS = window.STATUS || {
             let errorDetail = `HTTP error ${response.status}`;
             try {
               errorDetail = (await response.json()).detail || errorDetail;
-            } catch (e) {}
+            } catch (e) {
+              // Ignore JSON parsing error, use HTTP status code
+            }
             throw new Error(`Failed to get task status: ${errorDetail}`);
           }
 
@@ -1189,10 +1192,10 @@ const STATUS = window.STATUS || {
         const lastUpdated = area.last_updated
           ? new Date(area.last_updated).toLocaleString()
           : "Never";
-        const totalLengthMiles = instance.distanceInUserUnits(
+        const totalLengthMiles = CoverageManager.distanceInUserUnits(
           area.total_length,
         );
-        const drivenLengthMiles = instance.distanceInUserUnits(
+        const drivenLengthMiles = CoverageManager.distanceInUserUnits(
           area.driven_length,
         );
         const coveragePercentage =
@@ -1812,7 +1815,7 @@ const STATUS = window.STATUS || {
           isCurrentlyProcessing ||
           !hasStreetData
         ) {
-          let statusMessageHtml;
+          let statusMessageHtml = null;
           let chartMessageHtml =
             '<div class="alert alert-secondary small p-2">Chart requires map data.</div>';
           let notificationType = "info";
@@ -2119,7 +2122,6 @@ const STATUS = window.STATUS || {
         if (this.showTripsActive) {
           clearTimeout(this.loadTripsDebounceTimer);
           this.loadTripsDebounceTimer = setTimeout(() => {
-            console.log("Map move/zoom ended, reloading trips for view.");
             this.loadTripsForView();
           }, 500);
         }
@@ -2216,7 +2218,7 @@ const STATUS = window.STATUS || {
             layer.openPopup();
           });
 
-          layer.on("mouseover", (e) => {
+          layer.on("mouseover", (/* e */) => {
             if (layer !== this.highlightedLayer) {
               this.clearHoverHighlight();
               this.hoverHighlightLayer = layer;
@@ -2224,7 +2226,7 @@ const STATUS = window.STATUS || {
               layer.bringToFront();
             }
           });
-          layer.on("mouseout", (e) => {
+          layer.on("mouseout", (/* e */) => {
             if (layer === this.hoverHighlightLayer) {
               this.clearHoverHighlight();
             }
@@ -3141,3 +3143,4 @@ const STATUS = window.STATUS || {
     window.coverageManager = new CoverageManager();
   });
 })();
+
