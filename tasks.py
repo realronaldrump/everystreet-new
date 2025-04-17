@@ -1,9 +1,12 @@
 """
 Background tasks implementation using Celery.
 
-This module provides task definitions for all background tasks performed by the application.
-It handles proper integration between Celery's synchronous tasks and FastAPI's asynchronous code patterns,
-using the centralized db_manager. Tasks are now triggered dynamically by the run_task_scheduler task.
+This module provides task definitions for all background tasks performed by the
+application.
+It handles proper integration between Celery's synchronous tasks and FastAPI's
+asynchronous code patterns,
+using the centralized db_manager. Tasks are now triggered dynamically by
+the run_task_scheduler task.
 """
 
 import asyncio
@@ -176,7 +179,8 @@ class TaskStatusManager:
             error: An optional error message if the status is FAILED.
 
         Returns:
-            True if the update was successful (document modified or upserted), False otherwise.
+            True if the update was successful (document modified or upserted),
+            False otherwise.
         """
         try:
             now = datetime.now(timezone.utc)
@@ -305,7 +309,8 @@ async def check_dependencies(
     task_id: str,
 ) -> Dict[str, Any]:
     """
-    Checks if the dependencies for a given task are met (i.e., not currently running or recently failed).
+    Checks if the dependencies for a given task are met (i.e., not currently running
+    or recently failed).
 
     Args:
         task_id: The identifier of the task to check dependencies for.
@@ -398,8 +403,10 @@ async def update_task_history_entry(
 
     Args:
         celery_task_id: The unique ID assigned by Celery to this task instance.
-        task_name: The application-specific name of the task (e.g., 'periodic_fetch_trips').
-        status: The current status of the task instance (e.g., 'RUNNING', 'COMPLETED', 'FAILED').
+        task_name: The application-specific name of the task
+        (e.g., 'periodic_fetch_trips').
+        status: The current status of the task instance
+        (e.g., 'RUNNING', 'COMPLETED', 'FAILED').
         manual_run: Boolean indicating if the task was triggered manually.
         result: The result of the task (if completed successfully). Will be serialized.
         error: Error message if the task failed.
@@ -1357,7 +1364,8 @@ def update_geocoding(self):
 async def remap_unmatched_trips_async(
     self,
 ) -> Dict[str, Any]:
-    """Async logic for attempting to map-match trips that previously failed or were not matched."""
+    """Async logic for attempting to map-match trips that previously failed or were not
+    matched."""
     task_name = "remap_unmatched_trips"
     status_manager = TaskStatusManager.get_instance()
     start_time = datetime.now(timezone.utc)
@@ -2204,7 +2212,8 @@ async def update_task_schedule(
     task_config_update: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
-    Updates the task scheduling configuration (enabled status, interval) in the database.
+    Updates the task scheduling configuration (enabled status, interval) in the
+    database.
 
     Args:
         task_config_update: A dictionary containing the updates. Can include:
