@@ -1025,7 +1025,7 @@ async def reset_task_states():
                 updates[f"tasks.{task_id}.end_time"] = now
                 reset_count += 1
                 logger.warning(
-                    f"Resetting task {task_id} due to missing/invalid start_time."
+                    "Resetting task %s due to missing/invalid start_time.", task_id
                 )
             else:
                 if start_time.tzinfo is None:
@@ -1042,12 +1042,12 @@ async def reset_task_states():
                     updates[f"tasks.{task_id}.end_time"] = now
                     reset_count += 1
                     logger.warning(
-                        f"Resetting task {task_id} running since {start_time}."
+                        "Resetting task %s running since %s.", task_id, start_time
                     )
                 else:
                     skipped_count += 1
                     logger.info(
-                        f"Task {task_id} running for {runtime}, not stuck yet."
+                        "Task %s running for %s, not stuck yet.", task_id, runtime
                     )
 
         history_result = await update_many_with_retry(
@@ -3717,7 +3717,8 @@ async def clear_collection(data: CollectionModel):
 async def _recalculate_coverage_stats(
     location_id: ObjectId,
 ) -> Optional[Dict]:
-    """Internal helper to recalculate stats for a coverage area based on streets_collection."""
+    """Internal helper to recalculate stats for a coverage area based on
+    streets_collection."""
     try:
         coverage_area = await find_one_with_retry(
             coverage_metadata_collection,
@@ -3896,12 +3897,11 @@ async def _recalculate_coverage_stats(
         if updated_coverage_area:
             updated_coverage_area["_id"] = str(updated_coverage_area["_id"])
             return updated_coverage_area
-        else:
-            return {
-                **stats,
-                "_id": str(location_id),
-                "location": coverage_area.get("location", {}),
-            }
+        return {
+            **stats,
+            "_id": str(location_id),
+            "location": coverage_area.get("location", {}),
+        }
 
     except Exception as e:
         logger.error(
@@ -4071,7 +4071,8 @@ async def mark_street_segment_as_undriven(
         raise http_exc
     except Exception as e:
         logger.error(
-            f"Error marking street segment as undriven: {e}",
+            "Error marking street segment as undriven: %s",
+            e,
             exc_info=True,
         )
         raise HTTPException(status_code=500, detail=str(e))
@@ -5053,11 +5054,13 @@ async def get_coverage_driving_route(
 ):
     """
     Calculates the route from the user's current position to the
-    start of the nearest undriven street segment in the specified area using Mapbox Optimization API v1.
+    start of the nearest undriven street segment in the specified area using Mapbox
+    Optimization API v1.
 
     Accepts a JSON payload with:
     - location: The target area location model
-    - current_position: Optional current position {lat, lon} (falls back to live tracking if not provided)
+    - current_position: Optional current position {lat, lon} (falls back to live
+    tracking if not provided)
     """
     try:
         data = await request.json()

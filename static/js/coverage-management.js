@@ -116,14 +116,14 @@ const STATUS = window.STATUS || {
       this.loadCoverageAreas();
     }
 
-    distanceInUserUnits(meters, fixed = 2) {
+    static distanceInUserUnits(meters, fixed = 2) {
       if (typeof meters !== "number" || isNaN(meters)) {
         meters = 0;
       }
-      return (meters * 0.000621371).toFixed(fixed) + " mi";
+      return `${(meters * 0.000621371).toFixed(fixed)} mi`;
     }
 
-    setupConnectionMonitoring() {
+    static setupConnectionMonitoring() {
       const handleConnectionChange = () => {
         const isOnline = navigator.onLine;
         const alertsContainer = document.querySelector("#alerts-container");
@@ -179,7 +179,7 @@ const STATUS = window.STATUS || {
       });
     }
 
-    enhanceResponsiveTables() {
+    static enhanceResponsiveTables() {
       const tables = document.querySelectorAll("#coverage-areas-table");
       tables.forEach((table) => {
         const headers = Array.from(table.querySelectorAll("thead th")).map(
@@ -269,7 +269,6 @@ const STATUS = window.STATUS || {
             const locationStr = targetButton.dataset.location;
 
             if (!locationId && !locationStr) {
-              console.error("Action button missing location identifier.");
               this.notificationManager.show(
                 "Action failed: Missing location identifier.",
                 "danger",
@@ -282,12 +281,8 @@ const STATUS = window.STATUS || {
               try {
                 locationData = JSON.parse(locationStr);
               } catch (parseError) {
-                console.error(
-                  "Failed to parse location data from button:",
-                  parseError,
-                );
                 this.notificationManager.show(
-                  "Action failed: Invalid location data.",
+                  `Action failed: Invalid location data. Error: ${parseError.message}`,
                   "danger",
                 );
                 return;
@@ -309,7 +304,7 @@ const STATUS = window.STATUS || {
                 if (locationData) this.cancelProcessing(locationData);
                 break;
               default:
-                console.warn("Unknown table action:", action);
+                this.notificationManager.show(`Unknown table action: ${action}`, "warning");
             }
           } else if (targetLink) {
             e.preventDefault();
@@ -317,7 +312,10 @@ const STATUS = window.STATUS || {
             if (locationId) {
               this.displayCoverageDashboard(locationId);
             } else {
-              console.error("Location ID missing from link:", targetLink);
+              this.notificationManager.show(
+                "Error: Location ID missing from link.",
+                "danger",
+              );
             }
           }
         });
@@ -332,7 +330,6 @@ const STATUS = window.STATUS || {
           if (locationId) {
             this.updateCoverageForArea(locationId, "full");
           } else {
-            console.error("Missing location ID on update button.");
             this.notificationManager.show(
               "Failed to initiate update: Missing location ID.",
               "danger",
@@ -355,7 +352,6 @@ const STATUS = window.STATUS || {
         const tripToggle = e.target.closest("#toggle-trip-overlay");
         if (tripToggle) {
           this.showTripsActive = tripToggle.checked;
-          console.log("Trip overlay toggle changed:", this.showTripsActive);
           if (this.showTripsActive) {
             this.ensureTripsLayerGroup();
             this.loadTripsForView();
@@ -497,7 +493,6 @@ const STATUS = window.STATUS || {
           "coverageProcessingState",
           JSON.stringify(saveData),
         );
-        console.log("Saved processing state:", saveData);
       } else {
         localStorage.removeItem("coverageProcessingState");
       }
@@ -516,7 +511,6 @@ const STATUS = window.STATUS || {
       this.lastProgressUpdate = null;
       this.task_id = null;
       this.lastActivityTime = null;
-      console.log("Processing context cleared.");
     }
 
     async validateLocation() {
@@ -974,10 +968,9 @@ const STATUS = window.STATUS || {
             detailMessage = error.message || "An unknown error occurred.";
           }
         } catch (parseError) {
-          console.warn(
-            "Could not parse error response body or unexpected error structure:",
-            parseError,
-            error,
+          this.notificationManager.show(
+            `Could not parse error response body or unexpected error structure: ${parseError}, Error: ${error}`,
+            "warning",
           );
           detailMessage =
             error.message || "Failed to process the error response.";
@@ -1027,13 +1020,8 @@ const STATUS = window.STATUS || {
       let lastStage = null;
       let consecutiveSameStage = 0;
 
-      console.log(`Starting polling for task ${taskId}`);
-
       while (retries < maxRetries) {
         if (!this.activeTaskIds.has(taskId)) {
-          console.log(
-            `Polling stopped for task ${taskId} as it's no longer active.`,
-          );
           throw new Error("Polling canceled");
         }
 
@@ -1051,13 +1039,14 @@ const STATUS = window.STATUS || {
             throw new Error(`Failed to get task status: ${errorDetail}`);
           }
 
-          let data;
+          let data = null;
           try {
             data = await response.json();
             if (!data || typeof data !== "object" || !data.stage) {
               if (response.ok) {
-                console.warn(
+                this.notificationManager.show(
                   `Task ${taskId}: Received incomplete/invalid data structure despite HTTP OK status.`,
+                  "warning",
                 );
               }
               throw new Error("Invalid data format received from server.");
@@ -1069,7 +1058,7 @@ const STATUS = window.STATUS || {
           }
 
           this.updateModalContent(data);
-          this.updateStepIndicators(data.stage, data.progress);
+          CoverageManager.updateStepIndicators(data.stage, data.progress);
           this.lastActivityTime = new Date();
           this.saveProcessingState();
 
@@ -1077,21 +1066,22 @@ const STATUS = window.STATUS || {
             data.stage === STATUS.COMPLETE ||
             data.stage === STATUS.COMPLETED
           ) {
-            console.log(`Task ${taskId} completed successfully.`);
             this.updateModalContent({ ...data, progress: 100 });
-            this.updateStepIndicators(STATUS.COMPLETE, 100);
+            CoverageManager.updateStepIndicators(STATUS.COMPLETE, 100);
             this.activeTaskIds.delete(taskId);
             return data;
           } else if (data.stage === STATUS.ERROR) {
-            console.error(
-              `Task ${taskId} failed with error: ${data.error || data.message || "Unknown error"}`,
+            const errorMessage = data.error || data.message || "Unknown error";
+            this.notificationManager.show(
+              `Task ${taskId} failed with error: ${errorMessage}`,
+              "danger",
             );
             this.activeTaskIds.delete(taskId);
             throw new Error(
               data.error || data.message || "Coverage calculation failed",
             );
           } else if (data.stage === STATUS.CANCELED) {
-            console.log(`Task ${taskId} was canceled.`);
+            this.notificationManager.show(`Task ${taskId} was canceled.`, "warning");
             this.activeTaskIds.delete(taskId);
             throw new Error("Task was canceled");
           }
@@ -1099,9 +1089,11 @@ const STATUS = window.STATUS || {
           if (data.stage === lastStage) {
             consecutiveSameStage++;
             if (consecutiveSameStage > 12) {
-              console.warn(
+              this.notificationManager.show(
                 `Task ${taskId} seems stalled at stage: ${data.stage}`,
+                "warning",
               );
+              consecutiveSameStage = 0;
             }
           } else {
             lastStage = data.stage;
@@ -1111,9 +1103,9 @@ const STATUS = window.STATUS || {
           await new Promise((resolve) => setTimeout(resolve, 5000));
           retries++;
         } catch (error) {
-          console.error(
-            `Error polling coverage progress for task ${taskId}:`,
-            error,
+          this.notificationManager.show(
+             `Error polling coverage progress for task ${taskId}: ${error.message}`,
+            "danger",
           );
           this.updateModalContent({
             stage: STATUS.ERROR,
@@ -1122,7 +1114,7 @@ const STATUS = window.STATUS || {
             error: error.message,
             metrics: {},
           });
-          this.updateStepIndicators(
+          CoverageManager.updateStepIndicators(
             STATUS.ERROR,
             this.currentProcessingLocation?.progress || 0,
           );
@@ -1131,6 +1123,10 @@ const STATUS = window.STATUS || {
         }
       }
 
+      this.notificationManager.show(
+        `Polling for task ${taskId} timed out after ${maxRetries * 5 / 60} minutes.`,
+        "danger",
+      );
       this.updateModalContent({
         stage: STATUS.ERROR,
         progress: this.currentProcessingLocation?.progress || 99,
@@ -1138,7 +1134,7 @@ const STATUS = window.STATUS || {
         error: "Polling timed out",
         metrics: {},
       });
-      this.updateStepIndicators(
+      CoverageManager.updateStepIndicators(
         STATUS.ERROR,
         this.currentProcessingLocation?.progress || 99,
       );
@@ -1219,7 +1215,7 @@ const STATUS = window.STATUS || {
             </a>
             ${hasError ? `<div class="text-danger small" title="${area.last_error || ""}"><i class="fas fa-exclamation-circle me-1"></i>Error</div>` : ""}
             ${isCanceled ? '<div class="text-warning small"><i class="fas fa-ban me-1"></i>Canceled</div>' : ""}
-            ${isProcessing ? `<div class="text-primary small"><i class="fas fa-spinner fa-spin me-1"></i>${this.formatStageName(status)}...</div>` : ""}
+            ${isProcessing ? `<div class="text-primary small"><i class="fas fa-spinner fa-spin me-1"></i>${CoverageManager.formatStageName(status)}...</div>` : ""}
           </td>
           <td data-label="Total Length" class="text-end">${totalLengthMiles}</td>
           <td data-label="Driven Length" class="text-end">${drivenLengthMiles}</td>
@@ -1265,7 +1261,10 @@ const STATUS = window.STATUS || {
       const cancelBtn = document.getElementById("cancel-processing");
 
       if (!progressDetails) {
-        console.error("Progress details container not found in modal.");
+        this.notificationManager.show(
+          "UI Error: Progress details container not found in modal.",
+          "danger",
+        );
         return;
       }
 
@@ -1409,7 +1408,7 @@ const STATUS = window.STATUS || {
       }
     }
 
-    updateStepIndicators(stage, progress) {
+    static updateStepIndicators(stage, progress) {
       const modalElement = document.getElementById("taskProgressModal");
       if (!modalElement) return;
 
@@ -1532,7 +1531,9 @@ const STATUS = window.STATUS || {
       );
 
       if (elapsedTimeEl) elapsedTimeEl.textContent = `Elapsed: ${elapsedText}`;
-      if (estimatedTimeEl) estimatedTimeEl.textContent = "";
+      if (estimatedTimeEl) {
+        estimatedTimeEl.textContent = "";
+      }
     }
 
     updateActivityIndicator(isActive = null) {
@@ -1547,7 +1548,7 @@ const STATUS = window.STATUS || {
       if (!activityIndicator || !lastUpdateEl) return;
 
       const now = new Date();
-      let currentlyActive;
+      let currentlyActive = false;
 
       if (isActive !== null) {
         currentlyActive = isActive;
@@ -1567,13 +1568,13 @@ const STATUS = window.STATUS || {
       }
 
       if (this.lastActivityTime) {
-        lastUpdateEl.textContent = `Last update: ${this.formatTimeAgo(this.lastActivityTime)}`;
+        lastUpdateEl.textContent = `Last update: ${CoverageManager.formatTimeAgo(this.lastActivityTime)}`;
       } else {
         lastUpdateEl.textContent = currentlyActive ? "" : "No recent activity";
       }
     }
 
-    formatTimeAgo(date) {
+    static formatTimeAgo(date) {
       if (!date) return "never";
       const seconds = Math.floor((new Date() - date) / 1000);
 
@@ -1624,13 +1625,13 @@ const STATUS = window.STATUS || {
         addStat("Streets Found", metrics.total_segments, "", "fas fa-road");
         addStat(
           "Total Length",
-          this.distanceInUserUnits(metrics.total_length_m || 0),
+          CoverageManager.distanceInUserUnits(metrics.total_length_m || 0),
           "",
           "fas fa-ruler-horizontal",
         );
         addStat(
           "Driveable Length",
-          this.distanceInUserUnits(metrics.driveable_length_m || 0),
+          CoverageManager.distanceInUserUnits(metrics.driveable_length_m || 0),
           "",
           "fas fa-car",
         );
@@ -1667,7 +1668,7 @@ const STATUS = window.STATUS || {
         );
         addStat(
           "Distance Covered",
-          this.distanceInUserUnits(metrics.covered_length_m || 0),
+          CoverageManager.distanceInUserUnits(metrics.covered_length_m || 0),
           "",
           "fas fa-road",
         );
@@ -1697,13 +1698,13 @@ const STATUS = window.STATUS || {
         );
         addStat(
           "Total Driveable",
-          this.distanceInUserUnits(metrics.driveable_length_m || 0),
+          CoverageManager.distanceInUserUnits(metrics.driveable_length_m || 0),
           "",
           "fas fa-car",
         );
         addStat(
           "Distance Covered",
-          this.distanceInUserUnits(metrics.covered_length_m || 0),
+          CoverageManager.distanceInUserUnits(metrics.covered_length_m || 0),
           "",
           "fas fa-road",
           "text-success",
@@ -1738,7 +1739,6 @@ const STATUS = window.STATUS || {
         !statsContainer ||
         !streetTypeCoverageEl
       ) {
-        console.error("Dashboard elements not found in the DOM.");
         this.notificationManager.show(
           "UI Error: Dashboard components missing.",
           "danger",
@@ -1934,11 +1934,11 @@ const STATUS = window.STATUS || {
         </div>
         <div class="d-flex justify-content-between mb-2">
           <small>Total Length:</small>
-          <small id="dashboard-total-length">${this.distanceInUserUnits(totalLengthM)}</small>
+          <small id="dashboard-total-length">${CoverageManager.distanceInUserUnits(totalLengthM)}</small>
         </div>
         <div class="d-flex justify-content-between mb-2">
           <small>Driven Length:</small>
-          <small id="dashboard-driven-length">${this.distanceInUserUnits(drivenLengthM)}</small>
+          <small id="dashboard-driven-length">${CoverageManager.distanceInUserUnits(drivenLengthM)}</small>
         </div>
         <div class="d-flex justify-content-between mb-2">
           <small>Last Updated:</small>
@@ -1973,10 +1973,10 @@ const STATUS = window.STATUS || {
       let html = "";
       topTypes.forEach((type) => {
         const coveragePct = type.coverage_percentage?.toFixed(1) || "0.0";
-        const coveredDist = this.distanceInUserUnits(
+        const coveredDist = CoverageManager.distanceInUserUnits(
           type.covered_length_m || 0,
         );
-        const driveableDist = this.distanceInUserUnits(
+        const driveableDist = CoverageManager.distanceInUserUnits(
           type.driveable_length_m || 0,
         );
 
@@ -2102,7 +2102,7 @@ const STATUS = window.STATUS || {
       if (coverage.streets_geojson) {
         this.addStreetsToMap(coverage.streets_geojson);
       } else {
-        console.warn("No streets_geojson data found in coverage object.");
+        this.notificationManager.show("No streets_geojson data found in coverage object.", "warning");
         this.mapBounds = null;
       }
 
@@ -2126,7 +2126,7 @@ const STATUS = window.STATUS || {
       });
     }
 
-    styleStreet(feature, isHover = false, isHighlight = false) {
+    static styleStreet(feature, isHover = false, isHighlight = false) {
       const props = feature.properties;
       const isDriven = props.driven;
       const isUndriveable = props.undriveable;
@@ -2147,7 +2147,7 @@ const STATUS = window.STATUS || {
         weight = baseWeight - 0.5;
       else weight = baseWeight - 1;
 
-      let color;
+      let color = "#ff5252";
       let opacity = 0.75;
       let dashArray = null;
 
@@ -2157,8 +2157,6 @@ const STATUS = window.STATUS || {
         dashArray = "4, 4";
       } else if (isDriven) {
         color = "#4caf50";
-      } else {
-        color = "#ff5252";
       }
 
       if (isHighlight) {
@@ -2171,10 +2169,10 @@ const STATUS = window.STATUS || {
       }
 
       return {
-        color: color,
-        weight: weight,
-        opacity: opacity,
-        dashArray: dashArray,
+        color,
+        weight,
+        opacity,
+        dashArray,
       };
     }
 
@@ -2191,16 +2189,16 @@ const STATUS = window.STATUS || {
       this.currentFilter = "all";
 
       if (!geojson || !geojson.features || geojson.features.length === 0) {
-        console.warn("No street features found in GeoJSON data.");
+        this.notificationManager.show("No street features found in GeoJSON data.", "warning");
         this.mapBounds = this.coverageMap.getBounds();
         this.streetsGeoJsonLayer = null;
         return;
       }
 
       this.streetsGeoJsonLayer = L.geoJSON(geojson, {
-        style: (feature) => this.styleStreet(feature),
+        style: (feature) => CoverageManager.styleStreet(feature),
         onEachFeature: (feature, layer) => {
-          layer.originalStyle = this.styleStreet(feature);
+          layer.originalStyle = CoverageManager.styleStreet(feature);
           layer.featureProperties = feature.properties;
 
           layer.on("click", (e) => {
@@ -2209,7 +2207,7 @@ const STATUS = window.STATUS || {
             this.clearHoverHighlight();
 
             this.highlightedLayer = layer;
-            layer.setStyle(this.styleStreet(feature, false, true));
+            layer.setStyle(CoverageManager.styleStreet(feature, false, true));
             layer.bringToFront();
 
             this.updateMapInfoPanel(feature.properties);
@@ -2222,7 +2220,7 @@ const STATUS = window.STATUS || {
             if (layer !== this.highlightedLayer) {
               this.clearHoverHighlight();
               this.hoverHighlightLayer = layer;
-              layer.setStyle(this.styleStreet(feature, true, false));
+              layer.setStyle(CoverageManager.styleStreet(feature, true, false));
               layer.bringToFront();
             }
           });
@@ -2255,13 +2253,9 @@ const STATUS = window.STATUS || {
           });
 
           layer.on("popupopen", (e) => {
-            console.log(
-              "Popup opened for segment:",
-              feature.properties.segment_id,
-            );
             const popupEl = e.popup.getElement();
             if (!popupEl) {
-              console.error("Popup element not found on open:", e);
+              this.notificationManager.show("Popup element not found on open.", "danger");
               return;
             }
 
@@ -2272,13 +2266,6 @@ const STATUS = window.STATUS || {
                 ".mark-undriveable-btn",
               );
               const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
-
-              console.log("Attaching listeners. Buttons found:", {
-                driven: !!drivenBtn,
-                undriven: !!undrivenBtn,
-                undriveable: !!undriveableBtn,
-                driveable: !!driveableBtn,
-              });
 
               drivenBtn?.addEventListener(
                 "click",
@@ -2303,10 +2290,6 @@ const STATUS = window.STATUS || {
             const popupEl = e.popup.getElement();
             if (!popupEl || !layer._popupHandlers) return;
 
-            console.log(
-              "Popup closed, removing listeners for segment:",
-              feature.properties.segment_id,
-            );
             const drivenBtn = popupEl.querySelector(".mark-driven-btn");
             const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
             const undriveableBtn = popupEl.querySelector(
@@ -2345,7 +2328,7 @@ const STATUS = window.STATUS || {
       const streetName = props.name || props.street_name || "Unnamed Street";
       const streetType =
         props.highway || props.inferred_highway_type || "unknown";
-      const lengthMiles = this.distanceInUserUnits(props.segment_length_m || 0);
+      const lengthMiles = CoverageManager.distanceInUserUnits(props.segment_length_m || 0);
       const status = props.driven ? "Driven" : "Not Driven";
       const segmentId = props.segment_id || "N/A";
 
@@ -2376,9 +2359,9 @@ const STATUS = window.STATUS || {
         try {
           this.highlightedLayer.setStyle(this.highlightedLayer.originalStyle);
         } catch (styleError) {
-          console.warn(
-            "Could not reset style on previously highlighted layer:",
-            styleError,
+          this.notificationManager.show(
+            `Could not reset style on previously highlighted layer: ${styleError}`,
+            "warning",
           );
           try {
             this.highlightedLayer.setStyle({
@@ -2387,7 +2370,7 @@ const STATUS = window.STATUS || {
               color: "#ff5252",
             });
           } catch (fallbackError) {
-            console.warn("Fallback style reset failed:", fallbackError);
+            this.notificationManager.show(`Fallback style reset failed: ${fallbackError}`, "warning");
           }
         }
         this.highlightedLayer = null;
@@ -2403,9 +2386,9 @@ const STATUS = window.STATUS || {
             );
           }
         } catch (styleError) {
-          console.warn(
-            "Could not reset style on previously hovered layer:",
-            styleError,
+          this.notificationManager.show(
+            `Could not reset style on previously hovered layer: ${styleError}`,
+            "warning",
           );
           try {
             this.hoverHighlightLayer.setStyle({
@@ -2414,7 +2397,7 @@ const STATUS = window.STATUS || {
               color: "#ff5252",
             });
           } catch (fallbackError) {
-            console.warn("Fallback style reset failed:", fallbackError);
+            this.notificationManager.show(`Fallback hover style reset failed: ${fallbackError}`, "warning");
           }
         }
         this.hoverHighlightLayer = null;
@@ -2435,7 +2418,7 @@ const STATUS = window.STATUS || {
       const streetName = props.name || props.street_name || "Unnamed Street";
       const streetType =
         props.highway || props.inferred_highway_type || "unknown";
-      const lengthMiles = this.distanceInUserUnits(props.segment_length_m || 0);
+      const lengthMiles = CoverageManager.distanceInUserUnits(props.segment_length_m || 0);
       const status = props.driven ? "Driven" : "Not Driven";
       const segmentId = props.segment_id || "N/A";
 
@@ -2498,10 +2481,10 @@ const STATUS = window.STATUS || {
 
           const coveragePercentage =
             coverage.coverage_percentage?.toFixed(1) || "0.0";
-          const totalMiles = this.distanceInUserUnits(
+          const totalMiles = CoverageManager.distanceInUserUnits(
             coverage.total_length || 0,
           );
-          const drivenMiles = this.distanceInUserUnits(
+          const drivenMiles = CoverageManager.distanceInUserUnits(
             coverage.driven_length || 0,
           );
 
@@ -2529,7 +2512,6 @@ const STATUS = window.STATUS || {
             </div>`;
           return container;
         },
-        onRemove: () => {},
       });
 
       this.coverageSummaryControl = new CoverageSummaryControl();
@@ -2550,7 +2532,11 @@ const STATUS = window.STATUS || {
       const locationId = this.selectedLocation._id;
       const segmentId = props.segment_id;
 
-      let apiEndpoint, statusText, optimisticDriven, optimisticUndriveable;
+      let apiEndpoint = "";
+      let statusText = "";
+      let optimisticDriven = props.driven;
+      let optimisticUndriveable = props.undriveable;
+
       switch (action) {
         case "driven":
           apiEndpoint = "/api/street_segments/mark_driven";
@@ -2586,15 +2572,16 @@ const STATUS = window.STATUS || {
 
       layer.featureProperties.driven = optimisticDriven;
       layer.featureProperties.undriveable = optimisticUndriveable;
-      const newStyle = this.styleStreet({
+      const newStyle = CoverageManager.styleStreet({
         properties: layer.featureProperties,
       });
+      layer.originalStyle = { ...newStyle };
       layer.setStyle(newStyle);
 
       if (this.highlightedLayer === layer && this.mapInfoPanel) {
         this.updateMapInfoPanel(layer.featureProperties);
       }
-      this.coverageMap?.closePopup();
+      layer.closePopup();
 
       try {
         this.notificationManager.show(
@@ -2648,7 +2635,7 @@ const STATUS = window.STATUS || {
     }
 
     async refreshCoverageStats() {
-      if (!this.selectedLocation || !this.selectedLocation._id) return;
+      if (!this.selectedLocation || !this.selectedLocation._id) return undefined;
 
       try {
         const locationId = this.selectedLocation._id;
@@ -2693,7 +2680,10 @@ const STATUS = window.STATUS || {
         this.coverageMap.fitBounds(this.mapBounds, { padding: [40, 40] });
       } else if (this.coverageMap) {
         this.coverageMap.setView([31.55, -97.15], 11);
-        console.warn("Map bounds invalid or not set, using default view.");
+        this.notificationManager.show(
+           "Map bounds invalid or not set, using default view.",
+          "warning",
+        );
       }
     }
 
@@ -2730,10 +2720,10 @@ const STATUS = window.STATUS || {
       const parseDist = (distStr) => parseFloat(distStr.split(" ")[0]) || 0;
 
       const drivenLengths = topTypes.map((t) =>
-        parseDist(this.distanceInUserUnits(t.covered_length_m || 0)),
+        parseDist(CoverageManager.distanceInUserUnits(t.covered_length_m || 0)),
       );
       const driveableLengths = topTypes.map((t) =>
-        parseDist(this.distanceInUserUnits(t.driveable_length_m || 0)),
+        parseDist(CoverageManager.distanceInUserUnits(t.driveable_length_m || 0)),
       );
       const notDrivenLengths = driveableLengths.map((total, i) =>
         parseFloat(Math.max(0, total - drivenLengths[i]).toFixed(2)),
@@ -2889,14 +2879,14 @@ const STATUS = window.STATUS || {
         !this.streetsGeoJsonLayer ||
         !this.streetLayers
       ) {
-        console.warn(
+        this.notificationManager.show(
           "Cannot set map filter: Map or street layer not initialized.",
+          "warning",
         );
         return;
       }
 
       this.currentFilter = filterType;
-      console.log(`Applying filter: ${filterType}`);
       let visibleCount = 0;
 
       this.streetsGeoJsonLayer.eachLayer((layer) => {
@@ -2916,18 +2906,19 @@ const STATUS = window.STATUS || {
             try {
               layer.setStyle(layer.originalStyle);
             } catch (e) {
-              console.warn("Style reset failed on add");
+              this.notificationManager.show(`Style reset failed on add during filter: ${e}`, "warning");
             }
             this.streetLayers.addLayer(layer);
           }
           if (layer === this.highlightedLayer) {
-            layer.setStyle(this.styleStreet(layer.feature, false, true));
+            layer.setStyle(CoverageManager.styleStreet(layer.feature, false, true));
             layer.bringToFront();
           }
           visibleCount++;
         } else {
           if (layer === this.highlightedLayer) {
             this.clearHighlight();
+            if (this.mapInfoPanel) this.mapInfoPanel.style.display = "none";
           }
           if (layer === this.hoverHighlightLayer) {
             this.clearHoverHighlight();
@@ -2937,14 +2928,12 @@ const STATUS = window.STATUS || {
             try {
               layer.setStyle(layer.originalStyle);
             } catch (e) {
-              console.warn("Style reset failed on removal");
+              this.notificationManager.show(`Style reset failed on removal during filter: ${e}`, "warning");
             }
             this.streetLayers.removeLayer(layer);
           }
         }
       });
-
-      console.log(`Filter applied. Visible segments: ${visibleCount}`);
 
       if (updateButtons) {
         this.updateFilterButtonStates();
@@ -3002,8 +2991,10 @@ const STATUS = window.STATUS || {
         [STATUS.ERROR]: '<i class="fas fa-exclamation-circle"></i>',
         [STATUS.WARNING]: '<i class="fas fa-exclamation-triangle"></i>',
         [STATUS.CANCELED]: '<i class="fas fa-ban"></i>',
+        [STATUS.POLLING_CHECK]: '<i class="fas fa-sync-alt fa-spin"></i>',
+        [STATUS.UNKNOWN]: '<i class="fas fa-question-circle"></i>',
       };
-      return icons[stage] || '<i class="fas fa-question-circle"></i>';
+      return icons[stage] || icons[STATUS.UNKNOWN];
     }
 
     static getStageTextClass(stage) {
@@ -3034,6 +3025,8 @@ const STATUS = window.STATUS || {
         [STATUS.ERROR]: "Error",
         [STATUS.WARNING]: "Warning",
         [STATUS.CANCELED]: "Canceled",
+        [STATUS.POLLING_CHECK]: "Checking Status",
+        [STATUS.UNKNOWN]: "Unknown",
       };
       return (
         stageNames[stage] ||
@@ -3055,16 +3048,12 @@ const STATUS = window.STATUS || {
       }
       if (!this.coverageMap.hasLayer(this.tripsLayerGroup)) {
         this.tripsLayerGroup.addTo(this.coverageMap);
-        console.log("Trips layer group added to map.");
       }
     }
 
     clearTripOverlay() {
       if (this.tripsLayerGroup) {
         this.tripsLayerGroup.clearLayers();
-        if (this.coverageMap?.hasLayer(this.tripsLayerGroup)) {
-        }
-        console.log("Trip overlay cleared.");
       }
     }
 
@@ -3080,13 +3069,12 @@ const STATUS = window.STATUS || {
       const ne = bounds.getNorthEast();
 
       const boundsArea = Math.abs(ne.lng - sw.lng) * Math.abs(ne.lat - sw.lat);
-      if (boundsArea > 10) {
-        console.warn("Map bounds too large, skipping trip overlay update.");
-        this.clearTripOverlay();
+      if (boundsArea > 5) {
         this.notificationManager.show(
-          "Zoom in further to view trip overlays.",
+           "Map area too large, zoom in further to view trip overlays.",
           "info",
         );
+        this.clearTripOverlay();
         return;
       }
 
@@ -3096,8 +3084,6 @@ const STATUS = window.STATUS || {
         max_lat: ne.lat.toFixed(6),
         max_lon: ne.lng.toFixed(6),
       });
-
-      console.log("Fetching trips for bounds:", params.toString());
 
       try {
         const response = await fetch(
@@ -3113,7 +3099,6 @@ const STATUS = window.STATUS || {
           throw new Error("Invalid trip data received from server.");
         }
 
-        console.log(`Received ${data.trips.length} trip segments.`);
         this.tripsLayerGroup.clearLayers();
 
         if (data.trips.length > 0) {
@@ -3127,11 +3112,8 @@ const STATUS = window.STATUS || {
               pane: "tripsPane",
             }).addTo(this.tripsLayerGroup);
           });
-        } else {
-          console.log("No trips found in the current map view.");
         }
       } catch (error) {
-        console.error("Error loading trips for view:", error);
         this.notificationManager.show(
           `Failed to load trip overlay: ${error.message}`,
           "danger",
@@ -3143,21 +3125,19 @@ const STATUS = window.STATUS || {
 
   document.addEventListener("DOMContentLoaded", () => {
     if (typeof L === "undefined" || typeof Chart === "undefined") {
-      console.error(
-        "Leaflet or Chart.js not loaded. Coverage Manager initialization aborted.",
-      );
+      const errorMessage = "Error: Required libraries (Leaflet, Chart.js) failed to load. Map and chart functionality will be unavailable.";
       const errorContainer = document.getElementById("alerts-container");
       if (errorContainer) {
         const errorDiv = document.createElement("div");
         errorDiv.className = "alert alert-danger";
-        errorDiv.textContent =
-          "Error: Required libraries (Leaflet, Chart.js) failed to load. Map and chart functionality will be unavailable.";
+        errorDiv.textContent = errorMessage;
         errorContainer.prepend(errorDiv);
+      } else {
+        alert(errorMessage);
       }
       return;
     }
 
     window.coverageManager = new CoverageManager();
-    console.log("Coverage Manager initialized.");
   });
 })();
