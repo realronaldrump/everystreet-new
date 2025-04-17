@@ -237,7 +237,7 @@
   const isMapReady = () =>
     AppState.map && AppState.mapInitialized && AppState.layerGroup;
 
-  function initializeMap() {
+  async function initializeMap() {
     try {
       if (AppState.map) return true;
 
