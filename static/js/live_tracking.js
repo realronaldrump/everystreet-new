@@ -69,7 +69,7 @@ class LiveTripTracker {
       });
     } catch (error) {
       window.handleError(
-        "LiveTripTracker initialization error: " + error,
+        `LiveTripTracker initialization error: ${error}`,
         "initialize",
       );
       this.updateStatus(false);
