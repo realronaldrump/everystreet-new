@@ -71,7 +71,7 @@
     } catch (error) {
       console.error("Error initializing Modern UI:", error);
       window.notificationManager?.show(
-        "Error initializing UI: " + error.message,
+        `Error initializing UI: ${error.message}`,
         "danger",
       );
     }
@@ -135,7 +135,7 @@
                 ? bsCollapse.hide()
                 : bsCollapse.show();
             } else {
-              new window.bootstrap.Collapse(controlsContent, {
+              const _ = new window.bootstrap.Collapse(controlsContent, {
                 toggle: !mapControls.classList.contains("minimized"),
               });
             }
