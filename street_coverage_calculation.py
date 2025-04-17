@@ -11,16 +11,10 @@ import logging
 import multiprocessing
 import os
 from collections import defaultdict
-from concurrent.futures import (
-    CancelledError,
-    Future,
-    ProcessPoolExecutor,
-    TimeoutError as FutureTimeoutError,
-)
+from concurrent.futures import CancelledError, Future, ProcessPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
-from typing import (
-    Any,
-)
+from typing import Any
 
 import bson.json_util
 import numpy as np
@@ -28,20 +22,10 @@ import pyproj
 import rtree
 from bson import ObjectId
 from dotenv import load_dotenv
-from motor.motor_asyncio import (
-    AsyncIOMotorGridFSBucket,
-)
-from pymongo.errors import (
-    BulkWriteError,
-    OperationFailure,
-)
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+from pymongo.errors import BulkWriteError, OperationFailure
 from shapely.errors import GEOSException
-from shapely.geometry import (
-    LineString,
-    MultiPoint,
-    box,
-    shape,
-)
+from shapely.geometry import LineString, MultiPoint, box, shape
 from shapely.ops import transform
 
 from db import (

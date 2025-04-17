@@ -6,17 +6,9 @@ API response structures across the application.
 """
 
 from datetime import datetime
-from typing import (
-    Annotated,
-    Any,
-    Union,
-)
+from typing import Annotated, Any, Union
 
-from pydantic import (
-    BaseModel,
-    BeforeValidator,
-    Field,
-)
+from pydantic import BaseModel, BeforeValidator, Field
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 

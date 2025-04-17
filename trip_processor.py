@@ -13,28 +13,15 @@ import time
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-)
+from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 import pyproj
 from pymongo.errors import DuplicateKeyError
 from shapely.geometry import Point
 
-from db import (
-    matched_trips_collection,
-    places_collection,
-    trips_collection,
-)
-from utils import (
-    haversine,
-    reverse_geocode_nominatim,
-)
+from db import matched_trips_collection, places_collection, trips_collection
+from utils import haversine, reverse_geocode_nominatim
 
 logger = logging.getLogger(__name__)
 
