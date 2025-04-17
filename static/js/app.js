@@ -547,7 +547,6 @@
   async function fetchTrips() {
     return withLoading(
       "Fetching and Displaying Trips",
-      100,
       async (lm, opId) => {
         const subOps = {
           "Fetching Data": 50,
@@ -610,6 +609,7 @@
           }),
         );
       },
+      100
     );
   }
 
