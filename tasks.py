@@ -466,14 +466,18 @@ async def periodic_fetch_trips_async(
     celery_task_id = self.request.id
     try:
         logger.info(
-            f"Task {task_name} ({celery_task_id}) started at {start_time.isoformat()}"
+            "Task %s (%s) started at %s",
+            task_name,
+            celery_task_id,
+            start_time.isoformat(),
         )
         logger.info(
-            f"Environment variables: CLIENT_ID={'set' if CLIENT_ID else 'NOT SET'}, "
-            f"CLIENT_SECRET={'set' if CLIENT_SECRET else 'NOT SET'}, "
-            f"REDIRECT_URI={'set' if REDIRECT_URI else 'NOT SET'}, "
-            f"AUTH_CODE={'set' if AUTH_CODE else 'NOT SET'}, "
-            f"AUTHORIZED_DEVICES count: {len(AUTHORIZED_DEVICES)}"
+            "Environment variables: CLIENT_ID=%s, CLIENT_SECRET=%s, REDIRECT_URI=%s, AUTH_CODE=%s, AUTHORIZED_DEVICES count: %d",
+            "set" if CLIENT_ID else "NOT SET",
+            "set" if CLIENT_SECRET else "NOT SET",
+            "set" if REDIRECT_URI else "NOT SET",
+            "set" if AUTH_CODE else "NOT SET",
+            len(AUTHORIZED_DEVICES),
         )
 
         await status_manager.update_status(task_name, TaskStatus.RUNNING.value)
@@ -572,7 +576,7 @@ async def periodic_fetch_trips_async(
                     trip.get("transactionId", "unknown")
                     for trip in fetched_trips
                 ]
-                logger.info(f"Fetched trip IDs: {trip_ids}")
+                logger.info("Fetched trip IDs: %s", trip_ids)
             else:
                 logger.warning("No trips were fetched in the date range")
 
@@ -714,7 +718,7 @@ async def update_coverage_for_new_trips_async(
             manual_run=self.request.get("manual_run", False),
             start_time=start_time,
         )
-        logger.info(f"Task {task_name} ({celery_task_id}) started.")
+        logger.info("Task %s (%s) started.", task_name, celery_task_id)
 
         coverage_areas = await find_with_retry(
             coverage_metadata_collection, {}
@@ -901,7 +905,7 @@ async def cleanup_stale_trips_async(
             manual_run=manual_run,
             start_time=start_time,
         )
-        logger.info(f"Task {task_name} ({celery_task_id}) started.")
+        logger.info("Task %s (%s) started.", task_name, celery_task_id)
 
         cleanup_result = await cleanup_stale_trips_logic(
             live_collection=live_collection,
@@ -1029,7 +1033,7 @@ async def cleanup_invalid_trips_async(
             manual_run=self.request.get("manual_run", False),
             start_time=start_time,
         )
-        logger.info(f"Task {task_name} ({celery_task_id}) started.")
+        logger.info("Task %s (%s) started.", task_name, celery_task_id)
 
         query = {"invalid": {"$ne": True}}
 
@@ -1203,7 +1207,7 @@ async def update_geocoding_async(
             manual_run=self.request.get("manual_run", False),
             start_time=start_time,
         )
-        logger.info(f"Task {task_name} ({celery_task_id}) started.")
+        logger.info("Task %s (%s) started.", task_name, celery_task_id)
 
         query = {
             "$or": [
@@ -1371,12 +1375,12 @@ async def remap_unmatched_trips_async(
             manual_run=self.request.get("manual_run", False),
             start_time=start_time,
         )
-        logger.info(f"Task {task_name} ({celery_task_id}) started.")
+        logger.info("Task %s (%s) started.", task_name, celery_task_id)
 
         dependency_check = await check_dependencies(task_name)
         if not dependency_check["can_run"]:
             reason = dependency_check.get("reason", "Unknown reason")
-            logger.info(f"Deferring {task_name}: {reason}")
+            logger.info("Deferring %s: %s", task_name, reason)
             result_data = {
                 "status": "deferred",
                 "message": reason,
@@ -1404,7 +1408,7 @@ async def remap_unmatched_trips_async(
             async for doc in matched_ids_cursor
             if "transactionId" in doc
         }
-        logger.info(f"Found {len(matched_ids)} already matched trip IDs.")
+        logger.info("Found %d already matched trip IDs.", len(matched_ids))
 
         query = {
             "transactionId": {"$nin": list(matched_ids)},
@@ -1560,7 +1564,7 @@ async def validate_trip_data_async(
             manual_run=self.request.get("manual_run", False),
             start_time=start_time,
         )
-        logger.info(f"Task {task_name} ({celery_task_id}) started.")
+        logger.info("Task %s (%s) started.", task_name, celery_task_id)
 
         validation_threshold = datetime.now(timezone.utc) - timedelta(days=7)
         query = {
@@ -1758,7 +1762,7 @@ async def run_task_scheduler_async(self) -> None:
     triggered_count = 0
     skipped_count = 0
     now_utc = datetime.now(timezone.utc)
-    logger.debug(f"Scheduler task running at {now_utc.isoformat()}")
+    logger.debug("Scheduler task running at %s", now_utc.isoformat())
     status_manager = TaskStatusManager.get_instance()
 
     try:
@@ -2103,7 +2107,7 @@ async def manual_run_task(
             "results": results,
         }
     elif task_id in task_mapping:
-        logger.info(f"Manual run requested for task: {task_id}")
+        logger.info("Manual run requested for task: %s", task_id)
         result = await _send_manual_task(task_id, task_mapping[task_id])
         return {
             "status": ("success" if result.get("success") else "error"),
@@ -2114,7 +2118,7 @@ async def manual_run_task(
             "task_id": result.get("task_id"),
         }
     else:
-        logger.error(f"Manual run requested for unknown task: {task_id}")
+        logger.error("Manual run requested for unknown task: %s", task_id)
         return {
             "status": "error",
             "message": f"Unknown or non-runnable task ID: {task_id}",
@@ -2139,7 +2143,7 @@ async def _send_manual_task(
         dependency_check = await check_dependencies(task_name)
         if not dependency_check["can_run"]:
             reason = dependency_check.get("reason", "Dependencies not met")
-            logger.warning(f"Manual run for {task_name} skipped: {reason}")
+            logger.warning("Manual run for %s skipped: %s", task_name, reason)
             return {
                 "task": task_name,
                 "success": False,

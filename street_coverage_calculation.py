@@ -195,12 +195,17 @@ def process_trip_worker(
                 )
             except Exception as trip_e:
                 logger.error(
-                    f"Worker {worker_pid}: Unexpected error processing trip at index {trip_index}: {trip_e}"
+                    "Worker %d: Unexpected error processing trip at index %d: %s",
+                    worker_pid,
+                    trip_index,
+                    trip_e,
                 )
 
     except Exception as outer_e:
         logger.error(
-            f"Worker {worker_pid}: Unhandled exception in process_trip_worker: {outer_e}",
+            "Worker %d: Unhandled exception in process_trip_worker: %s",
+            worker_pid,
+            outer_e,
             exc_info=True,
         )
         return {}
@@ -208,8 +213,10 @@ def process_trip_worker(
     end_time = datetime.now(timezone.utc)
     duration = (end_time - start_time).total_seconds()
     logger.debug(
-        f"Worker {worker_pid}: Finished processing. Found matches for {len(results)} trips. "
-        f"Duration: {duration:.2f}s"
+        "Worker %d: Finished processing. Found matches for %d trips. Duration: %.2fs",
+        worker_pid,
+        len(results),
+        duration,
     )
 
     return dict(results)
@@ -1560,18 +1567,26 @@ class CoverageCalculator:
                     )
                     if update_result.modified_count != len(segment_batch):
                         logger.warning(
-                            f"Task {self.task_id}: DB Update Batch {current_batch_num} modified count ({update_result.modified_count}) doesn't match expected ({len(segment_batch)})."
+                            "Task %s: DB Update Batch %d modified count (%d) doesn't match expected (%d).",
+                            self.task_id,
+                            current_batch_num,
+                            update_result.modified_count,
+                            len(segment_batch),
                         )
 
                     await asyncio.sleep(BATCH_PROCESS_DELAY)
 
             except BulkWriteError as bwe:
                 logger.error(
-                    f"Task {self.task_id}: Bulk write error updating street status: {bwe.details}"
+                    "Task %s: Bulk write error updating street status: %s",
+                    self.task_id,
+                    bwe.details,
                 )
             except Exception as e:
                 logger.error(
-                    f"Task {self.task_id}: Error bulk updating street status: {e}",
+                    "Task %s: Error bulk updating street status: %s",
+                    self.task_id,
+                    e,
                     exc_info=True,
                 )
                 await self.update_progress(
@@ -1581,7 +1596,9 @@ class CoverageCalculator:
                 )
         else:
             logger.info(
-                f"Task {self.task_id}: No new driveable segments to mark as driven for {self.location_name}."
+                "Task %s: No new driveable segments to mark as driven for %s.",
+                self.task_id,
+                self.location_name,
             )
             await self.update_progress(
                 "finalizing",
@@ -1592,7 +1609,8 @@ class CoverageCalculator:
         await self.update_progress(
             "finalizing",
             95,
-            f"Calculating final coverage statistics for {self.location_name}",
+            "Calculating final coverage statistics for %s"
+            % self.location_name,
         )
         try:
             final_total_length = 0.0

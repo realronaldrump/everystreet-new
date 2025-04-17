@@ -4284,7 +4284,7 @@ async def delete_coverage_area(
                 progress_collection,
                 {"location": display_name},
             )
-            logger.info(f"Deleted progress data for {display_name}")
+            logger.info("Deleted progress data for %s", display_name)
         except Exception as progress_err:
             logger.warning(
                 f"Error deleting progress data for {display_name}: {progress_err}"
@@ -4295,7 +4295,7 @@ async def delete_coverage_area(
                 osm_data_collection,
                 {"location.display_name": display_name},
             )
-            logger.info(f"Deleted cached OSM data for {display_name}")
+            logger.info("Deleted cached OSM data for %s", display_name)
         except Exception as osm_err:
             logger.warning(
                 f"Error deleting OSM data for {display_name}: {osm_err}"
@@ -4305,13 +4305,13 @@ async def delete_coverage_area(
             streets_collection,
             {"properties.location": display_name},
         )
-        logger.info(f"Deleted street segments for {display_name}")
+        logger.info("Deleted street segments for %s", display_name)
 
         _ = await delete_one_with_retry(
             coverage_metadata_collection,
             {"location.display_name": display_name},
         )
-        logger.info(f"Deleted coverage metadata for {display_name}")
+        logger.info("Deleted coverage metadata for %s", display_name)
 
         return {
             "status": "success",

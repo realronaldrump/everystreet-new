@@ -235,7 +235,7 @@ class TripProcessor:
             return self.processed_data
 
         except Exception as e:
-            error_message = f"Unexpected error: {str(e)}"
+            error_message = "Unexpected error: %s" % str(e)
             logger.exception(
                 "Error processing trip %s",
                 self.trip_data.get("transactionId", "unknown"),
@@ -264,7 +264,7 @@ class TripProcessor:
             ]
             for field in required:
                 if field not in self.trip_data:
-                    error_message = f"Missing required field: {field}"
+                    error_message = "Missing required field: %s" % field
                     logger.warning(
                         "Trip %s: %s",
                         transaction_id,
@@ -351,7 +351,7 @@ class TripProcessor:
             return True
 
         except Exception as e:
-            error_message = f"Validation error: {str(e)}"
+            error_message = "Validation error: %s" % str(e)
             logger.exception(
                 "Error validating trip %s",
                 self.trip_data.get("transactionId", "unknown"),
@@ -466,7 +466,7 @@ class TripProcessor:
             return True
 
         except Exception as e:
-            error_message = f"Processing error: {str(e)}"
+            error_message = "Processing error: %s" % str(e)
             logger.exception(
                 "Error in basic processing for trip %s",
                 self.trip_data.get("transactionId", "unknown"),
@@ -778,7 +778,7 @@ class TripProcessor:
             return True
 
         except Exception as e:
-            error_message = f"Geocoding error: {str(e)}"
+            error_message = "Geocoding error: %s" % str(e)
             logger.exception(
                 "Error geocoding trip %s",
                 self.trip_data.get("transactionId", "unknown"),
@@ -806,7 +806,8 @@ class TripProcessor:
                     TripState.PROCESSED,
                 ]:
                     logger.info(
-                        f"Trip {transaction_id} not geocoded, attempting pre-processing before map matching."
+                        "Trip %s not geocoded, attempting pre-processing before map matching.",
+                        transaction_id,
                     )
                     await self.geocode()
                     if self.state != TripState.GEOCODED:
@@ -869,7 +870,7 @@ class TripProcessor:
                     error_msg,
                 )
                 self.errors["map_match"] = (
-                    f"Map matching API failed: {error_msg}"
+                    "Map matching API failed: %s" % error_msg
                 )
                 return True
 
@@ -954,7 +955,7 @@ class TripProcessor:
             return True
 
         except Exception as e:
-            error_message = f"Unexpected map matching error: {str(e)}"
+            error_message = "Unexpected map matching error: %s" % str(e)
             logger.exception(
                 "Error map matching trip %s",
                 self.trip_data.get("transactionId", "unknown"),
@@ -977,7 +978,7 @@ class TripProcessor:
         hemisphere = "north" if center_lat >= 0 else "south"
 
         self.utm_proj = pyproj.CRS(
-            f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84"
+            "+proj=utm +zone=%d +%s +ellps=WGS84" % (utm_zone, hemisphere)
         )
         self.project_to_utm = pyproj.Transformer.from_crs(
             pyproj.CRS("EPSG:4326"),
@@ -1106,7 +1107,8 @@ class TripProcessor:
                                     )
                                     return {
                                         "code": "Error",
-                                        "message": f"Mapbox API error: {response.status}",
+                                        "message": "Mapbox API error: %d"
+                                        % response.status,
                                         "details": error_text,
                                     }
 
@@ -1126,7 +1128,8 @@ class TripProcessor:
                                         error_text = await response.text()
                                         return {
                                             "code": "Error",
-                                            "message": f"Mapbox server error: {response.status}",
+                                            "message": "Mapbox server error: %d"
+                                            % response.status,
                                             "details": error_text,
                                         }
 
@@ -1156,7 +1159,8 @@ class TripProcessor:
                                 )
                                 return {
                                     "code": "Error",
-                                    "message": f"Mapbox API error after {max_attempts_for_429} retries: {str(e)}",
+                                    "message": "Mapbox API error after %d retries: %s"
+                                    % (max_attempts_for_429, str(e)),
                                 }
 
                     return {
@@ -1292,7 +1296,10 @@ class TripProcessor:
                 )
                 result = await match_chunk(chunk_coords, depth=0)
                 if result is None:
-                    msg = f"Chunk {cindex} of {len(chunk_indices)} failed map matching."
+                    msg = "Chunk %d of %d failed map matching." % (
+                        cindex,
+                        len(chunk_indices),
+                    )
                     logger.error(msg)
                     return {
                         "code": "Error",
@@ -1574,7 +1581,7 @@ class TripProcessor:
             hrs = total_seconds // 3600
             mins = (total_seconds % 3600) // 60
             secs = total_seconds % 60
-            return f"{hrs:02d}:{mins:02d}:{secs:02d}"
+            return "%02d:%02d:%02d" % (hrs, mins, secs)
         except (TypeError, ValueError):
             logger.error(
                 "Invalid input for format_idle_time: %s",
@@ -1623,7 +1630,7 @@ class TripProcessor:
             )
 
         if not transaction_id:
-            transaction_id = f"{source}-{uuid.uuid4()}"
+            transaction_id = "%s-%s" % (source, uuid.uuid4())
 
         coordinates = [[c["lon"], c["lat"]] for c in coords_data]
 
