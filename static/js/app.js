@@ -1354,7 +1354,7 @@
       theme: document.body.classList.contains("light-mode") ? "light" : "dark",
       position: "auto",
       disableMobile: true,
-      onChange (selectedDates, dateStr) {
+      onChange(selectedDates, dateStr) {
         const input = this.input;
         const formattedDate = DateUtils.formatDate(dateStr);
         const isStartDate = input.id === "start-date";

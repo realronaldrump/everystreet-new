@@ -797,7 +797,6 @@
         let receivedLength = 0;
         const chunks = [];
 
-         
         while (true) {
           const { done, value } = await reader.read();
 
