@@ -93,7 +93,7 @@ class LiveTripTracker {
 
       const data = await response.json();
       window.handleError(
-        `Initial trip data response: ${  JSON.stringify(data)}`,
+        `Initial trip data response: ${JSON.stringify(data)}`,
         "loadInitialTripData",
         "info",
       );
@@ -129,7 +129,7 @@ class LiveTripTracker {
       }
     } catch (error) {
       window.handleError(
-        `Error loading initial trip data: ${  error}`,
+        `Error loading initial trip data: ${error}`,
         "loadInitialTripData",
       );
       this.updateStatus(false, "Failed to load trip data");
@@ -180,7 +180,7 @@ class LiveTripTracker {
         this.decreasePollingInterval();
       }
     } catch (error) {
-      window.handleError(`Error polling trip updates: ${  error}`, "poll");
+      window.handleError(`Error polling trip updates: ${error}`, "poll");
       this.consecutiveErrors++;
 
       if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
@@ -213,7 +213,7 @@ class LiveTripTracker {
 
     const data = await response.json();
     window.handleError(
-      `Trip update response: ${  JSON.stringify(data)}`,
+      `Trip update response: ${JSON.stringify(data)}`,
       "fetchTripUpdates",
       "info",
     );
@@ -409,7 +409,7 @@ class LiveTripTracker {
         } catch (e) {
           console.error("Error fitting bounds:", e);
           this.map.setView(lastPoint, 15);
-          window.handleError(`Error fitting bounds: ${  e}`, "setActiveTrip");
+          window.handleError(`Error fitting bounds: ${e}`, "setActiveTrip");
         }
       } else {
         this.map.setView(lastPoint, 15);
@@ -576,7 +576,7 @@ class LiveTripTracker {
     });
 
     window.handleError(
-      `Displaying metrics:${  JSON.stringify(metrics)}`,
+      `Displaying metrics:${JSON.stringify(metrics)}`,
       "updateTripMetrics",
       "info",
     );

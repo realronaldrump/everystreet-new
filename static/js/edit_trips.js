@@ -144,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error loading trips:", error);
       if (window.notificationManager) {
         window.notificationManager.show(
-          `Error loading trips: ${  error.message}`,
+          `Error loading trips: ${error.message}`,
           "danger",
         );
       }
