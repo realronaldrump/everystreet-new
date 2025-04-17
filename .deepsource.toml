@@ -12,8 +12,16 @@ name = "python"
   [analyzers.meta]
   runtime_version = "3.x.x"
 
+  [analyzers.config]
+  exclude_rules = ["E501"]
+  test_patterns = ["test_.*.py", "tests/"]
+  ignore_patterns = ["migrations/", "build/", "scripts/"]
+
+[[transformers]]
+name = "black"
+
 [[transformers]]
 name = "prettier"
 
 [[transformers]]
-name = "black"
+name = "isort"
