@@ -501,7 +501,6 @@
           localStorage.setItem(CONFIG.storage.startDate, startDate);
           localStorage.setItem(CONFIG.storage.endDate, endDate);
           updateFilterIndicator();
-          applyFilters();
         }
       })
       .catch((error) => {
