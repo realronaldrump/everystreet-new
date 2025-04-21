@@ -781,6 +781,7 @@
                 layer.on("click", (e) =>
                   handleTripClick(e, f, layer, info, name),
                 );
+                layer.bindPopup(createTripPopupContent(f, name));
               },
             });
             hitLayer.addTo(AppState.layerGroup);
@@ -855,56 +856,68 @@
 
   function createTripPopupContent(feature, layerName) {
     const props = feature.properties;
+    // Defensive: support both camelCase and snake_case
+    const get = (k, fallback = null) => props[k] ?? props[k.replace(/[A-Z]/g, m => '_' + m.toLowerCase())] ?? fallback;
     const formatValue = (value, unit = "") =>
-      value !== undefined && value !== null ? `${value}${unit}` : "N/A";
-
+      value !== undefined && value !== null && value !== "" ? `${value}${unit}` : "N/A";
     const formatDate = (date) =>
-      date
-        ? DateUtils.formatForDisplay(date, { dateStyle: "medium", timeStyle: "short" })
-        : "N/A";
-
+      date ? DateUtils.formatForDisplay(date, { dateStyle: "medium", timeStyle: "short" }) : "N/A";
     const formatSpeed = (speed) => {
       if (speed === undefined || speed === null) return "N/A";
-      // Assuming speed is in m/s, convert to mph
-      const mph = speed * 2.23694;
-      return `${mph.toFixed(1)} mph`;
+      return `${parseFloat(speed).toFixed(1)} mph`;
     };
-
     const formatDuration = (durationSeconds) => {
-      if (durationSeconds === undefined || durationSeconds === null)
-        return "N/A";
-      return DateUtils.formatDuration(durationSeconds * 1000); // Expects milliseconds
+      if (durationSeconds === undefined || durationSeconds === null) return "N/A";
+      return DateUtils.formatDuration(durationSeconds * 1000);
     };
-
-    const content = `
-      <div class="popup-content">
+    const formatSeconds = (seconds) => DateUtils.formatSecondsToHMS(seconds);
+    const distance = parseFloat(get("distance", 0));
+    const startOdometer = get("startOdometer");
+    const endOdometer = get("endOdometer");
+    const pointsRecorded = get("pointsRecorded") ?? (props.coordinates?.length || props.points?.length || 0);
+    const totalIdlingTime = get("totalIdlingTime");
+    const hardBrakingCounts = get("hardBrakingCounts");
+    const hardAccelerationCounts = get("hardAccelerationCounts");
+    const fuelConsumed = get("fuelConsumed");
+    const lastUpdate = get("lastUpdate");
+    const status = get("status");
+    const metrics = [
+      ["Trip ID", get("transactionId")],
+      ["IMEI", get("imei")],
+      ["Status", status],
+      ["Start Time", formatDate(get("startTime"))],
+      ["End Time", formatDate(get("endTime"))],
+      ["Duration", formatDuration(get("duration"))],
+      ["Distance", `${distance.toFixed(2)} mi`],
+      ["Start Odometer", formatValue(startOdometer, startOdometer !== undefined && startOdometer !== null ? " mi" : "")],
+      ["End Odometer", formatValue(endOdometer, endOdometer !== undefined && endOdometer !== null ? " mi" : "")],
+      ["Current Speed", formatSpeed(get("currentSpeed"))],
+      ["Average Speed", formatSpeed(get("avgSpeed") ?? get("averageSpeed"))],
+      ["Max Speed", formatSpeed(get("maxSpeed"))],
+      ["Points Recorded", pointsRecorded],
+      ["Total Idling Time", totalIdlingTime !== undefined ? formatSeconds(totalIdlingTime) : "N/A"],
+      ["Hard Braking", hardBrakingCounts],
+      ["Hard Acceleration", hardAccelerationCounts],
+      ["Fuel Consumed", fuelConsumed !== undefined ? `${parseFloat(fuelConsumed).toFixed(2)} gal` : "N/A"],
+      ["Last Update", lastUpdate ? DateUtils.formatTimeAgo(lastUpdate) : "N/A"],
+      ["Closed Reason", get("closed_reason")],
+    ];
+    return `
+      <div class="popup-content trip-popup">
         <h4>Trip Details</h4>
-        <p><strong>ID:</strong> ${props.transactionId || "N/A"}</p>
-        <p><strong>Start:</strong> ${formatDate(props.startTime)}</p>
-        <p><strong>End:</strong> ${formatDate(props.endTime)}</p>
-        <p><strong>Distance:</strong> ${formatValue(
-          (props.distance / 1609.34).toFixed(2), // Convert meters to miles
-          " mi",
-        )}</p>
-        <p><strong>Duration:</strong> ${formatDuration(props.duration)}</p>
-        <p><strong>Avg Speed:</strong> ${formatSpeed(props.averageSpeed)}</p>
-        <p><strong>Max Speed:</strong> ${formatSpeed(props.maxSpeed)}</p>
-        ${
-          props.matchedTripId
-            ? `<p><strong>Matched To:</strong> ${props.matchedTripId}</p>`
-            : ""
-        }
-        ${
-          props.points
-            ? `<p><strong>Points:</strong> ${props.points.length}</p>`
-            : ""
-        }
+        <table class="popup-data">
+          <tbody>
+            ${metrics
+              .filter(([label, value]) => value !== undefined && value !== null && value !== "")
+              .map(([label, value]) => `<tr><th>${label}</th><td>${value}</td></tr>`)
+              .join("")}
+          </tbody>
+        </table>
         <div class="popup-actions">
           ${createActionButtons(feature, layerName)}
         </div>
       </div>
     `;
-    return content;
   }
 
   function setupPopupEventListeners(layer, feature) {
