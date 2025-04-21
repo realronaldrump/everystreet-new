@@ -30,7 +30,8 @@ def initialize_db(db_live_trips, db_archived_live_trips):
 def _parse_iso_datetime(
     timestamp_str: str | None,
 ) -> datetime | None:
-    """Safely parse an ISO 8601 timestamp string into a timezone-aware datetime object (UTC)."""
+    """Safely parse an ISO 8601 timestamp string into a timezone-aware datetime object
+    (UTC)."""
     if not timestamp_str or not isinstance(timestamp_str, str):
         return None
     try:

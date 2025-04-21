@@ -1400,17 +1400,10 @@ class CoverageCalculator:
                     )
 
                     message = (
-                        f"Processed {
-                            self.processed_trips_count:,}/{
-                            self.total_trips_to_process:,                        } trips | "
-                        f"Submitted: {
-                            self.submitted_trips_count:,} | "
-                        f"Done OK: {
-                            completed_futures_count:,} | Failed: {
-                            failed_futures_count:,                        } | Pending: {
-                            len(pending_futures_map):,} | "
-                        f"New Segments Found: {
-                                new_segments_found_count:,}"
+                        f"Processed {self.processed_trips_count:,}/{self.total_trips_to_process:,} trips | "
+                        f"Submitted: {self.submitted_trips_count:,} | "
+                        f"Done OK: {completed_futures_count:,} | Failed: {failed_futures_count:,} | Pending: {len(pending_futures_map):,} | "
+                        f"New Segments Found: {new_segments_found_count:,}"
                     )
 
                     await self.update_progress(

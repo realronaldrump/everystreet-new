@@ -61,6 +61,34 @@ PROCESS_TIMEOUT = 30000
 MAX_WORKERS = min(multiprocessing.cpu_count(), 8)
 
 
+def _build_osm_query(location: dict[str, Any]) -> str:
+    """Builds an Overpass QL query to fetch potentially drivable ways."""
+    bbox = location.get("boundingbox")
+    if not bbox or len(bbox) != 4:
+        raise ValueError(f"Invalid bounding box in location: {location}")
+
+    # OSM uses (south, west, north, east)
+    bbox_str = f"{bbox[0]},{bbox[2]},{bbox[1]},{bbox[3]}"
+
+    # Construct the query
+    query = f"""
+    [out:json][timeout:300];
+    (
+      // Query ways within the bounding box
+      way["highway"]
+         ["highway"!~"{EXCLUDED_HIGHWAY_TYPES_REGEX}"] // Exclude non-relevant highway types
+         ["area"!~"yes"]                         // Exclude areas like parking lots mapped as ways
+         ["access"!~"{EXCLUDED_ACCESS_TYPES_REGEX}"] // Exclude restricted access ways
+         ["service"!~"{EXCLUDED_SERVICE_TYPES_REGEX}"] // Exclude specific service ways
+         ({bbox_str});
+    );
+    // Output geometry
+    out geom;
+    """
+    logger.debug("Generated Overpass query: %s", query)
+    return query
+
+
 def get_dynamic_utm_crs(latitude: float, longitude: float) -> pyproj.CRS:
     """
     Determines the appropriate UTM or UPS CRS for a given latitude and longitude.
@@ -752,11 +780,9 @@ async def preprocess_streets(
                 "Fetching filtered OSM street data for %s using enhanced query...",
                 location_name,
             )
+            query_string = _build_osm_query(validated_location)
             osm_data = await asyncio.wait_for(
-                fetch_osm_data(
-                    validated_location,
-                    streets_only=True,
-                ),
+                fetch_osm_data(query=query_string),
                 timeout=300,
             )
         except TimeoutError:
