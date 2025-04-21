@@ -795,6 +795,7 @@
               layer.on("popupopen", () =>
                 setupPopupEventListeners(layer, feature),
               );
+              layer.bindPopup(createTripPopupContent(feature, name));
             },
           });
           geoJsonLayer.addTo(AppState.layerGroup);
@@ -839,6 +840,19 @@
     layer.openPopup();
   }
 
+  function createActionButtons(feature, layerName) {
+    const tripId = feature.properties.transactionId;
+    const isMatched = !!feature.properties.matchedTripId;
+    return `
+      <div class="trip-actions" data-trip-id="${tripId}">
+        ${isMatched
+          ? `<button class="btn btn-sm btn-danger delete-matched-trip">Delete Matched Trip</button>
+             <button class="btn btn-sm btn-warning rematch-trip">Re-match Trip</button>`
+          : `<button class="btn btn-sm btn-danger delete-trip">Delete Trip</button>`}
+      </div>
+    `;
+  }
+
   function createTripPopupContent(feature, layerName) {
     const props = feature.properties;
     const formatValue = (value, unit = "") =>
@@ -846,13 +860,7 @@
 
     const formatDate = (date) =>
       date
-        ? DateUtils.formatDateTime(date, {
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          })
+        ? DateUtils.formatForDisplay(date, { dateStyle: "medium", timeStyle: "short" })
         : "N/A";
 
     const formatSpeed = (speed) => {
