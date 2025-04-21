@@ -267,8 +267,6 @@ function handleError(error, context = "", level = "error", onComplete = null) {
     console.error(`Error in ${context}:`, errorObj);
   } else if (level === "warn") {
     console.warn(`Warning in ${context}:`, errorObj);
-  } else {
-    console.log(`Info in ${context}:`, errorObj);
   }
 
   if (level === "error" || level === "warn") {
@@ -487,11 +485,6 @@ class ConfirmationDialog {
         cancelBtn.textContent = cancelText;
       }
 
-      const cleanup = () => {
-        confirmBtn?.removeEventListener("click", handleConfirm);
-        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
-      };
-
       const handleConfirm = () => {
         cleanup();
         this.activeModal?.hide();
@@ -503,6 +496,11 @@ class ConfirmationDialog {
         cleanup();
         this.activeModal = null;
         resolve(false);
+      };
+
+      const cleanup = () => {
+        confirmBtn?.removeEventListener("click", handleConfirm);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
       };
 
       confirmBtn?.addEventListener("click", handleConfirm);
@@ -551,7 +549,7 @@ window.utils = {
 
       try {
         return JSON.parse(item);
-      } catch (e) {
+      } catch (_e) {
         return item;
       }
     } catch (error) {
