@@ -344,10 +344,6 @@ class NotificationManager {
 
     this.container.appendChild(notification);
 
-    if (this.config.animations) {
-      notification.offsetHeight;
-    }
-
     this.notifications.push(notification);
     this._trimNotifications();
 
@@ -549,7 +545,7 @@ window.utils = {
 
       try {
         return JSON.parse(item);
-      } catch (_e) {
+      } catch /* (_e) removed */ {
         return item;
       }
     } catch (error) {
