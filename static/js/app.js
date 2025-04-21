@@ -846,10 +846,12 @@
     const isMatched = !!feature.properties.matchedTripId;
     return `
       <div class="trip-actions" data-trip-id="${tripId}">
-        ${isMatched
-          ? `<button class="btn btn-sm btn-danger delete-matched-trip">Delete Matched Trip</button>
+        ${
+          isMatched
+            ? `<button class="btn btn-sm btn-danger delete-matched-trip">Delete Matched Trip</button>
              <button class="btn btn-sm btn-warning rematch-trip">Re-match Trip</button>`
-          : `<button class="btn btn-sm btn-danger delete-trip">Delete Trip</button>`}
+            : `<button class="btn btn-sm btn-danger delete-trip">Delete Trip</button>`
+        }
       </div>
     `;
   }
@@ -857,24 +859,37 @@
   function createTripPopupContent(feature, layerName) {
     const props = feature.properties;
     // Defensive: support both camelCase and snake_case
-    const get = (k, fallback = null) => props[k] ?? props[k.replace(/[A-Z]/g, m => '_' + m.toLowerCase())] ?? fallback;
+    const get = (k, fallback = null) =>
+      props[k] ??
+      props[k.replace(/[A-Z]/g, (m) => "_" + m.toLowerCase())] ??
+      fallback;
     const formatValue = (value, unit = "") =>
-      value !== undefined && value !== null && value !== "" ? `${value}${unit}` : "N/A";
+      value !== undefined && value !== null && value !== ""
+        ? `${value}${unit}`
+        : "N/A";
     const formatDate = (date) =>
-      date ? DateUtils.formatForDisplay(date, { dateStyle: "medium", timeStyle: "short" }) : "N/A";
+      date
+        ? DateUtils.formatForDisplay(date, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })
+        : "N/A";
     const formatSpeed = (speed) => {
       if (speed === undefined || speed === null) return "N/A";
       return `${parseFloat(speed).toFixed(1)} mph`;
     };
     const formatDuration = (durationSeconds) => {
-      if (durationSeconds === undefined || durationSeconds === null) return "N/A";
+      if (durationSeconds === undefined || durationSeconds === null)
+        return "N/A";
       return DateUtils.formatDuration(durationSeconds * 1000);
     };
     const formatSeconds = (seconds) => DateUtils.formatSecondsToHMS(seconds);
     const distance = parseFloat(get("distance", 0));
     const startOdometer = get("startOdometer");
     const endOdometer = get("endOdometer");
-    const pointsRecorded = get("pointsRecorded") ?? (props.coordinates?.length || props.points?.length || 0);
+    const pointsRecorded =
+      get("pointsRecorded") ??
+      (props.coordinates?.length || props.points?.length || 0);
     const totalIdlingTime = get("totalIdlingTime");
     const hardBrakingCounts = get("hardBrakingCounts");
     const hardAccelerationCounts = get("hardAccelerationCounts");
@@ -889,16 +904,36 @@
       ["End Time", formatDate(get("endTime"))],
       ["Duration", formatDuration(get("duration"))],
       ["Distance", `${distance.toFixed(2)} mi`],
-      ["Start Odometer", formatValue(startOdometer, startOdometer !== undefined && startOdometer !== null ? " mi" : "")],
-      ["End Odometer", formatValue(endOdometer, endOdometer !== undefined && endOdometer !== null ? " mi" : "")],
+      [
+        "Start Odometer",
+        formatValue(
+          startOdometer,
+          startOdometer !== undefined && startOdometer !== null ? " mi" : "",
+        ),
+      ],
+      [
+        "End Odometer",
+        formatValue(
+          endOdometer,
+          endOdometer !== undefined && endOdometer !== null ? " mi" : "",
+        ),
+      ],
       ["Current Speed", formatSpeed(get("currentSpeed"))],
       ["Average Speed", formatSpeed(get("avgSpeed") ?? get("averageSpeed"))],
       ["Max Speed", formatSpeed(get("maxSpeed"))],
       ["Points Recorded", pointsRecorded],
-      ["Total Idling Time", totalIdlingTime !== undefined ? formatSeconds(totalIdlingTime) : "N/A"],
+      [
+        "Total Idling Time",
+        totalIdlingTime !== undefined ? formatSeconds(totalIdlingTime) : "N/A",
+      ],
       ["Hard Braking", hardBrakingCounts],
       ["Hard Acceleration", hardAccelerationCounts],
-      ["Fuel Consumed", fuelConsumed !== undefined ? `${parseFloat(fuelConsumed).toFixed(2)} gal` : "N/A"],
+      [
+        "Fuel Consumed",
+        fuelConsumed !== undefined
+          ? `${parseFloat(fuelConsumed).toFixed(2)} gal`
+          : "N/A",
+      ],
       ["Last Update", lastUpdate ? DateUtils.formatTimeAgo(lastUpdate) : "N/A"],
       ["Closed Reason", get("closed_reason")],
     ];
@@ -908,8 +943,14 @@
         <table class="popup-data">
           <tbody>
             ${metrics
-              .filter(([label, value]) => value !== undefined && value !== null && value !== "")
-              .map(([label, value]) => `<tr><th>${label}</th><td>${value}</td></tr>`)
+              .filter(
+                ([label, value]) =>
+                  value !== undefined && value !== null && value !== "",
+              )
+              .map(
+                ([label, value]) =>
+                  `<tr><th>${label}</th><td>${value}</td></tr>`,
+              )
               .join("")}
           </tbody>
         </table>
