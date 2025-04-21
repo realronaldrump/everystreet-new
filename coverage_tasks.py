@@ -499,5 +499,5 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
             )
     finally:
         logger.info(
-            f"Task {task_id} orchestration for {display_name} finished with final status: {overall_status}"
+            "Task %s orchestration for %s finished with final status: %s", task_id, display_name, overall_status
         )
