@@ -845,10 +845,12 @@
     const isMatched = !!feature.properties.matchedTripId;
     return `
       <div class="trip-actions" data-trip-id="${tripId}">
-        ${isMatched
-          ? `<button class="btn btn-sm btn-danger delete-matched-trip">Delete Matched Trip</button>
+        ${
+          isMatched
+            ? `<button class="btn btn-sm btn-danger delete-matched-trip">Delete Matched Trip</button>
              <button class="btn btn-sm btn-warning rematch-trip">Re-match Trip</button>`
-          : `<button class="btn btn-sm btn-danger delete-trip">Delete Trip</button>`}
+            : `<button class="btn btn-sm btn-danger delete-trip">Delete Trip</button>`
+        }
       </div>
     `;
   }
@@ -860,7 +862,10 @@
 
     const formatDate = (date) =>
       date
-        ? DateUtils.formatForDisplay(date, { dateStyle: "medium", timeStyle: "short" })
+        ? DateUtils.formatForDisplay(date, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })
         : "N/A";
 
     const formatSpeed = (speed) => {
