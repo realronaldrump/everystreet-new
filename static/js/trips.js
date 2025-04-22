@@ -1,4 +1,4 @@
-/* global L, flatpickr, notificationManager, bootstrap, DateUtils, EveryStreet, confirmationDialog, $ */
+/* global DateUtils, confirmationDialog, $ */
 
 "use strict";
 

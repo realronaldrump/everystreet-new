@@ -590,14 +590,14 @@ async def get_background_tasks_config():
             if enabled and interval and interval > 0 and last_run:
                 try:
                     if isinstance(last_run, str):
-                        last_run_dt = datetime.datetime.fromisoformat(
+                        last_run_dt = datetime.fromisoformat(
                             last_run.replace("Z", "+00:00")
                         )
                     else:
                         last_run_dt = last_run
                     if last_run_dt.tzinfo is None:
-                        last_run_dt = last_run_dt.replace(tzinfo=datetime.UTC)
-                    next_run_dt = last_run_dt + datetime.timedelta(
+                        last_run_dt = last_run_dt.replace(tzinfo=timezone)
+                    next_run_dt = last_run_dt + timedelta(
                         minutes=interval
                     )
                     next_run = next_run_dt.isoformat()
