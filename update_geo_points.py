@@ -43,6 +43,7 @@ async def update_geo_points(
 
     Returns:
         int: Number of documents updated
+
     """
     logger.info(
         "Starting GeoPoint update for collection: %s",
@@ -56,7 +57,7 @@ async def update_geo_points(
             "$or": [
                 {"startGeoPoint": {"$exists": False}},
                 {"destinationGeoPoint": {"$exists": False}},
-            ]
+            ],
         }
 
         async def get_count():
@@ -134,7 +135,7 @@ async def update_geo_points(
                                     UpdateOne(
                                         {"_id": doc["_id"]},
                                         {"$set": update_fields},
-                                    )
+                                    ),
                                 )
 
                         except Exception as e:
@@ -150,7 +151,7 @@ async def update_geo_points(
 
                             async def execute_bulk():
                                 result = await collection.bulk_write(
-                                    batch_updates
+                                    batch_updates,
                                 )
                                 return result.modified_count
 
@@ -188,7 +189,7 @@ async def update_geo_points(
 
         async def get_cursor():
             return collection.find(query, no_cursor_timeout=True).batch_size(
-                batch_size
+                batch_size,
             )
 
         cursor = await db_manager.execute_with_retry(
@@ -208,13 +209,13 @@ async def update_geo_points(
                         process_batch(
                             current_batch.copy(),
                             batch_num,
-                        )
+                        ),
                     )
                     current_batch = []
 
                     if len(batch_tasks) >= max_concurrent_batches * 2:
                         completed_batch_results = await asyncio.gather(
-                            *batch_tasks
+                            *batch_tasks,
                         )
                         updated_count += sum(completed_batch_results)
                         batch_tasks = []

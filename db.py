@@ -46,7 +46,8 @@ T = TypeVar("T")
 
 class DatabaseManager:
     """Singleton class to manage the MongoDB client, database connection, and
-    GridFS."""
+    GridFS.
+    """
 
     _instance: DatabaseManager | None = None
     _lock = threading.Lock()
@@ -83,25 +84,25 @@ class DatabaseManager:
                 os.getenv(
                     "MONGODB_CONNECTION_TIMEOUT_MS",
                     "5000",
-                )
+                ),
             )
             self._server_selection_timeout_ms = int(
                 os.getenv(
                     "MONGODB_SERVER_SELECTION_TIMEOUT_MS",
                     "10000",
-                )
+                ),
             )
             self._socket_timeout_ms = int(
                 os.getenv(
                     "MONGODB_SOCKET_TIMEOUT_MS",
                     "30000",
-                )
+                ),
             )
             self._max_retry_attempts = int(
                 os.getenv(
                     "MONGODB_MAX_RETRY_ATTEMPTS",
                     "5",
-                )
+                ),
             )
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
 
@@ -156,7 +157,7 @@ class DatabaseManager:
             self._initialize_client()
         if self._db is None:
             raise ConnectionFailure(
-                "Database instance could not be initialized."
+                "Database instance could not be initialized.",
             )
         return self._db
 
@@ -177,7 +178,7 @@ class DatabaseManager:
         db_instance = self.db
         if self._gridfs_bucket_instance is None:
             self._gridfs_bucket_instance = AsyncIOMotorGridFSBucket(
-                db_instance
+                db_instance,
             )
         return self._gridfs_bucket_instance
 
@@ -194,6 +195,7 @@ class DatabaseManager:
 
         Returns:
             MongoDB collection
+
         """
         if (
             collection_name not in self._collections
@@ -220,6 +222,7 @@ class DatabaseManager:
 
         Raises:
             Exception: If operation fails after all attempts
+
         """
         if max_attempts is None:
             max_attempts = self._max_retry_attempts
@@ -266,14 +269,14 @@ class DatabaseManager:
                         str(e),
                     )
                     raise ConnectionFailure(
-                        f"Failed to connect after {max_attempts} attempts for {operation_name}"
+                        f"Failed to connect after {max_attempts} attempts for {operation_name}",
                     ) from e
 
                 await asyncio.sleep(retry_delay)
 
             except OperationFailure as e:
                 is_transient = e.has_error_label(
-                    "TransientTransactionError"
+                    "TransientTransactionError",
                 ) or e.code in [
                     11600,
                     11602,
@@ -315,7 +318,7 @@ class DatabaseManager:
                 raise
 
         raise RuntimeError(
-            f"All {max_attempts} retry attempts failed for {operation_name}"
+            f"All {max_attempts} retry attempts failed for {operation_name}",
         )
 
     async def check_quota(
@@ -325,6 +328,7 @@ class DatabaseManager:
 
         Returns:
             Tuple of (used_mb, limit_mb) or (None, None) on error
+
         """
         try:
 
@@ -364,6 +368,7 @@ class DatabaseManager:
 
         Returns:
             Name of the created index or None
+
         """
         if self._quota_exceeded:
             logger.warning(
@@ -378,7 +383,7 @@ class DatabaseManager:
             existing_indexes = await collection.index_information()
 
             keys_tuple = tuple(
-                sorted(list(keys) if isinstance(keys, list) else [(keys, 1)])
+                sorted(list(keys) if isinstance(keys, list) else [(keys, 1)]),
             )
 
             for (
@@ -431,15 +436,15 @@ class DatabaseManager:
                 existing_indexes_info = await collection.index_information()
                 keys_tuple_check = tuple(
                     sorted(
-                        list(keys) if isinstance(keys, list) else [(keys, 1)]
-                    )
+                        list(keys) if isinstance(keys, list) else [(keys, 1)],
+                    ),
                 )
                 for (
                     idx_name,
                     idx_info,
                 ) in existing_indexes_info.items():
                     idx_keys_check = tuple(
-                        sorted(list(idx_info.get("key", [])))
+                        sorted(list(idx_info.get("key", []))),
                     )
                     if idx_keys_check == keys_tuple_check:
                         return idx_name
@@ -487,7 +492,8 @@ class DatabaseManager:
 
     def __del__(self) -> None:
         """Ensure connections are closed when the manager is garbage
-        collected."""
+        collected.
+        """
         if hasattr(self, "_client") and self._client:
             try:
                 self._client.close()
@@ -557,7 +563,7 @@ def post_process_deserialize(obj):
                     )
                 if isinstance(date_val, str):
                     dt = datetime.fromisoformat(
-                        date_val.replace("Z", "+00:00")
+                        date_val.replace("Z", "+00:00"),
                     )
                     if dt.tzinfo is None:
                         dt = dt.astimezone(timezone.utc)
@@ -572,13 +578,12 @@ def post_process_deserialize(obj):
                         date_val,
                         tz=timezone.utc,
                     )
-                else:
-                    logger.warning(
-                        "Unexpected value type within $date dict: %s - Value: %s",
-                        type(date_val),
-                        date_val,
-                    )
-                    return obj
+                logger.warning(
+                    "Unexpected value type within $date dict: %s - Value: %s",
+                    type(date_val),
+                    date_val,
+                )
+                return obj
             except (
                 ValueError,
                 TypeError,
@@ -612,6 +617,7 @@ class SerializationHelper:
 
         Returns:
             ISO formatted string or None
+
         """
         if dt is None:
             return None
@@ -632,6 +638,7 @@ class SerializationHelper:
 
         Returns:
             Dictionary with standard Python types (datetime, str for ObjectId).
+
         """
         if not doc:
             return {}
@@ -678,6 +685,7 @@ class SerializationHelper:
 
         Returns:
             JSON serializable trip dictionary
+
         """
         return SerializationHelper.serialize_document(trip)
 
@@ -697,8 +705,8 @@ async def batch_cursor(
 
     Yields:
         Lists of documents, batch_size at a time
-    """
 
+    """
     batch = []
     try:
         async for document in cursor:
@@ -727,6 +735,7 @@ def parse_query_date(
 
     Returns:
         Timezone-aware UTC datetime object or None if parsing fails
+
     """
     if not date_str:
         return None
@@ -784,6 +793,7 @@ class DateFilter:
             start_date: Start of date range (UTC)
             end_date: End of date range (UTC)
             field_name: Field name to filter on
+
         """
         self.start_date = start_date
         self.end_date = end_date
@@ -794,6 +804,7 @@ class DateFilter:
 
         Returns:
             MongoDB query dictionary
+
         """
         query = {}
         date_query = {}
@@ -826,6 +837,7 @@ async def parse_date_params(
 
     Returns:
         DateFilter object
+
     """
     start_date_str = request.query_params.get(start_param)
     end_date_str = request.query_params.get(end_param)
@@ -854,6 +866,7 @@ async def build_query_from_request(
 
     Returns:
         MongoDB query filter
+
     """
     date_filter = await parse_date_params(
         request,
@@ -888,6 +901,7 @@ async def find_one_with_retry(
 
     Returns:
         Found document or None
+
     """
 
     async def _operation():
@@ -931,6 +945,7 @@ async def find_with_retry(
 
     Returns:
         List of documents
+
     """
 
     async def _operation():
@@ -971,6 +986,7 @@ async def update_one_with_retry(
 
     Returns:
         UpdateResult
+
     """
 
     async def _operation():
@@ -998,11 +1014,12 @@ async def update_many_with_retry(
 
     Returns:
         UpdateResult
+
     """
 
     async def _operation():
         return await collection.update_many(
-            filter_query, update, upsert=upsert
+            filter_query, update, upsert=upsert,
         )
 
     return await db_manager.execute_with_retry(
@@ -1023,6 +1040,7 @@ async def insert_one_with_retry(
 
     Returns:
         InsertOneResult
+
     """
 
     async def _operation():
@@ -1046,6 +1064,7 @@ async def delete_one_with_retry(
 
     Returns:
         DeleteResult
+
     """
 
     async def _operation():
@@ -1069,6 +1088,7 @@ async def delete_many_with_retry(
 
     Returns:
         DeleteResult
+
     """
 
     async def _operation():
@@ -1096,6 +1116,7 @@ async def aggregate_with_retry(
 
     Returns:
         List of documents
+
     """
 
     async def _operation():
@@ -1125,6 +1146,7 @@ async def count_documents_with_retry(
 
     Returns:
         Document count
+
     """
 
     async def _operation():
@@ -1150,6 +1172,7 @@ async def get_trip_by_id(
 
     Returns:
         Trip document or None
+
     """
     if collection is None:
         collection = trips_collection
@@ -1168,7 +1191,6 @@ async def get_trip_by_id(
                 trip_id,
                 e,
             )
-            pass
 
     return trip
 
@@ -1199,7 +1221,7 @@ async def init_task_history_collection() -> None:
             background=True,
         )
         logger.info(
-            "Task history collection indexes ensured/created successfully"
+            "Task history collection indexes ensured/created successfully",
         )
     except Exception as e:
         logger.error(
@@ -1219,7 +1241,7 @@ async def ensure_street_coverage_indexes() -> None:
                 (
                     "location.display_name",
                     pymongo.ASCENDING,
-                )
+                ),
             ],
             name="coverage_metadata_display_name_idx",
             unique=True,
@@ -1244,7 +1266,7 @@ async def ensure_street_coverage_indexes() -> None:
                 (
                     "properties.location",
                     pymongo.ASCENDING,
-                )
+                ),
             ],
             name="streets_properties_location_idx",
             background=True,
@@ -1255,7 +1277,7 @@ async def ensure_street_coverage_indexes() -> None:
                 (
                     "properties.segment_id",
                     pymongo.ASCENDING,
-                )
+                ),
             ],
             name="streets_properties_segment_id_idx",
             background=True,
@@ -1338,7 +1360,7 @@ async def ensure_location_indexes() -> None:
                     (
                         "startLocation.address_components.city",
                         1,
-                    )
+                    ),
                 ],
                 name=f"{collection_name}_start_city_idx",
                 background=True,
@@ -1350,7 +1372,7 @@ async def ensure_location_indexes() -> None:
                     (
                         "destination.address_components.city",
                         1,
-                    )
+                    ),
                 ],
                 name=f"{collection_name}_dest_city_idx",
                 background=True,
@@ -1363,7 +1385,7 @@ async def ensure_location_indexes() -> None:
                     (
                         "startLocation.address_components.state",
                         1,
-                    )
+                    ),
                 ],
                 name=f"{collection_name}_start_state_idx",
                 background=True,
@@ -1375,7 +1397,7 @@ async def ensure_location_indexes() -> None:
                     (
                         "destination.address_components.state",
                         1,
-                    )
+                    ),
                 ],
                 name=f"{collection_name}_dest_state_idx",
                 background=True,
@@ -1394,8 +1416,7 @@ async def run_transaction(
     operations: list[Callable[[], Awaitable[Any]]],
     max_retries: int = 3,
 ) -> bool:
-    """
-    Run a series of operations within a MongoDB transaction with retry logic for
+    """Run a series of operations within a MongoDB transaction with retry logic for
     write conflicts.
     Note: Requires replica set or sharded cluster. Standalone instances do not support
     transactions.
@@ -1406,6 +1427,7 @@ async def run_transaction(
 
     Returns:
         True if transaction succeeded, False otherwise
+
     """
     client = db_manager.client
     session = None
@@ -1450,14 +1472,13 @@ async def run_transaction(
                 )
                 await asyncio.sleep(wait_time)
                 continue
-            else:
-                logger.error(
-                    "Transaction failed after %d attempts: %s",
-                    retry_count + 1,
-                    str(e),
-                    exc_info=True,
-                )
-                return False
+            logger.error(
+                "Transaction failed after %d attempts: %s",
+                retry_count + 1,
+                str(e),
+                exc_info=True,
+            )
+            return False
         except Exception as e:
             logger.error(
                 "Unexpected error during transaction: %s",

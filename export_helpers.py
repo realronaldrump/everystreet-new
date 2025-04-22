@@ -31,6 +31,7 @@ def default_serializer(obj: Any) -> str:
 
     Returns:
         str: String representation of the object
+
     """
     if isinstance(obj, datetime):
         return obj.isoformat()
@@ -49,6 +50,7 @@ async def create_geojson(
 
     Returns:
         str: A GeoJSON string representing the trips
+
     """
     features = []
 
@@ -122,6 +124,7 @@ async def create_gpx(
 
     Returns:
         str: A GPX XML string representing the trips
+
     """
     gpx = gpxpy.gpx.GPX()
     trip_count = 0
@@ -168,7 +171,7 @@ async def create_gpx(
                             coord[1],
                         )
                         segment.points.append(
-                            gpxpy.gpx.GPXTrackPoint(lat, lon)
+                            gpxpy.gpx.GPXTrackPoint(lat, lon),
                         )
             elif gps_data.get("type") == "Point":
                 coords = gps_data.get("coordinates", [])
@@ -205,7 +208,7 @@ async def create_gpx(
 
 
 async def create_shapefile(
-    geojson_data: dict[str, Any], output_name: str
+    geojson_data: dict[str, Any], output_name: str,
 ) -> io.BytesIO:
     """Convert GeoJSON data to a shapefile ZIP archive.
 
@@ -215,6 +218,7 @@ async def create_shapefile(
 
     Returns:
         io.BytesIO: Buffer containing the zipped shapefile
+
     """
     try:
         gdf = gpd.GeoDataFrame.from_features(geojson_data["features"])
@@ -251,6 +255,7 @@ async def export_geojson_response(data, filename: str) -> StreamingResponse:
 
     Returns:
         StreamingResponse: Formatted response with GeoJSON content
+
     """
     if isinstance(data, list):
         content = await create_geojson(data)
@@ -261,7 +266,7 @@ async def export_geojson_response(data, filename: str) -> StreamingResponse:
         io.BytesIO(content.encode()),
         media_type="application/geo+json",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}.geojson"'
+            "Content-Disposition": f'attachment; filename="{filename}.geojson"',
         },
     )
 
@@ -275,6 +280,7 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
 
     Returns:
         StreamingResponse: Formatted response with GPX content
+
     """
     if isinstance(data, list):
         content = await create_gpx(data)
@@ -284,16 +290,16 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
             trips.append(
                 {
                     "transactionId": feature.get("properties", {}).get(
-                        "id", "unknown"
+                        "id", "unknown",
                     ),
                     "gps": feature.get("geometry"),
                     "startLocation": feature.get("properties", {}).get(
-                        "startLocation"
+                        "startLocation",
                     ),
                     "destination": feature.get("properties", {}).get(
-                        "destination"
+                        "destination",
                     ),
-                }
+                },
             )
         content = await create_gpx(trips)
 
@@ -301,13 +307,13 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
         io.BytesIO(content.encode()),
         media_type="application/gpx+xml",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}.gpx"'
+            "Content-Disposition": f'attachment; filename="{filename}.gpx"',
         },
     )
 
 
 async def export_shapefile_response(
-    geojson_data, filename: str
+    geojson_data, filename: str,
 ) -> StreamingResponse:
     """Create a StreamingResponse with Shapefile content (ZIP).
 
@@ -317,6 +323,7 @@ async def export_shapefile_response(
 
     Returns:
         StreamingResponse: Formatted response with zipped shapefile content
+
     """
     buffer = await create_shapefile(geojson_data, filename)
 
@@ -324,7 +331,7 @@ async def export_shapefile_response(
         buffer,
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}.zip"'
+            "Content-Disposition": f'attachment; filename="{filename}.zip"',
         },
     )
 
@@ -347,6 +354,7 @@ async def create_export_response(
 
     Returns:
         StreamingResponse: Response with appropriate content and headers
+
     """
     fmt = fmt.lower()
 
@@ -372,7 +380,7 @@ async def create_export_response(
             io.BytesIO(content.encode()),
             media_type="application/json",
             headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.json"'
+                "Content-Disposition": f'attachment; filename="{filename_base}.json"',
             },
         )
     if fmt == "csv":
@@ -405,7 +413,7 @@ async def create_export_response(
             output,
             media_type="text/csv",
             headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.csv"'
+                "Content-Disposition": f'attachment; filename="{filename_base}.csv"',
             },
         )
     raise ValueError(f"Unsupported export format: {fmt}")
@@ -422,6 +430,7 @@ def extract_date_range_string(
 
     Returns:
         str: Formatted date range string (YYYYMMDD-YYYYMMDD)
+
     """
     start_date = (
         query["startTime"].get("$gte")
@@ -449,6 +458,7 @@ def get_location_filename(
 
     Returns:
         str: Safe filename string
+
     """
     return (
         location.get("display_name", "")
@@ -476,6 +486,7 @@ async def process_trip_for_export(
 
     Returns:
         Dict: Processed trip with only the requested fields
+
     """
     result = {}
 
@@ -583,6 +594,7 @@ async def create_csv_export(
 
     Returns:
         str: CSV data as a string
+
     """
     if not trips:
         return "No data to export"
@@ -691,31 +703,31 @@ async def create_csv_export(
 
             if isinstance(start_loc, dict):
                 flat_trip["startLocation_formatted_address"] = start_loc.get(
-                    "formatted_address", ""
+                    "formatted_address", "",
                 )
 
                 addr_comps = start_loc.get("address_components", {})
                 if isinstance(addr_comps, dict):
                     flat_trip["startLocation_street_number"] = addr_comps.get(
-                        "street_number", ""
+                        "street_number", "",
                     )
                     flat_trip["startLocation_street"] = addr_comps.get(
-                        "street", ""
+                        "street", "",
                     )
                     flat_trip["startLocation_city"] = addr_comps.get(
-                        "city", ""
+                        "city", "",
                     )
                     flat_trip["startLocation_county"] = addr_comps.get(
-                        "county", ""
+                        "county", "",
                     )
                     flat_trip["startLocation_state"] = addr_comps.get(
-                        "state", ""
+                        "state", "",
                     )
                     flat_trip["startLocation_postal_code"] = addr_comps.get(
-                        "postal_code", ""
+                        "postal_code", "",
                     )
                     flat_trip["startLocation_country"] = addr_comps.get(
-                        "country", ""
+                        "country", "",
                     )
 
                 coords = start_loc.get("coordinates", {})
@@ -732,29 +744,29 @@ async def create_csv_export(
 
             if isinstance(dest, dict):
                 flat_trip["destination_formatted_address"] = dest.get(
-                    "formatted_address", ""
+                    "formatted_address", "",
                 )
 
                 addr_comps = dest.get("address_components", {})
                 if isinstance(addr_comps, dict):
                     flat_trip["destination_street_number"] = addr_comps.get(
-                        "street_number", ""
+                        "street_number", "",
                     )
                     flat_trip["destination_street"] = addr_comps.get(
-                        "street", ""
+                        "street", "",
                     )
                     flat_trip["destination_city"] = addr_comps.get("city", "")
                     flat_trip["destination_county"] = addr_comps.get(
-                        "county", ""
+                        "county", "",
                     )
                     flat_trip["destination_state"] = addr_comps.get(
-                        "state", ""
+                        "state", "",
                     )
                     flat_trip["destination_postal_code"] = addr_comps.get(
-                        "postal_code", ""
+                        "postal_code", "",
                     )
                     flat_trip["destination_country"] = addr_comps.get(
-                        "country", ""
+                        "country", "",
                     )
 
                 coords = dest.get("coordinates", {})

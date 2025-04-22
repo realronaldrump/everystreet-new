@@ -80,13 +80,12 @@ max_worker_memory = 512 * 1024 * 1024
 def on_starting(server):
     """Log when server starts."""
     logging.getLogger("gunicorn.error").info(
-        f"Starting Gunicorn with {workers} workers, timeout {timeout}s"
+        f"Starting Gunicorn with {workers} workers, timeout {timeout}s",
     )
 
 
 def post_fork(server, worker):
     """Post-fork actions."""
-    pass
 
 
 def on_exit(server):
@@ -97,7 +96,7 @@ def on_exit(server):
 def worker_abort(worker):
     """Log worker timeouts."""
     logging.getLogger("gunicorn.error").warning(
-        f"Worker {worker.pid} was aborted due to timeout or memory limits"
+        f"Worker {worker.pid} was aborted due to timeout or memory limits",
     )
 
 

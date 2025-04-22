@@ -90,8 +90,7 @@ def _build_osm_query(location: dict[str, Any]) -> str:
 
 
 def get_dynamic_utm_crs(latitude: float, longitude: float) -> pyproj.CRS:
-    """
-    Determines the appropriate UTM or UPS CRS for a given latitude and longitude.
+    """Determines the appropriate UTM or UPS CRS for a given latitude and longitude.
 
     Args:
         latitude: Latitude of the location's center.
@@ -100,6 +99,7 @@ def get_dynamic_utm_crs(latitude: float, longitude: float) -> pyproj.CRS:
     Returns:
         A pyproj.CRS object representing the best UTM/UPS zone.
         Falls back to EPSG:32610 (UTM Zone 10N) if calculation fails.
+
     """
     fallback_crs_epsg = 32610
 
@@ -154,7 +154,8 @@ async def fetch_osm_data(query: str, timeout: int = 30) -> dict[str, Any]:
 
 def substring(line: LineString, start: float, end: float) -> LineString | None:
     """Return a sub-linestring from 'start' to 'end' along the line (UTM
-    coords)."""
+    coords).
+    """
     if (
         start < 0
         or end > line.length
@@ -210,9 +211,7 @@ def substring(line: LineString, start: float, end: float) -> LineString | None:
                 if (
                     segment_coords
                     and LineString([segment_coords[-1], p0]).length > 1e-6
-                ):
-                    segment_coords.append(p0)
-                elif not segment_coords:
+                ) or not segment_coords:
                     segment_coords.append(p0)
 
         if accumulated < end <= current_end_accum:
@@ -227,14 +226,14 @@ def substring(line: LineString, start: float, end: float) -> LineString | None:
                     [
                         segment_coords[-1],
                         end_point,
-                    ]
+                    ],
                 ).length
                 > 1e-6
             ):
                 segment_coords.append(end_point)
             break
 
-        elif start <= accumulated and current_end_accum <= end:
+        if start <= accumulated and current_end_accum <= end:
             if (
                 not segment_coords
                 or LineString([segment_coords[-1], p1]).length > 1e-6
@@ -249,7 +248,7 @@ def substring(line: LineString, start: float, end: float) -> LineString | None:
                 [
                     segment_coords[0],
                     segment_coords[-1],
-                ]
+                ],
             ).length
             < 1e-6
             and len(segment_coords) == 2
@@ -272,7 +271,8 @@ def segment_street(
     segment_length_meters: float = SEGMENT_LENGTH_METERS,
 ) -> list[LineString]:
     """Split a linestring (in UTM) into segments of approximately
-    segment_length_meters."""
+    segment_length_meters.
+    """
     segments = []
     total_length = line.length
     if total_length <= segment_length_meters + 1e-6:
@@ -421,7 +421,7 @@ async def process_osm_data(
                         "last_updated": datetime.now(timezone.utc),
                         "status": "completed",
                         "last_error": None,
-                    }
+                    },
                 },
                 upsert=True,
             )
@@ -473,7 +473,7 @@ async def process_osm_data(
                         total_segments_count += len(segment_features)
                         for feature in segment_features:
                             length = feature.get("properties", {}).get(
-                                "segment_length"
+                                "segment_length",
                             )
                             if isinstance(
                                 length,
@@ -486,7 +486,7 @@ async def process_osm_data(
                                         feature.get('properties', {}).get(
                                             'segment_id'
                                         )
-                                    } missing valid length."
+                                    } missing valid length.",
                                 )
 
                     if len(batch_to_insert) >= BATCH_SIZE:
@@ -522,7 +522,7 @@ async def process_osm_data(
                                         len(dup_keys)
                                     } duplicate segments during batch insert for {
                                         location_name
-                                    }."
+                                    }.",
                                 )
                             other_errors = [
                                 e
@@ -531,7 +531,7 @@ async def process_osm_data(
                             ]
                             if other_errors:
                                 logger.error(
-                                    f"Non-duplicate BulkWriteError inserting batch for {location_name}: {other_errors}"
+                                    f"Non-duplicate BulkWriteError inserting batch for {location_name}: {other_errors}",
                                 )
 
                             batch_to_insert = []
@@ -588,14 +588,14 @@ async def process_osm_data(
                                 len(dup_keys)
                             } duplicate segments during final batch insert for {
                                 location_name
-                            }."
+                            }.",
                         )
                     other_errors = [
                         e for e in write_errors if e.get("code") != 11000
                     ]
                     if other_errors:
                         logger.error(
-                            f"Non-duplicate BulkWriteError inserting final batch for {location_name}: {other_errors}"
+                            f"Non-duplicate BulkWriteError inserting final batch for {location_name}: {other_errors}",
                         )
                 except Exception as insert_err:
                     logger.error(
@@ -616,7 +616,7 @@ async def process_osm_data(
                         "last_updated": datetime.now(timezone.utc),
                         "status": "completed",
                         "last_error": None,
-                    }
+                    },
                 },
                 upsert=True,
             )
@@ -642,7 +642,7 @@ async def process_osm_data(
                         "last_updated": datetime.now(timezone.utc),
                         "status": "completed",
                         "last_error": "No segments generated after filtering",
-                    }
+                    },
                 },
                 upsert=True,
             )
@@ -660,9 +660,9 @@ async def process_osm_data(
             {
                 "$set": {
                     "status": "error",
-                    "last_error": f"Preprocessing failed: {str(e)}",
+                    "last_error": f"Preprocessing failed: {e!s}",
                     "last_updated": datetime.now(timezone.utc),
-                }
+                },
             },
             upsert=True,
         )
@@ -672,8 +672,7 @@ async def process_osm_data(
 async def preprocess_streets(
     validated_location: dict[str, Any],
 ) -> None:
-    """
-    Preprocess street data for a validated location:
+    """Preprocess street data for a validated location:
     Fetch filtered OSM data (excluding non-drivable/private ways),
     determine appropriate UTM zone, segment streets, and update the database.
     """
@@ -705,12 +704,12 @@ async def preprocess_streets(
                     "$set": {
                         "status": "error",
                         "last_error": "Missing lat/lon for UTM calculation",
-                    }
+                    },
                 },
                 upsert=True,
             )
             raise ValueError(
-                f"Location {location_name} lacks lat/lon for dynamic UTM."
+                f"Location {location_name} lacks lat/lon for dynamic UTM.",
             )
 
         dynamic_utm_crs = get_dynamic_utm_crs(center_lat, center_lon)
@@ -797,7 +796,7 @@ async def preprocess_streets(
                     "$set": {
                         "status": "error",
                         "last_error": "Timeout fetching OSM data",
-                    }
+                    },
                 },
             )
             return
@@ -815,7 +814,7 @@ async def preprocess_streets(
                     "$set": {
                         "status": "error",
                         "last_error": f"OSM Fetch Error: {fetch_err}",
-                    }
+                    },
                 },
             )
             return
@@ -834,7 +833,7 @@ async def preprocess_streets(
                         "total_segments": 0,
                         "total_length": 0.0,
                         "last_error": None,
-                    }
+                    },
                 },
             )
             return
@@ -870,7 +869,7 @@ async def preprocess_streets(
                     "$set": {
                         "status": "error",
                         "last_error": "Timeout processing street data",
-                    }
+                    },
                 },
             )
             return
@@ -885,7 +884,7 @@ async def preprocess_streets(
 
     except Exception as e:
         location_name_safe = validated_location.get(
-            "display_name", "Unknown Location"
+            "display_name", "Unknown Location",
         )
         logger.error(
             "Unhandled error during street preprocessing orchestration for %s: %s",
@@ -899,9 +898,9 @@ async def preprocess_streets(
             {
                 "$set": {
                     "status": "error",
-                    "last_error": f"Unexpected preprocessing error: {str(e)}",
+                    "last_error": f"Unexpected preprocessing error: {e!s}",
                     "last_updated": datetime.now(timezone.utc),
-                }
+                },
             },
             upsert=True,
         )

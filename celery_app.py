@@ -46,7 +46,7 @@ if not REDIS_URL:
         raise ValueError(
             "REDIS_URL environment variable is not set and cannot be constructed! "
             "This is required for Celery to connect to Redis broker. "
-            "Please configure REDIS_URL in your environment (e.g., Railway)."
+            "Please configure REDIS_URL in your environment (e.g., Railway).",
         )
 
 logger.info(
@@ -193,7 +193,7 @@ def worker_shutdown_handler(**kwargs):
 @signals.beat_init.connect
 def beat_init_handler(**kwargs):
     logger.info(
-        "Celery beat scheduler initialized and started (running scheduler task)."
+        "Celery beat scheduler initialized and started (running scheduler task).",
     )
 
 
@@ -218,23 +218,23 @@ def init_worker(**kwargs):
         _ = db_manager.db
         if not db_manager.connection_healthy:
             logger.warning(
-                "DB Manager connection unhealthy, attempting re-init."
+                "DB Manager connection unhealthy, attempting re-init.",
             )
             db_manager.ensure_connection()
             if not db_manager.connection_healthy:
                 raise ConnectionFailure(
-                    "DB Manager failed to establish connection in worker."
+                    "DB Manager failed to establish connection in worker.",
                 )
         logger.info("DatabaseManager connection verified for worker.")
 
         logger.info(
-            "Initializing live_tracking global collections for worker..."
+            "Initializing live_tracking global collections for worker...",
         )
         live_collection = db_manager.get_collection("live_trips")
         archive_collection = db_manager.get_collection("archived_live_trips")
         if live_collection is None or archive_collection is None:
             raise ConnectionFailure(
-                "Failed to get live/archive collections from db_manager even though connection seems healthy."
+                "Failed to get live/archive collections from db_manager even though connection seems healthy.",
             )
         initialize_live_tracking_db(live_collection, archive_collection)
         logger.info("live_tracking global collections initialized for worker.")
@@ -247,5 +247,5 @@ def init_worker(**kwargs):
             exc_info=True,
         )
         raise RuntimeError(
-            f"Worker initialization failed critically: {e}"
+            f"Worker initialization failed critically: {e}",
         ) from e

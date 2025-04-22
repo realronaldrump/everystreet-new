@@ -36,8 +36,7 @@ logger = logging.getLogger(__name__)
 def collect_street_type_stats(
     features: list[dict],
 ) -> list[dict[str, Any]]:
-    """
-    Collect statistics about street types and their coverage from GeoJSON features.
+    """Collect statistics about street types and their coverage from GeoJSON features.
 
     NOTE: This function may be less efficient than the aggregation logic within
           the primary coverage calculation. It's primarily useful for ad-hoc analysis
@@ -51,6 +50,7 @@ def collect_street_type_stats(
     Returns:
         List of dictionaries with statistics for each street type,
         sorted by length desc.
+
     """
     street_types = defaultdict(
         lambda: {
@@ -60,7 +60,7 @@ def collect_street_type_stats(
             "covered_length": 0.0,
             "undriveable_length": 0.0,
             "driveable_length": 0.0,
-        }
+        },
     )
 
     for feature in features:
@@ -101,7 +101,7 @@ def collect_street_type_stats(
                 "driveable_length_m": round(stats["driveable_length"], 2),
                 "undriveable_length_m": round(stats["undriveable_length"], 2),
                 "coverage_percentage": round(coverage_pct, 2),
-            }
+            },
         )
 
     result.sort(
@@ -112,7 +112,7 @@ def collect_street_type_stats(
 
 
 async def process_coverage_calculation(
-    location: dict[str, Any], task_id: str
+    location: dict[str, Any], task_id: str,
 ) -> None:
     """Orchestrates the full coverage calculation process in the background.
 
@@ -123,6 +123,7 @@ async def process_coverage_calculation(
     Args:
         location: Dictionary with location data (e.g., display_name, osm_id).
         task_id: Unique identifier for tracking this specific task run.
+
     """
     display_name = location.get("display_name", "Unknown Location")
     logger.info(
@@ -141,7 +142,7 @@ async def process_coverage_calculation(
                     "updated_at": datetime.now(timezone.utc),
                     "location": display_name,
                     "status": "processing",
-                }
+                },
             },
             upsert=True,
         )
@@ -171,7 +172,7 @@ async def process_coverage_calculation(
     except Exception as e:
         error_msg = f"Unhandled error in coverage task orchestration {
             task_id
-        } for {display_name}: {str(e)}"
+        } for {display_name}: {e!s}"
         logger.exception(error_msg)
 
         try:
@@ -183,7 +184,7 @@ async def process_coverage_calculation(
                         "status": "error",
                         "last_error": f"Orchestration Error: {str(e)[:200]}",
                         "last_updated": datetime.now(timezone.utc),
-                    }
+                    },
                 },
                 upsert=True,
             )
@@ -197,7 +198,7 @@ async def process_coverage_calculation(
                         "error": str(e)[:200],
                         "updated_at": datetime.now(timezone.utc),
                         "status": "error",
-                    }
+                    },
                 },
             )
         except Exception as inner_e:
@@ -209,7 +210,7 @@ async def process_coverage_calculation(
 
 
 async def process_incremental_coverage_calculation(
-    location: dict[str, Any], task_id: str
+    location: dict[str, Any], task_id: str,
 ) -> None:
     """Orchestrates the incremental coverage calculation process.
 
@@ -219,6 +220,7 @@ async def process_incremental_coverage_calculation(
     Args:
         location: Dictionary with location data (must include display_name).
         task_id: Unique identifier for tracking this specific task run.
+
     """
     display_name = location.get("display_name", "Unknown Location")
     logger.info(
@@ -237,7 +239,7 @@ async def process_incremental_coverage_calculation(
                     "updated_at": datetime.now(timezone.utc),
                     "location": display_name,
                     "status": "processing",
-                }
+                },
             },
             upsert=True,
         )
@@ -267,7 +269,7 @@ async def process_incremental_coverage_calculation(
     except Exception as e:
         error_msg = f"Unhandled error in incremental coverage task orchestration {
             task_id
-        } for {display_name}: {str(e)}"
+        } for {display_name}: {e!s}"
         logger.exception(error_msg)
 
         try:
@@ -279,7 +281,7 @@ async def process_incremental_coverage_calculation(
                         "status": "error",
                         "last_error": f"Orchestration Error: {str(e)[:200]}",
                         "last_updated": datetime.now(timezone.utc),
-                    }
+                    },
                 },
                 upsert=True,
             )
@@ -293,7 +295,7 @@ async def process_incremental_coverage_calculation(
                         "error": str(e)[:200],
                         "updated_at": datetime.now(timezone.utc),
                         "status": "error",
-                    }
+                    },
                 },
             )
         except Exception as inner_e:
@@ -305,8 +307,7 @@ async def process_incremental_coverage_calculation(
 
 
 async def process_area(location: dict[str, Any], task_id: str) -> None:
-    """
-    Orchestrates the processing of a full area: preprocess streets
+    """Orchestrates the processing of a full area: preprocess streets
     then calculate coverage.
 
     Manages progress updates and status throughout the combined process.
@@ -314,6 +315,7 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
     Args:
         location: Dictionary with location data.
         task_id: Unique identifier for tracking this combined task run.
+
     """
     display_name = location.get("display_name", "Unknown Location")
     logger.info(
@@ -334,7 +336,7 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
                     "updated_at": datetime.now(timezone.utc),
                     "location": display_name,
                     "status": "processing",
-                }
+                },
             },
             upsert=True,
         )
@@ -368,7 +370,7 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
                 "$set": {
                     "progress": 5,
                     "message": "Preprocessing streets (fetching OSM data)...",
-                }
+                },
             },
         )
         await async_preprocess_streets(location)
@@ -401,7 +403,7 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
                         "error": error_msg,
                         "updated_at": datetime.now(timezone.utc),
                         "status": "error",
-                    }
+                    },
                 },
             )
             return
@@ -425,11 +427,11 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
                     "progress": 25,
                     "message": "Starting coverage calculation...",
                     "updated_at": datetime.now(timezone.utc),
-                }
+                },
             },
         )
         calculation_result = await compute_coverage_for_location(
-            location, task_id
+            location, task_id,
         )
 
         if (
@@ -463,7 +465,7 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
         overall_status = "error"
         error_msg = f"Unhandled error during area processing task {
             task_id
-        } for {display_name}: {str(e)}"
+        } for {display_name}: {e!s}"
         logger.exception(error_msg)
 
         try:
@@ -475,7 +477,7 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
                         "status": "error",
                         "last_error": f"Area Processing Error: {str(e)[:200]}",
                         "last_updated": datetime.now(timezone.utc),
-                    }
+                    },
                 },
                 upsert=True,
             )
@@ -488,7 +490,7 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
                         "error": str(e)[:200],
                         "updated_at": datetime.now(timezone.utc),
                         "status": "error",
-                    }
+                    },
                 },
             )
         except Exception as inner_e:

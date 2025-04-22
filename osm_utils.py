@@ -34,7 +34,7 @@ EXCLUDED_HIGHWAY_TYPES_REGEX = (
 
 
 async def process_elements(
-    elements: list[dict], streets_only: bool
+    elements: list[dict], streets_only: bool,
 ) -> list[dict]:
     """Process OSM elements and convert them to GeoJSON features.
 
@@ -44,6 +44,7 @@ async def process_elements(
 
     Returns:
         List of GeoJSON features
+
     """
     features = []
     for e in elements:
@@ -67,27 +68,26 @@ async def process_elements(
                                 "type": "Feature",
                                 "geometry": line.__geo_interface__,
                                 "properties": properties,
-                            }
+                            },
+                        )
+                    elif coords[0] == coords[-1]:
+                        poly = Polygon(coords)
+                        features.append(
+                            {
+                                "type": "Feature",
+                                "geometry": poly.__geo_interface__,
+                                "properties": properties,
+                            },
                         )
                     else:
-                        if coords[0] == coords[-1]:
-                            poly = Polygon(coords)
-                            features.append(
-                                {
-                                    "type": "Feature",
-                                    "geometry": poly.__geo_interface__,
-                                    "properties": properties,
-                                }
-                            )
-                        else:
-                            line = LineString(coords)
-                            features.append(
-                                {
-                                    "type": "Feature",
-                                    "geometry": line.__geo_interface__,
-                                    "properties": properties,
-                                }
-                            )
+                        line = LineString(coords)
+                        features.append(
+                            {
+                                "type": "Feature",
+                                "geometry": line.__geo_interface__,
+                                "properties": properties,
+                            },
+                        )
                 except Exception as shape_error:
                     logger.warning(
                         "Error creating shape for way %s: %s",
@@ -119,6 +119,7 @@ async def generate_geojson_osm(
 
     Returns:
         Tuple of (GeoJSON data, error message)
+
     """
     try:
         if not (
@@ -149,7 +150,7 @@ async def generate_geojson_osm(
             out geom; // Output geometry
             """
             logger.info(
-                "Using Overpass query that excludes non-vehicular ways."
+                "Using Overpass query that excludes non-vehicular ways.",
             )
         else:
             query = f"""
@@ -177,7 +178,7 @@ async def generate_geojson_osm(
                 data = await response.json()
 
         features = await process_elements(
-            data.get("elements", []), streets_only
+            data.get("elements", []), streets_only,
         )
 
         if not features:
@@ -196,7 +197,7 @@ async def generate_geojson_osm(
             gdf = gdf.set_geometry(
                 gpd.GeoSeries.from_features(features, crs="EPSG:4326")[
                     "geometry"
-                ]
+                ],
             )
         elif "geometry" in gdf.columns:
             gdf = gdf.set_geometry("geometry")
@@ -225,7 +226,7 @@ async def generate_geojson_osm(
                             "$set": {
                                 "geojson": geojson_data,
                                 "updated_at": datetime.now(timezone.utc),
-                            }
+                            },
                         },
                     )
                     logger.info(
@@ -287,11 +288,11 @@ async def generate_geojson_osm(
         return None, error_detail
     except aiohttp.ClientError as client_err:
         error_detail = (
-            f"Error communicating with Overpass API: {str(client_err)}"
+            f"Error communicating with Overpass API: {client_err!s}"
         )
         logger.error(error_detail, exc_info=True)
         return None, error_detail
     except Exception as e:
-        error_detail = f"Unexpected error generating GeoJSON: {str(e)}"
+        error_detail = f"Unexpected error generating GeoJSON: {e!s}"
         logger.exception(error_detail)
         return None, error_detail

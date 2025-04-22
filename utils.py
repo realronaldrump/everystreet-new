@@ -118,7 +118,7 @@ def retry_async(
 
 @retry_async()
 async def validate_location_osm(
-    location: str, locationType: str
+    location: str, locationType: str,
 ) -> dict[str, Any] | None:
     """Validate a location using the OSM Nominatim search API."""
     params = {
@@ -202,7 +202,7 @@ def validate_trip_data(
 
 @retry_async(max_retries=3, retry_delay=2.0)
 async def reverse_geocode_nominatim(
-    lat: float, lon: float
+    lat: float, lon: float,
 ) -> dict[str, Any] | None:
     """Reverse geocode coordinates using OSM Nominatim."""
     url = "https://nominatim.openstreetmap.org/reverse"
@@ -227,12 +227,11 @@ async def reverse_geocode_nominatim(
                 status=429,
                 message=f"Rate limited. Retry after {retry_after}s",
             )
-        else:
-            logger.warning(
-                "Geocoding error: status code %d",
-                response.status,
-            )
-            return None
+        logger.warning(
+            "Geocoding error: status code %d",
+            response.status,
+        )
+        return None
 
 
 def haversine(
@@ -261,7 +260,7 @@ def haversine(
         radius = EARTH_RADIUS_KM
     else:
         raise ValueError(
-            "Invalid unit specified. Use 'meters', 'miles', or 'km'."
+            "Invalid unit specified. Use 'meters', 'miles', or 'km'.",
         )
 
     distance = radius * c
@@ -284,6 +283,7 @@ def calculate_distance(
 
     Returns:
         Total distance in miles
+
     """
     total_distance_meters = 0.0
     coords: list[list[float]] = (
@@ -324,8 +324,7 @@ def calculate_distance(
 def run_async_from_sync(
     coro: Coroutine[Any, Any, T],
 ) -> T:
-    """
-    Runs an async coroutine from a synchronous context, managing the event loop.
+    """Runs an async coroutine from a synchronous context, managing the event loop.
 
     This is crucial for calling async functions (like motor operations)
     from synchronous Celery tasks without encountering 'Event loop is closed' errors.
@@ -339,15 +338,16 @@ def run_async_from_sync(
 
     Returns:
         The result of the coroutine.
+
     """
     try:
         loop = asyncio.get_event_loop_policy().get_event_loop()
         logger.debug(
-            "Reusing existing event loop for sync-to-async execution."
+            "Reusing existing event loop for sync-to-async execution.",
         )
     except RuntimeError:
         logger.debug(
-            "No event loop found, creating a new one for sync-to-async execution."
+            "No event loop found, creating a new one for sync-to-async execution.",
         )
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

@@ -190,6 +190,7 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
     Args:
         trip: Trip data dictionary
         source: The source of the trip ('upload', 'upload_gpx', 'upload_geojson')
+
     """
     gps_data = trip.get("gps")
     if isinstance(gps_data, str):
@@ -227,6 +228,7 @@ async def process_geojson_trip(
 
     Returns:
         List of trip dictionaries, or None if processing failed
+
     """
     try:
         feats = geojson_data.get("features", [])
@@ -264,7 +266,7 @@ async def process_geojson_trip(
                     "distance": dist_miles,
                     "imei": "UPLOADED",
                     "source": "upload_geojson",
-                }
+                },
             )
         return trips
     except Exception:
@@ -372,7 +374,7 @@ async def database_management_page(
                         stats["size"] / (1024 * 1024),
                         2,
                     ),
-                }
+                },
             )
         return templates.TemplateResponse(
             "database_management.html",
@@ -399,7 +401,7 @@ async def database_management_page(
 async def app_settings_page(request: Request):
     """Render app settings page."""
     return templates.TemplateResponse(
-        "app_settings.html", {"request": request}
+        "app_settings.html", {"request": request},
     )
 
 
@@ -431,6 +433,7 @@ async def get_undriven_streets(
 
     Returns:
         GeoJSON with undriven streets features
+
     """
     location_name = "UNKNOWN"
     try:
@@ -472,7 +475,7 @@ async def get_undriven_streets(
                 content={
                     "type": "FeatureCollection",
                     "features": [],
-                }
+                },
             )
 
         features = []
@@ -488,7 +491,7 @@ async def get_undriven_streets(
             "features": features,
         }
         return JSONResponse(
-            content=json.loads(bson.json_util.dumps(content_to_return))
+            content=json.loads(bson.json_util.dumps(content_to_return)),
         )
 
     except HTTPException as http_exc:
@@ -569,7 +572,7 @@ async def get_background_tasks_config():
             task_config = config["tasks"][task_id]
 
             task_config["display_name"] = task_def.get(
-                "display_name", "Unknown Task"
+                "display_name", "Unknown Task",
             )
             task_config["description"] = task_def.get("description", "")
             task_config["priority"] = task_def.get(
@@ -591,7 +594,7 @@ async def get_background_tasks_config():
                 try:
                     if isinstance(last_run, str):
                         last_run_dt = datetime.fromisoformat(
-                            last_run.replace("Z", "+00:00")
+                            last_run.replace("Z", "+00:00"),
                         )
                     else:
                         last_run_dt = last_run
@@ -610,7 +613,7 @@ async def get_background_tasks_config():
                 "end_time",
                 "last_updated",
             ]:
-                if ts_field in task_config and task_config[ts_field]:
+                if task_config.get(ts_field):
                     task_config[ts_field] = (
                         task_config[ts_field]
                         if isinstance(
@@ -642,7 +645,7 @@ async def pause_background_tasks(
             {
                 "globalDisable": True,
                 "pauseMinutes": minutes,
-            }
+            },
         )
         if result.get("status") != "success":
             raise HTTPException(
@@ -658,7 +661,7 @@ async def pause_background_tasks(
         }
     except HTTPException as exc:
         logger.warning(
-            "HTTPException in pause_background_tasks: %s", exc, exc_info=True
+            "HTTPException in pause_background_tasks: %s", exc, exc_info=True,
         )
         raise
     except Exception as e:
@@ -812,7 +815,7 @@ async def manual_run_tasks(
                 "success": success,
                 "message": res.get("message"),
                 "task_id": res.get("task_id"),
-            }
+            },
         )
     return {
         "status": "success",
@@ -847,12 +850,12 @@ async def get_task_details(task_id: str):
             history.append(
                 {
                     "timestamp": SerializationHelper.serialize_datetime(
-                        entry.get("timestamp")
+                        entry.get("timestamp"),
                     ),
                     "status": entry["status"],
                     "runtime": entry.get("runtime"),
                     "error": entry.get("error"),
-                }
+                },
             )
 
         return {
@@ -872,16 +875,16 @@ async def get_task_details(task_id: str):
                 task_def["default_interval_minutes"],
             ),
             "last_run": SerializationHelper.serialize_datetime(
-                task_config.get("last_run")
+                task_config.get("last_run"),
             ),
             "next_run": SerializationHelper.serialize_datetime(
-                task_config.get("next_run")
+                task_config.get("next_run"),
             ),
             "start_time": SerializationHelper.serialize_datetime(
-                task_config.get("start_time")
+                task_config.get("start_time"),
             ),
             "end_time": SerializationHelper.serialize_datetime(
-                task_config.get("end_time")
+                task_config.get("end_time"),
             ),
             "last_error": task_config.get("last_error"),
             "history": history,
@@ -904,7 +907,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
     """Get paginated task execution history."""
     try:
         total_count = await count_documents_with_retry(
-            task_history_collection, {}
+            task_history_collection, {},
         )
         skip = (page - 1) * limit
         entries = await find_with_retry(
@@ -919,7 +922,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
         for entry in entries:
             entry["_id"] = str(entry["_id"])
             entry["timestamp"] = SerializationHelper.serialize_datetime(
-                entry.get("timestamp")
+                entry.get("timestamp"),
             )
             if "runtime" in entry:
                 entry["runtime"] = (
@@ -993,7 +996,7 @@ async def reset_task_states():
             elif isinstance(start_time_any, str):
                 try:
                     start_time = datetime.fromisoformat(
-                        start_time_any.replace("Z", "+00:00")
+                        start_time_any.replace("Z", "+00:00"),
                     )
                 except ValueError:
                     for fmt in (
@@ -1066,7 +1069,7 @@ async def reset_task_states():
                     "status": TaskStatus.FAILED.value,
                     "error": "Task reset: history entry stuck in RUNNING state",
                     "end_time": now,
-                }
+                },
             },
         )
         history_reset_count = (
@@ -1084,7 +1087,7 @@ async def reset_task_states():
                 or config_update_result.modified_count == 0
             ):
                 logger.warning(
-                    "Attempted to reset task states in config, but no document was modified."
+                    "Attempted to reset task states in config, but no document was modified.",
                 )
 
         return {
@@ -1127,13 +1130,13 @@ async def background_tasks_sse(request: Request):
                     updates[task_id] = {
                         "status": status,
                         "last_updated": SerializationHelper.serialize_datetime(
-                            task_config.get("last_updated")
+                            task_config.get("last_updated"),
                         ),
                         "last_run": SerializationHelper.serialize_datetime(
-                            task_config.get("last_run")
+                            task_config.get("last_run"),
                         ),
                         "next_run": SerializationHelper.serialize_datetime(
-                            task_config.get("next_run")
+                            task_config.get("next_run"),
                         ),
                         "last_error": task_config.get("last_error"),
                     }
@@ -1221,7 +1224,7 @@ async def update_trip(trip_id: str, data: TripUpdateModel):
                 "$or": [
                     {"transactionId": trip_id},
                     {"transactionId": str(trip_id)},
-                ]
+                ],
             },
         )
 
@@ -1233,7 +1236,7 @@ async def update_trip(trip_id: str, data: TripUpdateModel):
                     "$or": [
                         {"transactionId": trip_id},
                         {"transactionId": str(trip_id)},
-                    ]
+                    ],
                 },
             )
             if trip:
@@ -1318,7 +1321,7 @@ async def get_street_coverage(
     try:
         task_id = str(uuid.uuid4())
         asyncio.create_task(
-            process_coverage_calculation(location.dict(), task_id)
+            process_coverage_calculation(location.dict(), task_id),
         )
         return {
             "task_id": task_id,
@@ -1368,11 +1371,12 @@ async def get_incremental_street_coverage(
     location: LocationModel,
 ):
     """Update street coverage incrementally, processing only new trips since
-    last update."""
+    last update.
+    """
     try:
         task_id = str(uuid.uuid4())
         asyncio.create_task(
-            process_incremental_coverage_calculation(location.dict(), task_id)
+            process_incremental_coverage_calculation(location.dict(), task_id),
         )
         return {
             "task_id": task_id,
@@ -1474,7 +1478,7 @@ async def get_trips(request: Request):
                     "destination": trip.get("destination", "N/A"),
                     "totalIdleDuration": trip.get("totalIdleDuration", 0),
                     "totalIdleDurationFormatted": processor.format_idle_time(
-                        trip.get("totalIdleDuration", 0)
+                        trip.get("totalIdleDuration", 0),
                     ),
                     "fuelConsumed": float(trip.get("fuelConsumed", 0)),
                     "source": trip.get("source", "unknown"),
@@ -1538,42 +1542,42 @@ async def get_driving_insights(request: Request):
                             "$ifNull": [
                                 "$distance",
                                 0,
-                            ]
-                        }
+                            ],
+                        },
                     },
                     "total_fuel_consumed": {
                         "$sum": {
                             "$ifNull": [
                                 "$fuelConsumed",
                                 0,
-                            ]
-                        }
+                            ],
+                        },
                     },
                     "max_speed": {
                         "$max": {
                             "$ifNull": [
                                 "$maxSpeed",
                                 0,
-                            ]
-                        }
+                            ],
+                        },
                     },
                     "total_idle_duration": {
                         "$sum": {
                             "$ifNull": [
                                 "$totalIdleDuration",
                                 0,
-                            ]
-                        }
+                            ],
+                        },
                     },
                     "longest_trip_distance": {
                         "$max": {
                             "$ifNull": [
                                 "$distance",
                                 0,
-                            ]
-                        }
+                            ],
+                        },
                     },
-                }
+                },
             },
         ]
 
@@ -1586,7 +1590,7 @@ async def get_driving_insights(request: Request):
                     "_id": "$destination",
                     "count": {"$sum": 1},
                     "isCustomPlace": {"$first": "$isCustomPlace"},
-                }
+                },
             },
             {"$sort": {"count": -1}},
             {"$limit": 1},
@@ -1615,7 +1619,7 @@ async def get_driving_insights(request: Request):
             combined["max_speed"] = r.get("max_speed", 0)
             combined["total_idle_duration"] = r.get("total_idle_duration", 0)
             combined["longest_trip_distance"] = r.get(
-                "longest_trip_distance", 0
+                "longest_trip_distance", 0,
             )
 
         if trips_mv and trips_mv[0]:
@@ -1654,13 +1658,13 @@ async def get_metrics(request: Request):
                         "$ifNull": [
                             {"$toDouble": "$distance"},
                             0.0,
-                        ]
+                        ],
                     },
                     "numericMaxSpeed": {
                         "$ifNull": [
                             {"$toDouble": "$maxSpeed"},
                             0.0,
-                        ]
+                        ],
                     },
                     "duration_seconds": {
                         "$cond": {
@@ -1670,21 +1674,21 @@ async def get_metrics(request: Request):
                                         "$ifNull": [
                                             "$startTime",
                                             None,
-                                        ]
+                                        ],
                                     },
                                     {
                                         "$ifNull": [
                                             "$endTime",
                                             None,
-                                        ]
+                                        ],
                                     },
                                     {
                                         "$lt": [
                                             "$startTime",
                                             "$endTime",
-                                        ]
+                                        ],
                                     },
-                                ]
+                                ],
                             },
                             "then": {
                                 "$divide": [
@@ -1692,21 +1696,21 @@ async def get_metrics(request: Request):
                                         "$subtract": [
                                             "$endTime",
                                             "$startTime",
-                                        ]
+                                        ],
                                     },
                                     1000,
-                                ]
+                                ],
                             },
                             "else": 0.0,
-                        }
+                        },
                     },
                     "startHourUTC": {
                         "$hour": {
                             "date": "$startTime",
                             "timezone": "UTC",
-                        }
+                        },
                     },
-                }
+                },
             },
             {
                 "$group": {
@@ -1716,7 +1720,7 @@ async def get_metrics(request: Request):
                     "max_speed": {"$max": "$numericMaxSpeed"},
                     "total_duration_seconds": {"$sum": "$duration_seconds"},
                     "start_hours_utc": {"$push": "$startHourUTC"},
-                }
+                },
             },
             {
                 "$project": {
@@ -1726,25 +1730,25 @@ async def get_metrics(request: Request):
                         "$ifNull": [
                             "$total_distance",
                             0.0,
-                        ]
+                        ],
                     },
                     "max_speed": {
                         "$ifNull": [
                             "$max_speed",
                             0.0,
-                        ]
+                        ],
                     },
                     "total_duration_seconds": {
                         "$ifNull": [
                             "$total_duration_seconds",
                             0.0,
-                        ]
+                        ],
                     },
                     "start_hours_utc": {
                         "$ifNull": [
                             "$start_hours_utc",
                             [],
-                        ]
+                        ],
                     },
                     "avg_distance": {
                         "$cond": {
@@ -1752,16 +1756,16 @@ async def get_metrics(request: Request):
                                 "$gt": [
                                     "$total_trips",
                                     0,
-                                ]
+                                ],
                             },
                             "then": {
                                 "$divide": [
                                     "$total_distance",
                                     "$total_trips",
-                                ]
+                                ],
                             },
                             "else": 0.0,
-                        }
+                        },
                     },
                     "avg_speed": {
                         "$cond": {
@@ -1769,7 +1773,7 @@ async def get_metrics(request: Request):
                                 "$gt": [
                                     "$total_duration_seconds",
                                     0,
-                                ]
+                                ],
                             },
                             "then": {
                                 "$divide": [
@@ -1778,14 +1782,14 @@ async def get_metrics(request: Request):
                                         "$divide": [
                                             "$total_duration_seconds",
                                             3600.0,
-                                        ]
+                                        ],
                                     },
-                                ]
+                                ],
                             },
                             "else": 0.0,
-                        }
+                        },
                     },
-                }
+                },
             },
         ]
 
@@ -1810,7 +1814,7 @@ async def get_metrics(request: Request):
         avg_start_time_str = "00:00 AM"
         if start_hours_utc_list:
             avg_hour_utc_float = calculate_circular_average_hour(
-                start_hours_utc_list
+                start_hours_utc_list,
             )
 
             base_date = datetime.now(timezone.utc).replace(
@@ -1945,7 +1949,7 @@ async def api_fetch_trips_last_hour():
         now_utc = datetime.now(timezone.utc)
         start_date = now_utc - timedelta(hours=1)
         await fetch_bouncie_trips_in_range(
-            start_date, now_utc, do_map_match=True
+            start_date, now_utc, do_map_match=True,
         )
         return {
             "status": "success",
@@ -1970,7 +1974,8 @@ async def process_single_trip(
     map_match: bool = True,
 ):
     """Process a single trip with options to validate, geocode, and map
-    match."""
+    match.
+    """
     try:
         trip = await get_trip_by_id(trip_id, trips_collection)
 
@@ -2155,23 +2160,23 @@ async def get_trip_status(trip_id: str):
             "has_start_location": bool(trip.get("startLocation")),
             "has_destination": bool(trip.get("destination")),
             "has_matched_trip": await matched_trips_collection.find_one(
-                {"transactionId": trip_id}
+                {"transactionId": trip_id},
             )
             is not None,
             "processing_history": trip.get("processing_history", []),
             "validation_status": trip.get("validation_status", "unknown"),
             "validation_message": trip.get("validation_message", ""),
             "validated_at": SerializationHelper.serialize_datetime(
-                trip.get("validated_at")
+                trip.get("validated_at"),
             ),
             "geocoded_at": SerializationHelper.serialize_datetime(
-                trip.get("geocoded_at")
+                trip.get("geocoded_at"),
             ),
             "matched_at": SerializationHelper.serialize_datetime(
-                trip.get("matched_at")
+                trip.get("matched_at"),
             ),
             "last_processed": SerializationHelper.serialize_datetime(
-                trip.get("saved_at")
+                trip.get("saved_at"),
             ),
         }
 
@@ -2250,7 +2255,7 @@ async def generate_geojson_endpoint(
 ):
     """Generate GeoJSON for a location using the imported function."""
     geojson_data, err = await generate_geojson_osm(
-        location.dict(), streets_only
+        location.dict(), streets_only,
     )
     if geojson_data:
         return geojson_data
@@ -2272,6 +2277,7 @@ async def map_match_trips_endpoint(
         trip_id: Optional specific trip ID to match
         start_date: Optional start of date range
         end_date: Optional end of date range
+
     """
     try:
         query = {}
@@ -2373,11 +2379,11 @@ async def get_matched_trips(request: Request):
                         "transactionId": trip["transactionId"],
                         "imei": trip.get("imei", ""),
                         "startTime": SerializationHelper.serialize_datetime(
-                            trip.get("startTime")
+                            trip.get("startTime"),
                         )
                         or "",
                         "endTime": SerializationHelper.serialize_datetime(
-                            trip.get("endTime")
+                            trip.get("endTime"),
                         )
                         or "",
                         "distance": trip.get("distance", 0),
@@ -2390,7 +2396,7 @@ async def get_matched_trips(request: Request):
                                 trip.get(
                                     "averageSpeed",
                                     0,
-                                )
+                                ),
                             )
                             if trip.get("averageSpeed") is not None
                             else None
@@ -2459,7 +2465,7 @@ async def delete_matched_trips(
                         "startTime": {
                             "$gte": current_start,
                             "$lt": current_end,
-                        }
+                        },
                     },
                 )
                 total_deleted_count += result.deleted_count
@@ -2471,7 +2477,7 @@ async def delete_matched_trips(
                     "startTime": {
                         "$gte": start_date,
                         "$lte": end_date,
-                    }
+                    },
                 },
             )
             total_deleted_count = result.deleted_count
@@ -2506,7 +2512,7 @@ async def remap_matched_trips(
 
         if data.interval_days > 0:
             start_date = datetime.now(timezone.utc) - timedelta(
-                days=data.interval_days
+                days=data.interval_days,
             )
             end_date = datetime.now(timezone.utc)
         else:
@@ -2525,7 +2531,7 @@ async def remap_matched_trips(
                 "startTime": {
                     "$gte": start_date,
                     "$lte": end_date,
-                }
+                },
             },
         )
 
@@ -2535,7 +2541,7 @@ async def remap_matched_trips(
                 "startTime": {
                     "$gte": start_date,
                     "$lte": end_date,
-                }
+                },
             },
         )
 
@@ -2627,7 +2633,7 @@ async def delete_matched_trip(trip_id: str):
                 "$or": [
                     {"transactionId": trip_id},
                     {"transactionId": str(trip_id)},
-                ]
+                ],
             },
         )
         if result.deleted_count:
@@ -2669,8 +2675,8 @@ async def export_all_trips(
                     json.dumps(
                         all_trips,
                         default=default_serializer,
-                    )
-                )
+                    ),
+                ),
             )
 
         return await create_export_response(all_trips, fmt, filename_base)
@@ -2867,6 +2873,7 @@ async def preprocess_streets_route(
 
     Args:
         location_data: Validated location data matching LocationModel.
+
     """
     display_name = None
     try:
@@ -2902,7 +2909,7 @@ async def preprocess_streets_route(
                     "driven_length": 0,
                     "coverage_percentage": 0,
                     "total_segments": 0,
-                }
+                },
             },
             upsert=True,
         )
@@ -2928,7 +2935,7 @@ async def preprocess_streets_route(
                         "$set": {
                             "status": "error",
                             "last_error": str(e),
-                        }
+                        },
                     },
                 )
         except Exception as db_err:
@@ -3091,13 +3098,13 @@ async def get_first_trip_date():
         earliest_trip_date = earliest_trip["startTime"]
         if earliest_trip_date.tzinfo is None:
             earliest_trip_date = earliest_trip_date.replace(
-                tzinfo=timezone.utc
+                tzinfo=timezone.utc,
             )
 
         return {
             "first_trip_date": SerializationHelper.serialize_datetime(
-                earliest_trip_date
-            )
+                earliest_trip_date,
+            ),
         }
     except Exception as e:
         logger.exception(
@@ -3115,7 +3122,8 @@ async def upload_gpx_endpoint(
     files: list[UploadFile] = File(...),
 ):
     """Upload GPX or GeoJSON files and process them into the trips
-    collection."""
+    collection.
+    """
     try:
         if not files:
             raise HTTPException(
@@ -3150,7 +3158,7 @@ async def upload_gpx_endpoint(
                                             "timestamp": point.time,
                                             "lat": point.latitude,
                                             "lon": point.longitude,
-                                        }
+                                        },
                                     )
 
                             trip_data = await TripProcessor.process_from_coordinates(
@@ -3225,7 +3233,8 @@ async def upload_files(
     files: list[UploadFile] = File(...),
 ):
     """Upload GPX or GeoJSON files and process them into the trips
-    collection."""
+    collection.
+    """
     try:
         count = 0
         for file in files:
@@ -3261,7 +3270,7 @@ async def upload_files(
                                     {
                                         "type": "LineString",
                                         "coordinates": coords,
-                                    }
+                                    },
                                 ),
                                 "imei": "UPLOADED",
                                 "distance": calculate_distance(coords),
@@ -3338,13 +3347,13 @@ async def get_trip_analytics(request: Request):
                             "$dateToString": {
                                 "format": "%Y-%m-%d",
                                 "date": "$startTime",
-                            }
+                            },
                         },
                         "hour": {"$hour": "$startTime"},
                     },
                     "totalDistance": {"$sum": "$distance"},
                     "tripCount": {"$sum": 1},
-                }
+                },
             },
         ]
 
@@ -3388,7 +3397,7 @@ async def get_trip_analytics(request: Request):
             content={
                 "daily_distances": daily_list,
                 "time_distribution": hourly_list,
-            }
+            },
         )
 
     except Exception as e:
@@ -3529,8 +3538,7 @@ async def refresh_geocoding_for_trips(
 
 @app.post("/webhook/bouncie")
 async def bouncie_webhook(request: Request):
-    """
-    Receives webhook events from Bouncie, acknowledges immediately,
+    """Receives webhook events from Bouncie, acknowledges immediately,
     and schedules background processing via Celery.
     """
     try:
@@ -3539,7 +3547,7 @@ async def bouncie_webhook(request: Request):
             data = json.loads(raw_body)
         except json.JSONDecodeError:
             logger.error(
-                "Failed to parse JSON from Bouncie webhook request body."
+                "Failed to parse JSON from Bouncie webhook request body.",
             )
             return JSONResponse(
                 content={
@@ -3665,6 +3673,7 @@ async def trip_updates_endpoint(last_sequence: int = Query(0, ge=0)):
 
     Returns:
         Dict: Contains status, has_update flag, and trip data if available
+
     """
     try:
         logger.info(
@@ -3768,7 +3777,8 @@ async def _recalculate_coverage_stats(
     location_id: ObjectId,
 ) -> dict | None:
     """Internal helper to recalculate stats for a coverage area based on
-    streets_collection."""
+    streets_collection.
+    """
     try:
         coverage_area = await find_one_with_retry(
             coverage_metadata_collection,
@@ -3776,7 +3786,7 @@ async def _recalculate_coverage_stats(
             {"location.display_name": 1},
         )
         if not coverage_area or not coverage_area.get("location", {}).get(
-            "display_name"
+            "display_name",
         ):
             logger.error(
                 "Cannot recalculate stats: Coverage area %s or its display_name not found.",
@@ -3800,12 +3810,12 @@ async def _recalculate_coverage_stats(
                                     "$eq": [
                                         "$properties.undriveable",
                                         True,
-                                    ]
+                                    ],
                                 },
                                 0,
                                 "$properties.segment_length",
-                            ]
-                        }
+                            ],
+                        },
                     },
                     "driven_length": {
                         "$sum": {
@@ -3814,12 +3824,12 @@ async def _recalculate_coverage_stats(
                                     "$eq": [
                                         "$properties.driven",
                                         True,
-                                    ]
+                                    ],
                                 },
                                 "$properties.segment_length",
                                 0,
-                            ]
-                        }
+                            ],
+                        },
                     },
                     "street_types_data": {
                         "$push": {
@@ -3827,9 +3837,9 @@ async def _recalculate_coverage_stats(
                             "length": "$properties.segment_length",
                             "driven": "$properties.driven",
                             "undriveable": "$properties.undriveable",
-                        }
+                        },
                     },
-                }
+                },
             },
         ]
 
@@ -3864,7 +3874,7 @@ async def _recalculate_coverage_stats(
                     "undriveable_length": 0.0,
                     "total": 0,
                     "covered": 0,
-                }
+                },
             )
             for item in agg_result.get("street_types_data", []):
                 stype = item.get("type", "unknown")
@@ -3903,7 +3913,7 @@ async def _recalculate_coverage_stats(
                         "total": data["total"],
                         "covered": data["covered"],
                         "undriveable_length": data["undriveable_length"],
-                    }
+                    },
                 )
             final_street_types.sort(
                 key=lambda x: x["length"],
@@ -3928,7 +3938,7 @@ async def _recalculate_coverage_stats(
                     "needs_stats_update": False,
                     "last_stats_update": datetime.now(timezone.utc),
                     "last_modified": datetime.now(timezone.utc),
-                }
+                },
             },
         )
 
@@ -3970,7 +3980,7 @@ async def _recalculate_coverage_stats(
                 "$set": {
                     "status": "error",
                     "last_error": f"Stats recalc failed: {e}",
-                }
+                },
             },
         )
         return None
@@ -4009,9 +4019,9 @@ async def _mark_segment(
         )
 
     if segment_doc.get("properties", {}).get(
-        "location_id"
+        "location_id",
     ) != location_id_str and segment_doc.get("properties", {}).get(
-        "location"
+        "location",
     ) != (
         await find_one_with_retry(
             coverage_metadata_collection,
@@ -4019,9 +4029,9 @@ async def _mark_segment(
             {"location.display_name": 1},
         )
     ).get(
-        "location", {}
+        "location", {},
     ).get(
-        "display_name"
+        "display_name",
     ):
         logger.warning(
             "Segment %s found but does not belong to location %s. Proceeding anyway.",
@@ -4034,7 +4044,7 @@ async def _mark_segment(
     }
     update_payload["properties.manual_override"] = True
     update_payload["properties.last_manual_update"] = datetime.now(
-        timezone.utc
+        timezone.utc,
     )
 
     result = await update_one_with_retry(
@@ -4057,7 +4067,7 @@ async def _mark_segment(
             "$set": {
                 "needs_stats_update": True,
                 "last_modified": datetime.now(timezone.utc),
-            }
+            },
         },
     )
 
@@ -4236,7 +4246,7 @@ async def refresh_coverage_stats(
 
     try:
         updated_coverage_data = await _recalculate_coverage_stats(
-            obj_location_id
+            obj_location_id,
         )
 
         if updated_coverage_data is None:
@@ -4256,7 +4266,7 @@ async def refresh_coverage_stats(
                     if isinstance(obj, datetime)
                     else (str(obj) if isinstance(obj, ObjectId) else None)
                 ),
-            )
+            ),
         )
 
         return JSONResponse(serialized_data)
@@ -4277,7 +4287,7 @@ async def refresh_coverage_stats(
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Internal server error refreshing stats: {str(e)}",
+            detail=f"Internal server error refreshing stats: {e!s}",
         )
 
 
@@ -4346,7 +4356,7 @@ async def delete_coverage_area(
                 fs = AsyncIOMotorGridFSBucket(db_manager.db)
                 await fs.delete(gridfs_id)
                 logger.info(
-                    "Deleted GridFS file %s for %s", gridfs_id, display_name
+                    "Deleted GridFS file %s for %s", gridfs_id, display_name,
                 )
             except Exception as gridfs_err:
                 logger.warning(
@@ -4363,7 +4373,7 @@ async def delete_coverage_area(
             logger.info("Deleted progress data for %s", display_name)
         except Exception as progress_err:
             logger.warning(
-                f"Error deleting progress data for {display_name}: {progress_err}"
+                f"Error deleting progress data for {display_name}: {progress_err}",
             )
 
         try:
@@ -4374,7 +4384,7 @@ async def delete_coverage_area(
             logger.info("Deleted cached OSM data for %s", display_name)
         except Exception as osm_err:
             logger.warning(
-                f"Error deleting OSM data for {display_name}: {osm_err}"
+                f"Error deleting OSM data for {display_name}: {osm_err}",
             )
 
         await delete_many_with_retry(
@@ -4428,7 +4438,7 @@ async def cancel_coverage_area(
                 "$set": {
                     "status": "canceled",
                     "last_error": "Task was canceled by user.",
-                }
+                },
             },
         )
 
@@ -4484,7 +4494,8 @@ async def get_coverage_area_details(
     location_id: str,
 ):
     """Get detailed information about a coverage area, fetching GeoJSON from
-    GridFS."""
+    GridFS.
+    """
     try:
         coverage_doc = None
         try:
@@ -4509,11 +4520,11 @@ async def get_coverage_area_details(
             )
 
         location_name = coverage_doc.get("location", {}).get(
-            "display_name", "Unknown"
+            "display_name", "Unknown",
         )
         location_obj = coverage_doc.get("location", {})
         last_updated = SerializationHelper.serialize_datetime(
-            coverage_doc.get("last_updated")
+            coverage_doc.get("last_updated"),
         )
         total_length = coverage_doc.get("total_length", 0)
         driven_length = coverage_doc.get("driven_length", 0)
@@ -4532,7 +4543,7 @@ async def get_coverage_area_details(
                 gridfs_stream = await fs.open_download_stream(gridfs_id)
                 geojson_data_bytes = await gridfs_stream.read()
                 streets_geojson = json.loads(
-                    geojson_data_bytes.decode("utf-8")
+                    geojson_data_bytes.decode("utf-8"),
                 )
                 if isinstance(streets_geojson, dict) and isinstance(
                     streets_geojson.get("features"),
@@ -4573,7 +4584,7 @@ async def get_coverage_area_details(
         street_types = coverage_doc.get("street_types", [])
         if not street_types and not needs_reprocessing:
             street_types = collect_street_type_stats(
-                streets_geojson.get("features", [])
+                streets_geojson.get("features", []),
             )
 
         result = {
@@ -4608,8 +4619,8 @@ async def get_coverage_area_details(
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error fetching coverage details: {
-                str(e)
-            }",
+                e
+            !s}",
         )
 
 
@@ -4619,7 +4630,8 @@ async def _get_mapbox_optimization_route(
     end_points: list[tuple] = None,
 ) -> dict[str, Any]:
     """Calls Mapbox Optimization API v1 to get an optimized route for multiple
-    points."""
+    points.
+    """
     mapbox_token = MAPBOX_ACCESS_TOKEN
     if not mapbox_token:
         logger.error("Mapbox API token not configured.")
@@ -4637,7 +4649,7 @@ async def _get_mapbox_optimization_route(
 
     if len(end_points) > 11:
         logger.warning(
-            "Too many end points for Mapbox API v1, limiting to first 11."
+            "Too many end points for Mapbox API v1, limiting to first 11.",
         )
         end_points = end_points[:11]
 
@@ -4694,8 +4706,7 @@ async def _get_mapbox_optimization_route(
 async def get_next_driving_route(
     request: Request,
 ):
-    """
-    Calculates the route from the user's current position to the
+    """Calculates the route from the user's current position to the
     start of the nearest undriven street segment in the specified area using Mapbox
     Optimization API v1.
 
@@ -4727,7 +4738,7 @@ async def get_next_driving_route(
         logger.error("Error parsing request data: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid request format: {str(e)}",
+            detail=f"Invalid request format: {e!s}",
         )
 
     try:
@@ -4749,7 +4760,7 @@ async def get_next_driving_route(
 
         else:
             logger.info(
-                "No position provided in request, falling back to live tracking data"
+                "No position provided in request, falling back to live tracking data",
             )
             active_trip_data = await get_active_trip()
 
@@ -4769,7 +4780,7 @@ async def get_next_driving_route(
                 )
             else:
                 logger.info(
-                    "Live tracking unavailable, falling back to last trip end location"
+                    "Live tracking unavailable, falling back to last trip end location",
                 )
                 last_trip = await find_one_with_retry(
                     trips_collection,
@@ -4785,7 +4796,7 @@ async def get_next_driving_route(
 
                 try:
                     geom = last_trip.get("geometry") or geojson_module.loads(
-                        last_trip.get("gps", "{}")
+                        last_trip.get("gps", "{}"),
                     )
                     if (
                         geom
@@ -4807,7 +4818,7 @@ async def get_next_driving_route(
                         )
                     else:
                         raise ValueError(
-                            "Invalid or empty geometry in last trip"
+                            "Invalid or empty geometry in last trip",
                         )
                 except (
                     json.JSONDecodeError,
@@ -4866,7 +4877,7 @@ async def get_next_driving_route(
                     "message": f"No undriven streets found in {location_name}.",
                     "route_geometry": None,
                     "target_street": None,
-                }
+                },
             )
         logger.info(
             "Found %d undriven segments in %s. Starting optimization with Mapbox API v1.",
@@ -4891,7 +4902,7 @@ async def get_next_driving_route(
         for street in undriven_streets:
             geometry = street.get("geometry", {})
             if geometry.get("type") == "LineString" and geometry.get(
-                "coordinates"
+                "coordinates",
             ):
                 start_node = geometry["coordinates"][0]
                 if (
@@ -4902,7 +4913,7 @@ async def get_next_driving_route(
                         (
                             float(start_node[0]),
                             float(start_node[1]),
-                        )
+                        ),
                     )
 
         if not end_points:
@@ -4912,7 +4923,7 @@ async def get_next_driving_route(
                     "message": f"No valid undriven streets with coordinates found in {location_name}.",
                     "route_geometry": None,
                     "target_street": None,
-                }
+                },
             )
 
         optimization_result = await _get_mapbox_optimization_route(
@@ -4940,7 +4951,7 @@ async def get_next_driving_route(
                 "route_duration_seconds": route_duration_seconds,
                 "route_distance_meters": route_distance_meters,
                 "location_source": location_source,
-            }
+            },
         )
 
     except Exception as e:
@@ -5040,7 +5051,7 @@ async def _cluster_segments(
                 seg["start_node"][1],
             )
             for seg in segments
-        ]
+        ],
     )
     n_clusters = max(1, len(segments) // max_points_per_cluster)
     kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(coords)
@@ -5066,7 +5077,7 @@ async def _cluster_segments(
 
 
 async def _optimize_route_for_clusters(
-    start_point: tuple, clusters: list[list[dict]]
+    start_point: tuple, clusters: list[list[dict]],
 ) -> dict[str, Any]:
     """Optimize route for multiple clusters, connecting them with directions."""
     if not clusters:
@@ -5140,8 +5151,7 @@ async def _optimize_route_for_clusters(
 async def get_coverage_driving_route(
     request: Request,
 ):
-    """
-    Calculates the route from the user's current position to the
+    """Calculates the route from the user's current position to the
     start of the nearest undriven street segment in the specified area using Mapbox
     Optimization API v1.
 
@@ -5173,7 +5183,7 @@ async def get_coverage_driving_route(
         logger.error("Error parsing request data: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid request format: {str(e)}",
+            detail=f"Invalid request format: {e!s}",
         )
 
     try:
@@ -5195,7 +5205,7 @@ async def get_coverage_driving_route(
 
         else:
             logger.info(
-                "No position provided in request, falling back to live tracking data"
+                "No position provided in request, falling back to live tracking data",
             )
             active_trip_data = await get_active_trip()
 
@@ -5215,7 +5225,7 @@ async def get_coverage_driving_route(
                 )
             else:
                 logger.info(
-                    "Live tracking unavailable, falling back to last trip end location"
+                    "Live tracking unavailable, falling back to last trip end location",
                 )
                 last_trip = await find_one_with_retry(
                     trips_collection,
@@ -5231,7 +5241,7 @@ async def get_coverage_driving_route(
 
                 try:
                     geom = last_trip.get("geometry") or geojson_module.loads(
-                        last_trip.get("gps", "{}")
+                        last_trip.get("gps", "{}"),
                     )
                     if (
                         geom
@@ -5253,7 +5263,7 @@ async def get_coverage_driving_route(
                         )
                     else:
                         raise ValueError(
-                            "Invalid or empty geometry in last trip"
+                            "Invalid or empty geometry in last trip",
                         )
                 except (
                     json.JSONDecodeError,
@@ -5303,7 +5313,7 @@ async def get_coverage_driving_route(
             },
         )
         undriven_streets_list = await undriven_streets_cursor.to_list(
-            length=None
+            length=None,
         )
 
         if not undriven_streets_list:
@@ -5314,7 +5324,7 @@ async def get_coverage_driving_route(
                     "route_geometry": None,
                     "total_duration_seconds": 0,
                     "total_distance_meters": 0,
-                }
+                },
             )
         logger.info(
             "Coverage Route: Found %d undriven segments in %s.",
@@ -5349,7 +5359,7 @@ async def get_coverage_driving_route(
                             "geometry": geom,
                             "start_node": start_node,
                             "end_node": end_node,
-                        }
+                        },
                     )
                 else:
                     logger.warning(
@@ -5364,7 +5374,7 @@ async def get_coverage_driving_route(
                 IndexError,
             ) as e:
                 segment_id = street.get("properties", {}).get(
-                    "segment_id", "UNKNOWN"
+                    "segment_id", "UNKNOWN",
                 )
                 logger.warning(
                     "Coverage Route: Error processing segment %s data: %s",
@@ -5383,7 +5393,7 @@ async def get_coverage_driving_route(
                     "status": "error",
                     "message": f"No valid undriven streets could be processed in {location_name}.",
                     "route_geometry": None,
-                }
+                },
             )
 
         logger.info(
@@ -5416,7 +5426,7 @@ async def get_coverage_driving_route(
         )
 
         optimization_result = await _optimize_route_for_clusters(
-            start_point, clusters
+            start_point, clusters,
         )
 
         optimized_route_geometry = optimization_result["geometry"]
@@ -5443,7 +5453,7 @@ async def get_coverage_driving_route(
                 "total_duration_seconds": total_duration_seconds,
                 "total_distance_meters": total_distance_meters,
                 "location_source": location_source,
-            }
+            },
         )
 
     except Exception as e:
@@ -5475,7 +5485,7 @@ async def export_advanced(
     ),
     include_locations: bool = Query(True, description="Include location info"),
     include_telemetry: bool = Query(
-        True, description="Include telemetry data"
+        True, description="Include telemetry data",
     ),
     include_geometry: bool = Query(True, description="Include geometry data"),
     include_meta: bool = Query(True, description="Include metadata"),
@@ -5508,7 +5518,7 @@ async def export_advanced(
                     "startTime": {
                         "$gte": start_date,
                         "$lte": end_date,
-                    }
+                    },
                 }
 
         trips = []
@@ -5534,7 +5544,7 @@ async def export_advanced(
         if include_matched_trips:
             query = date_filter or {}
             matched_trips = await find_with_retry(
-                matched_trips_collection, query
+                matched_trips_collection, query,
             )
 
             for trip in matched_trips:
@@ -5564,7 +5574,7 @@ async def export_advanced(
                 io.StringIO(csv_data),
                 media_type="text/csv",
                 headers={
-                    "Content-Disposition": f'attachment; filename="{filename_base}.csv"'
+                    "Content-Disposition": f'attachment; filename="{filename_base}.csv"',
                 },
             )
 
@@ -5574,8 +5584,8 @@ async def export_advanced(
                     json.dumps(
                         trips,
                         default=default_serializer,
-                    )
-                )
+                    ),
+                ),
             )
 
         return await create_export_response(
@@ -5596,7 +5606,7 @@ async def export_advanced(
         logger.error("Error in advanced export: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Export failed: {str(e)}",
+            detail=f"Export failed: {e!s}",
         )
 
 
@@ -5634,7 +5644,7 @@ async def startup_event():
             indexes = await matched_trips_collection.index_information()
             if index_name not in indexes:
                 logger.info(
-                    "Creating 2dsphere index on matched_trips_collection.matchedGps..."
+                    "Creating 2dsphere index on matched_trips_collection.matchedGps...",
                 )
                 await matched_trips_collection.create_indexes(
                     [
@@ -5643,11 +5653,11 @@ async def startup_event():
                                 (
                                     "matchedGps",
                                     GEOSPHERE,
-                                )
+                                ),
                             ],
                             name=index_name,
-                        )
-                    ]
+                        ),
+                    ],
                 )
                 logger.info("Index created successfully.")
             else:
@@ -5658,16 +5668,16 @@ async def startup_event():
                 e,
             )
             if "GeoJSON LineString must have at least 2 vertices" in str(
-                e
+                e,
             ) or "Can't extract geo keys" in str(e):
                 logger.warning(
                     "Index creation on matchedGps skipped due to invalid GeoJSON data in some documents. "
                     "Application will start, but geospatial queries on matched_trips may be slow or fail. "
-                    "Consider cleaning up invalid matchedGps data (e.g., LineStrings with identical start/end points)."
+                    "Consider cleaning up invalid matchedGps data (e.g., LineStrings with identical start/end points).",
                 )
             else:
                 logger.error(
-                    "Unhandled OperationFailure during index creation, re-raising."
+                    "Unhandled OperationFailure during index creation, re-raising.",
                 )
                 raise
         except Exception as e:
@@ -5766,9 +5776,9 @@ async def get_trips_in_bounds(
                     "$geometry": {
                         "type": "Polygon",
                         "coordinates": [bounding_box],
-                    }
-                }
-            }
+                    },
+                },
+            },
         }
 
         projection = {
@@ -5782,7 +5792,7 @@ async def get_trips_in_bounds(
         trip_coordinates = []
         async for trip in cursor:
             if trip.get("matchedGps") and trip["matchedGps"].get(
-                "coordinates"
+                "coordinates",
             ):
                 trip_coordinates.append(trip["matchedGps"]["coordinates"])
 
@@ -5857,7 +5867,7 @@ async def driver_behavior_analytics():
                 t,
                 "hardBrakingCounts",
                 "hardBrakingCount",
-            )
+            ),
         )
         or 0
         for t in trips
@@ -5868,7 +5878,7 @@ async def driver_behavior_analytics():
                 t,
                 "hardAccelerationCounts",
                 "hardAccelerationCount",
-            )
+            ),
         )
         or 0
         for t in trips
@@ -5879,7 +5889,7 @@ async def driver_behavior_analytics():
                 t,
                 "totalIdlingTime",
                 "totalIdleDuration",
-            )
+            ),
         )
         or 0
         for t in trips
@@ -5892,7 +5902,7 @@ async def driver_behavior_analytics():
             "distance": 0,
             "hardBraking": 0,
             "hardAccel": 0,
-        }
+        },
     )
     monthly = collections.defaultdict(
         lambda: {
@@ -5900,7 +5910,7 @@ async def driver_behavior_analytics():
             "distance": 0,
             "hardBraking": 0,
             "hardAccel": 0,
-        }
+        },
     )
     for t in trips:
         start = t.get("startTime")
@@ -5924,7 +5934,7 @@ async def driver_behavior_analytics():
                 "hardBrakingCounts",
                 "hardBrakingCount",
             )
-            or 0
+            or 0,
         )
         weekly[wkey]["hardAccel"] += int(
             get_field(
@@ -5932,7 +5942,7 @@ async def driver_behavior_analytics():
                 "hardAccelerationCounts",
                 "hardAccelerationCount",
             )
-            or 0
+            or 0,
         )
         monthly[mkey]["trips"] += 1
         monthly[mkey]["distance"] += float(get_field(t, "distance") or 0)
@@ -5942,7 +5952,7 @@ async def driver_behavior_analytics():
                 "hardBrakingCounts",
                 "hardBrakingCount",
             )
-            or 0
+            or 0,
         )
         monthly[mkey]["hardAccel"] += int(
             get_field(
@@ -5950,7 +5960,7 @@ async def driver_behavior_analytics():
                 "hardAccelerationCounts",
                 "hardAccelerationCount",
             )
-            or 0
+            or 0,
         )
 
     weekly_trend = [{"week": k, **v} for k, v in sorted(weekly.items())]

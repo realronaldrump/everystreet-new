@@ -17,7 +17,8 @@ def parse_bouncie_timestamp(
     ts: str,
 ) -> datetime | None:
     """Parse an ISO 8601 timestamp from Bouncie, ensure it's timezone-aware,
-    default UTC."""
+    default UTC.
+    """
     if not ts:
         logger.warning("Missing timestamp field in Bouncie event data.")
         return None
@@ -66,7 +67,7 @@ def sort_and_filter_trip_coordinates(
                     "timestamp": ts,
                     "lat": lat,
                     "lon": lon,
-                }
+                },
             )
 
     return sorted(valid_points, key=lambda x: x["timestamp"])

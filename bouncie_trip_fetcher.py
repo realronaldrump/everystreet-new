@@ -91,7 +91,7 @@ async def fetch_trips_for_device(
 
     try:
         async with session.get(
-            url, headers=headers, params=params
+            url, headers=headers, params=params,
         ) as response:
             response.raise_for_status()
             trips = await response.json()
@@ -99,11 +99,11 @@ async def fetch_trips_for_device(
             for trip in trips:
                 if "startTime" in trip:
                     trip["startTime"] = date_parser.isoparse(
-                        trip["startTime"]
+                        trip["startTime"],
                     ).astimezone(timezone.utc)
                 if "endTime" in trip:
                     trip["endTime"] = date_parser.isoparse(
-                        trip["endTime"]
+                        trip["endTime"],
                     ).astimezone(timezone.utc)
 
             logger.info(
@@ -177,7 +177,7 @@ async def fetch_bouncie_trips_in_range(
 
             logger.info(
                 f"Processing {len(raw_fetched_trips_for_device)} fetched trips for device {imei} "
-                f"(do_map_match={do_map_match})..."
+                f"(do_map_match={do_map_match})...",
             )
             for trip in raw_fetched_trips_for_device:
                 transaction_id = trip.get("transactionId", "unknown")
@@ -206,7 +206,7 @@ async def fetch_bouncie_trips_in_range(
                         continue
 
                     saved_id = await processor.save(
-                        map_match_result=do_map_match
+                        map_match_result=do_map_match,
                     )
 
                     if saved_id:
@@ -264,6 +264,6 @@ async def fetch_bouncie_trips_in_range(
     logger.info(
         f"fetch_bouncie_trips_in_range finished, returning {
             len(all_new_trips)
-        } trips."
+        } trips.",
     )
     return all_new_trips

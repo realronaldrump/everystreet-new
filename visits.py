@@ -54,6 +54,7 @@ class CustomPlace:
             name: The name of the place
             geometry: GeoJSON geometry object defining the place boundaries
             created_at: When the place was created, defaults to current UTC time
+
         """
         self.name = name
         self.geometry = geometry
@@ -64,6 +65,7 @@ class CustomPlace:
 
         Returns:
             Dict with the place's data
+
         """
         return {
             "name": self.name,
@@ -80,6 +82,7 @@ class CustomPlace:
 
         Returns:
             CustomPlace instance
+
         """
         created_raw = data.get("created_at")
         if isinstance(created_raw, str):
@@ -106,6 +109,7 @@ def init_collections(places_coll, trips_coll):
     Args:
         places_coll: MongoDB collection for places
         trips_coll: MongoDB collection for trips
+
     """
     Collections.places = places_coll
     Collections.trips = trips_coll
@@ -129,7 +133,7 @@ async def create_place(place: PlaceModel):
     """Create a new custom place."""
     place_obj = CustomPlace(place.name, place.geometry)
     result = await insert_one_with_retry(
-        Collections.places, place_obj.to_dict()
+        Collections.places, place_obj.to_dict(),
     )
     return {
         "_id": str(result.inserted_id),
@@ -275,8 +279,8 @@ async def get_place_statistics(place_id: str):
                 {"destinationPlaceId": place_id},
                 {
                     "destinationGeoPoint": {
-                        "$geoWithin": {"$geometry": place["geometry"]}
-                    }
+                        "$geoWithin": {"$geometry": place["geometry"]},
+                    },
                 },
             ],
             "endTime": {"$ne": None},
@@ -287,8 +291,8 @@ async def get_place_statistics(place_id: str):
                 {"startPlaceId": place_id},
                 {
                     "startGeoPoint": {
-                        "$geoWithin": {"$geometry": place["geometry"]}
-                    }
+                        "$geoWithin": {"$geometry": place["geometry"]},
+                    },
                 },
             ],
             "startTime": {"$ne": None},
@@ -308,11 +312,11 @@ async def get_place_statistics(place_id: str):
         for trip in trips_ending_at_place + trips_starting_from_place:
             trip_id = str(trip["_id"])
 
-            if "startTime" in trip and trip["startTime"]:
+            if trip.get("startTime"):
                 start_time = parse_time(trip["startTime"])
                 if start_time:
                     is_at_place = trip.get(
-                        "startPlaceId"
+                        "startPlaceId",
                     ) == place_id or is_point_in_place(
                         trip.get("startGeoPoint"),
                         place["geometry"],
@@ -323,14 +327,14 @@ async def get_place_statistics(place_id: str):
                             "type": "start",
                             "trip_id": trip_id,
                             "is_at_place": is_at_place,
-                        }
+                        },
                     )
 
-            if "endTime" in trip and trip["endTime"]:
+            if trip.get("endTime"):
                 end_time = parse_time(trip["endTime"])
                 if end_time:
                     is_at_place = trip.get(
-                        "destinationPlaceId"
+                        "destinationPlaceId",
                     ) == place_id or is_point_in_place(
                         trip.get("destinationGeoPoint"),
                         place["geometry"],
@@ -341,7 +345,7 @@ async def get_place_statistics(place_id: str):
                             "type": "end",
                             "trip_id": trip_id,
                             "is_at_place": is_at_place,
-                        }
+                        },
                     )
 
         timeline = sorted(timeline, key=lambda x: x["time"])
@@ -381,7 +385,7 @@ async def get_place_statistics(place_id: str):
                         "end": visit_end,
                         "duration": duration,
                         "time_since_last": time_since_last,
-                    }
+                    },
                 )
 
             if event["type"] == "start" and event["is_at_place"]:
@@ -455,8 +459,8 @@ async def get_trips_for_place(place_id: str):
                 {"destinationPlaceId": place_id},
                 {
                     "destinationGeoPoint": {
-                        "$geoWithin": {"$geometry": place["geometry"]}
-                    }
+                        "$geoWithin": {"$geometry": place["geometry"]},
+                    },
                 },
             ],
             "endTime": {"$ne": None},
@@ -467,8 +471,8 @@ async def get_trips_for_place(place_id: str):
                 {"startPlaceId": place_id},
                 {
                     "startGeoPoint": {
-                        "$geoWithin": {"$geometry": place["geometry"]}
-                    }
+                        "$geoWithin": {"$geometry": place["geometry"]},
+                    },
                 },
             ],
             "startTime": {"$ne": None},
@@ -493,11 +497,11 @@ async def get_trips_for_place(place_id: str):
         for trip in trips_ending_at_place + trips_starting_from_place:
             trip_id = str(trip["_id"])
 
-            if "startTime" in trip and trip["startTime"]:
+            if trip.get("startTime"):
                 start_time = parse_time(trip["startTime"])
                 if start_time:
                     is_at_place = trip.get(
-                        "startPlaceId"
+                        "startPlaceId",
                     ) == place_id or is_point_in_place(
                         trip.get("startGeoPoint"),
                         place["geometry"],
@@ -508,14 +512,14 @@ async def get_trips_for_place(place_id: str):
                             "type": "start",
                             "trip_id": trip_id,
                             "is_at_place": is_at_place,
-                        }
+                        },
                     )
 
-            if "endTime" in trip and trip["endTime"]:
+            if trip.get("endTime"):
                 end_time = parse_time(trip["endTime"])
                 if end_time:
                     is_at_place = trip.get(
-                        "destinationPlaceId"
+                        "destinationPlaceId",
                     ) == place_id or is_point_in_place(
                         trip.get("destinationGeoPoint"),
                         place["geometry"],
@@ -526,7 +530,7 @@ async def get_trips_for_place(place_id: str):
                             "type": "end",
                             "trip_id": trip_id,
                             "is_at_place": is_at_place,
-                        }
+                        },
                     )
 
         timeline = sorted(timeline, key=lambda x: x["time"])
@@ -571,7 +575,7 @@ async def get_trips_for_place(place_id: str):
                         "departure_time": visit_end,
                         "duration": duration,
                         "time_since_last": time_since_last,
-                    }
+                    },
                 )
 
             if event["type"] == "start" and event["is_at_place"]:
@@ -601,11 +605,11 @@ async def get_trips_for_place(place_id: str):
                     "id": arrival_trip_id,
                     "transactionId": transaction_id,
                     "endTime": SerializationHelper.serialize_datetime(
-                        visit["arrival_time"]
+                        visit["arrival_time"],
                     ),
                     "departureTime": (
                         SerializationHelper.serialize_datetime(
-                            visit["departure_time"]
+                            visit["departure_time"],
                         )
                         if visit["departure_time"]
                         else None
@@ -614,7 +618,7 @@ async def get_trips_for_place(place_id: str):
                     "timeSinceLastVisit": time_since_last_str,
                     "source": trip_source,
                     "distance": distance,
-                }
+                },
             )
 
         trips_data.sort(
@@ -649,15 +653,15 @@ async def get_non_custom_places_visits():
                     "destinationPlaceName": {
                         "$exists": True,
                         "$ne": None,
-                    }
-                }
+                    },
+                },
             },
             {
                 "$group": {
                     "_id": "$destinationPlaceName",
                     "count": {"$sum": 1},
                     "lastVisit": {"$max": "$endTime"},
-                }
+                },
             },
             {"$sort": {"count": -1}},
             {"$limit": 30},
@@ -677,15 +681,14 @@ async def get_non_custom_places_visits():
             )
             if existing:
                 existing["visitCount"] += visit_count
-                if last_visit > existing["lastVisit"]:
-                    existing["lastVisit"] = last_visit
+                existing["lastVisit"] = max(existing["lastVisit"], last_visit)
             else:
                 places_data.append(
                     {
                         "name": place_name,
                         "visitCount": visit_count,
                         "lastVisit": last_visit,
-                    }
+                    },
                 )
 
         places_data.sort(
@@ -695,7 +698,7 @@ async def get_non_custom_places_visits():
 
         for place in places_data:
             place["lastVisit"] = SerializationHelper.serialize_datetime(
-                place["lastVisit"]
+                place["lastVisit"],
             )
 
         return {"places": places_data}
@@ -713,7 +716,8 @@ async def get_non_custom_places_visits():
 @router.get("/places/statistics")
 async def get_all_places_statistics():
     """Get statistics for all custom places in a single call
-    (efficient bulk version)."""
+    (efficient bulk version).
+    """
     try:
         places = await find_with_retry(Collections.places, {})
         if not places:
@@ -726,11 +730,11 @@ async def get_all_places_statistics():
                 "$or": [
                     {
                         "destinationPlaceId": {
-                            "$in": [str(p["_id"]) for p in places]
-                        }
+                            "$in": [str(p["_id"]) for p in places],
+                        },
                     },
                     {"startPlaceId": {"$in": [str(p["_id"]) for p in places]}},
-                ]
+                ],
             },
         )
         # Group trips by place
@@ -754,7 +758,7 @@ async def get_all_places_statistics():
             timeline = []
             for trip in place_trips:
                 trip_id = str(trip["_id"])
-                if "startTime" in trip and trip["startTime"]:
+                if trip.get("startTime"):
                     start_time = parse_time(trip["startTime"])
                     if start_time:
                         is_at_place = trip.get("startPlaceId") == pid
@@ -764,9 +768,9 @@ async def get_all_places_statistics():
                                 "type": "start",
                                 "trip_id": trip_id,
                                 "is_at_place": is_at_place,
-                            }
+                            },
                         )
-                if "endTime" in trip and trip["endTime"]:
+                if trip.get("endTime"):
                     end_time = parse_time(trip["endTime"])
                     if end_time:
                         is_at_place = trip.get("destinationPlaceId") == pid
@@ -776,7 +780,7 @@ async def get_all_places_statistics():
                                 "type": "end",
                                 "trip_id": trip_id,
                                 "is_at_place": is_at_place,
-                            }
+                            },
                         )
             timeline = sorted(timeline, key=lambda x: x["time"])
             visits = []
@@ -812,7 +816,7 @@ async def get_all_places_statistics():
                             "end": visit_end,
                             "duration": duration,
                             "time_since_last": time_since_last,
-                        }
+                        },
                     )
                 if event["type"] == "start" and event["is_at_place"]:
                     last_visit_end = event["time"]
@@ -846,15 +850,15 @@ async def get_all_places_statistics():
                     "totalVisits": total_visits,
                     "averageTimeSpent": format_duration(avg_duration),
                     "firstVisit": SerializationHelper.serialize_datetime(
-                        first_visit
+                        first_visit,
                     ),
                     "lastVisit": SerializationHelper.serialize_datetime(
-                        last_visit
+                        last_visit,
                     ),
                     "averageTimeSinceLastVisit": (
                         avg_time_between / 3600 if avg_time_between else 0
                     ),
-                }
+                },
             )
         return results
     except Exception as e:

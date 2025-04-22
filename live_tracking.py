@@ -20,7 +20,8 @@ archived_live_trips_collection_global: Collection | None = None
 
 def initialize_db(db_live_trips, db_archived_live_trips):
     """Initialize the database collections used by this module (primarily
-    for non-task access)."""
+    for non-task access).
+    """
     global live_trips_collection_global, archived_live_trips_collection_global
     live_trips_collection_global = db_live_trips
     archived_live_trips_collection_global = db_archived_live_trips
@@ -31,7 +32,8 @@ def _parse_iso_datetime(
     timestamp_str: str | None,
 ) -> datetime | None:
     """Safely parse an ISO 8601 timestamp string into a timezone-aware datetime object
-    (UTC)."""
+    (UTC).
+    """
     if not timestamp_str or not isinstance(timestamp_str, str):
         return None
     try:
@@ -72,6 +74,7 @@ async def process_trip_start(
     Args:
         data: The webhook payload conforming to Bouncie API spec.
         live_collection: The MongoDB collection for active trips.
+
     """
     transaction_id = data.get("transactionId")
     start_data = data.get("start")
@@ -204,6 +207,7 @@ async def process_trip_data(
         data: The webhook payload conforming to Bouncie API spec.
         live_collection: The MongoDB collection for active trips.
         archive_collection: The MongoDB collection for archived trips.
+
     """
     transaction_id = data.get("transactionId")
     trip_data_points = data.get("data")
@@ -227,7 +231,7 @@ async def process_trip_data(
             {
                 "transactionId": transaction_id,
                 "status": "active",
-            }
+            },
         )
     except Exception as find_err:
         logger.error(
@@ -240,7 +244,7 @@ async def process_trip_data(
     if not trip_doc:
         try:
             archived_trip = await archive_collection.find_one(
-                {"transactionId": transaction_id}
+                {"transactionId": transaction_id},
             )
             if archived_trip:
                 logger.info(
@@ -268,7 +272,7 @@ async def process_trip_data(
 
     try:
         new_coords: list[dict[str, Any]] = sort_and_filter_trip_coordinates(
-            trip_data_points
+            trip_data_points,
         )
     except Exception as e:
         logger.exception(
@@ -293,7 +297,7 @@ async def process_trip_data(
                 "$set": {
                     "sequence": sequence,
                     "lastUpdate": datetime.now(timezone.utc),
-                }
+                },
             },
         )
         return
@@ -363,7 +367,7 @@ async def process_trip_data(
     last_point_time = sorted_unique_coords[-1].get("timestamp")
     duration_seconds = 0.0
     if isinstance(start_time, datetime) and isinstance(
-        last_point_time, datetime
+        last_point_time, datetime,
     ):
         duration_seconds = max(
             0.0,
@@ -488,7 +492,7 @@ async def process_trip_data(
         )
     elif valid_speeds_for_avg_mph:
         avg_speed_mph = sum(valid_speeds_for_avg_mph) / len(
-            valid_speeds_for_avg_mph
+            valid_speeds_for_avg_mph,
         )
         logger.info(
             "Calculated fallback average speed %.1f mph for trip %s based on %d segments (duration was %.1fs).",
@@ -547,7 +551,7 @@ async def process_trip_data(
                     "$set": {
                         "sequence": sequence,
                         "lastUpdate": update_payload["lastUpdate"],
-                    }
+                    },
                 },
             )
     except Exception as update_err:
@@ -572,6 +576,7 @@ async def process_trip_metrics(
         data: The webhook payload conforming to Bouncie API spec.
         live_collection: The MongoDB collection for active trips.
         archive_collection: The MongoDB collection for archived trips.
+
     """
     transaction_id = data.get("transactionId")
     metrics_data = data.get("metrics")
@@ -595,7 +600,7 @@ async def process_trip_metrics(
             {
                 "transactionId": transaction_id,
                 "status": "active",
-            }
+            },
         )
     except Exception as find_err:
         logger.error(
@@ -608,7 +613,7 @@ async def process_trip_metrics(
     if not trip_doc:
         try:
             archived_trip = await archive_collection.find_one(
-                {"transactionId": transaction_id}
+                {"transactionId": transaction_id},
             )
             if archived_trip:
                 logger.info(
@@ -707,7 +712,7 @@ async def process_trip_metrics(
                 "$set": {
                     "sequence": sequence,
                     "lastUpdate": update_fields["lastUpdate"],
-                }
+                },
             },
         )
         return
@@ -747,7 +752,7 @@ async def process_trip_metrics(
                     "$set": {
                         "sequence": update_fields["sequence"],
                         "lastUpdate": update_fields["lastUpdate"],
-                    }
+                    },
                 },
             )
     except Exception as update_err:
@@ -772,6 +777,7 @@ async def process_trip_end(
         data: The webhook payload conforming to Bouncie API spec.
         live_collection: The MongoDB collection for active trips.
         archive_collection: The MongoDB collection for archived trips.
+
     """
     transaction_id = data.get("transactionId")
     end_data = data.get("end")
@@ -840,7 +846,7 @@ async def process_trip_end(
             {
                 "transactionId": transaction_id,
                 "status": "active",
-            }
+            },
         )
     except Exception as find_err:
         logger.error(
@@ -1062,10 +1068,11 @@ async def get_active_trip(
 
     Returns:
         Dict: The raw active trip document from MongoDB, or None.
+
     """
     if live_trips_collection_global is None:
         logger.error(
-            "Live trips collection global not initialized in get_active_trip"
+            "Live trips collection global not initialized in get_active_trip",
         )
         return None
 
@@ -1111,7 +1118,7 @@ async def get_active_trip(
     if active_trip_doc:
         trip_seq = active_trip_doc.get("sequence", "N/A")
         if "_id" in active_trip_doc and isinstance(
-            active_trip_doc["_id"], ObjectId
+            active_trip_doc["_id"], ObjectId,
         ):
             active_trip_doc["_id"] = str(active_trip_doc["_id"])
 
@@ -1146,8 +1153,8 @@ async def cleanup_stale_trips_logic(
 
     Returns:
         Dict: Counts of stale trips archived and old archives removed.
-    """
 
+    """
     now = datetime.now(timezone.utc)
     stale_threshold = now - timedelta(minutes=stale_minutes)
     archive_threshold = now - timedelta(days=max_archive_age_days)
@@ -1165,7 +1172,7 @@ async def cleanup_stale_trips_logic(
             {
                 "status": "active",
                 "lastUpdate": {"$lt": stale_threshold},
-            }
+            },
         )
 
         async for trip in stale_trips_cursor:
@@ -1202,7 +1209,7 @@ async def cleanup_stale_trips_logic(
 
             start_time = trip.get("startTime")
             if isinstance(start_time, datetime) and isinstance(
-                last_update_time, datetime
+                last_update_time, datetime,
             ):
                 duration = max(
                     0.0,
@@ -1246,7 +1253,7 @@ async def cleanup_stale_trips_logic(
                 [
                     archive_stale_op,
                     delete_stale_op,
-                ]
+                ],
             )
 
             if success:
@@ -1272,7 +1279,7 @@ async def cleanup_stale_trips_logic(
 
     try:
         delete_result = await archive_collection.delete_many(
-            {"endTime": {"$lt": archive_threshold}}
+            {"endTime": {"$lt": archive_threshold}},
         )
         old_removed_count = delete_result.deleted_count
         if old_removed_count > 0:
@@ -1311,10 +1318,11 @@ async def get_trip_updates(
     Returns:
         Dict: Contains status, has_update flag, and trip data if an update is available,
               or current_sequence if no update but an active trip exists.
+
     """
     if live_trips_collection_global is None:
         logger.error(
-            "Live trips collection global not initialized in get_trip_updates"
+            "Live trips collection global not initialized in get_trip_updates",
         )
         return {
             "status": "error",
@@ -1346,7 +1354,7 @@ async def get_trip_updates(
 
     try:
         active_trip_update = await get_active_trip(
-            since_sequence=client_sequence
+            since_sequence=client_sequence,
         )
 
         if active_trip_update:

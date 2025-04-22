@@ -101,8 +101,7 @@ class CoordinatePointModel(BaseModel):
 
 
 class TripDataModel(BaseModel):
-    """
-    Represents the data structure of a trip document as returned from the database,
+    """Represents the data structure of a trip document as returned from the database,
     prepared for API responses. Includes fields observed in live_tracking.py.
     """
 
@@ -138,8 +137,7 @@ class TripDataModel(BaseModel):
 
 
 class ActiveTripSuccessResponse(BaseModel):
-    """
-    Response model for when an active trip is successfully found.
+    """Response model for when an active trip is successfully found.
     """
 
     status: str = "success"
@@ -149,8 +147,7 @@ class ActiveTripSuccessResponse(BaseModel):
 
 
 class NoActiveTripResponse(BaseModel):
-    """
-    Response model for when no active trip is found (or it's not newer than requested
+    """Response model for when no active trip is found (or it's not newer than requested
     sequence).
     """
 
