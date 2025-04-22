@@ -296,6 +296,16 @@ function createEditableCell(data, type, field, inputType = "text") {
               this.renderDateTime(data, type, row, "endTime"),
           },
           {
+            data: "duration",
+            title: "Duration",
+            render: (data, type) => {
+              if (type !== "display") return data;
+              if (data == null || isNaN(data)) return "N/A";
+              return TripsManager.formatDuration(data);
+            },
+            orderable: true,
+          },
+          {
             data: "distance",
             title: "Distance (miles)",
             render: (data, type) =>
@@ -684,6 +694,16 @@ function createEditableCell(data, type, field, inputType = "text") {
             "danger",
           );
         });
+    }
+
+    static formatDuration(seconds) {
+      seconds = Math.floor(seconds);
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return [h, m, s]
+        .map((v) => v.toString().padStart(2, "0"))
+        .join(":");
     }
   }
 
