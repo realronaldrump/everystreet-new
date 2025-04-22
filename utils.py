@@ -5,16 +5,10 @@ import logging
 import math
 import statistics
 from collections.abc import Coroutine
-from typing import (
-    Any,
-    TypeVar,
-)
+from typing import Any, TypeVar
 
 import aiohttp
-from aiohttp import (
-    ClientConnectorError,
-    ClientResponseError,
-)
+from aiohttp import ClientConnectorError, ClientResponseError
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -201,9 +195,7 @@ def validate_trip_data(
 
 
 @retry_async(max_retries=3, retry_delay=2.0)
-async def reverse_geocode_nominatim(
-    lat: float, lon: float
-) -> dict[str, Any] | None:
+async def reverse_geocode_nominatim(lat: float, lon: float) -> dict[str, Any] | None:
     """Reverse geocode coordinates using OSM Nominatim."""
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {
@@ -260,9 +252,7 @@ def haversine(
     elif unit == "km":
         radius = EARTH_RADIUS_KM
     else:
-        raise ValueError(
-            "Invalid unit specified. Use 'meters', 'miles', or 'km'."
-        )
+        raise ValueError("Invalid unit specified. Use 'meters', 'miles', or 'km'.")
 
     distance = radius * c
     return distance
@@ -286,9 +276,7 @@ def calculate_distance(
         Total distance in miles
     """
     total_distance_meters = 0.0
-    coords: list[list[float]] = (
-        coordinates if isinstance(coordinates, list) else []
-    )
+    coords: list[list[float]] = coordinates if isinstance(coordinates, list) else []
 
     if not coords or not isinstance(coords[0], list):
         logger.warning("Invalid coordinates format for distance calculation.")
@@ -342,9 +330,7 @@ def run_async_from_sync(
     """
     try:
         loop = asyncio.get_event_loop_policy().get_event_loop()
-        logger.debug(
-            "Reusing existing event loop for sync-to-async execution."
-        )
+        logger.debug("Reusing existing event loop for sync-to-async execution.")
     except RuntimeError:
         logger.debug(
             "No event loop found, creating a new one for sync-to-async execution."
