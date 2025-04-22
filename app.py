@@ -1422,6 +1422,9 @@ async def get_trips(request: Request):
                 if et.tzinfo is None:
                     et = et.astimezone(timezone.utc)
 
+                # Calculate duration in seconds
+                duration_seconds = (et - st).total_seconds() if st and et else 0
+
                 geom = trip.get("gps")
                 if isinstance(geom, str):
                     geom = geojson_module.loads(geom)
@@ -1431,6 +1434,7 @@ async def get_trips(request: Request):
                     "imei": trip.get("imei", "UPLOAD"),
                     "startTime": st.astimezone(timezone.utc).isoformat(),
                     "endTime": et.astimezone(timezone.utc).isoformat(),
+                    "duration": duration_seconds,  # Add duration here
                     "distance": float(trip.get("distance", 0)),
                     "timeZone": trip.get(
                         "timeZone",
