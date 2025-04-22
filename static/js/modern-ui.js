@@ -107,7 +107,6 @@
 
       // Add filter indicator to the UI
       addFilterIndicator();
-
     } catch (error) {
       console.error("Error initializing Modern UI:", error);
       window.notificationManager?.show(
@@ -128,30 +127,45 @@
       if (typeof selectors[key] === "string" && !elements[key]) {
         // Special handling for date inputs within the filters panel
         if (key === "startDate" || key === "endDate") {
-           elements[`${key}Input`] = document.querySelector(
-             `${selectors.filtersPanel} ${selectors[key]}`,
-           );
+          elements[`${key}Input`] = document.querySelector(
+            `${selectors.filtersPanel} ${selectors[key]}`,
+          );
         } else {
-           elements[key] = document.querySelector(selectors[key]);
+          elements[key] = document.querySelector(selectors[key]);
         }
       }
     }
 
     // Fallback for date inputs if not found within the panel (shouldn't happen with correct HTML)
-    if (!elements.startDateInput && elements.startDate) elements.startDateInput = elements.startDate;
-    if (!elements.endDateInput && elements.endDate) elements.endDateInput = elements.endDate;
+    if (!elements.startDateInput && elements.startDate)
+      elements.startDateInput = elements.startDate;
+    if (!elements.endDateInput && elements.endDate)
+      elements.endDateInput = elements.endDate;
 
     // Cache NodeLists
-    elements.quickSelectBtns = document.querySelectorAll(selectors.quickSelectBtns);
+    elements.quickSelectBtns = document.querySelectorAll(
+      selectors.quickSelectBtns,
+    );
     elements.datepickers = document.querySelectorAll(selectors.datepicker);
-    elements.zoomControls = document.querySelectorAll(".leaflet-control-zoom a"); // Cache zoom controls
+    elements.zoomControls = document.querySelectorAll(
+      ".leaflet-control-zoom a",
+    ); // Cache zoom controls
 
     // Ensure essential elements are cached, log warning if not found
-    const essential = ['loadingOverlay', 'progressBar', 'loadingText', 'applyFiltersBtn', 'resetFiltersBtn', 'mapControls'];
-    essential.forEach(key => {
-        if (!elements[key]) {
-            console.warn(`Essential element '${key}' with selector '${selectors[key]}' not found during cache.`);
-        }
+    const essential = [
+      "loadingOverlay",
+      "progressBar",
+      "loadingText",
+      "applyFiltersBtn",
+      "resetFiltersBtn",
+      "mapControls",
+    ];
+    essential.forEach((key) => {
+      if (!elements[key]) {
+        console.warn(
+          `Essential element '${key}' with selector '${selectors[key]}' not found during cache.`,
+        );
+      }
     });
   }
 
@@ -162,8 +176,8 @@
   function initMapControls() {
     const { mapControls, controlsToggle, centerOnLocationButton } = elements;
     if (!mapControls) {
-        console.warn("Map controls container not found.");
-        return;
+      console.warn("Map controls container not found.");
+      return;
     }
 
     // Improve touch scrolling on mobile for the controls panel
@@ -174,13 +188,18 @@
     // --- Minimize/Expand Toggle ---
     if (controlsToggle) {
       controlsToggle.addEventListener("click", function () {
-        const controlsContent = elements.controlsContent || document.getElementById(CONFIG.selectors.controlsContent); // Re-query if needed
+        const controlsContent =
+          elements.controlsContent ||
+          document.getElementById(CONFIG.selectors.controlsContent); // Re-query if needed
         mapControls.classList.toggle(CONFIG.classes.minimized);
 
         // Use Bootstrap Collapse component if available
         if (controlsContent && window.bootstrap?.Collapse) {
-            const bsCollapse = window.bootstrap.Collapse.getOrCreateInstance(controlsContent);
-            mapControls.classList.contains(CONFIG.classes.minimized) ? bsCollapse.hide() : bsCollapse.show();
+          const bsCollapse =
+            window.bootstrap.Collapse.getOrCreateInstance(controlsContent);
+          mapControls.classList.contains(CONFIG.classes.minimized)
+            ? bsCollapse.hide()
+            : bsCollapse.show();
         }
 
         // Toggle icon indicator
@@ -192,15 +211,24 @@
         requestAnimationFrame(() => updateMapControlsOpacity());
       });
     } else {
-        console.warn("Controls toggle button not found.");
+      console.warn("Controls toggle button not found.");
     }
 
     // --- Event Propagation Handling ---
     // Prevent map interaction when interacting with controls
     const stopPropagationEvents = [
-      "mousedown", "mouseup", "click", "dblclick",
-      "touchstart", "touchend", "wheel", "contextmenu",
-      "drag", "dragstart", "dragend", "touchmove" // Added touchmove
+      "mousedown",
+      "mouseup",
+      "click",
+      "dblclick",
+      "touchstart",
+      "touchend",
+      "wheel",
+      "contextmenu",
+      "drag",
+      "dragstart",
+      "dragend",
+      "touchmove", // Added touchmove
     ];
 
     stopPropagationEvents.forEach((eventType) => {
@@ -210,7 +238,7 @@
           // Allow interaction with form elements, buttons, links, etc. within the controls
           const target = e.target;
           const isInteractiveElement = target.closest(
-            'input, select, textarea, button, a, .form-check, .nav-item, .list-group-item'
+            "input, select, textarea, button, a, .form-check, .nav-item, .list-group-item",
           );
 
           if (!isInteractiveElement) {
@@ -218,7 +246,11 @@
           }
         },
         // Use passive where possible, but not for events that might need preventDefault (like drag)
-        { passive: !['drag', 'dragstart', 'dragend', 'touchmove'].includes(eventType) }
+        {
+          passive: !["drag", "dragstart", "dragend", "touchmove"].includes(
+            eventType,
+          ),
+        },
       );
     });
 
@@ -227,11 +259,11 @@
     mapControls.classList.add(CONFIG.classes.mapControlsEventHandler);
 
     // Add CSS for pointer events (ensure this doesn't conflict with other styles)
-    const styleId = 'map-controls-pointer-events-style';
+    const styleId = "map-controls-pointer-events-style";
     if (!document.getElementById(styleId)) {
-        const style = document.createElement("style");
-        style.id = styleId;
-        style.textContent = `
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.textContent = `
           .${CONFIG.classes.mapControlsEventHandler} {
             pointer-events: auto; /* Make the container itself clickable */
             touch-action: pan-y;
@@ -248,17 +280,18 @@
             pointer-events: auto;
           }
         `;
-        document.head.appendChild(style);
+      document.head.appendChild(style);
     }
 
     // --- Center on Location Button ---
     if (centerOnLocationButton) {
-      centerOnLocationButton.addEventListener('click', handleCenterOnLocation);
+      centerOnLocationButton.addEventListener("click", handleCenterOnLocation);
     } else {
-        console.warn("Center on location button not found.");
+      console.warn("Center on location button not found.");
     }
 
-    window.handleError?.( // Use optional chaining for safety
+    window.handleError?.(
+      // Use optional chaining for safety
       "Map controls initialized",
       "initMapControls",
       "info",
@@ -280,20 +313,31 @@
     const locationInfo = findBestLocationToCenter();
 
     if (locationInfo.targetLatLng) {
-      console.info(`Centering map on ${locationInfo.source}:`, locationInfo.targetLatLng);
+      console.info(
+        `Centering map on ${locationInfo.source}:`,
+        locationInfo.targetLatLng,
+      );
       // Fly to the location, zooming in if currently zoomed out
       window.map.flyTo(
-          locationInfo.targetLatLng,
-          window.map.getZoom() < CONFIG.map.defaultZoom ? CONFIG.map.defaultZoom : window.map.getZoom(),
-          {
-              animate: true,
-              duration: CONFIG.map.flyToDuration
-          }
+        locationInfo.targetLatLng,
+        window.map.getZoom() < CONFIG.map.defaultZoom
+          ? CONFIG.map.defaultZoom
+          : window.map.getZoom(),
+        {
+          animate: true,
+          duration: CONFIG.map.flyToDuration,
+        },
       );
-      window.notificationManager?.show(`Centered map on ${locationInfo.source}.`, "info");
+      window.notificationManager?.show(
+        `Centered map on ${locationInfo.source}.`,
+        "info",
+      );
     } else {
       console.warn("Could not determine location to center on.");
-      window.notificationManager?.show("Could not determine current or last known location.", "warning");
+      window.notificationManager?.show(
+        "Could not determine current or last known location.",
+        "warning",
+      );
     }
   }
 
@@ -310,7 +354,11 @@
     const liveCoords = window.liveTracker?.activeTrip?.coordinates; // Optional chaining
     if (liveCoords?.length > 0) {
       const lastCoord = liveCoords[liveCoords.length - 1];
-      if (lastCoord && typeof lastCoord.lat === 'number' && typeof lastCoord.lon === 'number') {
+      if (
+        lastCoord &&
+        typeof lastCoord.lat === "number" &&
+        typeof lastCoord.lon === "number"
+      ) {
         targetLatLng = [lastCoord.lat, lastCoord.lon];
         locationSource = "live location";
         // console.log("Using live location from tracker."); // Removed debug log
@@ -318,30 +366,30 @@
     }
 
     // 2. Try last known location from DrivingNavigation (if live location not found)
-    if (!targetLatLng && window.drivingNavigation?.lastKnownLocation) { // Optional chaining
-        const { lat, lon } = window.drivingNavigation.lastKnownLocation;
-        if (typeof lat === 'number' && typeof lon === 'number') {
-            targetLatLng = [lat, lon];
-            locationSource = "last known location";
-            // console.log("Using last known location from DrivingNavigation."); // Removed debug log
-        }
+    if (!targetLatLng && window.drivingNavigation?.lastKnownLocation) {
+      // Optional chaining
+      const { lat, lon } = window.drivingNavigation.lastKnownLocation;
+      if (typeof lat === "number" && typeof lon === "number") {
+        targetLatLng = [lat, lon];
+        locationSource = "last known location";
+        // console.log("Using last known location from DrivingNavigation."); // Removed debug log
+      }
     }
 
     // 3. Fallback: Last point of the most recent trip (if other locations not found)
     if (!targetLatLng) {
       const lastTripInfo = findLastTripEndPoint();
       if (lastTripInfo) {
-          targetLatLng = lastTripInfo.coords;
-          locationSource = "last trip end";
-          // console.log("Using last trip end point as fallback."); // Removed debug log
+        targetLatLng = lastTripInfo.coords;
+        locationSource = "last trip end";
+        // console.log("Using last trip end point as fallback."); // Removed debug log
       }
     }
 
     // Log if fallback failed and why (using handleError for better visibility)
     if (!targetLatLng && !locationSource) {
-        logFallbackFailureReason();
+      logFallbackFailureReason();
     }
-
 
     return { targetLatLng, source: locationSource };
   }
@@ -351,42 +399,48 @@
    * @returns {{coords: [number, number], featureId: string|number}|null} Coordinates [lat, lon] and feature ID or null.
    */
   function findLastTripEndPoint() {
-      const tripsLayerData = window.AppState?.mapLayers?.trips?.layer; // Optional chaining
+    const tripsLayerData = window.AppState?.mapLayers?.trips?.layer; // Optional chaining
 
-      if (!tripsLayerData?.features?.length > 0) { // Check features array existence and length
-          return null;
+    if (!tripsLayerData?.features?.length > 0) {
+      // Check features array existence and length
+      return null;
+    }
+
+    let lastTripFeature = null;
+    let latestTime = 0;
+
+    // Find the feature with the latest end time
+    tripsLayerData.features.forEach((feature) => {
+      const endTime = feature.properties?.endTime; // Optional chaining
+      if (endTime) {
+        const time = new Date(endTime).getTime();
+        // Ensure time is valid and later than the current latest
+        if (!isNaN(time) && time > latestTime) {
+          latestTime = time;
+          lastTripFeature = feature;
+        }
       }
+    });
 
-      let lastTripFeature = null;
-      let latestTime = 0;
+    if (!lastTripFeature) {
+      // console.warn("Could not determine the most recent trip feature."); // Removed debug log
+      return null;
+    }
 
-      // Find the feature with the latest end time
-      tripsLayerData.features.forEach(feature => {
-          const endTime = feature.properties?.endTime; // Optional chaining
-          if (endTime) {
-              const time = new Date(endTime).getTime();
-              // Ensure time is valid and later than the current latest
-              if (!isNaN(time) && time > latestTime) {
-                  latestTime = time;
-                  lastTripFeature = feature;
-              }
-          }
-      });
-
-      if (!lastTripFeature) {
-          // console.warn("Could not determine the most recent trip feature."); // Removed debug log
-          return null;
-      }
-
-      // Extract coordinates from the last feature
-      const coords = extractCoordsFromFeature(lastTripFeature);
-      if (coords) {
-          // console.log("Found last trip feature:", lastTripFeature.properties?.id || lastTripFeature.properties?.transactionId, "ended at", new Date(latestTime)); // Removed debug log
-          return { coords, featureId: lastTripFeature.properties?.id || lastTripFeature.properties?.transactionId };
-      } else {
-          // console.warn("Could not extract valid coordinates from the most recent trip feature:", lastTripFeature); // Removed debug log
-          return null;
-      }
+    // Extract coordinates from the last feature
+    const coords = extractCoordsFromFeature(lastTripFeature);
+    if (coords) {
+      // console.log("Found last trip feature:", lastTripFeature.properties?.id || lastTripFeature.properties?.transactionId, "ended at", new Date(latestTime)); // Removed debug log
+      return {
+        coords,
+        featureId:
+          lastTripFeature.properties?.id ||
+          lastTripFeature.properties?.transactionId,
+      };
+    } else {
+      // console.warn("Could not extract valid coordinates from the most recent trip feature:", lastTripFeature); // Removed debug log
+      return null;
+    }
   }
 
   /**
@@ -395,55 +449,63 @@
    * @returns {[number, number]|null} Coordinates as [lat, lon] or null if invalid.
    */
   function extractCoordsFromFeature(feature) {
-      const geomType = feature?.geometry?.type; // Optional chaining
-      const coords = feature?.geometry?.coordinates; // Optional chaining
+    const geomType = feature?.geometry?.type; // Optional chaining
+    const coords = feature?.geometry?.coordinates; // Optional chaining
 
-      let lastCoord = null;
+    let lastCoord = null;
 
-      if (geomType === "LineString" && Array.isArray(coords) && coords.length > 0) {
-          lastCoord = coords[coords.length - 1]; // Get the last point of the line
-      } else if (geomType === "Point" && Array.isArray(coords)) {
-          lastCoord = coords; // Point coordinates are directly the array
-      }
+    if (
+      geomType === "LineString" &&
+      Array.isArray(coords) &&
+      coords.length > 0
+    ) {
+      lastCoord = coords[coords.length - 1]; // Get the last point of the line
+    } else if (geomType === "Point" && Array.isArray(coords)) {
+      lastCoord = coords; // Point coordinates are directly the array
+    }
 
-      // Validate and return as [lat, lon]
-      if (Array.isArray(lastCoord) && lastCoord.length === 2 && typeof lastCoord[0] === 'number' && typeof lastCoord[1] === 'number') {
-          return [lastCoord[1], lastCoord[0]]; // GeoJSON is [lng, lat], Leaflet needs [lat, lng]
-      }
+    // Validate and return as [lat, lon]
+    if (
+      Array.isArray(lastCoord) &&
+      lastCoord.length === 2 &&
+      typeof lastCoord[0] === "number" &&
+      typeof lastCoord[1] === "number"
+    ) {
+      return [lastCoord[1], lastCoord[0]]; // GeoJSON is [lng, lat], Leaflet needs [lat, lng]
+    }
 
-      return null;
+    return null;
   }
 
   /**
    * Logs detailed reasons why the fallback mechanism for finding a location failed.
    */
   function logFallbackFailureReason() {
-      // Use handleError with 'info' level for logging structured debug information
-      let reason = "Fallback location finding failed. Reasons:\n";
-      reason += `- window.AppState exists: ${Boolean(window.AppState)}\n`; // Use Boolean() as suggested
-      if (window.AppState) {
-          reason += `- window.AppState.mapLayers exists: ${Boolean(window.AppState.mapLayers)}\n`; // Use Boolean()
-          if (window.AppState.mapLayers) {
-              const tripsLayer = window.AppState.mapLayers.trips;
-              reason += `- window.AppState.mapLayers.trips exists: ${Boolean(tripsLayer)}\n`; // Use Boolean()
-              if (tripsLayer) {
-                  reason += `- window.AppState.mapLayers.trips.layer exists: ${Boolean(tripsLayer.layer)}\n`; // Use Boolean()
-                  if (tripsLayer.layer) {
-                      const features = tripsLayer.layer.features;
-                      reason += `- .features is Array: ${Array.isArray(features)}\n`;
-                      if (Array.isArray(features)) {
-                          reason += `- .features.length: ${features.length}\n`;
-                          if (features.length > 0) {
-                              reason += `- No feature found with a valid 'endTime' property or valid coordinates.\n`
-                          }
-                      }
-                  }
+    // Use handleError with 'info' level for logging structured debug information
+    let reason = "Fallback location finding failed. Reasons:\n";
+    reason += `- window.AppState exists: ${Boolean(window.AppState)}\n`; // Use Boolean() as suggested
+    if (window.AppState) {
+      reason += `- window.AppState.mapLayers exists: ${Boolean(window.AppState.mapLayers)}\n`; // Use Boolean()
+      if (window.AppState.mapLayers) {
+        const tripsLayer = window.AppState.mapLayers.trips;
+        reason += `- window.AppState.mapLayers.trips exists: ${Boolean(tripsLayer)}\n`; // Use Boolean()
+        if (tripsLayer) {
+          reason += `- window.AppState.mapLayers.trips.layer exists: ${Boolean(tripsLayer.layer)}\n`; // Use Boolean()
+          if (tripsLayer.layer) {
+            const features = tripsLayer.layer.features;
+            reason += `- .features is Array: ${Array.isArray(features)}\n`;
+            if (Array.isArray(features)) {
+              reason += `- .features.length: ${features.length}\n`;
+              if (features.length > 0) {
+                reason += `- No feature found with a valid 'endTime' property or valid coordinates.\n`;
               }
+            }
           }
+        }
       }
-      window.handleError?.(reason, "findBestLocationToCenter", "warn"); // Log as warning
+    }
+    window.handleError?.(reason, "findBestLocationToCenter", "warn"); // Log as warning
   }
-
 
   /**
    * Initializes the theme toggle functionality (light/dark mode).
@@ -485,18 +547,19 @@
 
     // Setup the secondary dark mode toggle (potentially a different UI element)
     // This assumes it should reflect the state set by the primary toggle or initial load
-    if (darkModeToggle && !themeToggle) { // Only add listener if primary doesn't exist
-         darkModeToggle.checked = initialTheme === "dark";
-         darkModeToggle.addEventListener("change", () => {
-            const newTheme = darkModeToggle.checked ? "dark" : "light";
-            applyTheme(newTheme);
-            localStorage.setItem(CONFIG.storage.theme, newTheme);
-            document.dispatchEvent(
-              new CustomEvent("themeChanged", { detail: { theme: newTheme } }),
-            );
-         });
+    if (darkModeToggle && !themeToggle) {
+      // Only add listener if primary doesn't exist
+      darkModeToggle.checked = initialTheme === "dark";
+      darkModeToggle.addEventListener("change", () => {
+        const newTheme = darkModeToggle.checked ? "dark" : "light";
+        applyTheme(newTheme);
+        localStorage.setItem(CONFIG.storage.theme, newTheme);
+        document.dispatchEvent(
+          new CustomEvent("themeChanged", { detail: { theme: newTheme } }),
+        );
+      });
     } else if (darkModeToggle) {
-         darkModeToggle.checked = initialTheme === "dark"; // Ensure it's synced initially
+      darkModeToggle.checked = initialTheme === "dark"; // Ensure it's synced initially
     }
   }
 
@@ -515,7 +578,10 @@
     // Update meta theme color for browser UI consistency
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {
-      themeColorMeta.setAttribute("content", isLight ? CONFIG.themeMetaColor.light : CONFIG.themeMetaColor.dark);
+      themeColorMeta.setAttribute(
+        "content",
+        isLight ? CONFIG.themeMetaColor.light : CONFIG.themeMetaColor.dark,
+      );
     }
 
     // Update map tiles and background
@@ -531,9 +597,12 @@
     if (!window.map?.eachLayer) return; // Use optional chaining
 
     // Update map container background
-    const mapContainer = elements.mapContainer || document.getElementById(CONFIG.selectors.mapContainer);
+    const mapContainer =
+      elements.mapContainer ||
+      document.getElementById(CONFIG.selectors.mapContainer);
     if (mapContainer) {
-        mapContainer.style.background = theme === "light" ? CONFIG.map.lightBg : CONFIG.map.darkBg;
+      mapContainer.style.background =
+        theme === "light" ? CONFIG.map.lightBg : CONFIG.map.darkBg;
     }
 
     // Remove existing tile layers before adding the new one
@@ -546,14 +615,13 @@
     // Add the new tile layer based on the theme
     const tileUrl = CONFIG.selectors.mapTileUrl[theme];
     if (tileUrl) {
-        L.tileLayer(tileUrl, {
-          maxZoom: 19, // Consider making this configurable
-          attribution: "", // Add attribution if required by the tile provider
-        }).addTo(window.map);
+      L.tileLayer(tileUrl, {
+        maxZoom: 19, // Consider making this configurable
+        attribution: "", // Add attribution if required by the tile provider
+      }).addTo(window.map);
     } else {
-        console.warn(`Map tile URL for theme '${theme}' not found in config.`);
+      console.warn(`Map tile URL for theme '${theme}' not found in config.`);
     }
-
 
     // Refresh map size to prevent rendering issues
     window.map.invalidateSize();
@@ -570,10 +638,9 @@
   function initMobileDrawer() {
     const { mobileDrawer, menuToggle, closeBtn, contentOverlay } = elements;
     if (!mobileDrawer || !menuToggle) {
-        // console.warn("Mobile drawer or menu toggle not found, skipping initialization."); // Removed debug log
-        return;
+      // console.warn("Mobile drawer or menu toggle not found, skipping initialization."); // Removed debug log
+      return;
     }
-
 
     const closeDrawer = () => {
       mobileDrawer.classList.remove(CONFIG.classes.open);
@@ -630,9 +697,8 @@
         // updateFilterIndicator(); // Update indicator when panel opens/closes
       });
     } else {
-        console.warn("Filter toggle or panel not found.");
+      console.warn("Filter toggle or panel not found.");
     }
-
 
     const closePanel = () => {
       filtersPanel?.classList.remove(CONFIG.classes.open); // Use optional chaining
@@ -676,8 +742,8 @@
 
     // Ensure DateUtils is available
     if (!window.DateUtils) {
-        console.error("DateUtils not found. Cannot initialize date pickers.");
-        return;
+      console.error("DateUtils not found. Cannot initialize date pickers.");
+      return;
     }
 
     const today = DateUtils.getCurrentDate();
@@ -695,7 +761,7 @@
       theme: document.body.classList.contains(CONFIG.classes.lightMode)
         ? "light" // Use Flatpickr light theme
         : "dark", // Use Flatpickr dark theme
-        errorHandler: (error) => console.warn("Flatpickr error:", error) // Handle Flatpickr errors
+      errorHandler: (error) => console.warn("Flatpickr error:", error), // Handle Flatpickr errors
     };
 
     // Initialize all elements with the datepicker class
@@ -714,15 +780,23 @@
     // like a potential linter scope issue or false positive.
     if (startDateInput) {
       // Use setDate method if Flatpickr is initialized, otherwise set value directly
-      startDateInput._flatpickr ? startDateInput._flatpickr.setDate(startDate, true) : startDateInput.value = startDate;
+      startDateInput._flatpickr
+        ? startDateInput._flatpickr.setDate(startDate, true)
+        : (startDateInput.value = startDate);
     } else {
-        console.warn("Start date input element not found for setting initial value.");
+      console.warn(
+        "Start date input element not found for setting initial value.",
+      );
     }
 
     if (endDateInput) {
-      endDateInput._flatpickr ? endDateInput._flatpickr.setDate(endDate, true) : endDateInput.value = endDate;
+      endDateInput._flatpickr
+        ? endDateInput._flatpickr.setDate(endDate, true)
+        : (endDateInput.value = endDate);
     } else {
-        console.warn("End date input element not found for setting initial value.");
+      console.warn(
+        "End date input element not found for setting initial value.",
+      );
     }
   }
 
@@ -730,9 +804,15 @@
    * Adds the filter indicator element to the DOM if it doesn't exist.
    */
   function addFilterIndicator() {
-    const toolsSection = elements.toolsSection || document.querySelector(CONFIG.selectors.toolsSection);
+    const toolsSection =
+      elements.toolsSection ||
+      document.querySelector(CONFIG.selectors.toolsSection);
     // Exit if the indicator already exists or the target section isn't found
-    if (!toolsSection || document.getElementById(CONFIG.selectors.filterIndicator.substring(1))) return;
+    if (
+      !toolsSection ||
+      document.getElementById(CONFIG.selectors.filterIndicator.substring(1))
+    )
+      return;
 
     const indicator = document.createElement("div");
     indicator.className = "filter-indicator me-2"; // Added margin
@@ -768,7 +848,9 @@
    * Updates the text content of the filter indicator based on stored dates.
    */
   function updateFilterIndicator() {
-    const indicator = elements.filterIndicator || document.getElementById(CONFIG.selectors.filterIndicator.substring(1));
+    const indicator =
+      elements.filterIndicator ||
+      document.getElementById(CONFIG.selectors.filterIndicator.substring(1));
     if (!indicator) return;
 
     const rangeSpan = indicator.querySelector(CONFIG.selectors.filterDateRange);
@@ -776,14 +858,18 @@
 
     // Ensure DateUtils is available
     if (!window.DateUtils) {
-        console.error("DateUtils not found. Cannot update filter indicator.");
-        rangeSpan.textContent = "Error";
-        return;
+      console.error("DateUtils not found. Cannot update filter indicator.");
+      rangeSpan.textContent = "Error";
+      return;
     }
 
     // Get dates from storage or default to today
-    const startDate = localStorage.getItem(CONFIG.storage.startDate) || DateUtils.getCurrentDate();
-    const endDate = localStorage.getItem(CONFIG.storage.endDate) || DateUtils.getCurrentDate();
+    const startDate =
+      localStorage.getItem(CONFIG.storage.startDate) ||
+      DateUtils.getCurrentDate();
+    const endDate =
+      localStorage.getItem(CONFIG.storage.endDate) ||
+      DateUtils.getCurrentDate();
 
     // Format dates for display using DateUtils
     const formatDisplayDate = (dateStr) =>
@@ -805,9 +891,7 @@
     const { startDateInput, endDateInput } = elements;
     // Ensure date inputs are available
     if (!startDateInput || !endDateInput) {
-      console.error(
-        "Date input elements not found. Cannot set date range.",
-      );
+      console.error("Date input elements not found. Cannot set date range.");
       window.notificationManager?.show(
         "UI Error: Date inputs not found.",
         "danger",
@@ -815,11 +899,14 @@
       return;
     }
     // Ensure DateUtils is available
-     if (!window.DateUtils) {
-        console.error("DateUtils not found. Cannot set date range.");
-        window.notificationManager?.show("Error: Date utility missing.", "danger");
-        return;
-     }
+    if (!window.DateUtils) {
+      console.error("DateUtils not found. Cannot set date range.");
+      window.notificationManager?.show(
+        "Error: Date utility missing.",
+        "danger",
+      );
+      return;
+    }
 
     // Show loading indicator if available
     window.loadingManager?.startOperation("DateRangeSet", 100);
@@ -836,13 +923,13 @@
           // Update the visual indicator
           updateFilterIndicator();
         } else {
-            throw new Error("Received invalid date range from preset."); // Throw error if dates are missing
+          throw new Error("Received invalid date range from preset."); // Throw error if dates are missing
         }
       })
       .catch((error) => {
         console.error("Error setting date range preset:", error);
         window.notificationManager?.show(
-          `Error setting date range: ${error.message || 'Please try again.'}`, // Show error message
+          `Error setting date range: ${error.message || "Please try again."}`, // Show error message
           "danger", // Use 'danger' for errors
         );
       })
@@ -861,14 +948,18 @@
     const { startDateInput, endDateInput } = elements;
 
     if (startDateInput) {
-        // Use setDate for Flatpickr, fallback to value for standard input
-        startDateInput._flatpickr ? startDateInput._flatpickr.setDate(startStr, true) : startDateInput.value = startStr;
+      // Use setDate for Flatpickr, fallback to value for standard input
+      startDateInput._flatpickr
+        ? startDateInput._flatpickr.setDate(startStr, true)
+        : (startDateInput.value = startStr);
     } else {
       console.warn("Cached start date input not found in updateDateInputs");
     }
 
     if (endDateInput) {
-        endDateInput._flatpickr ? endDateInput._flatpickr.setDate(endStr, true) : endDateInput.value = endStr;
+      endDateInput._flatpickr
+        ? endDateInput._flatpickr.setDate(endStr, true)
+        : (endDateInput.value = endStr);
     } else {
       console.warn("Cached end date input not found in updateDateInputs");
     }
@@ -895,14 +986,13 @@
 
     // --- Validation (Optional but Recommended) ---
     if (!window.DateUtils?.isValidDateRange(startDateValue, endDateValue)) {
-         window.notificationManager?.show(
-            "Invalid date range: Start date must be before or same as end date.",
-            "warning",
-         );
-         return; // Prevent applying invalid range
+      window.notificationManager?.show(
+        "Invalid date range: Start date must be before or same as end date.",
+        "warning",
+      );
+      return; // Prevent applying invalid range
     }
     // --- End Validation ---
-
 
     // Store the selected dates in localStorage
     localStorage.setItem(CONFIG.storage.startDate, startDateValue);
@@ -946,9 +1036,12 @@
 
     // Ensure DateUtils is available
     if (!window.DateUtils) {
-        console.error("DateUtils not found. Cannot reset filters.");
-        window.notificationManager?.show("Error: Date utility missing.", "danger");
-        return;
+      console.error("DateUtils not found. Cannot reset filters.");
+      window.notificationManager?.show(
+        "Error: Date utility missing.",
+        "danger",
+      );
+      return;
     }
     const today = DateUtils.getCurrentDate(); // Get today's date in YYYY-MM-DD format
 
@@ -965,8 +1058,10 @@
         btn.classList.remove(CONFIG.classes.active),
       );
       // Optionally activate the 'Today' button if it exists
-       const todayBtn = document.querySelector('.quick-select-btn[data-range="today"]');
-       todayBtn?.classList.add(CONFIG.classes.active);
+      const todayBtn = document.querySelector(
+        '.quick-select-btn[data-range="today"]',
+      );
+      todayBtn?.classList.add(CONFIG.classes.active);
     }
 
     // Update the visual indicator
@@ -1006,7 +1101,8 @@
     // If window width is larger than mobile breakpoint, ensure mobile drawer is closed
     if (window.innerWidth >= CONFIG.mobileBreakpoint) {
       const { mobileDrawer, contentOverlay } = elements;
-      if (mobileDrawer?.classList.contains(CONFIG.classes.open)) { // Optional chaining
+      if (mobileDrawer?.classList.contains(CONFIG.classes.open)) {
+        // Optional chaining
         mobileDrawer.classList.remove(CONFIG.classes.open);
         contentOverlay?.classList.remove(CONFIG.classes.visible); // Optional chaining
         document.body.style.overflow = ""; // Restore body scroll
@@ -1023,7 +1119,6 @@
    */
   // function refreshMapData() { ... } // Removed
   // function refreshPlacesData() { ... } // Removed
-
 
   /**
    * Shows the loading overlay with a message and progress.
@@ -1063,7 +1158,8 @@
    */
   function updateProgress(percent, message) {
     const { progressBar, loadingText } = elements;
-    if (progressBar) progressBar.style.width = `${Math.max(0, Math.min(100, percent))}%`; // Clamp percentage
+    if (progressBar)
+      progressBar.style.width = `${Math.max(0, Math.min(100, percent))}%`; // Clamp percentage
     if (loadingText && message) loadingText.textContent = message;
   }
 
@@ -1089,137 +1185,142 @@
    */
   function enhanceMapInteraction() {
     // Ensure map container exists before proceeding
-    if (!elements.mapContainer && !document.getElementById(CONFIG.selectors.mapContainer.substring(1))) {
-        // console.warn("Map container not found, skipping map enhancements."); // Removed debug log
-        return;
+    if (
+      !elements.mapContainer &&
+      !document.getElementById(CONFIG.selectors.mapContainer.substring(1))
+    ) {
+      // console.warn("Map container not found, skipping map enhancements."); // Removed debug log
+      return;
     }
     applyMapEnhancements();
   }
 
-    /**
-     * Applies various enhancements to the Leaflet map interface.
-     */
-    function applyMapEnhancements() {
-        try {
-            const map = window.map;
-            // Ensure map object and its properties are valid
-            if (!map?.options) { // Check if map and options exist
-                // console.warn("Map object or map options not available for enhancements."); // Removed debug log
-                return;
+  /**
+   * Applies various enhancements to the Leaflet map interface.
+   */
+  function applyMapEnhancements() {
+    try {
+      const map = window.map;
+      // Ensure map object and its properties are valid
+      if (!map?.options) {
+        // Check if map and options exist
+        // console.warn("Map object or map options not available for enhancements."); // Removed debug log
+        return;
+      }
+
+      // Adjust map behavior
+      map.options.zoomSnap = CONFIG.map.zoomSnap; // Set smoother zoom increments
+
+      // Add tooltips to zoom controls using Bootstrap Tooltip
+      if (window.bootstrap?.Tooltip && elements.zoomControls?.length) {
+        elements.zoomControls.forEach((control) => {
+          // Check if tooltip is already initialized
+          if (!bootstrap.Tooltip.getInstance(control)) {
+            let title = "";
+            if (control.classList.contains("leaflet-control-zoom-in")) {
+              title = "Zoom In";
+            } else if (control.classList.contains("leaflet-control-zoom-out")) {
+              title = "Zoom Out";
             }
 
-            // Adjust map behavior
-            map.options.zoomSnap = CONFIG.map.zoomSnap; // Set smoother zoom increments
-
-            // Add tooltips to zoom controls using Bootstrap Tooltip
-            if (window.bootstrap?.Tooltip && elements.zoomControls?.length) {
-                elements.zoomControls.forEach((control) => {
-                // Check if tooltip is already initialized
-                if (!bootstrap.Tooltip.getInstance(control)) {
-                    let title = "";
-                    if (control.classList.contains("leaflet-control-zoom-in")) {
-                        title = "Zoom In";
-                    } else if (control.classList.contains("leaflet-control-zoom-out")) {
-                        title = "Zoom Out";
-                    }
-
-                    if (title) {
-                        // Instantiating Tooltip for side effect of attaching it.
-                        // The instance itself is not stored (JS-R1002 can be ignored here).
-                        new bootstrap.Tooltip(control, {
-                            title: title,
-                            placement: "left",
-                            delay: CONFIG.tooltipDelay,
-                            trigger: 'hover' // Show on hover
-                        });
-                    }
-                }
-                });
+            if (title) {
+              // Instantiating Tooltip for side effect of attaching it.
+              // The instance itself is not stored (JS-R1002 can be ignored here).
+              new bootstrap.Tooltip(control, {
+                title: title,
+                placement: "left",
+                delay: CONFIG.tooltipDelay,
+                trigger: "hover", // Show on hover
+              });
             }
+          }
+        });
+      }
 
-            // Enhance connection status indicator (if elements exist)
-            const { statusIndicator, statusText } = elements;
-            if (statusIndicator && statusText) {
-                const updateConnectionIndicator = () => {
-                    const textContentLower = statusText.textContent.toLowerCase();
-                    if (textContentLower.includes("connected")) {
-                        statusIndicator.classList.add(CONFIG.classes.connected);
-                        statusIndicator.classList.remove(CONFIG.classes.disconnected);
-                    } else if (textContentLower.includes("disconnected")) {
-                        statusIndicator.classList.add(CONFIG.classes.disconnected);
-                        statusIndicator.classList.remove(CONFIG.classes.connected);
-                    } else {
-                        // Handle unknown state if necessary
-                        statusIndicator.classList.remove(CONFIG.classes.connected, CONFIG.classes.disconnected);
-                    }
-                };
-                updateConnectionIndicator(); // Initial check
-                // Periodically update indicator (consider event-based updates if possible)
-                setInterval(updateConnectionIndicator, 3000);
-            }
-
-            // Opacity handling for minimized map controls
-            const { mapControls } = elements;
-            if (mapControls) {
-                mapControls.addEventListener("mouseenter", () => {
-                    mapControls.style.opacity = "1"; // Fully opaque on hover
-                });
-                mapControls.addEventListener("mouseleave", () => {
-                    updateMapControlsOpacity(); // Update opacity based on state
-                });
-                // Initial opacity check
-                updateMapControlsOpacity();
-            }
-
-            window.handleError?.( // Use optional chaining
-                "Map enhancements applied successfully",
-                "applyMapEnhancements",
-                "info",
+      // Enhance connection status indicator (if elements exist)
+      const { statusIndicator, statusText } = elements;
+      if (statusIndicator && statusText) {
+        const updateConnectionIndicator = () => {
+          const textContentLower = statusText.textContent.toLowerCase();
+          if (textContentLower.includes("connected")) {
+            statusIndicator.classList.add(CONFIG.classes.connected);
+            statusIndicator.classList.remove(CONFIG.classes.disconnected);
+          } else if (textContentLower.includes("disconnected")) {
+            statusIndicator.classList.add(CONFIG.classes.disconnected);
+            statusIndicator.classList.remove(CONFIG.classes.connected);
+          } else {
+            // Handle unknown state if necessary
+            statusIndicator.classList.remove(
+              CONFIG.classes.connected,
+              CONFIG.classes.disconnected,
             );
+          }
+        };
+        updateConnectionIndicator(); // Initial check
+        // Periodically update indicator (consider event-based updates if possible)
+        setInterval(updateConnectionIndicator, 3000);
+      }
 
-        } catch (error) {
-            window.handleError?.(error, "Error applying map enhancements"); // Use optional chaining
-        }
+      // Opacity handling for minimized map controls
+      const { mapControls } = elements;
+      if (mapControls) {
+        mapControls.addEventListener("mouseenter", () => {
+          mapControls.style.opacity = "1"; // Fully opaque on hover
+        });
+        mapControls.addEventListener("mouseleave", () => {
+          updateMapControlsOpacity(); // Update opacity based on state
+        });
+        // Initial opacity check
+        updateMapControlsOpacity();
+      }
+
+      window.handleError?.(
+        // Use optional chaining
+        "Map enhancements applied successfully",
+        "applyMapEnhancements",
+        "info",
+      );
+    } catch (error) {
+      window.handleError?.(error, "Error applying map enhancements"); // Use optional chaining
     }
+  }
 
-    /**
-     * Updates the opacity of the map controls based on minimized state.
-     */
-    function updateMapControlsOpacity() {
-        const { mapControls } = elements;
-        if (!mapControls) return;
+  /**
+   * Updates the opacity of the map controls based on minimized state.
+   */
+  function updateMapControlsOpacity() {
+    const { mapControls } = elements;
+    if (!mapControls) return;
 
-        if (mapControls.classList.contains(CONFIG.classes.minimized)) {
-            mapControls.style.opacity = "0.8"; // Slightly transparent when minimized and not hovered
-        } else {
-            mapControls.style.opacity = "1"; // Fully opaque when expanded
-        }
+    if (mapControls.classList.contains(CONFIG.classes.minimized)) {
+      mapControls.style.opacity = "0.8"; // Slightly transparent when minimized and not hovered
+    } else {
+      mapControls.style.opacity = "1"; // Fully opaque when expanded
     }
-
+  }
 
   // Initialize the UI components when the application signals readiness
   // or fallback to DOMContentLoaded if 'appReady' isn't fired.
-  if (document.readyState === 'loading') {
-      document.addEventListener("DOMContentLoaded", () => {
-          // Check if init has already run via appReady
-          if (!window.modernUIInitialized) {
-              init();
-              window.modernUIInitialized = true;
-          }
-      });
-  } else {
-      // DOM is already ready
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      // Check if init has already run via appReady
       if (!window.modernUIInitialized) {
-            init();
-            window.modernUIInitialized = true;
+        init();
+        window.modernUIInitialized = true;
       }
+    });
+  } else {
+    // DOM is already ready
+    if (!window.modernUIInitialized) {
+      init();
+      window.modernUIInitialized = true;
+    }
   }
 
   document.addEventListener("appReady", () => {
-       if (!window.modernUIInitialized) {
-           init();
-           window.modernUIInitialized = true;
-       }
+    if (!window.modernUIInitialized) {
+      init();
+      window.modernUIInitialized = true;
+    }
   });
-
 })(); // IIFE ends here
