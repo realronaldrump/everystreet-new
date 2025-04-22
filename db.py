@@ -693,7 +693,6 @@ class SerializationHelper:
 async def batch_cursor(
     cursor: AsyncIOMotorCursor,
     batch_size: int = 100,
-    no_timeout: bool = True,
 ) -> AsyncIterator[list[dict[str, Any]]]:
     """Process an AsyncIOMotorCursor in manageable batches to limit memory
     usage.
