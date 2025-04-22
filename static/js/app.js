@@ -111,9 +111,14 @@
       selector.startsWith("#") || selector.includes(" ") || selector.startsWith(".")
         ? selector
         : `#${selector}`; // Assume ID if simple string without prefix/space
-    const element = context.querySelector(normalizedSelector);
-    if (useCache && element) AppState.dom[selector] = element;
-    return element;
+    try {
+        const element = context.querySelector(normalizedSelector);
+        if (useCache && element) AppState.dom[selector] = element;
+        return element;
+    } catch(e) {
+        console.error(`Error finding element with selector: ${normalizedSelector}`, e);
+        return null;
+    }
   };
 
   /**
@@ -142,7 +147,7 @@
   const addSingleEventListener = (element, eventType, handler) => {
     const el = typeof element === "string" ? getElement(element) : element;
     if (!el) {
-        console.warn(`Element not found for selector/object: ${element}`);
+        // console.warn(`Element not found for selector/object: ${element}`); // Reduce noise
         return false;
     }
 
@@ -201,10 +206,8 @@
     });
 
   /** Debounced version of the updateMap function */
-  const debouncedUpdateMap = window.utils.debounce(
-    updateMap,
-    CONFIG.MAP.debounceDelay,
-  );
+  const debouncedUpdateMap = window.utils?.debounce ? window.utils.debounce(updateMap, CONFIG.MAP.debounceDelay) : updateMap;
+
 
   /** Gets the start date from storage or defaults to today */
   const getStartDate = () => {
@@ -283,33 +286,40 @@
     if (!AppState.layerGroup) return;
 
     AppState.layerGroup.eachLayer((layer) => {
-      // Check if the layer is a GeoJSON layer group
-      if (layer.eachLayer) {
-        layer.eachLayer((featureLayer) => {
-          // Check if it's a feature with properties and can be styled
-          if (featureLayer.feature?.properties && featureLayer.setStyle) {
-            // Determine if it's a regular or matched trip
-            const layerInfo = featureLayer.feature.properties.isMatched // Assuming 'isMatched' property exists
-              ? AppState.mapLayers.matchedTrips
-              : AppState.mapLayers.trips;
+        // Check if it's a GeoJSON layer added by our app (it should have a feature property)
+        if (layer.feature?.properties && typeof layer.setStyle === 'function') {
+            // Determine if it's a regular or matched trip based on feature properties
+            const isMatched = layer.feature.properties.isMatched || layer.feature.properties.transactionId?.startsWith("MATCHED-");
+            const layerInfo = isMatched ? AppState.mapLayers.matchedTrips : AppState.mapLayers.trips;
 
             // Apply the appropriate style
-            featureLayer.setStyle(
-              getTripFeatureStyle(featureLayer.feature, layerInfo),
-            );
+            layer.setStyle(getTripFeatureStyle(layer.feature, layerInfo));
 
-            // Bring the selected trip to the front
-            if (
-              featureLayer.feature.properties.transactionId ===
-              AppState.selectedTripId
-            ) {
-              featureLayer.bringToFront();
+            // Bring the selected trip to the front if it's this layer
+            if (layer.feature.properties.transactionId === AppState.selectedTripId) {
+                layer.bringToFront();
             }
-          }
-        });
-      }
+        }
+        // Handle potential hit layers (opacity 0) - they don't need visual refresh
+        else if (layer.options?.opacity === 0) {
+             // Do nothing for hit layers
+        }
+        // Handle nested LayerGroups if necessary (though current structure might not need it)
+        else if (layer instanceof L.LayerGroup && typeof layer.eachLayer === 'function') {
+             layer.eachLayer(featureLayer => {
+                 if (featureLayer.feature?.properties && typeof featureLayer.setStyle === 'function') {
+                     const isMatched = featureLayer.feature.properties.isMatched || featureLayer.feature.properties.transactionId?.startsWith("MATCHED-");
+                     const layerInfo = isMatched ? AppState.mapLayers.matchedTrips : AppState.mapLayers.trips;
+                     featureLayer.setStyle(getTripFeatureStyle(featureLayer.feature, layerInfo));
+                     if (featureLayer.feature.properties.transactionId === AppState.selectedTripId) {
+                         featureLayer.bringToFront();
+                     }
+                 }
+             });
+        }
     });
   }
+
 
   /** Checks if the map is fully initialized and ready for operations. */
   const isMapReady = () =>
@@ -481,9 +491,6 @@
     }
   }
 
-  // Removed unused function: adjustLayerStylesForZoom
-  // Removed unused variable: throttledAdjustLayerStylesForZoom
-
   /** Initializes the LiveTripTracker if available. */
   function initializeLiveTracker() {
     // Check if the tracker library and map are available
@@ -518,6 +525,27 @@
     delegateLayerControls(layerToggles);
     // Update the layer order display
     updateLayerOrderUI();
+
+    // --- Prevent map interaction through controls ---
+    // Apply to the container holding the toggles and potentially the layer order
+    const controlsContainer = getElement('#map-controls-container'); // Assuming a parent container ID
+    if (controlsContainer) {
+        L.DomEvent.disableClickPropagation(controlsContainer);
+        L.DomEvent.disableScrollPropagation(controlsContainer);
+        console.info("Disabled click/scroll propagation on map controls container.");
+    } else {
+        // Apply individually if no single container
+        const layerTogglesEl = getElement('#layer-toggles');
+        const layerOrderEl = getElement('#layer-order');
+        if(layerTogglesEl) {
+             L.DomEvent.disableClickPropagation(layerTogglesEl);
+             L.DomEvent.disableScrollPropagation(layerTogglesEl); // Also disable scroll/wheel zoom
+        }
+        if(layerOrderEl) {
+            L.DomEvent.disableClickPropagation(layerOrderEl);
+            L.DomEvent.disableScrollPropagation(layerOrderEl); // Also disable scroll/wheel zoom
+        }
+    }
   }
 
   /**
@@ -527,7 +555,12 @@
    */
   function toggleLayer(name, visible) {
     const layerInfo = AppState.mapLayers[name];
-    if (!layerInfo) return; // Layer not found
+    if (!layerInfo) {
+        console.warn(`Layer info not found for "${name}"`);
+        return;
+    }
+
+    console.log(`Toggling layer "${name}" to visible: ${visible}`); // Debug log
 
     layerInfo.visible = visible;
     localStorage.setItem(`layer_visible_${name}`, visible); // Persist visibility state
@@ -536,9 +569,12 @@
     if (name === "customPlaces" && window.customPlaces) {
       window.customPlaces.toggleVisibility(visible); // Use dedicated method if available
     } else if (name === "undrivenStreets" && visible) {
-      lazyFetchUndrivenStreets(); // Fetch data only when layer is turned on
+      // Fetch data only when layer is turned on, ensure flag is reset if needed
+      undrivenStreetsLoaded = false; // Reset flag to allow re-fetch if toggled off/on
+      lazyFetchUndrivenStreets();
     } else {
-      debouncedUpdateMap(); // Update the map for other layers
+      // For standard layers like trips/matchedTrips, just update the map
+      debouncedUpdateMap();
     }
 
     updateLayerOrderUI(); // Refresh the layer order display
@@ -580,7 +616,7 @@
 
     // Get visible layers that have actual layer data, sorted by current order (descending for top-down UI)
     const visibleLayers = Object.entries(AppState.mapLayers)
-      .filter(([, info]) => info.visible && (info.layer || info === AppState.mapLayers.customPlaces)) // Include customPlaces even if its layer is managed externally
+      .filter(([, info]) => info.visible && (info.layer || info === AppState.mapLayers.customPlaces || info.name === 'Custom Places')) // Include customPlaces even if its layer is managed externally
       .sort(([, a], [, b]) => b.order - a.order); // Higher order number means higher up (rendered last/on top)
 
     // Efficiently update the DOM
@@ -594,6 +630,9 @@
     const list = getElement("layer-order-list"); // Get the list element
     if (!list) return;
 
+    // Ensure propagation is stopped on the list itself for dragging
+    L.DomEvent.disableClickPropagation(list);
+
     let draggedItem = null; // Keep track of the item being dragged
 
     // Use event delegation on the list container
@@ -601,9 +640,13 @@
         // Only act on list items
         if (e.target.tagName === 'LI' && e.target.draggable) {
             draggedItem = e.target;
-            e.dataTransfer.effectAllowed = "move";
+            if (e.dataTransfer) { // Check if dataTransfer exists
+                e.dataTransfer.effectAllowed = "move";
+                 // Optionally set drag data (might be needed for some browsers/setups)
+                e.dataTransfer.setData('text/plain', e.target.dataset.layer);
+            }
             // Add visual cue shortly after drag starts
-            setTimeout(() => draggedItem.classList.add("dragging"), 0);
+            setTimeout(() => { if(draggedItem) draggedItem.classList.add("dragging"); }, 0);
         } else {
             e.preventDefault(); // Prevent dragging other elements within the list
         }
@@ -611,6 +654,9 @@
 
     addSingleEventListener(list, "dragover", (e) => {
         e.preventDefault(); // Necessary to allow dropping
+        if (e.dataTransfer) {
+             e.dataTransfer.dropEffect = "move"; // Indicate it's a move operation
+        }
         const target = e.target.closest("li"); // Find the list item being hovered over
         // Ensure we have a valid target, it's not the item being dragged, and dragging is in progress
         if (target && draggedItem && target !== draggedItem) {
@@ -627,18 +673,21 @@
         }
     });
 
+     addSingleEventListener(list, "drop", (e) => {
+        e.preventDefault(); // Prevent default drop behavior (like navigating)
+        // The actual reordering is handled by dragover, dragend updates the state
+        // If data was set in dragstart, you could potentially use it here, but not strictly necessary with current logic
+        // const layerName = e.dataTransfer.getData('text/plain');
+        // console.log(`Dropped layer: ${layerName}`);
+    });
+
+
     addSingleEventListener(list, "dragend", (/* e */) => { // e is unused
         if (draggedItem) {
             draggedItem.classList.remove("dragging"); // Remove visual cue
             draggedItem = null; // Reset dragged item
             updateLayerOrder(); // Update the actual layer order in AppState
         }
-    });
-
-    // Optional: Handle drop event for completeness, though dragover often handles the move
-    addSingleEventListener(list, "drop", (e) => {
-        e.preventDefault(); // Prevent default drop behavior
-        // The actual reordering is handled by dragover and dragend updates the state
     });
   }
 
@@ -657,11 +706,10 @@
         AppState.mapLayers[layerName].order = total - i; // Higher index = lower order number
       }
     });
-
+     console.log("Updated layer order:", AppState.mapLayers); // Debug log
     debouncedUpdateMap(); // Redraw map with new layer order
   }
 
-  // Removed unused function: withLoading
 
   /** Fetches trip data from the API based on the selected date range. */
   async function fetchTrips() {
@@ -699,7 +747,12 @@
       }
 
       // Update the data table (if it exists)
-      await updateTripsTable(geojson); // Make sure updateTripsTable handles async correctly if needed
+       if (window.updateTripsTable) { // Check if function exists globally or in scope
+           await window.updateTripsTable(geojson);
+       } else {
+           await updateTripsTable(geojson); // Assume it's in scope
+       }
+
 
       // Update the map layer data
       await updateMapWithTrips(geojson); // Make sure updateMapWithTrips handles async correctly if needed
@@ -747,7 +800,7 @@
   function updateTripsTable(geojson) {
     // Check if the DataTable library and instance are available
     if (!window.tripsTable || !$.fn.DataTable?.isDataTable("#tripsTable")) {
-        console.warn("Trips DataTable not initialized or library not found.");
+        // console.warn("Trips DataTable not initialized or library not found."); // Reduce noise
         return; // Exit if table doesn't exist or isn't initialized
     }
 
@@ -787,8 +840,8 @@
 
     try {
         // Clear existing data, add new data, and redraw the table
-        window.tripsTable.clear().rows.add(formattedTrips).draw();
-        console.info(`Trips table updated with ${formattedTrips.length} trips.`);
+        window.tripsTable.clear().rows.add(formattedTrips).draw(false); // 'false' prevents resetting page
+        // console.info(`Trips table updated with ${formattedTrips.length} trips.`); // Reduce noise
     } catch (error) {
         console.error("Error updating DataTable:", error);
         showNotification("Failed to update the trips table.", "danger");
@@ -811,7 +864,6 @@
         AppState.mapLayers.trips.layer = geojson; // Assign the new data
     }
     // No need to call updateMap here; let the calling function (fetchTrips) handle the final update.
-    // await updateMap(); // Avoid redundant updates
   }
 
   /**
@@ -827,7 +879,6 @@
         AppState.mapLayers.undrivenStreets.layer = geojson;
     }
     // No need to call updateMap here; let the calling function (fetchUndrivenStreets) handle the final update.
-    // await updateMap(); // Avoid redundant updates
   }
 
   /** Fetches matched trip data from the API. */
@@ -845,19 +896,17 @@
       .then((data) => {
         // Ensure data.features is an array
         if (!data || !Array.isArray(data.features)) {
-            console.warn("No valid data received for matched trips.");
+            // console.warn("No valid data received for matched trips."); // Reduce noise
             // Ensure layer exists but is empty
             AppState.mapLayers.matchedTrips.layer = { type: "FeatureCollection", features: [] };
             AppState.mapLayers.matchedTrips.visible = localStorage.getItem('layer_visible_matchedTrips') === 'true'; // Keep visibility based on toggle
         } else {
-            console.info(`Fetched ${data.features.length} matched trips.`);
+            // console.info(`Fetched ${data.features.length} matched trips.`); // Reduce noise
             // Assign data to the layer
             AppState.mapLayers.matchedTrips.layer = data;
             // Keep visibility based on toggle state
             AppState.mapLayers.matchedTrips.visible = localStorage.getItem('layer_visible_matchedTrips') === 'true';
         }
-        // Don't call updateMap here, let fetchTrips handle the final update
-        // updateLayerOrderUI(); // Update UI if visibility/order might change
       })
       .catch((error) => {
         console.error("Error fetching matched trips:", error);
@@ -884,10 +933,13 @@
         "undriven-streets-location",
       );
       if (!locationSelect || !locationSelect.value || locationSelect.value === "") {
-        showNotification(
-          "Please select a location from the dropdown to show undriven streets.",
-          "warning",
-        );
+        // Don't show notification if dropdown is just empty, only if layer is visible
+        if (AppState.mapLayers.undrivenStreets?.visible) {
+            showNotification(
+              "Please select a location from the dropdown to show undriven streets.",
+              "warning",
+            );
+        }
         AppState.mapLayers.undrivenStreets.visible = false; // Ensure layer is marked as not visible
         AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] }; // Clear data
         await updateMap(); // Update map to remove layer if it was visible
@@ -996,7 +1048,7 @@
    */
   async function updateMap(fitBounds = false) {
     if (!isMapReady()) {
-        console.warn("Map not ready, skipping update.");
+        // console.warn("Map not ready, skipping update."); // Reduce noise
         return;
     }
 
@@ -1036,11 +1088,11 @@
                     tripLayers.set(feature.properties.transactionId, layer);
                 }
                 // Attach click handler
-                layer.on("click", (e) => handleTripClick(e, feature, layer)); // Removed unused info, name
+                layer.on("click", (e) => handleTripClick(e, feature, layer));
                 // Attach popupopen handler for dynamic content/listeners
                 layer.on("popupopen", () => setupPopupEventListeners(layer, feature));
-                // Bind the popup content
-                layer.bindPopup(createTripPopupContent(feature)); // Removed unused layerName
+                // Bind the popup content with autoPan disabled
+                layer.bindPopup(createTripPopupContent(feature), { autoPan: false }); // FIX: Disable auto pan
               },
             });
             geoJsonLayer.addTo(AppState.layerGroup);
@@ -1055,9 +1107,9 @@
                 },
                 onEachFeature: (f, layer) => {
                   // Attach click handler to the hit layer as well
-                  layer.on("click", (e) => handleTripClick(e, f, layer)); // Use the same handler
-                  // Optionally bind the same popup or a simplified one
-                  layer.bindPopup(createTripPopupContent(f));
+                  layer.on("click", (e) => handleTripClick(e, f, layer));
+                  // Bind the same popup with autoPan disabled
+                  layer.bindPopup(createTripPopupContent(f), { autoPan: false }); // FIX: Disable auto pan
                 },
               });
             hitLayer.addTo(AppState.layerGroup);
@@ -1087,7 +1139,7 @@
             });
             geoJsonLayer.addTo(AppState.layerGroup);
           } else if (info.visible && !hasFeatures && name !== 'customPlaces'){
-              // console.log(`Layer "${name}" is visible but has no features to display.`);
+              // Layer is toggled visible but has no features
           }
       } catch (layerError) {
           console.error(`Error processing layer "${name}":`, layerError);
@@ -1098,8 +1150,13 @@
 
     // Bring the selected trip's visible layer to the front
     if (AppState.selectedTripId && tripLayers.has(AppState.selectedTripId)) {
-      tripLayers.get(AppState.selectedTripId)?.bringToFront();
+        const selectedLayer = tripLayers.get(AppState.selectedTripId);
+        if (selectedLayer) {
+            selectedLayer.bringToFront();
+            // Also bring corresponding hit layer to front? Maybe not necessary if visible layer is on top.
+        }
     }
+
 
     // Adjust map bounds if requested
     if (fitBounds) {
@@ -1111,40 +1168,39 @@
 
     // Notify that the map has been updated
     document.dispatchEvent(new CustomEvent("mapUpdated"));
-    // console.info("Map updated with visible layers."); // Reduce console noise
   }
 
   /**
    * Handles clicks on trip features.
    * @param {L.LeafletMouseEvent} e - The Leaflet event object.
    * @param {object} feature - The clicked GeoJSON feature.
-   * @param {L.Layer} layer - The Leaflet layer instance that was clicked.
+   * @param {L.Layer} layer - The Leaflet layer instance that was clicked (could be visible or hit layer).
    */
-  function handleTripClick(e, feature, layer) { // Removed unused info, name
-    L.DomEvent.stopPropagation(e); // Prevent click from propagating to map
+  function handleTripClick(e, feature, layer) {
+    L.DomEvent.stopPropagation(e); // Prevent click from propagating to map FIRST
     const clickedTripId = feature.properties?.transactionId;
 
     if (clickedTripId) {
         AppState.selectedTripId = clickedTripId; // Update selected trip ID
         refreshTripStyles(); // Update styles to highlight the selected trip
-        // Ensure the corresponding visible layer is brought to front
+
+        // Find the visible layer corresponding to this feature to open the popup on it
+        let visibleLayer = null;
         AppState.layerGroup.eachLayer(l => {
-            // Check if layer 'l' is the visible representation (not the hit layer)
             if (l.feature?.properties?.transactionId === clickedTripId && l.options?.opacity > 0 && l.options?.weight > 0) {
-                l.bringToFront();
+                visibleLayer = l;
             }
         });
-        // Open popup on the layer that was actually clicked (could be hit layer or visible layer)
-        if (layer.bindPopup) { // Check if the layer can have a popup
-            layer.openPopup();
+
+        // Open popup on the visible layer if found, otherwise fallback to the clicked layer (which might be hit layer)
+        const layerToOpenPopupOn = visibleLayer || layer;
+        if (layerToOpenPopupOn.bindPopup && typeof layerToOpenPopupOn.openPopup === 'function') {
+            // Open popup at the location of the click event
+            layerToOpenPopupOn.openPopup(e.latlng);
         } else {
-            // If the clicked layer (e.g., hit layer) doesn't have the main popup, find the visible one
-            AppState.layerGroup.eachLayer(l => {
-                if (l.feature?.properties?.transactionId === clickedTripId && l.options?.opacity > 0 && l.bindPopup) {
-                    l.openPopup();
-                }
-            });
+             console.warn("Could not find a layer with a popup to open for trip:", clickedTripId);
         }
+
         console.log(`Trip clicked: ${clickedTripId}`);
     } else {
         console.warn("Clicked trip feature missing transactionId.");
@@ -1156,7 +1212,7 @@
    * @param {object} feature - The GeoJSON feature for the trip.
    * @returns {string} HTML string for the buttons.
    */
-  function createActionButtons(feature) { // Removed unused layerName
+  function createActionButtons(feature) {
     const tripId = feature.properties?.transactionId;
     if (!tripId) return ""; // No actions if no ID
 
@@ -1180,7 +1236,7 @@
    * @param {object} feature - The GeoJSON feature.
    * @returns {string} HTML string for the popup.
    */
-  function createTripPopupContent(feature) { // Removed unused layerName
+  function createTripPopupContent(feature) {
     const props = feature.properties || {}; // Ensure props exist
 
     // Helper for formatting, returns 'N/A' if value is null/undefined
@@ -1199,13 +1255,11 @@
         `<tr><th scope="row" class="fw-bold">End Time</th><td>${formatTime(props.endTime)}</td></tr>` +
         `<tr><th scope="row" class="fw-bold">Duration</th><td>${formatDuration(props.duration)}</td></tr>` +
         `<tr><th scope="row" class="fw-bold">Distance</th><td>${formatNum(props.distance, 2)} mi</td></tr>` +
-
         `<tr><th scope="row" class="fw-bold">Avg Speed</th><td>${formatNum(props.avgSpeed ?? props.averageSpeed)} mph</td></tr>` +
         `<tr><th scope="row" class="fw-bold">Max Speed</th><td>${formatNum(props.maxSpeed)} mph</td></tr>` +
         `<tr><th scope="row" class="fw-bold">Points Recorded</th><td>${props.pointsRecorded ?? 'N/A'}</td></tr>` +
         `<tr><th scope="row" class="fw-bold">Idling Time</th><td>${formatDuration(props.totalIdlingTime)}</td></tr>` +
         `<tr><th scope="row" class="fw-bold">Fuel Consumed</th><td>${formatNum(props.fuelConsumed, 2)} gal</td></tr>` +
-
       '</tbody>' +
       '</table>';
 
@@ -1488,16 +1542,16 @@
         }
       } catch (_) { // Removed unused 'e'
         // Ignore errors during bounds calculation for a single layer
-        console.warn(`Could not get bounds for layer: ${info.name || 'Unnamed'}`);
+        // console.warn(`Could not get bounds for layer: ${info.name || 'Unnamed'}`); // Reduce noise
       }
     });
 
     // Fit the map to the calculated bounds if any valid bounds were found
     if (validBoundsExist) {
-        console.info("Fitting map bounds to visible layers.");
+        // console.info("Fitting map bounds to visible layers."); // Reduce noise
         AppState.map.fitBounds(bounds, { padding: [30, 30] }); // Add some padding
     } else {
-        console.info("No valid bounds found for visible layers, not fitting bounds.");
+        // console.info("No valid bounds found for visible layers, not fitting bounds."); // Reduce noise
     }
   }
 
@@ -1614,7 +1668,7 @@
     const imei = getElement("imei")?.value || "";
 
     if (!startDate || !endDate) {
-        console.warn("Cannot fetch metrics without valid dates.");
+        // console.warn("Cannot fetch metrics without valid dates."); // Reduce noise
         return; // Don't proceed without dates
     }
 
@@ -1662,7 +1716,7 @@
           detail: { metrics },
         }),
       );
-      console.info("Metrics updated.");
+      // console.info("Metrics updated."); // Reduce noise
 
     } catch (err) {
         if (typeof handleError === 'function') {
@@ -1799,7 +1853,7 @@
       controlsContent.addEventListener("show.bs.collapse", updateIcon);
       controlsContent.addEventListener("hide.bs.collapse", updateIcon);
     } else {
-        console.warn("Controls toggle or content element not found.");
+        // console.warn("Controls toggle or content element not found."); // Reduce noise
     }
 
     // --- Button Listeners ---
@@ -1833,17 +1887,6 @@
       fetchTrips();
       fetchMetrics();
     });
-
-    // Add listener for theme changes if applicable
-    // Example: Using MutationObserver or a custom event
-    // const observer = new MutationObserver(mutations => {
-    //     mutations.forEach(mutation => {
-    //         if (mutation.type === 'attributes' && mutation.attributeName === 'data-bs-theme') {
-    //             handleThemeChange(); // Implement this function
-    //         }
-    //     });
-    // });
-    // observer.observe(document.documentElement, { attributes: true });
   }
 
   /** Caches references to frequently used DOM elements. */
@@ -1862,6 +1905,7 @@
     AppState.dom.imeiInput = getElement("imei"); // Assuming exists
     AppState.dom.locationDropdown = getElement("undriven-streets-location");
     AppState.dom.layerOrderList = getElement("layer-order-list"); // Cache list for drag/drop
+    AppState.dom.mapControlsContainer = getElement('#map-controls-container'); // Cache potential container
   }
 
   /** Sets initial start and end dates in localStorage if they don't exist. */
@@ -1884,7 +1928,7 @@
     AppState.dom.endDateInput = AppState.dom.endDateInput || getElement("end-date");
 
     if (!AppState.dom.startDateInput || !AppState.dom.endDateInput) {
-        console.warn("Date input elements not found, skipping date picker initialization.");
+        // console.warn("Date input elements not found, skipping date picker initialization."); // Reduce noise
         return;
     }
 
@@ -1972,7 +2016,7 @@
           console.info("Map initialized, setting up controls and data...");
 
           // Setup map-dependent components
-          initializeLayerControls();
+          initializeLayerControls(); // Includes disabling event propagation
           initializeLiveTracker(); // Initialize after map is ready
 
           // Restore layer visibility state from localStorage
@@ -2011,7 +2055,7 @@
             if (AppState.mapLayers.trips?.layer?.features?.length > 0) {
                 zoomToLastTrip(); // Animate map to the latest trip location
             } else {
-                console.info("No initial trips found to zoom to.");
+                // console.info("No initial trips found to zoom to."); // Reduce noise
                 // Optionally fit bounds to default or based on other layers
                 // fitMapBounds();
             }
@@ -2124,11 +2168,11 @@
 
     // Check cache validity
     if (apiCache[key] && now - apiCache[key].ts < cacheTime) {
-      console.info(`Cache hit for: ${url}`);
+      // console.info(`Cache hit for: ${url}`); // Reduce noise
       return apiCache[key].data; // Return cached data
     }
 
-    console.info(`Cache miss or expired for: ${url}. Fetching...`);
+    // console.info(`Cache miss or expired for: ${url}. Fetching...`); // Reduce noise
     const response = await fetch(url, options);
     if (!response.ok) {
         let errorMsg = `API request failed for ${url} (Status: ${response.status})`;
@@ -2162,16 +2206,18 @@
       const checkboxId = `${name}-toggle`;
       const checkboxLabel = document.createElement("label");
       checkboxLabel.className = "custom-checkbox me-2"; // Margin end
+      // Ensure the input is INSIDE the label for better accessibility/clicking
       checkboxLabel.innerHTML = `
         <input type="checkbox" id="${checkboxId}" ${info.visible ? "checked" : ""}>
         <span class="checkmark"></span>
       `;
 
-      // Label for the layer name
+      // Label for the layer name (clickable)
       const nameLabel = document.createElement("label");
-      nameLabel.htmlFor = checkboxId;
+      nameLabel.htmlFor = checkboxId; // Associate with checkbox
       nameLabel.textContent = info.name || name;
       nameLabel.className = "me-auto"; // Push controls to the right
+      nameLabel.style.cursor = 'pointer'; // Indicate it's clickable
 
       div.appendChild(checkboxLabel);
       div.appendChild(nameLabel);
@@ -2185,6 +2231,7 @@
         colorControl.value = info.color;
         colorControl.className = "form-control form-control-sm layer-color-picker me-1"; // Styling
         colorControl.title = `Layer color for ${info.name || name}`; // Tooltip
+        colorControl.style.width = '30px'; // Make color picker smaller
         div.appendChild(colorControl);
 
         // Opacity slider
@@ -2197,6 +2244,7 @@
         opacitySlider.value = info.opacity;
         opacitySlider.className = "form-range layer-opacity-slider"; // Styling
         opacitySlider.title = `Layer opacity for ${info.name || name}`; // Tooltip
+        opacitySlider.style.width = '60px'; // Make slider smaller
         div.appendChild(opacitySlider);
       }
 
@@ -2248,9 +2296,11 @@
     // Use event delegation for efficiency
     layerTogglesContainer.addEventListener("change", (e) => {
       const target = e.target;
-      // Handle visibility toggle checkboxes
-      if (target.matches('input[type="checkbox"].custom-checkbox input')) { // More specific selector
+      // FIX: Target the input directly by ID pattern or within the specific label structure
+      // if (target.matches('input[type="checkbox"].custom-checkbox input')) { // Old selector
+      if (target.matches('label.custom-checkbox input[type="checkbox"]')) { // More specific selector
           const layerName = target.id.replace("-toggle", "");
+          // console.log('Toggle event detected for:', layerName, target.checked); // Debug log
           toggleLayer(layerName, target.checked);
       }
     });
@@ -2272,8 +2322,6 @@
     });
   }
 
-  // Removed unused function: delegatePopupActions
-
   /**
    * Gets or creates a Leaflet GeoJSON layer, updating data if it exists.
    * @param {string} name - The unique name/key for the layer.
@@ -2292,12 +2340,17 @@
       layer.addData(data);
       // Re-apply options, especially style, as it might depend on new data or state
       if (options) {
-          layer.options = {...layer.options, ...options }; // Merge options carefully if needed
+          // Merge options carefully if needed, preserving essential ones
+          layer.options = {...L.GeoJSON.prototype.options, ...options }; // Reset to defaults + new options
           if (options.style) {
               layer.setStyle(options.style); // Re-apply style function/object
           }
-          // Note: Re-binding onEachFeature might be complex or unnecessary if structure is stable.
-          // If onEachFeature logic needs full re-application, recreating the layer might be simpler.
+          // Re-bind onEachFeature - necessary if options change behavior
+          if (options.onEachFeature) {
+              layer.eachLayer(featureLayer => {
+                  options.onEachFeature(featureLayer.feature, featureLayer);
+              });
+          }
       }
     }
     return AppState.geoJsonLayers[name];
@@ -2317,8 +2370,7 @@
       try {
           // Await the actual fetch function
           const data = await fetchUndrivenStreets();
-          // If fetch fails, reset the flag? Or keep it true to prevent retries?
-          // Resetting might be better if user retries selection.
+          // If fetch fails, reset the flag to allow retrying
           if (!data) {
               undrivenStreetsLoaded = false; // Reset if fetch failed
           }
@@ -2327,7 +2379,7 @@
           undrivenStreetsLoaded = false; // Reset on error
           return null;
       }
-    } else if (AppState.mapLayers.undrivenStreets?.layer) {
+    } else if (undrivenStreetsLoaded && AppState.mapLayers.undrivenStreets?.layer) {
         // If already loaded, return the existing data
         return AppState.mapLayers.undrivenStreets.layer;
     }
@@ -2379,13 +2431,13 @@
    */
   function zoomToLastTrip(targetZoom = 14, duration = 2) {
     if (!AppState.map || !AppState.mapLayers.trips?.layer?.features) {
-      console.warn("Cannot zoom to last trip: Map or trips layer data not available.");
+      // console.warn("Cannot zoom to last trip: Map or trips layer data not available."); // Reduce noise
       return;
     }
 
     const features = AppState.mapLayers.trips.layer.features;
     if (features.length === 0) {
-      console.info("No trips available to zoom to.");
+      // console.info("No trips available to zoom to."); // Reduce noise
       return; // No trips, nothing to do
     }
 
@@ -2435,9 +2487,9 @@
       typeof lastCoord[1] === "number"
     ) {
       const targetLatLng = [lastCoord[1], lastCoord[0]]; // Convert [lng, lat] to Leaflet's [lat, lng]
-      console.info(
-        `Animating map to last trip end point at [${targetLatLng.join(", ")}]`,
-      );
+      // console.info( // Reduce noise
+      //   `Animating map to last trip end point at [${targetLatLng.join(", ")}]`,
+      // );
       // Use flyTo for smooth animation
       AppState.map.flyTo(targetLatLng, targetZoom, {
         animate: true,
