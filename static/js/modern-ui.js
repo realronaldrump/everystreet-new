@@ -225,9 +225,9 @@
     );
 
     // Add event listener for the center on location button
-    const centerButton = document.getElementById('center-on-location');
+    const centerButton = document.getElementById("center-on-location");
     if (centerButton) {
-      centerButton.addEventListener('click', () => {
+      centerButton.addEventListener("click", () => {
         if (!window.map) {
           console.warn("Map not available to center.");
           window.notificationManager?.show("Map is not ready yet.", "warning");
@@ -238,10 +238,19 @@
         let locationSource = null;
 
         // 1. Try live tracker location
-        if (window.liveTracker && window.liveTracker.activeTrip && window.liveTracker.activeTrip.coordinates && window.liveTracker.activeTrip.coordinates.length > 0) {
+        if (
+          window.liveTracker &&
+          window.liveTracker.activeTrip &&
+          window.liveTracker.activeTrip.coordinates &&
+          window.liveTracker.activeTrip.coordinates.length > 0
+        ) {
           const coords = window.liveTracker.activeTrip.coordinates;
           const lastCoord = coords[coords.length - 1]; // Assuming last is latest
-          if (lastCoord && typeof lastCoord.lat === 'number' && typeof lastCoord.lon === 'number') {
+          if (
+            lastCoord &&
+            typeof lastCoord.lat === "number" &&
+            typeof lastCoord.lon === "number"
+          ) {
             targetLatLng = [lastCoord.lat, lastCoord.lon];
             locationSource = "live location";
             console.log("Using live location from tracker.");
@@ -249,21 +258,37 @@
         }
 
         // 2. Try last known location from DrivingNavigation (if it exists)
-        if (!targetLatLng && window.drivingNavigation && window.drivingNavigation.lastKnownLocation) {
-            targetLatLng = [window.drivingNavigation.lastKnownLocation.lat, window.drivingNavigation.lastKnownLocation.lon];
-            locationSource = "last known location";
-            console.log("Using last known location from DrivingNavigation.");
+        if (
+          !targetLatLng &&
+          window.drivingNavigation &&
+          window.drivingNavigation.lastKnownLocation
+        ) {
+          targetLatLng = [
+            window.drivingNavigation.lastKnownLocation.lat,
+            window.drivingNavigation.lastKnownLocation.lon,
+          ];
+          locationSource = "last known location";
+          console.log("Using last known location from DrivingNavigation.");
         }
 
         // 3. Fallback: Last point of the most recent trip
         const tripsLayerData = window.AppState?.mapLayers?.trips?.layer;
-        if (!targetLatLng && tripsLayerData && Array.isArray(tripsLayerData.features) && tripsLayerData.features.length > 0) {
-          console.log("Attempting fallback: Found trips layer with features.", tripsLayerData.features.length, "features found.");
+        if (
+          !targetLatLng &&
+          tripsLayerData &&
+          Array.isArray(tripsLayerData.features) &&
+          tripsLayerData.features.length > 0
+        ) {
+          console.log(
+            "Attempting fallback: Found trips layer with features.",
+            tripsLayerData.features.length,
+            "features found.",
+          );
           const features = tripsLayerData.features;
           let lastTripFeature = null;
           let latestTime = 0;
 
-          features.forEach(feature => {
+          features.forEach((feature) => {
             const endTime = feature.properties?.endTime;
             if (endTime) {
               const time = new Date(endTime).getTime();
@@ -275,60 +300,105 @@
           });
 
           if (lastTripFeature) {
-            console.log("Found last trip feature:", lastTripFeature.properties?.id || lastTripFeature.properties?.transactionId, " ended at ", new Date(latestTime));
+            console.log(
+              "Found last trip feature:",
+              lastTripFeature.properties?.id ||
+                lastTripFeature.properties?.transactionId,
+              " ended at ",
+              new Date(latestTime),
+            );
             const geomType = lastTripFeature.geometry?.type;
             const coords = lastTripFeature.geometry?.coordinates;
             let lastCoord = null;
-            if (geomType === "LineString" && Array.isArray(coords) && coords.length > 0) {
+            if (
+              geomType === "LineString" &&
+              Array.isArray(coords) &&
+              coords.length > 0
+            ) {
               lastCoord = coords[coords.length - 1];
             } else if (geomType === "Point" && Array.isArray(coords)) {
               lastCoord = coords;
             }
 
-            if (Array.isArray(lastCoord) && lastCoord.length === 2 && typeof lastCoord[0] === 'number' && typeof lastCoord[1] === 'number') {
+            if (
+              Array.isArray(lastCoord) &&
+              lastCoord.length === 2 &&
+              typeof lastCoord[0] === "number" &&
+              typeof lastCoord[1] === "number"
+            ) {
               targetLatLng = [lastCoord[1], lastCoord[0]]; // GeoJSON is [lng, lat]
-               locationSource = "last trip end";
-               console.log("Extracted last coordinate:", targetLatLng);
+              locationSource = "last trip end";
+              console.log("Extracted last coordinate:", targetLatLng);
             } else {
-               console.warn("Could not extract valid last coordinate from the most recent trip feature:", lastTripFeature);
+              console.warn(
+                "Could not extract valid last coordinate from the most recent trip feature:",
+                lastTripFeature,
+              );
             }
           } else {
-              console.warn("Could not find the most recent trip feature among available features (latestTime=", latestTime, "). Ensure trips have valid 'endTime' properties.");
+            console.warn(
+              "Could not find the most recent trip feature among available features (latestTime=",
+              latestTime,
+              "). Ensure trips have valid 'endTime' properties.",
+            );
           }
         } else if (!targetLatLng) {
-           // Log why the fallback condition failed
-           console.log("Fallback condition not met. Checking AppState and trips layer:");
-           console.log(`- window.AppState exists: ${!!window.AppState}`);
-           if (window.AppState) {
-               console.log(`- window.AppState.mapLayers exists: ${!!window.AppState.mapLayers}`);
-               if (window.AppState.mapLayers) {
-                   const tripsLayer = window.AppState.mapLayers.trips;
-                   console.log(`- window.AppState.mapLayers.trips exists: ${!!tripsLayer}`);
-                   if (tripsLayer) {
-                       console.log(`- window.AppState.mapLayers.trips.layer exists: ${!!tripsLayer.layer}`);
-                       if (tripsLayer.layer) {
-                           const features = tripsLayer.layer.features;
-                           console.log(`- window.AppState.mapLayers.trips.layer.features is Array: ${Array.isArray(features)}`);
-                           if (Array.isArray(features)) {
-                               console.log(`- window.AppState.mapLayers.trips.layer.features.length: ${features.length}`);
-                           }
-                       }
-                   }
-               }
-           }
+          // Log why the fallback condition failed
+          console.log(
+            "Fallback condition not met. Checking AppState and trips layer:",
+          );
+          console.log(`- window.AppState exists: ${!!window.AppState}`);
+          if (window.AppState) {
+            console.log(
+              `- window.AppState.mapLayers exists: ${!!window.AppState.mapLayers}`,
+            );
+            if (window.AppState.mapLayers) {
+              const tripsLayer = window.AppState.mapLayers.trips;
+              console.log(
+                `- window.AppState.mapLayers.trips exists: ${!!tripsLayer}`,
+              );
+              if (tripsLayer) {
+                console.log(
+                  `- window.AppState.mapLayers.trips.layer exists: ${!!tripsLayer.layer}`,
+                );
+                if (tripsLayer.layer) {
+                  const features = tripsLayer.layer.features;
+                  console.log(
+                    `- window.AppState.mapLayers.trips.layer.features is Array: ${Array.isArray(features)}`,
+                  );
+                  if (Array.isArray(features)) {
+                    console.log(
+                      `- window.AppState.mapLayers.trips.layer.features.length: ${features.length}`,
+                    );
+                  }
+                }
+              }
+            }
+          }
         }
 
         // Final action based on targetLatLng
         if (targetLatLng) {
           console.info(`Centering map on ${locationSource}:`, targetLatLng);
-          window.map.flyTo(targetLatLng, window.map.getZoom() < 14 ? 14 : window.map.getZoom(), { // Zoom in if far out
-            animate: true,
-            duration: 1.5 // seconds
-          });
-           window.notificationManager?.show(`Centered map on ${locationSource}.`, "info");
+          window.map.flyTo(
+            targetLatLng,
+            window.map.getZoom() < 14 ? 14 : window.map.getZoom(),
+            {
+              // Zoom in if far out
+              animate: true,
+              duration: 1.5, // seconds
+            },
+          );
+          window.notificationManager?.show(
+            `Centered map on ${locationSource}.`,
+            "info",
+          );
         } else {
           console.warn("Could not determine location to center on.");
-          window.notificationManager?.show("Could not determine current or last known location.", "warning");
+          window.notificationManager?.show(
+            "Could not determine current or last known location.",
+            "warning",
+          );
         }
       });
     }
