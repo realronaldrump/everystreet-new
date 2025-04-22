@@ -1258,7 +1258,7 @@
         `<tr><th scope="row" class="fw-bold">Avg Speed</th><td>${formatNum(props.avgSpeed ?? props.averageSpeed)} mph</td></tr>` +
         `<tr><th scope="row" class="fw-bold">Max Speed</th><td>${formatNum(props.maxSpeed)} mph</td></tr>` +
         `<tr><th scope="row" class="fw-bold">Points Recorded</th><td>${props.pointsRecorded ?? 'N/A'}</td></tr>` +
-        `<tr><th scope="row" class="fw-bold">Idling Time</th><td>${formatDuration(props.totalIdlingTime)}</td></tr>` +
+        `<tr><th scope="row" class="fw-bold">Idling Time</th><td>${formatDuration(props.totalIdleDuration)}</td></tr>` +
         `<tr><th scope="row" class="fw-bold">Fuel Consumed</th><td>${formatNum(props.fuelConsumed, 2)} gal</td></tr>` +
       '</tbody>' +
       '</table>';
