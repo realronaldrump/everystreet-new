@@ -3175,7 +3175,7 @@ const STATUS = window.STATUS || {
         errorDiv.textContent = errorMessage;
         errorContainer.prepend(errorDiv);
       } else {
-        alert(errorMessage);
+        window.notificationManager.show(errorMessage, "danger");
       }
       return;
     }
