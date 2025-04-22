@@ -1426,8 +1426,25 @@ async def get_trips(request: Request):
                 duration_seconds = (et - st).total_seconds() if st and et else 0
 
                 geom = trip.get("gps")
+                num_points = 0
                 if isinstance(geom, str):
-                    geom = geojson_module.loads(geom)
+                    try:
+                        geom_obj = geojson_module.loads(geom)
+                        if geom_obj and "coordinates" in geom_obj and isinstance(geom_obj["coordinates"], list):
+                            num_points = len(geom_obj["coordinates"])
+                        geom = geom_obj # Use the parsed object
+                    except Exception:
+                         logger.warning("Could not parse geometry string for trip %s", trip.get("transactionId"), exc_info=True)
+                         geom = None # Set geom to None if parsing failed
+                elif isinstance(geom, dict) and "coordinates" in geom and isinstance(geom["coordinates"], list):
+                    num_points = len(geom["coordinates"])
+                else:
+                    # Handle cases where geom might be None or unexpected type
+                    logger.warning(
+                        "Unexpected geometry type (%s) or missing coordinates for trip %s. Cannot determine point count.",
+                        type(geom).__name__,
+                        trip.get("transactionId"),
+                    )
 
                 props = {
                     "transactionId": trip.get("transactionId", "??"),
@@ -1454,10 +1471,14 @@ async def get_trips(request: Request):
                     "startOdometer": trip.get("startOdometer"),
                     "endOdometer": trip.get("endOdometer"),
                     "averageSpeed": trip.get("averageSpeed"),
+                    "pointsRecorded": num_points,  # Use calculated number of points
                 }
 
+                # Ensure geom is a valid GeoJSON geometry dict or None before passing to Feature
+                valid_geom = geom if isinstance(geom, dict) and "type" in geom and "coordinates" in geom else None
+
                 feature = geojson_module.Feature(
-                    geometry=geom,
+                    geometry=valid_geom,
                     properties=props,
                 )
                 features.append(feature)
