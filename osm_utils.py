@@ -8,9 +8,7 @@ streets.
 import json
 import logging
 from datetime import datetime, timezone
-from typing import (
-    Any,
-)
+from typing import Any
 
 import aiohttp
 import geopandas as gpd
@@ -34,7 +32,8 @@ EXCLUDED_HIGHWAY_TYPES_REGEX = (
 
 
 async def process_elements(
-    elements: list[dict], streets_only: bool,
+    elements: list[dict],
+    streets_only: bool,
 ) -> list[dict]:
     """Process OSM elements and convert them to GeoJSON features.
 
@@ -178,7 +177,8 @@ async def generate_geojson_osm(
                 data = await response.json()
 
         features = await process_elements(
-            data.get("elements", []), streets_only,
+            data.get("elements", []),
+            streets_only,
         )
 
         if not features:
@@ -195,9 +195,7 @@ async def generate_geojson_osm(
         gdf = gpd.GeoDataFrame.from_features(features)
         if "geometry" not in gdf.columns and features:
             gdf = gdf.set_geometry(
-                gpd.GeoSeries.from_features(features, crs="EPSG:4326")[
-                    "geometry"
-                ],
+                gpd.GeoSeries.from_features(features, crs="EPSG:4326")["geometry"],
             )
         elif "geometry" in gdf.columns:
             gdf = gdf.set_geometry("geometry")
@@ -273,9 +271,7 @@ async def generate_geojson_osm(
         return geojson_data, None
 
     except aiohttp.ClientResponseError as http_err:
-        error_detail = (
-            f"Overpass API error: {http_err.status} - {http_err.message}"
-        )
+        error_detail = f"Overpass API error: {http_err.status} - {http_err.message}"
         logger.error(error_detail, exc_info=True)
         try:
             error_body = await http_err.response.text()
@@ -287,9 +283,7 @@ async def generate_geojson_osm(
             pass
         return None, error_detail
     except aiohttp.ClientError as client_err:
-        error_detail = (
-            f"Error communicating with Overpass API: {client_err!s}"
-        )
+        error_detail = f"Error communicating with Overpass API: {client_err!s}"
         logger.error(error_detail, exc_info=True)
         return None, error_detail
     except Exception as e:

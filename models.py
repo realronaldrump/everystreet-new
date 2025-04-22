@@ -6,17 +6,9 @@ API response structures across the application.
 """
 
 from datetime import datetime
-from typing import (
-    Annotated,
-    Any,
-    Union,
-)
+from typing import Annotated, Any, Union
 
-from pydantic import (
-    BaseModel,
-    BeforeValidator,
-    Field,
-)
+from pydantic import BaseModel, BeforeValidator, Field
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
@@ -137,8 +129,7 @@ class TripDataModel(BaseModel):
 
 
 class ActiveTripSuccessResponse(BaseModel):
-    """Response model for when an active trip is successfully found.
-    """
+    """Response model for when an active trip is successfully found."""
 
     status: str = "success"
     has_active_trip: bool = True

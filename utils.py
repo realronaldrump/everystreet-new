@@ -5,16 +5,10 @@ import logging
 import math
 import statistics
 from collections.abc import Coroutine
-from typing import (
-    Any,
-    TypeVar,
-)
+from typing import Any, TypeVar
 
 import aiohttp
-from aiohttp import (
-    ClientConnectorError,
-    ClientResponseError,
-)
+from aiohttp import ClientConnectorError, ClientResponseError
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -118,7 +112,8 @@ def retry_async(
 
 @retry_async()
 async def validate_location_osm(
-    location: str, locationType: str,
+    location: str,
+    locationType: str,
 ) -> dict[str, Any] | None:
     """Validate a location using the OSM Nominatim search API."""
     params = {
@@ -202,7 +197,8 @@ def validate_trip_data(
 
 @retry_async(max_retries=3, retry_delay=2.0)
 async def reverse_geocode_nominatim(
-    lat: float, lon: float,
+    lat: float,
+    lon: float,
 ) -> dict[str, Any] | None:
     """Reverse geocode coordinates using OSM Nominatim."""
     url = "https://nominatim.openstreetmap.org/reverse"
@@ -286,9 +282,7 @@ def calculate_distance(
 
     """
     total_distance_meters = 0.0
-    coords: list[list[float]] = (
-        coordinates if isinstance(coordinates, list) else []
-    )
+    coords: list[list[float]] = coordinates if isinstance(coordinates, list) else []
 
     if not coords or not isinstance(coords[0], list):
         logger.warning("Invalid coordinates format for distance calculation.")

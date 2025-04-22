@@ -11,10 +11,7 @@ from datetime import datetime, timedelta, timezone
 import aiohttp
 from dateutil import parser as date_parser
 
-from trip_processor import (
-    TripProcessor,
-    TripState,
-)
+from trip_processor import TripProcessor, TripState
 from utils import get_session
 
 logger = logging.getLogger(__name__)
