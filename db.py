@@ -14,10 +14,7 @@ import os
 import threading
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime, timezone
-from typing import (
-    Any,
-    TypeVar,
-)
+from typing import Any, TypeVar
 
 import bson
 import certifi
@@ -63,9 +60,7 @@ class DatabaseManager:
         if not getattr(self, "_initialized", False):
             self._client: AsyncIOMotorClient | None = None
             self._db: AsyncIOMotorDatabase | None = None
-            self._gridfs_bucket_instance: None | (AsyncIOMotorGridFSBucket) = (
-                None
-            )
+            self._gridfs_bucket_instance: None | (AsyncIOMotorGridFSBucket) = None
             self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
@@ -197,10 +192,7 @@ class DatabaseManager:
             MongoDB collection
 
         """
-        if (
-            collection_name not in self._collections
-            or not self._connection_healthy
-        ):
+        if collection_name not in self._collections or not self._connection_healthy:
             self._collections[collection_name] = self.db[collection_name]
         return self._collections[collection_name]
 
@@ -658,13 +650,9 @@ class SerializationHelper:
                 if isinstance(value, ObjectId):
                     fallback_result[key] = value
                 elif isinstance(value, datetime):
-                    fallback_result[key] = (
-                        SerializationHelper.serialize_datetime(value)
-                    )
+                    fallback_result[key] = SerializationHelper.serialize_datetime(value)
                 elif isinstance(value, (dict, list)):
-                    fallback_result[key] = (
-                        f"<Complex Type: {type(value).__name__}>"
-                    )
+                    fallback_result[key] = f"<Complex Type: {type(value).__name__}>"
                 else:
                     try:
                         json.dumps(value)
@@ -1019,7 +1007,9 @@ async def update_many_with_retry(
 
     async def _operation():
         return await collection.update_many(
-            filter_query, update, upsert=upsert,
+            filter_query,
+            update,
+            upsert=upsert,
         )
 
     return await db_manager.execute_with_retry(
