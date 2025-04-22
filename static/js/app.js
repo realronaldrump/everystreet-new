@@ -20,9 +20,11 @@
       tileLayerAttribution: {
         // Attribution text for tile layers
         dark: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        light: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        light:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         satellite: "Tiles &copy; Esri",
-        streets: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        streets:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
       maxZoom: 19, // Maximum allowed zoom level
       recentTripThreshold: 6 * 60 * 60 * 1000, // Time threshold (6 hours) to highlight recent trips
@@ -108,7 +110,9 @@
 
     // Normalize selector to ensure it works with querySelector (e.g., add # for IDs)
     const normalizedSelector =
-      selector.startsWith("#") || selector.includes(" ") || selector.startsWith(".")
+      selector.startsWith("#") ||
+      selector.includes(" ") ||
+      selector.startsWith(".")
         ? selector
         : `#${selector}`; // Assume ID if simple string without prefix/space
     const element = context.querySelector(normalizedSelector);
@@ -142,8 +146,8 @@
   const addSingleEventListener = (element, eventType, handler) => {
     const el = typeof element === "string" ? getElement(element) : element;
     if (!el) {
-        console.warn(`Element not found for selector/object: ${element}`);
-        return false;
+      console.warn(`Element not found for selector/object: ${element}`);
+      return false;
     }
 
     // Initialize a cache on the element if it doesn't exist
@@ -230,7 +234,12 @@
    */
   const getTripFeatureStyle = (feature, layerInfo) => {
     const { properties } = feature;
-    if (!properties) return { color: layerInfo.color, weight: layerInfo.weight, opacity: layerInfo.opacity }; // Basic default
+    if (!properties)
+      return {
+        color: layerInfo.color,
+        weight: layerInfo.weight,
+        opacity: layerInfo.opacity,
+      }; // Basic default
 
     const { transactionId, startTime } = properties;
     const sixHoursAgo = Date.now() - CONFIG.MAP.recentTripThreshold;
@@ -377,14 +386,15 @@
         .addTo(AppState.map);
 
       // Add attribution control manually
-      L.control.attribution({
-          position: 'bottomright', // Or your preferred position
-          prefix: '' // Optional: Remove Leaflet prefix
-      }).addTo(AppState.map);
+      L.control
+        .attribution({
+          position: "bottomright", // Or your preferred position
+          prefix: "", // Optional: Remove Leaflet prefix
+        })
+        .addTo(AppState.map);
       // Update attribution text
       AppState.map.attributionControl.setPrefix(false); // Remove Leaflet prefix if desired
       AppState.map.attributionControl.addAttribution(attribution);
-
 
       // Create the main layer group for trips, etc.
       AppState.layerGroup = L.layerGroup().addTo(AppState.map);
@@ -419,10 +429,10 @@
         AppState.baseLayer = basemaps.Dark;
       }
 
-
       // Add the layers control (for switching basemaps)
       L.control
-        .layers(basemaps, null, { // Pass basemaps, no overlays initially
+        .layers(basemaps, null, {
+          // Pass basemaps, no overlays initially
           position: "topright",
           collapsed: true, // Keep it collapsed by default
         })
@@ -444,10 +454,10 @@
       return true;
     } catch (error) {
       // Use global error handler if available
-      if (typeof handleError === 'function') {
-          handleError(error, "Map initialization");
+      if (typeof handleError === "function") {
+        handleError(error, "Map initialization");
       } else {
-          console.error("Map initialization error:", error);
+        console.error("Map initialization error:", error);
       }
       showNotification(
         `${CONFIG.ERROR_MESSAGES.mapInitFailed}: ${error.message}`,
@@ -459,25 +469,26 @@
 
   /** Updates the browser URL's query parameters with the current map state. */
   function updateUrlWithMapState() {
-    if (!AppState.map || !window.history || !window.history.replaceState) return; // Check for API availability
+    if (!AppState.map || !window.history || !window.history.replaceState)
+      return; // Check for API availability
 
     try {
-        const center = AppState.map.getCenter();
-        const zoom = AppState.map.getZoom();
-        const lat = center.lat.toFixed(5);
-        const lng = center.lng.toFixed(5);
+      const center = AppState.map.getCenter();
+      const zoom = AppState.map.getZoom();
+      const lat = center.lat.toFixed(5);
+      const lng = center.lng.toFixed(5);
 
-        const url = new URL(window.location.href);
-        url.searchParams.set("zoom", zoom);
-        url.searchParams.set("lat", lat);
-        url.searchParams.set("lng", lng);
+      const url = new URL(window.location.href);
+      url.searchParams.set("zoom", zoom);
+      url.searchParams.set("lat", lat);
+      url.searchParams.set("lng", lng);
 
-        // Replace the current history state without adding a new entry
-        window.history.replaceState({}, "", url.toString());
+      // Replace the current history state without adding a new entry
+      window.history.replaceState({}, "", url.toString());
     } catch (error) {
-        console.warn("Failed to update URL with map state:", error);
-        // Optionally use handleError if it's critical
-        // if (typeof handleError === 'function') handleError(error, "Update URL State");
+      console.warn("Failed to update URL with map state:", error);
+      // Optionally use handleError if it's critical
+      // if (typeof handleError === 'function') handleError(error, "Update URL State");
     }
   }
 
@@ -491,16 +502,17 @@
 
     try {
       // Initialize only if it hasn't been already
-      if (!AppState.liveTracker) { // Use AppState to track instance
+      if (!AppState.liveTracker) {
+        // Use AppState to track instance
         AppState.liveTracker = new window.LiveTripTracker(AppState.map);
         // window.liveTracker = AppState.liveTracker; // Avoid global if possible, use AppState.liveTracker
         console.info("LiveTripTracker initialized.");
       }
     } catch (error) {
-      if (typeof handleError === 'function') {
-          handleError(error, "LiveTripTracker Initialization");
+      if (typeof handleError === "function") {
+        handleError(error, "LiveTripTracker Initialization");
       } else {
-          console.error("LiveTripTracker Initialization error:", error);
+        console.error("LiveTripTracker Initialization error:", error);
       }
     }
   }
@@ -509,8 +521,8 @@
   function initializeLayerControls() {
     const layerToggles = getElement("layer-toggles");
     if (!layerToggles) {
-        console.warn("Layer toggles container not found.");
-        return;
+      console.warn("Layer toggles container not found.");
+      return;
     }
     // Create UI elements for each layer
     batchLayerControls(layerToggles, AppState.mapLayers);
@@ -580,7 +592,11 @@
 
     // Get visible layers that have actual layer data, sorted by current order (descending for top-down UI)
     const visibleLayers = Object.entries(AppState.mapLayers)
-      .filter(([, info]) => info.visible && (info.layer || info === AppState.mapLayers.customPlaces)) // Include customPlaces even if its layer is managed externally
+      .filter(
+        ([, info]) =>
+          info.visible &&
+          (info.layer || info === AppState.mapLayers.customPlaces),
+      ) // Include customPlaces even if its layer is managed externally
       .sort(([, a], [, b]) => b.order - a.order); // Higher order number means higher up (rendered last/on top)
 
     // Efficiently update the DOM
@@ -598,47 +614,48 @@
 
     // Use event delegation on the list container
     addSingleEventListener(list, "dragstart", (e) => {
-        // Only act on list items
-        if (e.target.tagName === 'LI' && e.target.draggable) {
-            draggedItem = e.target;
-            e.dataTransfer.effectAllowed = "move";
-            // Add visual cue shortly after drag starts
-            setTimeout(() => draggedItem.classList.add("dragging"), 0);
-        } else {
-            e.preventDefault(); // Prevent dragging other elements within the list
-        }
+      // Only act on list items
+      if (e.target.tagName === "LI" && e.target.draggable) {
+        draggedItem = e.target;
+        e.dataTransfer.effectAllowed = "move";
+        // Add visual cue shortly after drag starts
+        setTimeout(() => draggedItem.classList.add("dragging"), 0);
+      } else {
+        e.preventDefault(); // Prevent dragging other elements within the list
+      }
     });
 
     addSingleEventListener(list, "dragover", (e) => {
-        e.preventDefault(); // Necessary to allow dropping
-        const target = e.target.closest("li"); // Find the list item being hovered over
-        // Ensure we have a valid target, it's not the item being dragged, and dragging is in progress
-        if (target && draggedItem && target !== draggedItem) {
-            const rect = target.getBoundingClientRect();
-            // Determine if dragging over the top or bottom half of the target item
-            const midpoint = rect.top + rect.height / 2;
-            if (e.clientY > midpoint) {
-                // Insert below the target
-                list.insertBefore(draggedItem, target.nextSibling);
-            } else {
-                // Insert above the target
-                list.insertBefore(draggedItem, target);
-            }
+      e.preventDefault(); // Necessary to allow dropping
+      const target = e.target.closest("li"); // Find the list item being hovered over
+      // Ensure we have a valid target, it's not the item being dragged, and dragging is in progress
+      if (target && draggedItem && target !== draggedItem) {
+        const rect = target.getBoundingClientRect();
+        // Determine if dragging over the top or bottom half of the target item
+        const midpoint = rect.top + rect.height / 2;
+        if (e.clientY > midpoint) {
+          // Insert below the target
+          list.insertBefore(draggedItem, target.nextSibling);
+        } else {
+          // Insert above the target
+          list.insertBefore(draggedItem, target);
         }
+      }
     });
 
-    addSingleEventListener(list, "dragend", (/* e */) => { // e is unused
-        if (draggedItem) {
-            draggedItem.classList.remove("dragging"); // Remove visual cue
-            draggedItem = null; // Reset dragged item
-            updateLayerOrder(); // Update the actual layer order in AppState
-        }
+    addSingleEventListener(list, "dragend", (/* e */) => {
+      // e is unused
+      if (draggedItem) {
+        draggedItem.classList.remove("dragging"); // Remove visual cue
+        draggedItem = null; // Reset dragged item
+        updateLayerOrder(); // Update the actual layer order in AppState
+      }
     });
 
     // Optional: Handle drop event for completeness, though dragover often handles the move
     addSingleEventListener(list, "drop", (e) => {
-        e.preventDefault(); // Prevent default drop behavior
-        // The actual reordering is handled by dragover and dragend updates the state
+      e.preventDefault(); // Prevent default drop behavior
+      // The actual reordering is handled by dragover and dragend updates the state
     });
   }
 
@@ -669,12 +686,16 @@
     const endDate = getEndDate();
 
     if (!startDate || !endDate) {
-      showNotification("Invalid date range selected for fetching trips.", "warning");
+      showNotification(
+        "Invalid date range selected for fetching trips.",
+        "warning",
+      );
       return;
     }
 
     // Update date input fields visually (optional)
-    if (AppState.dom.startDateInput) AppState.dom.startDateInput.value = startDate;
+    if (AppState.dom.startDateInput)
+      AppState.dom.startDateInput.value = startDate;
     if (AppState.dom.endDateInput) AppState.dom.endDateInput.value = endDate;
 
     const params = new URLSearchParams({
@@ -682,20 +703,26 @@
       end_date: endDate,
     });
 
-    if (window.loadingManager) window.loadingManager.startOperation("FetchTrips", 100);
+    if (window.loadingManager)
+      window.loadingManager.startOperation("FetchTrips", 100);
     try {
       const response = await fetch(`/api/trips?${params.toString()}`);
       if (!response.ok) {
-        throw new Error(`HTTP error fetching trips: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `HTTP error fetching trips: ${response.status} ${response.statusText}`,
+        );
       }
 
       // Use 'let' because it might be reassigned if data is invalid
       let geojson = await response.json();
 
       // Validate fetched data and provide a default structure if invalid
-      if (!geojson || !Array.isArray(geojson.features)) { // Check if features is an array
-          console.warn("Received invalid GeoJSON data for trips (features missing or not an array).");
-          geojson = { type: "FeatureCollection", features: [] }; // Ensure valid structure
+      if (!geojson || !Array.isArray(geojson.features)) {
+        // Check if features is an array
+        console.warn(
+          "Received invalid GeoJSON data for trips (features missing or not an array).",
+        );
+        geojson = { type: "FeatureCollection", features: [] }; // Ensure valid structure
       }
 
       // Update the data table (if it exists)
@@ -709,10 +736,10 @@
         await fetchMatchedTrips(); // Assumes fetchMatchedTrips updates its own layer
       } catch (err) {
         // Use global error handler or log
-        if (typeof handleError === 'function') {
-            handleError(err, "Fetching Matched Trips");
+        if (typeof handleError === "function") {
+          handleError(err, "Fetching Matched Trips");
         } else {
-            console.error("Error fetching matched trips:", err);
+          console.error("Error fetching matched trips:", err);
         }
         // Decide if this error should prevent further execution
       }
@@ -727,16 +754,15 @@
         }),
       );
       showNotification(`Loaded ${geojson.features.length} trips.`, "success");
-
     } catch (error) {
-        if (typeof handleError === 'function') {
-            handleError(error, "Fetch Trips Main");
-        } else {
-            console.error("Error in fetchTrips:", error);
-        }
-        showNotification(CONFIG.ERROR_MESSAGES.fetchTripsFailed, "danger");
+      if (typeof handleError === "function") {
+        handleError(error, "Fetch Trips Main");
+      } else {
+        console.error("Error in fetchTrips:", error);
+      }
+      showNotification(CONFIG.ERROR_MESSAGES.fetchTripsFailed, "danger");
     } finally {
-        if (window.loadingManager) window.loadingManager.finish("FetchTrips");
+      if (window.loadingManager) window.loadingManager.finish("FetchTrips");
     }
   }
 
@@ -747,8 +773,8 @@
   function updateTripsTable(geojson) {
     // Check if the DataTable library and instance are available
     if (!window.tripsTable || !$.fn.DataTable?.isDataTable("#tripsTable")) {
-        console.warn("Trips DataTable not initialized or library not found.");
-        return; // Exit if table doesn't exist or isn't initialized
+      console.warn("Trips DataTable not initialized or library not found.");
+      return; // Exit if table doesn't exist or isn't initialized
     }
 
     // Ensure geojson.features is an array before mapping
@@ -756,44 +782,78 @@
 
     // Format trip features for the DataTable
     const formattedTrips = features.map((trip) => {
-        const props = trip.properties || {}; // Ensure properties object exists
-        const geometry = trip.geometry;
+      const props = trip.properties || {}; // Ensure properties object exists
+      const geometry = trip.geometry;
 
-        // Provide defaults for potentially missing properties
-        return {
-            transactionId: props.transactionId || 'N/A',
-            imei: props.imei || 'N/A',
-            startTime: props.startTime, // Keep raw start time if needed elsewhere
-            endTime: props.endTime, // Keep raw end time if needed elsewhere
-            startTimeFormatted: props.startTime ? DateUtils.formatForDisplay(props.startTime, { dateStyle: "short", timeStyle: "short" }) : 'N/A',
-            endTimeFormatted: props.endTime ? DateUtils.formatForDisplay(props.endTime, { dateStyle: "short", timeStyle: "short" }) : 'N/A',
-            duration: props.duration ? DateUtils.formatSecondsToHMS(props.duration) : 'N/A',
-            distance: typeof props.distance === 'number' ? props.distance.toFixed(2) : 'N/A',
-            startOdometer: props.startOdometer ?? 'N/A',
-            endOdometer: props.endOdometer ?? 'N/A',
-            currentSpeed: typeof props.currentSpeed === 'number' ? props.currentSpeed.toFixed(1) : 'N/A',
-            avgSpeed: typeof (props.avgSpeed ?? props.averageSpeed) === 'number' ? (props.avgSpeed ?? props.averageSpeed).toFixed(1) : 'N/A',
-            maxSpeed: typeof props.maxSpeed === 'number' ? props.maxSpeed.toFixed(1) : 'N/A',
-            pointsRecorded: props.pointsRecorded ?? 'N/A',
-            totalIdlingTime: props.totalIdlingTime ? DateUtils.formatSecondsToHMS(props.totalIdlingTime) : 'N/A',
-            fuelConsumed: typeof props.fuelConsumed === 'number' ? props.fuelConsumed.toFixed(2) : 'N/A',
-            lastUpdate: props.lastUpdate ? DateUtils.formatForDisplay(props.lastUpdate, { dateStyle: "medium", timeStyle: "short" }) : 'N/A',
-            destination: props.destination || "N/A", // Keep original fallbacks if needed
-            startLocation: props.startLocation || "N/A",
-            // Include geometry if the table needs it, otherwise omit
-            // gps: geometry,
-        };
+      // Provide defaults for potentially missing properties
+      return {
+        transactionId: props.transactionId || "N/A",
+        imei: props.imei || "N/A",
+        startTime: props.startTime, // Keep raw start time if needed elsewhere
+        endTime: props.endTime, // Keep raw end time if needed elsewhere
+        startTimeFormatted: props.startTime
+          ? DateUtils.formatForDisplay(props.startTime, {
+              dateStyle: "short",
+              timeStyle: "short",
+            })
+          : "N/A",
+        endTimeFormatted: props.endTime
+          ? DateUtils.formatForDisplay(props.endTime, {
+              dateStyle: "short",
+              timeStyle: "short",
+            })
+          : "N/A",
+        duration: props.duration
+          ? DateUtils.formatSecondsToHMS(props.duration)
+          : "N/A",
+        distance:
+          typeof props.distance === "number"
+            ? props.distance.toFixed(2)
+            : "N/A",
+        startOdometer: props.startOdometer ?? "N/A",
+        endOdometer: props.endOdometer ?? "N/A",
+        currentSpeed:
+          typeof props.currentSpeed === "number"
+            ? props.currentSpeed.toFixed(1)
+            : "N/A",
+        avgSpeed:
+          typeof (props.avgSpeed ?? props.averageSpeed) === "number"
+            ? (props.avgSpeed ?? props.averageSpeed).toFixed(1)
+            : "N/A",
+        maxSpeed:
+          typeof props.maxSpeed === "number"
+            ? props.maxSpeed.toFixed(1)
+            : "N/A",
+        pointsRecorded: props.pointsRecorded ?? "N/A",
+        totalIdlingTime: props.totalIdlingTime
+          ? DateUtils.formatSecondsToHMS(props.totalIdlingTime)
+          : "N/A",
+        fuelConsumed:
+          typeof props.fuelConsumed === "number"
+            ? props.fuelConsumed.toFixed(2)
+            : "N/A",
+        lastUpdate: props.lastUpdate
+          ? DateUtils.formatForDisplay(props.lastUpdate, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })
+          : "N/A",
+        destination: props.destination || "N/A", // Keep original fallbacks if needed
+        startLocation: props.startLocation || "N/A",
+        // Include geometry if the table needs it, otherwise omit
+        // gps: geometry,
+      };
     });
 
     try {
-        // Clear existing data, add new data, and redraw the table
-        window.tripsTable.clear().rows.add(formattedTrips).draw();
-        console.info(`Trips table updated with ${formattedTrips.length} trips.`);
+      // Clear existing data, add new data, and redraw the table
+      window.tripsTable.clear().rows.add(formattedTrips).draw();
+      console.info(`Trips table updated with ${formattedTrips.length} trips.`);
     } catch (error) {
-        console.error("Error updating DataTable:", error);
-        showNotification("Failed to update the trips table.", "danger");
-        // Optionally use handleError
-        // if (typeof handleError === 'function') handleError(error, "Update Trips Table");
+      console.error("Error updating DataTable:", error);
+      showNotification("Failed to update the trips table.", "danger");
+      // Optionally use handleError
+      // if (typeof handleError === 'function') handleError(error, "Update Trips Table");
     }
   }
 
@@ -804,11 +864,14 @@
   async function updateMapWithTrips(geojson) {
     // Ensure geojson.features is an array
     if (!Array.isArray(geojson?.features)) {
-        console.warn("No valid features array found in GeoJSON for trips layer.");
-        // Ensure the layer exists even if empty
-        AppState.mapLayers.trips.layer = { type: "FeatureCollection", features: [] };
+      console.warn("No valid features array found in GeoJSON for trips layer.");
+      // Ensure the layer exists even if empty
+      AppState.mapLayers.trips.layer = {
+        type: "FeatureCollection",
+        features: [],
+      };
     } else {
-        AppState.mapLayers.trips.layer = geojson; // Assign the new data
+      AppState.mapLayers.trips.layer = geojson; // Assign the new data
     }
     // No need to call updateMap here; let the calling function (fetchTrips) handle the final update.
     // await updateMap(); // Avoid redundant updates
@@ -821,10 +884,15 @@
   async function updateMapWithUndrivenStreets(geojson) {
     // Ensure geojson.features is an array
     if (!Array.isArray(geojson?.features)) {
-        console.warn("No valid features array found in GeoJSON for undriven streets layer.");
-        AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] };
+      console.warn(
+        "No valid features array found in GeoJSON for undriven streets layer.",
+      );
+      AppState.mapLayers.undrivenStreets.layer = {
+        type: "FeatureCollection",
+        features: [],
+      };
     } else {
-        AppState.mapLayers.undrivenStreets.layer = geojson;
+      AppState.mapLayers.undrivenStreets.layer = geojson;
     }
     // No need to call updateMap here; let the calling function (fetchUndrivenStreets) handle the final update.
     // await updateMap(); // Avoid redundant updates
@@ -835,8 +903,8 @@
     const startDate = getStartDate();
     const endDate = getEndDate();
     if (!startDate || !endDate) {
-        console.warn("Cannot fetch matched trips without valid dates.");
-        return Promise.reject(new Error("Invalid date range for matched trips")); // Return rejected promise
+      console.warn("Cannot fetch matched trips without valid dates.");
+      return Promise.reject(new Error("Invalid date range for matched trips")); // Return rejected promise
     }
     const url = `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`;
 
@@ -845,16 +913,21 @@
       .then((data) => {
         // Ensure data.features is an array
         if (!data || !Array.isArray(data.features)) {
-            console.warn("No valid data received for matched trips.");
-            // Ensure layer exists but is empty
-            AppState.mapLayers.matchedTrips.layer = { type: "FeatureCollection", features: [] };
-            AppState.mapLayers.matchedTrips.visible = localStorage.getItem('layer_visible_matchedTrips') === 'true'; // Keep visibility based on toggle
+          console.warn("No valid data received for matched trips.");
+          // Ensure layer exists but is empty
+          AppState.mapLayers.matchedTrips.layer = {
+            type: "FeatureCollection",
+            features: [],
+          };
+          AppState.mapLayers.matchedTrips.visible =
+            localStorage.getItem("layer_visible_matchedTrips") === "true"; // Keep visibility based on toggle
         } else {
-            console.info(`Fetched ${data.features.length} matched trips.`);
-            // Assign data to the layer
-            AppState.mapLayers.matchedTrips.layer = data;
-            // Keep visibility based on toggle state
-            AppState.mapLayers.matchedTrips.visible = localStorage.getItem('layer_visible_matchedTrips') === 'true';
+          console.info(`Fetched ${data.features.length} matched trips.`);
+          // Assign data to the layer
+          AppState.mapLayers.matchedTrips.layer = data;
+          // Keep visibility based on toggle state
+          AppState.mapLayers.matchedTrips.visible =
+            localStorage.getItem("layer_visible_matchedTrips") === "true";
         }
         // Don't call updateMap here, let fetchTrips handle the final update
         // updateLayerOrderUI(); // Update UI if visibility/order might change
@@ -862,13 +935,16 @@
       .catch((error) => {
         console.error("Error fetching matched trips:", error);
         // Ensure layer exists but is empty on error
-        AppState.mapLayers.matchedTrips.layer = { type: "FeatureCollection", features: [] };
+        AppState.mapLayers.matchedTrips.layer = {
+          type: "FeatureCollection",
+          features: [],
+        };
         AppState.mapLayers.matchedTrips.visible = false; // Hide on error? Or keep toggle state?
         // Use global error handler
-        if (typeof handleError === 'function') {
-            handleError(error, "Fetch Matched Trips"); // Pass error object
+        if (typeof handleError === "function") {
+          handleError(error, "Fetch Matched Trips"); // Pass error object
         } else {
-            showNotification("Failed to load matched trips.", "danger");
+          showNotification("Failed to load matched trips.", "danger");
         }
         // Re-throw or return rejected promise to signal failure to caller
         throw error;
@@ -883,13 +959,20 @@
       const locationSelect = document.getElementById(
         "undriven-streets-location",
       );
-      if (!locationSelect || !locationSelect.value || locationSelect.value === "") {
+      if (
+        !locationSelect ||
+        !locationSelect.value ||
+        locationSelect.value === ""
+      ) {
         showNotification(
           "Please select a location from the dropdown to show undriven streets.",
           "warning",
         );
         AppState.mapLayers.undrivenStreets.visible = false; // Ensure layer is marked as not visible
-        AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] }; // Clear data
+        AppState.mapLayers.undrivenStreets.layer = {
+          type: "FeatureCollection",
+          features: [],
+        }; // Clear data
         await updateMap(); // Update map to remove layer if it was visible
         return null; // Indicate failure or no action taken
       }
@@ -903,7 +986,9 @@
           typeof location !== "object" ||
           !location.display_name // Check for a key property
         ) {
-          throw new Error("Parsed location data is invalid or missing key properties.");
+          throw new Error(
+            "Parsed location data is invalid or missing key properties.",
+          );
         }
       } catch (parseError) {
         console.error("Error parsing location data from dropdown:", parseError);
@@ -912,7 +997,10 @@
           "warning",
         );
         AppState.mapLayers.undrivenStreets.visible = false;
-        AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] };
+        AppState.mapLayers.undrivenStreets.layer = {
+          type: "FeatureCollection",
+          features: [],
+        };
         await updateMap();
         return null;
       }
@@ -951,7 +1039,9 @@
 
       // Validate received GeoJSON structure
       if (!geojson || !geojson.type || !Array.isArray(geojson.features)) {
-          throw new Error("Invalid GeoJSON structure received for undriven streets.");
+        throw new Error(
+          "Invalid GeoJSON structure received for undriven streets.",
+        );
       }
 
       if (geojson.features.length === 0) {
@@ -971,18 +1061,23 @@
       // Trigger a final map update
       await updateMap();
       return geojson; // Return the data
-
     } catch (error) {
       console.error("Error fetching undriven streets:", error);
-      if (typeof handleError === 'function') {
-          handleError(error, "Fetch Undriven Streets");
+      if (typeof handleError === "function") {
+        handleError(error, "Fetch Undriven Streets");
       } else {
-          showNotification(`Failed to load undriven streets: ${error.message}`, "danger");
+        showNotification(
+          `Failed to load undriven streets: ${error.message}`,
+          "danger",
+        );
       }
       // Reset layer state on error
       AppState.mapLayers.undrivenStreets.visible = false;
-      AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] };
-      const toggle = document.getElementById('undrivenStreets-toggle');
+      AppState.mapLayers.undrivenStreets.layer = {
+        type: "FeatureCollection",
+        features: [],
+      };
+      const toggle = document.getElementById("undrivenStreets-toggle");
       if (toggle) toggle.checked = false; // Uncheck the toggle visually
       await updateMap();
       return null; // Indicate failure
@@ -996,8 +1091,8 @@
    */
   async function updateMap(fitBounds = false) {
     if (!isMapReady()) {
-        console.warn("Map not ready, skipping update.");
-        return;
+      console.warn("Map not ready, skipping update.");
+      return;
     }
 
     // Clear existing dynamic layers (trips, undriven streets, etc.)
@@ -1009,90 +1104,97 @@
       .filter(
         ([name, info]) =>
           info.visible && // Is the layer toggled on?
-          (
-            (info.layer && (Array.isArray(info.layer.features) && info.layer.features.length > 0 || info.layer instanceof L.LayerGroup)) || // Does it have GeoJSON features or is it a LayerGroup?
-            (name === 'customPlaces' && window.customPlaces?.isVisible()) // Special handling for customPlaces if managed externally
-          )
+          ((info.layer &&
+            ((Array.isArray(info.layer.features) &&
+              info.layer.features.length > 0) ||
+              info.layer instanceof L.LayerGroup)) || // Does it have GeoJSON features or is it a LayerGroup?
+            (name === "customPlaces" && window.customPlaces?.isVisible())), // Special handling for customPlaces if managed externally
       )
       .sort(([, a], [, b]) => a.order - b.order); // Sort by order (lower first, higher on top)
 
     // Iterate and add layers to the map's layer group
     for (const [name, info] of visibleLayers) {
       try {
-          // Ensure layer data has features before attempting to add
-          const features = info.layer?.features;
-          const hasFeatures = Array.isArray(features) && features.length > 0;
+        // Ensure layer data has features before attempting to add
+        const features = info.layer?.features;
+        const hasFeatures = Array.isArray(features) && features.length > 0;
 
-          if (name === "customPlaces" && window.customPlaces?.getLayerGroup()) {
-            // Add the custom places layer group directly if managed externally
-            window.customPlaces.getLayerGroup().addTo(AppState.layerGroup);
-          } else if (["trips", "matchedTrips"].includes(name) && hasFeatures) {
-            // Create/update the GeoJSON layer for trips or matched trips
-            const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
-              style: (feature) => getTripFeatureStyle(feature, info), // Dynamic styling
-              onEachFeature: (feature, layer) => {
-                // Store reference for potential interaction
-                if (feature.properties?.transactionId) {
-                    tripLayers.set(feature.properties.transactionId, layer);
-                }
-                // Attach click handler
-                layer.on("click", (e) => handleTripClick(e, feature, layer)); // Removed unused info, name
-                // Attach popupopen handler for dynamic content/listeners
-                layer.on("popupopen", () => setupPopupEventListeners(layer, feature));
-                // Bind the popup content
-                layer.bindPopup(createTripPopupContent(feature)); // Removed unused layerName
-              },
-            });
-            geoJsonLayer.addTo(AppState.layerGroup);
+        if (name === "customPlaces" && window.customPlaces?.getLayerGroup()) {
+          // Add the custom places layer group directly if managed externally
+          window.customPlaces.getLayerGroup().addTo(AppState.layerGroup);
+        } else if (["trips", "matchedTrips"].includes(name) && hasFeatures) {
+          // Create/update the GeoJSON layer for trips or matched trips
+          const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
+            style: (feature) => getTripFeatureStyle(feature, info), // Dynamic styling
+            onEachFeature: (feature, layer) => {
+              // Store reference for potential interaction
+              if (feature.properties?.transactionId) {
+                tripLayers.set(feature.properties.transactionId, layer);
+              }
+              // Attach click handler
+              layer.on("click", (e) => handleTripClick(e, feature, layer)); // Removed unused info, name
+              // Attach popupopen handler for dynamic content/listeners
+              layer.on("popupopen", () =>
+                setupPopupEventListeners(layer, feature),
+              );
+              // Bind the popup content
+              layer.bindPopup(createTripPopupContent(feature)); // Removed unused layerName
+            },
+          });
+          geoJsonLayer.addTo(AppState.layerGroup);
 
-            // Add invisible wider lines for easier clicking (hit layer)
-            const hitLayer = L.geoJSON(info.layer, {
-                style: {
-                  color: "#000000", // Doesn't matter, it's invisible
-                  opacity: 0,       // Invisible
-                  weight: 20,       // Wide for easier clicking/tapping
-                  interactive: true,// Make it interactive
-                },
-                onEachFeature: (f, layer) => {
-                  // Attach click handler to the hit layer as well
-                  layer.on("click", (e) => handleTripClick(e, f, layer)); // Use the same handler
-                  // Optionally bind the same popup or a simplified one
-                  layer.bindPopup(createTripPopupContent(f));
-                },
-              });
-            hitLayer.addTo(AppState.layerGroup);
-
-          } else if (name === "undrivenStreets" && hasFeatures) {
-            // Create/update the GeoJSON layer for undriven streets
-            const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
-              style: () => ({ // Static style for undriven streets
-                color: info.color,
-                weight: 3, // Slightly thicker for visibility
-                opacity: info.opacity,
-                className: "undriven-street", // CSS class for potential styling
-              }),
-              onEachFeature: (feature, layer) => {
-                // Add tooltip with street details if available
-                if (feature.properties?.street_name) {
-                  const props = feature.properties;
-                  const streetName = props.street_name;
-                  const segmentLength = typeof props.segment_length === 'number' ? props.segment_length.toFixed(2) : "Unknown";
-                  const streetType = props.highway || "street"; // Use 'highway' tag or default
-                  layer.bindTooltip(
-                    `<strong>${streetName}</strong><br>Type: ${streetType}<br>Length: ${segmentLength}m`,
-                    { sticky: true }, // Tooltip follows the mouse
-                  );
-                }
-              },
-            });
-            geoJsonLayer.addTo(AppState.layerGroup);
-          } else if (info.visible && !hasFeatures && name !== 'customPlaces'){
-              // console.log(`Layer "${name}" is visible but has no features to display.`);
-          }
+          // Add invisible wider lines for easier clicking (hit layer)
+          const hitLayer = L.geoJSON(info.layer, {
+            style: {
+              color: "#000000", // Doesn't matter, it's invisible
+              opacity: 0, // Invisible
+              weight: 20, // Wide for easier clicking/tapping
+              interactive: true, // Make it interactive
+            },
+            onEachFeature: (f, layer) => {
+              // Attach click handler to the hit layer as well
+              layer.on("click", (e) => handleTripClick(e, f, layer)); // Use the same handler
+              // Optionally bind the same popup or a simplified one
+              layer.bindPopup(createTripPopupContent(f));
+            },
+          });
+          hitLayer.addTo(AppState.layerGroup);
+        } else if (name === "undrivenStreets" && hasFeatures) {
+          // Create/update the GeoJSON layer for undriven streets
+          const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
+            style: () => ({
+              // Static style for undriven streets
+              color: info.color,
+              weight: 3, // Slightly thicker for visibility
+              opacity: info.opacity,
+              className: "undriven-street", // CSS class for potential styling
+            }),
+            onEachFeature: (feature, layer) => {
+              // Add tooltip with street details if available
+              if (feature.properties?.street_name) {
+                const props = feature.properties;
+                const streetName = props.street_name;
+                const segmentLength =
+                  typeof props.segment_length === "number"
+                    ? props.segment_length.toFixed(2)
+                    : "Unknown";
+                const streetType = props.highway || "street"; // Use 'highway' tag or default
+                layer.bindTooltip(
+                  `<strong>${streetName}</strong><br>Type: ${streetType}<br>Length: ${segmentLength}m`,
+                  { sticky: true }, // Tooltip follows the mouse
+                );
+              }
+            },
+          });
+          geoJsonLayer.addTo(AppState.layerGroup);
+        } else if (info.visible && !hasFeatures && name !== "customPlaces") {
+          // console.log(`Layer "${name}" is visible but has no features to display.`);
+        }
       } catch (layerError) {
-          console.error(`Error processing layer "${name}":`, layerError);
-          if (typeof handleError === 'function') handleError(layerError, `Update Map - Layer ${name}`);
-          // Continue processing other layers
+        console.error(`Error processing layer "${name}":`, layerError);
+        if (typeof handleError === "function")
+          handleError(layerError, `Update Map - Layer ${name}`);
+        // Continue processing other layers
       }
     }
 
@@ -1120,34 +1222,44 @@
    * @param {object} feature - The clicked GeoJSON feature.
    * @param {L.Layer} layer - The Leaflet layer instance that was clicked.
    */
-  function handleTripClick(e, feature, layer) { // Removed unused info, name
+  function handleTripClick(e, feature, layer) {
+    // Removed unused info, name
     L.DomEvent.stopPropagation(e); // Prevent click from propagating to map
     const clickedTripId = feature.properties?.transactionId;
 
     if (clickedTripId) {
-        AppState.selectedTripId = clickedTripId; // Update selected trip ID
-        refreshTripStyles(); // Update styles to highlight the selected trip
-        // Ensure the corresponding visible layer is brought to front
-        AppState.layerGroup.eachLayer(l => {
-            // Check if layer 'l' is the visible representation (not the hit layer)
-            if (l.feature?.properties?.transactionId === clickedTripId && l.options?.opacity > 0 && l.options?.weight > 0) {
-                l.bringToFront();
-            }
-        });
-        // Open popup on the layer that was actually clicked (could be hit layer or visible layer)
-        if (layer.bindPopup) { // Check if the layer can have a popup
-            layer.openPopup();
-        } else {
-            // If the clicked layer (e.g., hit layer) doesn't have the main popup, find the visible one
-            AppState.layerGroup.eachLayer(l => {
-                if (l.feature?.properties?.transactionId === clickedTripId && l.options?.opacity > 0 && l.bindPopup) {
-                    l.openPopup();
-                }
-            });
+      AppState.selectedTripId = clickedTripId; // Update selected trip ID
+      refreshTripStyles(); // Update styles to highlight the selected trip
+      // Ensure the corresponding visible layer is brought to front
+      AppState.layerGroup.eachLayer((l) => {
+        // Check if layer 'l' is the visible representation (not the hit layer)
+        if (
+          l.feature?.properties?.transactionId === clickedTripId &&
+          l.options?.opacity > 0 &&
+          l.options?.weight > 0
+        ) {
+          l.bringToFront();
         }
-        console.log(`Trip clicked: ${clickedTripId}`);
+      });
+      // Open popup on the layer that was actually clicked (could be hit layer or visible layer)
+      if (layer.bindPopup) {
+        // Check if the layer can have a popup
+        layer.openPopup();
+      } else {
+        // If the clicked layer (e.g., hit layer) doesn't have the main popup, find the visible one
+        AppState.layerGroup.eachLayer((l) => {
+          if (
+            l.feature?.properties?.transactionId === clickedTripId &&
+            l.options?.opacity > 0 &&
+            l.bindPopup
+          ) {
+            l.openPopup();
+          }
+        });
+      }
+      console.log(`Trip clicked: ${clickedTripId}`);
     } else {
-        console.warn("Clicked trip feature missing transactionId.");
+      console.warn("Clicked trip feature missing transactionId.");
     }
   }
 
@@ -1156,12 +1268,15 @@
    * @param {object} feature - The GeoJSON feature for the trip.
    * @returns {string} HTML string for the buttons.
    */
-  function createActionButtons(feature) { // Removed unused layerName
+  function createActionButtons(feature) {
+    // Removed unused layerName
     const tripId = feature.properties?.transactionId;
     if (!tripId) return ""; // No actions if no ID
 
     // Check if it's a matched trip (e.g., based on ID prefix or a specific property)
-    const isMatched = Boolean(feature.properties.matchedTripId) || (typeof tripId === 'string' && tripId.startsWith("MATCHED-")); // Added type check for startsWith
+    const isMatched =
+      Boolean(feature.properties.matchedTripId) ||
+      (typeof tripId === "string" && tripId.startsWith("MATCHED-")); // Added type check for startsWith
 
     return `
       <div class="trip-actions mt-2" data-trip-id="${tripId}">
@@ -1180,40 +1295,48 @@
    * @param {object} feature - The GeoJSON feature.
    * @returns {string} HTML string for the popup.
    */
-  function createTripPopupContent(feature) { // Removed unused layerName
+  function createTripPopupContent(feature) {
+    // Removed unused layerName
     const props = feature.properties || {}; // Ensure props exist
 
     // Helper for formatting, returns 'N/A' if value is null/undefined
-    const format = (value, formatter) => (value != null ? formatter(value) : 'N/A');
-    const formatNum = (value, digits = 1) => format(value, v => parseFloat(v).toFixed(digits));
-    const formatTime = (value) => format(value, v => DateUtils.formatForDisplay(v, { dateStyle: "medium", timeStyle: "short" }));
-    const formatDuration = (value) => format(value, v => DateUtils.formatSecondsToHMS(v));
+    const format = (value, formatter) =>
+      value != null ? formatter(value) : "N/A";
+    const formatNum = (value, digits = 1) =>
+      format(value, (v) => parseFloat(v).toFixed(digits));
+    const formatTime = (value) =>
+      format(value, (v) =>
+        DateUtils.formatForDisplay(v, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+      );
+    const formatDuration = (value) =>
+      format(value, (v) => DateUtils.formatSecondsToHMS(v));
 
     // Use regular string literal as there's no interpolation needed here
-    const detailsHtml = '<h4>Trip Details</h4>' +
+    const detailsHtml =
+      "<h4>Trip Details</h4>" +
       '<table class="table table-sm table-borderless table-dark popup-data small mb-0">' + // Added Bootstrap table classes
-      '<tbody>' +
-        `<tr><th scope="row" class="fw-bold">Trip ID</th><td>${props.transactionId || 'N/A'}</td></tr>` +
-        `<tr><th scope="row" class="fw-bold">IMEI</th><td>${props.imei || 'N/A'}</td></tr>` +
-        `<tr><th scope="row" class="fw-bold">Start Time</th><td>${formatTime(props.startTime)}</td></tr>` +
-        `<tr><th scope="row" class="fw-bold">End Time</th><td>${formatTime(props.endTime)}</td></tr>` +
-        `<tr><th scope="row" class="fw-bold">Duration</th><td>${formatDuration(props.duration)}</td></tr>` +
-        `<tr><th scope="row" class="fw-bold">Distance</th><td>${formatNum(props.distance, 2)} mi</td></tr>` +
-
-        `<tr><th scope="row" class="fw-bold">Avg Speed</th><td>${formatNum(props.avgSpeed ?? props.averageSpeed)} mph</td></tr>` +
-        `<tr><th scope="row" class="fw-bold">Max Speed</th><td>${formatNum(props.maxSpeed)} mph</td></tr>` +
-        `<tr><th scope="row" class="fw-bold">Points Recorded</th><td>${props.pointsRecorded ?? 'N/A'}</td></tr>` +
-        `<tr><th scope="row" class="fw-bold">Idling Time</th><td>${formatDuration(props.totalIdlingTime)}</td></tr>` +
-        `<tr><th scope="row" class="fw-bold">Fuel Consumed</th><td>${formatNum(props.fuelConsumed, 2)} gal</td></tr>` +
-
-      '</tbody>' +
-      '</table>';
-
+      "<tbody>" +
+      `<tr><th scope="row" class="fw-bold">Trip ID</th><td>${props.transactionId || "N/A"}</td></tr>` +
+      `<tr><th scope="row" class="fw-bold">IMEI</th><td>${props.imei || "N/A"}</td></tr>` +
+      `<tr><th scope="row" class="fw-bold">Start Time</th><td>${formatTime(props.startTime)}</td></tr>` +
+      `<tr><th scope="row" class="fw-bold">End Time</th><td>${formatTime(props.endTime)}</td></tr>` +
+      `<tr><th scope="row" class="fw-bold">Duration</th><td>${formatDuration(props.duration)}</td></tr>` +
+      `<tr><th scope="row" class="fw-bold">Distance</th><td>${formatNum(props.distance, 2)} mi</td></tr>` +
+      `<tr><th scope="row" class="fw-bold">Avg Speed</th><td>${formatNum(props.avgSpeed ?? props.averageSpeed)} mph</td></tr>` +
+      `<tr><th scope="row" class="fw-bold">Max Speed</th><td>${formatNum(props.maxSpeed)} mph</td></tr>` +
+      `<tr><th scope="row" class="fw-bold">Points Recorded</th><td>${props.pointsRecorded ?? "N/A"}</td></tr>` +
+      `<tr><th scope="row" class="fw-bold">Idling Time</th><td>${formatDuration(props.totalIdlingTime)}</td></tr>` +
+      `<tr><th scope="row" class="fw-bold">Fuel Consumed</th><td>${formatNum(props.fuelConsumed, 2)} gal</td></tr>` +
+      "</tbody>" +
+      "</table>";
 
     return `
-      <div class="popup-content trip-popup bg-dark text-light p-1 rounded"> ${/* Added basic styling */''}
+      <div class="popup-content trip-popup bg-dark text-light p-1 rounded"> ${/* Added basic styling */ ""}
         ${detailsHtml}
-        <div class="popup-actions border-top border-secondary pt-1 mt-1"> ${/* Separator */''}
+        <div class="popup-actions border-top border-secondary pt-1 mt-1"> ${/* Separator */ ""}
           ${createActionButtons(feature)}
         </div>
       </div>
@@ -1258,12 +1381,13 @@
     addSingleEventListener(popupEl, "click", handlePopupClick);
 
     // Clean up the event listener when the popup closes
-    layer.once("popupclose", () => { // Use 'once' to ensure it only runs once per close
-        if (popupEl && popupEl._eventHandlers) {
-            const handlerKey = `click_${handlePopupClick.toString().substring(0, 50).replace(/\s+/g, "")}`;
-            popupEl.removeEventListener("click", handlePopupClick);
-            delete popupEl._eventHandlers[handlerKey]; // Clean up cache
-        }
+    layer.once("popupclose", () => {
+      // Use 'once' to ensure it only runs once per close
+      if (popupEl && popupEl._eventHandlers) {
+        const handlerKey = `click_${handlePopupClick.toString().substring(0, 50).replace(/\s+/g, "")}`;
+        popupEl.removeEventListener("click", handlePopupClick);
+        delete popupEl._eventHandlers[handlerKey]; // Clean up cache
+      }
     });
   }
 
@@ -1285,32 +1409,42 @@
 
     if (!confirmed) return; // Abort if user cancels
 
-    if (window.loadingManager) window.loadingManager.startOperation("DeleteMatchedTrip", 100);
+    if (window.loadingManager)
+      window.loadingManager.startOperation("DeleteMatchedTrip", 100);
     try {
       const res = await fetch(`/api/matched_trips/${tripId}`, {
         method: "DELETE",
       });
       if (!res.ok) {
-          let errorMsg = `Failed to delete matched trip ${tripId}`;
-          try {
-              const errData = await res.json();
-              errorMsg += `: ${errData.detail || errData.message || res.statusText}`;
-          } catch (_) { /* Ignore if response is not JSON */ }
+        let errorMsg = `Failed to delete matched trip ${tripId}`;
+        try {
+          const errData = await res.json();
+          errorMsg += `: ${errData.detail || errData.message || res.statusText}`;
+        } catch (_) {
+          /* Ignore if response is not JSON */
+        }
         throw new Error(errorMsg);
       }
 
       layer.closePopup(); // Close the popup
       await fetchTrips(); // Refresh all trip data
-      showNotification(`Matched trip ${tripId} deleted successfully.`, "success");
+      showNotification(
+        `Matched trip ${tripId} deleted successfully.`,
+        "success",
+      );
     } catch (error) {
-        if (typeof handleError === 'function') {
-            handleError(error, "Deleting Matched Trip");
-        } else {
-            console.error("Error deleting matched trip:", error);
-            showNotification(`Error deleting matched trip: ${error.message}`, "danger");
-        }
+      if (typeof handleError === "function") {
+        handleError(error, "Deleting Matched Trip");
+      } else {
+        console.error("Error deleting matched trip:", error);
+        showNotification(
+          `Error deleting matched trip: ${error.message}`,
+          "danger",
+        );
+      }
     } finally {
-        if (window.loadingManager) window.loadingManager.finish("DeleteMatchedTrip");
+      if (window.loadingManager)
+        window.loadingManager.finish("DeleteMatchedTrip");
     }
   }
 
@@ -1327,25 +1461,29 @@
           confirmText: "Delete Both",
           confirmButtonClass: "btn-danger",
         })
-      : confirm( // Fallback confirm
+      : confirm(
+          // Fallback confirm
           `Delete original trip ${tripId}? This will also delete its matched trip. Are you sure?`,
         );
 
     if (!confirmed) return;
 
-    if (window.loadingManager) window.loadingManager.startOperation("DeleteTrip", 100);
+    if (window.loadingManager)
+      window.loadingManager.startOperation("DeleteTrip", 100);
     try {
       // Attempt to delete the original trip first
       const tripRes = await fetch(`/api/trips/${tripId}`, { method: "DELETE" });
       if (!tripRes.ok) {
-          let errorMsg = `Failed to delete original trip ${tripId}`;
-          try {
-              const errData = await tripRes.json();
-              errorMsg += `: ${errData.detail || errData.message || tripRes.statusText}`;
-          } catch (_) { /* Ignore */ }
-          // Decide if we should proceed to delete matched trip even if original fails
-          console.warn(errorMsg); // Log warning but proceed
-          // throw new Error(errorMsg); // Alternatively, stop here
+        let errorMsg = `Failed to delete original trip ${tripId}`;
+        try {
+          const errData = await tripRes.json();
+          errorMsg += `: ${errData.detail || errData.message || tripRes.statusText}`;
+        } catch (_) {
+          /* Ignore */
+        }
+        // Decide if we should proceed to delete matched trip even if original fails
+        console.warn(errorMsg); // Log warning but proceed
+        // throw new Error(errorMsg); // Alternatively, stop here
       }
 
       // Attempt to delete the matched trip (ignore if it doesn't exist or fails)
@@ -1353,21 +1491,27 @@
         await fetch(`/api/matched_trips/${tripId}`, { method: "DELETE" });
         // No error handling needed here, it's best effort
       } catch (_) {
-        console.warn(`Could not delete potential matched trip for ${tripId} (might not exist).`);
+        console.warn(
+          `Could not delete potential matched trip for ${tripId} (might not exist).`,
+        );
       }
 
       layer.closePopup();
       await fetchTrips(); // Refresh data
-      showNotification(`Trip ${tripId} (and its matched trip, if any) deleted.`, "success");
-    } catch (error) { // Catch error from deleting original trip if thrown
-        if (typeof handleError === 'function') {
-            handleError(error, "Deleting Trip and Matched Trip");
-        } else {
-            console.error("Error deleting trip:", error);
-            showNotification(`Error deleting trip: ${error.message}`, "danger");
-        }
+      showNotification(
+        `Trip ${tripId} (and its matched trip, if any) deleted.`,
+        "success",
+      );
+    } catch (error) {
+      // Catch error from deleting original trip if thrown
+      if (typeof handleError === "function") {
+        handleError(error, "Deleting Trip and Matched Trip");
+      } else {
+        console.error("Error deleting trip:", error);
+        showNotification(`Error deleting trip: ${error.message}`, "danger");
+      }
     } finally {
-        if (window.loadingManager) window.loadingManager.finish("DeleteTrip");
+      if (window.loadingManager) window.loadingManager.finish("DeleteTrip");
     }
   }
 
@@ -1385,29 +1529,41 @@
           confirmText: "Re-match",
           confirmButtonClass: "btn-warning",
         })
-      : confirm( // Fallback confirm
+      : confirm(
+          // Fallback confirm
           `Re-match trip ${tripId}? This deletes the current matched version.`,
         );
 
     if (!confirmed) return;
 
     if (!feature.properties?.startTime || !feature.properties?.endTime) {
-        showNotification("Cannot re-match: Trip is missing start or end time.", "warning");
-        return;
+      showNotification(
+        "Cannot re-match: Trip is missing start or end time.",
+        "warning",
+      );
+      return;
     }
 
-    if (window.loadingManager) window.loadingManager.startOperation("RematchTrip", 100);
+    if (window.loadingManager)
+      window.loadingManager.startOperation("RematchTrip", 100);
     try {
       // 1. Delete the existing matched trip (best effort)
       try {
-          const deleteRes = await fetch(`/api/matched_trips/${tripId}`, { method: "DELETE" });
-          if (!deleteRes.ok && deleteRes.status !== 404) { // Ignore 404 Not Found
-              console.warn(`Failed to delete existing matched trip ${tripId} before re-match (status: ${deleteRes.status}). Proceeding anyway.`);
-          }
+        const deleteRes = await fetch(`/api/matched_trips/${tripId}`, {
+          method: "DELETE",
+        });
+        if (!deleteRes.ok && deleteRes.status !== 404) {
+          // Ignore 404 Not Found
+          console.warn(
+            `Failed to delete existing matched trip ${tripId} before re-match (status: ${deleteRes.status}). Proceeding anyway.`,
+          );
+        }
       } catch (deleteError) {
-          console.warn("Error occurred while deleting existing matched trip:", deleteError);
+        console.warn(
+          "Error occurred while deleting existing matched trip:",
+          deleteError,
+        );
       }
-
 
       // 2. Trigger the re-match process for the specific trip ID
       // const startTime = DateUtils.formatDate(feature.properties.startTime); // Ensure correct format if needed by API
@@ -1425,29 +1581,33 @@
       });
 
       if (!rematchRes.ok) {
-          let errorMsg = `Failed to re-match trip ${tripId}`;
-          try {
-              const errData = await rematchRes.json();
-              errorMsg += `: ${errData.detail || errData.message || rematchRes.statusText}`;
-          } catch (_) { /* Ignore */ }
-          throw new Error(errorMsg);
+        let errorMsg = `Failed to re-match trip ${tripId}`;
+        try {
+          const errData = await rematchRes.json();
+          errorMsg += `: ${errData.detail || errData.message || rematchRes.statusText}`;
+        } catch (_) {
+          /* Ignore */
+        }
+        throw new Error(errorMsg);
       }
 
       const result = await rematchRes.json(); // Get result message if any
 
       layer.closePopup();
       await fetchTrips(); // Refresh data to show the new matched trip
-      showNotification(result.message || `Trip ${tripId} successfully re-matched.`, "success");
-
+      showNotification(
+        result.message || `Trip ${tripId} successfully re-matched.`,
+        "success",
+      );
     } catch (error) {
-        if (typeof handleError === 'function') {
-            handleError(error, "Re-matching Trip");
-        } else {
-            console.error("Error re-matching trip:", error);
-            showNotification(`Error re-matching trip: ${error.message}`, "danger");
-        }
+      if (typeof handleError === "function") {
+        handleError(error, "Re-matching Trip");
+      } else {
+        console.error("Error re-matching trip:", error);
+        showNotification(`Error re-matching trip: ${error.message}`, "danger");
+      }
     } finally {
-        if (window.loadingManager) window.loadingManager.finish("RematchTrip");
+      if (window.loadingManager) window.loadingManager.finish("RematchTrip");
     }
   }
 
@@ -1469,35 +1629,42 @@
         if (typeof info.layer.getBounds === "function") {
           // Standard Leaflet layers (GeoJSON, TileLayer, etc.)
           layerBounds = info.layer.getBounds();
-        } else if (info.layer.type === 'FeatureCollection') {
+        } else if (info.layer.type === "FeatureCollection") {
           // Plain GeoJSON object, create temporary layer to get bounds
           if (info.layer.features && info.layer.features.length > 0) {
-              layerBounds = L.geoJSON(info.layer).getBounds();
+            layerBounds = L.geoJSON(info.layer).getBounds();
           }
         }
         // Special handling for custom places if needed
-        else if (info === AppState.mapLayers.customPlaces && window.customPlaces?.getBounds) {
-            layerBounds = window.customPlaces.getBounds();
+        else if (
+          info === AppState.mapLayers.customPlaces &&
+          window.customPlaces?.getBounds
+        ) {
+          layerBounds = window.customPlaces.getBounds();
         }
-
 
         // If valid bounds were obtained, extend the main bounds object
         if (layerBounds?.isValid()) {
           bounds.extend(layerBounds);
           validBoundsExist = true;
         }
-      } catch (_) { // Removed unused 'e'
+      } catch (_) {
+        // Removed unused 'e'
         // Ignore errors during bounds calculation for a single layer
-        console.warn(`Could not get bounds for layer: ${info.name || 'Unnamed'}`);
+        console.warn(
+          `Could not get bounds for layer: ${info.name || "Unnamed"}`,
+        );
       }
     });
 
     // Fit the map to the calculated bounds if any valid bounds were found
     if (validBoundsExist) {
-        console.info("Fitting map bounds to visible layers.");
-        AppState.map.fitBounds(bounds, { padding: [30, 30] }); // Add some padding
+      console.info("Fitting map bounds to visible layers.");
+      AppState.map.fitBounds(bounds, { padding: [30, 30] }); // Add some padding
     } else {
-        console.info("No valid bounds found for visible layers, not fitting bounds.");
+      console.info(
+        "No valid bounds found for visible layers, not fitting bounds.",
+      );
     }
   }
 
@@ -1507,18 +1674,24 @@
     const endDate = getEndDate();
 
     if (!startDate || !endDate) {
-      showNotification("Please select valid start and end dates before map matching.", "warning");
+      showNotification(
+        "Please select valid start and end dates before map matching.",
+        "warning",
+      );
       return;
     }
 
     // Use loading manager if available
     const loadingManager = window.loadingManager || {
       startOperation: () => {}, // Empty stub
-      finish: () => {},       // Empty stub
+      finish: () => {}, // Empty stub
     };
 
     loadingManager.startOperation("MapMatching", 100);
-    showNotification(`Starting map matching for trips between ${startDate} and ${endDate}...`, "info");
+    showNotification(
+      `Starting map matching for trips between ${startDate} and ${endDate}...`,
+      "info",
+    );
 
     try {
       const response = await fetch("/api/map_match_trips", {
@@ -1528,15 +1701,26 @@
       });
 
       if (!response.ok) {
-        let errorData = { message: `Map matching failed (HTTP ${response.status})`};
+        let errorData = {
+          message: `Map matching failed (HTTP ${response.status})`,
+        };
         try {
-            errorData = await response.json();
-        } catch (_) { /* Ignore if response not JSON */ }
-        throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`);
+          errorData = await response.json();
+        } catch (_) {
+          /* Ignore if response not JSON */
+        }
+        throw new Error(
+          errorData.detail ||
+            errorData.message ||
+            `HTTP error! status: ${response.status}`,
+        );
       }
 
       const results = await response.json();
-      showNotification(results.message || "Map matching process completed.", "success");
+      showNotification(
+        results.message || "Map matching process completed.",
+        "success",
+      );
       await fetchTrips(); // Refresh trips to show newly matched ones
 
       // Dispatch event for other components if needed
@@ -1546,12 +1730,12 @@
         }),
       );
     } catch (err) {
-        if (typeof handleError === 'function') {
-            handleError(err, "Map Matching");
-        } else {
-            console.error("Map Matching error:", err);
-            showNotification(`Map matching failed: ${err.message}`, "danger");
-        }
+      if (typeof handleError === "function") {
+        handleError(err, "Map Matching");
+      } else {
+        console.error("Map Matching error:", err);
+        showNotification(`Map matching failed: ${err.message}`, "danger");
+      }
     } finally {
       loadingManager.finish("MapMatching");
     }
@@ -1563,12 +1747,19 @@
     const endDate = getEndDate();
 
     if (!startDate || !endDate) {
-      showNotification("Select valid start and end dates before fetching.", "warning");
+      showNotification(
+        "Select valid start and end dates before fetching.",
+        "warning",
+      );
       return;
     }
 
-    if (window.loadingManager) window.loadingManager.startOperation("FetchTripsRange", 100);
-    showNotification(`Fetching raw trip data between ${startDate} and ${endDate}...`, "info");
+    if (window.loadingManager)
+      window.loadingManager.startOperation("FetchTripsRange", 100);
+    showNotification(
+      `Fetching raw trip data between ${startDate} and ${endDate}...`,
+      "info",
+    );
 
     try {
       const response = await fetch("/api/fetch_trips_range", {
@@ -1578,31 +1769,45 @@
       });
 
       if (!response.ok) {
-        let errorData = { message: `Fetching trips failed (HTTP ${response.status})`};
+        let errorData = {
+          message: `Fetching trips failed (HTTP ${response.status})`,
+        };
         try {
-            errorData = await response.json();
-        } catch (_) { /* Ignore */ }
-        throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`);
+          errorData = await response.json();
+        } catch (_) {
+          /* Ignore */
+        }
+        throw new Error(
+          errorData.detail ||
+            errorData.message ||
+            `HTTP error! status: ${response.status}`,
+        );
       }
 
       const data = await response.json();
 
       if (data.status === "success") {
-        showNotification(data.message || "Successfully fetched raw trip data.", "success");
+        showNotification(
+          data.message || "Successfully fetched raw trip data.",
+          "success",
+        );
         await fetchTrips(); // Refresh the displayed trips after fetching raw data
       } else {
         // Throw error if status is not success, using message from response
-        throw new Error(data.message || "An unknown error occurred while fetching trips.");
+        throw new Error(
+          data.message || "An unknown error occurred while fetching trips.",
+        );
       }
     } catch (err) {
-        if (typeof handleError === 'function') {
-            handleError(err, "Fetching Trips in Range");
-        } else {
-            console.error("Error fetching trips in range:", err);
-            showNotification(`Error fetching trip data: ${err.message}`, "danger");
-        }
+      if (typeof handleError === "function") {
+        handleError(err, "Fetching Trips in Range");
+      } else {
+        console.error("Error fetching trips in range:", err);
+        showNotification(`Error fetching trip data: ${err.message}`, "danger");
+      }
     } finally {
-      if (window.loadingManager) window.loadingManager.finish("FetchTripsRange");
+      if (window.loadingManager)
+        window.loadingManager.finish("FetchTripsRange");
     }
   }
 
@@ -1614,45 +1819,62 @@
     const imei = getElement("imei")?.value || "";
 
     if (!startDate || !endDate) {
-        console.warn("Cannot fetch metrics without valid dates.");
-        return; // Don't proceed without dates
+      console.warn("Cannot fetch metrics without valid dates.");
+      return; // Don't proceed without dates
     }
 
     try {
       // Construct URL with query parameters
       const params = new URLSearchParams({
-          start_date: startDate,
-          end_date: endDate,
+        start_date: startDate,
+        end_date: endDate,
       });
-      if (imei) { // Only add IMEI if it has a value
-          params.append('imei', imei);
+      if (imei) {
+        // Only add IMEI if it has a value
+        params.append("imei", imei);
       }
 
       // Use cachedFetch for metrics, maybe with shorter cache time
-      const metrics = await cachedFetch(`/api/metrics?${params.toString()}`, {}, 30000); // Cache for 30s
+      const metrics = await cachedFetch(
+        `/api/metrics?${params.toString()}`,
+        {},
+        30000,
+      ); // Cache for 30s
 
       if (!metrics) {
-          throw new Error("Received no data for metrics.");
+        throw new Error("Received no data for metrics.");
       }
 
       // Map API response keys to DOM element IDs
       const metricMap = {
-        "total-trips": metrics.total_trips ?? 'N/A',
-        "total-distance": typeof metrics.total_distance === 'number' ? `${metrics.total_distance.toFixed(2)} mi` : 'N/A',
-        "avg-distance": typeof metrics.avg_distance === 'number' ? `${metrics.avg_distance.toFixed(2)} mi` : 'N/A',
-        "avg-start-time": metrics.avg_start_time ?? 'N/A', // Assuming this is pre-formatted
-        "avg-driving-time": metrics.avg_driving_time ?? 'N/A', // Assuming this is pre-formatted
-        "avg-speed": typeof metrics.avg_speed === 'number' ? `${metrics.avg_speed.toFixed(1)} mph` : 'N/A',
-        "max-speed": typeof metrics.max_speed === 'number' ? `${metrics.max_speed.toFixed(1)} mph` : 'N/A',
+        "total-trips": metrics.total_trips ?? "N/A",
+        "total-distance":
+          typeof metrics.total_distance === "number"
+            ? `${metrics.total_distance.toFixed(2)} mi`
+            : "N/A",
+        "avg-distance":
+          typeof metrics.avg_distance === "number"
+            ? `${metrics.avg_distance.toFixed(2)} mi`
+            : "N/A",
+        "avg-start-time": metrics.avg_start_time ?? "N/A", // Assuming this is pre-formatted
+        "avg-driving-time": metrics.avg_driving_time ?? "N/A", // Assuming this is pre-formatted
+        "avg-speed":
+          typeof metrics.avg_speed === "number"
+            ? `${metrics.avg_speed.toFixed(1)} mph`
+            : "N/A",
+        "max-speed":
+          typeof metrics.max_speed === "number"
+            ? `${metrics.max_speed.toFixed(1)} mph`
+            : "N/A",
       };
 
       // Update DOM elements with metric values
       for (const [id, value] of Object.entries(metricMap)) {
         const el = getElement(id, false); // Don't cache metric elements if they might be recreated
         if (el) {
-            el.textContent = value;
+          el.textContent = value;
         } else {
-            // console.warn(`Metric element with ID "${id}" not found.`);
+          // console.warn(`Metric element with ID "${id}" not found.`);
         }
       }
 
@@ -1663,16 +1885,15 @@
         }),
       );
       console.info("Metrics updated.");
-
     } catch (err) {
-        if (typeof handleError === 'function') {
-            handleError(err, "Fetching Metrics");
-        } else {
-            console.error("Error fetching metrics:", err);
-            // Optionally clear metrics display on error
-            // clearMetricsDisplay();
-            showNotification(`Failed to load metrics: ${err.message}`, "warning");
-        }
+      if (typeof handleError === "function") {
+        handleError(err, "Fetching Metrics");
+      } else {
+        console.error("Error fetching metrics:", err);
+        // Optionally clear metrics display on error
+        // clearMetricsDisplay();
+        showNotification(`Failed to load metrics: ${err.message}`, "warning");
+      }
     }
   }
 
@@ -1689,7 +1910,8 @@
         `Failed to load coverage areas: ${error.message}`,
         "warning",
       );
-      if (typeof handleError === 'function') handleError(error, "Fetch Coverage Areas");
+      if (typeof handleError === "function")
+        handleError(error, "Fetch Coverage Areas");
       return []; // Return empty array on error
     }
   }
@@ -1698,8 +1920,8 @@
   async function populateLocationDropdown() {
     const dropdown = document.getElementById("undriven-streets-location");
     if (!dropdown) {
-        console.warn("Undriven streets location dropdown not found.");
-        return;
+      console.warn("Undriven streets location dropdown not found.");
+      return;
     }
 
     // Clear existing options except the placeholder
@@ -1720,15 +1942,19 @@
 
     // Populate dropdown with fetched areas
     coverageAreas.forEach((area) => {
-        if (area.location && area.location.display_name) { // Ensure required data exists
-            const option = document.createElement("option");
-            // Store the full location object as JSON string in the value
-            option.value = JSON.stringify(area.location);
-            option.textContent = area.location.display_name; // Display name for user
-            dropdown.appendChild(option);
-        } else {
-            console.warn("Skipping coverage area due to missing location data:", area);
-        }
+      if (area.location && area.location.display_name) {
+        // Ensure required data exists
+        const option = document.createElement("option");
+        // Store the full location object as JSON string in the value
+        option.value = JSON.stringify(area.location);
+        option.textContent = area.location.display_name; // Display name for user
+        dropdown.appendChild(option);
+      } else {
+        console.warn(
+          "Skipping coverage area due to missing location data:",
+          area,
+        );
+      }
     });
 
     // Try to re-select the previously selected location from localStorage
@@ -1745,30 +1971,37 @@
           if (
             optionLocation &&
             (optionLocation._id === savedLocationId ||
-             optionLocation.display_name === savedLocationId)
+              optionLocation.display_name === savedLocationId)
           ) {
             dropdown.selectedIndex = i; // Select the matching option
             locationFound = true;
             // If the layer was previously visible, fetch its data now
-            if (localStorage.getItem("layer_visible_undrivenStreets") === "true") {
-                // Ensure the layer is marked as visible before fetching
-                if (AppState.mapLayers.undrivenStreets) {
-                    AppState.mapLayers.undrivenStreets.visible = true;
-                }
-                fetchUndrivenStreets(); // Fetch data for the pre-selected location
+            if (
+              localStorage.getItem("layer_visible_undrivenStreets") === "true"
+            ) {
+              // Ensure the layer is marked as visible before fetching
+              if (AppState.mapLayers.undrivenStreets) {
+                AppState.mapLayers.undrivenStreets.visible = true;
+              }
+              fetchUndrivenStreets(); // Fetch data for the pre-selected location
             }
             break; // Stop searching once found
           }
-        } catch (_) { // Removed unused 'e'
+        } catch (_) {
+          // Removed unused 'e'
           // Ignore errors parsing option value (shouldn't happen if populated correctly)
-          console.warn("Error parsing JSON from location dropdown option value.");
+          console.warn(
+            "Error parsing JSON from location dropdown option value.",
+          );
         }
       }
     }
     if (savedLocationId && !locationFound) {
-        console.warn("Previously selected location for undriven streets not found in current list.");
-        // Optionally clear the saved value if it's no longer valid
-        // localStorage.removeItem("selectedLocationForUndrivenStreets");
+      console.warn(
+        "Previously selected location for undriven streets not found in current list.",
+      );
+      // Optionally clear the saved value if it's no longer valid
+      // localStorage.removeItem("selectedLocationForUndrivenStreets");
     }
   }
 
@@ -1782,14 +2015,14 @@
 
       // Function to update icon based on collapse state
       const updateIcon = () => {
-          if (!icon) return;
-          if (controlsContent.classList.contains("show")) {
-              icon.classList.remove("fa-chevron-down");
-              icon.classList.add("fa-chevron-up");
-          } else {
-              icon.classList.remove("fa-chevron-up");
-              icon.classList.add("fa-chevron-down");
-          }
+        if (!icon) return;
+        if (controlsContent.classList.contains("show")) {
+          icon.classList.remove("fa-chevron-down");
+          icon.classList.add("fa-chevron-up");
+        } else {
+          icon.classList.remove("fa-chevron-up");
+          icon.classList.add("fa-chevron-down");
+        }
       };
 
       // Set initial icon state
@@ -1799,7 +2032,7 @@
       controlsContent.addEventListener("show.bs.collapse", updateIcon);
       controlsContent.addEventListener("hide.bs.collapse", updateIcon);
     } else {
-        console.warn("Controls toggle or content element not found.");
+      console.warn("Controls toggle or content element not found.");
     }
 
     // --- Button Listeners ---
@@ -1807,15 +2040,22 @@
     addSingleEventListener("fetch-trips-range", "click", fetchTripsInRange); // Assuming button exists
 
     // --- Checkbox Listener ---
-    addSingleEventListener("highlight-recent-trips", "change", function (event) { // Use function for 'this'
-      if (event.target.type === 'checkbox') {
+    addSingleEventListener(
+      "highlight-recent-trips",
+      "change",
+      function (event) {
+        // Use function for 'this'
+        if (event.target.type === "checkbox") {
           AppState.mapSettings.highlightRecentTrips = event.target.checked;
           refreshTripStyles(); // Update styles immediately
-      }
-    });
+        }
+      },
+    );
 
     // --- Dropdown Listener ---
-    const locationDropdown = document.getElementById("undriven-streets-location");
+    const locationDropdown = document.getElementById(
+      "undriven-streets-location",
+    );
     if (locationDropdown) {
       locationDropdown.addEventListener("change", function () {
         // Fetch data only if the undriven streets layer is currently visible
@@ -1880,17 +2120,24 @@
   /** Initializes date pickers for start and end date inputs. */
   function initializeDatePickers() {
     // Ensure DOM elements are cached or retrieved
-    AppState.dom.startDateInput = AppState.dom.startDateInput || getElement("start-date");
-    AppState.dom.endDateInput = AppState.dom.endDateInput || getElement("end-date");
+    AppState.dom.startDateInput =
+      AppState.dom.startDateInput || getElement("start-date");
+    AppState.dom.endDateInput =
+      AppState.dom.endDateInput || getElement("end-date");
 
     if (!AppState.dom.startDateInput || !AppState.dom.endDateInput) {
-        console.warn("Date input elements not found, skipping date picker initialization.");
-        return;
+      console.warn(
+        "Date input elements not found, skipping date picker initialization.",
+      );
+      return;
     }
 
     // Get stored dates or default to today
-    const storedStartDate = getStorageItem(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate();
-    const storedEndDate = getStorageItem(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
+    const storedStartDate =
+      getStorageItem(CONFIG.STORAGE_KEYS.startDate) ||
+      DateUtils.getCurrentDate();
+    const storedEndDate =
+      getStorageItem(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
 
     // Common configuration for Flatpickr
     // const today = new Date();
@@ -1901,7 +2148,10 @@
       altFormat: "M j, Y", // User-friendly display format
       static: false, // Position relative to input
       appendTo: document.body, // Append to body to avoid overflow issues
-      theme: document.documentElement.getAttribute('data-bs-theme') === "light" ? "light" : "dark", // Match theme
+      theme:
+        document.documentElement.getAttribute("data-bs-theme") === "light"
+          ? "light"
+          : "dark", // Match theme
       // position: "auto", // Auto position
       disableMobile: true, // Use native date picker on mobile if preferred (false) or force flatpickr (true)
       onChange(selectedDates, dateStr /*, instance*/) {
@@ -1921,25 +2171,31 @@
 
     // Initialize date pickers using DateUtils helper or directly
     if (DateUtils.initDatePicker) {
-        AppState.dom.startDatePicker = DateUtils.initDatePicker(
-            AppState.dom.startDateInput,
-            config,
-        );
-        AppState.dom.endDatePicker = DateUtils.initDatePicker(
-            AppState.dom.endDateInput,
-            config,
-        );
-    } else if (window.flatpickr) { // Fallback to direct flatpickr call
-        AppState.dom.startDatePicker = window.flatpickr(AppState.dom.startDateInput, config);
-        AppState.dom.endDatePicker = window.flatpickr(AppState.dom.endDateInput, config);
+      AppState.dom.startDatePicker = DateUtils.initDatePicker(
+        AppState.dom.startDateInput,
+        config,
+      );
+      AppState.dom.endDatePicker = DateUtils.initDatePicker(
+        AppState.dom.endDateInput,
+        config,
+      );
+    } else if (window.flatpickr) {
+      // Fallback to direct flatpickr call
+      AppState.dom.startDatePicker = window.flatpickr(
+        AppState.dom.startDateInput,
+        config,
+      );
+      AppState.dom.endDatePicker = window.flatpickr(
+        AppState.dom.endDateInput,
+        config,
+      );
     } else {
-        console.warn("Date picker library (Flatpickr) not found.");
-        // Set values directly if library is missing
-        AppState.dom.startDateInput.value = storedStartDate;
-        AppState.dom.endDateInput.value = storedEndDate;
-        return; // Skip setting dates via picker instances
+      console.warn("Date picker library (Flatpickr) not found.");
+      // Set values directly if library is missing
+      AppState.dom.startDateInput.value = storedStartDate;
+      AppState.dom.endDateInput.value = storedEndDate;
+      return; // Skip setting dates via picker instances
     }
-
 
     // Set initial dates in the pickers
     if (AppState.dom.startDatePicker) {
@@ -1959,7 +2215,8 @@
     initializeEventListeners(); // Setup button clicks, etc.
 
     // Initialize map only if the map container exists and not on specific pages
-    if (AppState.dom.map && !document.getElementById("visits-page")) { // Example condition
+    if (AppState.dom.map && !document.getElementById("visits-page")) {
+      // Example condition
       initializeMap() // Returns a Promise<boolean>
         .then((mapInitializedOk) => {
           if (!mapInitializedOk || !isMapReady()) {
@@ -1977,7 +2234,9 @@
 
           // Restore layer visibility state from localStorage
           Object.keys(AppState.mapLayers).forEach((layerName) => {
-            const savedVisibility = localStorage.getItem(`layer_visible_${layerName}`);
+            const savedVisibility = localStorage.getItem(
+              `layer_visible_${layerName}`,
+            );
             const toggle = document.getElementById(`${layerName}-toggle`);
 
             if (savedVisibility !== null) {
@@ -1986,12 +2245,19 @@
               if (toggle) toggle.checked = isVisible;
             } else {
               // If no saved state, use default and update toggle accordingly
-              if (toggle) toggle.checked = AppState.mapLayers[layerName].visible;
+              if (toggle)
+                toggle.checked = AppState.mapLayers[layerName].visible;
             }
 
             // Special case: Ensure undriven streets layer is empty if not visible initially
-            if (layerName === "undrivenStreets" && !AppState.mapLayers[layerName].visible) {
-              AppState.mapLayers[layerName].layer = { type: "FeatureCollection", features: [] };
+            if (
+              layerName === "undrivenStreets" &&
+              !AppState.mapLayers[layerName].visible
+            ) {
+              AppState.mapLayers[layerName].layer = {
+                type: "FeatureCollection",
+                features: [],
+              };
             }
           });
           updateLayerOrderUI(); // Update UI based on restored visibility
@@ -2006,30 +2272,35 @@
           return Promise.all([fetchTrips(), fetchMetrics()]);
         })
         .then(() => {
-            console.info("Initial data loaded.");
-            // Check if there are trips and zoom to the last one
-            if (AppState.mapLayers.trips?.layer?.features?.length > 0) {
-                zoomToLastTrip(); // Animate map to the latest trip location
-            } else {
-                console.info("No initial trips found to zoom to.");
-                // Optionally fit bounds to default or based on other layers
-                // fitMapBounds();
-            }
-            // Dispatch event indicating all initial setup is complete
-            document.dispatchEvent(new CustomEvent("initialDataLoaded"));
+          console.info("Initial data loaded.");
+          // Check if there are trips and zoom to the last one
+          if (AppState.mapLayers.trips?.layer?.features?.length > 0) {
+            zoomToLastTrip(); // Animate map to the latest trip location
+          } else {
+            console.info("No initial trips found to zoom to.");
+            // Optionally fit bounds to default or based on other layers
+            // fitMapBounds();
+          }
+          // Dispatch event indicating all initial setup is complete
+          document.dispatchEvent(new CustomEvent("initialDataLoaded"));
         })
         .catch((error) => {
-            // Catch errors from any part of the initialization chain
-            console.error("Error during application initialization:", error);
-            if (typeof handleError === 'function') {
-                handleError(error, "Application Initialization");
-            } else {
-                showNotification(`Initialization Error: ${error.message}`, "danger");
-            }
+          // Catch errors from any part of the initialization chain
+          console.error("Error during application initialization:", error);
+          if (typeof handleError === "function") {
+            handleError(error, "Application Initialization");
+          } else {
+            showNotification(
+              `Initialization Error: ${error.message}`,
+              "danger",
+            );
+          }
         });
     } else {
-        console.info("Map container not found or on excluded page, skipping map initialization.");
-        // Perform non-map related initializations if any
+      console.info(
+        "Map container not found or on excluded page, skipping map initialization.",
+      );
+      // Perform non-map related initializations if any
     }
   }
 
@@ -2064,7 +2335,7 @@
     mapMatchTrips,
     fetchTripsInRange,
     AppState, // Expose state carefully if needed for debugging or other modules
-    CONFIG,   // Expose config if needed
+    CONFIG, // Expose config if needed
   };
 
   // --- Helper Functions (Debounce, Throttle, Cache) ---
@@ -2081,8 +2352,8 @@
       const context = this; // Preserve context
       clearTimeout(timeout);
       timeout = setTimeout(() => {
-          timeout = null; // Clear timeout ID after execution
-          func.apply(context, args);
+        timeout = null; // Clear timeout ID after execution
+        func.apply(context, args);
       }, wait);
     };
   }
@@ -2102,7 +2373,7 @@
         lastResult = func.apply(context, args);
         inThrottle = true;
         setTimeout(() => {
-            inThrottle = false;
+          inThrottle = false;
         }, limit);
       }
       return lastResult; // Return the last result immediately
@@ -2131,12 +2402,14 @@
     console.info(`Cache miss or expired for: ${url}. Fetching...`);
     const response = await fetch(url, options);
     if (!response.ok) {
-        let errorMsg = `API request failed for ${url} (Status: ${response.status})`;
-        try {
-            const errData = await response.json();
-            errorMsg += `: ${errData.detail || errData.message || response.statusText}`;
-        } catch (_) { /* Ignore if response not JSON */ }
-        throw new Error(errorMsg);
+      let errorMsg = `API request failed for ${url} (Status: ${response.status})`;
+      try {
+        const errData = await response.json();
+        errorMsg += `: ${errData.detail || errData.message || response.statusText}`;
+      } catch (_) {
+        /* Ignore if response not JSON */
+      }
+      throw new Error(errorMsg);
     }
     const data = await response.json();
     apiCache[key] = { data, ts: now }; // Store fetched data and timestamp in cache
@@ -2155,7 +2428,8 @@
 
     Object.entries(layers).forEach(([name, info]) => {
       const div = document.createElement("div");
-      div.className = "layer-control d-flex align-items-center mb-1 p-1 border rounded"; // Basic styling
+      div.className =
+        "layer-control d-flex align-items-center mb-1 p-1 border rounded"; // Basic styling
       div.dataset.layerName = name;
 
       // Checkbox for visibility toggle
@@ -2177,13 +2451,15 @@
       div.appendChild(nameLabel);
 
       // Add color and opacity controls only for relevant layers
-      if (!["customPlaces"].includes(name)) { // Exclude layers without these controls
+      if (!["customPlaces"].includes(name)) {
+        // Exclude layers without these controls
         // Color picker
         const colorControl = document.createElement("input");
         colorControl.type = "color";
         colorControl.id = `${name}-color`;
         colorControl.value = info.color;
-        colorControl.className = "form-control form-control-sm layer-color-picker me-1"; // Styling
+        colorControl.className =
+          "form-control form-control-sm layer-color-picker me-1"; // Styling
         colorControl.title = `Layer color for ${info.name || name}`; // Tooltip
         div.appendChild(colorControl);
 
@@ -2215,7 +2491,8 @@
    */
   function batchLayerOrderUI(layerOrderEl, visibleLayers) {
     // Add heading if it doesn't exist or clear previous content
-    layerOrderEl.innerHTML = '<h4 class="h6 mb-1">Layer Order (Drag to Reorder)</h4>'; // Added instruction
+    layerOrderEl.innerHTML =
+      '<h4 class="h6 mb-1">Layer Order (Drag to Reorder)</h4>'; // Added instruction
 
     const ul = document.createElement("ul");
     ul.id = "layer-order-list";
@@ -2228,8 +2505,9 @@
       li.textContent = info.name || name;
       li.draggable = true; // Make item draggable
       li.dataset.layer = name; // Store layer name for identification
-      li.className = "list-group-item list-group-item-action list-group-item-dark p-1"; // Styling
-      li.style.cursor = 'grab'; // Indicate draggability
+      li.className =
+        "list-group-item list-group-item-action list-group-item-dark p-1"; // Styling
+      li.style.cursor = "grab"; // Indicate draggability
       fragment.appendChild(li);
     });
 
@@ -2249,16 +2527,17 @@
     layerTogglesContainer.addEventListener("change", (e) => {
       const target = e.target;
       // Handle visibility toggle checkboxes
-      if (target.matches('input[type="checkbox"].custom-checkbox input')) { // More specific selector
-          const layerName = target.id.replace("-toggle", "");
-          toggleLayer(layerName, target.checked);
+      if (target.matches('input[type="checkbox"].custom-checkbox input')) {
+        // More specific selector
+        const layerName = target.id.replace("-toggle", "");
+        toggleLayer(layerName, target.checked);
       }
     });
 
     // Use 'input' event for real-time updates on color/opacity
     layerTogglesContainer.addEventListener("input", (e) => {
       const target = e.target;
-      const layerName = target.closest('.layer-control')?.dataset.layerName;
+      const layerName = target.closest(".layer-control")?.dataset.layerName;
       if (!layerName) return;
 
       // Handle color pickers
@@ -2292,12 +2571,12 @@
       layer.addData(data);
       // Re-apply options, especially style, as it might depend on new data or state
       if (options) {
-          layer.options = {...layer.options, ...options }; // Merge options carefully if needed
-          if (options.style) {
-              layer.setStyle(options.style); // Re-apply style function/object
-          }
-          // Note: Re-binding onEachFeature might be complex or unnecessary if structure is stable.
-          // If onEachFeature logic needs full re-application, recreating the layer might be simpler.
+        layer.options = { ...layer.options, ...options }; // Merge options carefully if needed
+        if (options.style) {
+          layer.setStyle(options.style); // Re-apply style function/object
+        }
+        // Note: Re-binding onEachFeature might be complex or unnecessary if structure is stable.
+        // If onEachFeature logic needs full re-application, recreating the layer might be simpler.
       }
     }
     return AppState.geoJsonLayers[name];
@@ -2315,21 +2594,21 @@
     if (AppState.mapLayers.undrivenStreets?.visible && !undrivenStreetsLoaded) {
       undrivenStreetsLoaded = true; // Mark as loading/loaded
       try {
-          // Await the actual fetch function
-          const data = await fetchUndrivenStreets();
-          // If fetch fails, reset the flag? Or keep it true to prevent retries?
-          // Resetting might be better if user retries selection.
-          if (!data) {
-              undrivenStreetsLoaded = false; // Reset if fetch failed
-          }
-          return data;
+        // Await the actual fetch function
+        const data = await fetchUndrivenStreets();
+        // If fetch fails, reset the flag? Or keep it true to prevent retries?
+        // Resetting might be better if user retries selection.
+        if (!data) {
+          undrivenStreetsLoaded = false; // Reset if fetch failed
+        }
+        return data;
       } catch (error) {
-          undrivenStreetsLoaded = false; // Reset on error
-          return null;
+        undrivenStreetsLoaded = false; // Reset on error
+        return null;
       }
     } else if (AppState.mapLayers.undrivenStreets?.layer) {
-        // If already loaded, return the existing data
-        return AppState.mapLayers.undrivenStreets.layer;
+      // If already loaded, return the existing data
+      return AppState.mapLayers.undrivenStreets.layer;
     }
     // Return null if not visible or already loaded without data
     return null;
@@ -2342,7 +2621,11 @@
 
     // Ignore key events if user is typing in an input, textarea, or select
     const activeElement = document.activeElement;
-    const isInputFocused = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'SELECT');
+    const isInputFocused =
+      activeElement &&
+      (activeElement.tagName === "INPUT" ||
+        activeElement.tagName === "TEXTAREA" ||
+        activeElement.tagName === "SELECT");
     if (isInputFocused) return;
 
     switch (e.key) {
@@ -2379,7 +2662,9 @@
    */
   function zoomToLastTrip(targetZoom = 14, duration = 2) {
     if (!AppState.map || !AppState.mapLayers.trips?.layer?.features) {
-      console.warn("Cannot zoom to last trip: Map or trips layer data not available.");
+      console.warn(
+        "Cannot zoom to last trip: Map or trips layer data not available.",
+      );
       return;
     }
 
@@ -2393,30 +2678,34 @@
     let lastTripFeature = null;
     let latestTime = 0;
 
-    features.forEach(feature => {
-        const endTime = feature.properties?.endTime;
-        if (endTime) {
-            const time = new Date(endTime).getTime();
-            if (!isNaN(time) && time > latestTime) {
-                latestTime = time;
-                lastTripFeature = feature;
-            }
+    features.forEach((feature) => {
+      const endTime = feature.properties?.endTime;
+      if (endTime) {
+        const time = new Date(endTime).getTime();
+        if (!isNaN(time) && time > latestTime) {
+          latestTime = time;
+          lastTripFeature = feature;
         }
+      }
     });
 
-
     if (!lastTripFeature) {
-        console.warn("Could not determine the most recent trip (missing or invalid end times?).");
-        return;
+      console.warn(
+        "Could not determine the most recent trip (missing or invalid end times?).",
+      );
+      return;
     }
-
 
     // Extract the last coordinate from the geometry
     let lastCoord = null; // Initialize with null
     const geomType = lastTripFeature.geometry?.type;
     const coords = lastTripFeature.geometry?.coordinates;
 
-    if (geomType === "LineString" && Array.isArray(coords) && coords.length > 0) {
+    if (
+      geomType === "LineString" &&
+      Array.isArray(coords) &&
+      coords.length > 0
+    ) {
       lastCoord = coords[coords.length - 1]; // Last coordinate pair [lng, lat]
     } else if (geomType === "Point" && Array.isArray(coords)) {
       lastCoord = coords; // Point coordinate pair [lng, lat]
@@ -2445,8 +2734,9 @@
         easeLinearity: 0.25, // Animation easing
       });
     } else {
-      console.warn("Could not determine valid coordinates for the last point of the most recent trip.");
+      console.warn(
+        "Could not determine valid coordinates for the last point of the most recent trip.",
+      );
     }
   }
-
 })(); // End of IIFE
