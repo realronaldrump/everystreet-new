@@ -344,8 +344,6 @@ class NotificationManager {
 
     this.container.appendChild(notification);
 
-
-
     this.notifications.push(notification);
     this._trimNotifications();
 
