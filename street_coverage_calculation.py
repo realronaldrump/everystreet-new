@@ -1423,7 +1423,9 @@ class CoverageCalculator:
                 )
                 # Get the original concurrent.futures.Future objects we are waiting for
                 original_futures_list = list(pending_futures_map.keys())
-                wrapped_futures = [asyncio.wrap_future(f) for f in original_futures_list]
+                wrapped_futures = [
+                    asyncio.wrap_future(f) for f in original_futures_list
+                ]
 
                 try:
                     # Wait for the asyncio-wrapped futures
@@ -1435,12 +1437,16 @@ class CoverageCalculator:
 
                     # Now, iterate through the original futures list and check their status
                     for future in original_futures_list:
-                        original_trip_sub_batch = pending_futures_map.pop(future, None)
+                        original_trip_sub_batch = pending_futures_map.pop(
+                            future, None
+                        )
                         if not original_trip_sub_batch:
                             # Already processed or removed, skip
                             continue
 
-                        sub_batch_trip_ids = [tid for tid, _ in original_trip_sub_batch]
+                        sub_batch_trip_ids = [
+                            tid for tid, _ in original_trip_sub_batch
+                        ]
 
                         if future.done():
                             try:
@@ -1451,7 +1457,9 @@ class CoverageCalculator:
                                     )
                                     failed_futures_count += 1
                                 else:
-                                    result_map = future.result(timeout=0) # Should be ready
+                                    result_map = future.result(
+                                        timeout=0
+                                    )  # Should be ready
                                     for (
                                         trip_idx,
                                         matched_ids,
@@ -1460,12 +1468,19 @@ class CoverageCalculator:
                                             valid_new_segments = {
                                                 seg_id
                                                 for seg_id in matched_ids
-                                                if seg_id in self.street_utm_geoms_cache
+                                                if seg_id
+                                                in self.street_utm_geoms_cache
                                             }
-                                            self.newly_covered_segments.update(valid_new_segments)
-                                    processed_trip_ids_set.update(sub_batch_trip_ids)
+                                            self.newly_covered_segments.update(
+                                                valid_new_segments
+                                            )
+                                    processed_trip_ids_set.update(
+                                        sub_batch_trip_ids
+                                    )
                                     completed_futures_count += 1
-                                    self.processed_trips_count += len(original_trip_sub_batch)
+                                    self.processed_trips_count += len(
+                                        original_trip_sub_batch
+                                    )
                             except Exception as e:
                                 logger.error(
                                     "Task %s: Final future processing error on done future: %s. NOT marking trips.",
@@ -1491,23 +1506,28 @@ class CoverageCalculator:
 
                 except asyncio.TimeoutError:
                     # This might happen if asyncio.wait itself times out weirdly, though unlikely with ALL_COMPLETED
-                    logger.error("Task %s: asyncio.wait itself timed out unexpectedly. Handling remaining futures.", self.task_id)
+                    logger.error(
+                        "Task %s: asyncio.wait itself timed out unexpectedly. Handling remaining futures.",
+                        self.task_id,
+                    )
                     for future in original_futures_list:
                         if future in pending_futures_map:
-                           original_trip_sub_batch = pending_futures_map.pop(future, None)
-                           logger.warning(
-                               "Task %s: Future pending after asyncio.wait timeout. Attempting cancel. NOT marking trips.",
-                               self.task_id
-                           )
-                           failed_futures_count += 1
-                           try:
-                               future.cancel()
-                           except Exception as cancel_err:
-                               logger.warning(
-                                   "Task %s: Error cancelling future after asyncio.wait timeout: %s",
-                                   self.task_id,
-                                   cancel_err
-                               )
+                            original_trip_sub_batch = pending_futures_map.pop(
+                                future, None
+                            )
+                            logger.warning(
+                                "Task %s: Future pending after asyncio.wait timeout. Attempting cancel. NOT marking trips.",
+                                self.task_id,
+                            )
+                            failed_futures_count += 1
+                            try:
+                                future.cancel()
+                            except Exception as cancel_err:
+                                logger.warning(
+                                    "Task %s: Error cancelling future after asyncio.wait timeout: %s",
+                                    self.task_id,
+                                    cancel_err,
+                                )
 
                 except Exception as wait_err:
                     logger.error(
@@ -1517,23 +1537,29 @@ class CoverageCalculator:
                     )
                     # Assume all remaining are failed
                     for future in original_futures_list:
-                         if future in pending_futures_map:
-                            original_trip_sub_batch = pending_futures_map.pop(future, None)
+                        if future in pending_futures_map:
+                            original_trip_sub_batch = pending_futures_map.pop(
+                                future, None
+                            )
                             logger.error(
                                 "Task %s: Marking future as failed due to wait error. NOT marking trips.",
-                                self.task_id
+                                self.task_id,
                             )
                             failed_futures_count += 1
                             try:
                                 if not future.done():
                                     future.cancel()
                             except Exception:
-                                pass # Ignore errors during cleanup cancel
+                                pass  # Ignore errors during cleanup cancel
 
             # Final sanity check - should be empty now
             if pending_futures_map:
-                 logger.error("Task %s: pending_futures_map not empty after final processing! Keys: %s", self.task_id, list(pending_futures_map.keys()))
-                 pending_futures_map.clear()
+                logger.error(
+                    "Task %s: pending_futures_map not empty after final processing! Keys: %s",
+                    self.task_id,
+                    list(pending_futures_map.keys()),
+                )
+                pending_futures_map.clear()
 
             final_new_segments = len(
                 self.newly_covered_segments - self.initial_covered_segments
