@@ -12,12 +12,12 @@ import json
 import logging
 import os
 import threading
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime, timezone
 from typing import (
     Any,
     TypeVar,
 )
-from collections.abc import AsyncIterator, Awaitable, Callable
 
 import bson
 import certifi

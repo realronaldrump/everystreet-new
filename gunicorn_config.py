@@ -3,8 +3,8 @@
 Optimized for Railway deployment with memory and resource constraints.
 """
 
-import os
 import logging
+import os
 
 bind = "0.0.0.0:" + os.environ.get("PORT", "8080")
 backlog = 1024

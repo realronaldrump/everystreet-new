@@ -4,11 +4,11 @@ import json
 import logging
 import math
 import statistics
+from collections.abc import Coroutine
 from typing import (
     Any,
     TypeVar,
 )
-from collections.abc import Coroutine
 
 import aiohttp
 from aiohttp import (

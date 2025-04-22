@@ -8,14 +8,14 @@ asynchronously from API endpoints.
 """
 
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
-from collections import defaultdict
 
 from db import (
-    progress_collection,
     coverage_metadata_collection,
     find_one_with_retry,
+    progress_collection,
     update_one_with_retry,
 )
 from preprocess_streets import (
