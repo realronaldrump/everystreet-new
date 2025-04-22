@@ -2075,6 +2075,32 @@
         console.info("Map container not found or on excluded page, skipping map initialization.");
         // Perform non-map related initializations if any
     }
+
+    // Expose AppState globally AFTER basic init but potentially before async data fetch
+    // This ensures modern-ui.js can access it when it initializes
+    window.AppState = AppState; // Make AppState directly available for simplicity
+    window.EveryStreet = window.EveryStreet || {};
+    window.EveryStreet.App = { // Continue namespacing other exports
+      fetchTrips,
+      updateMap,
+      refreshTripStyles,
+      updateTripsTable,
+      toggleLayer,
+      fetchMetrics,
+      initializeMap,
+      getStartDate,
+      getEndDate,
+      fitMapBounds,
+      mapMatchTrips,
+      fetchTripsInRange,
+      AppState, // Keep here for the namespace too
+      CONFIG,
+    };
+
+    // Dispatch an event indicating core app structure is ready
+    console.log("Dispatching appReady event.");
+    document.dispatchEvent(new CustomEvent("appReady"));
+
   }
 
   // --- Event Listeners ---
@@ -2092,6 +2118,8 @@
 
   // --- Global Exposure (Consider reducing) ---
   // Expose necessary functions/state globally under a namespace
+  // MOVED THE GLOBAL ASSIGNMENT INTO initialize() function right before dispatching appReady
+  /*
   window.EveryStreet = window.EveryStreet || {};
   window.EveryStreet.App = {
     fetchTrips,
@@ -2110,6 +2138,7 @@
     AppState, // Expose state carefully if needed for debugging or other modules
     CONFIG,   // Expose config if needed
   };
+  */
 
   // --- Helper Functions (Debounce, Throttle, Cache) ---
 
