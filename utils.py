@@ -118,7 +118,8 @@ def retry_async(
 
 @retry_async()
 async def validate_location_osm(
-    location: str, locationType: str,
+    location: str,
+    locationType: str,
 ) -> dict[str, Any] | None:
     """Validate a location using the OSM Nominatim search API."""
     params = {
@@ -202,7 +203,8 @@ def validate_trip_data(
 
 @retry_async(max_retries=3, retry_delay=2.0)
 async def reverse_geocode_nominatim(
-    lat: float, lon: float,
+    lat: float,
+    lon: float,
 ) -> dict[str, Any] | None:
     """Reverse geocode coordinates using OSM Nominatim."""
     url = "https://nominatim.openstreetmap.org/reverse"

@@ -884,7 +884,8 @@ async def preprocess_streets(
 
     except Exception as e:
         location_name_safe = validated_location.get(
-            "display_name", "Unknown Location",
+            "display_name",
+            "Unknown Location",
         )
         logger.error(
             "Unhandled error during street preprocessing orchestration for %s: %s",

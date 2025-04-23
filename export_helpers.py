@@ -208,7 +208,8 @@ async def create_gpx(
 
 
 async def create_shapefile(
-    geojson_data: dict[str, Any], output_name: str,
+    geojson_data: dict[str, Any],
+    output_name: str,
 ) -> io.BytesIO:
     """Convert GeoJSON data to a shapefile ZIP archive.
 
@@ -290,7 +291,8 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
             trips.append(
                 {
                     "transactionId": feature.get("properties", {}).get(
-                        "id", "unknown",
+                        "id",
+                        "unknown",
                     ),
                     "gps": feature.get("geometry"),
                     "startLocation": feature.get("properties", {}).get(
@@ -313,7 +315,8 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
 
 
 async def export_shapefile_response(
-    geojson_data, filename: str,
+    geojson_data,
+    filename: str,
 ) -> StreamingResponse:
     """Create a StreamingResponse with Shapefile content (ZIP).
 
@@ -703,31 +706,39 @@ async def create_csv_export(
 
             if isinstance(start_loc, dict):
                 flat_trip["startLocation_formatted_address"] = start_loc.get(
-                    "formatted_address", "",
+                    "formatted_address",
+                    "",
                 )
 
                 addr_comps = start_loc.get("address_components", {})
                 if isinstance(addr_comps, dict):
                     flat_trip["startLocation_street_number"] = addr_comps.get(
-                        "street_number", "",
+                        "street_number",
+                        "",
                     )
                     flat_trip["startLocation_street"] = addr_comps.get(
-                        "street", "",
+                        "street",
+                        "",
                     )
                     flat_trip["startLocation_city"] = addr_comps.get(
-                        "city", "",
+                        "city",
+                        "",
                     )
                     flat_trip["startLocation_county"] = addr_comps.get(
-                        "county", "",
+                        "county",
+                        "",
                     )
                     flat_trip["startLocation_state"] = addr_comps.get(
-                        "state", "",
+                        "state",
+                        "",
                     )
                     flat_trip["startLocation_postal_code"] = addr_comps.get(
-                        "postal_code", "",
+                        "postal_code",
+                        "",
                     )
                     flat_trip["startLocation_country"] = addr_comps.get(
-                        "country", "",
+                        "country",
+                        "",
                     )
 
                 coords = start_loc.get("coordinates", {})
@@ -744,29 +755,36 @@ async def create_csv_export(
 
             if isinstance(dest, dict):
                 flat_trip["destination_formatted_address"] = dest.get(
-                    "formatted_address", "",
+                    "formatted_address",
+                    "",
                 )
 
                 addr_comps = dest.get("address_components", {})
                 if isinstance(addr_comps, dict):
                     flat_trip["destination_street_number"] = addr_comps.get(
-                        "street_number", "",
+                        "street_number",
+                        "",
                     )
                     flat_trip["destination_street"] = addr_comps.get(
-                        "street", "",
+                        "street",
+                        "",
                     )
                     flat_trip["destination_city"] = addr_comps.get("city", "")
                     flat_trip["destination_county"] = addr_comps.get(
-                        "county", "",
+                        "county",
+                        "",
                     )
                     flat_trip["destination_state"] = addr_comps.get(
-                        "state", "",
+                        "state",
+                        "",
                     )
                     flat_trip["destination_postal_code"] = addr_comps.get(
-                        "postal_code", "",
+                        "postal_code",
+                        "",
                     )
                     flat_trip["destination_country"] = addr_comps.get(
-                        "country", "",
+                        "country",
+                        "",
                     )
 
                 coords = dest.get("coordinates", {})

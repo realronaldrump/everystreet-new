@@ -133,7 +133,8 @@ async def create_place(place: PlaceModel):
     """Create a new custom place."""
     place_obj = CustomPlace(place.name, place.geometry)
     result = await insert_one_with_retry(
-        Collections.places, place_obj.to_dict(),
+        Collections.places,
+        place_obj.to_dict(),
     )
     return {
         "_id": str(result.inserted_id),

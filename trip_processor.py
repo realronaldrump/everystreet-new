@@ -509,7 +509,9 @@ class TripProcessor:
 
     @staticmethod
     def _extract_coords_from_geometry(
-        geometry, fallback_coords, transaction_id,
+        geometry,
+        fallback_coords,
+        transaction_id,
     ):
         """Extract a simple [lng, lat] point from various geometry types."""
         if not geometry or "coordinates" not in geometry:
@@ -608,7 +610,8 @@ class TripProcessor:
                 if start_place:
                     structured_start = LOCATION_SCHEMA.copy()
                     structured_start["formatted_address"] = start_place.get(
-                        "name", "",
+                        "name",
+                        "",
                     )
 
                     for component in [
@@ -659,7 +662,8 @@ class TripProcessor:
                     if rev_start:
                         structured_start = LOCATION_SCHEMA.copy()
                         structured_start["formatted_address"] = rev_start.get(
-                            "display_name", "",
+                            "display_name",
+                            "",
                         )
 
                         if "address" in rev_start:
@@ -695,7 +699,8 @@ class TripProcessor:
                 if end_place:
                     structured_dest = LOCATION_SCHEMA.copy()
                     structured_dest["formatted_address"] = end_place.get(
-                        "name", "",
+                        "name",
+                        "",
                     )
 
                     for component in [
@@ -740,12 +745,14 @@ class TripProcessor:
                     )
                 else:
                     rev_end = await reverse_geocode_nominatim(
-                        end_coord[1], end_coord[0],
+                        end_coord[1],
+                        end_coord[0],
                     )
                     if rev_end:
                         structured_dest = LOCATION_SCHEMA.copy()
                         structured_dest["formatted_address"] = rev_end.get(
-                            "display_name", "",
+                            "display_name",
+                            "",
                         )
 
                         if "address" in rev_end:
@@ -1070,7 +1077,8 @@ class TripProcessor:
 
                         try:
                             async with session.get(
-                                url, params=params,
+                                url,
+                                params=params,
                             ) as response:
                                 if response.status == 429:
                                     logger.warning(

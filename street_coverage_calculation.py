@@ -245,7 +245,8 @@ class CoverageCalculator:
         self.streets_lookup: dict[int, dict[str, Any]] = {}
         self.street_utm_geoms_cache: dict[str, Any] = {}
         self.street_utm_bboxes_cache: dict[
-            str, tuple[float, float, float, float],
+            str,
+            tuple[float, float, float, float],
         ] = {}
         self.street_wgs84_geoms_cache: dict[str, dict] = {}
 
@@ -733,7 +734,8 @@ class CoverageCalculator:
             return False
         finally:
             if "streets_cursor" in locals() and hasattr(
-                streets_cursor, "close",
+                streets_cursor,
+                "close",
             ):
                 await streets_cursor.close()
 
@@ -1007,7 +1009,8 @@ class CoverageCalculator:
 
         try:
             async for trip_batch_docs in batch_cursor(
-                trips_cursor, self.trip_batch_size,
+                trips_cursor,
+                self.trip_batch_size,
             ):
                 batch_num += 1
                 valid_trips_for_processing: list[tuple[str, list[Any]]] = []
@@ -1089,7 +1092,9 @@ class CoverageCalculator:
                             ).bounds
                         )
                         candidate_indices = list(
-                            self.streets_index.intersection(batch_query_bounds),
+                            self.streets_index.intersection(
+                                batch_query_bounds
+                            ),
                         )
 
                         for idx in candidate_indices:
@@ -1440,7 +1445,8 @@ class CoverageCalculator:
                     # Now, iterate through the original futures list and check their status
                     for future in original_futures_list:
                         original_trip_sub_batch = pending_futures_map.pop(
-                            future, None,
+                            future,
+                            None,
                         )
                         if not original_trip_sub_batch:
                             # Already processed or removed, skip
@@ -1515,7 +1521,8 @@ class CoverageCalculator:
                     for future in original_futures_list:
                         if future in pending_futures_map:
                             original_trip_sub_batch = pending_futures_map.pop(
-                                future, None,
+                                future,
+                                None,
                             )
                             logger.warning(
                                 "Task %s: Future pending after asyncio.wait timeout. Attempting cancel. NOT marking trips.",
@@ -1541,7 +1548,8 @@ class CoverageCalculator:
                     for future in original_futures_list:
                         if future in pending_futures_map:
                             original_trip_sub_batch = pending_futures_map.pop(
-                                future, None,
+                                future,
+                                None,
                             )
                             logger.error(
                                 "Task %s: Marking future as failed due to wait error. NOT marking trips.",
@@ -1609,7 +1617,8 @@ class CoverageCalculator:
             await self.shutdown_workers()
 
     async def finalize_coverage(
-        self, processed_trip_ids_set: set[str],
+        self,
+        processed_trip_ids_set: set[str],
     ) -> dict[str, Any] | None:
         """Updates street 'driven' status in DB, calculates final stats, and updates
         metadata.
@@ -2214,7 +2223,8 @@ class CoverageCalculator:
 
 
 async def compute_coverage_for_location(
-    location: dict[str, Any], task_id: str,
+    location: dict[str, Any],
+    task_id: str,
 ) -> dict[str, Any] | None:
     """Entry point for a full coverage calculation."""
     location_name = location.get("display_name", "Unknown Location")
@@ -2325,7 +2335,8 @@ async def compute_coverage_for_location(
 
 
 async def compute_incremental_coverage(
-    location: dict[str, Any], task_id: str,
+    location: dict[str, Any],
+    task_id: str,
 ) -> dict[str, Any] | None:
     """Entry point for an incremental coverage calculation."""
     location_name = location.get("display_name", "Unknown Location")
@@ -2446,7 +2457,8 @@ async def compute_incremental_coverage(
 
 
 async def generate_and_store_geojson(
-    location_name: str | None, task_id: str,
+    location_name: str | None,
+    task_id: str,
 ) -> None:
     """Generates a GeoJSON FeatureCollection of streets and stores it in GridFS.
 
@@ -2563,7 +2575,8 @@ async def generate_and_store_geojson(
             features_to_write = []
             for street in street_batch:
                 if "geometry" not in street or not street.get(
-                    "properties", {},
+                    "properties",
+                    {},
                 ).get("segment_id"):
                     continue
 

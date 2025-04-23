@@ -112,7 +112,8 @@ def collect_street_type_stats(
 
 
 async def process_coverage_calculation(
-    location: dict[str, Any], task_id: str,
+    location: dict[str, Any],
+    task_id: str,
 ) -> None:
     """Orchestrates the full coverage calculation process in the background.
 
@@ -210,7 +211,8 @@ async def process_coverage_calculation(
 
 
 async def process_incremental_coverage_calculation(
-    location: dict[str, Any], task_id: str,
+    location: dict[str, Any],
+    task_id: str,
 ) -> None:
     """Orchestrates the incremental coverage calculation process.
 
@@ -431,7 +433,8 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
             },
         )
         calculation_result = await compute_coverage_for_location(
-            location, task_id,
+            location,
+            task_id,
         )
 
         if (

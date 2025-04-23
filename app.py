@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from math import ceil
 from typing import Any
 
+
 import bson
 import geojson as geojson_module
 import gpxpy
@@ -130,6 +131,8 @@ from utils import (
 )
 from visits import init_collections
 from visits import router as visits_router
+from pages import router as pages_router
+
 
 load_dotenv()
 
@@ -158,6 +161,7 @@ app.add_middleware(
 )
 
 app.include_router(visits_router)
+app.include_router(pages_router)
 
 CLIENT_ID = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -272,154 +276,6 @@ async def process_geojson_trip(
     except Exception:
         logger.exception("Error in process_geojson_trip")
         return None
-
-
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    """Render main index page."""
-    return templates.TemplateResponse("index.html", {"request": request})
-
-
-@app.get("/trips", response_class=HTMLResponse)
-async def trips_page(request: Request):
-    """Render trips page."""
-    return templates.TemplateResponse("trips.html", {"request": request})
-
-
-@app.get("/edit_trips", response_class=HTMLResponse)
-async def edit_trips_page(request: Request):
-    """Render trip editing page."""
-    return templates.TemplateResponse("edit_trips.html", {"request": request})
-
-
-@app.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request):
-    """Render settings page."""
-    return templates.TemplateResponse("settings.html", {"request": request})
-
-
-@app.get(
-    "/driving-insights",
-    response_class=HTMLResponse,
-)
-async def driving_insights_page(request: Request):
-    """Render driving insights page."""
-    return templates.TemplateResponse(
-        "driving_insights.html",
-        {"request": request},
-    )
-
-
-@app.get("/visits", response_class=HTMLResponse)
-async def visits_page(request: Request):
-    """Render visits page."""
-    return templates.TemplateResponse("visits.html", {"request": request})
-
-
-@app.get("/export", response_class=HTMLResponse)
-async def export_page(request: Request):
-    """Render export page."""
-    return templates.TemplateResponse("export.html", {"request": request})
-
-
-@app.get("/upload", response_class=HTMLResponse)
-async def upload_page(request: Request):
-    """Render upload page."""
-    return templates.TemplateResponse("upload.html", {"request": request})
-
-
-@app.get(
-    "/coverage-management",
-    response_class=HTMLResponse,
-)
-async def coverage_management_page(
-    request: Request,
-):
-    """Render coverage management page."""
-    return templates.TemplateResponse(
-        "coverage_management.html",
-        {"request": request},
-    )
-
-
-@app.get("/database-management")
-async def database_management_page(
-    request: Request,
-):
-    """Render database management page with statistics."""
-    try:
-        db_stats = await db_manager.db.command("dbStats")
-        storage_used_mb = round(
-            db_stats["dataSize"] / (1024 * 1024),
-            2,
-        )
-        storage_limit_mb = 512
-        storage_usage_percent = round(
-            (storage_used_mb / storage_limit_mb) * 100,
-            2,
-        )
-        collections_info = []
-        collection_names = [
-            name
-            for name in await db_manager.db.list_collection_names()
-            if name != "uploaded_trips"
-        ]
-        for collection_name in collection_names:
-            stats = await db_manager.db.command("collStats", collection_name)
-            collections_info.append(
-                {
-                    "name": collection_name,
-                    "document_count": stats["count"],
-                    "size_mb": round(
-                        stats["size"] / (1024 * 1024),
-                        2,
-                    ),
-                },
-            )
-        return templates.TemplateResponse(
-            "database_management.html",
-            {
-                "request": request,
-                "storage_used_mb": storage_used_mb,
-                "storage_limit_mb": storage_limit_mb,
-                "storage_usage_percent": storage_usage_percent,
-                "collections": collections_info,
-            },
-        )
-    except Exception as e:
-        logger.exception(
-            "Error loading database management page: %s",
-            str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
-
-
-@app.get("/app-settings", response_class=HTMLResponse)
-async def app_settings_page(request: Request):
-    """Render app settings page."""
-    return templates.TemplateResponse(
-        "app_settings.html", {"request": request},
-    )
-
-
-@app.get(
-    "/driving-navigation",
-    response_class=HTMLResponse,
-)
-async def driving_navigation_page(
-    request: Request,
-):
-    """Render the driving navigation page."""
-    return templates.TemplateResponse(
-        "driving_navigation.html",
-        {
-            "request": request,
-            "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN,
-        },
-    )
 
 
 @app.post("/api/undriven_streets")
@@ -572,7 +428,8 @@ async def get_background_tasks_config():
             task_config = config["tasks"][task_id]
 
             task_config["display_name"] = task_def.get(
-                "display_name", "Unknown Task",
+                "display_name",
+                "Unknown Task",
             )
             task_config["description"] = task_def.get("description", "")
             task_config["priority"] = task_def.get(
@@ -661,7 +518,9 @@ async def pause_background_tasks(
         }
     except HTTPException as exc:
         logger.warning(
-            "HTTPException in pause_background_tasks: %s", exc, exc_info=True,
+            "HTTPException in pause_background_tasks: %s",
+            exc,
+            exc_info=True,
         )
         raise
     except Exception as e:
@@ -907,7 +766,8 @@ async def get_task_history(page: int = 1, limit: int = 10):
     """Get paginated task execution history."""
     try:
         total_count = await count_documents_with_retry(
-            task_history_collection, {},
+            task_history_collection,
+            {},
         )
         skip = (page - 1) * limit
         entries = await find_with_retry(
@@ -1619,7 +1479,8 @@ async def get_driving_insights(request: Request):
             combined["max_speed"] = r.get("max_speed", 0)
             combined["total_idle_duration"] = r.get("total_idle_duration", 0)
             combined["longest_trip_distance"] = r.get(
-                "longest_trip_distance", 0,
+                "longest_trip_distance",
+                0,
             )
 
         if trips_mv and trips_mv[0]:
@@ -1949,7 +1810,9 @@ async def api_fetch_trips_last_hour():
         now_utc = datetime.now(timezone.utc)
         start_date = now_utc - timedelta(hours=1)
         await fetch_bouncie_trips_in_range(
-            start_date, now_utc, do_map_match=True,
+            start_date,
+            now_utc,
+            do_map_match=True,
         )
         return {
             "status": "success",
@@ -2255,7 +2118,8 @@ async def generate_geojson_endpoint(
 ):
     """Generate GeoJSON for a location using the imported function."""
     geojson_data, err = await generate_geojson_osm(
-        location.dict(), streets_only,
+        location.dict(),
+        streets_only,
     )
     if geojson_data:
         return geojson_data
@@ -4029,7 +3893,8 @@ async def _mark_segment(
             {"location.display_name": 1},
         )
     ).get(
-        "location", {},
+        "location",
+        {},
     ).get(
         "display_name",
     ):
@@ -4356,7 +4221,9 @@ async def delete_coverage_area(
                 fs = AsyncIOMotorGridFSBucket(db_manager.db)
                 await fs.delete(gridfs_id)
                 logger.info(
-                    "Deleted GridFS file %s for %s", gridfs_id, display_name,
+                    "Deleted GridFS file %s for %s",
+                    gridfs_id,
+                    display_name,
                 )
             except Exception as gridfs_err:
                 logger.warning(
@@ -4520,7 +4387,8 @@ async def get_coverage_area_details(
             )
 
         location_name = coverage_doc.get("location", {}).get(
-            "display_name", "Unknown",
+            "display_name",
+            "Unknown",
         )
         location_obj = coverage_doc.get("location", {})
         last_updated = SerializationHelper.serialize_datetime(
@@ -5077,7 +4945,8 @@ async def _cluster_segments(
 
 
 async def _optimize_route_for_clusters(
-    start_point: tuple, clusters: list[list[dict]],
+    start_point: tuple,
+    clusters: list[list[dict]],
 ) -> dict[str, Any]:
     """Optimize route for multiple clusters, connecting them with directions."""
     if not clusters:
@@ -5374,7 +5243,8 @@ async def get_coverage_driving_route(
                 IndexError,
             ) as e:
                 segment_id = street.get("properties", {}).get(
-                    "segment_id", "UNKNOWN",
+                    "segment_id",
+                    "UNKNOWN",
                 )
                 logger.warning(
                     "Coverage Route: Error processing segment %s data: %s",
@@ -5426,7 +5296,8 @@ async def get_coverage_driving_route(
         )
 
         optimization_result = await _optimize_route_for_clusters(
-            start_point, clusters,
+            start_point,
+            clusters,
         )
 
         optimized_route_geometry = optimization_result["geometry"]
@@ -5485,7 +5356,8 @@ async def export_advanced(
     ),
     include_locations: bool = Query(True, description="Include location info"),
     include_telemetry: bool = Query(
-        True, description="Include telemetry data",
+        True,
+        description="Include telemetry data",
     ),
     include_geometry: bool = Query(True, description="Include geometry data"),
     include_meta: bool = Query(True, description="Include metadata"),
@@ -5544,7 +5416,8 @@ async def export_advanced(
         if include_matched_trips:
             query = date_filter or {}
             matched_trips = await find_with_retry(
-                matched_trips_collection, query,
+                matched_trips_collection,
+                query,
             )
 
             for trip in matched_trips:

@@ -91,7 +91,9 @@ async def fetch_trips_for_device(
 
     try:
         async with session.get(
-            url, headers=headers, params=params,
+            url,
+            headers=headers,
+            params=params,
         ) as response:
             response.raise_for_status()
             trips = await response.json()

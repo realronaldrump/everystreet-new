@@ -367,7 +367,8 @@ async def process_trip_data(
     last_point_time = sorted_unique_coords[-1].get("timestamp")
     duration_seconds = 0.0
     if isinstance(start_time, datetime) and isinstance(
-        last_point_time, datetime,
+        last_point_time,
+        datetime,
     ):
         duration_seconds = max(
             0.0,
@@ -1118,7 +1119,8 @@ async def get_active_trip(
     if active_trip_doc:
         trip_seq = active_trip_doc.get("sequence", "N/A")
         if "_id" in active_trip_doc and isinstance(
-            active_trip_doc["_id"], ObjectId,
+            active_trip_doc["_id"],
+            ObjectId,
         ):
             active_trip_doc["_id"] = str(active_trip_doc["_id"])
 
@@ -1209,7 +1211,8 @@ async def cleanup_stale_trips_logic(
 
             start_time = trip.get("startTime")
             if isinstance(start_time, datetime) and isinstance(
-                last_update_time, datetime,
+                last_update_time,
+                datetime,
             ):
                 duration = max(
                     0.0,

@@ -137,8 +137,7 @@ class TripDataModel(BaseModel):
 
 
 class ActiveTripSuccessResponse(BaseModel):
-    """Response model for when an active trip is successfully found.
-    """
+    """Response model for when an active trip is successfully found."""
 
     status: str = "success"
     has_active_trip: bool = True

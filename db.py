@@ -1018,7 +1018,9 @@ async def update_many_with_retry(
 
     async def _operation():
         return await collection.update_many(
-            filter_query, update, upsert=upsert,
+            filter_query,
+            update,
+            upsert=upsert,
         )
 
     return await db_manager.execute_with_retry(

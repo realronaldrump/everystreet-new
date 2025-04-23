@@ -653,7 +653,8 @@ async def periodic_fetch_trips_async(
         )
 
         await status_manager.update_status(
-            task_name, TaskStatus.COMPLETED.value,
+            task_name,
+            TaskStatus.COMPLETED.value,
         )
         await update_task_history_entry(
             celery_task_id=celery_task_id,
@@ -737,7 +738,8 @@ async def update_coverage_for_new_trips_async(
         logger.info("Task %s (%s) started.", task_name, celery_task_id)
 
         coverage_areas = await find_with_retry(
-            coverage_metadata_collection, {},
+            coverage_metadata_collection,
+            {},
         )
         logger.info(
             f"Found {
@@ -768,7 +770,8 @@ async def update_coverage_for_new_trips_async(
 
             try:
                 result = await compute_incremental_coverage(
-                    location, sub_task_id,
+                    location,
+                    sub_task_id,
                 )
 
                 if result:
@@ -827,7 +830,8 @@ async def update_coverage_for_new_trips_async(
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
         await status_manager.update_status(
-            task_name, TaskStatus.COMPLETED.value,
+            task_name,
+            TaskStatus.COMPLETED.value,
         )
         await update_task_history_entry(
             celery_task_id=celery_task_id,
@@ -951,7 +955,8 @@ async def cleanup_stale_trips_async(
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
         await status_manager.update_status(
-            task_name, TaskStatus.COMPLETED.value,
+            task_name,
+            TaskStatus.COMPLETED.value,
         )
         await update_task_history_entry(
             celery_task_id=celery_task_id,
@@ -1164,7 +1169,8 @@ async def cleanup_invalid_trips_async(
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
         await status_manager.update_status(
-            task_name, TaskStatus.COMPLETED.value,
+            task_name,
+            TaskStatus.COMPLETED.value,
         )
         await update_task_history_entry(
             celery_task_id=celery_task_id,
@@ -1254,7 +1260,9 @@ async def update_geocoding_async(
         }
 
         trips_to_process = await find_with_retry(
-            trips_collection, query, limit=limit,
+            trips_collection,
+            query,
+            limit=limit,
         )
         logger.info(
             f"Found {len(trips_to_process)} trips needing geocoding (limit {
@@ -1344,7 +1352,8 @@ async def update_geocoding_async(
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
         await status_manager.update_status(
-            task_name, TaskStatus.COMPLETED.value,
+            task_name,
+            TaskStatus.COMPLETED.value,
         )
         await update_task_history_entry(
             celery_task_id=celery_task_id,
@@ -1464,7 +1473,9 @@ async def remap_unmatched_trips_async(
         }
 
         trips_to_process = await find_with_retry(
-            trips_collection, query, limit=limit,
+            trips_collection,
+            query,
+            limit=limit,
         )
         logger.info(
             f"Found {len(trips_to_process)} trips to attempt remapping (limit {
@@ -1542,7 +1553,8 @@ async def remap_unmatched_trips_async(
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
         await status_manager.update_status(
-            task_name, TaskStatus.COMPLETED.value,
+            task_name,
+            TaskStatus.COMPLETED.value,
         )
         await update_task_history_entry(
             celery_task_id=celery_task_id,
@@ -1632,7 +1644,9 @@ async def validate_trip_data_async(
         }
 
         trips_to_process = await find_with_retry(
-            trips_collection, query, limit=limit,
+            trips_collection,
+            query,
+            limit=limit,
         )
         logger.info(
             f"Found {len(trips_to_process)} trips needing validation (limit {
@@ -1732,7 +1746,8 @@ async def validate_trip_data_async(
         if batch_updates:
             try:
                 result = await trips_collection.bulk_write(
-                    batch_updates, ordered=False,
+                    batch_updates,
+                    ordered=False,
                 )
                 logger.debug(
                     f"Executed final validation update batch: Matched={
@@ -1764,7 +1779,8 @@ async def validate_trip_data_async(
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
         await status_manager.update_status(
-            task_name, TaskStatus.COMPLETED.value,
+            task_name,
+            TaskStatus.COMPLETED.value,
         )
         await update_task_history_entry(
             celery_task_id=celery_task_id,
@@ -2199,7 +2215,8 @@ async def manual_run_task(
 
 
 async def _send_manual_task(
-    task_name: str, celery_task_string_name: str,
+    task_name: str,
+    celery_task_string_name: str,
 ) -> dict[str, Any]:
     """Internal helper to check dependencies and send a single manual task to Celery.
 
@@ -2224,7 +2241,8 @@ async def _send_manual_task(
             }
 
         priority_enum = TASK_METADATA[task_name].get(
-            "priority", TaskPriority.MEDIUM,
+            "priority",
+            TaskPriority.MEDIUM,
         )
         priority_name = priority_enum.name.lower()
         queue = (
