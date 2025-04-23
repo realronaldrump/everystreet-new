@@ -16,7 +16,7 @@
       filtersClose: ".panel-close-btn",
       startDate: "#start-date",
       endDate: "#end-date",
-      applyFilters: "#apply-filters",
+      applyFiltersBtn: "#apply-filters",
       resetFilters: "#reset-filters",
       actionButton: "#action-button",
       actionMenu: "#action-menu",
@@ -133,6 +133,10 @@
         } else {
           elements[key] = document.querySelector(selectors[key]);
         }
+        // Log specifically for apply/reset buttons
+        if (key === 'applyFiltersBtn' || key === 'resetFilters') {
+          console.log(`CACHE: Element found for ${key}:`, elements[key] ? 'Yes' : 'No');
+        }
       }
     }
 
@@ -156,7 +160,7 @@
       "loadingOverlay",
       "progressBar",
       "loadingText",
-      "applyFilters",
+      "applyFiltersBtn",
       "resetFilters",
       "mapControls",
     ];
@@ -683,11 +687,12 @@
       filtersPanel,
       contentOverlay,
       filtersClose,
-      applyFilters, // Renamed from applyFiltersBtn for clarity
-      resetFilters, // Renamed from resetFiltersBtn for clarity
+      applyFiltersBtn,
+      resetFilters,
       quickSelectBtns,
     } = elements;
 
+    console.log("INIT_FILTER_PANEL: Starting setup.");
     // Toggle panel visibility
     if (filterToggle && filtersPanel) {
       filterToggle.addEventListener("click", (e) => {
@@ -728,9 +733,20 @@
     }
 
     // Apply filters button
-    applyFilters?.addEventListener("click", applyFilters); // Use optional chaining
+    console.log("INIT_FILTER_PANEL: applyFiltersBtn element:", elements.applyFiltersBtn);
+    console.log("INIT_FILTER_PANEL: Attaching listener to applyFilters button...");
+    elements.applyFiltersBtn?.addEventListener("click", applyFilters); // Use renamed element, keep function name
+
+    // Add a simple test listener to see if ANY click is registered
+    if (elements.applyFiltersBtn) {
+      elements.applyFiltersBtn.addEventListener("click", () => {
+        console.log("INIT_FILTER_PANEL: TEST CLICK HANDLER FIRED for applyFilters button!");
+      });
+    }
 
     // Reset filters button
+    console.log("INIT_FILTER_PANEL: resetFilters button element:", elements.resetFilters);
+    console.log("INIT_FILTER_PANEL: Attaching listener to resetFilters button...");
     resetFilters?.addEventListener("click", handleResetFiltersClick); // Use new handler
   }
 
