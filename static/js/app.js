@@ -485,6 +485,7 @@
       document.dispatchEvent(new CustomEvent("mapInitialized"));
 
       AppState.mapInitialized = true;
+      setupMapUnselectHandler();
       console.info("Map initialized successfully.");
       return true;
     } catch (error) {
@@ -2176,17 +2177,17 @@
     });
 
     // --- Unselect trip on map background click ---
-    if (AppState.map) {
-      AppState.map.on("click", function () {
-        // Only unselect if no popup is open
-        if (!AppState.map._popup || !AppState.map._popup.isOpen()) {
-          if (AppState.selectedTripId) {
-            AppState.selectedTripId = null;
-            refreshTripStyles();
-          }
-        }
-      });
-    }
+    // if (AppState.map) {
+    //   AppState.map.on("click", function () {
+    //     // Only unselect if no popup is open
+    //     if (!AppState.map._popup || !AppState.map._popup.isOpen()) {
+    //       if (AppState.selectedTripId) {
+    //         AppState.selectedTripId = null;
+    //         refreshTripStyles();
+    //       }
+    //     }
+    //   });
+    // }
   }
 
   /** Caches references to frequently used DOM elements. */
@@ -2884,5 +2885,19 @@
         "Could not determine valid coordinates for the last point of the most recent trip.",
       );
     }
+  }
+
+  // Add this function near other event setup functions
+  function setupMapUnselectHandler() {
+    if (!AppState.map) return;
+    AppState.map.on("click", function () {
+      // Only unselect if no popup is open
+      if (!AppState.map._popup || !AppState.map._popup.isOpen()) {
+        if (AppState.selectedTripId) {
+          AppState.selectedTripId = null;
+          refreshTripStyles();
+        }
+      }
+    });
   }
 })(); // End of IIFE
