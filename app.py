@@ -4363,7 +4363,7 @@ async def get_coverage_area_details(location_id: str):
         )
         if not coverage_doc:
             raise HTTPException(
-                status_code=404, detail="Coverage area not found"
+                status_code=404, detail="Coverage area not found",
             )
 
         # pull in the GeoJSON
@@ -4377,10 +4377,10 @@ async def get_coverage_area_details(location_id: str):
 
         # compute metrics
         total_length = coverage_doc.get(
-            "total_length_m", coverage_doc.get("total_length", 0)
+            "total_length_m", coverage_doc.get("total_length", 0),
         )
         driven_length = coverage_doc.get(
-            "driven_length_m", coverage_doc.get("driven_length", 0)
+            "driven_length_m", coverage_doc.get("driven_length", 0),
         )
         coverage_percentage = coverage_doc.get("coverage_percentage", 0.0)
         total_streets = coverage_doc.get("total_segments", 0)  # from metadata
