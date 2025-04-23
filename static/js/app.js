@@ -1898,7 +1898,6 @@
 
   /** Fetches and displays summary metrics for the selected date range and IMEI. */
   async function fetchMetrics() {
-    console.log("FETCH METRICS: Starting...");
     const startDate = getStartDate();
     const endDate = getEndDate();
     // Get IMEI value safely, default to empty string if element not found
@@ -1921,13 +1920,11 @@
       }
 
       // Use cachedFetch for metrics, maybe with shorter cache time
-      console.log("FETCH METRICS: Awaiting cachedFetch...");
       const metrics = await cachedFetch(
         `/api/metrics?${params.toString()}`,
         {},
         30000,
       ); // Cache for 30s
-      console.log("FETCH METRICS: cachedFetch completed.");
 
       if (!metrics) {
         throw new Error("Received no data for metrics.");
@@ -1979,12 +1976,8 @@
       } else {
         console.error("Error fetching metrics:", err);
       }
-      console.log("FETCH METRICS: Caught error.");
-      // Optionally clear metrics display on error
-      // clearMetricsDisplay();
       showNotification(`Failed to load metrics: ${err.message}`, "warning");
     }
-    console.log("FETCH METRICS: Finishing.");
   }
 
   /** Fetches available coverage area definitions from the API. */
@@ -2161,27 +2154,22 @@
     // Listen for events from other modules (e.g., a separate filter module)
     document.addEventListener("filtersApplied", async (e) => { // Make listener async
       console.info("Filters applied event received:", e.detail);
-      console.log("FILTER LISTENER: Showing loading overlay...");
       // Show loading overlay from modern-ui
       window.modernUI?.showLoading("Applying filters and loading data...");
 
       try {
-        console.log("FILTER LISTENER: Awaiting fetchTrips and fetchMetrics...");
         // Refetch data based on new filters
         await Promise.all([
           fetchTrips(), // Await the fetchTrips call
           fetchMetrics(), // Await the fetchMetrics call
         ]);
-        console.log("FILTER LISTENER: Fetches completed.");
       } catch (error) {
         console.error("Error fetching data after filters applied:", error);
-        console.log("FILTER LISTENER: Caught error during fetch.");
         window.notificationManager?.show(
           "Error loading data for the selected date range.",
           "danger",
         );
       } finally {
-        console.log("FILTER LISTENER: Entering finally block, hiding loading overlay...");
         // Hide loading overlay regardless of success or error
         window.modernUI?.hideLoading();
       }
@@ -2421,14 +2409,15 @@
       updateTripsTable,
       toggleLayer,
       fetchMetrics,
-      initializeMap,
-      getStartDate,
+      initializeMap, // Expose if needed externally
+      // handleError, // Expose global error handler if defined elsewhere
+      getStartDate, // Expose date getters if needed
       getEndDate,
       fitMapBounds,
       mapMatchTrips,
       fetchTripsInRange,
-      AppState, // Keep here for the namespace too
-      CONFIG,
+      AppState, // Expose state carefully if needed for debugging or other modules
+      CONFIG,   // Expose config if needed
     };
 
     // Dispatch an event indicating core app structure is ready
