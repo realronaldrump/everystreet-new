@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /* global bootstrap, Chart, mapboxgl, html2canvas */
 "use strict";
 
