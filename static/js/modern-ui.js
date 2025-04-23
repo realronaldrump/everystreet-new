@@ -966,118 +966,6 @@
   }
 
   /**
-   * Applies the currently selected date filters, stores them, and triggers an event.
-   */
-  function applyFilters() {
-    const { startDateInput, endDateInput, filtersPanel, contentOverlay } =
-      elements;
-    // Ensure date inputs are available
-    if (!startDateInput || !endDateInput) {
-      console.error("Cannot apply filters: Date input elements not found.");
-      window.notificationManager?.show(
-        "UI Error: Date inputs missing.",
-        "danger",
-      );
-      return;
-    }
-
-    const startDateValue = startDateInput.value;
-    const endDateValue = endDateInput.value;
-
-    // --- Validation (Optional but Recommended) ---
-    if (!window.DateUtils?.isValidDateRange(startDateValue, endDateValue)) {
-      window.notificationManager?.show(
-        "Invalid date range: Start date must be before or same as end date.",
-        "warning",
-      );
-      return; // Prevent applying invalid range
-    }
-    // --- End Validation ---
-
-    // Store the selected dates in localStorage
-    localStorage.setItem(CONFIG.storage.startDate, startDateValue);
-    localStorage.setItem(CONFIG.storage.endDate, endDateValue);
-
-    // Update the visual indicator
-    updateFilterIndicator();
-
-    // Close the filter panel
-    if (filtersPanel && contentOverlay) {
-      filtersPanel.classList.remove(CONFIG.classes.open);
-      contentOverlay.classList.remove(CONFIG.classes.visible);
-    }
-
-    // Dispatch an event to notify other parts of the application
-    document.dispatchEvent(
-      new CustomEvent("filtersApplied", {
-        detail: {
-          startDate: startDateValue,
-          endDate: endDateValue,
-        },
-      }),
-    );
-
-    // Provide user feedback
-    window.notificationManager?.show(
-      `Filters applied: ${DateUtils.formatForDisplay(startDateValue)} to ${DateUtils.formatForDisplay(endDateValue)}`,
-      "success",
-    );
-
-    // Optionally trigger data refresh here if needed immediately
-    // refreshMapData(); // Example: Uncomment if map data should refresh on apply
-    // refreshPlacesData(); // Example: Uncomment if places data should refresh
-  }
-
-  /**
-   * Resets the date filters to 'Today' and applies them.
-   */
-  function resetFilters() {
-    const { quickSelectBtns } = elements;
-
-    // Ensure DateUtils is available
-    if (!window.DateUtils) {
-      console.error("DateUtils not found. Cannot reset filters.");
-      window.notificationManager?.show(
-        "Error: Date utility missing.",
-        "danger",
-      );
-      return;
-    }
-    const today = DateUtils.getCurrentDate(); // Get today's date in YYYY-MM-DD format
-
-    // Update input fields to today's date
-    updateDateInputs(today, today);
-
-    // Update localStorage
-    localStorage.setItem(CONFIG.storage.startDate, today);
-    localStorage.setItem(CONFIG.storage.endDate, today);
-
-    // Deactivate all quick select buttons
-    if (quickSelectBtns) {
-      quickSelectBtns.forEach((btn) =>
-        btn.classList.remove(CONFIG.classes.active),
-      );
-      // Optionally activate the 'Today' button if it exists
-      const todayBtn = document.querySelector(
-        '.quick-select-btn[data-range="today"]',
-      );
-      todayBtn?.classList.add(CONFIG.classes.active);
-    }
-
-    // Update the visual indicator
-    updateFilterIndicator();
-
-    // Apply the reset filters immediately
-    applyFilters(); // This will also close the panel and show notification
-
-    // Optional: Add a specific notification for reset action
-    // window.notificationManager?.show(
-    //   "Date filters reset to Today.",
-    //   "info",
-    // );
-  }
-
-  /**
    * Initializes scroll effects, like adding a class to the header on scroll.
    */
   function initScrollEffects() {
@@ -1171,7 +1059,7 @@
       showLoading,
       hideLoading,
       updateProgress,
-      setDateRange, // Expose function to set date range programmatically
+      setDateRange, // Apply object shorthand
       applyTheme, // Expose function to change theme programmatically
       // Add other functions here if they need to be accessible globally
     };

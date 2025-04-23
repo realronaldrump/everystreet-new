@@ -1,4 +1,4 @@
-/* global bootstrap, notificationManager, confirmationDialog, Chart, mapboxgl */
+/* global bootstrap, Chart, mapboxgl */
 "use strict";
 
 const STATUS = window.STATUS || {

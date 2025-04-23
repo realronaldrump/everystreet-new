@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 /* global handleError , DateUtils, L, $ */
 /* eslint-disable no-unused-vars */ // Keep this if you have variables intentionally unused globally (like AppState itself sometimes)
 
