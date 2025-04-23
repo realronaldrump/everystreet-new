@@ -2442,44 +2442,49 @@ const STATUS = window.STATUS || {
     setupTripLayers() {
       if (!this.coverageMap || !this.coverageMap.isStyleLoaded()) return;
       // Add source if it doesn't exist
-      if (!this.coverageMap.getSource('trips-source')) {
-        this.coverageMap.addSource('trips-source', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] } // Start empty
+      if (!this.coverageMap.getSource("trips-source")) {
+        this.coverageMap.addSource("trips-source", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] }, // Start empty
         });
       }
       // Add layer if it doesn't exist
-      if (!this.coverageMap.getLayer('trips-layer')) {
+      if (!this.coverageMap.getLayer("trips-layer")) {
         this.coverageMap.addLayer({
-          id: 'trips-layer',
-          type: 'line',
-          source: 'trips-source',
+          id: "trips-layer",
+          type: "line",
+          source: "trips-source",
           layout: {
-            'line-join': 'round',
-            'line-cap': 'round'
+            "line-join": "round",
+            "line-cap": "round",
           },
           paint: {
-            'line-color': '#3388ff', // Blue color for trips
-            'line-width': 2,
-            'line-opacity': 0.7
-          }
+            "line-color": "#3388ff", // Blue color for trips
+            "line-width": 2,
+            "line-opacity": 0.7,
+          },
         });
       }
     }
 
     clearTripOverlay() {
-      if (!this.coverageMap || !this.coverageMap.getSource('trips-source')) return;
-      const emptyGeoJSON = { type: 'FeatureCollection', features: [] };
-      this.coverageMap.getSource('trips-source').setData(emptyGeoJSON);
+      if (!this.coverageMap || !this.coverageMap.getSource("trips-source"))
+        return;
+      const emptyGeoJSON = { type: "FeatureCollection", features: [] };
+      this.coverageMap.getSource("trips-source").setData(emptyGeoJSON);
     }
 
     async loadTripsForView() {
-      if (!this.coverageMap || !this.showTripsActive || !this.coverageMap.isStyleLoaded()) {
+      if (
+        !this.coverageMap ||
+        !this.showTripsActive ||
+        !this.coverageMap.isStyleLoaded()
+      ) {
         return;
       }
       // Ensure layers are ready (might be called before map is fully loaded initially)
       this.setupTripLayers();
-      const tripsSource = this.coverageMap.getSource('trips-source');
+      const tripsSource = this.coverageMap.getSource("trips-source");
       if (!tripsSource) {
         // Source not ready yet, maybe try again shortly?
         console.warn("Trips source not ready for loading data.");
@@ -2491,7 +2496,8 @@ const STATUS = window.STATUS || {
       const ne = bounds.getNorthEast();
       // Basic check for excessively large bounds (adjust threshold as needed)
       const boundsArea = Math.abs(ne.lng - sw.lng) * Math.abs(ne.lat - sw.lat);
-      if (boundsArea > 5) { // Example threshold
+      if (boundsArea > 5) {
+        // Example threshold
         this.notificationManager.show(
           "Map area too large, zoom in further to view trip overlays.",
           "info",
@@ -2519,14 +2525,17 @@ const STATUS = window.STATUS || {
         }
         // Format trips as GeoJSON FeatureCollection
         const tripFeatures = data.trips.map((coords, index) => ({
-          type: 'Feature',
+          type: "Feature",
           properties: { tripId: index }, // Add properties if needed
           geometry: {
-            type: 'LineString',
-            coordinates: coords // Assuming coords are [[lon, lat], [lon, lat], ...]
-          }
+            type: "LineString",
+            coordinates: coords, // Assuming coords are [[lon, lat], [lon, lat], ...]
+          },
         }));
-        const tripsGeoJSON = { type: 'FeatureCollection', features: tripFeatures };
+        const tripsGeoJSON = {
+          type: "FeatureCollection",
+          features: tripFeatures,
+        };
         // Update the source data
         tripsSource.setData(tripsGeoJSON);
       } catch (error) {
