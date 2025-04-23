@@ -43,7 +43,8 @@ async def settings_page(request: Request):
 async def driving_insights_page(request: Request):
     """Render driving insights page."""
     return templates.TemplateResponse(
-        "driving_insights.html", {"request": request},
+        "driving_insights.html",
+        {"request": request},
     )
 
 
@@ -85,7 +86,8 @@ async def database_management_page(request: Request):
         storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
         storage_limit_mb = 512
         storage_usage_percent = round(
-            (storage_used_mb / storage_limit_mb) * 100, 2,
+            (storage_used_mb / storage_limit_mb) * 100,
+            2,
         )
         collections_info = []
         collection_names = [
@@ -122,7 +124,8 @@ async def database_management_page(request: Request):
 async def app_settings_page(request: Request):
     """Render app settings page."""
     return templates.TemplateResponse(
-        "app_settings.html", {"request": request},
+        "app_settings.html",
+        {"request": request},
     )
 
 
@@ -133,7 +136,8 @@ async def app_settings_page(request: Request):
 async def driving_navigation_page(request: Request):
     """Render the driving navigation page."""
     return templates.TemplateResponse(
-        "driving_navigation.html", {"request": request},
+        "driving_navigation.html",
+        {"request": request},
     )
 
 
@@ -144,5 +148,6 @@ async def driving_navigation_page(request: Request):
 async def driver_behavior_page(request: Request):
     """Render driver behavior page."""
     return templates.TemplateResponse(
-        "driver_behavior.html", {"request": request},
+        "driver_behavior.html",
+        {"request": request},
     )
