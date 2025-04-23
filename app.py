@@ -15,7 +15,6 @@ from datetime import datetime, timedelta, timezone
 from math import ceil
 from typing import Any
 
-
 import bson
 import geojson as geojson_module
 import gpxpy
@@ -108,6 +107,7 @@ from models import (
     ValidateLocationModel,
 )
 from osm_utils import generate_geojson_osm
+from pages import router as pages_router
 from tasks import (
     TASK_METADATA,
     TaskPriority,
@@ -131,8 +131,6 @@ from utils import (
 )
 from visits import init_collections
 from visits import router as visits_router
-from pages import router as pages_router
-
 
 load_dotenv()
 

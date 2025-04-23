@@ -1093,7 +1093,7 @@ class CoverageCalculator:
                         )
                         candidate_indices = list(
                             self.streets_index.intersection(
-                                batch_query_bounds
+                                batch_query_bounds,
                             ),
                         )
 
