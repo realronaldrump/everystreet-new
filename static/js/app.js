@@ -785,6 +785,7 @@
       window.loadingManager.startOperation("FetchTrips", 100);
     try {
       const response = await fetch(`/api/trips?${params.toString()}`);
+      window.modernUI?.updateProgress(10, "Fetching trips..."); // Progress update
       if (!response.ok) {
         throw new Error(
           `HTTP error fetching trips: ${response.status} ${response.statusText}`,
@@ -815,6 +816,7 @@
       await updateMapWithTrips(geojson); // Make sure updateMapWithTrips handles async correctly if needed
 
       // Fetch corresponding matched trips (can run concurrently or sequentially)
+      window.modernUI?.updateProgress(60, "Fetching matched trips..."); // Progress update
       try {
         await fetchMatchedTrips(); // Assumes fetchMatchedTrips updates its own layer
       } catch (err) {
@@ -828,6 +830,7 @@
       }
 
       // Explicitly trigger a map update after all data fetching/processing
+      window.modernUI?.updateProgress(80, "Rendering map..."); // Progress update
       await updateMap();
 
       // Notify other parts of the app that trips are loaded
@@ -837,6 +840,7 @@
         }),
       );
       showNotification(`Loaded ${geojson.features.length} trips.`, "success");
+      window.modernUI?.updateProgress(100, "Trips loaded!"); // Progress update
     } catch (error) {
       if (typeof handleError === "function") {
         handleError(error, "Fetch Trips Main");
@@ -845,7 +849,7 @@
       }
       showNotification(CONFIG.ERROR_MESSAGES.fetchTripsFailed, "danger");
     } finally {
-      if (window.loadingManager) window.loadingManager.finish("FetchTrips");
+      // if (window.loadingManager) window.loadingManager.finish("FetchTrips"); // Removed: Let the event listener handle hiding the overlay
     }
   }
 
@@ -1894,6 +1898,7 @@
 
   /** Fetches and displays summary metrics for the selected date range and IMEI. */
   async function fetchMetrics() {
+    console.log("FETCH METRICS: Starting...");
     const startDate = getStartDate();
     const endDate = getEndDate();
     // Get IMEI value safely, default to empty string if element not found
@@ -1916,11 +1921,13 @@
       }
 
       // Use cachedFetch for metrics, maybe with shorter cache time
+      console.log("FETCH METRICS: Awaiting cachedFetch...");
       const metrics = await cachedFetch(
         `/api/metrics?${params.toString()}`,
         {},
         30000,
       ); // Cache for 30s
+      console.log("FETCH METRICS: cachedFetch completed.");
 
       if (!metrics) {
         throw new Error("Received no data for metrics.");
@@ -1971,11 +1978,13 @@
         handleError(err, "Fetching Metrics");
       } else {
         console.error("Error fetching metrics:", err);
-        // Optionally clear metrics display on error
-        // clearMetricsDisplay();
-        showNotification(`Failed to load metrics: ${err.message}`, "warning");
       }
+      console.log("FETCH METRICS: Caught error.");
+      // Optionally clear metrics display on error
+      // clearMetricsDisplay();
+      showNotification(`Failed to load metrics: ${err.message}`, "warning");
     }
+    console.log("FETCH METRICS: Finishing.");
   }
 
   /** Fetches available coverage area definitions from the API. */
@@ -2150,11 +2159,32 @@
 
     // --- Custom Event Listener ---
     // Listen for events from other modules (e.g., a separate filter module)
-    document.addEventListener("filtersApplied", (e) => {
+    document.addEventListener("filtersApplied", async (e) => { // Make listener async
       console.info("Filters applied event received:", e.detail);
-      // Refetch data based on new filters
-      fetchTrips();
-      fetchMetrics();
+      console.log("FILTER LISTENER: Showing loading overlay...");
+      // Show loading overlay from modern-ui
+      window.modernUI?.showLoading("Applying filters and loading data...");
+
+      try {
+        console.log("FILTER LISTENER: Awaiting fetchTrips and fetchMetrics...");
+        // Refetch data based on new filters
+        await Promise.all([
+          fetchTrips(), // Await the fetchTrips call
+          fetchMetrics(), // Await the fetchMetrics call
+        ]);
+        console.log("FILTER LISTENER: Fetches completed.");
+      } catch (error) {
+        console.error("Error fetching data after filters applied:", error);
+        console.log("FILTER LISTENER: Caught error during fetch.");
+        window.notificationManager?.show(
+          "Error loading data for the selected date range.",
+          "danger",
+        );
+      } finally {
+        console.log("FILTER LISTENER: Entering finally block, hiding loading overlay...");
+        // Hide loading overlay regardless of success or error
+        window.modernUI?.hideLoading();
+      }
     });
   }
 
@@ -2366,6 +2396,11 @@
               "danger",
             );
           }
+        })
+        .finally(() => {
+          // Ensure loading overlay is hidden after all initialization attempts
+          console.log("INITIALIZE: Hiding loading overlay (finally block).");
+          window.modernUI?.hideLoading();
         });
     } else {
       console.info(
