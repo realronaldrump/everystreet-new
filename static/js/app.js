@@ -2159,7 +2159,8 @@
 
     // --- Custom Event Listener ---
     // Listen for events from other modules (e.g., a separate filter module)
-    document.addEventListener("filtersApplied", async (e) => { // Make listener async
+    document.addEventListener("filtersApplied", async (e) => {
+      // Make listener async
       console.info("Filters applied event received:", e.detail);
       console.log("FILTER LISTENER: Showing loading overlay...");
       // Show loading overlay from modern-ui
@@ -2181,7 +2182,9 @@
           "danger",
         );
       } finally {
-        console.log("FILTER LISTENER: Entering finally block, hiding loading overlay...");
+        console.log(
+          "FILTER LISTENER: Entering finally block, hiding loading overlay...",
+        );
         // Hide loading overlay regardless of success or error
         window.modernUI?.hideLoading();
       }
