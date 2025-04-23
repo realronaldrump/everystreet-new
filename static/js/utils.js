@@ -335,7 +335,7 @@ class NotificationManager {
 
   show(message, type = "info", duration = this.config.defaultDuration) {
     const notification = document.createElement("div");
-    notification.className = `alert alert-${type} alert-dismissible fade show bg-dark text-white`;
+    notification.className = `notification alert alert-${type} alert-dismissible fade show bg-dark text-white`;
     notification.role = "alert";
     notification.innerHTML = `
       ${message}
@@ -353,7 +353,8 @@ class NotificationManager {
 
     const closeButton = notification.querySelector(".btn-close");
     if (closeButton) {
-      closeButton.addEventListener("click", () => {
+      closeButton.addEventListener("click", (e) => {
+        e.stopPropagation();
         clearTimeout(timeout);
         this._removeNotification(notification);
       });

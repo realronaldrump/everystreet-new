@@ -1375,7 +1375,7 @@ body.light-mode .app-header.scrolled {
   flex-direction: column;
   gap: var(--space-3);
   max-width: 350px;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .notification {

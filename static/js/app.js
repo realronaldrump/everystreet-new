@@ -2174,6 +2174,19 @@
         window.modernUI?.hideLoading();
       }
     });
+
+    // --- Unselect trip on map background click ---
+    if (AppState.map) {
+      AppState.map.on("click", function () {
+        // Only unselect if no popup is open
+        if (!AppState.map._popup || !AppState.map._popup.isOpen()) {
+          if (AppState.selectedTripId) {
+            AppState.selectedTripId = null;
+            refreshTripStyles();
+          }
+        }
+      });
+    }
   }
 
   /** Caches references to frequently used DOM elements. */
