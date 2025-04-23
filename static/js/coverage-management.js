@@ -2345,7 +2345,11 @@ const STATUS = window.STATUS || {
 
     createStreetPopupContent(layer) {
       const props = layer.featureProperties;
-      const streetName = props.street_name || props.name || props.display_name || "Unnamed Street";
+      const streetName =
+        props.street_name ||
+        props.name ||
+        props.display_name ||
+        "Unnamed Street";
       const streetType =
         props.highway || props.inferred_highway_type || "unknown";
       const lengthMiles = CoverageManager.distanceInUserUnits(
