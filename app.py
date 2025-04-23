@@ -42,7 +42,6 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from gridfs.errors import NoFile
 from motor.motor_asyncio import (
     AsyncIOMotorGridFSBucket,
 )
@@ -54,7 +53,6 @@ from bouncie_trip_fetcher import (
     fetch_bouncie_trips_in_range,
 )
 from coverage_tasks import (
-    collect_street_type_stats,
     process_area,
     process_coverage_calculation,
     process_incremental_coverage_calculation,
