@@ -1,11 +1,9 @@
 {% extends "base.html" %} {% block title %}Coverage Management{% endblock %} {%
 block head_content %}
-<!-- Leaflet CSS -->
+<!-- Mapbox GL JS CSS -->
 <link
+  href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css"
   rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-  crossorigin=""
 />
 
 <style>
@@ -619,18 +617,14 @@ block head_content %}
   </div>
 </div>
 {% endblock %} {% block extra_js %}
-<!-- Leaflet JS -->
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-  crossorigin=""
-></script>
-
+<!-- Mapbox GL JS -->
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
+<script>
+  // Set your Mapbox access token here
+  window.MAPBOX_ACCESS_TOKEN =
+    "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
+</script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
-<!-- Leaflet-image for exporting maps -->
-<script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
-
 <script src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"></script>
 {% endblock %}

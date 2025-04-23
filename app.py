@@ -4355,115 +4355,54 @@ async def get_storage_info():
 
 
 @app.get("/api/coverage_areas/{location_id}")
-async def get_coverage_area_details(
-    location_id: str,
-):
-    """Get detailed information about a coverage area, fetching GeoJSON from
-    GridFS.
-    """
+async def get_coverage_area_details(location_id: str):
+    """Get detailed information about a coverage area, fetching GeoJSON from GridFS."""
     try:
-        coverage_doc = None
-        try:
-            coverage_doc = await find_one_with_retry(
-                coverage_metadata_collection,
-                {"_id": ObjectId(location_id)},
-            )
-        except Exception:
-            coverage_doc = await find_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": location_id},
-            )
-
+        # fetch the metadata document
+        coverage_doc = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"_id": ObjectId(location_id)},
+        )
         if not coverage_doc:
-            logger.error(
-                "Coverage area not found for id: %s",
-                location_id,
-            )
             raise HTTPException(
-                status_code=404,
-                detail="Coverage area not found",
+                status_code=404, detail="Coverage area not found"
             )
 
-        location_name = coverage_doc.get("location", {}).get(
-            "display_name",
-            "Unknown",
-        )
-        location_obj = coverage_doc.get("location", {})
-        last_updated = SerializationHelper.serialize_datetime(
-            coverage_doc.get("last_updated"),
-        )
-        total_length = coverage_doc.get("total_length", 0)
-        driven_length = coverage_doc.get("driven_length", 0)
-        coverage_percentage = coverage_doc.get("coverage_percentage", 0)
-        status = coverage_doc.get("status", "unknown")
-        last_error = coverage_doc.get("last_error")
-
+        # pull in the GeoJSON
         streets_geojson = {}
-        total_streets = 0
-        needs_reprocessing = True
         gridfs_id = coverage_doc.get("streets_geojson_gridfs_id")
-
         if gridfs_id:
-            try:
-                fs = AsyncIOMotorGridFSBucket(db_manager.db)
-                gridfs_stream = await fs.open_download_stream(gridfs_id)
-                geojson_data_bytes = await gridfs_stream.read()
-                streets_geojson = json.loads(
-                    geojson_data_bytes.decode("utf-8"),
-                )
-                if isinstance(streets_geojson, dict) and isinstance(
-                    streets_geojson.get("features"),
-                    list,
-                ):
-                    total_streets = len(streets_geojson.get("features", []))
-                    needs_reprocessing = False
-                    logger.info(
-                        "Successfully loaded GeoJSON from GridFS for %s",
-                        location_name,
-                    )
-                else:
-                    logger.error(
-                        "Invalid GeoJSON structure loaded from GridFS for %s (ID: %s)",
-                        location_name,
-                        gridfs_id,
-                    )
-                    streets_geojson = {}
-            except NoFile:
-                logger.error(
-                    "GridFS file not found for ID %s (Location: %s)",
-                    gridfs_id,
-                    location_name,
-                )
-            except Exception as gridfs_err:
-                logger.error(
-                    "Error reading GeoJSON from GridFS ID %s for %s: %s",
-                    gridfs_id,
-                    location_name,
-                    gridfs_err,
-                )
-        else:
-            logger.warning(
-                "No streets_geojson_gridfs_id found for location: %s",
-                location_name,
-            )
+            fs = AsyncIOMotorGridFSBucket(db_manager.db)
+            stream = await fs.open_download_stream(gridfs_id)
+            bytes_data = await stream.read()
+            streets_geojson = json.loads(bytes_data.decode("utf-8"))
 
+        # compute metrics
+        total_length = coverage_doc.get(
+            "total_length_m", coverage_doc.get("total_length", 0)
+        )
+        driven_length = coverage_doc.get(
+            "driven_length_m", coverage_doc.get("driven_length", 0)
+        )
+        coverage_percentage = coverage_doc.get("coverage_percentage", 0.0)
+        total_streets = coverage_doc.get("total_segments", 0)  # from metadata
+        last_updated = coverage_doc.get("last_updated")
         street_types = coverage_doc.get("street_types", [])
-        if not street_types and not needs_reprocessing:
-            street_types = collect_street_type_stats(
-                streets_geojson.get("features", []),
-            )
+        status = coverage_doc.get("status", "completed")
+        last_error = coverage_doc.get("last_error")
+        needs_reprocessing = coverage_doc.get("needs_reprocessing", False)
 
+        # build the response
         result = {
             "success": True,
             "coverage": {
-                "_id": str(coverage_doc["_id"]),
-                "location_name": location_name,
-                "location": location_obj,
+                "location": coverage_doc["location"],
+                "location_name": coverage_doc["location"].get("display_name"),
                 "total_length": total_length,
                 "driven_length": driven_length,
                 "coverage_percentage": coverage_percentage,
                 "last_updated": last_updated,
-                "total_streets": total_streets,
+                "total_segments": total_streets,
                 "streets_geojson": streets_geojson,
                 "street_types": street_types,
                 "status": status,
@@ -4474,19 +4413,13 @@ async def get_coverage_area_details(
         }
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(
-            "Error fetching coverage area details for %s: %s",
-            location_id,
-            str(e),
-            exc_info=True,
-        )
-
+        logger.exception("Error fetching coverage details for %s", location_id)
         raise HTTPException(
             status_code=500,
-            detail=f"Internal server error fetching coverage details: {
-                e
-            !s}",
+            detail=f"Internal server error fetching coverage details: {e}",
         )
 
 

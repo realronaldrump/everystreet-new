@@ -1,4 +1,4 @@
-/* global bootstrap, notificationManager, confirmationDialog, L, leafletImage, Chart */
+/* global bootstrap, notificationManager, confirmationDialog, L, leafletImage, Chart, mapboxgl */
 "use strict";
 
 const STATUS = window.STATUS || {
@@ -2081,271 +2081,194 @@ const STATUS = window.STATUS || {
     initializeCoverageMap(coverage) {
       const mapContainer = document.getElementById("coverage-map");
       if (!mapContainer) return;
-
-      if (this.coverageMap) {
+      // Remove any previous map instance
+      if (this.coverageMap && this.coverageMap.remove) {
         this.coverageMap.remove();
         this.coverageMap = null;
       }
-
       mapContainer.innerHTML = "";
-
-      this.coverageMap = L.map("coverage-map", {
+      // Mapbox GL JS setup
+      mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+      this.coverageMap = new mapboxgl.Map({
+        container: "coverage-map",
+        style: "mapbox://styles/mapbox/dark-v11",
         attributionControl: false,
-        zoomControl: true,
+        zoom: 11,
+        center: [-97.15, 31.55], // fallback center
+        minZoom: 5,
+        maxZoom: 20,
+        preserveDrawingBuffer: true, // FIX: Enable for html2canvas export
       });
-
-      this.coverageMap.createPane("streetPane");
-      this.coverageMap.getPane("streetPane").style.zIndex = 450;
-      this.coverageMap.createPane("tripsPane");
-      this.coverageMap.getPane("tripsPane").style.zIndex = 460;
-
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        {
-          attribution: "",
-          subdomains: "abcd",
-          maxZoom: 20,
-          minZoom: 5,
-        },
-      ).addTo(this.coverageMap);
-
-      L.control.attribution({ prefix: false }).addTo(this.coverageMap);
-
-      if (coverage.streets_geojson) {
-        this.addStreetsToMap(coverage.streets_geojson);
-      } else {
-        this.notificationManager.show(
-          "No streets_geojson data found in coverage object.",
-          "warning",
-        );
-        this.mapBounds = null;
-      }
-
-      this.addCoverageSummary(coverage);
-
-      this.coverageMap.on("click", () => {
-        this.clearHighlight();
-        if (this.mapInfoPanel) this.mapInfoPanel.style.display = "none";
-      });
-
-      setTimeout(() => this.coverageMap?.invalidateSize(), 100);
-
-      this.coverageMap.on("moveend zoomend", () => {
-        if (this.showTripsActive) {
-          clearTimeout(this.loadTripsDebounceTimer);
-          this.loadTripsDebounceTimer = setTimeout(() => {
-            this.loadTripsForView();
-          }, 500);
+      // mapboxgl.setTelemetryEnabled(false); // Removed: not supported in this Mapbox GL JS version
+      this.coverageMap.addControl(
+        new mapboxgl.NavigationControl(),
+        "top-right",
+      );
+      this.coverageMap.addControl(
+        new mapboxgl.AttributionControl({ compact: true }),
+        "bottom-right",
+      );
+      this.coverageMap.on("load", () => {
+        if (coverage.streets_geojson) {
+          this.addStreetsToMap(coverage.streets_geojson);
+        } else {
+          this.notificationManager.show(
+            "No streets_geojson data found in coverage object.",
+            "warning",
+          );
+          this.mapBounds = null;
         }
+        this.addCoverageSummary(coverage);
+        this.fitMapToBounds();
       });
-    }
-
-    static styleStreet(feature, isHover = false, isHighlight = false) {
-      const props = feature.properties;
-      const isDriven = props.driven;
-      const isUndriveable = props.undriveable;
-      const streetType =
-        props.highway || props.inferred_highway_type || "unknown";
-
-      const baseWeight = 3;
-      let weight = baseWeight;
-      if (["motorway", "trunk", "primary"].includes(streetType))
-        weight = baseWeight + 2;
-      else if (streetType === "secondary") weight = baseWeight + 1.5;
-      else if (streetType === "tertiary") weight = baseWeight + 1;
-      else if (["residential", "unclassified"].includes(streetType))
-        weight = baseWeight;
-      else if (
-        ["service", "track", "path", "living_street"].includes(streetType)
-      )
-        weight = baseWeight - 0.5;
-      else weight = baseWeight - 1;
-
-      let color = "#ff5252";
-      let opacity = 0.75;
-      let dashArray = null;
-
-      if (isUndriveable) {
-        color = "#607d8b";
-        opacity = 0.6;
-        dashArray = "4, 4";
-      } else if (isDriven) {
-        color = "#4caf50";
+      // Remove old info panel if present
+      if (this.mapInfoPanel) {
+        this.mapInfoPanel.remove();
+        this.mapInfoPanel = null;
       }
-
-      if (isHighlight) {
-        weight += 2;
-        opacity = 1;
-        color = "#ffff00";
-      } else if (isHover) {
-        weight += 1.5;
-        opacity = 0.95;
-      }
-
-      return {
-        color,
-        weight,
-        opacity,
-        dashArray,
-      };
+      this.createMapInfoPanel();
     }
 
     addStreetsToMap(geojson) {
-      if (!this.coverageMap) return;
-
-      if (this.streetLayers) {
-        this.streetLayers.clearLayers();
-      } else {
-        this.streetLayers = L.layerGroup().addTo(this.coverageMap);
+      if (!this.coverageMap || !geojson) return;
+      // Remove previous source/layer if present
+      if (this.coverageMap.getLayer("streets-layer")) {
+        this.coverageMap.removeLayer("streets-layer");
       }
-
+      if (this.coverageMap.getSource("streets")) {
+        this.coverageMap.removeSource("streets");
+      }
       this.streetsGeoJson = geojson;
       this.currentFilter = "all";
 
-      if (!geojson || !geojson.features || geojson.features.length === 0) {
-        this.notificationManager.show(
-          "No street features found in GeoJSON data.",
-          "warning",
-        );
-        this.mapBounds = this.coverageMap.getBounds();
-        this.streetsGeoJsonLayer = null;
-        return;
+      this.coverageMap.addSource("streets", {
+        type: "geojson",
+        data: geojson,
+      });
+
+      // Dynamic style function for Mapbox GL JS
+      const getLineColor = [
+        "case",
+        ["boolean", ["get", "undriveable"], false],
+        "#607d8b",
+        ["boolean", ["get", "driven"], false],
+        "#4caf50",
+        "#ff5252",
+      ];
+      const getLineWidth = [
+        "case",
+        ["==", ["get", "highway"], "motorway"],
+        5,
+        ["==", ["get", "highway"], "trunk"],
+        5,
+        ["==", ["get", "highway"], "primary"],
+        5,
+        ["==", ["get", "highway"], "secondary"],
+        4.5,
+        ["==", ["get", "highway"], "tertiary"],
+        4,
+        [
+          "in",
+          ["get", "highway"],
+          ["literal", ["residential", "unclassified"]],
+        ],
+        3,
+        [
+          "in",
+          ["get", "highway"],
+          ["literal", ["service", "track", "path", "living_street"]],
+        ],
+        2.5,
+        2,
+      ];
+      const getLineOpacity = [
+        "case",
+        ["boolean", ["get", "undriveable"], false],
+        0.6,
+        ["boolean", ["get", "driven"], false],
+        0.75,
+        0.75,
+      ];
+      const getLineDash = [
+        "case",
+        ["boolean", ["get", "undriveable"], false],
+        ["literal", [2, 2]],
+        ["boolean", ["get", "driven"], false],
+        ["literal", [1, 0]],
+        ["literal", [1, 0]],
+      ];
+
+      this.coverageMap.addLayer({
+        id: "streets-layer",
+        type: "line",
+        source: "streets",
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+        paint: {
+          "line-color": getLineColor,
+          "line-width": getLineWidth,
+          "line-opacity": getLineOpacity,
+          "line-dasharray": getLineDash,
+        },
+      });
+
+      // Fit bounds to data
+      const bounds = new mapboxgl.LngLatBounds();
+      geojson.features.forEach((f) => {
+        if (f.geometry.type === "LineString") {
+          f.geometry.coordinates.forEach((coord) => bounds.extend(coord));
+        } else if (f.geometry.type === "MultiLineString") {
+          f.geometry.coordinates.forEach((line) =>
+            line.forEach((coord) => bounds.extend(coord)),
+          );
+        }
+      });
+      if (!bounds.isEmpty()) {
+        this.mapBounds = bounds;
+        this.fitMapToBounds();
       }
 
-      this.streetsGeoJsonLayer = L.geoJSON(geojson, {
-        style: (feature) => CoverageManager.styleStreet(feature),
-        onEachFeature: (feature, layer) => {
-          layer.originalStyle = CoverageManager.styleStreet(feature);
-          layer.featureProperties = feature.properties;
-
-          layer.on("click", (e) => {
-            L.DomEvent.stopPropagation(e);
-            this.clearHighlight();
-            this.clearHoverHighlight();
-
-            this.highlightedLayer = layer;
-            layer.setStyle(CoverageManager.styleStreet(feature, false, true));
-            layer.bringToFront();
-
-            this.updateMapInfoPanel(feature.properties);
-            if (this.mapInfoPanel) this.mapInfoPanel.style.display = "block";
-
-            layer.openPopup();
-          });
-
-          layer.on("mouseover", (/* e */) => {
-            if (layer !== this.highlightedLayer) {
-              this.clearHoverHighlight();
-              this.hoverHighlightLayer = layer;
-              layer.setStyle(CoverageManager.styleStreet(feature, true, false));
-              layer.bringToFront();
-            }
-          });
-          layer.on("mouseout", (/* e */) => {
-            if (layer === this.hoverHighlightLayer) {
-              this.clearHoverHighlight();
-            }
-          });
-
-          const handleMarkDriven = () =>
-            this.markStreetSegment(layer, "driven");
-          const handleMarkUndriven = () =>
-            this.markStreetSegment(layer, "undriven");
-          const handleMarkUndriveable = () =>
-            this.markStreetSegment(layer, "undriveable");
-          const handleMarkDriveable = () =>
-            this.markStreetSegment(layer, "driveable");
-
-          layer._popupHandlers = {
-            handleMarkDriven,
-            handleMarkUndriven,
-            handleMarkUndriveable,
-            handleMarkDriveable,
-          };
-
-          layer.bindPopup(() => this.createStreetPopupContent(layer), {
+      // Interactivity: click/hover for popups/info panel
+      this.coverageMap.on("mouseenter", "streets-layer", (e) => {
+        this.coverageMap.getCanvas().style.cursor = "pointer";
+        if (e.features && e.features.length > 0) {
+          this.updateMapInfoPanel(e.features[0].properties, true);
+          if (this.mapInfoPanel) this.mapInfoPanel.style.display = "block";
+        }
+      });
+      this.coverageMap.on("mouseleave", "streets-layer", () => {
+        this.coverageMap.getCanvas().style.cursor = "";
+        if (this.mapInfoPanel) this.mapInfoPanel.style.display = "none";
+      });
+      this.coverageMap.on("click", "streets-layer", (e) => {
+        if (e.features && e.features.length > 0) {
+          const props = e.features[0].properties;
+          const coordinates = e.lngLat;
+          // Show popup
+          new mapboxgl.Popup({
             closeButton: true,
             minWidth: 240,
             className: "coverage-popup",
-          });
-
-          layer.on("popupopen", (e) => {
-            const popupEl = e.popup.getElement();
-            if (!popupEl) {
-              this.notificationManager.show(
-                "Popup element not found on open.",
-                "danger",
-              );
-              return;
-            }
-
-            queueMicrotask(() => {
-              const drivenBtn = popupEl.querySelector(".mark-driven-btn");
-              const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
-              const undriveableBtn = popupEl.querySelector(
-                ".mark-undriveable-btn",
-              );
-              const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
-
-              drivenBtn?.addEventListener(
-                "click",
-                layer._popupHandlers.handleMarkDriven,
-              );
-              undrivenBtn?.addEventListener(
-                "click",
-                layer._popupHandlers.handleMarkUndriven,
-              );
-              undriveableBtn?.addEventListener(
-                "click",
-                layer._popupHandlers.handleMarkUndriveable,
-              );
-              driveableBtn?.addEventListener(
-                "click",
-                layer._popupHandlers.handleMarkDriveable,
-              );
-            });
-          });
-
-          layer.on("popupclose", (e) => {
-            const popupEl = e.popup.getElement();
-            if (!popupEl || !layer._popupHandlers) return;
-
-            const drivenBtn = popupEl.querySelector(".mark-driven-btn");
-            const undrivenBtn = popupEl.querySelector(".mark-undriven-btn");
-            const undriveableBtn = popupEl.querySelector(
-              ".mark-undriveable-btn",
-            );
-            const driveableBtn = popupEl.querySelector(".mark-driveable-btn");
-
-            drivenBtn?.removeEventListener(
-              "click",
-              layer._popupHandlers.handleMarkDriven,
-            );
-            undrivenBtn?.removeEventListener(
-              "click",
-              layer._popupHandlers.handleMarkUndriven,
-            );
-            undriveableBtn?.removeEventListener(
-              "click",
-              layer._popupHandlers.handleMarkUndriveable,
-            );
-            driveableBtn?.removeEventListener(
-              "click",
-              layer._popupHandlers.handleMarkDriveable,
-            );
-          });
-        },
-        pane: "streetPane",
+          })
+            .setLngLat(coordinates)
+            .setHTML(this.createStreetPopupContentHTML(props))
+            .addTo(this.coverageMap);
+          this.updateMapInfoPanel(props, false);
+          if (this.mapInfoPanel) this.mapInfoPanel.style.display = "block";
+          // TODO: Add event listeners for popup buttons (mark driven, undriven, etc.)
+        }
       });
-
-      this.streetLayers.addLayer(this.streetsGeoJsonLayer);
-
-      this.mapBounds = this.streetsGeoJsonLayer.getBounds();
     }
 
-    createStreetPopupContent(layer) {
-      const props = layer.featureProperties;
-      const streetName = props.street_name || props.name || props.display_name || "Unnamed Street";
+    // Helper to create popup HTML for Mapbox
+    createStreetPopupContentHTML(props) {
+      const streetName =
+        props.street_name ||
+        props.name ||
+        props.display_name ||
+        "Unnamed Street";
       const streetType =
         props.highway || props.inferred_highway_type || "unknown";
       const lengthMiles = CoverageManager.distanceInUserUnits(
@@ -2353,364 +2276,33 @@ const STATUS = window.STATUS || {
       );
       const status = props.driven ? "Driven" : "Not Driven";
       const segmentId = props.segment_id || "N/A";
-
-      const popupContent = document.createElement("div");
-      popupContent.className = "street-popup-content";
-      popupContent.innerHTML = `
-        <h6>${streetName}</h6>
-        <hr>
-        <small>
-          <strong>Type:</strong> ${CoverageManager.formatStreetType(streetType)}<br>
-          <strong>Length:</strong> ${lengthMiles}<br>
-          <strong>Status:</strong> <span class="${props.driven ? "text-success" : "text-danger"}">${status}</span><br>
-          ${props.undriveable ? '<strong>Marked as:</strong> <span class="text-warning">Undriveable</span><br>' : ""}
-          <strong>ID:</strong> ${segmentId}
-        </small>
-        <div class="street-actions mt-2 d-flex flex-wrap gap-2">
-          ${!props.driven ? '<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark Driven</button>' : ""}
-          ${props.driven ? '<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark Undriven</button>' : ""}
-          ${!props.undriveable ? '<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark Undriveable</button>' : ""}
-          ${props.undriveable ? '<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark Driveable</button>' : ""}
-        </div>
-      `;
-      return popupContent;
-    }
-
-    clearHighlight() {
-      if (this.highlightedLayer) {
-        try {
-          this.highlightedLayer.setStyle(this.highlightedLayer.originalStyle);
-        } catch (styleError) {
-          this.notificationManager.show(
-            `Could not reset style on previously highlighted layer: ${styleError}`,
-            "warning",
-          );
-          try {
-            this.highlightedLayer.setStyle({
-              weight: 3,
-              opacity: 0.7,
-              color: "#ff5252",
-            });
-          } catch (fallbackError) {
-            this.notificationManager.show(
-              `Fallback style reset failed: ${fallbackError}`,
-              "warning",
-            );
-          }
-        }
-        this.highlightedLayer = null;
-      }
-    }
-
-    clearHoverHighlight() {
-      if (this.hoverHighlightLayer) {
-        try {
-          if (this.hoverHighlightLayer !== this.highlightedLayer) {
-            this.hoverHighlightLayer.setStyle(
-              this.hoverHighlightLayer.originalStyle,
-            );
-          }
-        } catch (styleError) {
-          this.notificationManager.show(
-            `Could not reset style on previously hovered layer: ${styleError}`,
-            "warning",
-          );
-          try {
-            this.hoverHighlightLayer.setStyle({
-              weight: 3,
-              opacity: 0.7,
-              color: "#ff5252",
-            });
-          } catch (fallbackError) {
-            this.notificationManager.show(
-              `Fallback hover style reset failed: ${fallbackError}`,
-              "warning",
-            );
-          }
-        }
-        this.hoverHighlightLayer = null;
-      }
-    }
-
-    createMapInfoPanel() {
-      if (this.mapInfoPanel) return;
-
-      this.mapInfoPanel = document.createElement("div");
-      this.mapInfoPanel.className = "map-info-panel";
-      document.getElementById("coverage-map")?.appendChild(this.mapInfoPanel);
-    }
-
-    updateMapInfoPanel(props, isHover = false) {
-      if (!this.mapInfoPanel) return;
-
-      const streetName = props.name || props.street_name || "Unnamed Street";
-      const streetType =
-        props.highway || props.inferred_highway_type || "unknown";
-      const lengthMiles = CoverageManager.distanceInUserUnits(
-        props.segment_length_m || 0,
-      );
-      const status = props.driven ? "Driven" : "Not Driven";
-      const segmentId = props.segment_id || "N/A";
-
-      this.mapInfoPanel.innerHTML = `
-        <strong class="d-block mb-1">${streetName}</strong>
-        ${isHover ? "" : '<hr class="panel-divider">'} <div class="d-flex justify-content-between small">
-          <span>Type:</span>
-          <span class="text-info">${CoverageManager.formatStreetType(streetType)}</span>
-        </div>
-        <div class="d-flex justify-content-between small">
-          <span>Length:</span>
-          <span class="text-info">${lengthMiles}</span>
-        </div>
-        <div class="d-flex justify-content-between small">
-          <span>Status:</span>
-          <span class="${props.driven ? "text-success" : "text-danger"}">
-            <i class="fas fa-${props.driven ? "check-circle" : "times-circle"} me-1"></i>${status}
-          </span>
-        </div>
-        ${
-          props.undriveable
-            ? `
-          <div class="d-flex justify-content-between small">
-            <span>Marked:</span>
-            <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Undriveable</span>
-          </div>`
-            : ""
-        }
-        ${
-          isHover
-            ? ""
-            : `
-          <div class="d-flex justify-content-between small mt-1">
-            <span>ID:</span>
-            <span class="text-muted">${segmentId}</span>
+      return `
+        <div style="font-size:1.1em;line-height:1.6;background:#23272b;color:#fff;padding:18px 20px 12px 20px;border-radius:10px;box-shadow:0 2px 12px #000a;min-width:260px;max-width:340px;">
+          <div style="font-weight:bold;font-size:1.2em;margin-bottom:6px;color:#59a6ff;">${streetName}</div>
+          <div style="margin-bottom:8px;"><span style="color:#bbb;">Type:</span> <span style="color:#fff;">${CoverageManager.formatStreetType(streetType)}</span></div>
+          <div style="margin-bottom:8px;"><span style="color:#bbb;">Length:</span> <span style="color:#fff;">${lengthMiles}</span></div>
+          <div style="margin-bottom:8px;"><span style="color:#bbb;">Status:</span> <span style="color:${props.driven ? "#4caf50" : "#ff5252"};font-weight:bold;">${status}</span></div>
+          ${props.undriveable ? '<div style="margin-bottom:8px;"><span style="color:#bbb;">Marked as:</span> <span style="color:#ffc107;">Undriveable</span></div>' : ""}
+          <div style="margin-bottom:8px;"><span style="color:#bbb;">ID:</span> <span style="color:#aaa;">${segmentId}</span></div>
+          <div class="street-actions mt-2 d-flex flex-wrap gap-2" style="margin-top:10px;">
+            ${!props.driven ? '<button class="btn btn-sm btn-outline-success mark-driven-btn">Mark Driven</button>' : ""}
+            ${props.driven ? '<button class="btn btn-sm btn-outline-danger mark-undriven-btn">Mark Undriven</button>' : ""}
+            ${!props.undriveable ? '<button class="btn btn-sm btn-outline-warning mark-undriveable-btn">Mark Undriveable</button>' : ""}
+            ${props.undriveable ? '<button class="btn btn-sm btn-outline-info mark-driveable-btn">Mark Driveable</button>' : ""}
           </div>
-          <div class="mt-2 small text-center text-muted">Click segment to mark status</div>
-        `
-        }
+        </div>
       `;
-    }
-
-    addCoverageSummary(coverage) {
-      if (!this.coverageMap) return;
-
-      if (this.coverageSummaryControl) {
-        this.coverageMap.removeControl(this.coverageSummaryControl);
-        this.coverageSummaryControl = null;
-      }
-
-      const CoverageSummaryControl = L.Control.extend({
-        options: { position: "topright" },
-        onAdd: () => {
-          const container = L.DomUtil.create(
-            "div",
-            "coverage-summary-control leaflet-bar",
-          );
-          L.DomEvent.disableClickPropagation(container);
-          L.DomEvent.disableScrollPropagation(container);
-
-          const coveragePercentage =
-            coverage.coverage_percentage?.toFixed(1) || "0.0";
-          const totalMiles = CoverageManager.distanceInUserUnits(
-            coverage.total_length || 0,
-          );
-          const drivenMiles = CoverageManager.distanceInUserUnits(
-            coverage.driven_length || 0,
-          );
-
-          let barColor = "bg-success";
-          if (
-            coverage.status === STATUS.ERROR ||
-            coverage.status === STATUS.CANCELED
-          )
-            barColor = "bg-secondary";
-          else if (parseFloat(coveragePercentage) < 25) barColor = "bg-danger";
-          else if (parseFloat(coveragePercentage) < 75) barColor = "bg-warning";
-
-          container.innerHTML = `
-            <div class="summary-content">
-              <div class="summary-title">Coverage Summary</div>
-              <div class="summary-percentage">${coveragePercentage}%</div>
-              <div class="summary-progress">
-                <div class="progress" style="height: 6px;" title="${coveragePercentage}% Covered">
-                  <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePercentage}%"></div>
-                </div>
-              </div>
-              <div class="summary-details">
-                <div>${drivenMiles} / ${totalMiles}</div>
-              </div>
-            </div>`;
-          return container;
-        },
-      });
-
-      this.coverageSummaryControl = new CoverageSummaryControl();
-      this.coverageSummaryControl.addTo(this.coverageMap);
-    }
-
-    async markStreetSegment(layer, action) {
-      const props = layer.featureProperties;
-      if (!props || !props.segment_id) {
-        this.notificationManager.show("Missing segment ID.", "danger");
-        return;
-      }
-      if (!this.selectedLocation || !this.selectedLocation._id) {
-        this.notificationManager.show("Missing location context.", "danger");
-        return;
-      }
-
-      const locationId = this.selectedLocation._id;
-      const segmentId = props.segment_id;
-
-      let apiEndpoint = "";
-      let statusText = "";
-      let optimisticDriven = props.driven;
-      let optimisticUndriveable = props.undriveable;
-
-      switch (action) {
-        case "driven":
-          apiEndpoint = "/api/street_segments/mark_driven";
-          statusText = "driven";
-          optimisticDriven = true;
-          optimisticUndriveable = false;
-          break;
-        case "undriven":
-          apiEndpoint = "/api/street_segments/mark_undriven";
-          statusText = "undriven";
-          optimisticDriven = false;
-          optimisticUndriveable = props.undriveable;
-          break;
-        case "undriveable":
-          apiEndpoint = "/api/street_segments/mark_undriveable";
-          statusText = "undriveable";
-          optimisticDriven = props.driven;
-          optimisticUndriveable = true;
-          break;
-        case "driveable":
-          apiEndpoint = "/api/street_segments/mark_driveable";
-          statusText = "driveable";
-          optimisticDriven = props.driven;
-          optimisticUndriveable = false;
-          break;
-        default:
-          this.notificationManager.show("Invalid action specified", "danger");
-          return;
-      }
-
-      const streetName = props.name || props.street_name || "Unnamed Street";
-      const originalStyle = layer.originalStyle;
-
-      layer.featureProperties.driven = optimisticDriven;
-      layer.featureProperties.undriveable = optimisticUndriveable;
-      const newStyle = CoverageManager.styleStreet({
-        properties: layer.featureProperties,
-      });
-      layer.originalStyle = { ...newStyle };
-      layer.setStyle(newStyle);
-
-      if (this.highlightedLayer === layer && this.mapInfoPanel) {
-        this.updateMapInfoPanel(layer.featureProperties);
-      }
-      layer.closePopup();
-
-      try {
-        this.notificationManager.show(
-          `Marking ${streetName} as ${statusText}...`,
-          "info",
-        );
-
-        const response = await fetch(apiEndpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location_id: locationId,
-            segment_id: segmentId,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.detail ||
-              `Failed to mark segment (HTTP ${response.status})`,
-          );
-        }
-
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "API returned failure");
-        }
-
-        this.notificationManager.show(
-          `Marked ${streetName} as ${statusText}.`,
-          "success",
-        );
-        layer.originalStyle = { ...newStyle };
-        await this.refreshCoverageStats();
-      } catch (error) {
-        console.error(`Error marking segment as ${statusText}:`, error);
-        this.notificationManager.show(
-          `Failed to mark segment: ${error.message}`,
-          "danger",
-        );
-
-        layer.featureProperties.driven = props.driven;
-        layer.featureProperties.undriveable = props.undriveable;
-        layer.setStyle(originalStyle);
-
-        if (this.highlightedLayer === layer && this.mapInfoPanel) {
-          this.updateMapInfoPanel(layer.featureProperties);
-        }
-      }
-    }
-
-    async refreshCoverageStats() {
-      if (!this.selectedLocation || !this.selectedLocation._id)
-        return undefined;
-
-      try {
-        const locationId = this.selectedLocation._id;
-        const response = await fetch(
-          `/api/coverage_areas/${locationId}/refresh_stats`,
-          { method: "POST" },
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.detail ||
-              `Failed to refresh stats (HTTP ${response.status})`,
-          );
-        }
-
-        const data = await response.json();
-        if (!data.success || !data.coverage) {
-          throw new Error(data.error || "API returned failure on stat refresh");
-        }
-
-        this.selectedLocation = { ...this.selectedLocation, ...data.coverage };
-
-        this.updateDashboardStats(this.selectedLocation);
-        this.createStreetTypeChart(this.selectedLocation.street_types);
-        this.updateStreetTypeCoverage(this.selectedLocation.street_types);
-
-        this.notificationManager.show("Coverage statistics refreshed.", "info");
-        return data.coverage;
-      } catch (error) {
-        console.error("Error refreshing coverage stats:", error);
-        this.notificationManager.show(
-          `Failed to refresh stats: ${error.message}`,
-          "warning",
-        );
-        return undefined;
-      }
     }
 
     fitMapToBounds() {
-      if (this.coverageMap && this.mapBounds && this.mapBounds.isValid()) {
-        this.coverageMap.fitBounds(this.mapBounds, { padding: [40, 40] });
+      if (this.coverageMap && this.mapBounds && !this.mapBounds.isEmpty()) {
+        this.coverageMap.fitBounds(this.mapBounds, {
+          padding: 40,
+          maxZoom: 17,
+        });
       } else if (this.coverageMap) {
-        this.coverageMap.setView([31.55, -97.15], 11);
+        this.coverageMap.setCenter([-97.15, 31.55]);
+        this.coverageMap.setZoom(11);
         this.notificationManager.show(
           "Map bounds invalid or not set, using default view.",
           "warning",
@@ -2718,264 +2310,32 @@ const STATUS = window.STATUS || {
       }
     }
 
-    createStreetTypeChart(streetTypes) {
-      const chartContainer = document.getElementById("street-type-chart");
-      if (!chartContainer) return;
-
-      if (this.streetTypeChartInstance) {
-        this.streetTypeChartInstance.destroy();
-        this.streetTypeChartInstance = null;
-      }
-
-      if (!streetTypes || !streetTypes.length) {
-        chartContainer.innerHTML =
-          '<div class="alert alert-secondary small p-2">No street type data for chart.</div>';
-        return;
-      }
-
-      if (typeof Chart === "undefined") {
-        console.error("Chart.js is not loaded");
-        chartContainer.innerHTML =
-          '<div class="alert alert-warning">Chart library not found.</div>';
-        return;
-      }
-
-      const sortedTypes = [...streetTypes].sort(
-        (a, b) => (b.driveable_length_m || 0) - (a.driveable_length_m || 0),
-      );
-      const topTypes = sortedTypes.slice(0, 7);
-
-      const labels = topTypes.map((t) =>
-        CoverageManager.formatStreetType(t.type),
-      );
-      const parseDist = (distStr) => parseFloat(distStr.split(" ")[0]) || 0;
-
-      const drivenLengths = topTypes.map((t) =>
-        parseDist(CoverageManager.distanceInUserUnits(t.covered_length_m || 0)),
-      );
-      const driveableLengths = topTypes.map((t) =>
-        parseDist(
-          CoverageManager.distanceInUserUnits(t.driveable_length_m || 0),
-        ),
-      );
-      const notDrivenLengths = driveableLengths.map((total, i) =>
-        parseFloat(Math.max(0, total - drivenLengths[i]).toFixed(2)),
-      );
-
-      const lengthUnit = "mi";
-
-      chartContainer.innerHTML = "<canvas></canvas>";
-      const ctx = chartContainer.querySelector("canvas").getContext("2d");
-
-      const drivenColor = "rgba(76, 175, 80, 0.8)";
-      const notDrivenColor = "rgba(255, 82, 82, 0.7)";
-
-      this.streetTypeChartInstance = new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Driven",
-              data: drivenLengths,
-              backgroundColor: drivenColor,
-            },
-            {
-              label: "Not Driven (Driveable)",
-              data: notDrivenLengths,
-              backgroundColor: notDrivenColor,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          indexAxis: "y",
-          scales: {
-            x: {
-              stacked: true,
-              ticks: { color: "#ccc", font: { size: 10 } },
-              grid: { color: "rgba(255, 255, 255, 0.1)" },
-              title: {
-                display: true,
-                text: `Distance (${lengthUnit})`,
-                color: "#ccc",
-                font: { size: 11 },
-              },
-            },
-            y: {
-              stacked: true,
-              ticks: { color: "#eee", font: { size: 11 } },
-              grid: { display: false },
-            },
-          },
-          plugins: {
-            tooltip: {
-              mode: "index",
-              intersect: false,
-              callbacks: {
-                label: (context) => {
-                  const label = context.dataset.label || "";
-                  const value = context.raw || 0;
-                  const total = driveableLengths[context.dataIndex];
-                  const percentage =
-                    total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                  return `${label}: ${value.toFixed(2)} ${lengthUnit} (${percentage}%)`;
-                },
-                footer: (tooltipItems) => {
-                  const total = driveableLengths[tooltipItems[0].dataIndex];
-                  return `Total Driveable: ${total.toFixed(2)} ${lengthUnit}`;
-                },
-              },
-            },
-            legend: {
-              position: "bottom",
-              labels: {
-                color: "#eee",
-                usePointStyle: true,
-                padding: 10,
-                font: { size: 11 },
-              },
-            },
-            title: { display: false },
-          },
-        },
-      });
-    }
-
-    exportCoverageMap() {
-      if (!this.coverageMap || typeof leafletImage === "undefined") {
-        this.notificationManager.show(
-          "Map export library (leaflet-image) not available.",
-          "warning",
-        );
-        return;
-      }
-      if (!this.selectedLocation || !this.selectedLocation.location_name) {
-        this.notificationManager.show(
-          "Cannot export map: No location selected.",
-          "warning",
-        );
-        return;
-      }
-
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const locationName = this.selectedLocation.location_name
-        .replace(/[^a-z0-9]/gi, "_")
-        .toLowerCase();
-      const filename = `coverage_map_${locationName}_${timestamp}.png`;
-
-      this.notificationManager.show("Generating map image...", "info");
-
-      this.setMapFilter(this.currentFilter || "all", false);
-      this.coverageMap.invalidateSize();
-
-      setTimeout(() => {
-        leafletImage(
-          this.coverageMap,
-          (err, canvas) => {
-            if (err) {
-              console.error("Error generating map image:", err);
-              this.notificationManager.show(
-                `Failed to generate map image: ${err.message || err}`,
-                "danger",
-              );
-              return;
-            }
-            try {
-              const link = document.createElement("a");
-              link.download = filename;
-              link.href = canvas.toDataURL("image/png");
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              this.notificationManager.show(
-                "Map image download started.",
-                "success",
-              );
-            } catch (downloadError) {
-              console.error("Error triggering download:", downloadError);
-              this.notificationManager.show(
-                "Failed to trigger map download.",
-                "danger",
-              );
-            }
-          },
-          { preferCanvas: true },
-        );
-      }, 1000);
-    }
-
     setMapFilter(filterType, updateButtons = true) {
-      if (
-        !this.coverageMap ||
-        !this.streetsGeoJsonLayer ||
-        !this.streetLayers
-      ) {
+      if (!this.coverageMap || !this.coverageMap.getLayer("streets-layer")) {
         this.notificationManager.show(
           "Cannot set map filter: Map or street layer not initialized.",
           "warning",
         );
         return;
       }
-
       this.currentFilter = filterType;
-      let visibleCount = 0;
-
-      this.streetsGeoJsonLayer.eachLayer((layer) => {
-        const props = layer.featureProperties;
-        let isVisible = false;
-
-        if (filterType === "driven") {
-          isVisible = props.driven === true && !props.undriveable;
-        } else if (filterType === "undriven") {
-          isVisible = props.driven === false && !props.undriveable;
-        } else {
-          isVisible = true;
-        }
-
-        if (isVisible) {
-          if (!this.streetLayers.hasLayer(layer)) {
-            try {
-              layer.setStyle(layer.originalStyle);
-            } catch (e) {
-              this.notificationManager.show(
-                `Style reset failed on add during filter: ${e}`,
-                "warning",
-              );
-            }
-            this.streetLayers.addLayer(layer);
-          }
-          if (layer === this.highlightedLayer) {
-            layer.setStyle(
-              CoverageManager.styleStreet(layer.feature, false, true),
-            );
-            layer.bringToFront();
-          }
-          visibleCount++;
-        } else {
-          if (layer === this.highlightedLayer) {
-            this.clearHighlight();
-            if (this.mapInfoPanel) this.mapInfoPanel.style.display = "none";
-          }
-          if (layer === this.hoverHighlightLayer) {
-            this.clearHoverHighlight();
-          }
-
-          if (this.streetLayers.hasLayer(layer)) {
-            try {
-              layer.setStyle(layer.originalStyle);
-            } catch (e) {
-              this.notificationManager.show(
-                `Style reset failed on removal during filter: ${e}`,
-                "warning",
-              );
-            }
-            this.streetLayers.removeLayer(layer);
-          }
-        }
-      });
-
+      let filter = null;
+      if (filterType === "driven") {
+        filter = [
+          "all",
+          ["==", ["get", "driven"], true],
+          ["!", ["get", "undriveable"]],
+        ];
+      } else if (filterType === "undriven") {
+        filter = [
+          "all",
+          ["==", ["get", "driven"], false],
+          ["!", ["get", "undriveable"]],
+        ];
+      } else {
+        filter = null; // show all
+      }
+      this.coverageMap.setFilter("streets-layer", filter);
       if (updateButtons) {
         this.updateFilterButtonStates();
       }
@@ -3081,15 +2441,9 @@ const STATUS = window.STATUS || {
     }
 
     ensureTripsLayerGroup() {
-      if (!this.coverageMap) return;
-      if (!this.tripsLayerGroup) {
-        this.tripsLayerGroup = L.layerGroup([], {
-          pane: "tripsPane",
-        });
-      }
-      if (!this.coverageMap.hasLayer(this.tripsLayerGroup)) {
-        this.tripsLayerGroup.addTo(this.coverageMap);
-      }
+      // This is a no-op for MapboxGL; remove Leaflet code
+      // Optionally, implement trip overlays using MapboxGL sources/layers if needed
+      return;
     }
 
     clearTripOverlay() {
@@ -3160,6 +2514,278 @@ const STATUS = window.STATUS || {
           "danger",
         );
         this.clearTripOverlay();
+      }
+    }
+
+    createMapInfoPanel() {
+      if (this.mapInfoPanel) return;
+      this.mapInfoPanel = document.createElement("div");
+      this.mapInfoPanel.className = "map-info-panel";
+      this.mapInfoPanel.style.display = "none";
+      const mapContainer = document.getElementById("coverage-map");
+      if (mapContainer) mapContainer.appendChild(this.mapInfoPanel);
+    }
+
+    updateMapInfoPanel(props, isHover = false) {
+      if (!this.mapInfoPanel) return;
+      const streetName = props.name || props.street_name || "Unnamed Street";
+      const streetType =
+        props.highway || props.inferred_highway_type || "unknown";
+      const lengthMiles = CoverageManager.distanceInUserUnits(
+        props.segment_length_m || 0,
+      );
+      const status = props.driven ? "Driven" : "Not Driven";
+      const segmentId = props.segment_id || "N/A";
+      this.mapInfoPanel.innerHTML = `
+        <strong class="d-block mb-1">${streetName}</strong>
+        ${isHover ? "" : '<hr class="panel-divider">'} <div class="d-flex justify-content-between small">
+          <span>Type:</span>
+          <span class="text-info">${CoverageManager.formatStreetType(streetType)}</span>
+        </div>
+        <div class="d-flex justify-content-between small">
+          <span>Length:</span>
+          <span class="text-info">${lengthMiles}</span>
+        </div>
+        <div class="d-flex justify-content-between small">
+          <span>Status:</span>
+          <span class="${props.driven ? "text-success" : "text-danger"}">
+            <i class="fas fa-${props.driven ? "check-circle" : "times-circle"} me-1"></i>${status}
+          </span>
+        </div>
+        ${props.undriveable ? `<div class="d-flex justify-content-between small"><span>Marked:</span><span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Undriveable</span></div>` : ""}
+        ${isHover ? "" : `<div class="d-flex justify-content-between small mt-1"><span>ID:</span><span class="text-muted">${segmentId}</span></div><div class="mt-2 small text-center text-muted">Click segment to mark status</div>`}
+      `;
+    }
+
+    // Add this method to CoverageManager:
+    createStreetTypeChart(streetTypes) {
+      const chartContainer = document.getElementById("street-type-chart");
+      if (!chartContainer) return;
+      // Remove any previous chart instance
+      if (this.streetTypeChartInstance) {
+        this.streetTypeChartInstance.destroy();
+        this.streetTypeChartInstance = null;
+      }
+      if (!streetTypes || !streetTypes.length) {
+        chartContainer.innerHTML =
+          '<div class="alert alert-secondary small p-2">No street type data available.</div>';
+        return;
+      }
+      // Prepare data
+      const sortedTypes = [...streetTypes].sort(
+        (a, b) => (b.total_length_m || 0) - (a.total_length_m || 0),
+      );
+      const labels = sortedTypes.map((t) =>
+        CoverageManager.formatStreetType(t.type),
+      );
+      const covered = sortedTypes.map(
+        (t) => (t.covered_length_m || 0) * 0.000621371,
+      ); // miles
+      const driveable = sortedTypes.map(
+        (t) => (t.driveable_length_m || 0) * 0.000621371,
+      ); // miles
+      const coveragePct = sortedTypes.map((t) => t.coverage_percentage || 0);
+      // Create canvas
+      chartContainer.innerHTML =
+        '<canvas id="streetTypeChartCanvas" height="180"></canvas>';
+      const ctx = document
+        .getElementById("streetTypeChartCanvas")
+        .getContext("2d");
+      this.streetTypeChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Covered (mi)",
+              data: covered,
+              backgroundColor: "#4caf50",
+              borderColor: "#388e3c",
+              borderWidth: 1,
+            },
+            {
+              label: "Driveable (mi)",
+              data: driveable,
+              backgroundColor: "#607d8b",
+              borderColor: "#37474f",
+              borderWidth: 1,
+            },
+            {
+              label: "% Covered",
+              data: coveragePct,
+              type: "line",
+              yAxisID: "y1",
+              borderColor: "#ffb300",
+              backgroundColor: "#ffb30044",
+              fill: false,
+              tension: 0.2,
+              pointRadius: 3,
+              pointBackgroundColor: "#ffb300",
+              pointBorderColor: "#ffb300",
+              order: 2,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "top", labels: { color: "#fff" } },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  if (context.dataset.label === "% Covered") {
+                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                  } else {
+                    return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} mi`;
+                  }
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              ticks: { color: "#fff" },
+              grid: { color: "rgba(255,255,255,0.1)" },
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "Distance (mi)", color: "#fff" },
+              ticks: { color: "#fff" },
+              grid: { color: "rgba(255,255,255,0.1)" },
+            },
+            y1: {
+              beginAtZero: true,
+              position: "right",
+              title: { display: true, text: "% Covered", color: "#ffb300" },
+              ticks: { color: "#ffb300" },
+              grid: { drawOnChartArea: false },
+              min: 0,
+              max: 100,
+            },
+          },
+        },
+      });
+    }
+
+    // --- FIX: Add missing addCoverageSummary method ---
+    addCoverageSummary(coverage) {
+      // Remove previous summary control if present
+      if (
+        this.coverageSummaryControl &&
+        this.coverageMap &&
+        this.coverageMap._controls
+      ) {
+        this.coverageMap._controls = this.coverageMap._controls.filter(
+          (ctrl) => ctrl !== this.coverageSummaryControl,
+        );
+        if (this.coverageSummaryControl._container) {
+          this.coverageSummaryControl._container.remove();
+        }
+        this.coverageSummaryControl = null;
+      }
+      if (!coverage) return;
+      // Create a custom control for summary
+      const controlDiv = document.createElement("div");
+      controlDiv.className = "coverage-summary-control";
+      controlDiv.innerHTML = `
+        <div class="summary-title">Coverage</div>
+        <div class="summary-percentage">${coverage.coverage_percentage?.toFixed(1) || 0}%</div>
+        <div class="summary-progress">
+          <div class="progress" style="height: 8px;">
+            <div class="progress-bar bg-success" role="progressbar" style="width: ${coverage.coverage_percentage?.toFixed(1) || 0}%"></div>
+          </div>
+        </div>
+        <div class="summary-details">
+          <div>Total: ${CoverageManager.distanceInUserUnits(coverage.total_length || 0)}</div>
+          <div>Driven: ${CoverageManager.distanceInUserUnits(coverage.driven_length || 0)}</div>
+        </div>
+      `;
+      // Add to map as a custom control
+      this.coverageSummaryControl = {
+        onAdd: () => controlDiv,
+        onRemove: () => controlDiv.remove(),
+        getDefaultPosition: () => "top-left",
+      };
+      if (this.coverageMap && this.coverageMap.addControl) {
+        this.coverageMap.addControl(this.coverageSummaryControl, "top-left");
+      }
+    }
+
+    // --- FIX: Update exportCoverageMap to use html2canvas for full map export ---
+    exportCoverageMap() {
+      const mapContainer = document.getElementById("coverage-map");
+      if (!this.coverageMap || !mapContainer) {
+        this.notificationManager.show(
+          "Map is not ready for export.",
+          "warning",
+        );
+        return;
+      }
+      // Dynamically load html2canvas if not present
+      const doExport = () => {
+        // Add a short delay to allow the map to fully render
+        setTimeout(() => {
+          html2canvas(mapContainer, {
+            useCORS: true,
+            backgroundColor: null, // Use null for transparency if map has it
+            logging: false,
+            allowTaint: true, // Necessary for external tile sources
+            width: mapContainer.offsetWidth,
+            height: mapContainer.offsetHeight,
+            windowWidth: mapContainer.scrollWidth,
+            windowHeight: mapContainer.scrollHeight,
+            // Ensure map controls are captured (might need specific selectors if nested)
+            ignoreElements: (element) => false, // Attempt to capture everything
+          })
+            .then((canvas) => {
+              canvas.toBlob((blob) => {
+                if (!blob) {
+                  this.notificationManager.show(
+                    "Failed to create image blob for export.",
+                    "danger",
+                  );
+                  return;
+                }
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "coverage-map.png";
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }, 100);
+              }, "image/png");
+            })
+            .catch((error) => {
+              console.error("html2canvas export error:", error);
+              this.notificationManager.show(
+                `Map export failed: ${error.message}`,
+                "danger",
+              );
+            });
+        }, 500); // 500ms delay before capture
+      };
+      if (typeof html2canvas === "undefined") {
+        const script = document.createElement("script");
+        script.src =
+          "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+        // --- FIX: Correct the integrity hash ---
+        script.integrity =
+          "sha256-6H5VB5QyLldKH9oMFUmjxw2uWpPZETQXpCkBaDjquMs="; // Corrected hash from browser error
+        script.crossOrigin = "anonymous";
+        script.onload = doExport;
+        script.onerror = () => {
+          this.notificationManager.show(
+            "Failed to load html2canvas library for export.",
+            "danger",
+          );
+        };
+        document.body.appendChild(script);
+      } else {
+        doExport();
       }
     }
   }

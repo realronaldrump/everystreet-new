@@ -154,9 +154,7 @@ async def create_gpx(
             track.name = f"Trip {trip.get('transactionId', 'UNKNOWN')}"
 
             if trip.get("startLocation") and trip.get("destination"):
-                track.description = f"From {trip.get('startLocation')} to {
-                    trip.get('destination')
-                }"
+                track.description = f"From {trip.get('startLocation')} to {trip.get('destination')}"
 
             gpx.tracks.append(track)
 

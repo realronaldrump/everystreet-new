@@ -574,9 +574,7 @@ async def periodic_fetch_trips_async(
                 do_map_match=True,
             )
             logger.info(
-                f"fetch_bouncie_trips_in_range returned {
-                    len(fetched_trips)
-                } trips",
+                f"fetch_bouncie_trips_in_range returned {len(fetched_trips)} trips",
             )
 
             if fetched_trips:
@@ -603,9 +601,7 @@ async def periodic_fetch_trips_async(
                 upsert=True,
             )
             logger.info(
-                f"Config update result: modified_count={
-                    update_result.modified_count
-                }, "
+                f"Config update result: modified_count={update_result.modified_count}, "
                 f"upserted_id={update_result.upserted_id}",
             )
         except Exception as update_err:
@@ -647,9 +643,7 @@ async def periodic_fetch_trips_async(
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
         logger.info(
-            f"Task {task_name} completed successfully. Runtime: {
-                runtime:.0f
-            }ms",
+            f"Task {task_name} completed successfully. Runtime: {runtime:.0f}ms",
         )
 
         await status_manager.update_status(
@@ -665,9 +659,7 @@ async def periodic_fetch_trips_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {
-                runtime:.0f
-            }ms.",
+            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms.",
         )
         return result_data
 
@@ -842,9 +834,7 @@ async def update_coverage_for_new_trips_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {
-                runtime:.0f
-            }ms.",
+            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms.",
         )
         return result_data
 
@@ -1123,9 +1113,7 @@ async def cleanup_invalid_trips_async(
                             )
                         except BulkWriteError as bwe:
                             logger.error(
-                                f"Bulk write error during validation: {
-                                    bwe.details
-                                }",
+                                f"Bulk write error during validation: {bwe.details}",
                             )
                         except Exception as bulk_err:
                             logger.error(
@@ -1181,9 +1169,7 @@ async def cleanup_invalid_trips_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {
-                runtime:.0f
-            }ms.",
+            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms.",
         )
         return result_data
 
@@ -1265,9 +1251,7 @@ async def update_geocoding_async(
             limit=limit,
         )
         logger.info(
-            f"Found {len(trips_to_process)} trips needing geocoding (limit {
-                limit
-            }).",
+            f"Found {len(trips_to_process)} trips needing geocoding (limit {limit}).",
         )
 
         mapbox_token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
@@ -1364,9 +1348,7 @@ async def update_geocoding_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {
-                runtime:.0f
-            }ms.",
+            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms.",
         )
         return result_data
 
@@ -1565,9 +1547,7 @@ async def remap_unmatched_trips_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {
-                runtime:.0f
-            }ms.",
+            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms.",
         )
         return result_data
 
@@ -1649,9 +1629,7 @@ async def validate_trip_data_async(
             limit=limit,
         )
         logger.info(
-            f"Found {len(trips_to_process)} trips needing validation (limit {
-                limit
-            }).",
+            f"Found {len(trips_to_process)} trips needing validation (limit {limit}).",
         )
 
         mapbox_token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
@@ -1732,9 +1710,7 @@ async def validate_trip_data_async(
                         )
                     except BulkWriteError as bwe:
                         logger.error(
-                            f"Bulk write error during validation update: {
-                                bwe.details
-                            }",
+                            f"Bulk write error during validation update: {bwe.details}",
                         )
                     except Exception as bulk_err:
                         logger.error(
@@ -1756,9 +1732,7 @@ async def validate_trip_data_async(
                 )
             except BulkWriteError as bwe:
                 logger.error(
-                    f"Bulk write error during final validation update: {
-                        bwe.details
-                    }",
+                    f"Bulk write error during final validation update: {bwe.details}",
                 )
             except Exception as bulk_err:
                 logger.error(
@@ -1791,9 +1765,7 @@ async def validate_trip_data_async(
             runtime_ms=runtime,
         )
         logger.info(
-            f"Task {task_name} ({celery_task_id}) completed in {
-                runtime:.0f
-            }ms.",
+            f"Task {task_name} ({celery_task_id}) completed in {runtime:.0f}ms.",
         )
         return result_data
 
