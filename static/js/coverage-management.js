@@ -2098,15 +2098,24 @@ const STATUS = window.STATUS || {
 
       // Extract data safely, providing defaults
       const totalLengthM = parseFloat(
-        coverage.total_length_m || coverage.total_length || coverage.driveable_length_m || 0
+        coverage.total_length_m ||
+          coverage.total_length ||
+          coverage.driveable_length_m ||
+          0,
       ); // Prefer specific _m field
       const drivenLengthM = parseFloat(
-        coverage.driven_length_m || coverage.covered_length_m || coverage.driven_length || 0
+        coverage.driven_length_m ||
+          coverage.covered_length_m ||
+          coverage.driven_length ||
+          0,
       );
       const coveragePercentage =
         coverage.coverage_percentage?.toFixed(1) || "0.0";
       const totalSegments = parseInt(coverage.total_segments || 0, 10);
-      const coveredSegments = parseInt(coverage.covered_segments || coverage.total_covered_segments || 0, 10); // Added covered segments
+      const coveredSegments = parseInt(
+        coverage.covered_segments || coverage.total_covered_segments || 0,
+        10,
+      ); // Added covered segments
       const lastUpdated = coverage.last_updated
         ? new Date(coverage.last_updated).toLocaleString()
         : "Never";
@@ -2179,7 +2188,8 @@ const STATUS = window.STATUS || {
 
       // Sort by total length descending
       const sortedTypes = [...streetTypes].sort(
-        (a, b) => parseFloat(b.total_length_m || 0) - parseFloat(a.total_length_m || 0),
+        (a, b) =>
+          parseFloat(b.total_length_m || 0) - parseFloat(a.total_length_m || 0),
       );
       const topTypes = sortedTypes.slice(0, 6); // Show top 6 types
 
@@ -2191,14 +2201,20 @@ const STATUS = window.STATUS || {
           parseFloat(type.covered_length_m || 0),
         );
         const totalDist = CoverageManager.distanceInUserUnits(
-          parseFloat((type.driveable_length_m !== undefined ? type.driveable_length_m : type.total_length_m) || 0), // Prefer driveable, fallback to total
+          parseFloat(
+            (type.driveable_length_m !== undefined
+              ? type.driveable_length_m
+              : type.total_length_m) || 0,
+          ), // Prefer driveable, fallback to total
         );
         const denominatorLabel =
           type.driveable_length_m !== undefined ? "Driveable" : "Total";
 
         let barColor = "bg-success";
-        if (parseFloat(type.coverage_percentage || 0) < 25) barColor = "bg-danger";
-        else if (parseFloat(type.coverage_percentage || 0) < 75) barColor = "bg-warning";
+        if (parseFloat(type.coverage_percentage || 0) < 25)
+          barColor = "bg-danger";
+        else if (parseFloat(type.coverage_percentage || 0) < 75)
+          barColor = "bg-warning";
 
         html += `
           <div class="street-type-item mb-2">
@@ -2680,7 +2696,9 @@ const STATUS = window.STATUS || {
       const streetType =
         props.highway || props.inferred_highway_type || "unknown";
       // Ensure we handle all possible length property names and formats
-      const segmentLength = parseFloat(props.segment_length || props.segment_length_m || props.length || 0);
+      const segmentLength = parseFloat(
+        props.segment_length || props.segment_length_m || props.length || 0,
+      );
       const lengthMiles = CoverageManager.distanceInUserUnits(segmentLength);
       const isDriven = props.driven === true || props.driven === "true"; // Handle boolean/string
       const isUndriveable =
@@ -3139,7 +3157,9 @@ const STATUS = window.STATUS || {
       const streetType =
         props.highway || props.inferred_highway_type || "unknown";
       // Ensure we handle all possible length property names and formats
-      const segmentLength = parseFloat(props.segment_length || props.segment_length_m || props.length || 0);
+      const segmentLength = parseFloat(
+        props.segment_length || props.segment_length_m || props.length || 0,
+      );
       const lengthMiles = CoverageManager.distanceInUserUnits(segmentLength);
       const isDriven = props.driven === true || props.driven === "true";
       const isUndriveable =
