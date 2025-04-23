@@ -74,7 +74,6 @@ const STATUS = window.STATUS || {
       this.map = null;
       this.coverageMap = null;
       this.streetLayers = null;
-      this.tripsLayerGroup = null;
       this.streetsGeoJson = null;
       this.streetsGeoJsonLayer = null;
       this.mapBounds = null;
@@ -360,7 +359,7 @@ const STATUS = window.STATUS || {
         if (tripToggle) {
           this.showTripsActive = tripToggle.checked;
           if (this.showTripsActive) {
-            this.ensureTripsLayerGroup();
+            this.setupTripLayers();
             this.loadTripsForView();
           } else {
             this.clearTripOverlay();
@@ -2440,46 +2439,72 @@ const STATUS = window.STATUS || {
       return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
     }
 
-    ensureTripsLayerGroup() {
-      // This is a no-op for MapboxGL; remove Leaflet code
-      // Optionally, implement trip overlays using MapboxGL sources/layers if needed
-      return;
+    setupTripLayers() {
+      if (!this.coverageMap || !this.coverageMap.isStyleLoaded()) return;
+      // Add source if it doesn't exist
+      if (!this.coverageMap.getSource('trips-source')) {
+        this.coverageMap.addSource('trips-source', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] } // Start empty
+        });
+      }
+      // Add layer if it doesn't exist
+      if (!this.coverageMap.getLayer('trips-layer')) {
+        this.coverageMap.addLayer({
+          id: 'trips-layer',
+          type: 'line',
+          source: 'trips-source',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#3388ff', // Blue color for trips
+            'line-width': 2,
+            'line-opacity': 0.7
+          }
+        });
+      }
     }
 
     clearTripOverlay() {
-      if (this.tripsLayerGroup) {
-        this.tripsLayerGroup.clearLayers();
-      }
+      if (!this.coverageMap || !this.coverageMap.getSource('trips-source')) return;
+      const emptyGeoJSON = { type: 'FeatureCollection', features: [] };
+      this.coverageMap.getSource('trips-source').setData(emptyGeoJSON);
     }
 
     async loadTripsForView() {
-      if (!this.coverageMap || !this.showTripsActive) {
+      if (!this.coverageMap || !this.showTripsActive || !this.coverageMap.isStyleLoaded()) {
         return;
       }
-
-      this.ensureTripsLayerGroup();
-
+      // Ensure layers are ready (might be called before map is fully loaded initially)
+      this.setupTripLayers();
+      const tripsSource = this.coverageMap.getSource('trips-source');
+      if (!tripsSource) {
+        // Source not ready yet, maybe try again shortly?
+        console.warn("Trips source not ready for loading data.");
+        // Could implement a small delay/retry here if needed
+        return;
+      }
       const bounds = this.coverageMap.getBounds();
       const sw = bounds.getSouthWest();
       const ne = bounds.getNorthEast();
-
+      // Basic check for excessively large bounds (adjust threshold as needed)
       const boundsArea = Math.abs(ne.lng - sw.lng) * Math.abs(ne.lat - sw.lat);
-      if (boundsArea > 5) {
+      if (boundsArea > 5) { // Example threshold
         this.notificationManager.show(
           "Map area too large, zoom in further to view trip overlays.",
           "info",
         );
-        this.clearTripOverlay();
+        this.clearTripOverlay(); // Clear existing trips if any
         return;
       }
-
       const params = new URLSearchParams({
         min_lat: sw.lat.toFixed(6),
         min_lon: sw.lng.toFixed(6),
         max_lat: ne.lat.toFixed(6),
         max_lon: ne.lng.toFixed(6),
       });
-
       try {
         const response = await fetch(
           `/api/trips_in_bounds?${params.toString()}`,
@@ -2488,32 +2513,28 @@ const STATUS = window.STATUS || {
           const errorData = await response.json();
           throw new Error(errorData.detail || `HTTP Error ${response.status}`);
         }
-
         const data = await response.json();
         if (!data || !Array.isArray(data.trips)) {
           throw new Error("Invalid trip data received from server.");
         }
-
-        this.tripsLayerGroup.clearLayers();
-
-        if (data.trips.length > 0) {
-          data.trips.forEach((coords) => {
-            const latLngs = coords.map(([lon, lat]) => [lat, lon]);
-            L.polyline(latLngs, {
-              color: "#3388ff",
-              weight: 2,
-              opacity: 0.7,
-              interactive: false,
-              pane: "tripsPane",
-            }).addTo(this.tripsLayerGroup);
-          });
-        }
+        // Format trips as GeoJSON FeatureCollection
+        const tripFeatures = data.trips.map((coords, index) => ({
+          type: 'Feature',
+          properties: { tripId: index }, // Add properties if needed
+          geometry: {
+            type: 'LineString',
+            coordinates: coords // Assuming coords are [[lon, lat], [lon, lat], ...]
+          }
+        }));
+        const tripsGeoJSON = { type: 'FeatureCollection', features: tripFeatures };
+        // Update the source data
+        tripsSource.setData(tripsGeoJSON);
       } catch (error) {
         this.notificationManager.show(
           `Failed to load trip overlay: ${error.message}`,
           "danger",
         );
-        this.clearTripOverlay();
+        this.clearTripOverlay(); // Clear on error
       }
     }
 
