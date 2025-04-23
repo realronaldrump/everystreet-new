@@ -156,8 +156,8 @@
       "loadingOverlay",
       "progressBar",
       "loadingText",
-      "applyFiltersBtn",
-      "resetFiltersBtn",
+      "applyFilters",
+      "resetFilters",
       "mapControls",
     ];
     essential.forEach((key) => {
@@ -683,8 +683,8 @@
       filtersPanel,
       contentOverlay,
       filtersClose,
-      applyFiltersBtn, // Renamed from applyFilters for clarity
-      resetFiltersBtn, // Renamed from resetFilters for clarity
+      applyFilters, // Renamed from applyFiltersBtn for clarity
+      resetFilters, // Renamed from resetFiltersBtn for clarity
       quickSelectBtns,
     } = elements;
 
@@ -728,10 +728,10 @@
     }
 
     // Apply filters button
-    applyFiltersBtn?.addEventListener("click", applyFilters); // Use optional chaining
+    applyFilters?.addEventListener("click", applyFilters); // Use optional chaining
 
     // Reset filters button
-    resetFiltersBtn?.addEventListener("click", resetFilters); // Use optional chaining
+    resetFilters?.addEventListener("click", resetFilters); // Use optional chaining
   }
 
   /**
