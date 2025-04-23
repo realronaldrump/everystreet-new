@@ -1,4 +1,4 @@
-/* global bootstrap, notificationManager, confirmationDialog, L, leafletImage, Chart, mapboxgl */
+/* global bootstrap, notificationManager, confirmationDialog, Chart, mapboxgl */
 "use strict";
 
 const STATUS = window.STATUS || {
@@ -34,18 +34,6 @@ const STATUS = window.STATUS || {
     .stats-info .text-success { color: #4caf50 !important; }
     .stats-info .text-primary { color: #59a6ff !important; }
 
-    .leaflet-popup-content-wrapper { background-color: rgba(51, 51, 51, 0.95); color: #eee; box-shadow: 0 3px 14px rgba(0, 0, 0, 0.5); border-radius: 5px; border: 1px solid rgba(255, 255, 255, 0.2); }
-    .leaflet-popup-tip { background: rgba(51, 51, 51, 0.95); box-shadow: none; }
-    .leaflet-popup-content { margin: 10px 15px; line-height: 1.5; }
-    .leaflet-popup-content h6 { margin-bottom: 8px; color: #59a6ff; font-size: 1.1em; }
-    .leaflet-popup-content hr { border-top: 1px solid rgba(255, 255, 255, 0.2); margin: 8px 0; }
-    .leaflet-popup-content small { font-size: 0.9em; color: #ced4da; }
-    .leaflet-popup-content .street-actions button { font-size: 0.75rem; padding: 0.2rem 0.5rem; }
-    .leaflet-popup-content .text-success { color: #4caf50 !important; }
-    .leaflet-popup-content .text-danger { color: #ff5252 !important; }
-    .leaflet-popup-content .text-warning { color: #ffc107 !important; }
-    .leaflet-popup-content .text-info { color: #17a2b8 !important; }
-
     .map-info-panel { position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(40, 40, 40, 0.9); color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; pointer-events: none; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4); max-width: 250px; border-left: 3px solid #007bff; display: none; }
     .map-info-panel strong { color: #fff; }
     .map-info-panel .text-success { color: #4caf50 !important; }
@@ -56,12 +44,10 @@ const STATUS = window.STATUS || {
     .map-info-panel hr.panel-divider { border-top: 1px solid rgba(255, 255, 255, 0.2); margin: 5px 0; }
 
     .coverage-summary-control { background: rgba(40, 40, 40, 0.9); color: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1) !important; min-width: 150px; }
-    .summary-title { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #ccc; text-transform: uppercase; letter-spacing: 0.5px;}
+    .summary-title { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #ccc; text-transform: uppercase; letter-spacing: 0.5px; }
     .summary-percentage { font-size: 24px; font-weight: bold; margin-bottom: 5px; color: #fff; }
     .summary-progress { margin-bottom: 8px; }
     .summary-details { font-size: 11px; color: #ccc; text-align: right; }
-
-    .street-highlighted {  }
   `;
   if (!document.getElementById(style.id)) {
     document.head.appendChild(style);

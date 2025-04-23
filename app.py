@@ -5548,7 +5548,7 @@ async def get_trips_in_bounds(
         description="Maximum longitude of the bounding box",
     ),
 ):
-    """Get trip coordinates (from matched_trips) within a given bounding box.
+    """Get raw trip coordinates (from trips collection) within a given bounding box.
 
     Uses a spatial query for efficiency.
     """
@@ -5574,8 +5574,9 @@ async def get_trips_in_bounds(
             [min_lon, min_lat],
         ]
 
+        # --- FIX: Query the raw 'gps' field in the 'trips' collection ---
         query = {
-            "matchedGps": {
+            "gps": { # Query the 'gps' field
                 "$geoIntersects": {
                     "$geometry": {
                         "type": "Polygon",
@@ -5587,21 +5588,29 @@ async def get_trips_in_bounds(
 
         projection = {
             "_id": 0,
-            "matchedGps.coordinates": 1,
+            "gps.coordinates": 1, # Select coordinates from the 'gps' field
             "transactionId": 1,
         }
 
-        cursor = matched_trips_collection.find(query, projection)
+        # --- FIX: Query the 'trips_collection' --- 
+        cursor = trips_collection.find(query, projection) 
 
         trip_coordinates = []
         async for trip in cursor:
-            if trip.get("matchedGps") and trip["matchedGps"].get(
-                "coordinates",
-            ):
-                trip_coordinates.append(trip["matchedGps"]["coordinates"])
+            # --- FIX: Extract coordinates from the 'gps' field --- 
+            if trip.get("gps") and trip["gps"].get("coordinates"):
+                # Ensure the coordinates are valid before appending
+                coords = trip["gps"]["coordinates"]
+                if isinstance(coords, list) and len(coords) > 1: # Need at least 2 points for a line
+                    trip_coordinates.append(coords)
+                else:
+                    logger.warning(
+                        "Skipping trip %s in bounds query due to invalid/insufficient coordinates in 'gps' field.", 
+                        trip.get("transactionId", "N/A")
+                    )
 
         logger.info(
-            "Found %d trip segments within bounds",
+            "Found %d raw trip segments within bounds",
             len(trip_coordinates),
         )
         return JSONResponse(content={"trips": trip_coordinates})
