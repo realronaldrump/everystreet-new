@@ -5576,7 +5576,7 @@ async def get_trips_in_bounds(
 
         # --- FIX: Query the raw 'gps' field in the 'trips' collection ---
         query = {
-            "gps": { # Query the 'gps' field
+            "gps": {  # Query the 'gps' field
                 "$geoIntersects": {
                     "$geometry": {
                         "type": "Polygon",
@@ -5588,25 +5588,27 @@ async def get_trips_in_bounds(
 
         projection = {
             "_id": 0,
-            "gps.coordinates": 1, # Select coordinates from the 'gps' field
+            "gps.coordinates": 1,  # Select coordinates from the 'gps' field
             "transactionId": 1,
         }
 
-        # --- FIX: Query the 'trips_collection' --- 
-        cursor = trips_collection.find(query, projection) 
+        # --- FIX: Query the 'trips_collection' ---
+        cursor = trips_collection.find(query, projection)
 
         trip_coordinates = []
         async for trip in cursor:
-            # --- FIX: Extract coordinates from the 'gps' field --- 
+            # --- FIX: Extract coordinates from the 'gps' field ---
             if trip.get("gps") and trip["gps"].get("coordinates"):
                 # Ensure the coordinates are valid before appending
                 coords = trip["gps"]["coordinates"]
-                if isinstance(coords, list) and len(coords) > 1: # Need at least 2 points for a line
+                if (
+                    isinstance(coords, list) and len(coords) > 1
+                ):  # Need at least 2 points for a line
                     trip_coordinates.append(coords)
                 else:
                     logger.warning(
-                        "Skipping trip %s in bounds query due to invalid/insufficient coordinates in 'gps' field.", 
-                        trip.get("transactionId", "N/A")
+                        "Skipping trip %s in bounds query due to invalid/insufficient coordinates in 'gps' field.",
+                        trip.get("transactionId", "N/A"),
                     )
 
         logger.info(
