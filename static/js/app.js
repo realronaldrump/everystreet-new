@@ -2046,9 +2046,11 @@
     let locationFound = false;
     if (savedLocationId) {
       for (let i = 0; i < dropdown.options.length; i++) {
+        const value = dropdown.options[i].value;
+        if (!value) continue; // Skip empty values (like the placeholder)
         try {
           // Parse the location object back from the option value
-          const optionLocation = JSON.parse(dropdown.options[i].value);
+          const optionLocation = JSON.parse(value);
           // Check if the stored ID or name matches the current option's location
           if (
             optionLocation &&

@@ -2566,6 +2566,7 @@ async def generate_and_store_geojson(
                 "properties.highway": 1,
                 "properties.undriveable": 1,
                 "properties.name": 1,
+                "properties.street_name": 1,  # <-- Added for street name in coverage-management
                 "properties.maxspeed": 1,
             },
         ).batch_size(1000)
