@@ -19,12 +19,10 @@
       },
       tileLayerAttribution: {
         // Attribution text for tile layers
-        dark: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        light:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        satellite: "Tiles &copy; Esri",
-        streets:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        dark: "",
+        light: "",
+        satellite: "",
+        streets: "",
       },
       maxZoom: 19, // Maximum allowed zoom level
       recentTripThreshold: 6 * 60 * 60 * 1000, // Time threshold (6 hours) to highlight recent trips
