@@ -134,8 +134,11 @@
           elements[key] = document.querySelector(selectors[key]);
         }
         // Log specifically for apply/reset buttons
-        if (key === 'applyFiltersBtn' || key === 'resetFilters') {
-          console.log(`CACHE: Element found for ${key}:`, elements[key] ? 'Yes' : 'No');
+        if (key === "applyFiltersBtn" || key === "resetFilters") {
+          console.log(
+            `CACHE: Element found for ${key}:`,
+            elements[key] ? "Yes" : "No",
+          );
         }
       }
     }
@@ -733,20 +736,32 @@
     }
 
     // Apply filters button
-    console.log("INIT_FILTER_PANEL: applyFiltersBtn element:", elements.applyFiltersBtn);
-    console.log("INIT_FILTER_PANEL: Attaching listener to applyFilters button...");
+    console.log(
+      "INIT_FILTER_PANEL: applyFiltersBtn element:",
+      elements.applyFiltersBtn,
+    );
+    console.log(
+      "INIT_FILTER_PANEL: Attaching listener to applyFilters button...",
+    );
     elements.applyFiltersBtn?.addEventListener("click", applyFilters); // Use renamed element, keep function name
 
     // Add a simple test listener to see if ANY click is registered
     if (elements.applyFiltersBtn) {
       elements.applyFiltersBtn.addEventListener("click", () => {
-        console.log("INIT_FILTER_PANEL: TEST CLICK HANDLER FIRED for applyFilters button!");
+        console.log(
+          "INIT_FILTER_PANEL: TEST CLICK HANDLER FIRED for applyFilters button!",
+        );
       });
     }
 
     // Reset filters button
-    console.log("INIT_FILTER_PANEL: resetFilters button element:", elements.resetFilters);
-    console.log("INIT_FILTER_PANEL: Attaching listener to resetFilters button...");
+    console.log(
+      "INIT_FILTER_PANEL: resetFilters button element:",
+      elements.resetFilters,
+    );
+    console.log(
+      "INIT_FILTER_PANEL: Attaching listener to resetFilters button...",
+    );
     resetFilters?.addEventListener("click", handleResetFiltersClick); // Use new handler
   }
 

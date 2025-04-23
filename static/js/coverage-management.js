@@ -1533,7 +1533,8 @@ const STATUS = window.STATUS || {
       } else {
         // Ensure timer is running if not in terminal state
         if (!this.progressTimer) {
-          this.processingStartTime = Date.now() - (this.lastProgressUpdate?.elapsedMs || 0); // Estimate start time if restarting timer
+          this.processingStartTime =
+            Date.now() - (this.lastProgressUpdate?.elapsedMs || 0); // Estimate start time if restarting timer
           this.progressTimer = setInterval(() => {
             this.updateTimingInfo();
             this.updateActivityIndicator();
@@ -1542,7 +1543,11 @@ const STATUS = window.STATUS || {
         this.updateActivityIndicator(true); // Mark as active
       }
       // Store last update for potential restart
-      this.lastProgressUpdate = { stage, progress, elapsedMs: Date.now() - (this.processingStartTime || Date.now()) };
+      this.lastProgressUpdate = {
+        stage,
+        progress,
+        elapsedMs: Date.now() - (this.processingStartTime || Date.now()),
+      };
     }
 
     static updateStepIndicators(stage, progress) {
@@ -1583,7 +1588,8 @@ const STATUS = window.STATUS || {
         ) {
           markComplete("initializing");
           markError("preprocessing");
-        } else if ([STATUS.INDEXING].includes(stage) || progress < 60) { // Assuming indexing before 60%
+        } else if ([STATUS.INDEXING].includes(stage) || progress < 60) {
+          // Assuming indexing before 60%
           markComplete("initializing");
           markComplete("preprocessing");
           markError("indexing");
@@ -2090,8 +2096,10 @@ const STATUS = window.STATUS || {
       if (!statsContainer) return;
 
       // Extract data safely, providing defaults
-      const totalLengthM = coverage.total_length_m || coverage.total_length || 0; // Prefer specific _m field
-      const drivenLengthM = coverage.driven_length_m || coverage.driven_length || 0;
+      const totalLengthM =
+        coverage.total_length_m || coverage.total_length || 0; // Prefer specific _m field
+      const drivenLengthM =
+        coverage.driven_length_m || coverage.driven_length || 0;
       const coveragePercentage =
         coverage.coverage_percentage?.toFixed(1) || "0.0";
       const totalSegments = coverage.total_segments || 0;
@@ -2182,7 +2190,8 @@ const STATUS = window.STATUS || {
         const totalDist = CoverageManager.distanceInUserUnits(
           (type.driveable_length_m ?? type.total_length_m) || 0, // Prefer driveable, fallback to total
         );
-        const denominatorLabel = type.driveable_length_m !== undefined ? "Driveable" : "Total";
+        const denominatorLabel =
+          type.driveable_length_m !== undefined ? "Driveable" : "Total";
 
         let barColor = "bg-success";
         if (type.coverage_percentage < 25) barColor = "bg-danger";
@@ -2240,10 +2249,12 @@ const STATUS = window.STATUS || {
       }
       // Remove summary control if it exists
       if (this.coverageSummaryControl && this.coverageMap) {
-         try {
-             this.coverageMap.removeControl(this.coverageSummaryControl);
-         } catch(e) { console.warn("Minor error removing summary control:", e); }
-         this.coverageSummaryControl = null;
+        try {
+          this.coverageMap.removeControl(this.coverageSummaryControl);
+        } catch (e) {
+          console.warn("Minor error removing summary control:", e);
+        }
+        this.coverageSummaryControl = null;
       }
     }
 
@@ -2270,7 +2281,8 @@ const STATUS = window.STATUS || {
             ? "fa-exclamation-triangle"
             : "fa-info-circle";
       // Add button only if locationId is provided and type suggests an action is needed
-      const showButton = locationId && (type === 'danger' || type === 'warning');
+      const showButton =
+        locationId && (type === "danger" || type === "warning");
       const buttonHtml = showButton
         ? `
         <hr>
@@ -2305,8 +2317,12 @@ const STATUS = window.STATUS || {
 
       // Mapbox GL JS setup
       if (!window.MAPBOX_ACCESS_TOKEN) {
-          mapContainer.innerHTML = CoverageManager.createAlertMessage("Mapbox Token Missing", "Cannot display map. Please configure Mapbox access token.", "danger");
-          return;
+        mapContainer.innerHTML = CoverageManager.createAlertMessage(
+          "Mapbox Token Missing",
+          "Cannot display map. Please configure Mapbox access token.",
+          "danger",
+        );
+        return;
       }
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
@@ -2349,21 +2365,28 @@ const STATUS = window.STATUS || {
           this.fitMapToBounds();
 
           // Add map move listener for trip loading *after* map is loaded
-           this.coverageMap.on("moveend", () => {
-              if (this.showTripsActive) {
-                clearTimeout(this.loadTripsDebounceTimer);
-                this.loadTripsDebounceTimer = setTimeout(() => {
-                  this.loadTripsForView();
-                }, 500); // Debounce time in ms
-              }
-           });
+          this.coverageMap.on("moveend", () => {
+            if (this.showTripsActive) {
+              clearTimeout(this.loadTripsDebounceTimer);
+              this.loadTripsDebounceTimer = setTimeout(() => {
+                this.loadTripsForView();
+              }, 500); // Debounce time in ms
+            }
+          });
         });
 
         // Handle potential errors during map initialization
-        this.coverageMap.on('error', (e) => {
-            console.error("Mapbox GL Error:", e.error);
-            this.notificationManager.show(`Map error: ${e.error?.message || 'Unknown map error'}`, "danger");
-            mapContainer.innerHTML = CoverageManager.createAlertMessage("Map Load Error", e.error?.message || "Could not initialize the map.", "danger");
+        this.coverageMap.on("error", (e) => {
+          console.error("Mapbox GL Error:", e.error);
+          this.notificationManager.show(
+            `Map error: ${e.error?.message || "Unknown map error"}`,
+            "danger",
+          );
+          mapContainer.innerHTML = CoverageManager.createAlertMessage(
+            "Map Load Error",
+            e.error?.message || "Could not initialize the map.",
+            "danger",
+          );
         });
 
         // Remove old info panel if present (shouldn't be needed with proper cleanup, but safe)
@@ -2372,10 +2395,13 @@ const STATUS = window.STATUS || {
           this.mapInfoPanel = null;
         }
         this.createMapInfoPanel(); // Create the panel element ready for updates
-
       } catch (mapInitError) {
-          console.error("Failed to initialize Mapbox GL:", mapInitError);
-          mapContainer.innerHTML = CoverageManager.createAlertMessage("Map Initialization Failed", mapInitError.message, "danger");
+        console.error("Failed to initialize Mapbox GL:", mapInitError);
+        mapContainer.innerHTML = CoverageManager.createAlertMessage(
+          "Map Initialization Failed",
+          mapInitError.message,
+          "danger",
+        );
       }
     }
 
@@ -2386,11 +2412,15 @@ const STATUS = window.STATUS || {
       }
 
       // Remove previous source/layers if they exist
-      const layersToRemove = ['streets-layer', 'streets-hover-highlight', 'streets-click-highlight'];
-      layersToRemove.forEach(layerId => {
-          if (this.coverageMap.getLayer(layerId)) {
-              this.coverageMap.removeLayer(layerId);
-          }
+      const layersToRemove = [
+        "streets-layer",
+        "streets-hover-highlight",
+        "streets-click-highlight",
+      ];
+      layersToRemove.forEach((layerId) => {
+        if (this.coverageMap.getLayer(layerId)) {
+          this.coverageMap.removeLayer(layerId);
+        }
       });
       if (this.coverageMap.getSource("streets")) {
         this.coverageMap.removeSource("streets");
@@ -2409,33 +2439,77 @@ const STATUS = window.STATUS || {
         // Define dynamic styling using Mapbox expressions
         const getLineColor = [
           "case",
-          ["boolean", ["feature-state", "hover"], false], "#ffff00", // Yellow hover highlight
-          ["boolean", ["get", "undriveable"], false], "#607d8b", // Grey for undriveable
-          ["boolean", ["get", "driven"], false], "#4caf50", // Green for driven
+          ["boolean", ["feature-state", "hover"], false],
+          "#ffff00", // Yellow hover highlight
+          ["boolean", ["get", "undriveable"], false],
+          "#607d8b", // Grey for undriveable
+          ["boolean", ["get", "driven"], false],
+          "#4caf50", // Green for driven
           "#ff5252", // Red for not driven (default)
         ];
         const getLineWidth = [
-          "interpolate", ["linear"], ["zoom"],
-           8, ["case", // Zoom level 8
-                ["in", ["get", "highway"], ["literal", ["motorway", "trunk", "primary"]]], 1.5,
-                ["in", ["get", "highway"], ["literal", ["secondary", "tertiary"]]], 1,
-                0.5],
-           14, ["case", // Zoom level 14
-                ["in", ["get", "highway"], ["literal", ["motorway", "trunk", "primary"]]], 5,
-                ["in", ["get", "highway"], ["literal", ["secondary", "tertiary"]]], 4,
-                ["in", ["get", "highway"], ["literal", ["residential", "unclassified"]]], 3,
-                2.5], // Default at zoom 14+
-           18, ["case", // Zoom level 18
-                ["in", ["get", "highway"], ["literal", ["motorway", "trunk", "primary"]]], 8,
-                ["in", ["get", "highway"], ["literal", ["secondary", "tertiary"]]], 7,
-                ["in", ["get", "highway"], ["literal", ["residential", "unclassified"]]], 6,
-                5] // Default at zoom 18+
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          [
+            "case", // Zoom level 8
+            [
+              "in",
+              ["get", "highway"],
+              ["literal", ["motorway", "trunk", "primary"]],
+            ],
+            1.5,
+            ["in", ["get", "highway"], ["literal", ["secondary", "tertiary"]]],
+            1,
+            0.5,
+          ],
+          14,
+          [
+            "case", // Zoom level 14
+            [
+              "in",
+              ["get", "highway"],
+              ["literal", ["motorway", "trunk", "primary"]],
+            ],
+            5,
+            ["in", ["get", "highway"], ["literal", ["secondary", "tertiary"]]],
+            4,
+            [
+              "in",
+              ["get", "highway"],
+              ["literal", ["residential", "unclassified"]],
+            ],
+            3,
+            2.5,
+          ], // Default at zoom 14+
+          18,
+          [
+            "case", // Zoom level 18
+            [
+              "in",
+              ["get", "highway"],
+              ["literal", ["motorway", "trunk", "primary"]],
+            ],
+            8,
+            ["in", ["get", "highway"], ["literal", ["secondary", "tertiary"]]],
+            7,
+            [
+              "in",
+              ["get", "highway"],
+              ["literal", ["residential", "unclassified"]],
+            ],
+            6,
+            5,
+          ], // Default at zoom 18+
         ];
         const getLineOpacity = [
-            "case",
-            ["boolean", ["feature-state", "hover"], false], 1.0, // Full opacity on hover
-            ["boolean", ["get", "undriveable"], false], 0.6, // Less opacity for undriveable
-            0.85 // Default opacity
+          "case",
+          ["boolean", ["feature-state", "hover"], false],
+          1.0, // Full opacity on hover
+          ["boolean", ["get", "undriveable"], false],
+          0.6, // Less opacity for undriveable
+          0.85, // Default opacity
         ];
         const getLineDash = [
           "case",
@@ -2494,20 +2568,23 @@ const STATUS = window.STATUS || {
 
             // Set hover state for the new feature
             if (currentHoverId !== hoveredSegmentId) {
-                 // Remove hover state from the previous feature
-                if (hoveredSegmentId !== null && this.coverageMap.getSource('streets')) {
-                    this.coverageMap.setFeatureState(
-                        { source: 'streets', id: hoveredSegmentId },
-                        { hover: false }
-                    );
-                }
-                 if (this.coverageMap.getSource('streets')) {
-                    this.coverageMap.setFeatureState(
-                        { source: 'streets', id: currentHoverId },
-                        { hover: true }
-                    );
-                 }
-                hoveredSegmentId = currentHoverId;
+              // Remove hover state from the previous feature
+              if (
+                hoveredSegmentId !== null &&
+                this.coverageMap.getSource("streets")
+              ) {
+                this.coverageMap.setFeatureState(
+                  { source: "streets", id: hoveredSegmentId },
+                  { hover: false },
+                );
+              }
+              if (this.coverageMap.getSource("streets")) {
+                this.coverageMap.setFeatureState(
+                  { source: "streets", id: currentHoverId },
+                  { hover: true },
+                );
+              }
+              hoveredSegmentId = currentHoverId;
             }
 
             this.updateMapInfoPanel(props, true); // Update panel for hover
@@ -2521,10 +2598,13 @@ const STATUS = window.STATUS || {
           if (this.mapInfoPanel) this.mapInfoPanel.style.display = "none";
 
           // Clear hover state when mouse leaves the layer
-          if (hoveredSegmentId !== null && this.coverageMap.getSource('streets')) {
+          if (
+            hoveredSegmentId !== null &&
+            this.coverageMap.getSource("streets")
+          ) {
             this.coverageMap.setFeatureState(
-              { source: 'streets', id: hoveredSegmentId },
-              { hover: false }
+              { source: "streets", id: hoveredSegmentId },
+              { hover: false },
             );
           }
           hoveredSegmentId = null;
@@ -2562,12 +2642,15 @@ const STATUS = window.STATUS || {
                     this._handleMarkSegmentAction(action, segmentId);
                     popup.remove(); // Close popup after action
                   } else {
-                    console.warn("Action or Segment ID missing from button:", button);
+                    console.warn(
+                      "Action or Segment ID missing from button:",
+                      button,
+                    );
                   }
                 }
               });
             } else {
-                console.warn("Could not get popup element to attach listeners.");
+              console.warn("Could not get popup element to attach listeners.");
             }
 
             // Update info panel as well on click (optional, shows persistent info)
@@ -2575,10 +2658,12 @@ const STATUS = window.STATUS || {
             if (this.mapInfoPanel) this.mapInfoPanel.style.display = "block";
           }
         });
-
       } catch (error) {
-          console.error("Error adding streets source/layer:", error);
-          this.notificationManager.show(`Failed to display streets on map: ${error.message}`, "danger");
+        console.error("Error adding streets source/layer:", error);
+        this.notificationManager.show(
+          `Failed to display streets on map: ${error.message}`,
+          "danger",
+        );
       }
     }
 
@@ -2595,7 +2680,8 @@ const STATUS = window.STATUS || {
         props.segment_length || props.segment_length_m || 0, // Use consistent field if possible
       );
       const isDriven = props.driven === true || props.driven === "true"; // Handle boolean/string
-      const isUndriveable = props.undriveable === true || props.undriveable === "true";
+      const isUndriveable =
+        props.undriveable === true || props.undriveable === "true";
       const status = isDriven ? "Driven" : "Not Driven";
       const segmentId = props.segment_id || "N/A";
 
@@ -2632,73 +2718,89 @@ const STATUS = window.STATUS || {
 
     // --- FIX: Added method to handle button clicks from popups ---
     async _handleMarkSegmentAction(action, segmentId) {
-        if (!this.selectedLocation || !this.selectedLocation._id) {
-            this.notificationManager.show("Cannot perform action: No location selected.", "warning");
-            return;
-        }
-        if (!segmentId) {
-            this.notificationManager.show("Cannot perform action: Segment ID missing.", "warning");
-            return;
-        }
+      if (!this.selectedLocation || !this.selectedLocation._id) {
+        this.notificationManager.show(
+          "Cannot perform action: No location selected.",
+          "warning",
+        );
+        return;
+      }
+      if (!segmentId) {
+        this.notificationManager.show(
+          "Cannot perform action: Segment ID missing.",
+          "warning",
+        );
+        return;
+      }
 
-        const locationId = this.selectedLocation._id; // Get ID from the currently displayed location
-        let endpoint = "";
-        const payload = {
-            location_id: locationId,
-            segment_id: segmentId,
-        };
+      const locationId = this.selectedLocation._id; // Get ID from the currently displayed location
+      let endpoint = "";
+      const payload = {
+        location_id: locationId,
+        segment_id: segmentId,
+      };
 
-        switch (action) {
-            case "driven":
-                endpoint = "/api/street_segments/mark_driven";
-                break;
-            case "undriven":
-                endpoint = "/api/street_segments/mark_undriven";
-                break;
-            case "undriveable":
-                endpoint = "/api/street_segments/mark_undriveable";
-                break;
-            case "driveable":
-                endpoint = "/api/street_segments/mark_driveable";
-                break;
-            default:
-                this.notificationManager.show(`Unknown segment action: ${action}`, "warning");
-                return;
-        }
+      switch (action) {
+        case "driven":
+          endpoint = "/api/street_segments/mark_driven";
+          break;
+        case "undriven":
+          endpoint = "/api/street_segments/mark_undriven";
+          break;
+        case "undriveable":
+          endpoint = "/api/street_segments/mark_undriveable";
+          break;
+        case "driveable":
+          endpoint = "/api/street_segments/mark_driveable";
+          break;
+        default:
+          this.notificationManager.show(
+            `Unknown segment action: ${action}`,
+            "warning",
+          );
+          return;
+      }
 
-        try {
-            await this._makeSegmentApiRequest(endpoint, payload);
-            this.notificationManager.show(`Segment ${segmentId.substring(0,8)}... marked as ${action}. Refreshing...`, "success");
-            // Refresh the dashboard to reflect the change
-            await this.displayCoverageDashboard(locationId);
-             // Also refresh the main table in case stats changed significantly
-            await this.loadCoverageAreas();
-        } catch (error) {
-            this.notificationManager.show(`Failed to mark segment as ${action}: ${error.message}`, "danger");
-        }
+      try {
+        await this._makeSegmentApiRequest(endpoint, payload);
+        this.notificationManager.show(
+          `Segment ${segmentId.substring(0, 8)}... marked as ${action}. Refreshing...`,
+          "success",
+        );
+        // Refresh the dashboard to reflect the change
+        await this.displayCoverageDashboard(locationId);
+        // Also refresh the main table in case stats changed significantly
+        await this.loadCoverageAreas();
+      } catch (error) {
+        this.notificationManager.show(
+          `Failed to mark segment as ${action}: ${error.message}`,
+          "danger",
+        );
+      }
     }
 
     // --- FIX: Added generic helper for API requests ---
     async _makeSegmentApiRequest(endpoint, payload) {
-        try {
-            const response = await fetch(endpoint, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-            const data = await response.json();
+        const data = await response.json();
 
-            if (!response.ok) {
-                throw new Error(data.detail || `API request failed (HTTP ${response.status})`);
-            }
-            return data; // Return success data if needed
-        } catch (error) {
-            console.error(`Error calling ${endpoint}:`, error);
-            throw error; // Re-throw to be caught by the caller
+        if (!response.ok) {
+          throw new Error(
+            data.detail || `API request failed (HTTP ${response.status})`,
+          );
         }
+        return data; // Return success data if needed
+      } catch (error) {
+        console.error(`Error calling ${endpoint}:`, error);
+        throw error; // Re-throw to be caught by the caller
+      }
     }
-
 
     fitMapToBounds() {
       if (this.coverageMap && this.mapBounds && !this.mapBounds.isEmpty()) {
@@ -2709,10 +2811,10 @@ const STATUS = window.STATUS || {
             duration: 500, // Smooth transition
           });
         } catch (e) {
-            console.error("Error fitting map to bounds:", e);
-            // Fallback if fitBounds fails
-            this.coverageMap.setCenter([-97.15, 31.55]);
-            this.coverageMap.setZoom(11);
+          console.error("Error fitting map to bounds:", e);
+          // Fallback if fitBounds fails
+          this.coverageMap.setCenter([-97.15, 31.55]);
+          this.coverageMap.setZoom(11);
         }
       } else if (this.coverageMap) {
         // Fallback if no valid bounds
@@ -2755,8 +2857,11 @@ const STATUS = window.STATUS || {
           this.updateFilterButtonStates();
         }
       } catch (error) {
-          console.error("Error setting map filter:", error);
-          this.notificationManager.show(`Failed to apply map filter: ${error.message}`, "danger");
+        console.error("Error setting map filter:", error);
+        this.notificationManager.show(
+          `Failed to apply map filter: ${error.message}`,
+          "danger",
+        );
       }
     }
 
@@ -2976,7 +3081,9 @@ const STATUS = window.STATUS || {
               !Array.isArray(coords[0]) ||
               coords[0].length < 2
             ) {
-              console.warn(`Invalid coordinate structure for trip index ${index}`);
+              console.warn(
+                `Invalid coordinate structure for trip index ${index}`,
+              );
               return null; // Skip invalid features
             }
             return {
@@ -3032,7 +3139,8 @@ const STATUS = window.STATUS || {
         props.segment_length || props.segment_length_m || 0,
       );
       const isDriven = props.driven === true || props.driven === "true";
-      const isUndriveable = props.undriveable === true || props.undriveable === "true";
+      const isUndriveable =
+        props.undriveable === true || props.undriveable === "true";
       const status = isDriven ? "Driven" : "Not Driven";
       const segmentId = props.segment_id || "N/A";
 
@@ -3059,7 +3167,7 @@ const STATUS = window.STATUS || {
       `;
       // Ensure panel is visible if updated (unless it's meant to be hidden on mouseleave)
       if (!isHover) {
-          this.mapInfoPanel.style.display = "block";
+        this.mapInfoPanel.style.display = "block";
       }
     }
 
@@ -3188,24 +3296,35 @@ const STATUS = window.STATUS || {
     }
 
     addCoverageSummary(coverage) {
-        // Remove previous summary control if present
-        if (this.coverageSummaryControl && this.coverageMap && this.coverageMap.removeControl) {
-            try {
-                this.coverageMap.removeControl(this.coverageSummaryControl);
-            } catch(e) { console.warn("Minor error removing previous summary control:", e); }
-            this.coverageSummaryControl = null;
+      // Remove previous summary control if present
+      if (
+        this.coverageSummaryControl &&
+        this.coverageMap &&
+        this.coverageMap.removeControl
+      ) {
+        try {
+          this.coverageMap.removeControl(this.coverageSummaryControl);
+        } catch (e) {
+          console.warn("Minor error removing previous summary control:", e);
         }
+        this.coverageSummaryControl = null;
+      }
 
-        if (!coverage || !this.coverageMap) return;
+      if (!coverage || !this.coverageMap) return;
 
-        const coveragePercentage = coverage.coverage_percentage?.toFixed(1) || 0;
-        const totalDist = CoverageManager.distanceInUserUnits(coverage.total_length_m || coverage.total_length || 0);
-        const drivenDist = CoverageManager.distanceInUserUnits(coverage.driven_length_m || coverage.driven_length || 0);
+      const coveragePercentage = coverage.coverage_percentage?.toFixed(1) || 0;
+      const totalDist = CoverageManager.distanceInUserUnits(
+        coverage.total_length_m || coverage.total_length || 0,
+      );
+      const drivenDist = CoverageManager.distanceInUserUnits(
+        coverage.driven_length_m || coverage.driven_length || 0,
+      );
 
-        // Create a custom control div
-        const controlDiv = document.createElement("div");
-        controlDiv.className = "coverage-summary-control mapboxgl-ctrl mapboxgl-ctrl-group"; // Use Mapbox classes for potential styling consistency
-        controlDiv.innerHTML = `
+      // Create a custom control div
+      const controlDiv = document.createElement("div");
+      controlDiv.className =
+        "coverage-summary-control mapboxgl-ctrl mapboxgl-ctrl-group"; // Use Mapbox classes for potential styling consistency
+      controlDiv.innerHTML = `
             <div class="summary-title">Coverage</div>
             <div class="summary-percentage">${coveragePercentage}%</div>
             <div class="summary-progress">
@@ -3219,19 +3338,19 @@ const STATUS = window.STATUS || {
             </div>
         `;
 
-        // Create a custom control object for Mapbox
-        this.coverageSummaryControl = {
-            onAdd: () => controlDiv,
-            onRemove: () => controlDiv.remove(),
-            getDefaultPosition: () => "top-left", // Default position
-        };
+      // Create a custom control object for Mapbox
+      this.coverageSummaryControl = {
+        onAdd: () => controlDiv,
+        onRemove: () => controlDiv.remove(),
+        getDefaultPosition: () => "top-left", // Default position
+      };
 
-        // Add the custom control to the map
-        try {
-            this.coverageMap.addControl(this.coverageSummaryControl, "top-left");
-        } catch (e) {
-            console.error("Error adding coverage summary control:", e);
-        }
+      // Add the custom control to the map
+      try {
+        this.coverageMap.addControl(this.coverageSummaryControl, "top-left");
+      } catch (e) {
+        console.error("Error adding coverage summary control:", e);
+      }
     }
 
     exportCoverageMap() {
@@ -3252,7 +3371,7 @@ const STATUS = window.STATUS || {
         setTimeout(() => {
           html2canvas(mapContainer, {
             useCORS: true, // Important for loading external map tiles
-            backgroundColor: '#1a1a1a', // Match map background or set as needed
+            backgroundColor: "#1a1a1a", // Match map background or set as needed
             logging: false, // Disable console logging from html2canvas
             allowTaint: true, // May be needed for some tile sources, use with caution
             // Explicitly set width/height to capture the container size
@@ -3276,16 +3395,20 @@ const STATUS = window.STATUS || {
                 const a = document.createElement("a");
                 a.href = url;
                 // Generate filename with location and date
-                const locationName = this.selectedLocation?.location_name || 'coverage';
-                const dateStr = new Date().toISOString().split('T')[0];
-                a.download = `${locationName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_map_${dateStr}.png`;
+                const locationName =
+                  this.selectedLocation?.location_name || "coverage";
+                const dateStr = new Date().toISOString().split("T")[0];
+                a.download = `${locationName.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_map_${dateStr}.png`;
                 document.body.appendChild(a);
                 a.click();
                 // Clean up the temporary link and URL
                 setTimeout(() => {
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
-                  this.notificationManager.show("Map exported successfully.", "success");
+                  this.notificationManager.show(
+                    "Map exported successfully.",
+                    "success",
+                  );
                 }, 100);
               }, "image/png"); // Specify PNG format
             })
@@ -3342,14 +3465,17 @@ const STATUS = window.STATUS || {
       }
       return; // Stop initialization
     }
-     // Check for Chart.js dependency
+    // Check for Chart.js dependency
     if (typeof Chart === "undefined") {
-        console.warn("Chart.js not loaded. Chart functionality will be unavailable.");
-        // Optionally display a message in the chart container
-        const chartContainer = document.getElementById("street-type-chart");
-        if(chartContainer) {
-            chartContainer.innerHTML = '<div class="alert alert-warning small p-2">Chart library not loaded.</div>';
-        }
+      console.warn(
+        "Chart.js not loaded. Chart functionality will be unavailable.",
+      );
+      // Optionally display a message in the chart container
+      const chartContainer = document.getElementById("street-type-chart");
+      if (chartContainer) {
+        chartContainer.innerHTML =
+          '<div class="alert alert-warning small p-2">Chart library not loaded.</div>';
+      }
     }
 
     // Initialize the Coverage Manager
