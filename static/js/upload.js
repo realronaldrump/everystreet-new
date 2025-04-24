@@ -125,7 +125,7 @@ class UploadManager {
       this.handleFiles(e.dataTransfer.files);
     });
 
-    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("mousedown", (e) => { if (e.button !== 0) return; fileInput.click(); });
 
     fileInput.addEventListener("change", () =>
       this.handleFiles(fileInput.files),
@@ -137,7 +137,7 @@ class UploadManager {
 
     if (!uploadButton) return;
 
-    uploadButton.addEventListener("click", () => this.uploadFiles());
+    uploadButton.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.uploadFiles(); });
   }
 
   initializeCheckboxListeners() {

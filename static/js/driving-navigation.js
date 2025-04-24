@@ -246,12 +246,10 @@ class DrivingNavigation {
       this.areaSelect.addEventListener("change", () => this.handleAreaChange());
     }
     if (this.findBtn) {
-      this.findBtn.addEventListener("click", () => this.findAndDisplayRoute());
+      this.findBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.findAndDisplayRoute(); });
     }
     if (this.calcCoverageBtn) {
-      this.calcCoverageBtn.addEventListener("click", () =>
-        this.calculateAndDisplayCoverageRoute(),
-      );
+      this.calcCoverageBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.calculateAndDisplayCoverageRoute(); });
     }
     if (this.autoFollowToggle) {
       this.autoFollowToggle.addEventListener("change", (e) => {
@@ -1114,7 +1112,8 @@ class DrivingNavigation {
     });
 
     // Add click handler for undriven streets to show info and navigation option
-    this.undrivenStreetsLayer.on("click", (e) => {
+    this.undrivenStreetsLayer.on("mousedown", (e) => {
+      if (e.originalEvent && e.originalEvent.button !== 0) return;
       const segment = e.layer.feature;
       const popup = this.createSegmentPopup(segment);
       if (popup) {
@@ -1124,7 +1123,7 @@ class DrivingNavigation {
         setTimeout(() => {
           const navigateBtn = document.querySelector(".navigate-to-segment");
           if (navigateBtn) {
-            navigateBtn.addEventListener("click", () => {
+            navigateBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
               const segmentId = navigateBtn.getAttribute("data-segment-id");
               this.highlightTargetStreet(segmentId);
               e.layer.closePopup();

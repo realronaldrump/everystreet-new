@@ -233,19 +233,18 @@
 
     stopPropagationEvents.forEach((eventType) => {
       mapControls.addEventListener(
-        eventType,
+        eventType === "click" ? "mousedown" : eventType,
         (e) => {
+          if (eventType === "click" && e.button !== 0) return;
           // Allow interaction with form elements, buttons, links, etc. within the controls
           const target = e.target;
           const isInteractiveElement = target.closest(
             "input, select, textarea, button, a, .form-check, .nav-item, .list-group-item",
           );
-
           if (!isInteractiveElement) {
             e.stopPropagation();
           }
         },
-        // Use passive where possible, but not for events that might need preventDefault (like drag)
         {
           passive: !["drag", "dragstart", "dragend", "touchmove"].includes(
             eventType,
@@ -285,7 +284,7 @@
 
     // --- Center on Location Button ---
     if (centerOnLocationButton) {
-      centerOnLocationButton.addEventListener("click", handleCenterOnLocation);
+      centerOnLocationButton.addEventListener("mousedown", function(e) { if (e.button !== 0) return; handleCenterOnLocation(e); });
     } else {
       console.warn("Center on location button not found.");
     }
@@ -690,7 +689,8 @@
 
     // Toggle panel visibility
     if (filterToggle && filtersPanel) {
-      filterToggle.addEventListener("click", (e) => {
+      filterToggle.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
         e.stopPropagation();
         filtersPanel.classList.toggle(CONFIG.classes.open);
         contentOverlay?.classList.toggle(CONFIG.classes.visible); // Use optional chaining
@@ -706,13 +706,13 @@
     };
 
     // Close panel using the close button or overlay click
-    filtersClose?.addEventListener("click", closePanel); // Use optional chaining
-    contentOverlay?.addEventListener("click", closePanel); // Use optional chaining
+    filtersClose?.addEventListener("mousedown", function(e) { if (e.button !== 0) return; closePanel(e); }); // Use optional chaining
+    contentOverlay?.addEventListener("mousedown", function(e) { if (e.button !== 0) return; closePanel(e); }); // Use optional chaining
 
     // Initialize quick select date range buttons
     if (quickSelectBtns?.length) {
       quickSelectBtns.forEach((btn) => {
-        btn.addEventListener("click", function () {
+        btn.addEventListener("mousedown", function (e) { if (e.button !== 0) return;
           const range = this.dataset.range;
           if (!range) return;
 
@@ -728,10 +728,10 @@
     }
 
     // Apply filters button
-    elements.applyFiltersBtn?.addEventListener("click", applyFilters); // Use renamed element, keep function name
+    elements.applyFiltersBtn?.addEventListener("mousedown", function(e) { if (e.button !== 0) return; applyFilters(e); }); // Use renamed element, keep function name
 
     // Reset filters button
-    resetFilters?.addEventListener("click", handleResetFiltersClick); // Use new handler
+    resetFilters?.addEventListener("mousedown", function(e) { if (e.button !== 0) return; handleResetFiltersClick(e); }); // Use new handler
   }
 
   /**
@@ -833,7 +833,7 @@
     }
 
     // Make the indicator clickable to open the filter panel
-    indicator.addEventListener("click", () => {
+    indicator.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
       if (elements.filtersPanel && elements.contentOverlay) {
         elements.filtersPanel.classList.add(CONFIG.classes.open);
         elements.contentOverlay.classList.add(CONFIG.classes.visible);

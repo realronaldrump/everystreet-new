@@ -174,7 +174,7 @@
     });
 
     elements.validateButtons.forEach((button) => {
-      button.addEventListener("click", (event) => {
+      button.addEventListener("mousedown", (event) => { if (event.button !== 0) return;
         const targetId = event.currentTarget.dataset.target;
         if (targetId) {
           validateLocation(targetId);

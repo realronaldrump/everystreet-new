@@ -69,9 +69,7 @@ function createEditableCell(data, type, field, inputType = "text") {
     initializeEventListeners() {
       const applyFiltersButton = document.getElementById("apply-filters");
       if (applyFiltersButton) {
-        applyFiltersButton.addEventListener("click", () =>
-          this.handleApplyFilters(),
-        );
+        applyFiltersButton.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.handleApplyFilters(); });
       }
 
       this.initializeDatePresetButtons();
@@ -83,7 +81,7 @@ function createEditableCell(data, type, field, inputType = "text") {
 
     initializeDatePresetButtons() {
       document.querySelectorAll(".date-preset").forEach((button) => {
-        button.addEventListener("click", (e) => this.handleDatePresetClick(e));
+        button.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.handleDatePresetClick(e); });
       });
     }
 
@@ -128,16 +126,14 @@ function createEditableCell(data, type, field, inputType = "text") {
     initializeBulkActionButtons() {
       const bulkDeleteBtn = document.getElementById("bulk-delete-trips-btn");
       if (bulkDeleteBtn) {
-        bulkDeleteBtn.addEventListener("click", () => this.bulkDeleteTrips());
+        bulkDeleteBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.bulkDeleteTrips(); });
       }
 
       const refreshGeocodingBtn = document.getElementById(
         "refresh-geocoding-btn",
       );
       if (refreshGeocodingBtn) {
-        refreshGeocodingBtn.addEventListener("click", () =>
-          this.refreshGeocoding(),
-        );
+        refreshGeocodingBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.refreshGeocoding(); });
       }
     }
 
@@ -145,18 +141,21 @@ function createEditableCell(data, type, field, inputType = "text") {
       const tableEl = document.getElementById("trips-table");
       if (!tableEl) return;
 
-      $(tableEl).on("click", ".edit-trip-btn", (e) => {
+      $(tableEl).on("mousedown", ".edit-trip-btn", (e) => {
+        if (e.button !== 0) return;
         e.preventDefault();
         const row = $(e.currentTarget).closest("tr");
         this.setRowEditMode(row, true);
       });
 
-      $(tableEl).on("click", ".cancel-edit-btn", (e) => {
+      $(tableEl).on("mousedown", ".cancel-edit-btn", (e) => {
+        if (e.button !== 0) return;
         const row = $(e.currentTarget).closest("tr");
         this.cancelRowEdit(row);
       });
 
-      $(tableEl).on("click", ".save-changes-btn", (e) => {
+      $(tableEl).on("mousedown", ".save-changes-btn", (e) => {
+        if (e.button !== 0) return;
         const row = $(e.currentTarget).closest("tr");
         this.saveRowChanges(row);
       });

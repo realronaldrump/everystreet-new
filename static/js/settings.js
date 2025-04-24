@@ -428,7 +428,7 @@
 
       const errorButtons = tbody.querySelectorAll(".view-error-btn");
       errorButtons.forEach((btn) => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("mousedown", (e) => {
           const errorMessage = btn.dataset.error;
           this.showErrorModal(errorMessage);
         });
@@ -525,7 +525,7 @@
 
       const pageLinks = paginationContainer.querySelectorAll(".page-link");
       pageLinks.forEach((link) => {
-        link.addEventListener("click", (e) => {
+        link.addEventListener("mousedown", (e) => {
           e.preventDefault();
           const page = parseInt(e.target.dataset.page, 10);
           if (page && page !== this.currentHistoryPage) {
@@ -991,7 +991,7 @@
     const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 
     if (saveTaskConfigBtn) {
-      saveTaskConfigBtn.addEventListener("click", () => {
+      saveTaskConfigBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
         const config = taskManager.gatherTaskConfigFromUI();
         taskManager
           .submitTaskConfigUpdate(config)
@@ -1014,7 +1014,7 @@
 
     const resetTasksBtn = document.getElementById("resetTasksBtn");
     if (resetTasksBtn) {
-      resetTasksBtn.addEventListener("click", async () => {
+      resetTasksBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
         try {
           showLoadingOverlay();
           const response = await fetch("/api/background_tasks/reset", {
@@ -1037,7 +1037,7 @@
     }
 
     if (resumeBtn) {
-      resumeBtn.addEventListener("click", async () => {
+      resumeBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
         try {
           showLoadingOverlay();
           const response = await fetch("/api/background_tasks/resume", {
@@ -1059,7 +1059,7 @@
     }
 
     if (stopAllBtn) {
-      stopAllBtn.addEventListener("click", async () => {
+      stopAllBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
         try {
           showLoadingOverlay();
           const response = await fetch("/api/background_tasks/stop", {
@@ -1084,7 +1084,7 @@
     }
 
     if (enableAllBtn) {
-      enableAllBtn.addEventListener("click", async () => {
+      enableAllBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
         try {
           showLoadingOverlay();
           const response = await fetch("/api/background_tasks/enable", {
@@ -1106,7 +1106,7 @@
     }
 
     if (disableAllBtn) {
-      disableAllBtn.addEventListener("click", async () => {
+      disableAllBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
         try {
           showLoadingOverlay();
           const response = await fetch("/api/background_tasks/disable", {
@@ -1128,9 +1128,9 @@
     }
 
     if (manualRunAllBtn) {
-      manualRunAllBtn.addEventListener("click", () =>
-        taskManager.runTask("ALL"),
-      );
+      manualRunAllBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
+        taskManager.runTask("ALL");
+      });
     }
 
     if (globalSwitch) {
@@ -1154,7 +1154,7 @@
     }
 
     if (clearHistoryBtn) {
-      clearHistoryBtn.addEventListener("click", () => {
+      clearHistoryBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
         const modal = new bootstrap.Modal(
           document.getElementById("clearHistoryModal"),
         );
@@ -1164,7 +1164,7 @@
 
     const confirmClearHistory = document.getElementById("confirmClearHistory");
     if (confirmClearHistory) {
-      confirmClearHistory.addEventListener("click", async () => {
+      confirmClearHistory.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
         await taskManager.clearTaskHistory();
         const modal = bootstrap.Modal.getInstance(
           document.getElementById("clearHistoryModal"),
@@ -1175,7 +1175,7 @@
 
     document
       .querySelector("#taskConfigTable tbody")
-      .addEventListener("click", (e) => {
+      .addEventListener("mousedown", (e) => {
         const detailsBtn = e.target.closest(".view-details-btn");
         const runBtn = e.target.closest(".run-now-btn");
         if (detailsBtn) {
@@ -1191,7 +1191,7 @@
     if (taskDetailsModal) {
       taskDetailsModal
         .querySelector(".run-task-btn")
-        .addEventListener("click", async (e) => {
+        .addEventListener("mousedown", async (e) => {
           const taskId = e.target.dataset.taskId;
           if (taskId) {
             await taskManager.runTask(taskId);
@@ -1206,7 +1206,7 @@
     const select = document.getElementById("collection-select");
     if (!btn || !select) return;
 
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
       const collection = select.value;
       document.getElementById("update-geo-points-status").textContent =
         "Updating...";
@@ -1238,7 +1238,7 @@
     const btn = document.getElementById("re-geocode-all-trips");
     if (!btn) return;
 
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
       document.getElementById("re-geocode-all-trips-status").textContent =
         "Re-geocoding all trips...";
 
@@ -1279,7 +1279,7 @@
     const remapBtn = document.getElementById("remap-btn");
     if (!remapBtn) return;
 
-    remapBtn.addEventListener("click", async function () {
+    remapBtn.addEventListener("mousedown", async function (e) { if (e.button !== 0) return;
       const method = remapType.value;
       let start_date,
         end_date,

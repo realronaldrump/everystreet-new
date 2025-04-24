@@ -68,17 +68,15 @@ class CustomPlacesManager {
     const { startDrawingBtn, savePlaceBtn, managePlacesBtn } = this.elements;
 
     if (startDrawingBtn) {
-      startDrawingBtn.addEventListener("click", () => this.startDrawing());
+      startDrawingBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.startDrawing(); });
     }
 
     if (savePlaceBtn) {
-      savePlaceBtn.addEventListener("click", () => this.savePlace());
+      savePlaceBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.savePlace(); });
     }
 
     if (managePlacesBtn) {
-      managePlacesBtn.addEventListener("click", () =>
-        this.showManagePlacesModal(),
-      );
+      managePlacesBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.showManagePlacesModal(); });
     }
 
     if (this.map && L.Draw?.Event) {
@@ -188,7 +186,7 @@ class CustomPlacesManager {
             </div>
           `);
 
-          layer.on("click", () => this.showPlaceStatistics(place._id));
+          layer.on("mousedown", (e) => { if (e.originalEvent && e.originalEvent.button !== 0) return; this.showPlaceStatistics(place._id); });
         },
       });
 

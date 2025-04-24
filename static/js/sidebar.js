@@ -35,7 +35,7 @@
   function initEventListeners() {
     [elements.toggleButton, elements.collapseButton]
       .filter(Boolean)
-      .forEach((btn) => btn.addEventListener("click", toggleSidebar));
+      .forEach((btn) => btn.addEventListener("mousedown", function(e) { if (e.button !== 0) return; toggleSidebar(e); }));
 
     document.addEventListener("keydown", (e) => {
       if (e.ctrlKey && e.key === "b") {
@@ -44,7 +44,7 @@
       }
     });
 
-    document.addEventListener("click", handleClickOutside);
+    document.addEventListener("mousedown", function(e) { if (e.button !== 0) return; handleClickOutside(e); });
   }
 
   function handleClickOutside(e) {

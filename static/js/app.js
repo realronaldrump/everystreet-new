@@ -170,7 +170,11 @@
     if (el._eventHandlers[handlerKey]) return false; // Already added
 
     // Add the event listener and store a reference
-    el.addEventListener(eventType, handler);
+    if (eventType === "click") {
+      el.addEventListener("mousedown", function(e) { if (e.button !== 0) return; handler(e); });
+    } else {
+      el.addEventListener(eventType, handler);
+    }
     el._eventHandlers[handlerKey] = handler;
     return true;
   };
@@ -1315,6 +1319,7 @@
    * @param {L.Layer} layer - The Leaflet layer instance that was clicked (could be visible or hit layer).
    */
   function handleTripClick(e, feature, layer) {
+    if (e.originalEvent && e.originalEvent.button !== 0) return;
     L.DomEvent.stopPropagation(e); // Prevent click from propagating to map FIRST
     const clickedTripId = feature.properties?.transactionId;
 
@@ -1468,7 +1473,7 @@
 
     // Add the event listener to the popup element
     // Use addSingleEventListener to prevent duplicates if popup re-opens quickly
-    addSingleEventListener(popupEl, "click", handlePopupClick);
+    addSingleEventListener(popupEl, "mousedown", function(e) { if (e.button !== 0) return; handlePopupClick(e); });
 
     // Clean up the event listener when the popup closes
     layer.once("popupclose", () => {

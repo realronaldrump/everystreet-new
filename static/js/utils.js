@@ -353,8 +353,7 @@ class NotificationManager {
 
     const closeButton = notification.querySelector(".btn-close");
     if (closeButton) {
-      closeButton.addEventListener("click", (e) => {
-        e.stopPropagation();
+      closeButton.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
         clearTimeout(timeout);
         this._removeNotification(notification);
       });
@@ -496,11 +495,11 @@ class ConfirmationDialog {
       };
 
       const cleanup = () => {
-        confirmBtn?.removeEventListener("click", handleConfirm);
+        confirmBtn?.removeEventListener("mousedown", handleConfirm);
         modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
       };
 
-      confirmBtn?.addEventListener("click", handleConfirm);
+      confirmBtn?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; handleConfirm(e); });
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);
 
       try {

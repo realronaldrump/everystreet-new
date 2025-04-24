@@ -212,11 +212,11 @@ const STATUS = window.STATUS || {
     setupEventListeners() {
       document
         .getElementById("validate-location")
-        ?.addEventListener("click", () => this.validateLocation());
+        ?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.validateLocation(); });
 
       document
         .getElementById("add-coverage-area")
-        ?.addEventListener("click", () => this.addCoverageArea());
+        ?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.addCoverageArea(); });
 
       document
         .getElementById("location-input")
@@ -230,9 +230,7 @@ const STATUS = window.STATUS || {
 
       document
         .getElementById("cancel-processing")
-        ?.addEventListener("click", () =>
-          this.cancelProcessing(this.currentProcessingLocation),
-        );
+        ?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.cancelProcessing(this.currentProcessingLocation); });
 
       document
         .getElementById("taskProgressModal")
@@ -259,7 +257,8 @@ const STATUS = window.STATUS || {
       // Event delegation for table actions
       document
         .querySelector("#coverage-areas-table")
-        ?.addEventListener("click", (e) => {
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
           const targetButton = e.target.closest("button[data-action]");
           const targetLink = e.target.closest("a.location-name-link");
 
@@ -424,22 +423,10 @@ const STATUS = window.STATUS || {
 
             notification
               .querySelector(".resume-task")
-              .addEventListener("click", () => {
-                this.resumeInterruptedTask(progressData);
-                const bsAlert =
-                  bootstrap.Alert.getOrCreateInstance(notification);
-                if (bsAlert) bsAlert.close();
-                else notification.remove();
-              });
+              .addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.resumeInterruptedTask(progressData); });
             notification
               .querySelector(".discard-task")
-              .addEventListener("click", () => {
-                localStorage.removeItem("coverageProcessingState");
-                const bsAlert =
-                  bootstrap.Alert.getOrCreateInstance(notification);
-                if (bsAlert) bsAlert.close();
-                else notification.remove();
-              });
+              .addEventListener("mousedown", (e) => { if (e.button !== 0) return; localStorage.removeItem("coverageProcessingState"); });
 
             document.querySelector("#alerts-container")?.prepend(notification);
           } else {
@@ -2614,7 +2601,8 @@ const STATUS = window.STATUS || {
         });
 
         // Click: Show popup with action buttons
-        this.coverageMap.on("click", "streets-layer", (e) => {
+        this.coverageMap.on("mousedown", "streets-layer", (e) => {
+          if (e.originalEvent && e.originalEvent.button !== 0) return;
           if (e.features && e.features.length > 0) {
             const props = e.features[0].properties;
             const coordinates = e.lngLat;

@@ -212,11 +212,11 @@
       document.getElementById(btnId).classList.add("active");
     }
 
-    document.getElementById("toggle-weekly").addEventListener("click", () => {
+    document.getElementById("toggle-weekly").addEventListener("mousedown", (e) => { if (e.button !== 0) return;
       setActive("toggle-weekly");
       renderTable(data.weekly, "week");
     });
-    document.getElementById("toggle-monthly").addEventListener("click", () => {
+    document.getElementById("toggle-monthly").addEventListener("mousedown", (e) => { if (e.button !== 0) return;
       setActive("toggle-monthly");
       renderTable(data.monthly, "month");
     });
