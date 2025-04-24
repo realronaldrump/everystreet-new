@@ -171,7 +171,10 @@
 
     // Add the event listener and store a reference
     if (eventType === "click") {
-      el.addEventListener("mousedown", function(e) { if (e.button !== 0) return; handler(e); });
+      el.addEventListener("mousedown", function (e) {
+        if (e.button !== 0) return;
+        handler(e);
+      });
     } else {
       el.addEventListener(eventType, handler);
     }
@@ -1473,7 +1476,10 @@
 
     // Add the event listener to the popup element
     // Use addSingleEventListener to prevent duplicates if popup re-opens quickly
-    addSingleEventListener(popupEl, "mousedown", function(e) { if (e.button !== 0) return; handlePopupClick(e); });
+    addSingleEventListener(popupEl, "mousedown", function (e) {
+      if (e.button !== 0) return;
+      handlePopupClick(e);
+    });
 
     // Clean up the event listener when the popup closes
     layer.once("popupclose", () => {
@@ -2158,7 +2164,8 @@
 
     // --- Custom Event Listener ---
     // Listen for events from other modules (e.g., a separate filter module)
-    document.addEventListener("filtersApplied", async (e) => { // Make listener async
+    document.addEventListener("filtersApplied", async (e) => {
+      // Make listener async
       console.info("Filters applied event received:", e.detail);
       // Show loading overlay from modern-ui
       window.modernUI?.showLoading("Applying filters and loading data...");
@@ -2436,7 +2443,7 @@
       mapMatchTrips,
       fetchTripsInRange,
       AppState, // Expose state carefully if needed for debugging or other modules
-      CONFIG,   // Expose config if needed
+      CONFIG, // Expose config if needed
     };
 
     // Dispatch an event indicating core app structure is ready

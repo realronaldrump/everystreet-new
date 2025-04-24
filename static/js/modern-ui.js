@@ -284,7 +284,10 @@
 
     // --- Center on Location Button ---
     if (centerOnLocationButton) {
-      centerOnLocationButton.addEventListener("mousedown", function(e) { if (e.button !== 0) return; handleCenterOnLocation(e); });
+      centerOnLocationButton.addEventListener("mousedown", function (e) {
+        if (e.button !== 0) return;
+        handleCenterOnLocation(e);
+      });
     } else {
       console.warn("Center on location button not found.");
     }
@@ -706,13 +709,20 @@
     };
 
     // Close panel using the close button or overlay click
-    filtersClose?.addEventListener("mousedown", function(e) { if (e.button !== 0) return; closePanel(e); }); // Use optional chaining
-    contentOverlay?.addEventListener("mousedown", function(e) { if (e.button !== 0) return; closePanel(e); }); // Use optional chaining
+    filtersClose?.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;
+      closePanel(e);
+    }); // Use optional chaining
+    contentOverlay?.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;
+      closePanel(e);
+    }); // Use optional chaining
 
     // Initialize quick select date range buttons
     if (quickSelectBtns?.length) {
       quickSelectBtns.forEach((btn) => {
-        btn.addEventListener("mousedown", function (e) { if (e.button !== 0) return;
+        btn.addEventListener("mousedown", function (e) {
+          if (e.button !== 0) return;
           const range = this.dataset.range;
           if (!range) return;
 
@@ -728,10 +738,16 @@
     }
 
     // Apply filters button
-    elements.applyFiltersBtn?.addEventListener("mousedown", function(e) { if (e.button !== 0) return; applyFilters(e); }); // Use renamed element, keep function name
+    elements.applyFiltersBtn?.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;
+      applyFilters(e);
+    }); // Use renamed element, keep function name
 
     // Reset filters button
-    resetFilters?.addEventListener("mousedown", function(e) { if (e.button !== 0) return; handleResetFiltersClick(e); }); // Use new handler
+    resetFilters?.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;
+      handleResetFiltersClick(e);
+    }); // Use new handler
   }
 
   /**
@@ -833,7 +849,8 @@
     }
 
     // Make the indicator clickable to open the filter panel
-    indicator.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
+    indicator.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
       if (elements.filtersPanel && elements.contentOverlay) {
         elements.filtersPanel.classList.add(CONFIG.classes.open);
         elements.contentOverlay.classList.add(CONFIG.classes.visible);
