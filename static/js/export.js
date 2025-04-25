@@ -348,88 +348,109 @@
     }
   }
 
-  function buildExportUrl(formType, config) {
-    let url = "";
-    if (formType === "trips" || formType === "matchedTrips") {
+  // Helper function for building Trips/Matched Trips export URL
+  function buildTripsExportUrl(config) {
+    const startDate = elements[config.dateStart]?.value;
+    const endDate = elements[config.dateEnd]?.value;
+    const format = elements[config.format]?.value;
+    if (!startDate || !endDate) {
+      throw new Error("Please select both start and end dates");
+    }
+    if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
+      throw new Error("Start date must be before or equal to end date");
+    }
+    return `${config.endpoint}?start_date=${startDate}&end_date=${endDate}&format=${format}`;
+  }
+
+  // Helper function for building Streets/Boundary export URL
+  function buildLocationExportUrl(config) {
+    const locationInput = elements[config.location];
+    const format = elements[config.format]?.value;
+    if (!validateLocationInput(locationInput)) {
+      throw new Error("Invalid location. Please validate it first.");
+    }
+    const locationData = locationInput.getAttribute("data-location");
+    return `${config.endpoint}?location=${encodeURIComponent(
+      locationData,
+    )}&format=${format}`;
+  }
+
+  // Helper function for building Advanced export URL
+  function buildAdvancedExportUrl(config) {
+    const format = elements[config.format]?.value;
+    let url = `${config.endpoint}?format=${format}`;
+
+    // Append boolean flags
+    const flags = {
+      include_trips: elements.includeTrips,
+      include_matched_trips: elements.includeMatchedTrips,
+      include_uploaded_trips: elements.includeUploadedTrips,
+      include_basic_info: elements.includeBasicInfo,
+      include_locations: elements.includeLocations,
+      include_telemetry: elements.includeTelemetry,
+      include_geometry: elements.includeGeometry,
+      include_meta: elements.includeMeta,
+      include_custom: elements.includeCustom,
+    };
+    for (const [key, element] of Object.entries(flags)) {
+      if (element) {
+        url += `&${key}=${element.checked}`;
+      }
+    }
+
+    // Append CSV specific flags
+    if (format === "csv") {
+      if (elements.includeGpsInCsv) {
+        url += `&include_gps_in_csv=${elements.includeGpsInCsv.checked}`;
+      }
+      if (elements.flattenLocationFields) {
+        url += `&flatten_location_fields=${elements.flattenLocationFields.checked}`;
+      }
+    }
+
+    // Append date range if not exporting all dates
+    if (elements.exportAllDates && !elements.exportAllDates.checked) {
       const startDate = elements[config.dateStart]?.value;
       const endDate = elements[config.dateEnd]?.value;
-      const format = elements[config.format]?.value;
       if (!startDate || !endDate) {
-        throw new Error("Please select both start and end dates");
+        throw new Error(
+          "Please select both start and end dates or check 'Export all dates'",
+        );
       }
       if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
         throw new Error("Start date must be before or equal to end date");
       }
-      url = `${config.endpoint}?start_date=${startDate}&end_date=${endDate}&format=${format}`;
-    } else if (formType === "streets" || formType === "boundary") {
-      const locationInput = elements[config.location];
-      const format = elements[config.format]?.value;
-      if (!validateLocationInput(locationInput)) {
-        throw new Error("Invalid location. Please validate it first.");
-      }
-      const locationData = locationInput.getAttribute("data-location");
-      url = `${config.endpoint}?location=${encodeURIComponent(
-        locationData,
-      )}&format=${format}`;
-    } else if (formType === "advanced") {
-      const format = elements[config.format]?.value;
-      url = `${config.endpoint}?format=${format}`;
-      if (elements.includeTrips) {
-        url += `&include_trips=${elements.includeTrips.checked}`;
-      }
-      if (elements.includeMatchedTrips) {
-        url += `&include_matched_trips=${elements.includeMatchedTrips.checked}`;
-      }
-      if (elements.includeUploadedTrips) {
-        url += `&include_uploaded_trips=${elements.includeUploadedTrips.checked}`;
-      }
-      if (elements.includeBasicInfo) {
-        url += `&include_basic_info=${elements.includeBasicInfo.checked}`;
-      }
-      if (elements.includeLocations) {
-        url += `&include_locations=${elements.includeLocations.checked}`;
-      }
-      if (elements.includeTelemetry) {
-        url += `&include_telemetry=${elements.includeTelemetry.checked}`;
-      }
-      if (elements.includeGeometry) {
-        url += `&include_geometry=${elements.includeGeometry.checked}`;
-      }
-      if (elements.includeMeta) {
-        url += `&include_meta=${elements.includeMeta.checked}`;
-      }
-      if (elements.includeCustom) {
-        url += `&include_custom=${elements.includeCustom.checked}`;
-      }
-      if (format === "csv") {
-        if (elements.includeGpsInCsv) {
-          url += `&include_gps_in_csv=${elements.includeGpsInCsv.checked}`;
-        }
-        if (elements.flattenLocationFields) {
-          url += `&flatten_location_fields=${elements.flattenLocationFields.checked}`;
-        }
-      }
-      if (elements.exportAllDates && !elements.exportAllDates.checked) {
-        const startDate = elements[config.dateStart]?.value;
-        const endDate = elements[config.dateEnd]?.value;
-        if (!startDate || !endDate) {
-          throw new Error(
-            "Please select both start and end dates or check 'Export all dates'",
-          );
-        }
-        if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
-          throw new Error("Start date must be before or equal to end date");
-        }
-        url += `&start_date=${startDate}&end_date=${endDate}`;
-      }
-      if (elements.saveExportSettings?.checked) {
-        saveExportSettings();
-      }
-    } else {
-      const format = elements[config.format]?.value;
-      url = `${config.endpoint}?format=${format}`;
+      url += `&start_date=${startDate}&end_date=${endDate}`;
     }
+
+    // Optionally save settings
+    if (elements.saveExportSettings?.checked) {
+      saveExportSettings();
+    }
+
     return url;
+  }
+
+  // Main function (refactored)
+  function buildExportUrl(formType, config) {
+    switch (formType) {
+      case "trips":
+      case "matchedTrips":
+        return buildTripsExportUrl(config);
+      case "streets":
+      case "boundary":
+        return buildLocationExportUrl(config);
+      case "advanced":
+        return buildAdvancedExportUrl(config);
+      default: {
+        // Fallback for any potentially added simple formats
+        const format = elements[config.format]?.value;
+        if (!format) {
+          throw new Error(`Could not determine format for export type '${formType}'`);
+        }
+        return `${config.endpoint}?format=${format}`;
+      }
+    }
   }
 
   function saveExportSettings() {
@@ -703,7 +724,7 @@
       });
       const formatMatch = urlWithTimestamp.match(/format=([^&]+)/);
       const format = formatMatch ? formatMatch[1] : null;
-      let filename = getFilenameFromHeaders(
+      const filename = getFilenameFromHeaders(
         contentDisposition,
         exportName,
         format,
@@ -715,7 +736,6 @@
         filename,
         format,
         totalSize,
-        exportName,
       );
     } catch (error) {
       console.error(`Export error for ${exportName}:`, error);
@@ -803,7 +823,6 @@
     filename,
     format,
     totalSize,
-    exportName,
   ) {
     const reader = response.body.getReader();
     let receivedLength = 0;
