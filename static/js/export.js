@@ -174,7 +174,8 @@
     });
 
     elements.validateButtons.forEach((button) => {
-      button.addEventListener("mousedown", (event) => { if (event.button !== 0) return;
+      button.addEventListener("mousedown", (event) => {
+        if (event.button !== 0) return;
         const targetId = event.currentTarget.dataset.target;
         if (targetId) {
           validateLocation(targetId);
@@ -446,7 +447,9 @@
         // Fallback for any potentially added simple formats
         const format = elements[config.format]?.value;
         if (!format) {
-          throw new Error(`Could not determine format for export type '${formType}'`);
+          throw new Error(
+            `Could not determine format for export type '${formType}'`,
+          );
         }
         return `${config.endpoint}?format=${format}`;
       }
@@ -690,10 +693,13 @@
       const fetchOptions = { signal };
       console.info(`Starting fetch for ${exportName} export...`);
       const response = await fetch(urlWithTimestamp, fetchOptions);
-      console.info(`Received response: status=${response.status}, ok=${response.ok}`);
+      console.info(
+        `Received response: status=${response.status}, ok=${response.ok}`,
+      );
       // Check for Content-Disposition header to identify file downloads
       const contentDisposition = response.headers.get("Content-Disposition");
-      const isFileDownload = contentDisposition && contentDisposition.includes("attachment");
+      const isFileDownload =
+        contentDisposition && contentDisposition.includes("attachment");
 
       // Only throw an error if response is not ok AND it's not a file download
       if (!response.ok && !isFileDownload) {
@@ -717,7 +723,9 @@
       // If it's a file download or response.ok is true, proceed with download logic
       const contentLength = response.headers.get("Content-Length");
       const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-      console.info(`Content-Length: ${contentLength}, parsed size: ${totalSize}`);
+      console.info(
+        `Content-Length: ${contentLength}, parsed size: ${totalSize}`,
+      );
       console.info("Response headers:");
       response.headers.forEach((value, name) => {
         console.info(`${name}: ${value}`);
@@ -731,12 +739,7 @@
       );
       showNotification(`Downloading ${filename}...`, "info");
       console.info(`Starting download of ${filename}...`);
-      await processDownloadStream(
-        response,
-        filename,
-        format,
-        totalSize,
-      );
+      await processDownloadStream(response, filename, format, totalSize);
     } catch (error) {
       console.error(`Export error for ${exportName}:`, error);
       if (error.name === "AbortError") {
@@ -818,19 +821,16 @@
     return filename;
   }
 
-  async function processDownloadStream(
-    response,
-    filename,
-    format,
-    totalSize,
-  ) {
+  async function processDownloadStream(response, filename, format, totalSize) {
     const reader = response.body.getReader();
     let receivedLength = 0;
     const chunks = [];
     while (true) {
       const { done, value } = await reader.read();
       if (done) {
-        console.info(`Finished reading response body, total size: ${receivedLength} bytes`);
+        console.info(
+          `Finished reading response body, total size: ${receivedLength} bytes`,
+        );
         break;
       }
       chunks.push(value);
@@ -839,7 +839,9 @@
         totalSize &&
         receivedLength % Math.max(totalSize / 10, 1024 * 1024) < value.length
       ) {
-        console.info(`Download progress: ${Math.round((receivedLength / totalSize) * 100)}% (${receivedLength}/${totalSize} bytes)`);
+        console.info(
+          `Download progress: ${Math.round((receivedLength / totalSize) * 100)}% (${receivedLength}/${totalSize} bytes)`,
+        );
       }
       if (totalSize) {
         const progress = Math.min(
