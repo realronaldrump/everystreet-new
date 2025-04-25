@@ -664,15 +664,18 @@
     const urlWithTimestamp = `${url}${url.includes("?") ? "&" : "?"}timestamp=${new Date().getTime()}`;
     try {
       showNotification(`Requesting ${exportName} data...`, "info");
-      window.handleError(`Requesting export from: ${urlWithTimestamp}`);
+      console.info(`Requesting export from: ${urlWithTimestamp}`);
       showLoading(exportName);
       const fetchOptions = { signal };
-      window.handleError(`Starting fetch for ${exportName} export...`);
+      console.info(`Starting fetch for ${exportName} export...`);
       const response = await fetch(urlWithTimestamp, fetchOptions);
-      window.handleError(
-        `Received response: status=${response.status}, ok=${response.ok}`,
-      );
-      if (!response.ok) {
+      console.info(`Received response: status=${response.status}, ok=${response.ok}`);
+      // Check for Content-Disposition header to identify file downloads
+      const contentDisposition = response.headers.get("Content-Disposition");
+      const isFileDownload = contentDisposition && contentDisposition.includes("attachment");
+
+      // Only throw an error if response is not ok AND it's not a file download
+      if (!response.ok && !isFileDownload) {
         let errorMsg = `Server error (${response.status})`;
         try {
           const errorText = await response.text();
@@ -690,25 +693,23 @@
         }
         throw new Error(errorMsg);
       }
+      // If it's a file download or response.ok is true, proceed with download logic
       const contentLength = response.headers.get("Content-Length");
       const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-      window.handleError(
-        `Content-Length: ${contentLength}, parsed size: ${totalSize}`,
-      );
-      window.handleError("Response headers:");
+      console.info(`Content-Length: ${contentLength}, parsed size: ${totalSize}`);
+      console.info("Response headers:");
       response.headers.forEach((value, name) => {
-        window.handleError(`${name}: ${value}`);
+        console.info(`${name}: ${value}`);
       });
       const formatMatch = urlWithTimestamp.match(/format=([^&]+)/);
       const format = formatMatch ? formatMatch[1] : null;
-      const contentDisposition = response.headers.get("Content-Disposition");
       let filename = getFilenameFromHeaders(
         contentDisposition,
         exportName,
         format,
       );
       showNotification(`Downloading ${filename}...`, "info");
-      window.handleError(`Starting download of ${filename}...`);
+      console.info(`Starting download of ${filename}...`);
       await processDownloadStream(
         response,
         filename,
@@ -810,9 +811,7 @@
     while (true) {
       const { done, value } = await reader.read();
       if (done) {
-        window.handleError(
-          `Finished reading response body, total size: ${receivedLength} bytes`,
-        );
+        console.info(`Finished reading response body, total size: ${receivedLength} bytes`);
         break;
       }
       chunks.push(value);
@@ -821,11 +820,7 @@
         totalSize &&
         receivedLength % Math.max(totalSize / 10, 1024 * 1024) < value.length
       ) {
-        window.handleError(
-          `Download progress: ${Math.round(
-            (receivedLength / totalSize) * 100,
-          )}% (${receivedLength}/${totalSize} bytes)`,
-        );
+        console.info(`Download progress: ${Math.round((receivedLength / totalSize) * 100)}% (${receivedLength}/${totalSize} bytes)`);
       }
       if (totalSize) {
         const progress = Math.min(
@@ -850,7 +845,7 @@
         }
       }
     }
-    window.handleError(`Combining ${chunks.length} chunks into final blob...`);
+    console.info(`Combining ${chunks.length} chunks into final blob...`);
     const chunksAll = new Uint8Array(receivedLength);
     let position = 0;
     for (const chunk of chunks) {
@@ -858,11 +853,11 @@
       position += chunk.length;
     }
     const contentType = getContentTypeForFormat(format);
-    window.handleError(`Creating blob with type: ${contentType}`);
+    console.info(`Creating blob with type: ${contentType}`);
     const blob = new Blob([chunksAll], { type: contentType });
     const blobUrl = URL.createObjectURL(blob);
-    window.handleError(`Blob URL created: ${blobUrl.substring(0, 30)}...`);
-    window.handleError(`Triggering download of ${filename}`);
+    console.info(`Blob URL created: ${blobUrl.substring(0, 30)}...`);
+    console.info(`Triggering download of ${filename}`);
     const downloadLink = document.createElement("a");
     downloadLink.style.display = "none";
     downloadLink.href = blobUrl;
@@ -875,7 +870,7 @@
     setTimeout(() => {
       document.body.removeChild(downloadLink);
       URL.revokeObjectURL(blobUrl);
-      window.handleError(`Download cleanup completed for ${filename}`);
+      console.info(`Download cleanup completed for ${filename}`);
     }, 100);
     showNotification(`Successfully exported ${filename}`, "success");
   }
