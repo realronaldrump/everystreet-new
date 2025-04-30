@@ -71,7 +71,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const saveChangesBtn = document.getElementById("saveChanges");
     if (saveChangesBtn) {
-      saveChangesBtn.addEventListener("mousedown", function(e) { if (e.button !== 0) return; saveTripChanges(e); });
+      saveChangesBtn.addEventListener("mousedown", function (e) {
+        if (e.button !== 0) return;
+        saveTripChanges(e);
+      });
     }
 
     const startInput = document.getElementById("start-date");
@@ -86,7 +89,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (document.getElementById("editMap")) {
       const applyFiltersBtn = document.getElementById("apply-filters");
       if (applyFiltersBtn) {
-        applyFiltersBtn.addEventListener("mousedown", function(e) { if (e.button !== 0) return; loadTrips(e); });
+        applyFiltersBtn.addEventListener("mousedown", function (e) {
+          if (e.button !== 0) return;
+          loadTrips(e);
+        });
       }
     }
 
@@ -181,7 +187,10 @@ document.addEventListener("DOMContentLoaded", () => {
           opacity: 0.8,
         });
 
-        poly.on("mousedown", (e) => { if (e.originalEvent && e.originalEvent.button !== 0) return; selectTrip(poly, trip); });
+        poly.on("mousedown", (e) => {
+          if (e.originalEvent && e.originalEvent.button !== 0) return;
+          selectTrip(poly, trip);
+        });
         tripsLayerGroup.addLayer(poly);
         return poly;
       })

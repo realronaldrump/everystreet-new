@@ -86,7 +86,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (refreshStorageBtn) {
-    refreshStorageBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
+    refreshStorageBtn.addEventListener("mousedown", async (e) => {
+      if (e.button !== 0) return;
       try {
         setButtonLoading(refreshStorageBtn, true);
         const data = await performDatabaseAction("/api/database/storage-info");
@@ -101,7 +102,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  document.body.addEventListener("mousedown", async (event) => { if (event.button !== 0) return;
+  document.body.addEventListener("mousedown", async (event) => {
+    if (event.button !== 0) return;
     const clearButton = event.target.closest(".clear-collection");
 
     if (clearButton) {

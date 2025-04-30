@@ -991,7 +991,8 @@
     const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 
     if (saveTaskConfigBtn) {
-      saveTaskConfigBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
+      saveTaskConfigBtn.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
         const config = taskManager.gatherTaskConfigFromUI();
         taskManager
           .submitTaskConfigUpdate(config)
@@ -1014,7 +1015,8 @@
 
     const resetTasksBtn = document.getElementById("resetTasksBtn");
     if (resetTasksBtn) {
-      resetTasksBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
+      resetTasksBtn.addEventListener("mousedown", async (e) => {
+        if (e.button !== 0) return;
         try {
           showLoadingOverlay();
           const response = await fetch("/api/background_tasks/reset", {
@@ -1037,7 +1039,8 @@
     }
 
     if (resumeBtn) {
-      resumeBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
+      resumeBtn.addEventListener("mousedown", async (e) => {
+        if (e.button !== 0) return;
         try {
           showLoadingOverlay();
           const response = await fetch("/api/background_tasks/resume", {
@@ -1059,7 +1062,8 @@
     }
 
     if (stopAllBtn) {
-      stopAllBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
+      stopAllBtn.addEventListener("mousedown", async (e) => {
+        if (e.button !== 0) return;
         try {
           showLoadingOverlay();
           const response = await fetch("/api/background_tasks/stop", {
@@ -1084,7 +1088,8 @@
     }
 
     if (enableAllBtn) {
-      enableAllBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
+      enableAllBtn.addEventListener("mousedown", async (e) => {
+        if (e.button !== 0) return;
         try {
           showLoadingOverlay();
           const response = await fetch("/api/background_tasks/enable", {
@@ -1106,7 +1111,8 @@
     }
 
     if (disableAllBtn) {
-      disableAllBtn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
+      disableAllBtn.addEventListener("mousedown", async (e) => {
+        if (e.button !== 0) return;
         try {
           showLoadingOverlay();
           const response = await fetch("/api/background_tasks/disable", {
@@ -1128,7 +1134,8 @@
     }
 
     if (manualRunAllBtn) {
-      manualRunAllBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
+      manualRunAllBtn.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
         taskManager.runTask("ALL");
       });
     }
@@ -1154,7 +1161,8 @@
     }
 
     if (clearHistoryBtn) {
-      clearHistoryBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
+      clearHistoryBtn.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
         const modal = new bootstrap.Modal(
           document.getElementById("clearHistoryModal"),
         );
@@ -1164,7 +1172,8 @@
 
     const confirmClearHistory = document.getElementById("confirmClearHistory");
     if (confirmClearHistory) {
-      confirmClearHistory.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
+      confirmClearHistory.addEventListener("mousedown", async (e) => {
+        if (e.button !== 0) return;
         await taskManager.clearTaskHistory();
         const modal = bootstrap.Modal.getInstance(
           document.getElementById("clearHistoryModal"),
@@ -1206,7 +1215,8 @@
     const select = document.getElementById("collection-select");
     if (!btn || !select) return;
 
-    btn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
+    btn.addEventListener("mousedown", async (e) => {
+      if (e.button !== 0) return;
       const collection = select.value;
       document.getElementById("update-geo-points-status").textContent =
         "Updating...";
@@ -1238,7 +1248,8 @@
     const btn = document.getElementById("re-geocode-all-trips");
     if (!btn) return;
 
-    btn.addEventListener("mousedown", async (e) => { if (e.button !== 0) return;
+    btn.addEventListener("mousedown", async (e) => {
+      if (e.button !== 0) return;
       document.getElementById("re-geocode-all-trips-status").textContent =
         "Re-geocoding all trips...";
 
@@ -1279,7 +1290,8 @@
     const remapBtn = document.getElementById("remap-btn");
     if (!remapBtn) return;
 
-    remapBtn.addEventListener("mousedown", async function (e) { if (e.button !== 0) return;
+    remapBtn.addEventListener("mousedown", async function (e) {
+      if (e.button !== 0) return;
       const method = remapType.value;
       let start_date,
         end_date,

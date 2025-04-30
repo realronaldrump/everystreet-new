@@ -69,7 +69,10 @@ function createEditableCell(data, type, field, inputType = "text") {
     initializeEventListeners() {
       const applyFiltersButton = document.getElementById("apply-filters");
       if (applyFiltersButton) {
-        applyFiltersButton.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.handleApplyFilters(); });
+        applyFiltersButton.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.handleApplyFilters();
+        });
       }
 
       this.initializeDatePresetButtons();
@@ -81,7 +84,10 @@ function createEditableCell(data, type, field, inputType = "text") {
 
     initializeDatePresetButtons() {
       document.querySelectorAll(".date-preset").forEach((button) => {
-        button.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.handleDatePresetClick(e); });
+        button.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.handleDatePresetClick(e);
+        });
       });
     }
 
@@ -126,14 +132,20 @@ function createEditableCell(data, type, field, inputType = "text") {
     initializeBulkActionButtons() {
       const bulkDeleteBtn = document.getElementById("bulk-delete-trips-btn");
       if (bulkDeleteBtn) {
-        bulkDeleteBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.bulkDeleteTrips(); });
+        bulkDeleteBtn.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.bulkDeleteTrips();
+        });
       }
 
       const refreshGeocodingBtn = document.getElementById(
         "refresh-geocoding-btn",
       );
       if (refreshGeocodingBtn) {
-        refreshGeocodingBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.refreshGeocoding(); });
+        refreshGeocodingBtn.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.refreshGeocoding();
+        });
       }
     }
 

@@ -246,10 +246,16 @@ class DrivingNavigation {
       this.areaSelect.addEventListener("change", () => this.handleAreaChange());
     }
     if (this.findBtn) {
-      this.findBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.findAndDisplayRoute(); });
+      this.findBtn.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        this.findAndDisplayRoute();
+      });
     }
     if (this.calcCoverageBtn) {
-      this.calcCoverageBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.calculateAndDisplayCoverageRoute(); });
+      this.calcCoverageBtn.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        this.calculateAndDisplayCoverageRoute();
+      });
     }
     if (this.autoFollowToggle) {
       this.autoFollowToggle.addEventListener("change", (e) => {
@@ -1123,7 +1129,8 @@ class DrivingNavigation {
         setTimeout(() => {
           const navigateBtn = document.querySelector(".navigate-to-segment");
           if (navigateBtn) {
-            navigateBtn.addEventListener("mousedown", (e) => { if (e.button !== 0) return;
+            navigateBtn.addEventListener("mousedown", (e) => {
+              if (e.button !== 0) return;
               const segmentId = navigateBtn.getAttribute("data-segment-id");
               this.highlightTargetStreet(segmentId);
               e.layer.closePopup();
