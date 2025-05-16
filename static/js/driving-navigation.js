@@ -15,7 +15,13 @@ class DrivingNavigation {
     this.routeInfo = document.getElementById("route-info");
     this.autoFollowToggle = document.getElementById("auto-follow-toggle");
 
-    // New UI elements
+    this.exportCoverageRouteBtn = document.getElementById(
+      "export-coverage-route-btn",
+    );
+    this.coverageRouteFormatSelect = document.getElementById(
+      "coverage-route-format-select",
+    );
+
     this.progressContainer = document.getElementById(
       "route-progress-container",
     );
@@ -52,6 +58,8 @@ class DrivingNavigation {
       "#00d2d3",
       "#c8d6e5",
     ];
+
+    this.currentCoverageRouteGeoJSON = null;
 
     this.initialize();
   }
@@ -269,6 +277,13 @@ class DrivingNavigation {
       });
     }
 
+    if (this.exportCoverageRouteBtn) {
+      this.exportCoverageRouteBtn.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        this.handleExportCoverageRoute();
+      });
+    }
+
     if (this.map) {
       this.map.on("layeradd", () => {
         setTimeout(() => this.bringLiveElementsToFront(), 50);
@@ -334,6 +349,10 @@ class DrivingNavigation {
 
   async handleAreaChange() {
     const selectedValue = this.areaSelect.value;
+    this.currentCoverageRouteGeoJSON = null;
+    if (this.exportCoverageRouteBtn)
+      this.exportCoverageRouteBtn.disabled = true;
+
     if (!selectedValue) {
       this.selectedLocation = null;
       this.findBtn.disabled = true;
@@ -373,13 +392,12 @@ class DrivingNavigation {
     if (!this.selectedLocation) return;
 
     this.setStatus(
-      `Fetching undriven streets for ${this.selectedLocation.display_name}...`,
+      `Workspaceing undriven streets for ${this.selectedLocation.display_name}...`,
     );
     this.undrivenStreetsLayer.clearLayers();
     this.hideRouteDetails();
 
     try {
-      // Show progress for street loading
       this.showProgressContainer();
       this.updateProgress(20, "Fetching undriven streets from database...");
 
@@ -417,7 +435,6 @@ class DrivingNavigation {
           this.map.fitBounds(bounds, { padding: [50, 50] });
         }
 
-        // Complete progress
         this.updateProgress(100, "Loaded undriven streets!");
         setTimeout(() => this.hideProgressContainer(), 1000);
 
@@ -480,8 +497,10 @@ class DrivingNavigation {
     this.targetInfo.innerHTML = "";
     this.routeInfo.innerHTML = "";
     this.hideRouteDetails();
+    this.currentCoverageRouteGeoJSON = null;
+    if (this.exportCoverageRouteBtn)
+      this.exportCoverageRouteBtn.disabled = true;
 
-    // Show progress container and set initial state
     this.showProgressContainer();
     this.setActiveStep("clustering");
 
@@ -495,7 +514,6 @@ class DrivingNavigation {
 
       window.handleError("Sending route request with payload:", requestPayload);
 
-      // Update progress to show request is being sent
       this.updateProgress(30, "Finding the nearest undriven street...");
 
       const response = await fetch("/api/driving-navigation/next-route", {
@@ -504,7 +522,6 @@ class DrivingNavigation {
         body: JSON.stringify(requestPayload),
       });
 
-      // Update progress to show we're processing the response
       this.setActiveStep("optimizing");
 
       const data = await response.json();
@@ -523,7 +540,6 @@ class DrivingNavigation {
         data.route_geometry &&
         data.target_street
       ) {
-        // Update progress to show we're rendering the route
         this.setActiveStep("rendering");
 
         const routeLayer = L.geoJSON(data.route_geometry, {
@@ -569,7 +585,6 @@ class DrivingNavigation {
           </div>
         `;
 
-        // Show route details with simplified information
         this.showRouteDetails({
           clusters: 1,
           segments: 1,
@@ -579,7 +594,6 @@ class DrivingNavigation {
 
         this.bringLiveElementsToFront();
 
-        // Complete progress
         this.updateProgress(100, "Route calculation complete!");
         setTimeout(() => {
           this.hideProgressContainer();
@@ -661,7 +675,6 @@ class DrivingNavigation {
           className: "target-street-segment",
         });
 
-        // Add a pulsing effect to make the target street more noticeable
         if (!document.getElementById("pulsing-target-style")) {
           const style = document.createElement("style");
           style.id = "pulsing-target-style";
@@ -678,7 +691,6 @@ class DrivingNavigation {
           document.head.appendChild(style);
         }
 
-        // If the map view doesn't include the target street, pan to it
         const bounds = layer.getBounds();
         if (bounds && !this.map.getBounds().contains(bounds)) {
           this.map.panTo(bounds.getCenter());
@@ -711,7 +723,6 @@ class DrivingNavigation {
   setStatus(message, isError = false) {
     if (!this.statusMsg) return;
 
-    // Format the message with more visual cues
     const icon = isError
       ? '<i class="fas fa-exclamation-triangle text-warning me-2"></i>'
       : '<i class="fas fa-info-circle me-2"></i>';
@@ -720,7 +731,6 @@ class DrivingNavigation {
     this.statusMsg.classList.toggle("text-danger", isError);
     this.statusMsg.classList.toggle("text-info", !isError);
 
-    // Also show a notification for important status changes
     if (isError && notificationManager) {
       notificationManager.show(message, "danger");
     }
@@ -747,8 +757,10 @@ class DrivingNavigation {
     this.targetInfo.innerHTML = "";
     this.routeInfo.innerHTML = "";
     this.hideRouteDetails();
+    this.currentCoverageRouteGeoJSON = null;
+    if (this.exportCoverageRouteBtn)
+      this.exportCoverageRouteBtn.disabled = true;
 
-    // Show progress container and set initial state
     this.showProgressContainer();
     this.setActiveStep("clustering");
 
@@ -765,7 +777,6 @@ class DrivingNavigation {
         requestPayload,
       );
 
-      // Update progress to show we're grouping segments
       this.updateProgress(20, "Clustering street segments...");
 
       const response = await fetch("/api/driving-navigation/coverage-route", {
@@ -774,7 +785,6 @@ class DrivingNavigation {
         body: JSON.stringify(requestPayload),
       });
 
-      // Update progress to show we're optimizing routes
       this.setActiveStep("optimizing");
 
       const data = await response.json();
@@ -788,7 +798,9 @@ class DrivingNavigation {
         this.setStatus(data.message);
         if (notificationManager) notificationManager.show(data.message, "info");
       } else if (data.status === "success" && data.route_geometry) {
-        // Update progress to show we're rendering the route
+        this.currentCoverageRouteGeoJSON = data.route_geometry;
+        if (this.exportCoverageRouteBtn)
+          this.exportCoverageRouteBtn.disabled = false;
         this.setActiveStep("rendering");
 
         const fullRouteLayer = L.layerGroup().addTo(this.routeLayer);
@@ -801,7 +813,6 @@ class DrivingNavigation {
           className: "calculated-route",
         };
 
-        // The message contains the info about clusters and segments
         const clusterInfo = data.message.match(
           /(\d+) segments across (\d+) clusters/,
         );
@@ -809,7 +820,6 @@ class DrivingNavigation {
         const clusterCount = clusterInfo ? parseInt(clusterInfo[2]) : 0;
 
         if (data.route_geometry.type === "GeometryCollection") {
-          // Create a more visually appealing representation of clusters
           const geometries = data.route_geometry.geometries;
           let clusterIndex = 0;
           let isConnectingRoute = true;
@@ -818,12 +828,9 @@ class DrivingNavigation {
             let style = {};
 
             if (isConnectingRoute) {
-              // This is a connecting route
               style = connectingRouteStyle;
               isConnectingRoute = false;
             } else {
-              // This is a cluster or segment within a cluster
-              // Use a different color for each cluster to make them visually distinguishable
               style = {
                 color:
                   this.clusterColors[clusterIndex % this.clusterColors.length],
@@ -839,7 +846,6 @@ class DrivingNavigation {
             fullRouteLayer.addLayer(layer);
             routeBounds.extend(layer.getBounds());
 
-            // Add a marker at the start of each cluster to show the sequence
             if (
               !isConnectingRoute &&
               geom.coordinates &&
@@ -880,7 +886,6 @@ class DrivingNavigation {
           data.total_distance_meters * 0.000621371
         ).toFixed(1);
 
-        // Complete progress
         this.updateProgress(100, "Route calculation complete!");
         setTimeout(() => {
           this.hideProgressContainer();
@@ -895,7 +900,7 @@ class DrivingNavigation {
           <div class="card bg-dark p-2 mt-2">
             <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Coverage Route</h6>
             <div class="route-info-detail">
-              <div><i class="fas fa-clock"></i> ${durationHours > 0 ? `${durationHours}h ` : ""}${durationMinutes}min</div>
+              <div><i class="fas fa-clock"></i> ${durationHours > 0 ? `${durationHours}h ` : ""}${remainingMinutes}min</div>
               <div><i class="fas fa-road"></i> ${distanceMiles} mi</div>
               <div><i class="fas fa-layer-group"></i> ${clusterCount} clusters</div>
               <div class="w-100 text-muted small">(Using ${this.formatLocationSource(locationSource)} position)</div>
@@ -903,7 +908,6 @@ class DrivingNavigation {
           </div>
         `;
 
-        // Add detailed route information
         this.showRouteDetails({
           clusters: clusterCount,
           segments: segmentCount,
@@ -936,6 +940,86 @@ class DrivingNavigation {
     }
   }
 
+  async handleExportCoverageRoute() {
+    if (!this.currentCoverageRouteGeoJSON) {
+      notificationManager.show(
+        "No coverage route available to export.",
+        "warning",
+      );
+      return;
+    }
+    if (!this.coverageRouteFormatSelect || !this.exportCoverageRouteBtn) return;
+
+    const format = this.coverageRouteFormatSelect.value;
+    const originalBtnText = this.exportCoverageRouteBtn.innerHTML;
+    this.exportCoverageRouteBtn.disabled = true;
+    this.exportCoverageRouteBtn.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Exporting...`;
+
+    try {
+      const response = await fetch("/api/export/coverage-route", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          route_geometry: this.currentCoverageRouteGeoJSON,
+          format: format,
+          location_name:
+            this.selectedLocation?.display_name || "coverage_route",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail || `Export failed with status ${response.status}`,
+        );
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("content-disposition");
+      let filename = "coverage-route";
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+        if (filenameMatch && filenameMatch.length === 2)
+          filename = filenameMatch[1];
+      }
+
+      if (filename === "coverage-route") {
+        const safeLocationName = (
+          this.selectedLocation?.display_name || "route"
+        )
+          .replace(/[^a-z0-9]/gi, "_")
+          .toLowerCase();
+        const dateStr = new Date().toISOString().split("T")[0];
+        filename = `${safeLocationName}_coverage_route_${dateStr}.${format === "shapefile" ? "zip" : format}`;
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      notificationManager.show(
+        "Coverage route exported successfully.",
+        "success",
+      );
+    } catch (error) {
+      console.error("Error exporting coverage route:", error);
+      notificationManager.show(
+        `Error exporting route: ${error.message}`,
+        "danger",
+      );
+    } finally {
+      this.exportCoverageRouteBtn.disabled = false;
+      this.exportCoverageRouteBtn.innerHTML = originalBtnText;
+    }
+  }
+
   formatLocationSource(source) {
     switch (source) {
       case "client-provided":
@@ -949,7 +1033,6 @@ class DrivingNavigation {
     }
   }
 
-  // New methods for progress feedback
   showProgressContainer() {
     if (this.progressContainer) {
       this.progressContainer.classList.add("active");
@@ -1005,7 +1088,6 @@ class DrivingNavigation {
 
     this.routeDetails.style.display = "block";
 
-    // Generate route statistics
     if (this.routeStats) {
       const clusterCount = routeData.clusters || 1;
       const segmentCount = routeData.segments || 1;
@@ -1021,7 +1103,6 @@ class DrivingNavigation {
       `;
     }
 
-    // Generate route legend
     if (this.routeLegend) {
       this.routeLegend.innerHTML = `
         <div class="legend-item">
@@ -1038,7 +1119,6 @@ class DrivingNavigation {
         </div>
       `;
 
-      // Add cluster colors to legend if there are multiple clusters
       if (routeData.clusters && routeData.clusters > 1) {
         for (
           let i = 0;
@@ -1063,7 +1143,6 @@ class DrivingNavigation {
     }
   }
 
-  // Add a method to create a popup with segment information
   createSegmentPopup(segment) {
     if (!segment || !segment.properties) return null;
 
@@ -1092,9 +1171,7 @@ class DrivingNavigation {
     return popup;
   }
 
-  // Add method to make the map more interactive
   setupMapInteractivity() {
-    // Add hover effect for undriven streets
     this.undrivenStreetsLayer.on("mouseover", (e) => {
       const layer = e.layer;
       if (!layer.feature || layer === this.targetStreetLayer) return;
@@ -1117,7 +1194,6 @@ class DrivingNavigation {
       this.undrivenStreetsLayer.resetStyle(layer);
     });
 
-    // Add click handler for undriven streets to show info and navigation option
     this.undrivenStreetsLayer.on("mousedown", (e) => {
       if (e.originalEvent && e.originalEvent.button !== 0) return;
       const segment = e.layer.feature;
@@ -1125,7 +1201,6 @@ class DrivingNavigation {
       if (popup) {
         e.layer.bindPopup(popup).openPopup();
 
-        // Add event listener to the navigate button after popup is open
         setTimeout(() => {
           const navigateBtn = document.querySelector(".navigate-to-segment");
           if (navigateBtn) {
@@ -1134,8 +1209,6 @@ class DrivingNavigation {
               const segmentId = navigateBtn.getAttribute("data-segment-id");
               this.highlightTargetStreet(segmentId);
               e.layer.closePopup();
-
-              // Generate a route to this specific segment
               this.findRouteToSegment(segmentId);
             });
           }
@@ -1144,7 +1217,6 @@ class DrivingNavigation {
     });
   }
 
-  // Method to find a route to a specific segment
   async findRouteToSegment(segmentId) {
     if (!this.selectedLocation || !segmentId) return;
 
@@ -1153,9 +1225,11 @@ class DrivingNavigation {
     this.calcCoverageBtn.disabled = true;
     this.showProgressContainer();
     this.setActiveStep("optimizing");
+    this.currentCoverageRouteGeoJSON = null;
+    if (this.exportCoverageRouteBtn)
+      this.exportCoverageRouteBtn.disabled = true;
 
     try {
-      // We'll use the same endpoint but pass the specific segment ID
       const requestPayload = {
         location: this.selectedLocation,
         segment_id: segmentId,
@@ -1172,11 +1246,13 @@ class DrivingNavigation {
 
       const data = await response.json();
 
-      // Process response similar to findAndDisplayRoute method
       if (data.status === "success" && data.route_geometry) {
+        this.currentCoverageRouteGeoJSON = data.route_geometry; // Store for potential export
+        if (this.exportCoverageRouteBtn)
+          this.exportCoverageRouteBtn.disabled = false;
+
         this.setActiveStep("rendering");
 
-        // Clear previous route and display new one
         this.routeLayer.clearLayers();
 
         const routeLayer = L.geoJSON(data.route_geometry, {
@@ -1188,7 +1264,6 @@ class DrivingNavigation {
           },
         }).addTo(this.routeLayer);
 
-        // Update UI with route info
         const streetName = data.target_street.street_name || "Selected Street";
         this.setStatus(`Route calculated to ${streetName}.`);
 
@@ -1207,14 +1282,19 @@ class DrivingNavigation {
             </div>
           </div>
         `;
+        this.showRouteDetails({
+          // Show details for this single segment route
+          clusters: 1,
+          segments: 1,
+          duration: data.route_duration_seconds,
+          distance: data.route_distance_meters,
+        });
 
-        // Zoom to show the route
         const bounds = routeLayer.getBounds();
         if (bounds?.isValid()) {
           this.map.fitBounds(bounds, { padding: [70, 70] });
         }
 
-        // Complete progress
         this.updateProgress(100, "Route calculation complete!");
         setTimeout(() => this.hideProgressContainer(), 1000);
       } else {
@@ -1223,6 +1303,7 @@ class DrivingNavigation {
     } catch (error) {
       console.error("Error finding route to segment:", error);
       this.setStatus(`Error: ${error.message}`, true);
+      this.hideProgressContainer();
     } finally {
       this.findBtn.disabled = false;
       this.calcCoverageBtn.disabled = false;

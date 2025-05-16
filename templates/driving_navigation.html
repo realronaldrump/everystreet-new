@@ -1,13 +1,12 @@
 {% extends "base.html" %} {% block title %}Driving Navigation{% endblock %} {%
 block head_content %}
-<!-- Leaflet CSS -->
 <link
   rel="stylesheet"
   href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 />
 <style>
   #driving-map {
-    height: calc(100vh - 200px); /* Adjust height as needed */
+    height: calc(100vh - 200px);
     width: 100%;
   }
   .map-controls {
@@ -24,40 +23,35 @@ block head_content %}
     color: var(--bs-light);
   }
   .leaflet-control-container .leaflet-routing-container {
-    display: none; /* Hide default Mapbox routing UI if it appears */
+    display: none;
   }
-  /* Style for the user's live location marker */
   .live-location-marker {
-    background-color: #0dcaf0; /* Bright cyan */
+    background-color: #0dcaf0;
     border: 2px solid #fff;
     border-radius: 50%;
     box-shadow: 0 0 8px rgba(13, 202, 240, 0.8);
     width: 16px !important;
     height: 16px !important;
-    margin-left: -8px !important; /* Center horizontally */
-    margin-top: -8px !important; /* Center vertically */
+    margin-left: -8px !important;
+    margin-top: -8px !important;
   }
-  /* Style for the target street segment */
   .target-street-segment {
-    stroke: #ffab00 !important; /* Amber/Orange */
+    stroke: #ffab00 !important;
     stroke-width: 6px !important;
     stroke-opacity: 1 !important;
-    stroke-dasharray: none !important; /* Solid line */
+    stroke-dasharray: none !important;
   }
-  /* Style for the calculated route */
   .calculated-route {
-    stroke: #76ff03 !important; /* Bright Green */
+    stroke: #76ff03 !important;
     stroke-width: 5px !important;
     stroke-opacity: 0.8 !important;
   }
-  /* Style for undriven streets in this view */
   .undriven-street-nav {
-    stroke: #00bfff; /* Deep Sky Blue */
+    stroke: #00bfff;
     stroke-width: 3px;
     stroke-opacity: 0.6;
     stroke-dasharray: 4, 4;
   }
-  /* New styles for enhanced navigation UI */
   .progress-container {
     margin-top: 10px;
     display: none;
@@ -199,6 +193,28 @@ block head_content %}
           >
             <i class="fas fa-road me-2"></i>Calculate Full Coverage Route
           </button>
+
+          <div class="mt-3 pt-3 border-top border-secondary">
+            <h6 class="card-subtitle mb-2 text-muted">Export Coverage Route</h6>
+            <div class="input-group mb-2">
+              <label class="input-group-text" for="coverage-route-format-select"
+                >Format</label
+              >
+              <select class="form-select" id="coverage-route-format-select">
+                <option value="geojson" selected>GeoJSON</option>
+                <option value="gpx">GPX</option>
+                <option value="shapefile">Shapefile (Zip)</option>
+              </select>
+            </div>
+            <button
+              id="export-coverage-route-btn"
+              class="btn btn-success w-100"
+              disabled
+            >
+              <i class="fas fa-download me-2"></i>Export Route
+            </button>
+          </div>
+
           <div class="form-check form-switch mt-3">
             <input
               class="form-check-input"
@@ -212,7 +228,6 @@ block head_content %}
             >
           </div>
 
-          <!-- New progress indicator -->
           <div id="route-progress-container" class="progress-container mt-3">
             <div class="step-indicator">
               <div class="step" id="step-clustering">
@@ -247,22 +262,13 @@ block head_content %}
           <div id="status-message" class="mb-2">
             Select an area and find the nearest street.
           </div>
-          <div id="target-info">
-            <!-- Target street info will appear here -->
-          </div>
-          <div id="route-info" class="mt-2">
-            <!-- Route duration/distance will appear here -->
-          </div>
+          <div id="target-info"></div>
+          <div id="route-info" class="mt-2"></div>
 
-          <!-- New route details section -->
           <div id="route-details" class="mt-3" style="display: none">
             <h6>Route Details</h6>
-            <div id="route-stats" class="route-stats">
-              <!-- Dynamic route statistics will be shown here -->
-            </div>
-            <div id="route-legend" class="route-legend">
-              <!-- Route color legend will be shown here -->
-            </div>
+            <div id="route-stats" class="route-stats"></div>
+            <div id="route-legend" class="route-legend"></div>
           </div>
         </div>
       </div>
@@ -279,15 +285,10 @@ block head_content %}
   </div>
 </div>
 {% endblock %} {% block extra_js %}
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- Live tracking JS (needed for LiveTripTracker) -->
 <script src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
-<!-- Utils JS (dependency for notifications) -->
 <script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
-<!-- New JS file for this page -->
 <script>
-  // Pass Mapbox token to JS
   const MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
 </script>
 <script src="{{ url_for('static', path='js/driving-navigation.js') | replace('http://', '//') }}"></script>
