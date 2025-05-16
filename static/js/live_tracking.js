@@ -692,7 +692,6 @@ class LiveTripTracker {
     window.handleError("LiveTripTracker instance destroyed", "destroy", "info");
   }
 
-
   /**
    * Initialize WebSocket live channel.
    * Falls back to existing polling when the socket is unavailable or closes.
@@ -724,7 +723,7 @@ class LiveTripTracker {
             console.warn("LiveTripTracker WebSocket parse error:", err);
           }
         },
-        { passive: true }
+        { passive: true },
       );
       this.ws.addEventListener("open", () => {
         console.info("LiveTripTracker: WebSocket connected – stopping poller");
@@ -743,7 +742,6 @@ class LiveTripTracker {
       this.startPolling();
     }
   }
-
 }
 
 window.LiveTripTracker = LiveTripTracker;
