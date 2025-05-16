@@ -964,7 +964,8 @@
     fetch("/api/coverage_areas")
       .then((res) => res.json())
       .then((data) => {
-        locationSelect.innerHTML = '<option value="">Select an area...</option>';
+        locationSelect.innerHTML =
+          '<option value="">Select an area...</option>';
         if (data.success && Array.isArray(data.areas)) {
           data.areas.forEach((area) => {
             if (area.location && area.location.display_name) {
@@ -979,7 +980,8 @@
         }
       })
       .catch((err) => {
-        locationSelect.innerHTML = '<option value="">Failed to load areas</option>';
+        locationSelect.innerHTML =
+          '<option value="">Failed to load areas</option>';
         showNotification("Failed to load areas: " + err.message, "error");
       });
 
@@ -992,7 +994,8 @@
       e.preventDefault();
       if (!locationSelect.value) return;
       exportBtn.disabled = true;
-      exportBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Exporting...';
+      exportBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Exporting...';
       showNotification("Exporting undriven streets...", "info");
       try {
         const format = formatSelect.value;
@@ -1011,11 +1014,15 @@
           throw new Error(msg);
         }
         let blob;
-        let filename = (area.display_name || "undriven_streets").replace(/[^a-z0-9]/gi, "_").toLowerCase();
+        let filename = (area.display_name || "undriven_streets")
+          .replace(/[^a-z0-9]/gi, "_")
+          .toLowerCase();
         if (format === "gpx") {
           // Convert GeoJSON to GPX client-side (simple, for LineStrings)
           const geojson = await response.json();
-          blob = new Blob([geojsonToGpx(geojson)], { type: "application/gpx+xml" });
+          blob = new Blob([geojsonToGpx(geojson)], {
+            type: "application/gpx+xml",
+          });
           filename += ".gpx";
         } else {
           blob = await response.blob();
@@ -1046,7 +1053,11 @@
     let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="EveryStreet" xmlns="http://www.topografix.com/GPX/1/1">\n`;
     if (geojson && Array.isArray(geojson.features)) {
       geojson.features.forEach((f, i) => {
-        if (f.geometry && f.geometry.type === "LineString" && Array.isArray(f.geometry.coordinates)) {
+        if (
+          f.geometry &&
+          f.geometry.type === "LineString" &&
+          Array.isArray(f.geometry.coordinates)
+        ) {
           gpx += `<trk><name>Undriven Street ${i + 1}</name><trkseg>`;
           f.geometry.coordinates.forEach(([lon, lat]) => {
             gpx += `<trkpt lat="${lat}" lon="${lon}"></trkpt>`;
