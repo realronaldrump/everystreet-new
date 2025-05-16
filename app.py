@@ -191,6 +191,7 @@ osm_data_collection = db_manager.db["osm_data"]
 
 class ConnectionManager:
     """Keeps track of all connected clients and broadcasts JSON payloads."""
+
     def __init__(self) -> None:
         self.active: Set[WebSocket] = set()
 

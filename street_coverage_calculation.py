@@ -1270,7 +1270,7 @@ class CoverageCalculator:
                                     self.min_match_length,
                                 )
                                 for ( # Removed unused trip_idx_in_sub_batch
-                                    _, 
+                                    _,
                                     matched_segment_ids,
                                 ) in result_map.items():
                                     if isinstance(
@@ -1325,7 +1325,7 @@ class CoverageCalculator:
                                 try:
                                     result_map = future.result(timeout=0.1)
                                     for ( # Removed unused trip_idx_in_sub_batch
-                                        _, 
+                                        _,
                                         matched_segment_ids,
                                     ) in result_map.items():
                                         if isinstance(
@@ -1461,7 +1461,7 @@ class CoverageCalculator:
                                         timeout=0,
                                     )
                                     for ( # Removed unused trip_idx
-                                        _, 
+                                        _,
                                         matched_ids,
                                     ) in result_map.items():
                                         if isinstance(matched_ids, set):
