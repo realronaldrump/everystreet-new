@@ -13,7 +13,7 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
-from typing import Any
+from typing import Any, Set
 
 import bson
 import geojson as geojson_module
@@ -32,6 +32,8 @@ from fastapi import (
     Query,
     Request,
     UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -184,6 +186,33 @@ progress_collection = db_manager.db["progress_status"]
 osm_data_collection = db_manager.db["osm_data"]
 
 
+
+
+
+class ConnectionManager:
+    """Keeps track of all connected clients and broadcasts JSON payloads."""
+    def __init__(self) -> None:
+        self.active: Set[WebSocket] = set()
+
+    async def connect(self, ws: WebSocket) -> None:
+        await ws.accept()
+        self.active.add(ws)
+
+    def disconnect(self, ws: WebSocket) -> None:
+        self.active.discard(ws)
+
+    async def broadcast_json(self, data: dict) -> None:
+        living = set()
+        for ws in self.active:
+            try:
+                await ws.send_json(data)
+                living.add(ws)
+            except WebSocketDisconnect:
+                # client vanished mid‑send
+                pass
+        self.active = living
+
+manager = ConnectionManager()
 async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
     """Process and store a trip using TripProcessor.
 
@@ -1346,7 +1375,8 @@ async def get_trips(request: Request):
                     "pointsRecorded": num_points,  # Use calculated number of points
                 }
 
-                # Ensure geom is a valid GeoJSON geometry dict or None before passing to Feature
+                # Ensure geom is a valid GeoJSON geometry dict or None before passing
+                # to Feature
                 valid_geom = (
                     geom
                     if isinstance(geom, dict)
@@ -5791,6 +5821,25 @@ async def driver_behavior_analytics():
         "weekly": weekly_trend,
         "monthly": monthly_trend,
     }
+
+@app.websocket("/ws/trips")
+async def ws_trip_updates(websocket: WebSocket) -> None:
+    """Pushes the same structure returned by /api/trip_updates via WebSocket."""
+    await manager.connect(websocket)
+
+    # clients may reconnect – start them at 0 so they receive the next diff
+    last_seq = 0
+    try:
+        while True:
+            updates = await db_manager.get_trip_updates_since(last_seq)
+            if updates.get("has_update"):
+                await websocket.send_json(updates)
+                last_seq = updates["trip"]["sequence"]
+            await asyncio.sleep(1)                # ≈1 Hz loop – tune if you like
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect(websocket)
 
 
 if __name__ == "__main__":
