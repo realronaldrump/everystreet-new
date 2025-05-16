@@ -760,12 +760,12 @@ class LiveTripTracker {
         console.info("LiveTripTracker: WebSocket connected – stopping poller");
         this.stopPolling?.();
       });
-      this.ws.addEventListener("close", () => {
-        console.warn("WebSocket closed – resuming polling");
+      this.ws.addEventListener("close", (event) => {
+        console.warn("WebSocket closed – resuming polling", { code: event.code, reason: event.reason, wasClean: event.wasClean });
         this.startPolling();
       });
-      this.ws.addEventListener("error", () => {
-        console.warn("WebSocket error – resuming polling");
+      this.ws.addEventListener("error", (event) => {
+        console.warn("WebSocket error – resuming polling", event);
         this.startPolling();
       });
     } catch (e) {

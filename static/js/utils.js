@@ -483,6 +483,7 @@ class ConfirmationDialog {
       }
 
       const handleConfirm = () => {
+        confirmBtn?.blur();
         cleanup();
         this.activeModal?.hide();
         this.activeModal = null;
