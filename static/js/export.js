@@ -305,6 +305,10 @@
   }
 
   async function handleFormSubmit(formType) {
+    // Skip undrivenStreets, handled by its own handler
+    if (formType === "undrivenStreets") {
+      return;
+    }
     const config = EXPORT_CONFIG[formType];
     if (!config) return;
     if (activeExports[formType]) {
@@ -1011,7 +1015,12 @@
           throw new Error(msg);
         }
         let blob;
-        let filename = (area.display_name || "undriven_streets").replace(/[^a-z0-9]/gi, "_").toLowerCase();
+        let displayName = area.display_name || "undriven_streets";
+        let sanitizedName = displayName.replace(/[^a-zA-Z0-9]/g, "_");
+        let now = new Date();
+        let pad = n => n.toString().padStart(2, '0');
+        let dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+        let filename = `${sanitizedName}_undriven_${dateStr}`;
         if (format === "gpx") {
           // Convert GeoJSON to GPX client-side (simple, for LineStrings)
           const geojson = await response.json();
