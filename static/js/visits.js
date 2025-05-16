@@ -451,22 +451,37 @@
     setupEventListeners() {
       document
         .getElementById("start-drawing")
-        ?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.startDrawing(); });
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.startDrawing();
+        });
       document
         .getElementById("save-place")
-        ?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.savePlace(); });
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.savePlace();
+        });
       document
         .getElementById("clear-drawing")
-        ?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.clearCurrentDrawing(); });
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.clearCurrentDrawing();
+        });
 
       this.map.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
       document
         .getElementById("zoom-to-fit")
-        ?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.zoomToFitAllPlaces(); });
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.zoomToFitAllPlaces();
+        });
 
       document
         .getElementById("manage-places")
-        ?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.showManagePlacesModal(); });
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.showManagePlacesModal();
+        });
       document
         .getElementById("edit-place-form")
         ?.addEventListener("submit", (e) => {
@@ -475,7 +490,10 @@
         });
       document
         .getElementById("edit-place-boundary")
-        ?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.startEditingPlaceBoundary(); });
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.startEditingPlaceBoundary();
+        });
       document
         .getElementById("toggle-custom-places")
         ?.addEventListener("change", (e) =>
@@ -484,7 +502,10 @@
 
       document
         .getElementById("back-to-places-btn")
-        ?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; this.toggleView(); });
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.toggleView();
+        });
       $("#visits-table").on("mousedown", ".place-link", (event) => {
         if (event.button !== 0) return;
         event.preventDefault();
