@@ -186,9 +186,6 @@ progress_collection = db_manager.db["progress_status"]
 osm_data_collection = db_manager.db["osm_data"]
 
 
-
-
-
 class ConnectionManager:
     """Keeps track of all connected clients and broadcasts JSON payloads."""
 
@@ -213,7 +210,10 @@ class ConnectionManager:
                 pass
         self.active = living
 
+
 manager = ConnectionManager()
+
+
 async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
     """Process and store a trip using TripProcessor.
 
@@ -4394,7 +4394,8 @@ async def get_coverage_area_details(location_id: str):
         )
         if not coverage_doc:
             raise HTTPException(
-                status_code=404, detail="Coverage area not found",
+                status_code=404,
+                detail="Coverage area not found",
             )
 
         # pull in the GeoJSON
@@ -4408,10 +4409,12 @@ async def get_coverage_area_details(location_id: str):
 
         # compute metrics
         total_length = coverage_doc.get(
-            "total_length_m", coverage_doc.get("total_length", 0),
+            "total_length_m",
+            coverage_doc.get("total_length", 0),
         )
         driven_length = coverage_doc.get(
-            "driven_length_m", coverage_doc.get("driven_length", 0),
+            "driven_length_m",
+            coverage_doc.get("driven_length", 0),
         )
         coverage_percentage = coverage_doc.get("coverage_percentage", 0.0)
         total_streets = coverage_doc.get("total_segments", 0)  # from metadata
@@ -5823,11 +5826,16 @@ async def driver_behavior_analytics():
         "monthly": monthly_trend,
     }
 
+
 @app.websocket("/ws/trips")
 async def ws_trip_updates(websocket: WebSocket) -> None:
     """Pushes the same structure returned by /api/trip_updates via WebSocket."""
     await manager.connect(websocket)
-    client_info = f"{websocket.client.host}:{websocket.client.port}" if websocket.client else "UnknownClient"
+    client_info = (
+        f"{websocket.client.host}:{websocket.client.port}"
+        if websocket.client
+        else "UnknownClient"
+    )
     logger.info(f"WebSocket client {client_info} connected to /ws/trips.")
 
     last_seq = 0
@@ -5841,9 +5849,17 @@ async def ws_trip_updates(websocket: WebSocket) -> None:
 
                 updates = await db_manager.get_trip_updates_since(last_seq)
 
-                if updates and updates.get("has_update") and updates.get("trip"):
+                if (
+                    updates
+                    and updates.get("has_update")
+                    and updates.get("trip")
+                ):
                     trip_data = updates.get("trip")
-                    current_sequence = trip_data.get("sequence") if isinstance(trip_data, dict) else None
+                    current_sequence = (
+                        trip_data.get("sequence")
+                        if isinstance(trip_data, dict)
+                        else None
+                    )
 
                     if current_sequence is not None:
                         await websocket.send_json(updates)
@@ -5863,36 +5879,59 @@ async def ws_trip_updates(websocket: WebSocket) -> None:
                     # For now, log and continue; sleep will prevent tight loop.
 
             except WebSocketDisconnect:
-                logger.info(f"WebSocket {client_info}: Client disconnected during inner loop processing (WebSocketDisconnect).")
-                raise # Re-raise to be handled by the outer try/except for cleanup
+                logger.info(
+                    f"WebSocket {client_info}: Client disconnected during inner loop processing (WebSocketDisconnect)."
+                )
+                raise  # Re-raise to be handled by the outer try/except for cleanup
             except Exception as e:
-                logger.error(f"WebSocket {client_info}: Error in WebSocket /ws/trips processing loop: {e!s}", exc_info=True)
+                logger.error(
+                    f"WebSocket {client_info}: Error in WebSocket /ws/trips processing loop: {e!s}",
+                    exc_info=True,
+                )
                 # Attempt to close gracefully before breaking
                 try:
-                    await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="Internal server error during update processing.")
-                    logger.info(f"WebSocket {client_info}: Sent close frame WS_1011_INTERNAL_ERROR due to processing error.")
+                    await websocket.close(
+                        code=status.WS_1011_INTERNAL_ERROR,
+                        reason="Internal server error during update processing.",
+                    )
+                    logger.info(
+                        f"WebSocket {client_info}: Sent close frame WS_1011_INTERNAL_ERROR due to processing error."
+                    )
                 except Exception as close_exc:
                     # This might happen if the connection is already broken
-                    logger.error(f"WebSocket {client_info}: Failed to send close frame after error: {close_exc!s}", exc_info=True)
-                break # Exit the while loop, connection will be cleaned up in finally
+                    logger.error(
+                        f"WebSocket {client_info}: Failed to send close frame after error: {close_exc!s}",
+                        exc_info=True,
+                    )
+                break  # Exit the while loop, connection will be cleaned up in finally
 
             await asyncio.sleep(0.1)
 
     except WebSocketDisconnect:
-        logger.info(f"WebSocket {client_info}: Client disconnected (handled by outer try/except).")
+        logger.info(
+            f"WebSocket {client_info}: Client disconnected (handled by outer try/except)."
+        )
     except Exception as e:
         # This catches errors from manager.connect or other unexpected issues outside the main loop
-        logger.error(f"WebSocket {client_info}: Unhandled exception in WebSocket /ws/trips handler: {e!s}", exc_info=True)
+        logger.error(
+            f"WebSocket {client_info}: Unhandled exception in WebSocket /ws/trips handler: {e!s}",
+            exc_info=True,
+        )
         # Ensure cleanup, trying to close if not already disconnected
         try:
             # Check if websocket can be closed. A simple attempt is usually fine.
-            await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="Unhandled server error in WebSocket handler.")
-        except Exception: # nosec
+            await websocket.close(
+                code=status.WS_1011_INTERNAL_ERROR,
+                reason="Unhandled server error in WebSocket handler.",
+            )
+        except Exception:  # nosec
             # If closing fails, it's likely because the connection is already gone or in a bad state.
-            pass # nosemgrep
+            pass  # nosemgrep
     finally:
         manager.disconnect(websocket)
-        logger.info(f"WebSocket {client_info}: Connection closed and resources cleaned up for /ws/trips.")
+        logger.info(
+            f"WebSocket {client_info}: Connection closed and resources cleaned up for /ws/trips."
+        )
 
 
 if __name__ == "__main__":

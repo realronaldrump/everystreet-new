@@ -1226,13 +1226,13 @@ class CoverageCalculator:
                     sub_batch_coords = [coords for _, coords in trip_sub_batch]
                     sub_batch_trip_ids = [tid for tid, _ in trip_sub_batch]
 
-                    for ( # Removed unused chunk_idx from enumerate
+                    for (  # Removed unused chunk_idx from enumerate
                         geom_chunk,
                         bbox_chunk,
                     ) in zip(
-                            geom_chunks,
-                            bbox_chunks,
-                        ):
+                        geom_chunks,
+                        bbox_chunks,
+                    ):
                         if not geom_chunk or not sub_batch_coords:
                             continue
 
@@ -1269,7 +1269,7 @@ class CoverageCalculator:
                                     self.match_buffer,
                                     self.min_match_length,
                                 )
-                                for ( # Removed unused trip_idx_in_sub_batch
+                                for (  # Removed unused trip_idx_in_sub_batch
                                     _,
                                     matched_segment_ids,
                                 ) in result_map.items():
@@ -1324,7 +1324,7 @@ class CoverageCalculator:
                                 ]
                                 try:
                                     result_map = future.result(timeout=0.1)
-                                    for ( # Removed unused trip_idx_in_sub_batch
+                                    for (  # Removed unused trip_idx_in_sub_batch
                                         _,
                                         matched_segment_ids,
                                     ) in result_map.items():
@@ -1430,7 +1430,7 @@ class CoverageCalculator:
                 ]
 
                 try:
-                    await asyncio.wait( # Removed unused pending_wrapped
+                    await asyncio.wait(  # Removed unused pending_wrapped
                         wrapped_futures,
                         timeout=WORKER_RESULT_WAIT_TIMEOUT_S,
                         return_when=asyncio.ALL_COMPLETED,
@@ -1460,7 +1460,7 @@ class CoverageCalculator:
                                     result_map = future.result(
                                         timeout=0,
                                     )
-                                    for ( # Removed unused trip_idx
+                                    for (  # Removed unused trip_idx
                                         _,
                                         matched_ids,
                                     ) in result_map.items():
@@ -1872,8 +1872,8 @@ class CoverageCalculator:
 
             MAX_TRIP_IDS_TO_STORE = 50000
             if len(trip_ids_list) <= MAX_TRIP_IDS_TO_STORE:
-                pass # If you intended to store trip_ids_list, it's missing here.
-                     # Based on the original code, it seems it was conditionally skipped.
+                pass  # If you intended to store trip_ids_list, it's missing here.
+                # Based on the original code, it seems it was conditionally skipped.
             else:
                 logger.warning(
                     "Task %s: Not storing %d trip IDs in metadata due to size limit.",
@@ -2039,20 +2039,24 @@ class CoverageCalculator:
                                 self.task_id,
                                 type(trip_ids_data).__name__,
                             )
-                            run_incremental = False # Intentionally not modifying the parameter
+                            run_incremental = False  # Intentionally not modifying the parameter
                     else:
                         logger.warning(
                             "Task %s: No previously processed trip IDs found in metadata. Running as full.",
                             self.task_id,
                         )
-                        run_incremental = False # Intentionally not modifying the parameter
+                        run_incremental = (
+                            False  # Intentionally not modifying the parameter
+                        )
                 except Exception as meta_err:
                     logger.error(
                         "Task %s: Error loading processed trips metadata: %s. Running as full.",
                         self.task_id,
                         meta_err,
                     )
-                    run_incremental = False # Intentionally not modifying the parameter
+                    run_incremental = (
+                        False  # Intentionally not modifying the parameter
+                    )
             else:
                 logger.info(
                     "Task %s: Starting full coverage run for %s.",
