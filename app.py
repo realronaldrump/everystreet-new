@@ -5835,7 +5835,7 @@ async def ws_trip_updates(websocket: WebSocket) -> None:
             if updates.get("has_update"):
                 await websocket.send_json(updates)
                 last_seq = updates["trip"]["sequence"]
-            await asyncio.sleep(1)                # ≈1 Hz loop – tune if you like
+            await asyncio.sleep(0.1)
     except WebSocketDisconnect:
         pass
     finally:
