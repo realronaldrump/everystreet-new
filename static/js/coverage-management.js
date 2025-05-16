@@ -1079,6 +1079,29 @@ const STATUS = window.STATUS || {
         CoverageManager.updateCoverageTable(data.areas, this); // Pass instance `this`
         CoverageManager.enhanceResponsiveTables(); // Make table responsive
         this.initTooltips(); // Re-initialize tooltips for new buttons
+
+        // --- DataTables Sorting Integration ---
+        if (window.$ && $.fn.DataTable) {
+          const table = $("#coverage-areas-table");
+          if ($.fn.DataTable.isDataTable(table)) {
+            table.DataTable().destroy();
+          }
+          table.DataTable({
+            order: [[0, "asc"]], // Default sort by Location ascending
+            paging: false,
+            searching: false,
+            info: false,
+            responsive: true,
+            autoWidth: false,
+            columnDefs: [
+              { orderable: false, targets: 6 }, // Actions column not sortable
+            ],
+            language: {
+              emptyTable: "No coverage areas defined yet.",
+            },
+          });
+        }
+        // --- End DataTables Sorting ---
       } catch (error) {
         console.error("Error loading coverage areas:", error);
         this.notificationManager.show(
@@ -1328,9 +1351,9 @@ const STATUS = window.STATUS || {
             ${isCanceled ? '<div class="text-warning small"><i class="fas fa-ban me-1"></i>Canceled</div>' : ""}
             ${isProcessing ? `<div class="text-primary small"><i class="fas fa-spinner fa-spin me-1"></i>${CoverageManager.formatStageName(status)}...</div>` : ""}
           </td>
-          <td data-label="Total Length" class="text-end">${totalLengthMiles}</td>
-          <td data-label="Driven Length" class="text-end">${drivenLengthMiles}</td>
-          <td data-label="Coverage">
+          <td data-label="Total Length" class="text-end" data-order="${parseFloat(area.total_length || 0) * 0.000621371}">${totalLengthMiles}</td>
+          <td data-label="Driven Length" class="text-end" data-order="${parseFloat(area.driven_length || 0) * 0.000621371}">${drivenLengthMiles}</td>
+          <td data-label="Coverage" data-order="${parseFloat(area.coverage_percentage || 0)}">
             <div class="progress" style="height: 20px;" title="${coveragePercentage}%">
               <div class="progress-bar ${progressBarColor}" role="progressbar"
                    style="width: ${coveragePercentage}%;"
@@ -1340,7 +1363,7 @@ const STATUS = window.STATUS || {
               </div>
             </div>
           </td>
-          <td data-label="Segments" class="text-end">${area.total_segments?.toLocaleString() || 0}</td>
+          <td data-label="Segments" class="text-end" data-order="${parseInt(area.total_segments || 0, 10)}">${area.total_segments?.toLocaleString() || 0}</td>
           <td data-label="Last Updated">${lastUpdated}</td>
           <td data-label="Actions">
             <div class="btn-group" role="group">
