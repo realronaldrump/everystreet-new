@@ -1320,7 +1320,9 @@ const STATUS = window.STATUS || {
         const lastUpdated = area.last_updated
           ? new Date(area.last_updated).toLocaleString()
           : "Never";
-        const lastUpdatedOrder = area.last_updated ? new Date(area.last_updated).getTime() : 0;
+        const lastUpdatedOrder = area.last_updated
+          ? new Date(area.last_updated).getTime()
+          : 0;
         const totalLengthMiles = CoverageManager.distanceInUserUnits(
           area.total_length,
         );
