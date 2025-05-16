@@ -8,7 +8,11 @@
       content="Every Street - Tracking and Visualizing Davis's street coverage"
     />
     <meta name="theme-color" content="#121212" />
-    <link rel="preload" as="image" href="https://a.basemaps.cartocdn.com/dark_all/0/0/0.png"/>
+    <link
+      rel="preload"
+      as="image"
+      href="https://a.basemaps.cartocdn.com/dark_all/0/0/0.png"
+    />
     <meta name="color-scheme" content="dark light" />
 
     <!-- Prevent flash of wrong theme -->
@@ -666,6 +670,10 @@
     ></script>
 
     {% block extra_js %}{% endblock %}
-    <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(console.error);}</script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(console.error);
+      }
+    </script>
   </body>
 </html>

@@ -89,7 +89,7 @@
 
       window.addEventListener(
         "resize",
-        window.utils?.debounce(handleResize, 250) || handleResize
+        window.utils?.debounce(handleResize, 250) || handleResize,
       );
       handleResize(); // Initial call
 
@@ -99,7 +99,7 @@
       console.error("Error initializing Modern UI:", error);
       window.notificationManager?.show(
         `Error initializing UI: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -114,7 +114,7 @@
         if (key === "startDate" || key === "endDate") {
           // Date inputs are specifically within the filters panel
           elements[`${key}Input`] = document.querySelector(
-            `${selectors.filtersPanel} ${selectors[key]}`
+            `${selectors.filtersPanel} ${selectors[key]}`,
           );
         } else {
           elements[key] = document.querySelector(selectors[key]);
@@ -123,19 +123,33 @@
     }
 
     // Fallback if date inputs were not found inside filter panel (e.g. if selectors were just #start-date)
-    if (!elements.startDateInput && elements.startDate) elements.startDateInput = elements.startDate;
-    if (!elements.endDateInput && elements.endDate) elements.endDateInput = elements.endDate;
+    if (!elements.startDateInput && elements.startDate)
+      elements.startDateInput = elements.startDate;
+    if (!elements.endDateInput && elements.endDate)
+      elements.endDateInput = elements.endDate;
 
-
-    elements.quickSelectBtns = document.querySelectorAll(selectors.quickSelectBtns);
+    elements.quickSelectBtns = document.querySelectorAll(
+      selectors.quickSelectBtns,
+    );
     elements.datepickers = document.querySelectorAll(selectors.datepicker);
-    elements.zoomControls = document.querySelectorAll(".leaflet-control-zoom a");
+    elements.zoomControls = document.querySelectorAll(
+      ".leaflet-control-zoom a",
+    );
 
     // Check for essential elements and warn if not found
-    const essentialElements = ["loadingOverlay", "progressBar", "loadingText", "applyFiltersBtn", "resetFilters", "mapControls"];
+    const essentialElements = [
+      "loadingOverlay",
+      "progressBar",
+      "loadingText",
+      "applyFiltersBtn",
+      "resetFilters",
+      "mapControls",
+    ];
     essentialElements.forEach((key) => {
       if (!elements[key]) {
-        console.warn(`Essential element '${key}' with selector '${selectors[key]}' not found.`);
+        console.warn(
+          `Essential element '${key}' with selector '${selectors[key]}' not found.`,
+        );
       }
     });
   }
@@ -144,7 +158,12 @@
    * Initializes map control interactions, including toggle and event propagation.
    */
   function initMapControls() {
-    const { mapControls, controlsToggle, centerOnLocationButton, controlsContent: controlsContentSelector } = elements;
+    const {
+      mapControls,
+      controlsToggle,
+      centerOnLocationButton,
+      controlsContent: controlsContentSelector,
+    } = elements;
     if (!mapControls) return;
 
     // Apply styles for better touch interaction on mobile
@@ -154,11 +173,14 @@
 
     if (controlsToggle) {
       controlsToggle.addEventListener("click", function () {
-        const controlsContent = elements.controlsContent || document.querySelector(CONFIG.selectors.controlsContent); // Re-query if not cached
+        const controlsContent =
+          elements.controlsContent ||
+          document.querySelector(CONFIG.selectors.controlsContent); // Re-query if not cached
         mapControls.classList.toggle(CONFIG.classes.minimized);
 
         if (controlsContent && window.bootstrap?.Collapse) {
-          const bsCollapse = window.bootstrap.Collapse.getOrCreateInstance(controlsContent);
+          const bsCollapse =
+            window.bootstrap.Collapse.getOrCreateInstance(controlsContent);
           if (mapControls.classList.contains(CONFIG.classes.minimized)) {
             bsCollapse.hide();
           } else {
@@ -173,7 +195,20 @@
     }
 
     // Prevent map interaction when interacting with controls
-    const stopPropagationEvents = ["mousedown", "mouseup", "click", "dblclick", "touchstart", "touchend", "wheel", "contextmenu", "drag", "dragstart", "dragend", "touchmove"];
+    const stopPropagationEvents = [
+      "mousedown",
+      "mouseup",
+      "click",
+      "dblclick",
+      "touchstart",
+      "touchend",
+      "wheel",
+      "contextmenu",
+      "drag",
+      "dragstart",
+      "dragend",
+      "touchmove",
+    ];
     stopPropagationEvents.forEach((eventType) => {
       mapControls.addEventListener(
         eventType === "click" ? "mousedown" : eventType, // Use mousedown for click to catch it earlier
@@ -181,12 +216,18 @@
           if (eventType === "click" && e.button !== 0) return; // Only process left clicks for 'click'
           const target = e.target;
           // Allow events on interactive elements within the controls
-          const isInteractiveElement = target.closest("input, select, textarea, button, a, .form-check, .nav-item, .list-group-item");
+          const isInteractiveElement = target.closest(
+            "input, select, textarea, button, a, .form-check, .nav-item, .list-group-item",
+          );
           if (!isInteractiveElement) {
             e.stopPropagation();
           }
         },
-        { passive: !["drag", "dragstart", "dragend", "touchmove"].includes(eventType) } // Use passive where appropriate
+        {
+          passive: !["drag", "dragstart", "dragend", "touchmove"].includes(
+            eventType,
+          ),
+        }, // Use passive where appropriate
       );
     });
 
@@ -206,10 +247,10 @@
     }
 
     if (centerOnLocationButton) {
-        centerOnLocationButton.addEventListener("mousedown", (e) => {
-            if (e.button !== 0) return; // Only left click
-            handleCenterOnLocation(e);
-        });
+      centerOnLocationButton.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return; // Only left click
+        handleCenterOnLocation(e);
+      });
     }
   }
 
@@ -227,12 +268,20 @@
     if (locationInfo.targetLatLng) {
       window.map.flyTo(
         locationInfo.targetLatLng,
-        window.map.getZoom() < CONFIG.map.defaultZoom ? CONFIG.map.defaultZoom : window.map.getZoom(),
-        { animate: true, duration: CONFIG.map.flyToDuration }
+        window.map.getZoom() < CONFIG.map.defaultZoom
+          ? CONFIG.map.defaultZoom
+          : window.map.getZoom(),
+        { animate: true, duration: CONFIG.map.flyToDuration },
       );
-      window.notificationManager?.show(`Centered map on ${locationInfo.source}.`, "info");
+      window.notificationManager?.show(
+        `Centered map on ${locationInfo.source}.`,
+        "info",
+      );
     } else {
-      window.notificationManager?.show("Could not determine current or last known location.", "warning");
+      window.notificationManager?.show(
+        "Could not determine current or last known location.",
+        "warning",
+      );
     }
   }
 
@@ -248,7 +297,11 @@
     const liveCoords = window.liveTracker?.activeTrip?.coordinates;
     if (liveCoords?.length > 0) {
       const lastCoord = liveCoords[liveCoords.length - 1];
-      if (lastCoord && typeof lastCoord.lat === "number" && typeof lastCoord.lon === "number") {
+      if (
+        lastCoord &&
+        typeof lastCoord.lat === "number" &&
+        typeof lastCoord.lon === "number"
+      ) {
         targetLatLng = [lastCoord.lat, lastCoord.lon];
         locationSource = "live location";
       }
@@ -272,7 +325,7 @@
       }
     }
     if (!targetLatLng && !locationSource) {
-        logFallbackFailureReason(); // Log if no location could be determined
+      logFallbackFailureReason(); // Log if no location could be determined
     }
     return { targetLatLng, source: locationSource };
   }
@@ -302,7 +355,14 @@
     if (!lastTripFeature) return null;
 
     const coords = extractCoordsFromFeature(lastTripFeature);
-    return coords ? { coords, featureId: lastTripFeature.properties?.id || lastTripFeature.properties?.transactionId } : null;
+    return coords
+      ? {
+          coords,
+          featureId:
+            lastTripFeature.properties?.id ||
+            lastTripFeature.properties?.transactionId,
+        }
+      : null;
   }
 
   /**
@@ -315,14 +375,23 @@
     const coords = feature?.geometry?.coordinates;
     let lastCoord = null;
 
-    if (geomType === "LineString" && Array.isArray(coords) && coords.length > 0) {
+    if (
+      geomType === "LineString" &&
+      Array.isArray(coords) &&
+      coords.length > 0
+    ) {
       lastCoord = coords[coords.length - 1]; // [lng, lat]
     } else if (geomType === "Point" && Array.isArray(coords)) {
       lastCoord = coords; // [lng, lat]
     }
 
     // Ensure valid coordinates and convert to [lat, lng] for Leaflet
-    if (Array.isArray(lastCoord) && lastCoord.length === 2 && typeof lastCoord[0] === "number" && typeof lastCoord[1] === "number") {
+    if (
+      Array.isArray(lastCoord) &&
+      lastCoord.length === 2 &&
+      typeof lastCoord[0] === "number" &&
+      typeof lastCoord[1] === "number"
+    ) {
       return [lastCoord[1], lastCoord[0]]; // Leaflet needs [lat, lng]
     }
     return null;
@@ -345,17 +414,17 @@
           if (Array.isArray(features)) {
             reason += `      - .features.length: ${features.length}\n`;
             if (features.length > 0) {
-              reason += "      - Checked features but none had a valid 'endTime' or extractable coordinates.\n";
+              reason +=
+                "      - Checked features but none had a valid 'endTime' or extractable coordinates.\n";
             }
           }
         } else {
-            reason += `    - window.AppState.mapLayers.trips.layer is missing.\n`;
+          reason += `    - window.AppState.mapLayers.trips.layer is missing.\n`;
         }
       }
     }
     window.handleError?.(reason, "findBestLocationToCenter", "warn");
   }
-
 
   /**
    * Initializes theme toggle functionality (light/dark mode).
@@ -365,18 +434,22 @@
     if (!themeToggle && !darkModeToggle) return; // No toggle elements found
 
     const savedTheme = localStorage.getItem(CONFIG.storage.theme);
-    const prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const prefersDarkScheme = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
     const initialTheme = savedTheme || (prefersDarkScheme ? "dark" : "light");
 
     applyTheme(initialTheme);
 
     const handleThemeChange = (newTheme) => {
-        applyTheme(newTheme);
-        localStorage.setItem(CONFIG.storage.theme, newTheme);
-        // Synchronize both toggles if they exist
-        if (themeToggle) themeToggle.checked = newTheme === "light";
-        if (darkModeToggle) darkModeToggle.checked = newTheme === "dark";
-        document.dispatchEvent(new CustomEvent("themeChanged", { detail: { theme: newTheme } }));
+      applyTheme(newTheme);
+      localStorage.setItem(CONFIG.storage.theme, newTheme);
+      // Synchronize both toggles if they exist
+      if (themeToggle) themeToggle.checked = newTheme === "light";
+      if (darkModeToggle) darkModeToggle.checked = newTheme === "dark";
+      document.dispatchEvent(
+        new CustomEvent("themeChanged", { detail: { theme: newTheme } }),
+      );
     };
 
     if (themeToggle) {
@@ -388,12 +461,13 @@
 
     // If only dark mode toggle exists, or if it's a secondary toggle
     if (darkModeToggle) {
-        darkModeToggle.checked = initialTheme === "dark";
-        if (!themeToggle) { // Only add listener if themeToggle isn't primary
-            darkModeToggle.addEventListener("change", () => {
-                handleThemeChange(darkModeToggle.checked ? "dark" : "light");
-            });
-        }
+      darkModeToggle.checked = initialTheme === "dark";
+      if (!themeToggle) {
+        // Only add listener if themeToggle isn't primary
+        darkModeToggle.addEventListener("change", () => {
+          handleThemeChange(darkModeToggle.checked ? "dark" : "light");
+        });
+      }
     }
   }
 
@@ -408,7 +482,10 @@
 
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {
-      themeColorMeta.setAttribute("content", isLight ? CONFIG.themeMetaColor.light : CONFIG.themeMetaColor.dark);
+      themeColorMeta.setAttribute(
+        "content",
+        isLight ? CONFIG.themeMetaColor.light : CONFIG.themeMetaColor.dark,
+      );
     }
     updateMapTheme(theme);
   }
@@ -420,9 +497,12 @@
   function updateMapTheme(theme) {
     if (!window.map?.eachLayer) return; // Map not initialized or no layers method
 
-    const mapContainer = elements.mapContainer || document.getElementById(CONFIG.selectors.mapContainer.substring(1));
+    const mapContainer =
+      elements.mapContainer ||
+      document.getElementById(CONFIG.selectors.mapContainer.substring(1));
     if (mapContainer) {
-      mapContainer.style.background = theme === "light" ? CONFIG.map.lightBg : CONFIG.map.darkBg;
+      mapContainer.style.background =
+        theme === "light" ? CONFIG.map.lightBg : CONFIG.map.darkBg;
     }
 
     // Remove existing tile layers before adding a new one
@@ -443,7 +523,9 @@
     }
 
     window.map.invalidateSize(); // Refresh map size
-    document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
+    document.dispatchEvent(
+      new CustomEvent("mapThemeChanged", { detail: { theme } }),
+    );
   }
 
   /**
@@ -469,7 +551,10 @@
     closeBtn?.addEventListener("click", closeDrawer);
     contentOverlay?.addEventListener("click", closeDrawer);
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && mobileDrawer.classList.contains(CONFIG.classes.open)) {
+      if (
+        e.key === "Escape" &&
+        mobileDrawer.classList.contains(CONFIG.classes.open)
+      ) {
         closeDrawer();
       }
     });
@@ -479,7 +564,15 @@
    * Initializes the filters panel functionality.
    */
   function initFilterPanel() {
-    const { filterToggle, filtersPanel, contentOverlay, filtersClose, quickSelectBtns, applyFiltersBtn, resetFilters } = elements;
+    const {
+      filterToggle,
+      filtersPanel,
+      contentOverlay,
+      filtersClose,
+      quickSelectBtns,
+      applyFiltersBtn,
+      resetFilters,
+    } = elements;
 
     if (filterToggle && filtersPanel) {
       filterToggle.addEventListener("mousedown", (e) => {
@@ -495,14 +588,17 @@
       contentOverlay?.classList.remove(CONFIG.classes.visible);
     };
 
-    filtersClose?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; closePanel(); });
-    contentOverlay?.addEventListener("mousedown", (e) => { // Also close if clicking overlay when panel is open
-        if (e.button !== 0) return;
-        if (filtersPanel?.classList.contains(CONFIG.classes.open)) {
-            closePanel();
-        }
+    filtersClose?.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      closePanel();
     });
-
+    contentOverlay?.addEventListener("mousedown", (e) => {
+      // Also close if clicking overlay when panel is open
+      if (e.button !== 0) return;
+      if (filtersPanel?.classList.contains(CONFIG.classes.open)) {
+        closePanel();
+      }
+    });
 
     if (quickSelectBtns?.length) {
       quickSelectBtns.forEach((btn) => {
@@ -512,14 +608,22 @@
           if (!range) return;
 
           setDateRange(range);
-          quickSelectBtns.forEach((b) => b.classList.remove(CONFIG.classes.active));
+          quickSelectBtns.forEach((b) =>
+            b.classList.remove(CONFIG.classes.active),
+          );
           this.classList.add(CONFIG.classes.active);
         });
       });
     }
 
-    applyFiltersBtn?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; applyFilters(); });
-    resetFilters?.addEventListener("mousedown", (e) => { if (e.button !== 0) return; handleResetFiltersClick(); });
+    applyFiltersBtn?.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      applyFilters();
+    });
+    resetFilters?.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      handleResetFiltersClick();
+    });
   }
 
   /**
@@ -540,27 +644,34 @@
       maxDate: "today",
       disableMobile: true, // Use native mobile pickers if false
       dateFormat: "Y-m-d", // For the hidden input
-      altInput: true,      // Show a human-friendly format
+      altInput: true, // Show a human-friendly format
       altFormat: "M j, Y", // Human-friendly format
-      theme: document.body.classList.contains(CONFIG.classes.lightMode) ? "light" : "dark",
+      theme: document.body.classList.contains(CONFIG.classes.lightMode)
+        ? "light"
+        : "dark",
       errorHandler: (error) => console.warn("Flatpickr error:", error), // Basic error handling
     };
 
     if (datepickers?.length) {
       datepickers.forEach((input) => {
         // Initialize if not already initialized
-        if (!input._flatpickr) { // _flatpickr is the instance property Flatpickr adds
-            DateUtils.initDatePicker(input, dateConfig);
+        if (!input._flatpickr) {
+          // _flatpickr is the instance property Flatpickr adds
+          DateUtils.initDatePicker(input, dateConfig);
         }
       });
     }
 
     // Set initial dates for specific start/end inputs
     if (startDateInput) {
-        if (startDateInput._flatpickr) startDateInput._flatpickr.setDate(startDate, true); else startDateInput.value = startDate;
+      if (startDateInput._flatpickr)
+        startDateInput._flatpickr.setDate(startDate, true);
+      else startDateInput.value = startDate;
     }
     if (endDateInput) {
-        if (endDateInput._flatpickr) endDateInput._flatpickr.setDate(endDate, true); else endDateInput.value = endDate;
+      if (endDateInput._flatpickr)
+        endDateInput._flatpickr.setDate(endDate, true);
+      else endDateInput.value = endDate;
     }
   }
 
@@ -568,8 +679,13 @@
    * Adds the filter indicator to the DOM if it doesn't exist.
    */
   function addFilterIndicator() {
-    const toolsSection = elements.toolsSection || document.querySelector(CONFIG.selectors.toolsSection);
-    if (!toolsSection || document.getElementById(CONFIG.selectors.filterIndicator.substring(1))) {
+    const toolsSection =
+      elements.toolsSection ||
+      document.querySelector(CONFIG.selectors.toolsSection);
+    if (
+      !toolsSection ||
+      document.getElementById(CONFIG.selectors.filterIndicator.substring(1))
+    ) {
       return; // Already exists or no place to put it
     }
 
@@ -603,21 +719,28 @@
    * Updates the filter indicator's text to reflect the current date range.
    */
   function updateFilterIndicator() {
-    const indicator = elements.filterIndicator || document.getElementById(CONFIG.selectors.filterIndicator.substring(1));
+    const indicator =
+      elements.filterIndicator ||
+      document.getElementById(CONFIG.selectors.filterIndicator.substring(1));
     if (!indicator) return;
     const rangeSpan = indicator.querySelector(CONFIG.selectors.filterDateRange);
     if (!rangeSpan) return;
 
     if (!window.DateUtils) {
-        console.error("DateUtils not found for updating filter indicator.");
-        rangeSpan.textContent = "Error";
-        return;
+      console.error("DateUtils not found for updating filter indicator.");
+      rangeSpan.textContent = "Error";
+      return;
     }
 
-    const startDate = localStorage.getItem(CONFIG.storage.startDate) || DateUtils.getCurrentDate();
-    const endDate = localStorage.getItem(CONFIG.storage.endDate) || DateUtils.getCurrentDate();
+    const startDate =
+      localStorage.getItem(CONFIG.storage.startDate) ||
+      DateUtils.getCurrentDate();
+    const endDate =
+      localStorage.getItem(CONFIG.storage.endDate) ||
+      DateUtils.getCurrentDate();
 
-    const formatDisplayDate = (dateStr) => DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" }) || dateStr;
+    const formatDisplayDate = (dateStr) =>
+      DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" }) || dateStr;
 
     if (startDate === endDate) {
       rangeSpan.textContent = formatDisplayDate(startDate);
@@ -633,11 +756,17 @@
   function setDateRange(range) {
     const { startDateInput, endDateInput } = elements;
     if (!startDateInput || !endDateInput) {
-      window.notificationManager?.show("UI Error: Date input elements not found.", "danger");
+      window.notificationManager?.show(
+        "UI Error: Date input elements not found.",
+        "danger",
+      );
       return;
     }
     if (!window.DateUtils) {
-      window.notificationManager?.show("Error: Date utility (DateUtils) is missing.", "danger");
+      window.notificationManager?.show(
+        "Error: Date utility (DateUtils) is missing.",
+        "danger",
+      );
       return;
     }
 
@@ -655,7 +784,10 @@
       })
       .catch((error) => {
         console.error("Error setting date range:", error);
-        window.notificationManager?.show(`Error setting date range: ${error.message || "Please try again."}`, "danger");
+        window.notificationManager?.show(
+          `Error setting date range: ${error.message || "Please try again."}`,
+          "danger",
+        );
       })
       .finally(() => {
         window.loadingManager?.finish("DateRangeSet");
@@ -692,11 +824,14 @@
     const { header } = elements;
     if (!header) return;
 
-    const scrollHandler = window.utils?.debounce(() => {
-      header.classList.toggle(CONFIG.classes.scrolled, window.scrollY > 10);
-    }, 50) || (() => { // Fallback if debounce is not available
+    const scrollHandler =
+      window.utils?.debounce(() => {
         header.classList.toggle(CONFIG.classes.scrolled, window.scrollY > 10);
-    });
+      }, 50) ||
+      (() => {
+        // Fallback if debounce is not available
+        header.classList.toggle(CONFIG.classes.scrolled, window.scrollY > 10);
+      });
 
     window.addEventListener("scroll", scrollHandler, { passive: true });
     scrollHandler(); // Initial check
@@ -728,8 +863,9 @@
     if (progressBar) progressBar.style.width = "0%"; // Reset progress
 
     loadingOverlay.style.display = "flex";
-    requestAnimationFrame(() => { // Ensure display is set before opacity transition
-        loadingOverlay.style.opacity = "1";
+    requestAnimationFrame(() => {
+      // Ensure display is set before opacity transition
+      loadingOverlay.style.opacity = "1";
     });
   }
 
@@ -779,19 +915,20 @@
     window.addEventListener("load", enhanceMapInteraction);
   }
 
-
   /**
    * Entry point for map enhancements. Called on 'mapInitialized' or 'load'.
    */
   function enhanceMapInteraction() {
     // Ensure map container exists before trying to enhance
-    if (!elements.mapContainer && !document.getElementById(CONFIG.selectors.mapContainer.substring(1))) {
-        // console.warn("Map container not found for enhancements.");
-        return;
+    if (
+      !elements.mapContainer &&
+      !document.getElementById(CONFIG.selectors.mapContainer.substring(1))
+    ) {
+      // console.warn("Map container not found for enhancements.");
+      return;
     }
     applyMapEnhancements();
   }
-
 
   /**
    * Applies enhancements to the Leaflet map (zoom tooltips, connection status).
@@ -809,10 +946,13 @@
       // Add tooltips to zoom controls if Bootstrap is available
       if (window.bootstrap?.Tooltip && elements.zoomControls?.length) {
         elements.zoomControls.forEach((control) => {
-          if (!bootstrap.Tooltip.getInstance(control)) { // Avoid re-initializing
+          if (!bootstrap.Tooltip.getInstance(control)) {
+            // Avoid re-initializing
             let title = "";
-            if (control.classList.contains("leaflet-control-zoom-in")) title = "Zoom In";
-            else if (control.classList.contains("leaflet-control-zoom-out")) title = "Zoom Out";
+            if (control.classList.contains("leaflet-control-zoom-in"))
+              title = "Zoom In";
+            else if (control.classList.contains("leaflet-control-zoom-out"))
+              title = "Zoom Out";
 
             if (title) {
               new bootstrap.Tooltip(control, {
@@ -831,8 +971,15 @@
       if (statusIndicator && statusText) {
         const updateConnectionIndicator = () => {
           const textContentLower = statusText.textContent.toLowerCase();
-          statusIndicator.classList.toggle(CONFIG.classes.connected, textContentLower.includes("connected"));
-          statusIndicator.classList.toggle(CONFIG.classes.disconnected, textContentLower.includes("disconnected") && !textContentLower.includes("connected"));
+          statusIndicator.classList.toggle(
+            CONFIG.classes.connected,
+            textContentLower.includes("connected"),
+          );
+          statusIndicator.classList.toggle(
+            CONFIG.classes.disconnected,
+            textContentLower.includes("disconnected") &&
+              !textContentLower.includes("connected"),
+          );
         };
         updateConnectionIndicator(); // Initial update
         setInterval(updateConnectionIndicator, 3000); // Periodically update
@@ -841,11 +988,12 @@
       // Map controls opacity behavior
       const { mapControls } = elements;
       if (mapControls) {
-        mapControls.addEventListener("mouseenter", () => { mapControls.style.opacity = "1"; });
+        mapControls.addEventListener("mouseenter", () => {
+          mapControls.style.opacity = "1";
+        });
         mapControls.addEventListener("mouseleave", updateMapControlsOpacity);
         updateMapControlsOpacity(); // Set initial opacity
       }
-
     } catch (error) {
       console.error("Error applying map enhancements:", error);
       window.handleError?.(error, "Error applying map enhancements");
@@ -860,8 +1008,12 @@
     if (!mapControls) return;
     // If mouse is over the controls, it should be fully opaque (handled by mouseenter)
     // Otherwise, set opacity based on minimized state
-    if (!mapControls.matches(':hover')) {
-        mapControls.style.opacity = mapControls.classList.contains(CONFIG.classes.minimized) ? "0.8" : "1";
+    if (!mapControls.matches(":hover")) {
+      mapControls.style.opacity = mapControls.classList.contains(
+        CONFIG.classes.minimized,
+      )
+        ? "0.8"
+        : "1";
     }
   }
 
@@ -869,16 +1021,23 @@
    * Applies selected date filters, updates storage, and dispatches an event.
    */
   function applyFilters() {
-    const { startDateInput, endDateInput, filtersPanel, contentOverlay } = elements;
+    const { startDateInput, endDateInput, filtersPanel, contentOverlay } =
+      elements;
     if (!startDateInput || !endDateInput) {
-      window.notificationManager?.show("UI Error: Date input elements are missing.", "danger");
+      window.notificationManager?.show(
+        "UI Error: Date input elements are missing.",
+        "danger",
+      );
       return;
     }
     const startDateValue = startDateInput.value; // Assumes YYYY-MM-DD from Flatpickr
     const endDateValue = endDateInput.value;
 
     if (!window.DateUtils?.isValidDateRange(startDateValue, endDateValue)) {
-      window.notificationManager?.show("Invalid date range: Start date must be before or the same as the end date.", "warning");
+      window.notificationManager?.show(
+        "Invalid date range: Start date must be before or the same as the end date.",
+        "warning",
+      );
       return;
     }
 
@@ -892,10 +1051,15 @@
       contentOverlay.classList.remove(CONFIG.classes.visible);
     }
 
-    document.dispatchEvent(new CustomEvent("filtersApplied", {
-      detail: { startDate: startDateValue, endDate: endDateValue },
-    }));
-    window.notificationManager?.show(`Filters applied: ${DateUtils.formatForDisplay(startDateValue)} to ${DateUtils.formatForDisplay(endDateValue)}`, "success");
+    document.dispatchEvent(
+      new CustomEvent("filtersApplied", {
+        detail: { startDate: startDateValue, endDate: endDateValue },
+      }),
+    );
+    window.notificationManager?.show(
+      `Filters applied: ${DateUtils.formatForDisplay(startDateValue)} to ${DateUtils.formatForDisplay(endDateValue)}`,
+      "success",
+    );
   }
 
   /**
@@ -904,7 +1068,10 @@
   function handleResetFiltersClick() {
     const { quickSelectBtns } = elements;
     if (!window.DateUtils) {
-      window.notificationManager?.show("Error: Date utility (DateUtils) is missing.", "danger");
+      window.notificationManager?.show(
+        "Error: Date utility (DateUtils) is missing.",
+        "danger",
+      );
       return;
     }
 
@@ -914,8 +1081,12 @@
     localStorage.setItem(CONFIG.storage.endDate, today);
 
     if (quickSelectBtns) {
-      quickSelectBtns.forEach((btn) => btn.classList.remove(CONFIG.classes.active));
-      const todayBtn = document.querySelector(`.quick-select-btn[data-range="today"]`);
+      quickSelectBtns.forEach((btn) =>
+        btn.classList.remove(CONFIG.classes.active),
+      );
+      const todayBtn = document.querySelector(
+        `.quick-select-btn[data-range="today"]`,
+      );
       todayBtn?.classList.add(CONFIG.classes.active);
     }
     updateFilterIndicator();
@@ -925,10 +1096,10 @@
   // --- Initialization ---
   // Ensure init() is called only once.
   function runInit() {
-      if (!window.modernUIInitialized) {
-          init();
-          window.modernUIInitialized = true;
-      }
+    if (!window.modernUIInitialized) {
+      init();
+      window.modernUIInitialized = true;
+    }
   }
 
   if (document.readyState === "loading") {
@@ -939,14 +1110,12 @@
   }
   // Fallback or alternative trigger for initialization
   document.addEventListener("appReady", runInit);
-
 })();
 
-
 /* ===== Global passive event listeners for scroll‑related events ===== */
-(function(){
-  const passiveEvents = ['wheel','touchmove','mousemove','pointermove'];
-  passiveEvents.forEach(evt=>{
-    window.addEventListener(evt, ()=>{}, {passive:true});
+(function () {
+  const passiveEvents = ["wheel", "touchmove", "mousemove", "pointermove"];
+  passiveEvents.forEach((evt) => {
+    window.addEventListener(evt, () => {}, { passive: true });
   });
 })();

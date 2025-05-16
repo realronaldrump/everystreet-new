@@ -257,7 +257,7 @@
 /* === UI Optimizations (2025-05-16) === */
 
 /* Reduce expensive backdrop blur and hint compositor */
-.bg-glass{
+.bg-glass {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   will-change: filter, opacity;
@@ -265,16 +265,16 @@
 }
 
 /* Animate with transform only & isolate panel for better perf */
-.control-panel{
+.control-panel {
   contain: content;
   transition: transform 0.3s ease;
 }
 
-.control-panel.minimized{
+.control-panel.minimized {
   transform: translateY(calc(100% - 45px));
 }
 
 /* Remove costly stroke‑width animation on every SVG path */
-.leaflet-interactive{
+.leaflet-interactive {
   transition: opacity 0.3s;
 }
