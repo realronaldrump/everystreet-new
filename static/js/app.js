@@ -4,6 +4,10 @@
 
 "use strict";
 
+if (window.L?.Path) {
+  L.Path.prototype.options.clickTolerance = 8;
+}
+
 (function () {
   // Configuration object for map settings, storage keys, and error messages
   const CONFIG = {
@@ -381,6 +385,7 @@
 
       // Create the Leaflet map instance
       AppState.map = L.map("map", {
+        preferCanvas: true,
         center: CONFIG.MAP.defaultCenter,
         zoom: CONFIG.MAP.defaultZoom,
         zoomControl: false, // Disable default zoom control (added manually later)
@@ -2905,4 +2910,7 @@
       }
     });
   }
-})(); // End of IIFE
+  document.addEventListener("visibilitychange", () => {
+    AppState.polling.active = !document.hidden;
+  });
+  })(); // End IIFE

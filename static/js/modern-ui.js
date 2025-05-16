@@ -1,6 +1,8 @@
 /* global L, bootstrap, DateUtils */
 
 "use strict";
+// Cached base tile layer so we can just swap URLs on theme change
+let baseTileLayer = null;
 (function () {
   // Configuration object for selectors, classes, and storage keys
   const CONFIG = {
@@ -83,7 +85,9 @@
       initMobileDrawer();
       initFilterPanel();
       initScrollEffects();
-      initDatePickers();
+      requestIdleCallback(() => {
+        initDatePickers();
+      });
       initMapControls();
       setupLegacyCodeBridge();
 
@@ -413,38 +417,45 @@
     updateMapTheme(theme);
   }
 
-  /**
-   * Updates the map's tile layer and background color based on the current theme.
-   * @param {string} theme - The current theme ("light" or "dark").
-   */
-  function updateMapTheme(theme) {
-    if (!window.map?.eachLayer) return; // Map not initialized or no layers method
+/**
+ * Updates the map's tiles and background without the white‑flash
+ * caused by removing/adding layers. Swaps URL on a single cached
+ * baseTileLayer instead.
+ * @param {"light"|"dark"} theme
+ */
+function updateMapTheme(theme) {
+  if (!window.map || typeof window.map.addLayer !== 'function') return;
 
-    const mapContainer = elements.mapContainer || document.getElementById(CONFIG.selectors.mapContainer.substring(1));
-    if (mapContainer) {
-      mapContainer.style.background = theme === "light" ? CONFIG.map.lightBg : CONFIG.map.darkBg;
-    }
-
-    // Remove existing tile layers before adding a new one
-    window.map.eachLayer((layer) => {
-      if (layer instanceof L.TileLayer) {
-        window.map.removeLayer(layer);
-      }
-    });
-
-    const tileUrl = CONFIG.selectors.mapTileUrl[theme];
-    if (tileUrl) {
-      L.tileLayer(tileUrl, {
-        maxZoom: 19, // Standard max zoom for CartoDB tiles
-        attribution: "", // Attribution is often handled elsewhere or not needed for internal apps
-      }).addTo(window.map);
-    } else {
-      console.warn(`Map tile URL for theme '${theme}' not found in CONFIG.`);
-    }
-
-    window.map.invalidateSize(); // Refresh map size
-    document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
+  // 1. Change map container background
+  const mapContainer =
+    elements.mapContainer ||
+    document.getElementById(CONFIG.selectors.mapContainer.substring(1));
+  if (mapContainer) {
+    mapContainer.style.background =
+      theme === "light" ? CONFIG.map.lightBg : CONFIG.map.darkBg;
   }
+
+  // 2. Swap or create the base tile layer
+  const tileUrl = CONFIG.selectors.mapTileUrl[theme];
+  if (!tileUrl) {
+    console.warn(`Tile URL for theme “${theme}” not found in CONFIG.`);
+    return;
+  }
+
+  if (baseTileLayer) {
+    baseTileLayer.setUrl(tileUrl);          // just swap!
+  } else {
+    baseTileLayer = L.tileLayer(tileUrl, {
+      maxZoom: 19,
+      attribution: "",
+    }).addTo(window.map);
+  }
+
+  window.map.invalidateSize();
+  document.dispatchEvent(
+    new CustomEvent("mapThemeChanged", { detail: { theme } }),
+  );
+}
 
   /**
    * Initializes the mobile navigation drawer.

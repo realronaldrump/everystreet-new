@@ -20,6 +20,6 @@ redis
 rtree
 scikit_learn
 Shapely
-uvicorn
+uvicorn[standard]
 jinja2
 python-multipart
