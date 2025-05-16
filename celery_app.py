@@ -23,9 +23,7 @@ from kombu import Queue
 from pymongo.errors import ConnectionFailure
 
 from db import db_manager
-from live_tracking import (
-    initialize_db as initialize_live_tracking_db,
-)
+from live_tracking import initialize_db as initialize_live_tracking_db
 
 logger = get_task_logger(__name__)
 
@@ -39,9 +37,7 @@ if not REDIS_URL:
     redis_user = os.getenv("REDISUSER", "default")
 
     if redis_host and redis_password:
-        REDIS_URL = (
-            f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
-        )
+        REDIS_URL = f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
     else:
         raise ValueError(
             "REDIS_URL environment variable is not set and cannot be constructed! "
