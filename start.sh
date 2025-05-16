@@ -1,6 +1,11 @@
 #!/bin/bash
 # Improved startup script with proper shutdown handling and environment handling
 
+# Load environment variables from .env
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+fi
+
 # Create a trap to catch SIGINT (Ctrl+C) and SIGTERM
 trap cleanup EXIT INT TERM
 
@@ -37,7 +42,6 @@ echo "Starting services..."
 # Set default environment variables if not provided
 export GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
 export CELERY_WORKER_CONCURRENCY=${CELERY_WORKER_CONCURRENCY:-2}
-export FLOWER_PORT=5555
 
 # Ensure REDIS_URL is constructed properly if not set
 if [ -z "$REDIS_URL" ]; then
@@ -83,15 +87,6 @@ if [ "$(id -u)" -eq 0 ]; then
   celery -A celery_app beat --loglevel=info --uid=$CELERY_USER &
 else
   celery -A celery_app beat --loglevel=info &
-fi
-echo $! >> $PID_FILE
-
-# Start Flower on the correct port with timeout settings
-echo "Starting Flower on port $FLOWER_PORT..."
-if [ "$(id -u)" -eq 0 ]; then
-  celery -A celery_app --broker="$REDIS_URL" flower --port="$FLOWER_PORT" --inspect-timeout=15000 --persistent=True --uid=$CELERY_USER &
-else
-  celery -A celery_app --broker="$REDIS_URL" flower --port="$FLOWER_PORT" --inspect-timeout=15000 --persistent=True &
 fi
 echo $! >> $PID_FILE
 

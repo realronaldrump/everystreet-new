@@ -137,7 +137,6 @@ app.conf.update(
     broker_connection_retry_on_startup=True,
     broker_connection_max_retries=10,
     broker_connection_timeout=30,
-    flower_inspect_timeout=15000,
     worker_disable_rate_limits=True,
     event_time_to_system_time=True,
     event_queue_expired=60,
