@@ -941,3 +941,12 @@
   document.addEventListener("appReady", runInit);
 
 })();
+
+
+/* ===== Global passive event listeners for scroll‑related events ===== */
+(function(){
+  const passiveEvents = ['wheel','touchmove','mousemove','pointermove'];
+  passiveEvents.forEach(evt=>{
+    window.addEventListener(evt, ()=>{}, {passive:true});
+  });
+})();

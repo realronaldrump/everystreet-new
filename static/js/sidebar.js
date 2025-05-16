@@ -132,18 +132,18 @@
 
   function getStorage(key, defaultValue = null) {
     try {
-      return localStorage.getItem(key) || defaultValue;
+      return sessionStorage.getItem(key) || defaultValue;
     } catch (e) {
-      console.warn(`Error reading from localStorage: ${e.message}`);
+      console.warn(`Error reading from sessionStorage: ${e.message}`);
       return defaultValue;
     }
   }
 
   function setStorage(key, value) {
     try {
-      localStorage.setItem(key, value);
+      sessionStorage.setItem(key, value);
     } catch (e) {
-      console.warn(`Error writing to localStorage: ${e.message}`);
+      console.warn(`Error writing to sessionStorage: ${e.message}`);
     }
   }
 

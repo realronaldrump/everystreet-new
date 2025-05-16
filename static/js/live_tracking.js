@@ -36,6 +36,7 @@ class LiveTripTracker {
     this.consecutiveErrors = 0;
     this.maxConsecutiveErrors = 5;
     this.isPolling = false;
+    this.initWebSocket();
 
     this.statusIndicator = document.querySelector(".status-indicator");
     this.statusText = document.querySelector(".status-text");
@@ -690,6 +691,59 @@ class LiveTripTracker {
 
     window.handleError("LiveTripTracker instance destroyed", "destroy", "info");
   }
+
+
+  /**
+   * Initialize WebSocket live channel.
+   * Falls back to existing polling when the socket is unavailable or closes.
+   */
+  initWebSocket() {
+    if (!("WebSocket" in window)) {
+      return this.startPolling();
+    }
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const url = `${proto}://${location.host}/ws/trips`;
+    try {
+      this.ws = new WebSocket(url);
+      this.ws.addEventListener(
+        "message",
+        (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            // Re‑use existing handler for API payloads
+            if (data && data.trip) {
+              // Temporarily pause map inertia while drawing
+              this.map.dragging.disable();
+              requestAnimationFrame(() => {
+                this.setActiveTrip(data.trip);
+                this.updateTripMetrics(data.trip);
+                this.map.dragging.enable();
+              });
+            }
+          } catch (err) {
+            console.warn("LiveTripTracker WebSocket parse error:", err);
+          }
+        },
+        { passive: true }
+      );
+      this.ws.addEventListener("open", () => {
+        console.info("LiveTripTracker: WebSocket connected – stopping poller");
+        this.stopPolling?.();
+      });
+      this.ws.addEventListener("close", () => {
+        console.warn("WebSocket closed – resuming polling");
+        this.startPolling();
+      });
+      this.ws.addEventListener("error", () => {
+        console.warn("WebSocket error – resuming polling");
+        this.startPolling();
+      });
+    } catch (e) {
+      console.warn("Failed to establish WebSocket:", e);
+      this.startPolling();
+    }
+  }
+
 }
 
 window.LiveTripTracker = LiveTripTracker;
