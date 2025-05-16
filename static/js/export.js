@@ -45,6 +45,13 @@
       endpoint: "/api/export/advanced",
       name: "advanced export",
     },
+    undrivenStreets: {
+      id: "export-undriven-streets-form",
+      location: "undriven-streets-location",
+      format: "undriven-streets-format",
+      endpoint: "/api/undriven_streets",
+      name: "undriven streets",
+    },
   };
 
   function init() {
@@ -52,6 +59,7 @@
     initEventListeners();
     initDatePickers();
     loadSavedExportSettings();
+    initUndrivenStreetsExport();
 
     const formatSelect = document.getElementById("adv-format");
     if (formatSelect) {
@@ -944,6 +952,111 @@
     } else {
       window.handleError(`${type.toUpperCase()}: ${message}`);
     }
+  }
+
+  function initUndrivenStreetsExport() {
+    const locationSelect = document.getElementById("undriven-streets-location");
+    const formatSelect = document.getElementById("undriven-streets-format");
+    const exportBtn = document.getElementById("export-undriven-streets-btn");
+    const form = document.getElementById("export-undriven-streets-form");
+
+    // Fetch areas and populate dropdown
+    fetch("/api/coverage_areas")
+      .then((res) => res.json())
+      .then((data) => {
+        locationSelect.innerHTML = '<option value="">Select an area...</option>';
+        if (data.success && Array.isArray(data.areas)) {
+          data.areas.forEach((area) => {
+            if (area.location && area.location.display_name) {
+              const opt = document.createElement("option");
+              opt.value = JSON.stringify(area.location);
+              opt.textContent = area.location.display_name;
+              locationSelect.appendChild(opt);
+            }
+          });
+        } else {
+          locationSelect.innerHTML = '<option value="">No areas found</option>';
+        }
+      })
+      .catch((err) => {
+        locationSelect.innerHTML = '<option value="">Failed to load areas</option>';
+        showNotification("Failed to load areas: " + err.message, "error");
+      });
+
+    // Enable export button only if area is selected
+    locationSelect.addEventListener("change", () => {
+      exportBtn.disabled = !locationSelect.value;
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!locationSelect.value) return;
+      exportBtn.disabled = true;
+      exportBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Exporting...';
+      showNotification("Exporting undriven streets...", "info");
+      try {
+        const format = formatSelect.value;
+        const area = JSON.parse(locationSelect.value);
+        const response = await fetch("/api/undriven_streets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(area),
+        });
+        if (!response.ok) {
+          let msg = `Export failed (${response.status})`;
+          try {
+            const errData = await response.json();
+            msg = errData.detail || msg;
+          } catch {}
+          throw new Error(msg);
+        }
+        let blob;
+        let filename = (area.display_name || "undriven_streets").replace(/[^a-z0-9]/gi, "_").toLowerCase();
+        if (format === "gpx") {
+          // Convert GeoJSON to GPX client-side (simple, for LineStrings)
+          const geojson = await response.json();
+          blob = new Blob([geojsonToGpx(geojson)], { type: "application/gpx+xml" });
+          filename += ".gpx";
+        } else {
+          blob = await response.blob();
+          filename += ".geojson";
+        }
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+        showNotification("Undriven streets export completed", "success");
+      } catch (err) {
+        showNotification("Export failed: " + err.message, "error");
+      } finally {
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = "Export Undriven Streets";
+      }
+    });
+  }
+
+  // Simple GeoJSON to GPX converter for LineStrings (for demo purposes)
+  function geojsonToGpx(geojson) {
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="EveryStreet" xmlns="http://www.topografix.com/GPX/1/1">\n`;
+    if (geojson && Array.isArray(geojson.features)) {
+      geojson.features.forEach((f, i) => {
+        if (f.geometry && f.geometry.type === "LineString" && Array.isArray(f.geometry.coordinates)) {
+          gpx += `<trk><name>Undriven Street ${i + 1}</name><trkseg>`;
+          f.geometry.coordinates.forEach(([lon, lat]) => {
+            gpx += `<trkpt lat="${lat}" lon="${lon}"></trkpt>`;
+          });
+          gpx += `</trkseg></trk>\n`;
+        }
+      });
+    }
+    gpx += "</gpx>\n";
+    return gpx;
   }
 
   document.addEventListener("DOMContentLoaded", init);

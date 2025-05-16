@@ -161,8 +161,30 @@
     </div>
   </div>
   <div class="row mt-4">
-    <!-- Replace the Export All Trips section with Advanced Export -->
-    <div class="col-12">
+    <div class="col-md-6">
+      <div class="card mb-4">
+        <div class="card-header">Export Undriven Streets</div>
+        <div class="card-body">
+          <form id="export-undriven-streets-form">
+            <div class="mb-3">
+              <label for="undriven-streets-location" class="form-label">Area</label>
+              <select class="form-select" id="undriven-streets-location" required>
+                <option value="">Loading areas...</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="undriven-streets-format" class="form-label">Format</label>
+              <select class="form-select" id="undriven-streets-format" required>
+                <option value="geojson">GeoJSON</option>
+                <option value="gpx">GPX</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary" id="export-undriven-streets-btn" disabled>Export Undriven Streets</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
       <div class="card mb-4">
         <div
           class="card-header d-flex justify-content-between align-items-center"
