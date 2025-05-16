@@ -5843,11 +5843,10 @@ async def ws_trip_updates(websocket: WebSocket) -> None:
         while True:
             try:
                 # Check connection state before attempting to process or send
-                # Using websocket.client.is_connected is not directly available.
                 # FastAPI handles disconnects by raising WebSocketDisconnect.
                 # If we are in this loop, the connection is assumed active unless an exception is raised.
 
-                updates = await db_manager.get_trip_updates_since(last_seq)
+                updates = await get_trip_updates(last_seq)
 
                 if (
                     updates
@@ -5872,7 +5871,7 @@ async def ws_trip_updates(websocket: WebSocket) -> None:
                         )
                 elif updates and updates.get("status") == "error":
                     logger.error(
-                        f"WebSocket {client_info}: db_manager.get_trip_updates_since returned error: "
+                        f"WebSocket {client_info}: get_trip_updates returned error: "
                         f"{updates.get('message')}. Update: {updates}"
                     )
                     # Depending on the error, one might break or try to inform client.
@@ -5932,7 +5931,6 @@ async def ws_trip_updates(websocket: WebSocket) -> None:
         logger.info(
             f"WebSocket {client_info}: Connection closed and resources cleaned up for /ws/trips."
         )
-
 
 if __name__ == "__main__":
     import uvicorn
