@@ -679,17 +679,15 @@ class CoverageCalculator:
                 if (current_progress_pct - last_progress_update_pct >= 5) or (
                     processed_count == total_streets_count
                 ):
-                    length_km = self.total_length_calculated / 1000
-                    driveable_km = self.total_driveable_length / 1000
-                    driven_km = self.initial_driven_length / 1000
+                    # Removed kilometer calculations and references
                     await self.update_progress(
                         "indexing",
                         current_progress_pct,
                         (
                             f"Indexed {processed_count:,}/{total_streets_count:,} streets | "
                             f"{rtree_idx_counter:,} valid segments | "
-                            f"{driveable_km:.2f}km driveable | "
-                            f"{driven_km:.2f}km initially driven"
+                            f"{self.total_driveable_length:.2f}m driveable | "
+                            f"{self.initial_driven_length:.2f}m initially driven"
                         ),
                     )
                     last_progress_update_pct = current_progress_pct
@@ -1228,15 +1226,13 @@ class CoverageCalculator:
                     sub_batch_coords = [coords for _, coords in trip_sub_batch]
                     sub_batch_trip_ids = [tid for tid, _ in trip_sub_batch]
 
-                    for chunk_idx, (
+                    for ( # Removed unused chunk_idx from enumerate
                         geom_chunk,
                         bbox_chunk,
-                    ) in enumerate(
-                        zip(
+                    ) in zip(
                             geom_chunks,
                             bbox_chunks,
-                        ),
-                    ):
+                        ):
                         if not geom_chunk or not sub_batch_coords:
                             continue
 
@@ -1273,8 +1269,8 @@ class CoverageCalculator:
                                     self.match_buffer,
                                     self.min_match_length,
                                 )
-                                for (
-                                    trip_idx_in_sub_batch,
+                                for ( # Removed unused trip_idx_in_sub_batch
+                                    _, 
                                     matched_segment_ids,
                                 ) in result_map.items():
                                     if isinstance(
@@ -1328,8 +1324,8 @@ class CoverageCalculator:
                                 ]
                                 try:
                                     result_map = future.result(timeout=0.1)
-                                    for (
-                                        trip_idx_in_sub_batch,
+                                    for ( # Removed unused trip_idx_in_sub_batch
+                                        _, 
                                         matched_segment_ids,
                                     ) in result_map.items():
                                         if isinstance(
@@ -1428,28 +1424,24 @@ class CoverageCalculator:
                     self.task_id,
                     len(pending_futures_map),
                 )
-                # Get the original concurrent.futures.Future objects we are waiting for
                 original_futures_list = list(pending_futures_map.keys())
                 wrapped_futures = [
                     asyncio.wrap_future(f) for f in original_futures_list
                 ]
 
                 try:
-                    # Wait for the asyncio-wrapped futures
-                    _, pending_wrapped = await asyncio.wait(
+                    await asyncio.wait( # Removed unused pending_wrapped
                         wrapped_futures,
                         timeout=WORKER_RESULT_WAIT_TIMEOUT_S,
                         return_when=asyncio.ALL_COMPLETED,
                     )
 
-                    # Now, iterate through the original futures list and check their status
                     for future in original_futures_list:
                         original_trip_sub_batch = pending_futures_map.pop(
                             future,
                             None,
                         )
                         if not original_trip_sub_batch:
-                            # Already processed or removed, skip
                             continue
 
                         sub_batch_trip_ids = [
@@ -1467,9 +1459,9 @@ class CoverageCalculator:
                                 else:
                                     result_map = future.result(
                                         timeout=0,
-                                    )  # Should be ready
-                                    for (
-                                        trip_idx,
+                                    )
+                                    for ( # Removed unused trip_idx
+                                        _, 
                                         matched_ids,
                                     ) in result_map.items():
                                         if isinstance(matched_ids, set):
@@ -1497,7 +1489,6 @@ class CoverageCalculator:
                                 )
                                 failed_futures_count += 1
                         else:
-                            # Future did not complete within the timeout
                             logger.warning(
                                 "Task %s: Timeout waiting for final future result. Attempting to cancel. NOT marking trips.",
                                 self.task_id,
@@ -1513,17 +1504,14 @@ class CoverageCalculator:
                                 )
 
                 except asyncio.TimeoutError:
-                    # This might happen if asyncio.wait itself times out weirdly, though unlikely with ALL_COMPLETED
                     logger.error(
                         "Task %s: asyncio.wait itself timed out unexpectedly. Handling remaining futures.",
                         self.task_id,
                     )
                     for future in original_futures_list:
                         if future in pending_futures_map:
-                            original_trip_sub_batch = pending_futures_map.pop(
-                                future,
-                                None,
-                            )
+                            # original_trip_sub_batch = pending_futures_map.pop(future, None) # Not needed if just cancelling
+                            pending_futures_map.pop(future, None)
                             logger.warning(
                                 "Task %s: Future pending after asyncio.wait timeout. Attempting cancel. NOT marking trips.",
                                 self.task_id,
@@ -1544,13 +1532,10 @@ class CoverageCalculator:
                         self.task_id,
                         wait_err,
                     )
-                    # Assume all remaining are failed
                     for future in original_futures_list:
                         if future in pending_futures_map:
-                            original_trip_sub_batch = pending_futures_map.pop(
-                                future,
-                                None,
-                            )
+                            # original_trip_sub_batch = pending_futures_map.pop(future, None) # Not needed
+                            pending_futures_map.pop(future, None)
                             logger.error(
                                 "Task %s: Marking future as failed due to wait error. NOT marking trips.",
                                 self.task_id,
@@ -1560,9 +1545,8 @@ class CoverageCalculator:
                                 if not future.done():
                                     future.cancel()
                             except Exception:
-                                pass  # Ignore errors during cleanup cancel
+                                pass
 
-            # Final sanity check - should be empty now
             if pending_futures_map:
                 logger.error(
                     "Task %s: pending_futures_map not empty after final processing! Keys: %s",
@@ -1888,7 +1872,8 @@ class CoverageCalculator:
 
             MAX_TRIP_IDS_TO_STORE = 50000
             if len(trip_ids_list) <= MAX_TRIP_IDS_TO_STORE:
-                pass
+                pass # If you intended to store trip_ids_list, it's missing here.
+                     # Based on the original code, it seems it was conditionally skipped.
             else:
                 logger.warning(
                     "Task %s: Not storing %d trip IDs in metadata due to size limit.",
@@ -2054,20 +2039,20 @@ class CoverageCalculator:
                                 self.task_id,
                                 type(trip_ids_data).__name__,
                             )
-                            run_incremental = False
+                            run_incremental = False # Intentionally not modifying the parameter
                     else:
                         logger.warning(
                             "Task %s: No previously processed trip IDs found in metadata. Running as full.",
                             self.task_id,
                         )
-                        run_incremental = False
+                        run_incremental = False # Intentionally not modifying the parameter
                 except Exception as meta_err:
                     logger.error(
                         "Task %s: Error loading processed trips metadata: %s. Running as full.",
                         self.task_id,
                         meta_err,
                     )
-                    run_incremental = False
+                    run_incremental = False # Intentionally not modifying the parameter
             else:
                 logger.info(
                     "Task %s: Starting full coverage run for %s.",
@@ -2566,7 +2551,7 @@ async def generate_and_store_geojson(
                 "properties.highway": 1,
                 "properties.undriveable": 1,
                 "properties.name": 1,
-                "properties.street_name": 1,  # <-- Added for street name in coverage-management
+                "properties.street_name": 1,
                 "properties.maxspeed": 1,
             },
         ).batch_size(1000)
