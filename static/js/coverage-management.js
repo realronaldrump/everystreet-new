@@ -1320,6 +1320,7 @@ const STATUS = window.STATUS || {
         const lastUpdated = area.last_updated
           ? new Date(area.last_updated).toLocaleString()
           : "Never";
+        const lastUpdatedOrder = area.last_updated ? new Date(area.last_updated).getTime() : 0;
         const totalLengthMiles = CoverageManager.distanceInUserUnits(
           area.total_length,
         );
@@ -1364,7 +1365,7 @@ const STATUS = window.STATUS || {
             </div>
           </td>
           <td data-label="Segments" class="text-end" data-order="${parseInt(area.total_segments || 0, 10)}">${area.total_segments?.toLocaleString() || 0}</td>
-          <td data-label="Last Updated">${lastUpdated}</td>
+          <td data-label="Last Updated" data-order="${lastUpdatedOrder}">${lastUpdated}</td>
           <td data-label="Actions">
             <div class="btn-group" role="group">
               <button class="btn btn-sm btn-success" data-action="update-full" data-location-id="${locationId}" title="Full Update (Recalculate All)" ${isProcessing ? "disabled" : ""} data-bs-toggle="tooltip">
