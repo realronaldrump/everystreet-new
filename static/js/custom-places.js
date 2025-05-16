@@ -1,4 +1,4 @@
-/* global L, notificationManager, bootstrap, confirmationDialog */
+/* global L, bootstrap, confirmationDialog */
 
 class CustomPlacesManager {
   constructor(map) {
