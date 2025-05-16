@@ -36,7 +36,7 @@ class LiveTripTracker {
     this.consecutiveErrors = 0;
     this.maxConsecutiveErrors = 5;
     this.isPolling = false;
-    this.initWebSocket();
+    this.lastMarkerLatLng = null;  // For animating marker
 
     this.statusIndicator = document.querySelector(".status-indicator");
     this.statusText = document.querySelector(".status-text");
@@ -50,8 +50,7 @@ class LiveTripTracker {
   async initialize() {
     try {
       await this.loadInitialTripData();
-      this.startPolling();
-
+      this.initWebSocket(); // WebSocket first; fallback to polling if not available
       document.addEventListener("mapUpdated", () => {
         this.bringLiveTripToFront();
       });
@@ -119,11 +118,6 @@ class LiveTripTracker {
           );
           this.updateStatus(true, "No active trips");
           this.updateActiveTripsCount(0);
-          window.handleError(
-            "No active trips found during initialization",
-            "loadInitialTripData",
-            "info",
-          );
         }
       } else {
         throw new Error(data.message || "Error loading initial trip data");
@@ -363,6 +357,9 @@ class LiveTripTracker {
   setActiveTrip(trip) {
     if (!trip) return;
 
+    // Prevent redundant redraws if nothing changed:
+    if (this.activeTrip && this.activeTrip.sequence === trip.sequence) return;
+
     const isNewTrip =
       !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
@@ -389,7 +386,6 @@ class LiveTripTracker {
     sortedCoords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     const latLngs = sortedCoords.map((coord) => [coord.lat, coord.lon]);
-
     const lastPoint = latLngs[latLngs.length - 1];
 
     if (isNewTrip) {
@@ -418,8 +414,15 @@ class LiveTripTracker {
     } else {
       const prevCoords = this.polyline.getLatLngs();
 
+      // Optimize for single new point added:
       if (latLngs.length > prevCoords.length) {
-        this.polyline.setLatLngs(latLngs);
+        if (latLngs.length - prevCoords.length === 1) {
+          // Just add the latest point to polyline:
+          this.polyline.addLatLng(lastPoint);
+        } else {
+          // More than one new point, redraw
+          this.polyline.setLatLngs(latLngs);
+        }
         this.polyline.bringToFront();
 
         if (prevCoords.length > 0) {
@@ -429,7 +432,13 @@ class LiveTripTracker {
             prevLastPoint[0] !== lastPoint[0] ||
             prevLastPoint[1] !== lastPoint[1]
           ) {
-            this.marker.setLatLng(lastPoint);
+            // Animate marker between old and new position for smoothness:
+            if (this.lastMarkerLatLng && lastPoint) {
+              this.animateMarker(this.lastMarkerLatLng, lastPoint);
+            } else {
+              this.marker.setLatLng(lastPoint);
+            }
+            this.lastMarkerLatLng = lastPoint;
 
             if (localStorage.getItem("autoFollowVehicle") === "true") {
               if (!this.map.getBounds().contains(lastPoint)) {
@@ -439,11 +448,27 @@ class LiveTripTracker {
           }
         } else {
           this.marker.setLatLng(lastPoint);
+          this.lastMarkerLatLng = lastPoint;
         }
       }
     }
 
     this.updateMarkerIcon(trip.currentSpeed);
+  }
+
+  animateMarker(from, to) {
+    const duration = 100; // ms
+    const start = performance.now();
+    const marker = this.marker;
+
+    function animate(now) {
+      const t = Math.min(1, (now - start) / duration);
+      const lat = from[0] + (to[0] - from[0]) * t;
+      const lng = from[1] + (to[1] - from[1]) * t;
+      marker.setLatLng([lat, lng]);
+      if (t < 1) requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
   }
 
   updateMarkerIcon(speed) {
@@ -692,10 +717,9 @@ class LiveTripTracker {
     window.handleError("LiveTripTracker instance destroyed", "destroy", "info");
   }
 
-
   /**
    * Initialize WebSocket live channel.
-   * Falls back to existing polling when the socket is unavailable or closes.
+   * Falls back to polling when socket closes or errors.
    */
   initWebSocket() {
     if (!("WebSocket" in window)) {
@@ -705,27 +729,33 @@ class LiveTripTracker {
     const url = `${proto}://${location.host}/ws/trips`;
     try {
       this.ws = new WebSocket(url);
-      this.ws.addEventListener(
-        "message",
-        (e) => {
-          try {
-            const data = JSON.parse(e.data);
-            // Re‑use existing handler for API payloads
-            if (data && data.trip) {
-              // Temporarily pause map inertia while drawing
-              this.map.dragging.disable();
-              requestAnimationFrame(() => {
-                this.setActiveTrip(data.trip);
-                this.updateTripMetrics(data.trip);
-                this.map.dragging.enable();
-              });
-            }
-          } catch (err) {
-            console.warn("LiveTripTracker WebSocket parse error:", err);
+
+      // Batch updates & run all changes in the animation frame loop for ultra-smoothness:
+      let needsUpdate = false;
+      let latestTrip = null;
+
+      this.ws.addEventListener("message", (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data && data.trip) {
+            latestTrip = data.trip;
+            needsUpdate = true;
           }
-        },
-        { passive: true }
-      );
+        } catch (err) {
+          console.warn("LiveTripTracker WebSocket parse error:", err);
+        }
+      });
+
+      const updateLoop = () => {
+        if (needsUpdate && latestTrip) {
+          this.setActiveTrip(latestTrip);
+          this.updateTripMetrics(latestTrip);
+          needsUpdate = false;
+        }
+        requestAnimationFrame(updateLoop);
+      };
+      updateLoop();
+
       this.ws.addEventListener("open", () => {
         console.info("LiveTripTracker: WebSocket connected – stopping poller");
         this.stopPolling?.();
@@ -743,7 +773,6 @@ class LiveTripTracker {
       this.startPolling();
     }
   }
-
 }
 
 window.LiveTripTracker = LiveTripTracker;
