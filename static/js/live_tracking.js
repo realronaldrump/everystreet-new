@@ -36,7 +36,7 @@ class LiveTripTracker {
     this.consecutiveErrors = 0;
     this.maxConsecutiveErrors = 5;
     this.isPolling = false;
-    this.lastMarkerLatLng = null;  // For animating marker
+    this.lastMarkerLatLng = null; // For animating marker
 
     this.statusIndicator = document.querySelector(".status-indicator");
     this.statusText = document.querySelector(".status-text");
