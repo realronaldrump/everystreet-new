@@ -21,3 +21,4 @@ rtree
 scikit_learn
 Shapely
 uvicorn
+jinja2
