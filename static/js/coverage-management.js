@@ -22,33 +22,10 @@ const STATUS = window.STATUS || {
   POLLING_CHECK: "polling_check",
 };
 
-// Processing stages for status tracking
-const PROCESSING_STAGES = [
-  STATUS.INITIALIZING,
-  STATUS.PREPROCESSING,
-  STATUS.LOADING_STREETS,
-  STATUS.INDEXING,
-  STATUS.COUNTING_TRIPS,
-  STATUS.PROCESSING_TRIPS,
-  STATUS.CALCULATING,
-  STATUS.FINALIZING,
-  STATUS.GENERATING_GEOJSON,
-  STATUS.COMPLETE_STATS,
-  STATUS.COMPLETE,
-];
-
-// Utility for safe JSON parsing
-function tryParseJSON(str) {
-  try {
-    return JSON.parse(str);
-  } catch (error) {
-    return null;
-  }
-}
-
 (() => {
   const style = document.createElement("style");
   style.id = "coverage-manager-dynamic-styles";
+  // Removed Leaflet-specific CSS
   style.textContent = `
     .activity-indicator.pulsing { animation: pulse 1.5s infinite; }
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -84,6 +61,7 @@ function tryParseJSON(str) {
     constructor() {
       this.map = null; // General map reference (if needed elsewhere, maybe remove)
       this.coverageMap = null; // Specific map instance for this page
+      // Removed Leaflet-specific variables: streetLayers, streetsGeoJsonLayer, highlightedLayer, hoverHighlightLayer
       this.streetsGeoJson = null;
       this.mapBounds = null;
 
@@ -93,6 +71,7 @@ function tryParseJSON(str) {
       this.lastProgressUpdate = null;
       this.progressTimer = null;
       this.activeTaskIds = new Set();
+      this.currentTaskId = null; // Unified task identifier
       this.validatedLocation = null; // Holds validated location from the "Add Area" form
       this.currentFilter = "all"; // Map filter state ('all', 'driven', 'undriven')
       this.lastActivityTime = null; // For modal activity indicator
@@ -117,6 +96,7 @@ function tryParseJSON(str) {
           );
           // Simulate user confirming for testing purposes if needed,
           // but default to false for safety.
+          // return Promise.resolve(window.confirm(options.message));
           return Promise.resolve(false);
         },
       };
@@ -490,7 +470,7 @@ function tryParseJSON(str) {
       }
 
       this.currentProcessingLocation = location;
-      this.task_id = taskId;
+      this.currentTaskId = taskId;
       this.showProgressModal(
         `Checking status for ${location.display_name}...`,
         savedData.progress || 0,
@@ -530,7 +510,7 @@ function tryParseJSON(str) {
     }
 
     saveProcessingState() {
-      if (this.currentProcessingLocation && this.task_id) {
+      if (this.currentProcessingLocation && this.currentTaskId) {
         const progressBar = document.querySelector(
           "#taskProgressModal .progress-bar",
         );
@@ -539,7 +519,7 @@ function tryParseJSON(str) {
         );
         const saveData = {
           location: this.currentProcessingLocation,
-          taskId: this.task_id,
+          taskId: this.currentTaskId,
           stage: progressMessageEl?.dataset.stage || STATUS.UNKNOWN,
           progress: parseInt(progressBar?.getAttribute("aria-valuenow") || "0"),
           timestamp: new Date().toISOString(),
@@ -567,7 +547,7 @@ function tryParseJSON(str) {
       this.currentProcessingLocation = null;
       this.processingStartTime = null;
       this.lastProgressUpdate = null;
-      this.task_id = null; // Ensure task_id is cleared
+      this.currentTaskId = null; // Ensure task_id is cleared
       this.lastActivityTime = null;
       // Do NOT clear activeTaskIds here, polling might still be needed for resumed tasks
     }
@@ -703,7 +683,7 @@ function tryParseJSON(str) {
 
         // Set context for processing modal and state saving
         this.currentProcessingLocation = locationToAdd;
-        this.task_id = null; // Task ID will come from the backend response
+        this.currentTaskId = null; // Task ID will come from the backend response
         this.showProgressModal(
           `Starting processing for ${locationToAdd.display_name}...`,
           0,
@@ -735,7 +715,7 @@ function tryParseJSON(str) {
 
         // If successful, start polling using the returned task_id
         if (taskData?.task_id) {
-          this.task_id = taskData.task_id;
+          this.currentTaskId = taskData.task_id;
           this.activeTaskIds.add(taskData.task_id);
           this.saveProcessingState(); // Save state now that we have a task ID
           await this.pollCoverageProgress(taskData.task_id);
@@ -826,7 +806,7 @@ function tryParseJSON(str) {
 
       try {
         this.currentProcessingLocation = processingLocation;
-        this.task_id = null; // Will be set by the response
+        this.currentTaskId = null; // Will be set by the response
         const isUpdatingDisplayedLocation =
           this.selectedLocation?._id === locationId; // Check if the dashboard is showing this location
 
@@ -867,7 +847,7 @@ function tryParseJSON(str) {
         }
 
         if (data.task_id) {
-          this.task_id = data.task_id;
+          this.currentTaskId = data.task_id;
           this.activeTaskIds.add(data.task_id);
           this.saveProcessingState(); // Save state with task ID
           await this.pollCoverageProgress(data.task_id);
@@ -955,8 +935,8 @@ function tryParseJSON(str) {
           locationToCancel.display_name
         ) {
           // Mark the task as inactive *before* hiding the modal
-          if (this.task_id) {
-            this.activeTaskIds.delete(this.task_id);
+          if (this.currentTaskId) {
+            this.activeTaskIds.delete(this.currentTaskId);
           }
           this.hideProgressModal(); // This also clears the context
         }
@@ -2302,6 +2282,9 @@ function tryParseJSON(str) {
       // Reset internal state
       this.selectedLocation = null;
       this.streetsGeoJson = null;
+      // this.streetsGeoJsonLayer = null; // Removed Leaflet remnant
+      // this.highlightedLayer = null; // Removed Leaflet remnant
+      // this.hoverHighlightLayer = null; // Removed Leaflet remnant
       this.mapBounds = null;
       if (this.streetTypeChartInstance) {
         this.streetTypeChartInstance.destroy();
