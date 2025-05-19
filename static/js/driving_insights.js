@@ -1,4 +1,4 @@
-/* global DateUtils, Chart */
+/* global Chart */
 
 "use strict";
 
@@ -16,13 +16,27 @@
     },
   };
 
+  /**
+   * Helper function to parse 'YYYY-MM-DD' string to a Date object.
+   * This ensures consistent date parsing, avoiding potential timezone issues
+   * that can arise from new Date('YYYY-MM-DD') in some environments.
+   * @param {string} dateString - The date string in 'YYYY-MM-DD' format.
+   * @returns {Date} A Date object.
+   */
+  function parseYYYYMMDDToDate(dateString) {
+    const [year, month, day] = dateString.split("-").map(Number);
+    // Month is 0-indexed in JavaScript Date (0 for January, 11 for December)
+    return new Date(year, month - 1, day);
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     initializeEventListeners();
     if (typeof Chart === "undefined") {
-      console.error("Chart.js is not loaded");
+      console.error("Chart.js is not loaded. Charts will not function.");
       return;
     }
 
+    // Delay initialization slightly to ensure other scripts might load
     setTimeout(() => {
       initializeCharts();
       initializeDatepickers();
@@ -63,12 +77,14 @@
               y: {
                 beginAtZero: true,
                 title: { display: true, text: "Trips", color: "#bb86fc" },
-                ticks: { color: "#bb86fc", stepSize: 1 },
+                ticks: { color: "#bb86fc", stepSize: 1 }, // Ensure y-axis ticks are whole numbers
                 grid: { color: "rgba(187, 134, 252, 0.2)" },
               },
             },
           },
         });
+      } else {
+        console.warn("tripCountsChart canvas not found.");
       }
 
       const distanceCtx = document
@@ -117,6 +133,8 @@
             },
           },
         });
+      } else {
+        console.warn("distanceChart canvas not found.");
       }
 
       const fuelConsumptionCtx = document
@@ -129,7 +147,7 @@
             labels: ["Fuel Consumed", "Estimated Efficiency"],
             datasets: [
               {
-                data: [0, 0],
+                data: [0, 0], // Initial empty data
                 backgroundColor: ["#FF9800", "#03DAC6"],
                 borderWidth: 1,
               },
@@ -154,13 +172,15 @@
                     } else if (label === "Estimated Efficiency") {
                       return `${label}: ${value.toFixed(2)} MPG`;
                     }
-                    return `${label}: ${value}`;
+                    return `${label}: ${value}`; // Fallback
                   },
                 },
               },
             },
           },
         });
+      } else {
+        console.warn("fuelConsumptionChart canvas not found.");
       }
     } catch (error) {
       console.error("Error initializing charts:", error);
@@ -180,7 +200,7 @@
     if (startDateEl && endDateEl) {
       const dateUtils = window.DateUtils;
       if (!dateUtils) {
-        console.error("DateUtils not available for date initialization");
+        console.error("DateUtils not available for date initialization. Date pickers may not work.");
         return;
       }
 
@@ -188,28 +208,35 @@
         let savedStartDate = localStorage.getItem("startDate");
         let savedEndDate = localStorage.getItem("endDate");
 
+        // Default to last 30 days if no dates are saved
         if (!savedStartDate) {
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          savedStartDate = dateUtils.formatDate(thirtyDaysAgo);
+          savedStartDate = dateUtils.formatDate(thirtyDaysAgo); // Assumes YYYY-MM-DD
         }
 
         if (!savedEndDate) {
-          savedEndDate = dateUtils.formatDate(new Date());
+          savedEndDate = dateUtils.formatDate(new Date()); // Assumes YYYY-MM-DD
         }
 
+        // Set values in localStorage if they were just defaulted
+        localStorage.setItem("startDate", savedStartDate);
+        localStorage.setItem("endDate", savedEndDate);
+        
+        // Initialize flatpickr instances if they exist, otherwise set input values
         if (startDateEl._flatpickr && endDateEl._flatpickr) {
           startDateEl._flatpickr.setDate(savedStartDate);
           endDateEl._flatpickr.setDate(savedEndDate);
         } else {
-          dateUtils.initDatePicker(startDateEl, {
-            defaultDate: savedStartDate,
-          });
+          // Fallback or for non-flatpickr setups if DateUtils.initDatePicker handles it
+          dateUtils.initDatePicker(startDateEl, { defaultDate: savedStartDate });
           dateUtils.initDatePicker(endDateEl, { defaultDate: savedEndDate });
         }
       } catch (error) {
         console.error("Error initializing datepickers:", error);
       }
+    } else {
+        console.warn("Start or end date input elements not found for datepickers.");
     }
   }
 
@@ -220,17 +247,23 @@
 
     document
       .getElementById("filter-7days")
-      ?.addEventListener("click", () => setDateRange(7));
+      ?.addEventListener("click", () => setDateRangeAndFetch(7));
     document
       .getElementById("filter-30days")
-      ?.addEventListener("click", () => setDateRange(30));
+      ?.addEventListener("click", () => setDateRangeAndFetch(30));
     document
       .getElementById("filter-90days")
-      ?.addEventListener("click", () => setDateRange(90));
+      ?.addEventListener("click", () => setDateRangeAndFetch(90));
 
+    // Listen for a custom event if other parts of the app apply filters
     document.addEventListener("filtersApplied", () => {
       fetchDrivingInsights();
     });
+  }
+  
+  function setDateRangeAndFetch(days) {
+    setDateRange(days); // This function now just updates inputs and localStorage
+    fetchDrivingInsights(); // Explicitly call fetch after setting range
   }
 
   function setDateRange(days) {
@@ -240,146 +273,155 @@
       const dateUtils = window.DateUtils;
 
       if (!startDateInput || !endDateInput || !dateUtils) {
-        console.error(
-          "Missing required elements or DateUtils for setDateRange",
-        );
+        console.error("Missing required elements or DateUtils for setDateRange");
         return;
       }
 
-      let preset = null;
-      let endDate, startDate;
-      switch (days) {
-        case 7:
-          preset = "7days";
-          break;
-        case 30:
-          preset = "30days";
-          break;
-        case 90:
-          preset = "90days";
-          break;
-        default:
-          endDate = new Date();
-          startDate = new Date();
-          startDate.setDate(startDate.getDate() - days);
-          updateDateInputs(
-            startDateInput,
-            endDateInput,
-            dateUtils.formatDate(startDate),
-            dateUtils.formatDate(endDate),
-          );
-          return;
-      }
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - (days - 1)); // e.g., 7 days includes today
 
-      dateUtils
-        .getDateRangePreset(preset)
-        .then(({ startDate, endDate }) => {
-          updateDateInputs(startDateInput, endDateInput, startDate, endDate);
-          fetchDrivingInsights();
-        })
-        .catch((error) => {
-          console.warn("Error setting date range: %s", error);
-        });
+      const formattedStartDate = dateUtils.formatDate(startDate);
+      const formattedEndDate = dateUtils.formatDate(endDate);
+      
+      updateDateInputs(startDateInput, endDateInput, formattedStartDate, formattedEndDate);
+
     } catch (error) {
-      console.warn("Error in setDateRange: %s", error);
+      console.warn("Error in setDateRange: ", error);
     }
   }
 
-  function updateDateInputs(startInput, endInput, startDate, endDate) {
+  function updateDateInputs(startInput, endInput, startDateStr, endDateStr) {
     if (startInput._flatpickr) {
-      startInput._flatpickr.setDate(startDate);
+      startInput._flatpickr.setDate(startDateStr, false); // `false` to not trigger onChange yet
     } else {
-      startInput.value = startDate;
+      startInput.value = startDateStr;
     }
 
     if (endInput._flatpickr) {
-      endInput._flatpickr.setDate(endDate);
+      endInput._flatpickr.setDate(endDateStr, false);
     } else {
-      endInput.value = endDate;
+      endInput.value = endDateStr;
     }
 
-    localStorage.setItem("startDate", startDate);
-    localStorage.setItem("endDate", endDate);
+    localStorage.setItem("startDate", startDateStr);
+    localStorage.setItem("endDate", endDateStr);
   }
 
   function getFilterParams() {
     const dateUtils = window.DateUtils;
     if (!dateUtils) {
       console.error("DateUtils not available for getFilterParams");
-      return new URLSearchParams();
+      // Fallback to a default range or return empty if critical
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return new URLSearchParams({
+        start_date: thirtyDaysAgo.toISOString().split('T')[0], // Fallback format
+        end_date: new Date().toISOString().split('T')[0],      // Fallback format
+      });
     }
 
-    const startDate =
-      localStorage.getItem("startDate") ||
-      dateUtils.formatDate(
-        new Date(new Date().setDate(new Date().getDate() - 30)),
-      );
-    const endDate =
-      localStorage.getItem("endDate") || dateUtils.formatDate(new Date());
+    // Ensure dates are fetched from localStorage or defaulted if not present
+    let startDate = localStorage.getItem("startDate");
+    let endDate = localStorage.getItem("endDate");
 
+    if (!startDate) {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        startDate = dateUtils.formatDate(thirtyDaysAgo);
+        localStorage.setItem("startDate", startDate); // Save default
+    }
+    if (!endDate) {
+        endDate = dateUtils.formatDate(new Date());
+        localStorage.setItem("endDate", endDate); // Save default
+    }
+    
     return new URLSearchParams({ start_date: startDate, end_date: endDate });
   }
 
   function formatIdleDuration(seconds) {
+    if (seconds === null || typeof seconds === 'undefined') return "0m 0s";
     const dateUtils = window.DateUtils;
-    if (!dateUtils) {
-      return "0m 0s";
+    if (!dateUtils || !dateUtils.formatSecondsToHMS) { // Check for specific method
+      // Basic fallback if DateUtils or method is missing
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m}m ${s}s`;
     }
-    return `${dateUtils
-      .formatSecondsToHMS(seconds)
-      .split(":")
-      .slice(0, 2)
-      .join("m ")}s`;
+    // Assuming formatSecondsToHMS returns "HH:MM:SS"
+    const hms = dateUtils.formatSecondsToHMS(seconds);
+    const parts = hms.split(":");
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    const secs = parseInt(parts[2], 10);
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+        return `${minutes}m ${secs}s`;
+    } else {
+        return `${secs}s`;
+    }
   }
 
-  function formatDateForDisplay(dateStr) {
+  function formatDateForDisplay(dateStr) { // dateStr is expected as YYYY-MM-DD
     if (!dateStr) return "";
-
     try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
-
+      const date = parseYYYYMMDDToDate(dateStr); // Use robust parser
+      if (isNaN(date.getTime())) return dateStr; // Invalid date
+      
       return new Intl.DateTimeFormat("en-US", {
         month: "short",
         day: "numeric",
       }).format(date);
     } catch (e) {
-      return dateStr;
+      console.warn(`Error formatting date for display: ${dateStr}`, e);
+      return dateStr; // Fallback to original string on error
     }
   }
 
   async function fetchDrivingInsights() {
     const params = getFilterParams();
+    if (!params.has('start_date') || !params.has('end_date')) {
+        console.error("Date parameters are missing for fetching insights.");
+        if (window.notificationManager) {
+            window.notificationManager.show("Date parameters missing. Cannot load insights.", "danger");
+        }
+        resetCharts(); // Reset charts to show empty state
+        loadingManager.finish("Loading Insights"); // Ensure loading finishes
+        return;
+    }
+
     loadingManager.startOperation("Loading Insights");
 
     try {
-      const [generalData, analyticsData] = await Promise.all([
-        fetch(`/api/driving-insights?${params}`).then((res) => {
-          if (!res.ok) {
-            throw new Error(
-              `Failed to fetch insights: ${res.status} ${res.statusText}`,
-            );
-          }
-          return res.json();
-        }),
-        fetch(`/api/trip-analytics?${params}`).then((res) => {
-          if (!res.ok) {
-            throw new Error(
-              `Failed to fetch analytics: ${res.status} ${res.statusText}`,
-            );
-          }
-          return res.json();
-        }),
+      const [generalDataResponse, analyticsDataResponse] = await Promise.all([
+        fetch(`/api/driving-insights?${params}`),
+        fetch(`/api/trip-analytics?${params}`),
       ]);
 
+      if (!generalDataResponse.ok) {
+        throw new Error(
+          `Failed to fetch general insights: ${generalDataResponse.status} ${generalDataResponse.statusText}`,
+        );
+      }
+      if (!analyticsDataResponse.ok) {
+        throw new Error(
+          `Failed to fetch trip analytics: ${analyticsDataResponse.status} ${analyticsDataResponse.statusText}`,
+        );
+      }
+      
+      const generalData = await generalDataResponse.json();
+      const analyticsData = await analyticsDataResponse.json();
+
       updateSummaryMetrics(generalData);
-      updateTripCountsChart(analyticsData);
-      updateDistanceChart(analyticsData.daily_distances);
+      updateTripCountsChart(analyticsData.daily_distances); // Pass daily_distances directly
+      updateDistanceChart(analyticsData.daily_distances);   // Pass daily_distances directly
       updateFuelChart(generalData);
 
       if (window.notificationManager) {
         window.notificationManager.show(
-          "Insights data loaded successfully",
+          "Insights data loaded successfully!",
           "success",
         );
       }
@@ -391,7 +433,7 @@
           "danger",
         );
       }
-      resetCharts();
+      resetCharts(); // Reset charts to an empty state on error
     } finally {
       loadingManager.finish("Loading Insights");
     }
@@ -411,49 +453,86 @@
     }
 
     if (fuelConsumptionChart) {
-      fuelConsumptionChart.data.datasets[0].data = [0, 0];
+      fuelConsumptionChart.data.datasets[0].data = [0, 0]; // Reset doughnut data
       fuelConsumptionChart.update();
     }
 
-    const metrics = {
+    // Reset summary metric text contents
+    const metricsToReset = {
       "total-trips": "0",
       "total-distance": "0 miles",
       "total-fuel": "0 gallons",
       "max-speed": "0 mph",
       "total-idle": "0m 0s",
       "longest-trip": "0 miles",
-      "most-visited": "-",
+      "most-visited": "-", // Default for most visited
     };
 
-    Object.entries(metrics).forEach(([id, value]) => {
+    Object.entries(metricsToReset).forEach(([id, defaultValue]) => {
       const el = document.getElementById(id);
-      if (el) el.textContent = value;
+      if (el) el.textContent = defaultValue;
     });
   }
 
-  function updateTripCountsChart(data) {
-    if (
-      !tripCountsChart ||
-      !data ||
-      !data.daily_distances ||
-      !data.daily_distances.length
-    )
+  function updateTripCountsChart(dailyTripsData) {
+    const rawDailyData = dailyTripsData || []; 
+
+    if (!tripCountsChart) {
+      console.warn("Trip counts chart not initialized. Cannot update.");
       return;
+    }
 
     try {
       const labels = [];
       const tripCounts = [];
       const movingAvg = [];
 
-      data.daily_distances.forEach((d, i, arr) => {
-        const dateLabel = formatDateForDisplay(d.date);
-        labels.push(dateLabel);
+      const dateUtils = window.DateUtils;
+      if (!dateUtils) {
+        console.error("DateUtils not available for updateTripCountsChart. Chart will be cleared.");
+        tripCountsChart.data.labels = [];
+        tripCountsChart.data.datasets = [];
+        tripCountsChart.update();
+        return;
+      }
 
-        tripCounts.push(d.count);
+      const startDateString = localStorage.getItem("startDate");
+      const endDateString = localStorage.getItem("endDate");
 
-        const slice = arr.slice(Math.max(i - 6, 0), i + 1);
-        const avg =
-          slice.reduce((sum, entry) => sum + entry.count, 0) / slice.length;
+      if (!startDateString || !endDateString) {
+        console.error("Start or end date not found in localStorage for trip counts chart. Chart will be cleared.");
+        tripCountsChart.data.labels = [];
+        tripCountsChart.data.datasets = [];
+        tripCountsChart.update();
+        return;
+      }
+
+      const dataMap = new Map();
+      rawDailyData.forEach((d) => {
+        if (d && d.date) {
+          const dateKey = d.date.substring(0, 10); // Assumes d.date is 'YYYY-MM-DD' or starts with it
+          dataMap.set(dateKey, d);
+        }
+      });
+
+      const currentDateIter = parseYYYYMMDDToDate(startDateString);
+      const finalDate = parseYYYYMMDDToDate(endDateString);
+
+      while (currentDateIter <= finalDate) {
+        const dateKey = dateUtils.formatDate(currentDateIter); // Format to 'YYYY-MM-DD'
+        labels.push(formatDateForDisplay(dateKey)); 
+
+        const dayData = dataMap.get(dateKey);
+        tripCounts.push(dayData && typeof dayData.count === 'number' ? dayData.count : 0);
+
+        currentDateIter.setDate(currentDateIter.getDate() + 1);
+      }
+
+      // Calculate 7-Day Moving Average
+      tripCounts.forEach((count, i, allCounts) => {
+        const slice = allCounts.slice(Math.max(0, i - 6), i + 1); // Window of up to 7 days
+        const sum = slice.reduce((acc, val) => acc + val, 0);
+        const avg = slice.length > 0 ? sum / slice.length : 0;
         movingAvg.push(Number(avg.toFixed(1)));
       });
 
@@ -471,31 +550,74 @@
           label: "7-Day Avg",
           data: movingAvg,
           borderColor: "#03DAC6",
-          borderDash: [5, 5],
+          borderDash: [5, 5], // Dashed line for average
           tension: 0.1,
           fill: false,
         },
       ];
-
       tripCountsChart.update();
     } catch (error) {
       console.error("Error updating trip counts chart:", error);
+      if (tripCountsChart) { // Attempt to clear chart on error
+        tripCountsChart.data.labels = [];
+        tripCountsChart.data.datasets = [];
+        tripCountsChart.update();
+      }
     }
   }
 
-  function updateDistanceChart(data) {
-    if (!distanceChart || !Array.isArray(data) || !data.length) return;
+  function updateDistanceChart(dailyDistancesData) {
+    const rawDailyData = dailyDistancesData || [];
+
+    if (!distanceChart) {
+      console.warn("Distance chart not initialized. Cannot update.");
+      return;
+    }
 
     try {
       const labels = [];
       const distances = [];
 
-      data.forEach((d) => {
-        const dateLabel = formatDateForDisplay(d.date);
-        labels.push(dateLabel);
+      const dateUtils = window.DateUtils;
+      if (!dateUtils) {
+        console.error("DateUtils not available for updateDistanceChart. Chart will be cleared.");
+        distanceChart.data.labels = [];
+        distanceChart.data.datasets = [];
+        distanceChart.update();
+        return;
+      }
 
-        distances.push(Number(d.distance.toFixed(2)));
+      const startDateString = localStorage.getItem("startDate");
+      const endDateString = localStorage.getItem("endDate");
+
+      if (!startDateString || !endDateString) {
+        console.error("Start or end date not found in localStorage for distance chart. Chart will be cleared.");
+        distanceChart.data.labels = [];
+        distanceChart.data.datasets = [];
+        distanceChart.update();
+        return;
+      }
+
+      const dataMap = new Map();
+      rawDailyData.forEach((d) => {
+        if (d && d.date) {
+          const dateKey = d.date.substring(0, 10); // Assumes d.date is 'YYYY-MM-DD' or starts with it
+          dataMap.set(dateKey, d);
+        }
       });
+
+      const currentDateIter = parseYYYYMMDDToDate(startDateString);
+      const finalDate = parseYYYYMMDDToDate(endDateString);
+
+      while (currentDateIter <= finalDate) {
+        const dateKey = dateUtils.formatDate(currentDateIter); // Format to 'YYYY-MM-DD'
+        labels.push(formatDateForDisplay(dateKey));
+
+        const dayData = dataMap.get(dateKey);
+        distances.push(dayData && typeof dayData.distance === 'number' ? Number(dayData.distance.toFixed(2)) : 0);
+        
+        currentDateIter.setDate(currentDateIter.getDate() + 1);
+      }
 
       distanceChart.data.labels = labels;
       distanceChart.data.datasets = [
@@ -507,31 +629,55 @@
           borderWidth: 1,
         },
       ];
-
       distanceChart.update();
     } catch (error) {
       console.error("Error updating distance chart:", error);
+      if (distanceChart) { // Attempt to clear chart on error
+        distanceChart.data.labels = [];
+        distanceChart.data.datasets = [];
+        distanceChart.update();
+      }
     }
   }
 
-  function updateFuelChart(data) {
-    if (!fuelConsumptionChart || !data) return;
+  function updateFuelChart(generalData) {
+    if (!fuelConsumptionChart || !generalData) {
+        if (!fuelConsumptionChart) console.warn("Fuel consumption chart not initialized.");
+        if (!generalData) console.warn("No general data for fuel chart.");
+        // Ensure chart is reset or shows default if data is missing
+        if (fuelConsumptionChart) {
+            fuelConsumptionChart.data.datasets[0].data = [0, 0];
+            fuelConsumptionChart.update();
+        }
+        return;
+    }
 
     try {
-      const fuelConsumed = data.total_fuel_consumed || 0;
-      const distance = data.total_distance || 0;
+      const fuelConsumed = generalData.total_fuel_consumed || 0;
+      const totalDistance = generalData.total_distance || 0; // Use total_distance from generalData
 
-      const mpg = fuelConsumed > 0 ? distance / fuelConsumed : 0;
+      const mpg = fuelConsumed > 0 && totalDistance > 0 ? totalDistance / fuelConsumed : 0;
 
-      fuelConsumptionChart.data.datasets[0].data = [fuelConsumed, mpg];
+      fuelConsumptionChart.data.datasets[0].data = [
+        Number(fuelConsumed.toFixed(2)), 
+        Number(mpg.toFixed(2))
+      ];
       fuelConsumptionChart.update();
     } catch (error) {
       console.error("Error updating fuel chart:", error);
+      if (fuelConsumptionChart) {
+          fuelConsumptionChart.data.datasets[0].data = [0, 0];
+          fuelConsumptionChart.update();
+      }
     }
   }
 
   function updateSummaryMetrics(data) {
-    if (!data) return;
+    if (!data) {
+        console.warn("No data provided for summary metrics. Resetting to defaults.");
+        resetCharts(); // This will also reset metric elements via its internal call
+        return;
+    }
 
     setSummaryMetricElements(data);
     renderMostVisited(data, document.getElementById("most-visited"));
@@ -540,11 +686,11 @@
   function setSummaryMetricElements(data) {
     const metrics = {
       "total-trips": data.total_trips || 0,
-      "total-distance": `${(data.total_distance || 0).toFixed(2)} miles`,
-      "total-fuel": `${(data.total_fuel_consumed || 0).toFixed(2)} gallons`,
-      "max-speed": `${(data.max_speed || 0).toFixed(2)} mph`,
+      "total-distance": `${(Number(data.total_distance) || 0).toFixed(2)} miles`,
+      "total-fuel": `${(Number(data.total_fuel_consumed) || 0).toFixed(2)} gallons`,
+      "max-speed": `${(Number(data.max_speed) || 0).toFixed(2)} mph`,
       "total-idle": formatIdleDuration(data.total_idle_duration || 0),
-      "longest-trip": `${(data.longest_trip_distance || 0).toFixed(2)} miles`,
+      "longest-trip": `${(Number(data.longest_trip_distance) || 0).toFixed(2)} miles`,
     };
     Object.entries(metrics).forEach(([id, value]) => {
       const el = document.getElementById(id);
@@ -553,54 +699,65 @@
   }
 
   function renderMostVisited(data, mostVisitedEl) {
-    if (!mostVisitedEl) return;
-    if (!data.most_visited) {
-      mostVisitedEl.textContent = "-";
+    if (!mostVisitedEl) return; // Element not found
+    
+    const mostVisitedData = data.most_visited;
+    if (!mostVisitedData || Object.keys(mostVisitedData).length === 0) {
+      mostVisitedEl.textContent = "-"; // Default if no data
       return;
     }
+
     try {
-      let { _id, count, isCustomPlace } = data.most_visited;
-      _id = parseMostVisitedId(_id);
-      const placeName = getMostVisitedPlaceName(_id);
-      mostVisitedEl.innerHTML = `${placeName} ${
-        isCustomPlace ? '<span class="badge bg-primary">Custom</span>' : ""
-      } (${count} visits)`;
+      let { _id, count, isCustomPlace } = mostVisitedData;
+      _id = parseMostVisitedId(_id); // Parse if it's a JSON string
+      const placeName = getMostVisitedPlaceName(_id); // Get display name
+
+      let htmlContent = `${placeName}`;
+      if (isCustomPlace) {
+        htmlContent += ` <span class="badge bg-primary">Custom</span>`;
+      }
+      htmlContent += ` (${count} visits)`;
+      
+      mostVisitedEl.innerHTML = htmlContent;
+
     } catch (error) {
       console.error("Error formatting most visited location:", error);
-      mostVisitedEl.textContent = "Error displaying most visited location";
+      mostVisitedEl.textContent = "Error displaying location"; // Fallback text
     }
   }
 
   function parseMostVisitedId(_id) {
     if (
       typeof _id === "string" &&
-      _id.startsWith("{") &&
-      _id.includes("formatted_address")
+      _id.startsWith("{") && // Basic check for JSON-like string
+      _id.includes("formatted_address") // Heuristic
     ) {
       try {
         return JSON.parse(_id);
       } catch (e) {
-        console.warn("Failed to parse what looks like a JSON string:", e);
-        return _id;
+        console.warn("Failed to parse potential JSON string for most visited ID:", _id, e);
+        return _id; // Return original string if parsing fails
       }
     }
-    return _id;
+    return _id; // Return as is if not a parseable string
   }
 
-  function getMostVisitedPlaceName(_id) {
-    if (typeof _id === "string") {
-      return _id;
-    } else if (typeof _id === "object" && _id !== null) {
+  function getMostVisitedPlaceName(_idData) {
+    if (typeof _idData === "string") {
+      return _idData; // If it's already a simple string name
+    } else if (typeof _idData === "object" && _idData !== null) {
+      // Prioritize more descriptive fields if available
       return (
-        _id.formatted_address ||
-        _id.name ||
-        _id.place_name ||
-        _id.placeName ||
-        _id.location ||
-        _id.address ||
-        (typeof _id.toString === "function" ? _id.toString() : "Unknown")
+        _idData.formatted_address ||
+        _idData.name ||
+        _idData.place_name || // Common variations
+        _idData.placeName ||
+        _idData.location ||
+        _idData.address ||
+        // Fallback to a string representation if other fields are missing
+        (typeof _idData.toString === "function" ? _idData.toString() : "Unknown Location")
       );
     }
-    return "Unknown";
+    return "Unknown Location"; // Default fallback
   }
 })();
