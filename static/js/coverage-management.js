@@ -22,10 +22,34 @@ const STATUS = window.STATUS || {
   POLLING_CHECK: "polling_check",
 };
 
+// Processing stages for status tracking
+const PROCESSING_STAGES = [
+  STATUS.INITIALIZING,
+  STATUS.PREPROCESSING,
+  STATUS.LOADING_STREETS,
+  STATUS.INDEXING,
+  STATUS.COUNTING_TRIPS,
+  STATUS.PROCESSING_TRIPS,
+  STATUS.CALCULATING,
+  STATUS.FINALIZING,
+  STATUS.GENERATING_GEOJSON,
+  STATUS.COMPLETE_STATS,
+  STATUS.COMPLETE
+];
+
+// Utility for safe JSON parsing
+function tryParseJSON(str) {
+  try {
+    return JSON.parse(str);
+  } catch (error) {
+    return null;
+  }
+}
+
+
 (() => {
   const style = document.createElement("style");
   style.id = "coverage-manager-dynamic-styles";
-  // Removed Leaflet-specific CSS
   style.textContent = `
     .activity-indicator.pulsing { animation: pulse 1.5s infinite; }
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -61,7 +85,6 @@ const STATUS = window.STATUS || {
     constructor() {
       this.map = null; // General map reference (if needed elsewhere, maybe remove)
       this.coverageMap = null; // Specific map instance for this page
-      // Removed Leaflet-specific variables: streetLayers, streetsGeoJsonLayer, highlightedLayer, hoverHighlightLayer
       this.streetsGeoJson = null;
       this.mapBounds = null;
 
@@ -95,7 +118,6 @@ const STATUS = window.STATUS || {
           );
           // Simulate user confirming for testing purposes if needed,
           // but default to false for safety.
-          // return Promise.resolve(window.confirm(options.message));
           return Promise.resolve(false);
         },
       };
@@ -2279,9 +2301,6 @@ const STATUS = window.STATUS || {
       // Reset internal state
       this.selectedLocation = null;
       this.streetsGeoJson = null;
-      // this.streetsGeoJsonLayer = null; // Removed Leaflet remnant
-      // this.highlightedLayer = null; // Removed Leaflet remnant
-      // this.hoverHighlightLayer = null; // Removed Leaflet remnant
       this.mapBounds = null;
       if (this.streetTypeChartInstance) {
         this.streetTypeChartInstance.destroy();
