@@ -5683,9 +5683,9 @@ async def get_trips_in_bounds(
             [min_lon, min_lat],
         ]
 
-        # --- FIX: Query the raw 'gps' field in the 'trips' collection ---
+        # --- Query the processed 'matchedGps' field in the 'matched_trips' collection for spatial query ---
         query = {
-            "gps": {  # Query the 'gps' field
+            "matchedGps": {  # Query the 'matchedGps' field
                 "$geoIntersects": {
                     "$geometry": {
                         "type": "Polygon",
@@ -5697,31 +5697,31 @@ async def get_trips_in_bounds(
 
         projection = {
             "_id": 0,
-            "gps.coordinates": 1,  # Select coordinates from the 'gps' field
+            "matchedGps.coordinates": 1,  # Select coordinates from the 'matchedGps' field
             "transactionId": 1,
         }
 
-        # --- FIX: Query the 'trips_collection' ---
-        cursor = trips_collection.find(query, projection)
+        # --- Query the 'matched_trips_collection' for spatially indexed data ---
+        cursor = matched_trips_collection.find(query, projection)
 
         trip_coordinates = []
         async for trip in cursor:
-            # --- FIX: Extract coordinates from the 'gps' field ---
-            if trip.get("gps") and trip["gps"].get("coordinates"):
+            # --- Extract coordinates from the 'matchedGps' field ---
+            if trip.get("matchedGps") and trip["matchedGps"].get("coordinates"):
                 # Ensure the coordinates are valid before appending
-                coords = trip["gps"]["coordinates"]
+                coords = trip["matchedGps"]["coordinates"]
                 if (
                     isinstance(coords, list) and len(coords) > 1
                 ):  # Need at least 2 points for a line
                     trip_coordinates.append(coords)
                 else:
                     logger.warning(
-                        "Skipping trip %s in bounds query due to invalid/insufficient coordinates in 'gps' field.",
+                        "Skipping matched trip %s in bounds query due to invalid/insufficient coordinates in 'matchedGps' field.",
                         trip.get("transactionId", "N/A"),
                     )
 
         logger.info(
-            "Found %d raw trip segments within bounds",
+            "Found %d matched trip segments within bounds",
             len(trip_coordinates),
         )
         return JSONResponse(content={"trips": trip_coordinates})

@@ -445,55 +445,53 @@ block head_content %}
                     class="d-flex justify-content-between align-items-center mb-2"
                   >
                     <h4 class="h6 mb-0">Coverage Map</h4>
-                    <div class="map-controls">
-                      <div class="btn-group btn-group-sm" role="group">
-                        <button
-                          id="show-all-streets"
-                          class="btn btn-primary active"
-                          data-bs-toggle="tooltip"
-                          data-filter="all"
-                          title="Show all streets"
-                        >
-                          All
-                        </button>
-                        <button
-                          id="show-driven-streets"
-                          class="btn btn-outline-success"
-                          data-bs-toggle="tooltip"
-                          data-filter="driven"
-                          title="Show only driven streets"
-                        >
-                          Driven
-                        </button>
-                        <button
-                          id="show-undriven-streets"
-                          class="btn btn-outline-danger"
-                          data-bs-toggle="tooltip"
-                          data-filter="undriven"
-                          title="Show only undriven streets"
-                        >
-                          Undriven
-                        </button>
-                      </div>
-                      <!-- Trip Overlay Toggle -->
-                      <div
-                        class="form-check form-switch mt-2 ps-1 d-flex align-items-center justify-content-start"
+                    <div class="map-controls btn-group btn-group-sm" role="group" id="map-controls">
+                      <button
+                        id="show-all-streets"
+                        class="btn btn-primary active"
+                        data-bs-toggle="tooltip"
+                        data-filter="all"
+                        title="Show all streets"
                       >
-                        <input
-                          class="form-check-input me-2"
-                          type="checkbox"
-                          role="switch"
-                          id="toggle-trip-overlay"
-                        />
-                        <label
-                          class="form-check-label small text-white"
-                          for="toggle-trip-overlay"
-                        >
-                          <i class="fas fa-route me-1"></i> Show My Trips
-                        </label>
-                      </div>
-                      <!-- End Trip Overlay Toggle -->
+                        All
+                      </button>
+                      <button
+                        id="show-driven-streets"
+                        class="btn btn-outline-success"
+                        data-bs-toggle="tooltip"
+                        data-filter="driven"
+                        title="Show only driven streets"
+                      >
+                        Driven
+                      </button>
+                      <button
+                        id="show-undriven-streets"
+                        class="btn btn-outline-danger"
+                        data-bs-toggle="tooltip"
+                        data-filter="undriven"
+                        title="Show only undriven streets"
+                      >
+                        Undriven
+                      </button>
                     </div>
+                    <!-- Trip Overlay Toggle -->
+                    <div
+                      class="form-check form-switch mt-2 ps-1 d-flex align-items-center justify-content-start"
+                    >
+                      <input
+                        class="form-check-input me-2"
+                        type="checkbox"
+                        role="switch"
+                        id="toggle-trip-overlay"
+                      />
+                      <label
+                        class="form-check-label small text-white"
+                        for="toggle-trip-overlay"
+                      >
+                        <i class="fas fa-route me-1"></i> Show My Trips
+                      </label>
+                    </div>
+                    <!-- End Trip Overlay Toggle -->
                   </div>
                   <div id="coverage-map" style="height: 400px"></div>
                   <div
