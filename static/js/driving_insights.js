@@ -200,7 +200,9 @@
     if (startDateEl && endDateEl) {
       const dateUtils = window.DateUtils;
       if (!dateUtils) {
-        console.error("DateUtils not available for date initialization. Date pickers may not work.");
+        console.error(
+          "DateUtils not available for date initialization. Date pickers may not work.",
+        );
         return;
       }
 
@@ -222,21 +224,25 @@
         // Set values in localStorage if they were just defaulted
         localStorage.setItem("startDate", savedStartDate);
         localStorage.setItem("endDate", savedEndDate);
-        
+
         // Initialize flatpickr instances if they exist, otherwise set input values
         if (startDateEl._flatpickr && endDateEl._flatpickr) {
           startDateEl._flatpickr.setDate(savedStartDate);
           endDateEl._flatpickr.setDate(savedEndDate);
         } else {
           // Fallback or for non-flatpickr setups if DateUtils.initDatePicker handles it
-          dateUtils.initDatePicker(startDateEl, { defaultDate: savedStartDate });
+          dateUtils.initDatePicker(startDateEl, {
+            defaultDate: savedStartDate,
+          });
           dateUtils.initDatePicker(endDateEl, { defaultDate: savedEndDate });
         }
       } catch (error) {
         console.error("Error initializing datepickers:", error);
       }
     } else {
-        console.warn("Start or end date input elements not found for datepickers.");
+      console.warn(
+        "Start or end date input elements not found for datepickers.",
+      );
     }
   }
 
@@ -260,7 +266,7 @@
       fetchDrivingInsights();
     });
   }
-  
+
   function setDateRangeAndFetch(days) {
     setDateRange(days); // This function now just updates inputs and localStorage
     fetchDrivingInsights(); // Explicitly call fetch after setting range
@@ -273,7 +279,9 @@
       const dateUtils = window.DateUtils;
 
       if (!startDateInput || !endDateInput || !dateUtils) {
-        console.error("Missing required elements or DateUtils for setDateRange");
+        console.error(
+          "Missing required elements or DateUtils for setDateRange",
+        );
         return;
       }
 
@@ -283,9 +291,13 @@
 
       const formattedStartDate = dateUtils.formatDate(startDate);
       const formattedEndDate = dateUtils.formatDate(endDate);
-      
-      updateDateInputs(startDateInput, endDateInput, formattedStartDate, formattedEndDate);
 
+      updateDateInputs(
+        startDateInput,
+        endDateInput,
+        formattedStartDate,
+        formattedEndDate,
+      );
     } catch (error) {
       console.warn("Error in setDateRange: ", error);
     }
@@ -316,8 +328,8 @@
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       return new URLSearchParams({
-        start_date: thirtyDaysAgo.toISOString().split('T')[0], // Fallback format
-        end_date: new Date().toISOString().split('T')[0],      // Fallback format
+        start_date: thirtyDaysAgo.toISOString().split("T")[0], // Fallback format
+        end_date: new Date().toISOString().split("T")[0], // Fallback format
       });
     }
 
@@ -326,23 +338,24 @@
     let endDate = localStorage.getItem("endDate");
 
     if (!startDate) {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        startDate = dateUtils.formatDate(thirtyDaysAgo);
-        localStorage.setItem("startDate", startDate); // Save default
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      startDate = dateUtils.formatDate(thirtyDaysAgo);
+      localStorage.setItem("startDate", startDate); // Save default
     }
     if (!endDate) {
-        endDate = dateUtils.formatDate(new Date());
-        localStorage.setItem("endDate", endDate); // Save default
+      endDate = dateUtils.formatDate(new Date());
+      localStorage.setItem("endDate", endDate); // Save default
     }
-    
+
     return new URLSearchParams({ start_date: startDate, end_date: endDate });
   }
 
   function formatIdleDuration(seconds) {
-    if (seconds === null || typeof seconds === 'undefined') return "0m 0s";
+    if (seconds === null || typeof seconds === "undefined") return "0m 0s";
     const dateUtils = window.DateUtils;
-    if (!dateUtils || !dateUtils.formatSecondsToHMS) { // Check for specific method
+    if (!dateUtils || !dateUtils.formatSecondsToHMS) {
+      // Check for specific method
       // Basic fallback if DateUtils or method is missing
       const m = Math.floor(seconds / 60);
       const s = Math.floor(seconds % 60);
@@ -356,20 +369,21 @@
     const secs = parseInt(parts[2], 10);
 
     if (hours > 0) {
-        return `${hours}h ${minutes}m ${secs}s`;
+      return `${hours}h ${minutes}m ${secs}s`;
     } else if (minutes > 0) {
-        return `${minutes}m ${secs}s`;
+      return `${minutes}m ${secs}s`;
     } else {
-        return `${secs}s`;
+      return `${secs}s`;
     }
   }
 
-  function formatDateForDisplay(dateStr) { // dateStr is expected as YYYY-MM-DD
+  function formatDateForDisplay(dateStr) {
+    // dateStr is expected as YYYY-MM-DD
     if (!dateStr) return "";
     try {
       const date = parseYYYYMMDDToDate(dateStr); // Use robust parser
       if (isNaN(date.getTime())) return dateStr; // Invalid date
-      
+
       return new Intl.DateTimeFormat("en-US", {
         month: "short",
         day: "numeric",
@@ -382,14 +396,17 @@
 
   async function fetchDrivingInsights() {
     const params = getFilterParams();
-    if (!params.has('start_date') || !params.has('end_date')) {
-        console.error("Date parameters are missing for fetching insights.");
-        if (window.notificationManager) {
-            window.notificationManager.show("Date parameters missing. Cannot load insights.", "danger");
-        }
-        resetCharts(); // Reset charts to show empty state
-        loadingManager.finish("Loading Insights"); // Ensure loading finishes
-        return;
+    if (!params.has("start_date") || !params.has("end_date")) {
+      console.error("Date parameters are missing for fetching insights.");
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          "Date parameters missing. Cannot load insights.",
+          "danger",
+        );
+      }
+      resetCharts(); // Reset charts to show empty state
+      loadingManager.finish("Loading Insights"); // Ensure loading finishes
+      return;
     }
 
     loadingManager.startOperation("Loading Insights");
@@ -410,13 +427,13 @@
           `Failed to fetch trip analytics: ${analyticsDataResponse.status} ${analyticsDataResponse.statusText}`,
         );
       }
-      
+
       const generalData = await generalDataResponse.json();
       const analyticsData = await analyticsDataResponse.json();
 
       updateSummaryMetrics(generalData);
       updateTripCountsChart(analyticsData.daily_distances); // Pass daily_distances directly
-      updateDistanceChart(analyticsData.daily_distances);   // Pass daily_distances directly
+      updateDistanceChart(analyticsData.daily_distances); // Pass daily_distances directly
       updateFuelChart(generalData);
 
       if (window.notificationManager) {
@@ -475,7 +492,7 @@
   }
 
   function updateTripCountsChart(dailyTripsData) {
-    const rawDailyData = dailyTripsData || []; 
+    const rawDailyData = dailyTripsData || [];
 
     if (!tripCountsChart) {
       console.warn("Trip counts chart not initialized. Cannot update.");
@@ -489,7 +506,9 @@
 
       const dateUtils = window.DateUtils;
       if (!dateUtils) {
-        console.error("DateUtils not available for updateTripCountsChart. Chart will be cleared.");
+        console.error(
+          "DateUtils not available for updateTripCountsChart. Chart will be cleared.",
+        );
         tripCountsChart.data.labels = [];
         tripCountsChart.data.datasets = [];
         tripCountsChart.update();
@@ -500,7 +519,9 @@
       const endDateString = localStorage.getItem("endDate");
 
       if (!startDateString || !endDateString) {
-        console.error("Start or end date not found in localStorage for trip counts chart. Chart will be cleared.");
+        console.error(
+          "Start or end date not found in localStorage for trip counts chart. Chart will be cleared.",
+        );
         tripCountsChart.data.labels = [];
         tripCountsChart.data.datasets = [];
         tripCountsChart.update();
@@ -520,10 +541,12 @@
 
       while (currentDateIter <= finalDate) {
         const dateKey = dateUtils.formatDate(currentDateIter); // Format to 'YYYY-MM-DD'
-        labels.push(formatDateForDisplay(dateKey)); 
+        labels.push(formatDateForDisplay(dateKey));
 
         const dayData = dataMap.get(dateKey);
-        tripCounts.push(dayData && typeof dayData.count === 'number' ? dayData.count : 0);
+        tripCounts.push(
+          dayData && typeof dayData.count === "number" ? dayData.count : 0,
+        );
 
         currentDateIter.setDate(currentDateIter.getDate() + 1);
       }
@@ -558,7 +581,8 @@
       tripCountsChart.update();
     } catch (error) {
       console.error("Error updating trip counts chart:", error);
-      if (tripCountsChart) { // Attempt to clear chart on error
+      if (tripCountsChart) {
+        // Attempt to clear chart on error
         tripCountsChart.data.labels = [];
         tripCountsChart.data.datasets = [];
         tripCountsChart.update();
@@ -580,7 +604,9 @@
 
       const dateUtils = window.DateUtils;
       if (!dateUtils) {
-        console.error("DateUtils not available for updateDistanceChart. Chart will be cleared.");
+        console.error(
+          "DateUtils not available for updateDistanceChart. Chart will be cleared.",
+        );
         distanceChart.data.labels = [];
         distanceChart.data.datasets = [];
         distanceChart.update();
@@ -591,7 +617,9 @@
       const endDateString = localStorage.getItem("endDate");
 
       if (!startDateString || !endDateString) {
-        console.error("Start or end date not found in localStorage for distance chart. Chart will be cleared.");
+        console.error(
+          "Start or end date not found in localStorage for distance chart. Chart will be cleared.",
+        );
         distanceChart.data.labels = [];
         distanceChart.data.datasets = [];
         distanceChart.update();
@@ -614,8 +642,12 @@
         labels.push(formatDateForDisplay(dateKey));
 
         const dayData = dataMap.get(dateKey);
-        distances.push(dayData && typeof dayData.distance === 'number' ? Number(dayData.distance.toFixed(2)) : 0);
-        
+        distances.push(
+          dayData && typeof dayData.distance === "number"
+            ? Number(dayData.distance.toFixed(2))
+            : 0,
+        );
+
         currentDateIter.setDate(currentDateIter.getDate() + 1);
       }
 
@@ -632,7 +664,8 @@
       distanceChart.update();
     } catch (error) {
       console.error("Error updating distance chart:", error);
-      if (distanceChart) { // Attempt to clear chart on error
+      if (distanceChart) {
+        // Attempt to clear chart on error
         distanceChart.data.labels = [];
         distanceChart.data.datasets = [];
         distanceChart.update();
@@ -642,41 +675,47 @@
 
   function updateFuelChart(generalData) {
     if (!fuelConsumptionChart || !generalData) {
-        if (!fuelConsumptionChart) console.warn("Fuel consumption chart not initialized.");
-        if (!generalData) console.warn("No general data for fuel chart.");
-        // Ensure chart is reset or shows default if data is missing
-        if (fuelConsumptionChart) {
-            fuelConsumptionChart.data.datasets[0].data = [0, 0];
-            fuelConsumptionChart.update();
-        }
-        return;
+      if (!fuelConsumptionChart)
+        console.warn("Fuel consumption chart not initialized.");
+      if (!generalData) console.warn("No general data for fuel chart.");
+      // Ensure chart is reset or shows default if data is missing
+      if (fuelConsumptionChart) {
+        fuelConsumptionChart.data.datasets[0].data = [0, 0];
+        fuelConsumptionChart.update();
+      }
+      return;
     }
 
     try {
       const fuelConsumed = generalData.total_fuel_consumed || 0;
       const totalDistance = generalData.total_distance || 0; // Use total_distance from generalData
 
-      const mpg = fuelConsumed > 0 && totalDistance > 0 ? totalDistance / fuelConsumed : 0;
+      const mpg =
+        fuelConsumed > 0 && totalDistance > 0
+          ? totalDistance / fuelConsumed
+          : 0;
 
       fuelConsumptionChart.data.datasets[0].data = [
-        Number(fuelConsumed.toFixed(2)), 
-        Number(mpg.toFixed(2))
+        Number(fuelConsumed.toFixed(2)),
+        Number(mpg.toFixed(2)),
       ];
       fuelConsumptionChart.update();
     } catch (error) {
       console.error("Error updating fuel chart:", error);
       if (fuelConsumptionChart) {
-          fuelConsumptionChart.data.datasets[0].data = [0, 0];
-          fuelConsumptionChart.update();
+        fuelConsumptionChart.data.datasets[0].data = [0, 0];
+        fuelConsumptionChart.update();
       }
     }
   }
 
   function updateSummaryMetrics(data) {
     if (!data) {
-        console.warn("No data provided for summary metrics. Resetting to defaults.");
-        resetCharts(); // This will also reset metric elements via its internal call
-        return;
+      console.warn(
+        "No data provided for summary metrics. Resetting to defaults.",
+      );
+      resetCharts(); // This will also reset metric elements via its internal call
+      return;
     }
 
     setSummaryMetricElements(data);
@@ -700,7 +739,7 @@
 
   function renderMostVisited(data, mostVisitedEl) {
     if (!mostVisitedEl) return; // Element not found
-    
+
     const mostVisitedData = data.most_visited;
     if (!mostVisitedData || Object.keys(mostVisitedData).length === 0) {
       mostVisitedEl.textContent = "-"; // Default if no data
@@ -717,9 +756,8 @@
         htmlContent += ` <span class="badge bg-primary">Custom</span>`;
       }
       htmlContent += ` (${count} visits)`;
-      
-      mostVisitedEl.innerHTML = htmlContent;
 
+      mostVisitedEl.innerHTML = htmlContent;
     } catch (error) {
       console.error("Error formatting most visited location:", error);
       mostVisitedEl.textContent = "Error displaying location"; // Fallback text
@@ -735,7 +773,11 @@
       try {
         return JSON.parse(_id);
       } catch (e) {
-        console.warn("Failed to parse potential JSON string for most visited ID:", _id, e);
+        console.warn(
+          "Failed to parse potential JSON string for most visited ID:",
+          _id,
+          e,
+        );
         return _id; // Return original string if parsing fails
       }
     }
@@ -755,7 +797,9 @@
         _idData.location ||
         _idData.address ||
         // Fallback to a string representation if other fields are missing
-        (typeof _idData.toString === "function" ? _idData.toString() : "Unknown Location")
+        (typeof _idData.toString === "function"
+          ? _idData.toString()
+          : "Unknown Location")
       );
     }
     return "Unknown Location"; // Default fallback
