@@ -34,7 +34,7 @@ const PROCESSING_STAGES = [
   STATUS.FINALIZING,
   STATUS.GENERATING_GEOJSON,
   STATUS.COMPLETE_STATS,
-  STATUS.COMPLETE
+  STATUS.COMPLETE,
 ];
 
 // Utility for safe JSON parsing
@@ -45,7 +45,6 @@ function tryParseJSON(str) {
     return null;
   }
 }
-
 
 (() => {
   const style = document.createElement("style");
@@ -1342,7 +1341,9 @@ function tryParseJSON(str) {
         const lastUpdated = area.last_updated
           ? new Date(area.last_updated).toLocaleString()
           : "Never";
-        const lastUpdatedOrder = area.last_updated ? new Date(area.last_updated).getTime() : 0;
+        const lastUpdatedOrder = area.last_updated
+          ? new Date(area.last_updated).getTime()
+          : 0;
         const totalLengthMiles = CoverageManager.distanceInUserUnits(
           area.total_length,
         );
