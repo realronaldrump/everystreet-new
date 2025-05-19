@@ -2659,7 +2659,7 @@ const STATUS = window.STATUS || {
         });
 
         // Click: Show popup with action buttons
-        this.coverageMap.on("mousedown", "streets-layer", (e) => {
+        this.coverageMap.on("click", "streets-layer", (e) => {
           if (e.originalEvent && e.originalEvent.button !== 0) return;
           if (e.features && e.features.length > 0) {
             const props = e.features[0].properties;
@@ -2671,7 +2671,7 @@ const STATUS = window.STATUS || {
             // Create and add the popup
             const popup = new mapboxgl.Popup({
               closeButton: true,
-              // closeOnClick: false, // Keep popup open until explicitly closed or another is opened
+              closeOnClick: false, // Keep popup open until explicitly closed or another is opened
               maxWidth: "350px", // Set max width if needed
               className: "coverage-popup", // Add class for potential specific styling
             })
