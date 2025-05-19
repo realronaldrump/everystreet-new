@@ -1,5 +1,10 @@
-{% extends "base.html" %} {% block title %}Every Street - Map{% endblock %} {%
-block content %}
+{% extends "base.html" %} {% block title %}Every Street - Map{% endblock %}
+
+{% block extra_head_links %}
+<link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+{% endblock %}
+
+{% block content %}
 <div class="map-wrapper d-flex flex-column flex-grow-1">
   <!-- Map Container - Takes remaining height -->
   <div id="map" class="flex-grow-1 position-relative">
@@ -189,10 +194,6 @@ block content %}
   </div>
 </div>
 {% endblock %} {% block extra_css %}
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
-/>
 <style>
   /* Modern map styling */
   .map-wrapper {
@@ -239,20 +240,8 @@ block content %}
   }
 
   /* Trip styling enhancements */
-  .undriven-street {
-    stroke-dasharray: 5, 5;
-    transition:
-      stroke-width 0.3s ease,
-      opacity 0.3s ease,
-      stroke 0.3s ease;
-  }
-
-  .undriven-street:hover {
-    stroke-width: 5px !important;
-    opacity: 1 !important;
-    z-index: 1000;
-    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
-  }
+  /* .undriven-street and .undriven-street:hover styles removed as they are Leaflet SVG-specific. */
+  /* Mapbox line styling (including dasharray and hover effects) will be handled via JS and layer paint properties. */
 
   /* Layer control styling */
   #layer-order-list {
@@ -313,5 +302,8 @@ block content %}
   }
 </style>
 {% endblock %} {% block extra_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script>
+  window.MAPBOX_ACCESS_TOKEN = "{{ mapbox_access_token }}";
+</script>
+<script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
 {% endblock %}

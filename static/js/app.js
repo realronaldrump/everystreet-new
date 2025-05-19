@@ -1,35 +1,24 @@
 /* eslint-disable complexity */
-/* global handleError , DateUtils, L, $ */
+/* global handleError , DateUtils, mapboxgl, $ */ // Added mapboxgl
 /* eslint-disable no-unused-vars */ // Keep this if you have variables intentionally unused globally (like AppState itself sometimes)
 
 "use strict";
 
-if (window.L?.Path) {
-  L.Path.prototype.options.clickTolerance = 8;
+// Ensure mapboxgl.accessToken is set before creating a map instance
+if (window.mapboxgl) {
+  mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 }
 
 (function () {
   // Configuration object for map settings, storage keys, and error messages
   const CONFIG = {
     MAP: {
-      defaultCenter: [37.0902, -95.7129], // Default map center coordinates (US center)
+      defaultCenter: [-95.7129, 37.0902], // Default map center coordinates [lng, lat] (US center)
       defaultZoom: 4, // Default map zoom level
-      tileLayerUrls: {
-        // URLs for different map tile layers
-        dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        satellite:
-          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      },
-      tileLayerAttribution: {
-        // Attribution text for tile layers
-        dark: "",
-        light: "",
-        satellite: "",
-        streets: "",
-      },
-      maxZoom: 19, // Maximum allowed zoom level
+      // tileLayerUrls and tileLayerAttribution are Leaflet-specific and removed.
+      // Mapbox styles handle tile sources and attribution.
+      // Example: style: 'mapbox://styles/mapbox/streets-v12'
+      maxZoom: 19, // Maximum allowed zoom level (Mapbox default is 22, can be overridden)
       recentTripThreshold: 6 * 60 * 60 * 1000, // Time threshold (6 hours) to highlight recent trips
       debounceDelay: 100, // Delay for debouncing map updates (ms)
     },
@@ -80,8 +69,8 @@ if (window.L?.Path) {
 
   // Application state object holding map instance, layers, data, etc.
   const AppState = {
-    map: null, // Leaflet map instance
-    layerGroup: null, // Leaflet layer group for dynamic layers
+    map: null, // Mapbox GL JS map instance
+    // layerGroup is removed as Mapbox manages sources and layers directly.
     mapLayers: { ...LAYER_DEFAULTS }, // Current state of map layers, initialized with defaults
     mapInitialized: false, // Flag indicating if the map has been initialized
     mapSettings: { highlightRecentTrips: true }, // User-configurable map settings
@@ -95,7 +84,7 @@ if (window.L?.Path) {
     },
     dom: {}, // Cache for frequently accessed DOM elements
     baseLayer: null, // Current base tile layer
-    geoJsonLayers: {}, // Cache for GeoJSON layer instances
+    // geoJsonLayers is removed as Mapbox sources and layers are managed directly on the map instance.
     liveTracker: null, // Instance of LiveTripTracker
   };
 
@@ -247,273 +236,173 @@ if (window.L?.Path) {
    * Determines the style for a trip feature based on its properties (recent, selected, matched).
    * @param {object} feature - GeoJSON feature object.
    * @param {object} layerInfo - Configuration info for the layer (color, opacity, etc.).
-   * @returns {object} Leaflet path style options.
+   * @returns {object} Mapbox paint style properties.
    */
   const getTripFeatureStyle = (feature, layerInfo) => {
-    const { properties } = feature;
-    if (!properties)
-      return {
-        color: layerInfo.color,
-        weight: layerInfo.weight,
-        opacity: layerInfo.opacity,
-      }; // Basic default
-
-    const { transactionId, startTime } = properties;
-    const sixHoursAgo = Date.now() - CONFIG.MAP.recentTripThreshold;
-    const tripStartTime = new Date(startTime).getTime();
-    const isRecent =
-      AppState.mapSettings.highlightRecentTrips &&
-      !isNaN(tripStartTime) && // Check if date is valid
-      tripStartTime > sixHoursAgo;
-    const isSelected = transactionId === AppState.selectedTripId;
-
-    // Check if this trip or the selected trip is a matched pair
-    const isMatchedPair =
-      isSelected ||
-      (AppState.selectedTripId &&
-        transactionId &&
-        (AppState.selectedTripId.replace("MATCHED-", "") === transactionId ||
-          transactionId.replace("MATCHED-", "") === AppState.selectedTripId));
-
-    // Determine style based on state
-    let color = layerInfo.color;
-    let weight = layerInfo.weight || 2;
-    let opacity = layerInfo.opacity;
-
-    if (isSelected) {
-      color = layerInfo.highlightColor || "#FFD700"; // Use specific highlight color
-      weight = 3; // Thicker line
-      opacity = 1; // Fully opaque
-    } else if (isMatchedPair) {
-      color = "#03DAC6"; // Teal color for matched pairs
-      weight = 2.5;
-      opacity = 0.8;
-    } else if (isRecent) {
-      color = "#FFA500"; // Orange color for recent trips
-      weight = 2.5;
-      opacity = 0.9;
-    }
-
+    // This function is now deprecated for direct use in refreshTripStyles.
+    // Its logic is embedded in Mapbox expressions within layer paint properties.
+    // It can be removed if not used elsewhere, or kept for other potential uses.
+    console.warn("getTripFeatureStyle is deprecated for dynamic Mapbox styling. Use feature state expressions.");
     return {
-      color,
-      weight,
-      opacity,
-      lineCap: "round", // Style for line ends
-      lineJoin: "round", // Style for line corners
-      className: isRecent ? "recent-trip" : "", // CSS class for potential extra styling
+        'line-color': layerInfo.color, // Default color
+        'line-width': layerInfo.weight || 2, // Default weight
+        'line-opacity': layerInfo.opacity // Default opacity
     };
   };
 
-  /** Refreshes the styles of all trip features on the map based on current state. */
+  /** Refreshes the styles of all trip features on the map based on current state using Mapbox feature states. */
   function refreshTripStyles() {
-    if (!AppState.layerGroup) return;
+    if (!isMapReady()) return;
 
-    AppState.layerGroup.eachLayer((layer) => {
-      // Check if it's a GeoJSON layer added by our app (it should have a feature property)
-      if (layer.feature?.properties && typeof layer.setStyle === "function") {
-        // Determine if it's a regular or matched trip based on feature properties
-        const isMatched =
-          layer.feature.properties.isMatched ||
-          layer.feature.properties.transactionId?.startsWith("MATCHED-");
-        const layerInfo = isMatched
-          ? AppState.mapLayers.matchedTrips
-          : AppState.mapLayers.trips;
+    const sourcesToUpdate = ['trips', 'matchedTrips'];
 
-        // Apply the appropriate style
-        layer.setStyle(getTripFeatureStyle(layer.feature, layerInfo));
+    sourcesToUpdate.forEach(sourceId => {
+        const source = AppState.map.getSource(sourceId);
+        const layerConfig = AppState.mapLayers[sourceId];
 
-        // Bring the selected trip to the front if it's this layer
-        if (
-          layer.feature.properties.transactionId === AppState.selectedTripId
-        ) {
-          layer.bringToFront();
+        if (source && layerConfig && layerConfig.layer && layerConfig.layer.features) {
+            // Clear previous states first
+            layerConfig.layer.features.forEach(feature => {
+                if (feature.properties && feature.properties.transactionId) {
+                    // Ensure feature has an ID for setFeatureState. If promoteId is used, this is the transactionId.
+                    AppState.map.removeFeatureState(
+                        { source: sourceId, id: feature.properties.transactionId },
+                        'selected'
+                    );
+                    AppState.map.removeFeatureState(
+                        { source: sourceId, id: feature.properties.transactionId },
+                        'recent'
+                    );
+                }
+            });
+
+            // Set new states
+            layerConfig.layer.features.forEach(feature => {
+                if (feature.properties && feature.properties.transactionId) {
+                    const transactionId = feature.properties.transactionId;
+                    const startTime = feature.properties.startTime;
+
+                    const isSelected = transactionId === AppState.selectedTripId;
+                    const tripStartTime = new Date(startTime).getTime();
+                    const sixHoursAgo = Date.now() - CONFIG.MAP.recentTripThreshold;
+                    const isRecent = AppState.mapSettings.highlightRecentTrips &&
+                                   !isNaN(tripStartTime) &&
+                                   tripStartTime > sixHoursAgo;
+
+                    if (isSelected || isRecent) { // Only set state if it's true for either
+                        AppState.map.setFeatureState(
+                            { source: sourceId, id: transactionId },
+                            { selected: isSelected, recent: isRecent }
+                        );
+                    }
+                }
+            });
         }
-      }
-      // Handle potential hit layers (opacity 0) - they don't need visual refresh
-      else if (layer.options?.opacity === 0) {
-        // Do nothing for hit layers
-      }
-      // Handle nested LayerGroups if necessary (though current structure might not need it)
-      else if (
-        layer instanceof L.LayerGroup &&
-        typeof layer.eachLayer === "function"
-      ) {
-        layer.eachLayer((featureLayer) => {
-          if (
-            featureLayer.feature?.properties &&
-            typeof featureLayer.setStyle === "function"
-          ) {
-            const isMatched =
-              featureLayer.feature.properties.isMatched ||
-              featureLayer.feature.properties.transactionId?.startsWith(
-                "MATCHED-",
-              );
-            const layerInfo = isMatched
-              ? AppState.mapLayers.matchedTrips
-              : AppState.mapLayers.trips;
-            featureLayer.setStyle(
-              getTripFeatureStyle(featureLayer.feature, layerInfo),
-            );
-            if (
-              featureLayer.feature.properties.transactionId ===
-              AppState.selectedTripId
-            ) {
-              featureLayer.bringToFront();
-            }
-          }
-        });
-      }
     });
   }
 
   /** Checks if the map is fully initialized and ready for operations. */
-  const isMapReady = () =>
-    AppState.map && AppState.mapInitialized && AppState.layerGroup;
+  const isMapReady = () => AppState.map && AppState.mapInitialized; // Removed AppState.layerGroup check
 
   /**
-   * Initializes the Leaflet map instance and its basic components.
-   * async is required here because the caller uses .then()
+   * Initializes the Mapbox GL JS map instance and its basic components.
    * @returns {Promise<boolean>} True if initialization was successful, false otherwise.
    */
   async function initializeMap() {
-    try {
-      // Prevent re-initialization
-      if (AppState.map) return true;
+    return new Promise((resolve, reject) => {
+      try {
+        // Prevent re-initialization
+        if (AppState.map) {
+          resolve(true);
+          return;
+        }
 
-      const mapElement = getElement("map");
-      if (!mapElement) {
-        showNotification(CONFIG.ERROR_MESSAGES.mapInitFailed, "danger");
-        return false;
+        const mapElement = getElement("map");
+        if (!mapElement) {
+          showNotification(CONFIG.ERROR_MESSAGES.mapInitFailed, "danger");
+          resolve(false); // Resolve with false as per original logic, though reject might be better
+          return;
+        }
+
+        // Set Mapbox access token if not already set (e.g. if script loaded out of order)
+        if (window.mapboxgl && !mapboxgl.accessToken) {
+          mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+        }
+        if (!mapboxgl.accessToken) {
+          console.error("Mapbox Access Token is not set!");
+          showNotification("Mapbox Access Token is missing. Map cannot load.", "danger");
+          resolve(false);
+          return;
+        }
+
+        // Create the Mapbox GL JS map instance
+        AppState.map = new mapboxgl.Map({
+          container: "map", // Keep the existing map container ID
+          style: "mapbox://styles/mapbox/dark-v11", // Default to dark style
+          center: CONFIG.MAP.defaultCenter, // Ensure this is [lng, lat]
+          zoom: CONFIG.MAP.defaultZoom,
+          minZoom: 2,
+          maxZoom: CONFIG.MAP.maxZoom,
+          // Most Leaflet animation/interaction options have Mapbox equivalents or are default.
+        });
+
+        // Make map instance globally accessible (consider avoiding this if possible)
+        window.map = AppState.map;
+
+        // Add Mapbox Navigation Control (zoom, rotation)
+        AppState.map.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+        // Mapbox GL JS handles attribution automatically based on the style.
+        // Custom attribution can be added via:
+        // AppState.map.attributionControl.setCustomAttribution("Your custom attribution");
+
+        // LayerGroup is not needed; Mapbox manages sources and layers directly.
+
+        // Update URL hash with map state (zoom, lat, lng) - debounced
+        const debouncedUpdateUrlWithMapState = debounce(
+          updateUrlWithMapState,
+          200,
+        );
+
+        // Mapbox GL JS events
+        AppState.map.on("zoomend", debouncedUpdateUrlWithMapState);
+        AppState.map.on("moveend", debouncedUpdateUrlWithMapState);
+
+        // Resolve the promise once the map has loaded
+        AppState.map.on("load", () => {
+          AppState.mapInitialized = true;
+          setupMapUnselectHandler(); // Setup unselect handler after map is loaded
+          document.dispatchEvent(new CustomEvent("mapInitialized"));
+          console.info("Mapbox map initialized successfully.");
+          resolve(true);
+        });
+
+        AppState.map.on("error", (e) => {
+          console.error("Mapbox map error:", e.error);
+          showNotification(
+            `${CONFIG.ERROR_MESSAGES.mapInitFailed}: ${e.error?.message || "Unknown Mapbox error"}`,
+            "danger",
+          );
+          // if (typeof handleError === "function") handleError(e.error, "Mapbox Initialization");
+          resolve(false); // Resolve false on map error
+        });
+
+      } catch (error) {
+        // Use global error handler if available
+        if (typeof handleError === "function") {
+          handleError(error, "Map initialization");
+        } else {
+          console.error("Map initialization error:", error);
+        }
+        showNotification(
+          `${CONFIG.ERROR_MESSAGES.mapInitFailed}: ${error.message}`,
+          "danger",
+        );
+        resolve(false); // Resolve false on catch
       }
-
-      // Create the Leaflet map instance
-      AppState.map = L.map("map", {
-        preferCanvas: true,
-        center: CONFIG.MAP.defaultCenter,
-        zoom: CONFIG.MAP.defaultZoom,
-        zoomControl: false, // Disable default zoom control (added manually later)
-        attributionControl: false, // Disable default attribution (added manually later)
-        minZoom: 2,
-        maxZoom: CONFIG.MAP.maxZoom,
-        zoomSnap: 0.5, // Snap zoom levels to 0.5 increments
-        zoomDelta: 0.5, // Amount zoom changes per step
-        wheelPxPerZoomLevel: 120, // How many scroll pixels per zoom level
-        fadeAnimation: true, // Enable fade animations
-        markerZoomAnimation: true, // Enable marker zoom animations
-        inertia: true, // Enable map inertia
-        worldCopyJump: true, // Allow map to wrap horizontally
-      });
-
-      // Make map instance globally accessible (consider avoiding this if possible)
-      window.map = AppState.map;
-
-      // Determine the current theme (dark/light) for appropriate tile layer
-      const theme =
-        document.documentElement.getAttribute("data-bs-theme") || "dark";
-
-      // Select tile layer URL and attribution based on theme
-      const tileUrl =
-        CONFIG.MAP.tileLayerUrls[theme] || CONFIG.MAP.tileLayerUrls.dark; // Default to dark
-      const attribution =
-        CONFIG.MAP.tileLayerAttribution[theme] ||
-        CONFIG.MAP.tileLayerAttribution.dark;
-
-      // Create and add the base tile layer
-      AppState.baseLayer = L.tileLayer(tileUrl, {
-        attribution,
-        maxZoom: CONFIG.MAP.maxZoom,
-        crossOrigin: true, // Necessary for some tile servers
-      }).addTo(AppState.map);
-
-      // Add zoom control manually to the top-right
-      L.control
-        .zoom({
-          position: "topright",
-        })
-        .addTo(AppState.map);
-
-      // Add attribution control manually
-      L.control
-        .attribution({
-          position: "bottomright", // Or your preferred position
-          prefix: "", // Optional: Remove Leaflet prefix
-        })
-        .addTo(AppState.map);
-      // Update attribution text
-      AppState.map.attributionControl.setPrefix(false); // Remove Leaflet prefix if desired
-      AppState.map.attributionControl.addAttribution(attribution);
-
-      // Create the main layer group for trips, etc.
-      AppState.layerGroup = L.layerGroup().addTo(AppState.map);
-
-      // Define available basemaps for the layer control
-      const basemaps = {
-        Dark: L.tileLayer(CONFIG.MAP.tileLayerUrls.dark, {
-          attribution: CONFIG.MAP.tileLayerAttribution.dark,
-          maxZoom: CONFIG.MAP.maxZoom,
-        }),
-        Light: L.tileLayer(CONFIG.MAP.tileLayerUrls.light, {
-          attribution: CONFIG.MAP.tileLayerAttribution.light,
-          maxZoom: CONFIG.MAP.maxZoom,
-        }),
-        Satellite: L.tileLayer(CONFIG.MAP.tileLayerUrls.satellite, {
-          attribution: CONFIG.MAP.tileLayerAttribution.satellite,
-          maxZoom: CONFIG.MAP.maxZoom,
-        }),
-        Streets: L.tileLayer(CONFIG.MAP.tileLayerUrls.streets, {
-          attribution: CONFIG.MAP.tileLayerAttribution.streets,
-          maxZoom: CONFIG.MAP.maxZoom,
-        }),
-      };
-
-      // Set the initially active basemap based on the theme
-      const defaultBasemap = theme === "light" ? "Light" : "Dark";
-      if (basemaps[defaultBasemap]) {
-        basemaps[defaultBasemap].addTo(AppState.map);
-        AppState.baseLayer = basemaps[defaultBasemap]; // Update AppState.baseLayer reference
-      } else {
-        basemaps.Dark.addTo(AppState.map); // Fallback to Dark
-        AppState.baseLayer = basemaps.Dark;
-      }
-
-      // Add the layers control (for switching basemaps)
-      L.control
-        .layers(basemaps, null, {
-          // Pass basemaps, no overlays initially
-          position: "topright",
-          collapsed: true, // Keep it collapsed by default
-        })
-        .addTo(AppState.map);
-
-      // Update URL hash with map state (zoom, lat, lng) - debounced
-      const debouncedUpdateUrlWithMapState = debounce(
-        updateUrlWithMapState,
-        200,
-      );
-      AppState.map.on("zoomend", debouncedUpdateUrlWithMapState);
-      AppState.map.on("moveend", debouncedUpdateUrlWithMapState);
-
-      // Dispatch a custom event indicating map initialization is complete
-      document.dispatchEvent(new CustomEvent("mapInitialized"));
-
-      AppState.mapInitialized = true;
-      setupMapUnselectHandler();
-      console.info("Map initialized successfully.");
-      return true;
-    } catch (error) {
-      // Use global error handler if available
-      if (typeof handleError === "function") {
-        handleError(error, "Map initialization");
-      } else {
-        console.error("Map initialization error:", error);
-      }
-      showNotification(
-        `${CONFIG.ERROR_MESSAGES.mapInitFailed}: ${error.message}`,
-        "danger",
-      );
-      return false;
-    }
+    });
   }
+
 
   /** Updates the browser URL's query parameters with the current map state. */
   function updateUrlWithMapState() {
@@ -521,13 +410,13 @@ if (window.L?.Path) {
       return; // Check for API availability
 
     try {
-      const center = AppState.map.getCenter();
+      const center = AppState.map.getCenter(); // Mapbox returns {lng, lat}
       const zoom = AppState.map.getZoom();
-      const lat = center.lat.toFixed(5);
-      const lng = center.lng.toFixed(5);
+      const lat = center.lat.toFixed(5); // Correctly access lat
+      const lng = center.lng.toFixed(5); // Correctly access lng
 
       const url = new URL(window.location.href);
-      url.searchParams.set("zoom", zoom);
+      url.searchParams.set("zoom", zoom.toFixed(2)); // mapbox zoom can be decimal
       url.searchParams.set("lat", lat);
       url.searchParams.set("lng", lng);
 
@@ -1194,9 +1083,8 @@ if (window.L?.Path) {
       return;
     }
 
-    // Clear existing dynamic layers (trips, undriven streets, etc.)
-    AppState.layerGroup.clearLayers();
-    const tripLayers = new Map(); // To keep track of individual trip layers for highlighting
+    // AppState.layerGroup.clearLayers(); // Removed: Mapbox sources/layers are managed differently
+    // const tripLayers = new Map(); // To keep track of individual trip layers for highlighting - Replaced by direct click listeners
 
     // Get layers that are visible and have data, sorted by drawing order
     const visibleLayers = Object.entries(AppState.mapLayers)
@@ -1220,76 +1108,107 @@ if (window.L?.Path) {
 
         if (name === "customPlaces" && window.customPlaces?.getLayerGroup()) {
           // Add the custom places layer group directly if managed externally
-          window.customPlaces.getLayerGroup().addTo(AppState.layerGroup);
+          // This part needs to be adapted for Mapbox if customPlaces is to be shown.
+          // For now, assuming customPlaces might use Leaflet or needs its own Mapbox logic.
+          // If it's Leaflet-based, it cannot be directly added to Mapbox layerGroup.
+          // window.customPlaces.getLayerGroup().addTo(AppState.layerGroup); // This line is Leaflet-specific
+          console.warn("Custom places layer rendering needs Mapbox adaptation.");
         } else if (["trips", "matchedTrips"].includes(name) && hasFeatures) {
-          // Create/update the GeoJSON layer for trips or matched trips
-          const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
-            style: (feature) => getTripFeatureStyle(feature, info), // Dynamic styling
-            onEachFeature: (feature, layer) => {
-              // Store reference for potential interaction
-              if (feature.properties?.transactionId) {
-                tripLayers.set(feature.properties.transactionId, layer);
-              }
-              // Attach click handler
-              layer.on("click", (e) => handleTripClick(e, feature, layer));
-              // Attach popupopen handler for dynamic content/listeners
-              layer.on("popupopen", () =>
-                setupPopupEventListeners(layer, feature),
-              );
-              // Bind the popup content with autoPan disabled
-              layer.bindPopup(createTripPopupContent(feature), {
-                autoPan: false,
-              }); // FIX: Disable auto pan
-            },
-          });
-          geoJsonLayer.addTo(AppState.layerGroup);
+          const sourceId = name; // e.g., 'trips'
+          const layerId = `${name}-layer`; // e.g., 'trips-layer'
+          const geojsonData = info.layer;
 
-          // Add invisible wider lines for easier clicking (hit layer)
-          const hitLayer = L.geoJSON(info.layer, {
-            style: {
-              color: "#000000", // Doesn't matter, it's invisible
-              opacity: 0, // Invisible
-              weight: 20, // Wide for easier clicking/tapping
-              interactive: true, // Make it interactive
-            },
-            onEachFeature: (f, layer) => {
-              // Attach click handler to the hit layer as well
-              layer.on("click", (e) => handleTripClick(e, f, layer));
-              // Bind the same popup with autoPan disabled
-              layer.bindPopup(createTripPopupContent(f), { autoPan: false }); // FIX: Disable auto pan
-            },
-          });
-          hitLayer.addTo(AppState.layerGroup);
-        } else if (name === "undrivenStreets" && hasFeatures) {
-          // Create/update the GeoJSON layer for undriven streets
-          const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
-            style: () => ({
-              // Static style for undriven streets
-              color: info.color,
-              weight: 3, // Slightly thicker for visibility
-              opacity: info.opacity,
-              className: "undriven-street", // CSS class for potential styling
-            }),
-            onEachFeature: (feature, layer) => {
-              // Add tooltip with street details if available
-              if (feature.properties?.street_name) {
-                const props = feature.properties;
-                const streetName = props.street_name;
-                const segmentLength =
-                  typeof props.segment_length === "number"
-                    ? props.segment_length.toFixed(2)
-                    : "Unknown";
-                const streetType = props.highway || "street"; // Use 'highway' tag or default
-                layer.bindTooltip(
-                  `<strong>${streetName}</strong><br>Type: ${streetType}<br>Length: ${segmentLength}m`,
-                  { sticky: true }, // Tooltip follows the mouse
-                );
+          if (!AppState.map.getSource(sourceId)) {
+            AppState.map.addSource(sourceId, { type: 'geojson', data: geojsonData, promoteId: 'transactionId' });
+          } else {
+            AppState.map.getSource(sourceId).setData(geojsonData);
+          }
+
+          if (!AppState.map.getLayer(layerId)) {
+            AppState.map.addLayer({
+              id: layerId,
+              type: 'line',
+              source: sourceId,
+              paint: {
+                'line-color': [
+                  'case',
+                  ['boolean', ['feature-state', 'selected'], false], info.highlightColor || LAYER_DEFAULTS[sourceId]?.highlightColor || '#FFD700',
+                  ['boolean', ['feature-state', 'recent'], false], '#FFA500', // Recent color
+                  info.color || LAYER_DEFAULTS[sourceId]?.color || '#FF0000' // Default color
+                ],
+                'line-width': [
+                  'case',
+                  ['boolean', ['feature-state', 'selected'], false], 3,
+                  ['boolean', ['feature-state', 'recent'], false], 2.5,
+                  info.weight || LAYER_DEFAULTS[sourceId]?.weight || 2
+                ],
+                'line-opacity': [
+                  'case',
+                  ['boolean', ['feature-state', 'selected'], false], 1,
+                  ['boolean', ['feature-state', 'recent'], false], 0.9,
+                  info.opacity || LAYER_DEFAULTS[sourceId]?.opacity || 0.8
+                ]
+              },
+              layout: {
+                'visibility': info.visible ? 'visible' : 'none',
+                'line-join': 'round',
+                'line-cap': 'round'
               }
-            },
-          });
-          geoJsonLayer.addTo(AppState.layerGroup);
+            });
+          } else {
+            // Layer exists, update its layout properties if needed (paint is now by feature-state)
+            AppState.map.setLayoutProperty(layerId, 'visibility', info.visible ? 'visible' : 'none');
+            // If paint properties need to be updated based on info (e.g. default color change), do it here.
+            // However, the dynamic styling is now handled by feature-state expressions.
+            // For instance, if the base color (info.color) changes, the expression needs to be updated or re-evaluated.
+            // This might involve AppState.map.setPaintProperty(layerId, 'line-color', new_expression_array);
+          }
+
+          // Leaflet-specific GeoJSON creation, onEachFeature, popups, and hitLayer are removed.
+          // Click handling and popups will be managed differently in Mapbox (likely at the map level or via queryRenderedFeatures).
+        } else if (name === "undrivenStreets" && hasFeatures) {
+          const sourceId = 'undrivenStreets';
+          const layerId = 'undrivenStreets-layer';
+          const geojsonData = info.layer;
+
+          if (!AppState.map.getSource(sourceId)) {
+            AppState.map.addSource(sourceId, { type: 'geojson', data: geojsonData });
+          } else {
+            AppState.map.getSource(sourceId).setData(geojsonData);
+          }
+
+          if (!AppState.map.getLayer(layerId)) {
+            AppState.map.addLayer({
+              id: layerId,
+              type: 'line',
+              source: sourceId,
+              paint: {
+                'line-color': info.color || LAYER_DEFAULTS.undrivenStreets.color,
+                'line-width': info.weight || LAYER_DEFAULTS.undrivenStreets.weight,
+                'line-opacity': info.opacity || LAYER_DEFAULTS.undrivenStreets.opacity,
+                'line-dasharray': [5, 5] // Dashed line effect
+              },
+              layout: {
+                'visibility': info.visible ? 'visible' : 'none',
+                'line-join': 'round',
+                'line-cap': 'round'
+              }
+            });
+          } else {
+            // Layer exists, update its paint and layout properties
+            AppState.map.setPaintProperty(layerId, 'line-color', info.color || LAYER_DEFAULTS.undrivenStreets.color);
+            AppState.map.setPaintProperty(layerId, 'line-width', info.weight || LAYER_DEFAULTS.undrivenStreets.weight);
+            AppState.map.setPaintProperty(layerId, 'line-opacity', info.opacity || LAYER_DEFAULTS.undrivenStreets.opacity);
+            AppState.map.setPaintProperty(layerId, 'line-dasharray', [5, 5]);
+            AppState.map.setLayoutProperty(layerId, 'visibility', info.visible ? 'visible' : 'none');
+          }
+          // Removed Leaflet-specific 'onEachFeature' (e.g., bindTooltip) for undrivenStreets.
+          // Tooltips for Mapbox layers will be handled differently (e.g., map.on('mousemove', layerId, ...)).
         } else if (info.visible && !hasFeatures && name !== "customPlaces") {
           // Layer is toggled visible but has no features
+          // For Mapbox, if a layer exists but its source data is empty, it just won't render anything.
+          // If the layer itself needs to be removed or hidden, that logic would go here.
+          // e.g., if (AppState.map.getLayer(name + '-layer')) AppState.map.setLayoutProperty(name + '-layer', 'visibility', 'none');
         }
       } catch (layerError) {
         console.error(`Error processing layer "${name}":`, layerError);
@@ -1314,53 +1233,71 @@ if (window.L?.Path) {
     }
 
     // Ensure map size is correct, especially after container resizes
-    AppState.map.invalidateSize();
+    // AppState.map.invalidateSize(); // Mapbox generally handles this, but if issues arise, consider map.resize()
+
+    // Centralized click handling for trip layers
+    const tripLayerIds = ['trips-layer', 'matchedTrips-layer'];
+    tripLayerIds.forEach(layerId => {
+        if (AppState.map.getLayer(layerId)) {
+            AppState.map.off('click', layerId, handleTripClickWrapper); // Remove existing to prevent duplicates
+            AppState.map.on('click', layerId, handleTripClickWrapper);
+        }
+    });
+
+    function handleTripClickWrapper(e) {
+        if (e.features && e.features.length > 0) {
+            const feature = e.features[0];
+            handleTripClick(e, feature, null); // Pass Mapbox event, feature, and null for layer
+        }
+    }
 
     // Notify that the map has been updated
     document.dispatchEvent(new CustomEvent("mapUpdated"));
   }
 
+
   /**
-   * Handles clicks on trip features.
-   * @param {L.LeafletMouseEvent} e - The Leaflet event object.
-   * @param {object} feature - The clicked GeoJSON feature.
-   * @param {L.Layer} layer - The Leaflet layer instance that was clicked (could be visible or hit layer).
+   * Handles clicks on trip features for Mapbox.
+   * @param {mapboxgl.MapMouseEvent} e - The Mapbox GL JS event object.
+   * @param {object} feature - The clicked Mapbox GeoJSON feature.
+   * @param {null} layer - Layer parameter is null/unused for Mapbox popups in this context.
    */
-  function handleTripClick(e, feature, layer) {
-    if (e.originalEvent && e.originalEvent.button !== 0) return;
-    L.DomEvent.stopPropagation(e); // Prevent click from propagating to map FIRST
+  function handleTripClick(e, feature, layer) { // layer is now mostly unused here
+    // Mapbox event objects don't have e.originalEvent.button in the same way Leaflet does for primary click check.
+    // Click events are typically for the primary button by default.
+    // L.DomEvent.stopPropagation(e); // Removed, Mapbox handles event propagation differently.
+
     const clickedTripId = feature.properties?.transactionId;
 
     if (clickedTripId) {
       AppState.selectedTripId = clickedTripId; // Update selected trip ID
-      refreshTripStyles(); // Update styles to highlight the selected trip
+      refreshTripStyles(); // Update styles to highlight the selected trip (will need Mapbox adaptation)
 
-      // Find the visible layer corresponding to this feature to open the popup on it
-      let visibleLayer = null;
-      AppState.layerGroup.eachLayer((l) => {
-        if (
-          l.feature?.properties?.transactionId === clickedTripId &&
-          l.options?.opacity > 0 &&
-          l.options?.weight > 0
-        ) {
-          visibleLayer = l;
+      const htmlContent = createTripPopupContent(feature);
+      const popupInstance = new mapboxgl.Popup({ closeOnClick: true, closeButton: true, offset: 25 })
+        .setLngLat(e.lngLat) // Use e.lngLat from Mapbox event
+        .setHTML(htmlContent)
+        .addTo(AppState.map);
+
+      setTimeout(() => {
+        // Try to get the popup DOM element. Mapbox adds class 'mapboxgl-popup-content'.
+        // AppState.map._popup is an internal reference and risky.
+        // A more robust query: document.querySelector('.mapboxgl-popup-content') or specific ID if popup content has one.
+        // For now, using the internal reference as a placeholder, acknowledging risk.
+        const popupElement = AppState.map._popup?._content; // This is an internal Mapbox structure, can break.
+        if (popupElement) {
+          setupPopupEventListeners(popupInstance, feature, popupElement);
+        } else {
+          console.warn("Mapbox popup content element not found immediately after creation for event listener setup.");
+          // Fallback: try to find it in the DOM if the internal path fails
+          const fallbackPopupElement = document.querySelector('.mapboxgl-popup-content');
+          if (fallbackPopupElement) {
+            setupPopupEventListeners(popupInstance, feature, fallbackPopupElement);
+          } else {
+            console.error("Could not find popup element to attach listeners.");
+          }
         }
-      });
-
-      // Open popup on the visible layer if found, otherwise fallback to the clicked layer (which might be hit layer)
-      const layerToOpenPopupOn = visibleLayer || layer;
-      if (
-        layerToOpenPopupOn.bindPopup &&
-        typeof layerToOpenPopupOn.openPopup === "function"
-      ) {
-        // Open popup at the location of the click event
-        layerToOpenPopupOn.openPopup(e.latlng);
-      } else {
-        console.warn(
-          "Could not find a layer with a popup to open for trip:",
-          clickedTripId,
-        );
-      }
+      }, 0);
 
       console.log(`Trip clicked: ${clickedTripId}`);
     } else {
@@ -1447,52 +1384,55 @@ if (window.L?.Path) {
   }
 
   /**
-   * Sets up event listeners for action buttons within an open popup.
-   * @param {L.Layer} layer - The layer whose popup is open.
+   * Sets up event listeners for action buttons within an open popup for Mapbox.
+   * @param {mapboxgl.Popup} popupInstance - The Mapbox GL JS Popup instance.
    * @param {object} feature - The GeoJSON feature associated with the popup.
+   * @param {HTMLElement} popupDomElement - The DOM element of the popup's content.
    */
-  function setupPopupEventListeners(layer, feature) {
-    const popupEl = layer.getPopup()?.getElement(); // Get the popup's DOM element
-    if (!popupEl) return; // Exit if popup element not found
+  function setupPopupEventListeners(popupInstance, feature, popupDomElement) {
+    if (!popupDomElement) {
+      console.error("Popup DOM element not provided for event listener setup.");
+      return;
+    }
 
     // Define the handler function for clicks within the popup
-    const handlePopupClick = async (e) => {
+    const handlePopupActionClick = async (e) => { // Renamed to avoid conflict if any
       const target = e.target.closest("button"); // Find the clicked button
       if (!target) return; // Exit if click was not on a button
 
-      e.stopPropagation(); // Prevent click from closing popup or propagating to map
-      L.DomEvent.stopPropagation(e); // Leaflet specific stop propagation
+      // e.stopPropagation(); // Usually not needed for clicks inside popup HTML
+      // L.DomEvent.stopPropagation(e); // Leaflet specific, remove
 
       const tripId = target.closest(".trip-actions")?.dataset.tripId;
       if (!tripId) return; // Exit if trip ID not found on parent container
 
       // Determine which action button was clicked
       if (target.classList.contains("delete-matched-trip")) {
-        e.preventDefault(); // Prevent default button behavior
-        await handleDeleteMatchedTrip(tripId, layer);
+        e.preventDefault();
+        await handleDeleteMatchedTrip(tripId, popupInstance); // Pass popupInstance to close it
       } else if (target.classList.contains("delete-trip")) {
         e.preventDefault();
-        await handleDeleteTrip(tripId, layer);
+        await handleDeleteTrip(tripId, popupInstance); // Pass popupInstance
       } else if (target.classList.contains("rematch-trip")) {
         e.preventDefault();
-        await handleRematchTrip(tripId, layer, feature);
+        await handleRematchTrip(tripId, popupInstance, feature); // Pass popupInstance
       }
     };
 
-    // Add the event listener to the popup element
-    // Use addSingleEventListener to prevent duplicates if popup re-opens quickly
-    addSingleEventListener(popupEl, "mousedown", function (e) {
-      if (e.button !== 0) return;
-      handlePopupClick(e);
+    // Add the event listener to the popup DOM element
+    addSingleEventListener(popupDomElement, "mousedown", function (e) {
+      if (e.button !== 0) return; // Only primary click
+      handlePopupActionClick(e);
     });
 
     // Clean up the event listener when the popup closes
-    layer.once("popupclose", () => {
-      // Use 'once' to ensure it only runs once per close
-      if (popupEl && popupEl._eventHandlers) {
-        const handlerKey = `click_${handlePopupClick.toString().substring(0, 50).replace(/\s+/g, "")}`;
-        popupEl.removeEventListener("click", handlePopupClick);
-        delete popupEl._eventHandlers[handlerKey]; // Clean up cache
+    popupInstance.on('close', () => {
+      if (popupDomElement && popupDomElement._eventHandlers) {
+        // Reconstruct the key used in addSingleEventListener
+        const handlerKey = `mousedown_${handlePopupActionClick.toString().substring(0, 50).replace(/\s+/g, "")}`;
+        // Attempt to remove the specific listener
+        popupDomElement.removeEventListener('mousedown', popupDomElement._eventHandlers[handlerKey]);
+        delete popupDomElement._eventHandlers[handlerKey]; // Clean up cache
       }
     });
   }
@@ -1500,9 +1440,9 @@ if (window.L?.Path) {
   /**
    * Handles the deletion of a matched trip.
    * @param {string} tripId - The ID of the matched trip to delete.
-   * @param {L.Layer} layer - The layer associated with the popup (to close it).
+   * @param {mapboxgl.Popup} popupInstance - The Mapbox popup instance (to close it).
    */
-  async function handleDeleteMatchedTrip(tripId, layer) {
+  async function handleDeleteMatchedTrip(tripId, popupInstance) {
     // Use confirmation dialog if available, otherwise use standard confirm
     const confirmed = window.confirmationDialog
       ? await window.confirmationDialog.show({
@@ -1532,7 +1472,7 @@ if (window.L?.Path) {
         throw new Error(errorMsg);
       }
 
-      layer.closePopup(); // Close the popup
+      if (popupInstance && typeof popupInstance.remove === 'function') popupInstance.remove(); // Close the popup
       await fetchTrips(); // Refresh all trip data
       showNotification(
         `Matched trip ${tripId} deleted successfully.`,
@@ -1557,9 +1497,9 @@ if (window.L?.Path) {
   /**
    * Handles the deletion of an original trip (and its corresponding matched trip).
    * @param {string} tripId - The ID of the original trip.
-   * @param {L.Layer} layer - The layer associated with the popup.
+   * @param {mapboxgl.Popup} popupInstance - The Mapbox popup instance.
    */
-  async function handleDeleteTrip(tripId, layer) {
+  async function handleDeleteTrip(tripId, popupInstance) {
     const confirmed = window.confirmationDialog
       ? await window.confirmationDialog.show({
           title: "Delete Original Trip",
@@ -1602,7 +1542,7 @@ if (window.L?.Path) {
         );
       }
 
-      layer.closePopup();
+      if (popupInstance && typeof popupInstance.remove === 'function') popupInstance.remove();
       await fetchTrips(); // Refresh data
       showNotification(
         `Trip ${tripId} (and its matched trip, if any) deleted.`,
@@ -1624,10 +1564,10 @@ if (window.L?.Path) {
   /**
    * Handles the re-matching of a trip (deletes existing matched, triggers new match).
    * @param {string} tripId - The ID of the trip to re-match.
-   * @param {L.Layer} layer - The layer associated with the popup.
+   * @param {mapboxgl.Popup} popupInstance - The Mapbox popup instance.
    * @param {object} feature - The GeoJSON feature of the trip.
    */
-  async function handleRematchTrip(tripId, layer, feature) {
+  async function handleRematchTrip(tripId, popupInstance, feature) {
     const confirmed = window.confirmationDialog
       ? await window.confirmationDialog.show({
           title: "Re-match Trip",
@@ -1699,7 +1639,7 @@ if (window.L?.Path) {
 
       const result = await rematchRes.json(); // Get result message if any
 
-      layer.closePopup();
+      if (popupInstance && typeof popupInstance.remove === 'function') popupInstance.remove();
       await fetchTrips(); // Refresh data to show the new matched trip
       showNotification(
         result.message || `Trip ${tripId} successfully re-matched.`,
@@ -2195,15 +2135,21 @@ if (window.L?.Path) {
 
     // --- Unselect trip on map background click ---
     // if (AppState.map) {
-    //   AppState.map.on("click", function () {
-    //     // Only unselect if no popup is open
-    //     if (!AppState.map._popup || !AppState.map._popup.isOpen()) {
-    //       if (AppState.selectedTripId) {
-    //         AppState.selectedTripId = null;
-    //         refreshTripStyles();
+    // AppState.map.on('click', function(e) { // Mapbox click event
+    // // Logic to determine if a feature was clicked vs map background
+    // // This is more complex in Mapbox as it depends on queryRenderedFeatures
+    // const features = AppState.map.queryRenderedFeatures(e.point, {
+    //   // specify layers to query if you only care about clicks on specific layers
+    //   // layers: ['trips-layer', 'matched-trips-layer']
+    // });
+
+    // if (!features.length) { // If no features were clicked (i.e., map background)
+    //         if (AppState.selectedTripId) {
+    //           AppState.selectedTripId = null;
+    //           refreshTripStyles(); // Assuming this function will be adapted for Mapbox
+    //         }
     //       }
-    //     }
-    //   });
+    //     });
     // }
   }
 
@@ -2712,39 +2658,7 @@ if (window.L?.Path) {
     });
   }
 
-  /**
-   * Gets or creates a Leaflet GeoJSON layer, updating data if it exists.
-   * @param {string} name - The unique name/key for the layer.
-   * @param {object} data - The GeoJSON data.
-   * @param {object} options - Leaflet GeoJSON layer options (style, onEachFeature, etc.).
-   * @returns {L.GeoJSON} The Leaflet GeoJSON layer instance.
-   */
-  function getOrCreateGeoJsonLayer(name, data, options) {
-    if (!AppState.geoJsonLayers[name]) {
-      // Create new layer if it doesn't exist
-      AppState.geoJsonLayers[name] = L.geoJSON(data, options);
-    } else {
-      // Update existing layer: clear old data, add new data, apply new options
-      const layer = AppState.geoJsonLayers[name];
-      layer.clearLayers();
-      layer.addData(data);
-      // Re-apply options, especially style, as it might depend on new data or state
-      if (options) {
-        // Merge options carefully if needed, preserving essential ones
-        layer.options = { ...L.GeoJSON.prototype.options, ...options }; // Reset to defaults + new options
-        if (options.style) {
-          layer.setStyle(options.style); // Re-apply style function/object
-        }
-        // Re-bind onEachFeature - necessary if options change behavior
-        if (options.onEachFeature) {
-          layer.eachLayer((featureLayer) => {
-            options.onEachFeature(featureLayer.feature, featureLayer);
-          });
-        }
-      }
-    }
-    return AppState.geoJsonLayers[name];
-  }
+  // function getOrCreateGeoJsonLayer is removed.
 
   // Flag to track if undriven streets have been loaded once
   let undrivenStreetsLoaded = false;
@@ -2906,15 +2820,24 @@ if (window.L?.Path) {
 
   // Add this function near other event setup functions
   function setupMapUnselectHandler() {
-    if (!AppState.map) return;
-    AppState.map.on("click", function () {
-      // Only unselect if no popup is open
-      if (!AppState.map._popup || !AppState.map._popup.isOpen()) {
-        if (AppState.selectedTripId) {
-          AppState.selectedTripId = null;
-          refreshTripStyles();
+    if (!AppState.map || !AppState.map.on) return;
+
+    AppState.map.on('click', function(e) {
+        // If the click event has features, it means a layer was clicked.
+        // queryRenderedFeatures can be used for more fine-grained control,
+        // but e.features is often sufficient for clicks directly on layers.
+        // This check assumes trip layers are interactive.
+        // If the click was on a map control, e.originalEvent.target might point to the control.
+        const features = AppState.map.queryRenderedFeatures(e.point, {
+            layers: ['trips-layer', 'matchedTrips-layer'] // Specify queryable layers
+        });
+
+        if (!features.length) { // If no features from specified layers were clicked
+            if (AppState.selectedTripId) {
+                AppState.selectedTripId = null;
+                refreshTripStyles(); // This will be adapted for Mapbox states/expressions
+            }
         }
-      }
     });
   }
   document.addEventListener("visibilitychange", () => {
