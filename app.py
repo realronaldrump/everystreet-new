@@ -4909,7 +4909,7 @@ async def _cluster_segments(
 
 @app.post("/api/export/coverage-route")
 async def export_coverage_route_endpoint(
-    payload: dict = Body(...) # Expect a JSON body
+    payload: dict = Body(...),  # Expect a JSON body
 ):
     """
     Export the provided coverage route GeoJSON data in the specified format.
@@ -4923,7 +4923,10 @@ async def export_coverage_route_endpoint(
         fmt = payload.get("format", "geojson").lower()
         location_display_name = payload.get("location_name", "coverage_route")
 
-        if not route_geometry or route_geometry.get("type") != "GeometryCollection":
+        if (
+            not route_geometry
+            or route_geometry.get("type") != "GeometryCollection"
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid or missing route_geometry (must be a GeometryCollection).",
@@ -4931,48 +4934,69 @@ async def export_coverage_route_endpoint(
 
         # Prepare data for export_helpers.create_export_response
         # It expects a list of trip-like dicts or a FeatureCollection for some formats.
-        
+
         data_to_export: Any
-        filename_base = f"{location_display_name.replace(' ', '_').lower()}_coverage_route"
+        filename_base = (
+            f"{location_display_name.replace(' ', '_').lower()}_coverage_route"
+        )
 
         if fmt == "gpx":
             # Convert GeometryCollection to a list of "trips" for GPX export
             # Each geometry in the collection becomes a separate "trip segment"
             trips_for_gpx = []
             for i, geom in enumerate(route_geometry.get("geometries", [])):
-                if geom.get("type") == "LineString" and geom.get("coordinates"):
-                    trips_for_gpx.append({
-                        "transactionId": f"segment_{i+1}",
-                        "gps": geom, # create_gpx can handle GeoJSON geometry directly
-                        "source": "coverage_route_segment"
-                    })
+                if geom.get("type") == "LineString" and geom.get(
+                    "coordinates"
+                ):
+                    trips_for_gpx.append(
+                        {
+                            "transactionId": f"segment_{i + 1}",
+                            "gps": geom,  # create_gpx can handle GeoJSON geometry directly
+                            "source": "coverage_route_segment",
+                        }
+                    )
             data_to_export = trips_for_gpx
-            if not data_to_export: # If no valid LineStrings were found
-                 return JSONResponse(
-                    content={"detail": "No valid LineString geometries found in the route to export as GPX."},
+            if not data_to_export:  # If no valid LineStrings were found
+                return JSONResponse(
+                    content={
+                        "detail": "No valid LineString geometries found in the route to export as GPX."
+                    },
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
         elif fmt == "shapefile":
             # Convert GeometryCollection to FeatureCollection for Shapefile export
             features = []
             for i, geom in enumerate(route_geometry.get("geometries", [])):
-                 features.append({
-                     "type": "Feature",
-                     "geometry": geom,
-                     "properties": {"segment_index": i + 1, "route_name": location_display_name}
-                 })
-            data_to_export = {"type": "FeatureCollection", "features": features}
-        else: # geojson, json
+                features.append(
+                    {
+                        "type": "Feature",
+                        "geometry": geom,
+                        "properties": {
+                            "segment_index": i + 1,
+                            "route_name": location_display_name,
+                        },
+                    }
+                )
+            data_to_export = {
+                "type": "FeatureCollection",
+                "features": features,
+            }
+        else:  # geojson, json
             data_to_export = route_geometry
-
 
         return await create_export_response(data_to_export, fmt, filename_base)
 
     except HTTPException as http_exc:
-        logger.error(f"HTTPException in export_coverage_route_endpoint: {http_exc.detail}")
+        logger.error(
+            f"HTTPException in export_coverage_route_endpoint: {http_exc.detail}"
+        )
         raise http_exc
-    except ValueError as ve: # Catch specific ValueErrors from create_export_response
-        logger.error(f"ValueError in export_coverage_route_endpoint: {str(ve)}")
+    except (
+        ValueError
+    ) as ve:  # Catch specific ValueErrors from create_export_response
+        logger.error(
+            f"ValueError in export_coverage_route_endpoint: {str(ve)}"
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),
@@ -4983,6 +5007,7 @@ async def export_coverage_route_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to export coverage route: {str(e)}",
         )
+
 
 async def _optimize_route_for_clusters(
     start_point: tuple,
@@ -5707,7 +5732,9 @@ async def get_trips_in_bounds(
         trip_coordinates = []
         async for trip in cursor:
             # --- Extract coordinates from the 'matchedGps' field ---
-            if trip.get("matchedGps") and trip["matchedGps"].get("coordinates"):
+            if trip.get("matchedGps") and trip["matchedGps"].get(
+                "coordinates"
+            ):
                 # Ensure the coordinates are valid before appending
                 coords = trip["matchedGps"]["coordinates"]
                 if (
@@ -6008,6 +6035,7 @@ async def ws_trip_updates(websocket: WebSocket) -> None:
         logger.info(
             f"WebSocket {client_info}: Connection closed and resources cleaned up for /ws/trips."
         )
+
 
 if __name__ == "__main__":
     import uvicorn

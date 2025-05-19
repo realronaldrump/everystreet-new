@@ -167,19 +167,34 @@
         <div class="card-body">
           <form id="export-undriven-streets-form">
             <div class="mb-3">
-              <label for="undriven-streets-location" class="form-label">Area</label>
-              <select class="form-select" id="undriven-streets-location" required>
+              <label for="undriven-streets-location" class="form-label"
+                >Area</label
+              >
+              <select
+                class="form-select"
+                id="undriven-streets-location"
+                required
+              >
                 <option value="">Loading areas...</option>
               </select>
             </div>
             <div class="mb-3">
-              <label for="undriven-streets-format" class="form-label">Format</label>
+              <label for="undriven-streets-format" class="form-label"
+                >Format</label
+              >
               <select class="form-select" id="undriven-streets-format" required>
                 <option value="geojson">GeoJSON</option>
                 <option value="gpx">GPX</option>
               </select>
             </div>
-            <button type="submit" class="btn btn-primary" id="export-undriven-streets-btn" disabled>Export Undriven Streets</button>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              id="export-undriven-streets-btn"
+              disabled
+            >
+              Export Undriven Streets
+            </button>
           </form>
         </div>
       </div>
@@ -459,7 +474,7 @@
     </div>
   </div>
 </div>
-<div id="map-controls" style="display:none"></div>
+<div id="map-controls" style="display: none"></div>
 {% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', path='js/export.js') | replace('http://', '//') }}"></script>
 {% endblock %}
