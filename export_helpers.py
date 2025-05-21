@@ -154,7 +154,9 @@ async def create_gpx(
             track.name = f"Trip {trip.get('transactionId', 'UNKNOWN')}"
 
             if trip.get("startLocation") and trip.get("destination"):
-                track.description = f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                track.description = (
+                    f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                )
 
             gpx.tracks.append(track)
 
@@ -388,10 +390,7 @@ async def create_export_response(
         from io import StringIO
 
         if not isinstance(data, list):
-            if (
-                isinstance(data, dict)
-                and data.get("type") == "FeatureCollection"
-            ):
+            if isinstance(data, dict) and data.get("type") == "FeatureCollection":
                 trips = []
                 for feature in data.get("features", []):
                     if feature.get("properties"):
@@ -434,14 +433,10 @@ def extract_date_range_string(
 
     """
     start_date = (
-        query["startTime"].get("$gte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
     )
     end_date = (
-        query["startTime"].get("$lte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
     )
 
     if start_date and end_date:
@@ -462,11 +457,7 @@ def get_location_filename(
 
     """
     return (
-        location.get("display_name", "")
-        .split(",")[0]
-        .strip()
-        .replace(" ", "_")
-        .lower()
+        location.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
     )
 
 
@@ -676,9 +667,7 @@ async def create_csv_export(
                         default=default_serializer,
                     )
                 else:
-                    flat_trip[key] = (
-                        "[Geometry data not included in CSV format]"
-                    )
+                    flat_trip[key] = "[Geometry data not included in CSV format]"
             elif flatten_location_fields and key in [
                 "startLocation",
                 "destination",
