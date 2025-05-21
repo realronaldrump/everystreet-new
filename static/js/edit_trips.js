@@ -15,18 +15,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function initializeMap() {
-    const mapContainer = document.getElementById("editMap");
-    if (!mapContainer) return;
+    const mapEl = document.getElementById("editMap");
+    if (!mapEl) return;
 
-    editMap = L.map("editMap").setView([37.0902, -95.7129], 4);
-
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      {
-        maxZoom: 19,
-        attribution: "",
-      },
-    ).addTo(editMap);
+    // Use shared map factory for Leaflet
+    editMap = window.mapBase.createMap(mapEl.id, {
+      library: "leaflet",
+      center: [37.0902, -95.7129],
+      zoom: 4,
+      tileLayer: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      tileOptions: { maxZoom: 19, attribution: "" },
+    });
 
     tripsLayerGroup = L.featureGroup().addTo(editMap);
     editableLayers = L.featureGroup().addTo(editMap);
@@ -107,24 +106,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function getFallbackDate() {
-    return DateUtils.getYesterday();
-  }
-
   async function loadTrips() {
     try {
+      const startInput = document.getElementById("start-date");
+      const endInput = document.getElementById("end-date");
       const startDate =
-        document.getElementById("start-date")?.value ||
-        localStorage.getItem("startDate") ||
-        getFallbackDate();
-
+        startInput?.value ||
+        window.utils.getStorage("startDate") ||
+        DateUtils.getYesterday();
       const endDate =
-        document.getElementById("end-date")?.value ||
-        localStorage.getItem("endDate") ||
-        getFallbackDate();
+        endInput?.value ||
+        window.utils.getStorage("endDate") ||
+        DateUtils.getYesterday();
 
-      localStorage.setItem("startDate", startDate);
-      localStorage.setItem("endDate", endDate);
+      window.utils.setStorage("startDate", startDate);
+      window.utils.setStorage("endDate", endDate);
 
       const tripTypeSelect = document.getElementById("tripType");
       if (!tripTypeSelect) return;

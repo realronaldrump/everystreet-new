@@ -395,7 +395,7 @@ const STATUS = window.STATUS || {
     }
 
     checkForInterruptedTasks() {
-      const savedProgress = localStorage.getItem("coverageProcessingState");
+      const savedProgress = window.utils.getStorage("coverageProcessingState");
       if (savedProgress) {
         try {
           const progressData = JSON.parse(savedProgress);
@@ -525,7 +525,7 @@ const STATUS = window.STATUS || {
           progress: parseInt(progressBar?.getAttribute("aria-valuenow") || "0"),
           timestamp: new Date().toISOString(),
         };
-        localStorage.setItem(
+        window.utils.setStorage(
           "coverageProcessingState",
           JSON.stringify(saveData),
         );
@@ -2400,28 +2400,26 @@ const STATUS = window.STATUS || {
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
       try {
-        this.coverageMap = new mapboxgl.Map({
-          container: "coverage-map",
-          style: "mapbox://styles/mapbox/dark-v11", // Dark theme
-          attributionControl: false, // Add custom compact one later
+        // Initialize map via shared factory
+        this.coverageMap = window.mapBase.createMap("coverage-map", {
+          library: "mapbox",
+          accessToken: window.MAPBOX_ACCESS_TOKEN,
+          style: "mapbox://styles/mapbox/dark-v11",
+          center: [-97.15, 31.55],
           zoom: 11,
-          center: [-97.15, 31.55], // Default center (Waco) - will be overridden by fitBounds
-          minZoom: 5,
-          maxZoom: 20,
-          preserveDrawingBuffer: true, // Needed for html2canvas export
+          mapOptions: {
+            attributionControl: false,
+            minZoom: 5,
+            maxZoom: 20,
+            preserveDrawingBuffer: true,
+          },
         });
-
-        // Add standard controls
-        this.coverageMap.addControl(
-          new mapboxgl.NavigationControl(),
-          "top-right",
-        );
+        // Add specific controls
         this.coverageMap.addControl(
           new mapboxgl.AttributionControl({ compact: true }),
           "bottom-right",
         );
-
-        // Handle map load event
+        // Shared onLoad listener
         this.coverageMap.on("load", () => {
           if (coverage.streets_geojson) {
             this.addStreetsToMap(coverage.streets_geojson);
@@ -2432,23 +2430,19 @@ const STATUS = window.STATUS || {
             );
             this.mapBounds = null; // Reset bounds if no data
           }
-          // Add summary control after layers are potentially added
           this.addCoverageSummary(coverage);
-          // Fit bounds after data is added (or use default if no data)
           this.fitMapToBounds();
-
-          // Add map move listener for trip loading *after* map is loaded
           this.coverageMap.on("moveend", () => {
             if (this.showTripsActive) {
               clearTimeout(this.loadTripsDebounceTimer);
-              this.loadTripsDebounceTimer = setTimeout(() => {
-                this.loadTripsForView();
-              }, 500); // Debounce time in ms
+              this.loadTripsDebounceTimer = setTimeout(
+                () => this.loadTripsForView(),
+                500,
+              );
             }
           });
         });
-
-        // Handle potential errors during map initialization
+        // Error handler
         this.coverageMap.on("error", (e) => {
           console.error("Mapbox GL Error:", e.error);
           this.notificationManager.show(
@@ -2461,13 +2455,11 @@ const STATUS = window.STATUS || {
             "danger",
           );
         });
-
-        // Remove old info panel if present (shouldn't be needed with proper cleanup, but safe)
         if (this.mapInfoPanel) {
           this.mapInfoPanel.remove();
           this.mapInfoPanel = null;
         }
-        this.createMapInfoPanel(); // Create the panel element ready for updates
+        this.createMapInfoPanel();
       } catch (mapInitError) {
         console.error("Failed to initialize Mapbox GL:", mapInitError);
         mapContainer.innerHTML = CoverageManager.createAlertMessage(

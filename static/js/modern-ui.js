@@ -457,7 +457,7 @@ let baseTileLayer = null;
     const { themeToggle, darkModeToggle } = elements;
     if (!themeToggle && !darkModeToggle) return; // No toggle elements found
 
-    const savedTheme = localStorage.getItem(CONFIG.storage.theme);
+    const savedTheme = window.utils.getStorage(CONFIG.storage.theme);
     const prefersDarkScheme = window.matchMedia(
       "(prefers-color-scheme: dark)",
     ).matches;
@@ -467,7 +467,7 @@ let baseTileLayer = null;
 
     const handleThemeChange = (newTheme) => {
       applyTheme(newTheme);
-      localStorage.setItem(CONFIG.storage.theme, newTheme);
+      window.utils.setStorage(CONFIG.storage.theme, newTheme);
       // Synchronize both toggles if they exist
       if (themeToggle) themeToggle.checked = newTheme === "light";
       if (darkModeToggle) darkModeToggle.checked = newTheme === "dark";
@@ -663,8 +663,8 @@ let baseTileLayer = null;
     }
 
     const today = DateUtils.getCurrentDate(); // YYYY-MM-DD format
-    const startDate = localStorage.getItem(CONFIG.storage.startDate) || today;
-    const endDate = localStorage.getItem(CONFIG.storage.endDate) || today;
+    const startDate = window.utils.getStorage(CONFIG.storage.startDate) || today;
+    const endDate = window.utils.getStorage(CONFIG.storage.endDate) || today;
 
     const dateConfig = {
       maxDate: "today",
@@ -759,10 +759,10 @@ let baseTileLayer = null;
     }
 
     const startDate =
-      localStorage.getItem(CONFIG.storage.startDate) ||
+      window.utils.getStorage(CONFIG.storage.startDate) ||
       DateUtils.getCurrentDate();
     const endDate =
-      localStorage.getItem(CONFIG.storage.endDate) ||
+      window.utils.getStorage(CONFIG.storage.endDate) ||
       DateUtils.getCurrentDate();
 
     const formatDisplayDate = (dateStr) =>
@@ -801,8 +801,8 @@ let baseTileLayer = null;
       .then(({ startDate, endDate }) => {
         if (startDate && endDate) {
           updateDateInputs(startDate, endDate);
-          localStorage.setItem(CONFIG.storage.startDate, startDate);
-          localStorage.setItem(CONFIG.storage.endDate, endDate);
+          window.utils.setStorage(CONFIG.storage.startDate, startDate);
+          window.utils.setStorage(CONFIG.storage.endDate, endDate);
           updateFilterIndicator();
         } else {
           throw new Error("Received invalid date range from preset.");
@@ -1067,8 +1067,8 @@ let baseTileLayer = null;
       return;
     }
 
-    localStorage.setItem(CONFIG.storage.startDate, startDateValue);
-    localStorage.setItem(CONFIG.storage.endDate, endDateValue);
+    window.utils.setStorage(CONFIG.storage.startDate, startDateValue);
+    window.utils.setStorage(CONFIG.storage.endDate, endDateValue);
     updateFilterIndicator();
 
     // Close filter panel
@@ -1103,8 +1103,8 @@ let baseTileLayer = null;
 
     const today = DateUtils.getCurrentDate(); // YYYY-MM-DD
     updateDateInputs(today, today);
-    localStorage.setItem(CONFIG.storage.startDate, today);
-    localStorage.setItem(CONFIG.storage.endDate, today);
+    window.utils.setStorage(CONFIG.storage.startDate, today);
+    window.utils.setStorage(CONFIG.storage.endDate, today);
 
     if (quickSelectBtns) {
       quickSelectBtns.forEach((btn) =>

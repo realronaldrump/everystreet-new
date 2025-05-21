@@ -535,6 +535,9 @@ window.handleError = handleError;
 window.DateUtils = DateUtils;
 
 window.utils = {
+  // In-memory cache for cachedFetch
+  _apiCache: {},
+
   debounce(func, wait = 300) {
     let timeout = null;
     return function (...args) {
@@ -543,14 +546,49 @@ window.utils = {
     };
   },
 
+  throttle(func, limit = 1000) {
+    let inThrottle = false;
+    let lastResult = null;
+    return function (...args) {
+      const context = this;
+      if (!inThrottle) {
+        lastResult = func.apply(context, args);
+        inThrottle = true;
+        setTimeout(() => {
+          inThrottle = false;
+        }, limit);
+      }
+      return lastResult;
+    };
+  },
+
+  async cachedFetch(url, options = {}, cacheTime = 10000) {
+    const key = url + JSON.stringify(options);
+    const now = Date.now();
+    if (this._apiCache[key] && now - this._apiCache[key].ts < cacheTime) {
+      return this._apiCache[key].data;
+    }
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      let errorMsg = `API request failed for ${url} (Status: ${response.status})`;
+      try {
+        const errData = await response.json();
+        errorMsg += `: ${errData.detail || errData.message || response.statusText}`;
+      } catch (_) {}
+      throw new Error(errorMsg);
+    }
+    const data = await response.json();
+    this._apiCache[key] = { data, ts: now };
+    return data;
+  },
+
   getStorage(key, defaultValue = null) {
     try {
-      const item = localStorage.getItem(key);
+      const item = window.utils.getStorage(key);
       if (item === null) return defaultValue;
-
       try {
         return JSON.parse(item);
-      } catch /* (_e) removed */ {
+      } catch {
         return item;
       }
     } catch (error) {
@@ -563,7 +601,7 @@ window.utils = {
     try {
       const valueToStore =
         typeof value === "object" ? JSON.stringify(value) : String(value);
-      localStorage.setItem(key, valueToStore);
+      window.utils.setStorage(key, valueToStore);
       return true;
     } catch (error) {
       console.warn(`Error setting localStorage for key ${key}:`, error);

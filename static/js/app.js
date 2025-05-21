@@ -196,7 +196,7 @@ if (window.L?.Path) {
     window.utils?.getStorage ||
     ((key, defaultValue = null) => {
       try {
-        const value = localStorage.getItem(key);
+        const value = window.utils.getStorage(key);
         return value !== null ? value : defaultValue;
       } catch (e) {
         console.warn(`Error reading from localStorage: ${e.message}`);
@@ -214,7 +214,7 @@ if (window.L?.Path) {
     window.utils?.setStorage ||
     ((key, value) => {
       try {
-        localStorage.setItem(key, String(value)); // Ensure value is string
+        window.utils.setStorage(key, String(value)); // Ensure value is string
         return true;
       } catch (e) {
         console.warn(`Error writing to localStorage: ${e.message}`);
@@ -615,7 +615,7 @@ if (window.L?.Path) {
     console.log(`Toggling layer "${name}" to visible: ${visible}`); // Debug log
 
     layerInfo.visible = visible;
-    localStorage.setItem(`layer_visible_${name}`, visible); // Persist visibility state
+    window.utils.setStorage(`layer_visible_${name}`, visible); // Persist visibility state
 
     // Special handling for specific layers
     if (name === "customPlaces" && window.customPlaces) {
@@ -795,10 +795,10 @@ if (window.L?.Path) {
     });
 
     if (window.loadingManager)
-      window.loadingManager.startOperation("FetchTrips", 100);
+      window.loadingManager.updateOperation("FetchTrips", 10, "Fetching trips...");
     try {
       const response = await fetch(`/api/trips?${params.toString()}`);
-      window.modernUI?.updateProgress(10, "Fetching trips..."); // Progress update
+      window.loadingManager.finish("FetchTrips");
       if (!response.ok) {
         throw new Error(
           `HTTP error fetching trips: ${response.status} ${response.statusText}`,
@@ -829,7 +829,7 @@ if (window.L?.Path) {
       await updateMapWithTrips(geojson); // Make sure updateMapWithTrips handles async correctly if needed
 
       // Fetch corresponding matched trips (can run concurrently or sequentially)
-      window.modernUI?.updateProgress(60, "Fetching matched trips..."); // Progress update
+      window.loadingManager.updateOperation("FetchTrips", 60, "Fetching matched trips...");
       try {
         await fetchMatchedTrips(); // Assumes fetchMatchedTrips updates its own layer
       } catch (err) {
@@ -843,7 +843,7 @@ if (window.L?.Path) {
       }
 
       // Explicitly trigger a map update after all data fetching/processing
-      window.modernUI?.updateProgress(80, "Rendering map..."); // Progress update
+      window.loadingManager.updateOperation("FetchTrips", 80, "Rendering map...");
       await updateMap();
 
       // Notify other parts of the app that trips are loaded
@@ -853,7 +853,7 @@ if (window.L?.Path) {
         }),
       );
       showNotification(`Loaded ${geojson.features.length} trips.`, "success");
-      window.modernUI?.updateProgress(100, "Trips loaded!"); // Progress update
+      window.loadingManager.updateOperation("FetchTrips", 100, "Trips loaded!");
     } catch (error) {
       if (typeof handleError === "function") {
         handleError(error, "Fetch Trips Main");
@@ -1018,14 +1018,14 @@ if (window.L?.Path) {
             features: [],
           };
           AppState.mapLayers.matchedTrips.visible =
-            localStorage.getItem("layer_visible_matchedTrips") === "true"; // Keep visibility based on toggle
+            window.utils.getStorage("layer_visible_matchedTrips") === "true"; // Keep visibility based on toggle
         } else {
           // console.info(`Fetched ${data.features.length} matched trips.`); // Reduce noise
           // Assign data to the layer
           AppState.mapLayers.matchedTrips.layer = data;
           // Keep visibility based on toggle state
           AppState.mapLayers.matchedTrips.visible =
-            localStorage.getItem("layer_visible_matchedTrips") === "true";
+            window.utils.getStorage("layer_visible_matchedTrips") === "true";
         }
       })
       .catch((error) => {
@@ -1105,7 +1105,7 @@ if (window.L?.Path) {
       }
 
       // Store the selected location identifier (e.g., _id or display_name)
-      localStorage.setItem(
+      window.utils.setStorage(
         "selectedLocationForUndrivenStreets",
         location._id || location.display_name, // Use a reliable identifier
       );
@@ -2058,7 +2058,7 @@ if (window.L?.Path) {
     });
 
     // Try to re-select the previously selected location from localStorage
-    const savedLocationId = localStorage.getItem(
+    const savedLocationId = window.utils.getStorage(
       "selectedLocationForUndrivenStreets",
     );
     let locationFound = false;
@@ -2079,7 +2079,7 @@ if (window.L?.Path) {
             locationFound = true;
             // If the layer was previously visible, fetch its data now
             if (
-              localStorage.getItem("layer_visible_undrivenStreets") === "true"
+              window.utils.getStorage("layer_visible_undrivenStreets") === "true"
             ) {
               // Ensure the layer is marked as visible before fetching
               if (AppState.mapLayers.undrivenStreets) {
@@ -2173,7 +2173,7 @@ if (window.L?.Path) {
       // Make listener async
       console.info("Filters applied event received:", e.detail);
       // Show loading overlay from modern-ui
-      window.modernUI?.showLoading("Applying filters and loading data...");
+      window.loadingManager.startOperation("ApplyFilters");
 
       try {
         // Refetch data based on new filters
@@ -2189,7 +2189,7 @@ if (window.L?.Path) {
         );
       } finally {
         // Hide loading overlay regardless of success or error
-        window.modernUI?.hideLoading();
+        window.loadingManager.finish("ApplyFilters");
       }
     });
 
@@ -2354,7 +2354,7 @@ if (window.L?.Path) {
 
           // Restore layer visibility state from localStorage
           Object.keys(AppState.mapLayers).forEach((layerName) => {
-            const savedVisibility = localStorage.getItem(
+            const savedVisibility = window.utils.getStorage(
               `layer_visible_${layerName}`,
             );
             const toggle = document.getElementById(`${layerName}-toggle`);
@@ -2419,7 +2419,7 @@ if (window.L?.Path) {
         .finally(() => {
           // Ensure loading overlay is hidden after all initialization attempts
           console.log("INITIALIZE: Hiding loading overlay (finally block).");
-          window.modernUI?.hideLoading();
+          window.loadingManager.finish("ApplyFilters");
         });
     } else {
       console.info(

@@ -1,4 +1,4 @@
-/* global L, notificationManager, bootstrap, confirmationDialog */
+/* global L, confirmationDialog */
 
 class UploadManager {
   constructor() {
@@ -41,13 +41,7 @@ class UploadManager {
   }
 
   init() {
-    this.loadingManager = window.loadingManager || {
-      startOperation: () => {},
-      addSubOperation: () => {},
-      updateSubOperation: () => {},
-      finish: () => {},
-      error: () => {},
-    };
+    this.loadingManager = window.loadingManager;
 
     this.loadingManager.startOperation("Initializing Upload Manager");
 
@@ -82,18 +76,22 @@ class UploadManager {
   }
 
   initializePreviewMap() {
-    if (!this.elements.previewMapElement) return;
-
-    this.state.previewMap = L.map(this.elements.previewMapElement).setView(
-      this.config.map.defaultCenter,
-      this.config.map.defaultZoom,
-    );
-
-    L.tileLayer(this.config.map.tileLayerUrl, {
-      maxZoom: this.config.map.maxZoom,
-      attribution: "",
-    }).addTo(this.state.previewMap);
-
+    const mapEl = this.elements.previewMapElement;
+    if (!mapEl) return;
+    // Use shared map factory for Leaflet
+    this.state.previewMap = window.mapBase.createMap(mapEl.id, {
+      library: "leaflet",
+      center: this.config.map.defaultCenter,
+      zoom: this.config.map.defaultZoom,
+      tileLayer: this.config.map.tileLayerUrl,
+      tileOptions: {
+        maxZoom: this.config.map.maxZoom,
+        attribution: "",
+      },
+      mapOptions: {
+        // Use default Leaflet options or override as needed
+      },
+    });
     this.state.previewLayer = L.featureGroup().addTo(this.state.previewMap);
   }
 

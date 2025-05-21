@@ -1,4 +1,4 @@
-/* global Chart */
+/* global Chart, DateUtils */
 
 "use strict";
 
@@ -15,19 +15,6 @@
       window.handleError && window.handleError(`Loading finished: ${op}`);
     },
   };
-
-  /**
-   * Helper function to parse 'YYYY-MM-DD' string to a Date object.
-   * This ensures consistent date parsing, avoiding potential timezone issues
-   * that can arise from new Date('YYYY-MM-DD') in some environments.
-   * @param {string} dateString - The date string in 'YYYY-MM-DD' format.
-   * @returns {Date} A Date object.
-   */
-  function parseYYYYMMDDToDate(dateString) {
-    const [year, month, day] = dateString.split("-").map(Number);
-    // Month is 0-indexed in JavaScript Date (0 for January, 11 for December)
-    return new Date(year, month - 1, day);
-  }
 
   document.addEventListener("DOMContentLoaded", () => {
     initializeEventListeners();
@@ -207,8 +194,8 @@
       }
 
       try {
-        let savedStartDate = localStorage.getItem("startDate");
-        let savedEndDate = localStorage.getItem("endDate");
+        let savedStartDate = window.utils.getStorage("startDate");
+        let savedEndDate = window.utils.getStorage("endDate");
 
         // Default to last 30 days if no dates are saved
         if (!savedStartDate) {
@@ -222,8 +209,8 @@
         }
 
         // Set values in localStorage if they were just defaulted
-        localStorage.setItem("startDate", savedStartDate);
-        localStorage.setItem("endDate", savedEndDate);
+        window.utils.setStorage("startDate", savedStartDate);
+        window.utils.setStorage("endDate", savedEndDate);
 
         // Initialize flatpickr instances if they exist, otherwise set input values
         if (startDateEl._flatpickr && endDateEl._flatpickr) {
@@ -316,8 +303,8 @@
       endInput.value = endDateStr;
     }
 
-    localStorage.setItem("startDate", startDateStr);
-    localStorage.setItem("endDate", endDateStr);
+    window.utils.setStorage("startDate", startDateStr);
+    window.utils.setStorage("endDate", endDateStr);
   }
 
   function getFilterParams() {
@@ -334,18 +321,18 @@
     }
 
     // Ensure dates are fetched from localStorage or defaulted if not present
-    let startDate = localStorage.getItem("startDate");
-    let endDate = localStorage.getItem("endDate");
+    let startDate = window.utils.getStorage("startDate");
+    let endDate = window.utils.getStorage("endDate");
 
     if (!startDate) {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       startDate = dateUtils.formatDate(thirtyDaysAgo);
-      localStorage.setItem("startDate", startDate); // Save default
+      window.utils.setStorage("startDate", startDate); // Save default
     }
     if (!endDate) {
       endDate = dateUtils.formatDate(new Date());
-      localStorage.setItem("endDate", endDate); // Save default
+      window.utils.setStorage("endDate", endDate); // Save default
     }
 
     return new URLSearchParams({ start_date: startDate, end_date: endDate });
@@ -381,7 +368,7 @@
     // dateStr is expected as YYYY-MM-DD
     if (!dateStr) return "";
     try {
-      const date = parseYYYYMMDDToDate(dateStr); // Use robust parser
+      const date = DateUtils.parseDate(dateStr);
       if (isNaN(date.getTime())) return dateStr; // Invalid date
 
       return new Intl.DateTimeFormat("en-US", {
@@ -515,8 +502,8 @@
         return;
       }
 
-      const startDateString = localStorage.getItem("startDate");
-      const endDateString = localStorage.getItem("endDate");
+      const startDateString = window.utils.getStorage("startDate");
+      const endDateString = window.utils.getStorage("endDate");
 
       if (!startDateString || !endDateString) {
         console.error(
@@ -536,8 +523,8 @@
         }
       });
 
-      const currentDateIter = parseYYYYMMDDToDate(startDateString);
-      const finalDate = parseYYYYMMDDToDate(endDateString);
+      let currentDateIter = DateUtils.parseDate(startDateString);
+      const finalDate = DateUtils.parseDate(endDateString);
 
       while (currentDateIter <= finalDate) {
         const dateKey = dateUtils.formatDate(currentDateIter); // Format to 'YYYY-MM-DD'
@@ -613,8 +600,8 @@
         return;
       }
 
-      const startDateString = localStorage.getItem("startDate");
-      const endDateString = localStorage.getItem("endDate");
+      const startDateString = window.utils.getStorage("startDate");
+      const endDateString = window.utils.getStorage("endDate");
 
       if (!startDateString || !endDateString) {
         console.error(
@@ -634,8 +621,8 @@
         }
       });
 
-      const currentDateIter = parseYYYYMMDDToDate(startDateString);
-      const finalDate = parseYYYYMMDDToDate(endDateString);
+      let currentDateIter = DateUtils.parseDate(startDateString);
+      const finalDate = DateUtils.parseDate(endDateString);
 
       while (currentDateIter <= finalDate) {
         const dateKey = dateUtils.formatDate(currentDateIter); // Format to 'YYYY-MM-DD'

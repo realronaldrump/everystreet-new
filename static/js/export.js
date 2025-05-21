@@ -490,7 +490,7 @@
         format: elements["adv-format"]?.value,
       };
 
-      localStorage.setItem("advancedExportSettings", JSON.stringify(settings));
+      window.utils.setStorage("advancedExportSettings", JSON.stringify(settings));
     } catch (error) {
       console.warn("Error saving export settings:", error);
     }
@@ -498,7 +498,7 @@
 
   function loadSavedExportSettings() {
     try {
-      const savedSettingsJSON = localStorage.getItem("advancedExportSettings");
+      const savedSettingsJSON = window.utils.getStorage("advancedExportSettings");
       if (!savedSettingsJSON) return;
       const settings = JSON.parse(savedSettingsJSON);
       setDataSources(settings.dataSources);
@@ -905,7 +905,7 @@
       URL.revokeObjectURL(blobUrl);
       console.info(`Download cleanup completed for ${filename}`);
     }, 100);
-    showNotification(`Successfully exported ${filename}`, "success");
+    window.notificationManager.show(`Successfully exported ${filename}`, "success");
   }
 
   function getExtensionForFormat(format) {
@@ -950,14 +950,6 @@
     }
   }
 
-  function showNotification(message, type) {
-    if (window.notificationManager) {
-      window.notificationManager.show(message, type);
-    } else {
-      window.handleError(`${type.toUpperCase()}: ${message}`);
-    }
-  }
-
   function initUndrivenStreetsExport() {
     const locationSelect = document.getElementById("undriven-streets-location");
     const formatSelect = document.getElementById("undriven-streets-format");
@@ -986,7 +978,7 @@
       .catch((err) => {
         locationSelect.innerHTML =
           '<option value="">Failed to load areas</option>';
-        showNotification("Failed to load areas: " + err.message, "error");
+        window.notificationManager.show("Failed to load areas: " + err.message, "error");
       });
 
     // Enable export button only if area is selected
@@ -1000,7 +992,7 @@
       exportBtn.disabled = true;
       exportBtn.innerHTML =
         '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Exporting...';
-      showNotification("Exporting undriven streets...", "info");
+      window.notificationManager.show("Exporting undriven streets...", "info");
       try {
         const format = formatSelect.value;
         const area = JSON.parse(locationSelect.value);
@@ -1045,9 +1037,9 @@
           document.body.removeChild(a);
           window.URL.revokeObjectURL(url);
         }, 100);
-        showNotification("Undriven streets export completed", "success");
+        window.notificationManager.show("Undriven streets export completed", "success");
       } catch (err) {
-        showNotification("Export failed: " + err.message, "error");
+        window.notificationManager.show("Export failed: " + err.message, "error");
       } finally {
         exportBtn.disabled = false;
         exportBtn.innerHTML = "Export Undriven Streets";

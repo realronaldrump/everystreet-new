@@ -21,7 +21,7 @@
     loadSavedState();
     handleResponsiveLayout();
 
-    window.addEventListener("resize", debounce(handleResponsiveLayout, 250));
+    window.addEventListener("resize", window.utils.debounce(handleResponsiveLayout, 250));
   }
 
   function cacheElements() {
@@ -70,7 +70,7 @@
   }
 
   function loadSavedState() {
-    const isCollapsed = getStorage(CONFIG.storageKeys.sidebarState) === "true";
+    const isCollapsed = window.utils.getStorage(CONFIG.storageKeys.sidebarState) === "true";
     if (isCollapsed && window.innerWidth >= CONFIG.mobileBreakpoint) {
       elements.body?.classList.add("sidebar-collapsed");
       elements.sidebar?.classList.add("collapsed");
@@ -102,7 +102,7 @@
     }
 
     if (!isMobile) {
-      setStorage(
+      window.utils.setStorage(
         CONFIG.storageKeys.sidebarState,
         elements.sidebar.classList.contains("collapsed"),
       );
@@ -113,7 +113,7 @@
     if (!elements.sidebar) return;
 
     const isMobile = window.innerWidth < CONFIG.mobileBreakpoint;
-    const isCollapsed = getStorage(CONFIG.storageKeys.sidebarState) === "true";
+    const isCollapsed = window.utils.getStorage(CONFIG.storageKeys.sidebarState) === "true";
 
     if (isMobile) {
       elements.sidebar.classList.remove("collapsed");
@@ -130,31 +130,6 @@
     }
   }
 
-  function debounce(func, wait) {
-    let timeout;
-    return function (...args) {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), wait);
-    };
-  }
-
-  function getStorage(key, defaultValue = null) {
-    try {
-      return sessionStorage.getItem(key) || defaultValue;
-    } catch (e) {
-      console.warn(`Error reading from sessionStorage: ${e.message}`);
-      return defaultValue;
-    }
-  }
-
-  function setStorage(key, value) {
-    try {
-      sessionStorage.setItem(key, value);
-    } catch (e) {
-      console.warn(`Error writing to sessionStorage: ${e.message}`);
-    }
-  }
-
   document.addEventListener("DOMContentLoaded", init);
 
   document.addEventListener("DOMContentLoaded", initThemeToggle);
@@ -163,7 +138,7 @@
     const themeToggle = document.getElementById("theme-toggle-checkbox");
     if (!themeToggle) return;
 
-    const savedTheme = getStorage("theme");
+    const savedTheme = window.utils.getStorage("theme");
     const prefersDarkScheme = window.matchMedia(
       "(prefers-color-scheme: dark)",
     ).matches;
@@ -178,10 +153,10 @@
     themeToggle.addEventListener("change", () => {
       if (themeToggle.checked) {
         document.body.classList.add("light-mode");
-        setStorage("theme", "light");
+        window.utils.setStorage("theme", "light");
       } else {
         document.body.classList.remove("light-mode");
-        setStorage("theme", "dark");
+        window.utils.setStorage("theme", "dark");
       }
 
       document.dispatchEvent(

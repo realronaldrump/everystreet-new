@@ -15,8 +15,7 @@
       this.nonCustomVisitsTable = null;
       this.drawingEnabled = false;
       this.customPlacesLayer = null;
-      this.loadingManager =
-        window.loadingManager || this.createFallbackLoadingManager();
+      this.loadingManager = window.loadingManager;
       this.isDetailedView = false;
       this.placeBeingEdited = null;
       this.tripViewMap = null;
@@ -25,41 +24,6 @@
 
       this.setupDurationSorting();
       this.initialize();
-    }
-
-    static createFallbackLoadingManager() {
-      return {
-        startOperation(name) {
-          window.notificationManager?.show(
-            `LoadingManager not available: ${name}`,
-            "info",
-          );
-        },
-        addSubOperation(opName, subName) {
-          window.notificationManager?.show(
-            `LoadingManager not available: ${opName}.${subName}`,
-            "info",
-          );
-        },
-        updateSubOperation(opName, subName, progress) {
-          window.notificationManager?.show(
-            `LoadingManager not available: ${opName}.${subName} (${progress}%)`,
-            "info",
-          );
-        },
-        finish(name) {
-          window.notificationManager?.show(
-            `LoadingManager not available: finished ${name || "all"}`,
-            "info",
-          );
-        },
-        error(message) {
-          window.notificationManager?.show(
-            `LoadingManager not available: Error - ${message}`,
-            "danger",
-          );
-        },
-      };
     }
 
     async initialize() {
@@ -83,23 +47,19 @@
 
     initializeMap() {
       return new Promise((resolve) => {
-        this.map = L.map("map", {
+        // Use shared map factory
+        this.map = window.mapBase.createMap("map", {
+          library: "leaflet",
           center: [37.0902, -95.7129],
           zoom: 4,
           zoomControl: true,
+          tileLayer: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+          tileOptions: { maxZoom: 19 },
         });
-
-        L.tileLayer(
-          "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-          { maxZoom: 19 },
-        ).addTo(this.map);
-
         this.customPlacesLayer = L.featureGroup().addTo(this.map);
-
-        document.addEventListener("themeChanged", (e) => {
-          this.updateMapTheme(e.detail.theme);
-        });
-
+        document.addEventListener("themeChanged", (e) =>
+          this.updateMapTheme(e.detail.theme),
+        );
         resolve();
       });
     }

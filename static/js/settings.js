@@ -7,11 +7,7 @@
     constructor() {
       this.notifier = {
         show: (title, message, type = "info") => {
-          if (window.notificationManager) {
-            window.notificationManager.show(`${title}: ${message}`, type);
-          } else {
-            window.handleError(`${type.toUpperCase()}: ${title} - ${message}`);
-          }
+          window.notificationManager.show(`${title}: ${message}`, type);
         },
       };
 

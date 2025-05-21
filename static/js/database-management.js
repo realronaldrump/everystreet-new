@@ -9,14 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentCollection = null;
   let currentButton = null;
 
-  function showNotification(message, type = "info") {
-    if (window.notificationManager) {
-      window.notificationManager.show(message, type);
-    } else {
-      window.handleError(`${type.toUpperCase()}: ${message}`);
-    }
-  }
-
   function setButtonLoading(button, isLoading, action) {
     if (!button) return;
 
@@ -92,9 +84,9 @@ document.addEventListener("DOMContentLoaded", () => {
         setButtonLoading(refreshStorageBtn, true);
         const data = await performDatabaseAction("/api/database/storage-info");
         updateStorageDisplay(data);
-        showNotification("Storage information updated successfully", "success");
+        window.notificationManager.show("Storage information updated successfully", "success");
       } catch (error) {
-        showNotification("Failed to refresh storage information", "danger");
+        window.notificationManager.show("Failed to refresh storage information", "danger");
         console.error("Error refreshing storage info:", error);
       } finally {
         setButtonLoading(refreshStorageBtn, false);
@@ -136,14 +128,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       setButtonLoading(currentButton, true, currentAction);
       const result = await performDatabaseAction(endpoint, body);
-      showNotification(
+      window.notificationManager.show(
         result.message || "Operation completed successfully",
         "success",
       );
 
       setTimeout(() => window.location.reload(), 1500);
     } catch (error) {
-      showNotification(
+      window.notificationManager.show(
         error.message || "Failed to perform database action",
         "danger",
       );

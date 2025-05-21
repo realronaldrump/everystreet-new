@@ -67,13 +67,10 @@ function createEditableCell(data, type, field, inputType = "text") {
     }
 
     initializeEventListeners() {
-      const applyFiltersButton = document.getElementById("apply-filters");
-      if (applyFiltersButton) {
-        applyFiltersButton.addEventListener("mousedown", (e) => {
-          if (e.button !== 0) return;
-          this.handleApplyFilters();
-        });
-      }
+      // React to global filtersApplied event instead of direct button click
+      document.addEventListener("filtersApplied", () => {
+        this.fetchTrips();
+      });
 
       this.initializeDatePresetButtons();
 
@@ -118,8 +115,8 @@ function createEditableCell(data, type, field, inputType = "text") {
             }
           }
 
-          localStorage.setItem("startDate", startDate);
-          localStorage.setItem("endDate", endDate);
+          window.utils.setStorage("startDate", startDate);
+          window.utils.setStorage("endDate", endDate);
 
           this.fetchTrips();
         })
@@ -262,10 +259,10 @@ function createEditableCell(data, type, field, inputType = "text") {
     storeDates(startDate, endDate) {
       this.tripsCache;
       try {
-        localStorage.setItem("startDate", startDate);
-        localStorage.setItem("endDate", endDate);
+        window.utils.setStorage("startDate", startDate);
+        window.utils.setStorage("endDate", endDate);
       } catch (error) {
-        console.warn("Failed to store dates in localStorage:", error);
+        console.warn("Failed to store dates via utils:", error);
       }
     }
 
@@ -552,8 +549,8 @@ function createEditableCell(data, type, field, inputType = "text") {
       this.tripsCache;
       const params = new URLSearchParams();
 
-      let startDate = localStorage.getItem("startDate");
-      let endDate = localStorage.getItem("endDate");
+      let startDate = window.utils.getStorage("startDate");
+      let endDate = window.utils.getStorage("endDate");
 
       const startInput = document.getElementById("start-date");
       const endInput = document.getElementById("end-date");

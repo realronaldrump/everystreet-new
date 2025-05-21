@@ -1,4 +1,4 @@
-/* global L, notificationManager, DateUtils, Chart, LiveTripTracker */
+/* global L, notificationManager, LiveTripTracker */
 
 "use strict";
 
@@ -82,22 +82,18 @@ class DrivingNavigation {
         return;
       }
       mapContainer.innerHTML = "";
-
-      this.map = L.map("driving-map").setView([37.8, -96], 4);
-
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        {
-          attribution: "",
-          maxZoom: 19,
-        },
-      ).addTo(this.map);
-
+      // Use shared map factory for Leaflet
+      this.map = window.mapBase.createMap("driving-map", {
+        library: "leaflet",
+        center: [37.8, -96],
+        zoom: 4,
+        zoomControl: true,
+        tileLayer: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        tileOptions: { attribution: "", maxZoom: 19 },
+      });
       this.undrivenStreetsLayer.addTo(this.map);
       this.routeLayer.addTo(this.map);
-
       this.setStatus("Map initialized. Select an area.");
-
       setTimeout(() => {
         if (this.map) {
           window.handleError("Invalidating map size...", "initMap", "info");
@@ -301,12 +297,12 @@ class DrivingNavigation {
 
   loadAutoFollowState() {
     if (!this.autoFollowToggle) return;
-    const savedState = localStorage.getItem("drivingNavAutoFollow") === "true";
+    const savedState = window.utils.getStorage("drivingNavAutoFollow") === "true";
     this.autoFollowToggle.checked = savedState;
   }
 
   saveAutoFollowState(isEnabled) {
-    localStorage.setItem("drivingNavAutoFollow", isEnabled);
+    window.utils.setStorage("drivingNavAutoFollow", isEnabled);
   }
 
   getAutoFollowState() {

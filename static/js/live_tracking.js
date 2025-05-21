@@ -440,7 +440,7 @@ class LiveTripTracker {
             }
             this.lastMarkerLatLng = lastPoint;
 
-            if (localStorage.getItem("autoFollowVehicle") === "true") {
+            if (window.utils.getStorage("autoFollowVehicle") === "true") {
               if (!this.map.getBounds().contains(lastPoint)) {
                 this.map.panTo(lastPoint);
               }
