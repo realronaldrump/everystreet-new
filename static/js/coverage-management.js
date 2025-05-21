@@ -66,6 +66,7 @@ const STATUS = window.STATUS || {
       this.mapBounds = null;
 
       this.selectedLocation = null; // Holds the full data of the currently displayed area
+      this.currentDashboardLocationId = null; // Add this line
       this.currentProcessingLocation = null; // Holds location data during processing modal display
       this.processingStartTime = null;
       this.lastProgressUpdate = null;
@@ -1999,6 +2000,7 @@ const STATUS = window.STATUS || {
         }
 
         this.selectedLocation = data.coverage; // Store the full coverage data
+        this.currentDashboardLocationId = locationId; // <--- ADD THIS LINE
         const coverage = data.coverage;
 
         const locationName = coverage.location_name || "Coverage Details";
@@ -2125,6 +2127,9 @@ const STATUS = window.STATUS || {
       );
       if (!statsContainer) return;
 
+      // Log the coverage object to help debug segment counts
+      console.log("Coverage object for dashboard stats:", coverage); // <--- ADD THIS LINE
+
       // Extract data safely, providing defaults
       const totalLengthM = parseFloat(
         coverage.total_length_m ||
@@ -2141,10 +2146,19 @@ const STATUS = window.STATUS || {
       const coveragePercentage =
         coverage.coverage_percentage?.toFixed(1) || "0.0";
       const totalSegments = parseInt(coverage.total_segments || 0, 10);
-      const coveredSegments = parseInt(
-        coverage.covered_segments || coverage.total_covered_segments || 0,
-        10,
-      ); // Added covered segments
+      
+      // Calculate covered segments from GeoJSON features
+      let calculatedCoveredSegments = 0;
+      if (coverage.streets_geojson && Array.isArray(coverage.streets_geojson.features)) {
+        calculatedCoveredSegments = coverage.streets_geojson.features.reduce((count, feature) => {
+          if (feature && feature.properties && feature.properties.driven === true) {
+            return count + 1;
+          }
+          return count;
+        }, 0);
+      }
+      const coveredSegments = calculatedCoveredSegments; 
+
       const lastUpdated = coverage.last_updated
         ? new Date(coverage.last_updated).toLocaleString()
         : "Never";
@@ -2290,6 +2304,7 @@ const STATUS = window.STATUS || {
         this.streetTypeChartInstance.destroy();
         this.streetTypeChartInstance = null;
       }
+      this.currentDashboardLocationId = null; // <--- ADD THIS LINE
       // Remove map info panel if it exists
       if (this.mapInfoPanel) {
         this.mapInfoPanel.remove();
@@ -2769,13 +2784,23 @@ const STATUS = window.STATUS || {
 
     // --- FIX: Added method to handle button clicks from popups ---
     async _handleMarkSegmentAction(action, segmentId) {
-      if (!this.selectedLocation || !this.selectedLocation._id) {
+      const activeLocationId = this.selectedLocation?._id || this.currentDashboardLocationId;
+
+      if (!activeLocationId) {
         this.notificationManager.show(
-          "Cannot perform action: No location selected.",
+          "Cannot perform action: No location selected or location ID missing.",
           "warning",
         );
         return;
       }
+
+      // if (!this.selectedLocation || !this.selectedLocation._id) {
+      //   this.notificationManager.show(
+      //     "Cannot perform action: No location selected.",
+      //     "warning",
+      //   );
+      //   return;
+      // }
       if (!segmentId) {
         this.notificationManager.show(
           "Cannot perform action: Segment ID missing.",
@@ -2784,10 +2809,10 @@ const STATUS = window.STATUS || {
         return;
       }
 
-      const locationId = this.selectedLocation._id; // Get ID from the currently displayed location
+      const locationIdForApi = activeLocationId; // const locationId = this.selectedLocation._id;
       let endpoint = "";
       const payload = {
-        location_id: locationId,
+        location_id: locationIdForApi,
         segment_id: segmentId,
       };
 
@@ -2818,8 +2843,42 @@ const STATUS = window.STATUS || {
           `Segment ${segmentId.substring(0, 8)}... marked as ${action}. Refreshing...`,
           "success",
         );
-        // Refresh the dashboard to reflect the change
-        await this.displayCoverageDashboard(locationId);
+
+        // --- BEGIN IMMEDIATE VISUAL UPDATE ---
+        if (this.streetsGeoJson && this.streetsGeoJson.features && this.coverageMap && this.coverageMap.getSource('streets')) {
+          const featureIndex = this.streetsGeoJson.features.findIndex(f => f.properties.segment_id === segmentId);
+          if (featureIndex !== -1) {
+            const feature = this.streetsGeoJson.features[featureIndex];
+            switch (action) {
+              case "driven":
+                feature.properties.driven = true;
+                feature.properties.undriveable = false;
+                break;
+              case "undriven":
+                feature.properties.driven = false;
+                // undriveable status is not changed by "mark undriven" action alone
+                break;
+              case "undriveable":
+                feature.properties.undriveable = true;
+                feature.properties.driven = false; // Marking undriveable implies not driven
+                break;
+              case "driveable":
+                feature.properties.undriveable = false;
+                // driven status is not changed by "mark driveable" action alone
+                break;
+            }
+            // Ensure the source is updated.
+            // Create a new object for setData to ensure Mapbox detects a change.
+            const newGeoJson = { ...this.streetsGeoJson, features: [...this.streetsGeoJson.features] };
+            newGeoJson.features[featureIndex] = { ...feature }; 
+            this.coverageMap.getSource('streets').setData(newGeoJson);
+            this.streetsGeoJson = newGeoJson; // Update the stored geojson
+          }
+        }
+        // --- END IMMEDIATE VISUAL UPDATE ---
+
+        // Refresh the dashboard to reflect the change from server and update stats
+        await this.displayCoverageDashboard(locationIdForApi);
         // Also refresh the main table in case stats changed significantly
         await this.loadCoverageAreas();
       } catch (error) {
