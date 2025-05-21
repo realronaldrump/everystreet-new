@@ -2004,13 +2004,15 @@ const STATUS = window.STATUS || {
         const coverage = data.coverage;
         // Override cached GeoJSON with live streets data (to pick up manual overrides)
         try {
-          const liveResp = await fetch(`/api/coverage_areas/${locationId}/streets`);
+          const liveResp = await fetch(
+            `/api/coverage_areas/${locationId}/streets`,
+          );
           if (liveResp.ok) {
             const liveGeo = await liveResp.json();
             coverage.streets_geojson = liveGeo;
           }
         } catch (e) {
-          console.error('Error fetching live streets GeoJSON in dashboard:', e);
+          console.error("Error fetching live streets GeoJSON in dashboard:", e);
         }
 
         const locationName = coverage.location_name || "Coverage Details";
@@ -2156,18 +2158,28 @@ const STATUS = window.STATUS || {
       const coveragePercentage =
         coverage.coverage_percentage?.toFixed(1) || "0.0";
       const totalSegments = parseInt(coverage.total_segments || 0, 10);
-      
+
       // Calculate covered segments from GeoJSON features
       let calculatedCoveredSegments = 0;
-      if (coverage.streets_geojson && Array.isArray(coverage.streets_geojson.features)) {
-        calculatedCoveredSegments = coverage.streets_geojson.features.reduce((count, feature) => {
-          if (feature && feature.properties && feature.properties.driven === true) {
-            return count + 1;
-          }
-          return count;
-        }, 0);
+      if (
+        coverage.streets_geojson &&
+        Array.isArray(coverage.streets_geojson.features)
+      ) {
+        calculatedCoveredSegments = coverage.streets_geojson.features.reduce(
+          (count, feature) => {
+            if (
+              feature &&
+              feature.properties &&
+              feature.properties.driven === true
+            ) {
+              return count + 1;
+            }
+            return count;
+          },
+          0,
+        );
       }
-      const coveredSegments = calculatedCoveredSegments; 
+      const coveredSegments = calculatedCoveredSegments;
 
       const lastUpdated = coverage.last_updated
         ? new Date(coverage.last_updated).toLocaleString()
@@ -2794,7 +2806,8 @@ const STATUS = window.STATUS || {
 
     // --- FIX: Added method to handle button clicks from popups ---
     async _handleMarkSegmentAction(action, segmentId) {
-      const activeLocationId = this.selectedLocation?._id || this.currentDashboardLocationId;
+      const activeLocationId =
+        this.selectedLocation?._id || this.currentDashboardLocationId;
 
       if (!activeLocationId) {
         this.notificationManager.show(
@@ -2855,8 +2868,15 @@ const STATUS = window.STATUS || {
         );
 
         // --- BEGIN IMMEDIATE VISUAL UPDATE ---
-        if (this.streetsGeoJson && this.streetsGeoJson.features && this.coverageMap && this.coverageMap.getSource('streets')) {
-          const featureIndex = this.streetsGeoJson.features.findIndex(f => f.properties.segment_id === segmentId);
+        if (
+          this.streetsGeoJson &&
+          this.streetsGeoJson.features &&
+          this.coverageMap &&
+          this.coverageMap.getSource("streets")
+        ) {
+          const featureIndex = this.streetsGeoJson.features.findIndex(
+            (f) => f.properties.segment_id === segmentId,
+          );
           if (featureIndex !== -1) {
             const feature = this.streetsGeoJson.features[featureIndex];
             switch (action) {
@@ -2879,9 +2899,12 @@ const STATUS = window.STATUS || {
             }
             // Ensure the source is updated.
             // Create a new object for setData to ensure Mapbox detects a change.
-            const newGeoJson = { ...this.streetsGeoJson, features: [...this.streetsGeoJson.features] };
-            newGeoJson.features[featureIndex] = { ...feature }; 
-            this.coverageMap.getSource('streets').setData(newGeoJson);
+            const newGeoJson = {
+              ...this.streetsGeoJson,
+              features: [...this.streetsGeoJson.features],
+            };
+            newGeoJson.features[featureIndex] = { ...feature };
+            this.coverageMap.getSource("streets").setData(newGeoJson);
             this.streetsGeoJson = newGeoJson; // Update the stored geojson
           }
         }
@@ -2889,7 +2912,10 @@ const STATUS = window.STATUS || {
 
         // Refresh statistics on the server and update stats UI
         try {
-          const refreshResp = await fetch(`/api/coverage_areas/${locationIdForApi}/refresh_stats`, { method: 'POST' });
+          const refreshResp = await fetch(
+            `/api/coverage_areas/${locationIdForApi}/refresh_stats`,
+            { method: "POST" },
+          );
           const refreshData = await refreshResp.json();
           if (refreshResp.ok && refreshData.coverage) {
             this.selectedLocation = refreshData.coverage;
@@ -2898,28 +2924,39 @@ const STATUS = window.STATUS || {
             this.addCoverageSummary(refreshData.coverage);
           } else {
             this.notificationManager.show(
-              `Failed to refresh stats: ${refreshData.detail || 'Unknown error'}`,
-              'warning',
+              `Failed to refresh stats: ${refreshData.detail || "Unknown error"}`,
+              "warning",
             );
           }
         } catch (e) {
-          console.error('Error refreshing stats:', e);
-          this.notificationManager.show(`Error fetching updated stats: ${e.message}`, 'danger');
+          console.error("Error refreshing stats:", e);
+          this.notificationManager.show(
+            `Error fetching updated stats: ${e.message}`,
+            "danger",
+          );
         }
         // Fetch live streets GeoJSON and update the map
         try {
-          const streetsResp = await fetch(`/api/coverage_areas/${locationIdForApi}/streets`);
+          const streetsResp = await fetch(
+            `/api/coverage_areas/${locationIdForApi}/streets`,
+          );
           if (streetsResp.ok) {
             const freshGeoJson = await streetsResp.json();
-            if (this.coverageMap && this.coverageMap.getSource('streets')) {
-              this.coverageMap.getSource('streets').setData(freshGeoJson);
+            if (this.coverageMap && this.coverageMap.getSource("streets")) {
+              this.coverageMap.getSource("streets").setData(freshGeoJson);
               this.streetsGeoJson = freshGeoJson;
             }
-            this.updateDashboardStats({ ...this.selectedLocation, streets_geojson: freshGeoJson });
-            this.addCoverageSummary({ ...this.selectedLocation, streets_geojson: freshGeoJson });
+            this.updateDashboardStats({
+              ...this.selectedLocation,
+              streets_geojson: freshGeoJson,
+            });
+            this.addCoverageSummary({
+              ...this.selectedLocation,
+              streets_geojson: freshGeoJson,
+            });
           }
         } catch (e) {
-          console.error('Error fetching live streets data:', e);
+          console.error("Error fetching live streets data:", e);
         }
         // Refresh the main coverage areas table
         await this.loadCoverageAreas();
