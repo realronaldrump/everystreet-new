@@ -2896,6 +2896,21 @@ const STATUS = window.STATUS || {
           console.error('Error refreshing stats:', e);
           this.notificationManager.show(`Error fetching updated stats: ${e.message}`, 'danger');
         }
+        // Fetch live streets GeoJSON and update the map
+        try {
+          const streetsResp = await fetch(`/api/coverage_areas/${locationIdForApi}/streets`);
+          if (streetsResp.ok) {
+            const freshGeoJson = await streetsResp.json();
+            if (this.coverageMap && this.coverageMap.getSource('streets')) {
+              this.coverageMap.getSource('streets').setData(freshGeoJson);
+              this.streetsGeoJson = freshGeoJson;
+            }
+            this.updateDashboardStats({ ...this.selectedLocation, streets_geojson: freshGeoJson });
+            this.addCoverageSummary({ ...this.selectedLocation, streets_geojson: freshGeoJson });
+          }
+        } catch (e) {
+          console.error('Error fetching live streets data:', e);
+        }
         // Refresh the main coverage areas table
         await this.loadCoverageAreas();
       } catch (error) {

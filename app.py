@@ -4455,6 +4455,37 @@ async def get_coverage_area_details(location_id: str):
         )
 
 
+@app.get("/api/coverage_areas/{location_id}/streets")
+async def get_coverage_area_streets(location_id: str):
+    """Get updated street GeoJSON for a coverage area, including manual overrides."""
+    try:
+        meta = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"_id": ObjectId(location_id)},
+            {"location.display_name": 1},
+        )
+        if not meta:
+            raise HTTPException(
+                status_code=404,
+                detail="Coverage area not found",
+            )
+        name = meta["location"]["display_name"]
+        cursor = streets_collection.find(
+            {"properties.location": name},
+            {"_id": 0, "geometry": 1, "properties": 1},
+        )
+        features = await cursor.to_list(length=None)
+        return {"type": "FeatureCollection", "features": features}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error fetching streets for coverage area %s: %s", location_id, e)
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error fetching streets",
+        )
+
+
 async def _get_mapbox_optimization_route(
     start_lon: float,
     start_lat: float,
