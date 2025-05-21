@@ -161,7 +161,7 @@ block head_content %}
   .step-title {
     font-size: 0.75rem;
   }
-  
+
   /* New styles for enhanced navigation */
   .navigation-panel {
     position: fixed;
@@ -178,23 +178,23 @@ block head_content %}
     display: none;
     color: white;
   }
-  
+
   .navigation-panel.active {
     display: block;
   }
-  
+
   .direction-instruction {
     font-size: 1.1rem;
     font-weight: 500;
     margin-bottom: 8px;
   }
-  
+
   .direction-distance {
     font-size: 0.9rem;
     color: #adb5bd;
     margin-bottom: 12px;
   }
-  
+
   .nav-progress-bar {
     height: 4px;
     background-color: rgba(255, 255, 255, 0.1);
@@ -202,25 +202,25 @@ block head_content %}
     margin-bottom: 10px;
     overflow: hidden;
   }
-  
+
   .nav-progress-inner {
     height: 100%;
     background-color: #76ff03;
     width: 0%;
     transition: width 0.3s ease;
   }
-  
+
   .nav-actions {
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
   }
-  
+
   .maneuver-icon {
     font-size: 24px;
     margin-right: 12px;
   }
-  
+
   .street-selector {
     max-height: 300px;
     overflow-y: auto;
@@ -228,45 +228,45 @@ block head_content %}
     border-radius: 4px;
     background-color: rgba(0, 0, 0, 0.2);
   }
-  
+
   .street-item {
     padding: 8px 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     cursor: pointer;
     transition: background-color 0.2s ease;
   }
-  
+
   .street-item:hover {
     background-color: rgba(255, 255, 255, 0.1);
   }
-  
+
   .street-item:last-child {
     border-bottom: none;
   }
-  
+
   .street-name {
     font-weight: 500;
   }
-  
+
   .street-distance {
     font-size: 0.8rem;
     color: #adb5bd;
   }
-  
+
   .nav-options-panel {
     margin-top: 15px;
     padding: 10px;
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 4px;
   }
-  
+
   .voice-toggle {
     transform: scale(1.2);
   }
-  
+
   .position-indicator {
     position: fixed;
-    bottom: 80px; 
+    bottom: 80px;
     right: 20px;
     background-color: rgba(33, 37, 41, 0.8);
     border-radius: 50%;
@@ -281,21 +281,21 @@ block head_content %}
     border: 2px solid rgba(255, 255, 255, 0.2);
     transition: all 0.2s ease;
   }
-  
+
   .position-indicator:hover {
     background-color: rgba(33, 37, 41, 1);
     transform: scale(1.05);
   }
-  
+
   .position-indicator i {
     color: #76ff03;
     font-size: 24px;
   }
-  
+
   .position-indicator.tracking i {
     color: #0dcaf0;
   }
-  
+
   .reconnecting-overlay {
     position: fixed;
     top: 0;
@@ -311,21 +311,27 @@ block head_content %}
     color: white;
     display: none;
   }
-  
+
   .reconnecting-overlay.active {
     display: flex;
   }
-  
+
   .pulse {
     animation: pulse 1.5s infinite;
   }
-  
+
   @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
-  
+
   .position-marker-inner {
     width: 10px;
     height: 10px;
@@ -333,7 +339,7 @@ block head_content %}
     border-radius: 50%;
     background-color: #fff;
   }
-  
+
   .heading-indicator {
     position: absolute;
     top: -16px;
@@ -341,19 +347,19 @@ block head_content %}
     width: 100%;
     text-align: center;
   }
-  
+
   .heading-indicator i {
     color: #0dcaf0;
     font-size: 14px;
     filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
   }
-  
+
   .destination-marker {
     display: flex;
     justify-content: center;
     align-items: center;
   }
-  
+
   .feature-highlight {
     margin-bottom: 20px;
     background-color: rgba(52, 58, 64, 0.5);
@@ -365,10 +371,13 @@ block head_content %}
 {% endblock %} {% block content %}
 <div class="container-fluid mt-3">
   <h2 class="mb-3">Driving Navigation</h2>
-  
+
   <div class="feature-highlight">
     <h5><i class="fas fa-star me-2"></i>Enhanced Navigation Experience</h5>
-    <p>This improved navigation system helps you efficiently cover undriven streets with features like:</p>
+    <p>
+      This improved navigation system helps you efficiently cover undriven
+      streets with features like:
+    </p>
     <div class="row">
       <div class="col-md-4">
         <ul class="mb-0">
@@ -442,7 +451,9 @@ block head_content %}
                 id="prioritize-connectivity-toggle"
                 checked
               />
-              <label class="form-check-label" for="prioritize-connectivity-toggle"
+              <label
+                class="form-check-label"
+                for="prioritize-connectivity-toggle"
                 >Prioritize Connected Streets</label
               >
             </div>
@@ -512,7 +523,7 @@ block head_content %}
 
     <div class="col-md-8 position-relative">
       <div id="driving-map"></div>
-      
+
       <!-- Position indicator button (fixed position) -->
       <div class="position-indicator" id="center-position-btn">
         <i class="fas fa-location-arrow"></i>
@@ -536,11 +547,11 @@ block head_content %}
       </div>
     </div>
   </div>
-  
+
   <div class="nav-progress-bar">
     <div class="nav-progress-inner" id="nav-progress-bar"></div>
   </div>
-  
+
   <div class="nav-actions">
     <button class="btn btn-sm btn-outline-light" id="stop-navigation-btn">
       <i class="fas fa-stop me-1"></i>End
@@ -564,7 +575,11 @@ block head_content %}
     <div class="modal-content bg-dark text-white">
       <div class="modal-header">
         <h5 class="modal-title">Export Coverage Route</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
@@ -577,7 +592,9 @@ block head_content %}
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
         <button type="button" class="btn btn-primary" id="confirm-export-btn">
           <i class="fas fa-download me-1"></i>Download
         </button>

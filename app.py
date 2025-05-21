@@ -4496,7 +4496,7 @@ async def _get_mapbox_optimization_route(
 ) -> dict[str, Any]:
     """Calls Mapbox Optimization API v1 to get an optimized route for multiple
     points.
-    
+
     Args:
         start_lon: Starting longitude
         start_lat: Starting latitude
@@ -4534,7 +4534,7 @@ async def _get_mapbox_optimization_route(
 
     # Set up the base URL - use driving-traffic profile for more realistic times
     url = f"https://api.mapbox.com/optimized-trips/v1/mapbox/driving/{coords_str}"
-    
+
     # Default parameters
     request_params = {
         "access_token": mapbox_token,
@@ -4545,48 +4545,54 @@ async def _get_mapbox_optimization_route(
         # "voice_instructions": "true", # Removed
         # "banner_instructions": "true" # Removed
     }
-    
+
     # Apply custom parameters if provided
     if params:
         if params.get("avoid_highways"):
             # Add exclude flags for highways
             request_params["exclude"] = "motorway,trunk"
-            
+
         if params.get("alternative_routes"):
             request_params["alternatives"] = "true"
-            
+
         if not params.get("detailed_directions", True):
             # If detailed directions are not needed
             request_params["steps"] = "false"
             # request_params["voice_instructions"] = "false"; # Already removed
             # request_params["banner_instructions"] = "false"; # Already removed
-    
-    logger.debug(f"Requesting Mapbox optimization route with params: {request_params}")
-    
+
+    logger.debug(
+        f"Requesting Mapbox optimization route with params: {request_params}"
+    )
+
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(url, params=request_params, timeout=15.0)
-            
+            response = await client.get(
+                url, params=request_params, timeout=15.0
+            )
+
             if response.status_code != 200:
                 logger.error(
                     "Mapbox API error: %s",
                     response.text,
                 )
-                
+
                 # Specific error handling
                 try:
                     error_data = response.json()
                     error_message = error_data.get("message", "Unknown error")
-                    
+
                     # Simplify error message for common cases
                     if "Too many coordinates" in error_message:
                         error_message = "Too many waypoints for optimization. Try a shorter route."
                     elif "No route found" in error_message:
                         error_message = "No route could be found. The destination may be unreachable by car."
-                        
+
                 except Exception:
-                    error_message = f"Mapbox API error: HTTP {response.status_code}"
-                
+                    error_message = (
+                        f"Mapbox API error: HTTP {response.status_code}"
+                    )
+
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=error_message,
@@ -4607,55 +4613,61 @@ async def _get_mapbox_optimization_route(
             geometry = trip.get("geometry", {})
             duration = trip.get("duration", 0)
             distance = trip.get("distance", 0)
-            
+
             # Extract detailed turn-by-turn directions if available
             directions = []
             if trip.get("legs") and params.get("detailed_directions", True):
                 for leg in trip["legs"]:
                     if leg.get("steps"):
                         for step in leg["steps"]:
-                            directions.append({
-                                "instruction": step.get("maneuver", {}).get("instruction", ""),
-                                "distance": step.get("distance", 0),
-                                "duration": step.get("duration", 0),
-                                "type": step.get("maneuver", {}).get("type", ""),
-                                "name": step.get("name", "")
-                            })
-            
+                            directions.append(
+                                {
+                                    "instruction": step.get(
+                                        "maneuver", {}
+                                    ).get("instruction", ""),
+                                    "distance": step.get("distance", 0),
+                                    "duration": step.get("duration", 0),
+                                    "type": step.get("maneuver", {}).get(
+                                        "type", ""
+                                    ),
+                                    "name": step.get("name", ""),
+                                }
+                            )
+
             result = {
                 "geometry": geometry,
                 "duration": duration,
-                "distance": distance
+                "distance": distance,
             }
-            
+
             # Add directions if available
             if directions:
                 result["directions"] = directions
-                
+
             # Add alternative routes if requested and available
             if params.get("alternative_routes") and data.get("alternatives"):
                 result["alternatives"] = [
                     {
                         "geometry": alt.get("geometry", {}),
                         "duration": alt.get("duration", 0),
-                        "distance": alt.get("distance", 0)
+                        "distance": alt.get("distance", 0),
                     }
                     for alt in data["alternatives"]
                 ]
-                
+
             return result
-            
+
         except asyncio.TimeoutError:
             logger.error("Timeout when calling Mapbox API")
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="Timeout when calculating route. Please try again."
+                detail="Timeout when calculating route. Please try again.",
             )
         except Exception as e:
             logger.error(f"Unexpected error in Mapbox API call: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Route calculation failed: {str(e)}"
+                detail=f"Route calculation failed: {str(e)}",
             )
 
 
@@ -4688,7 +4700,7 @@ async def get_next_driving_route(
 
         location = LocationModel(**data["location"])
         location_name = location.display_name
-        
+
         # Get options with defaults
         options = data.get("options", {})
         prioritize_connectivity = options.get("prioritize_connectivity", False)
@@ -4831,7 +4843,7 @@ async def get_next_driving_route(
                 "$not": {"$size": 0},
             },
         }
-        
+
         # If a specific segment is requested, prioritize it
         if specific_segment_id:
             streets_query = {
@@ -4846,10 +4858,10 @@ async def get_next_driving_route(
                         },
                     },
                     # Fall back to any undriven street if the segment isn't found
-                    streets_query
+                    streets_query,
                 ]
             }
-        
+
         projection = {
             "geometry.coordinates": 1,
             "properties.segment_id": 1,
@@ -4860,8 +4872,10 @@ async def get_next_driving_route(
             "_id": 0,
             "geometry.type": 1,
         }
-        
-        undriven_streets_cursor = streets_collection.find(streets_query, projection)
+
+        undriven_streets_cursor = streets_collection.find(
+            streets_query, projection
+        )
         undriven_streets = await undriven_streets_cursor.to_list(length=None)
 
         if not undriven_streets:
@@ -4873,44 +4887,54 @@ async def get_next_driving_route(
                     "target_street": None,
                 },
             )
-            
+
         # Filter for highway preference if specified
         if avoid_highways:
             filtered_streets = [
-                street for street in undriven_streets
-                if not street.get("properties", {}).get("highway") or 
-                   street.get("properties", {}).get("highway") not in 
-                   ["motorway", "trunk", "primary"]
+                street
+                for street in undriven_streets
+                if not street.get("properties", {}).get("highway")
+                or street.get("properties", {}).get("highway")
+                not in ["motorway", "trunk", "primary"]
             ]
-            
+
             # Only apply the filter if we still have streets left
             if filtered_streets:
                 undriven_streets = filtered_streets
-        
+
         # Prioritize streets with connectivity to other undriven streets if requested
-        if prioritize_connectivity and len(undriven_streets) > 1 and not specific_segment_id:
+        if (
+            prioritize_connectivity
+            and len(undriven_streets) > 1
+            and not specific_segment_id
+        ):
             # Sort streets by how many connections they have to other undriven streets
             for street in undriven_streets:
                 # Default connectivity score
                 street["_connectivity_score"] = 0
-                
+
                 # If the street has connection info
-                connections = street.get("properties", {}).get("connects_to", [])
+                connections = street.get("properties", {}).get(
+                    "connects_to", []
+                )
                 if connections:
                     # Count how many connections are to undriven streets
                     undriven_connections = [
-                        conn for conn in connections
+                        conn
+                        for conn in connections
                         if any(
-                            s.get("properties", {}).get("segment_id") == conn and 
-                            s.get("properties", {}).get("driven") is False
+                            s.get("properties", {}).get("segment_id") == conn
+                            and s.get("properties", {}).get("driven") is False
                             for s in undriven_streets
                         )
                     ]
                     street["_connectivity_score"] = len(undriven_connections)
-            
+
             # Sort streets by connectivity score (descending)
-            undriven_streets.sort(key=lambda s: s.get("_connectivity_score", 0), reverse=True)
-        
+            undriven_streets.sort(
+                key=lambda s: s.get("_connectivity_score", 0), reverse=True
+            )
+
         logger.info(
             "Found %d undriven segments in %s. Starting optimization with Mapbox API v1.",
             len(undriven_streets),
@@ -4959,10 +4983,8 @@ async def get_next_driving_route(
             )
 
         # Prepare Mapbox API parameters
-        mapbox_params = {
-            "avoid_highways": avoid_highways
-        }
-        
+        mapbox_params = {"avoid_highways": avoid_highways}
+
         # Calculate routes and select the best one based on specified criteria
         if route_type == "optimal_coverage" and len(end_points) > 1:
             # For optimal coverage, select multiple points and optimize the route between them
@@ -4970,7 +4992,7 @@ async def get_next_driving_route(
             # For now, just use default optimization
             logger.info("Using optimal coverage routing strategy")
             pass
-        
+
         # Get the optimized route (either to a single target or the nearest one)
         optimization_result = await _get_mapbox_optimization_route(
             current_lon,
@@ -4988,10 +5010,16 @@ async def get_next_driving_route(
             if undriven_streets
             else None
         )
-        
+
         # Set start_coords in the target_street for easier navigation
-        if target_street and undriven_streets and undriven_streets[0].get("geometry", {}).get("coordinates"):
-            target_street["start_coords"] = undriven_streets[0]["geometry"]["coordinates"][0]
+        if (
+            target_street
+            and undriven_streets
+            and undriven_streets[0].get("geometry", {}).get("coordinates")
+        ):
+            target_street["start_coords"] = undriven_streets[0]["geometry"][
+                "coordinates"
+            ][0]
 
         return JSONResponse(
             content={
