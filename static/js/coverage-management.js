@@ -2146,18 +2146,28 @@ const STATUS = window.STATUS || {
       const coveragePercentage =
         coverage.coverage_percentage?.toFixed(1) || "0.0";
       const totalSegments = parseInt(coverage.total_segments || 0, 10);
-      
+
       // Calculate covered segments from GeoJSON features
       let calculatedCoveredSegments = 0;
-      if (coverage.streets_geojson && Array.isArray(coverage.streets_geojson.features)) {
-        calculatedCoveredSegments = coverage.streets_geojson.features.reduce((count, feature) => {
-          if (feature && feature.properties && feature.properties.driven === true) {
-            return count + 1;
-          }
-          return count;
-        }, 0);
+      if (
+        coverage.streets_geojson &&
+        Array.isArray(coverage.streets_geojson.features)
+      ) {
+        calculatedCoveredSegments = coverage.streets_geojson.features.reduce(
+          (count, feature) => {
+            if (
+              feature &&
+              feature.properties &&
+              feature.properties.driven === true
+            ) {
+              return count + 1;
+            }
+            return count;
+          },
+          0,
+        );
       }
-      const coveredSegments = calculatedCoveredSegments; 
+      const coveredSegments = calculatedCoveredSegments;
 
       const lastUpdated = coverage.last_updated
         ? new Date(coverage.last_updated).toLocaleString()
@@ -2784,7 +2794,8 @@ const STATUS = window.STATUS || {
 
     // --- FIX: Added method to handle button clicks from popups ---
     async _handleMarkSegmentAction(action, segmentId) {
-      const activeLocationId = this.selectedLocation?._id || this.currentDashboardLocationId;
+      const activeLocationId =
+        this.selectedLocation?._id || this.currentDashboardLocationId;
 
       if (!activeLocationId) {
         this.notificationManager.show(
@@ -2845,8 +2856,15 @@ const STATUS = window.STATUS || {
         );
 
         // --- BEGIN IMMEDIATE VISUAL UPDATE ---
-        if (this.streetsGeoJson && this.streetsGeoJson.features && this.coverageMap && this.coverageMap.getSource('streets')) {
-          const featureIndex = this.streetsGeoJson.features.findIndex(f => f.properties.segment_id === segmentId);
+        if (
+          this.streetsGeoJson &&
+          this.streetsGeoJson.features &&
+          this.coverageMap &&
+          this.coverageMap.getSource("streets")
+        ) {
+          const featureIndex = this.streetsGeoJson.features.findIndex(
+            (f) => f.properties.segment_id === segmentId,
+          );
           if (featureIndex !== -1) {
             const feature = this.streetsGeoJson.features[featureIndex];
             switch (action) {
@@ -2869,9 +2887,12 @@ const STATUS = window.STATUS || {
             }
             // Ensure the source is updated.
             // Create a new object for setData to ensure Mapbox detects a change.
-            const newGeoJson = { ...this.streetsGeoJson, features: [...this.streetsGeoJson.features] };
-            newGeoJson.features[featureIndex] = { ...feature }; 
-            this.coverageMap.getSource('streets').setData(newGeoJson);
+            const newGeoJson = {
+              ...this.streetsGeoJson,
+              features: [...this.streetsGeoJson.features],
+            };
+            newGeoJson.features[featureIndex] = { ...feature };
+            this.coverageMap.getSource("streets").setData(newGeoJson);
             this.streetsGeoJson = newGeoJson; // Update the stored geojson
           }
         }
