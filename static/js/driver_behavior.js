@@ -1,4 +1,4 @@
-/* global Chart */
+/* global Chart, $ */
 
 (function () {
   async function fetchBehaviorData() {
