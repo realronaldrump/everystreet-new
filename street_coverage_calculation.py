@@ -43,8 +43,12 @@ from shapely.geometry import (
     MultiPoint,
     box,
     shape,
+    mapping,
 )
-from shapely.ops import transform
+from shapely.ops import transform, unary_union
+
+# Moved import to top level to avoid local import issues if not strictly necessary for circular deps
+from osm_utils import generate_geojson_osm 
 
 from db import (
     batch_cursor,
@@ -488,9 +492,11 @@ class CoverageCalculator:
 
     async def build_spatial_index_and_stats(
         self,
+        boundary_geojson_data: dict | None = None,
     ) -> bool:
         """Loads streets, builds R-tree index, precomputes UTM geometries/bboxes,
         and calculates initial stats.
+        Optionally clips streets to a provided boundary_geojson_data.
         """
         logger.info(
             "Task %s: Building spatial index and precomputing geometries for %s...",
@@ -511,6 +517,44 @@ class CoverageCalculator:
         self.street_utm_geoms_cache = {}
         self.street_utm_bboxes_cache = {}
         self.street_wgs84_geoms_cache = {}
+
+        boundary_shape: shape | None = None
+        if boundary_geojson_data:
+            try:
+                # Process the boundary_geojson_data to create a shapely geometry
+                # This logic should be similar to how it's handled in preprocess_streets
+                if isinstance(boundary_geojson_data, dict) and boundary_geojson_data.get("type") in ["Polygon", "MultiPolygon"]:
+                    boundary_shape = shape(boundary_geojson_data)
+                elif isinstance(boundary_geojson_data, dict) and boundary_geojson_data.get("type") == "Feature":
+                    geom = boundary_geojson_data.get("geometry")
+                    if geom and geom.get("type") in ["Polygon", "MultiPolygon"]:
+                        boundary_shape = shape(geom)
+                elif isinstance(boundary_geojson_data, dict) and boundary_geojson_data.get("type") == "FeatureCollection":
+                    geoms = []
+                    for feature in boundary_geojson_data.get("features", []):
+                        geom = feature.get("geometry")
+                        if geom and geom.get("type") in ["Polygon", "MultiPolygon"]:
+                            geoms.append(shape(geom))
+                    if geoms:
+                        valid_polys = [g for g in geoms if g.is_valid or g.buffer(0).is_valid]
+                        fixed_polys = [g if g.is_valid else g.buffer(0) for g in valid_polys]
+                        final_polys = [p for p in fixed_polys if p.is_valid and not p.is_empty]
+                        if final_polys:
+                            boundary_shape = unary_union(final_polys)
+                
+                if boundary_shape and not boundary_shape.is_valid:
+                    boundary_shape = boundary_shape.buffer(0)
+                
+                if boundary_shape and boundary_shape.is_valid:
+                    logger.info("Task %s: Using provided boundary for clipping streets during indexing.", self.task_id)
+                else:
+                    logger.warning("Task %s: Provided boundary_geojson_data was invalid or could not be processed. No clipping will occur.", self.task_id)
+                    boundary_shape = None # Ensure it's None if invalid or unprocessed
+
+            except Exception as e:
+                logger.error("Task %s: Error processing provided boundary_geojson_data: %s. No clipping will occur.", self.task_id, e)
+                boundary_shape = None
+
 
         if self.streets_index:
             try:
@@ -615,6 +659,40 @@ class CoverageCalculator:
                         )
 
                         geom_wgs84 = shape(geometry_data)
+                        
+                        # Optional clipping logic
+                        if boundary_shape:
+                            if not geom_wgs84.intersects(boundary_shape):
+                                continue # Street segment is outside the boundary
+                            original_length_before_clip = geom_wgs84.length
+                            geom_wgs84 = geom_wgs84.intersection(boundary_shape)
+                            if not geom_wgs84.is_valid or geom_wgs84.is_empty or geom_wgs84.geom_type not in ("LineString", "MultiLineString") :
+                                continue # Skip if clipping results in invalid, empty, or non-linear geometry
+                            
+                            if geom_wgs84.geom_type == "MultiLineString":
+                                largest_line = None
+                                max_len = 0
+                                for line_geom in geom_wgs84.geoms:
+                                    if line_geom.length > max_len:
+                                        max_len = line_geom.length
+                                        largest_line = line_geom
+                                if largest_line and largest_line.length > 1e-6:
+                                    geom_wgs84 = largest_line
+                                else:
+                                    continue # No suitable line found
+                            elif geom_wgs84.length < 1e-6:
+                                continue # Too short after clipping
+                            
+                            # Update the geometry_data in the street document if it was clipped
+                            # This ensures that street_wgs84_geoms_cache stores the clipped version
+                            if geom_wgs84.length < original_length_before_clip - 1e-6: # Check if it was actually clipped
+                                self.street_wgs84_geoms_cache[segment_id] = mapping(geom_wgs84)
+                            else:
+                                self.street_wgs84_geoms_cache[segment_id] = geometry_data # Store original if not clipped significantly
+
+                        else: # No boundary_shape, store original geometry
+                             self.street_wgs84_geoms_cache[segment_id] = geometry_data
+
                         geom_utm = transform(
                             self.project_to_utm,
                             geom_wgs84,
@@ -1961,6 +2039,7 @@ class CoverageCalculator:
     async def compute_coverage(
         self,
         run_incremental: bool = False,
+        boundary_geojson_data: dict | None = None,
     ) -> dict[str, Any] | None:
         """Main orchestration method for the coverage calculation process."""
         start_time = datetime.now(timezone.utc)
@@ -1996,7 +2075,7 @@ class CoverageCalculator:
                 )
                 return None
 
-            index_success = await self.build_spatial_index_and_stats()
+            index_success = await self.build_spatial_index_and_stats(boundary_geojson_data=boundary_geojson_data)
             if not index_success:
                 logger.error(
                     "Task %s: Failed during spatial index build for %s.",
@@ -2241,6 +2320,7 @@ class CoverageCalculator:
 async def compute_coverage_for_location(
     location: dict[str, Any],
     task_id: str,
+    fetch_boundary_for_clipping: bool = True,
 ) -> dict[str, Any] | None:
     """Entry point for a full coverage calculation."""
     location_name = location.get("display_name", "Unknown Location")
@@ -2250,13 +2330,33 @@ async def compute_coverage_for_location(
         location_name,
     )
     calculator = None
+    boundary_data_for_calc = None
     try:
         await ensure_street_coverage_indexes()
+
+        if fetch_boundary_for_clipping:
+            logger.info("Task %s: Attempting to fetch boundary GeoJSON for %s to aid clipping in calculator.", task_id, location_name)
+            # from osm_utils import generate_geojson_osm # Local import removed
+            # We need the raw GeoJSON polygon data from the location object if it was pre-fetched,
+            # or fetch it if not. The location dict passed to compute_coverage_for_location
+            # should ideally already contain the 'geojson' field from validate_location_osm.
+            if "geojson" in location and location["geojson"]:
+                boundary_data_for_calc = location["geojson"]
+                logger.info("Task %s: Using pre-existing GeoJSON boundary from location object for %s.", task_id, location_name)
+            else:
+                # Fallback to fetch if not present, though preprocess_streets should have added it.
+                # This might be redundant if preprocess_streets always runs and adds it.
+                boundary_geojson, err = await generate_geojson_osm(location, streets_only=False)
+                if err:
+                    logger.warning("Task %s: Could not fetch boundary GeoJSON for %s for calculator clipping: %s. Proceeding without it.", task_id, location_name, err)
+                elif boundary_geojson:
+                    boundary_data_for_calc = boundary_geojson # This will be the full FeatureCollection
+                    logger.info("Task %s: Fetched boundary GeoJSON for %s for calculator clipping.", task_id, location_name)
 
         calculator = CoverageCalculator(location, task_id)
 
         result = await asyncio.wait_for(
-            calculator.compute_coverage(run_incremental=False),
+            calculator.compute_coverage(run_incremental=False, boundary_geojson_data=boundary_data_for_calc),
             timeout=PROCESS_TIMEOUT_OVERALL,
         )
 
@@ -2353,6 +2453,7 @@ async def compute_coverage_for_location(
 async def compute_incremental_coverage(
     location: dict[str, Any],
     task_id: str,
+    fetch_boundary_for_clipping: bool = True,
 ) -> dict[str, Any] | None:
     """Entry point for an incremental coverage calculation."""
     location_name = location.get("display_name", "Unknown Location")
@@ -2362,6 +2463,7 @@ async def compute_incremental_coverage(
         location_name,
     )
     calculator = None
+    boundary_data_for_calc = None
     try:
         await ensure_street_coverage_indexes()
 
@@ -2376,11 +2478,25 @@ async def compute_incremental_coverage(
                 task_id,
                 location_name,
             )
-            return await compute_coverage_for_location(location, task_id)
+            return await compute_coverage_for_location(location, task_id, fetch_boundary_for_clipping=fetch_boundary_for_clipping)
+
+        if fetch_boundary_for_clipping:
+            logger.info("Task %s: Attempting to fetch boundary GeoJSON for %s for incremental calculator clipping.", task_id, location_name)
+            # from osm_utils import generate_geojson_osm # Local import removed
+            if "geojson" in location and location["geojson"]:
+                boundary_data_for_calc = location["geojson"]
+                logger.info("Task %s: Using pre-existing GeoJSON boundary from location object for incremental %s.", task_id, location_name)
+            else:
+                boundary_geojson, err = await generate_geojson_osm(location, streets_only=False)
+                if err:
+                    logger.warning("Task %s: Could not fetch boundary GeoJSON for incremental %s for calculator clipping: %s. Proceeding without it.", task_id, location_name, err)
+                elif boundary_geojson:
+                    boundary_data_for_calc = boundary_geojson
+                    logger.info("Task %s: Fetched boundary GeoJSON for incremental %s for calculator clipping.", task_id, location_name)
 
         calculator = CoverageCalculator(location, task_id)
         result = await asyncio.wait_for(
-            calculator.compute_coverage(run_incremental=True),
+            calculator.compute_coverage(run_incremental=True, boundary_geojson_data=boundary_data_for_calc),
             timeout=PROCESS_TIMEOUT_INCREMENTAL,
         )
 

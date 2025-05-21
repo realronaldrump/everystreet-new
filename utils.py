@@ -127,6 +127,7 @@ async def validate_location_osm(
         "format": "json",
         "limit": 1,
         "featuretype": locationType,
+        "polygon_geojson": 1,
     }
     headers = {"User-Agent": "EveryStreet-Validator/1.0"}
 
