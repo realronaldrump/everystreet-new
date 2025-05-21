@@ -25,7 +25,6 @@ class EnhancedNavigation {
     this.maneuverIcon = document.getElementById("maneuver-icon");
     
     // Options
-    this.voiceGuidanceToggle = document.getElementById("voice-guidance-toggle");
     this.avoidHighwaysToggle = document.getElementById("avoid-highways-toggle");
     this.prioritizeConnectivityToggle = document.getElementById("prioritize-connectivity-toggle");
     
@@ -186,14 +185,6 @@ class EnhancedNavigation {
     // Recalculate button
     if (this.recalculateBtn) {
       this.recalculateBtn.addEventListener("click", () => this.recalculateRoute());
-    }
-    
-    // Voice guidance toggle
-    if (this.voiceGuidanceToggle) {
-      this.voiceGuidanceToggle.addEventListener("change", (e) => {
-        const enabled = e.target.checked;
-        this.navigationService.voiceEnabled = enabled;
-      });
     }
     
     // Auto-follow toggle

@@ -24,54 +24,11 @@ class NavigationService {
     this.onDirectionChange = null;
     this.distanceToRouteThreshold = 50; // meters
     this.routeRecalculationThreshold = 100; // meters
-    this.speechSynthesis = window.speechSynthesis;
-    this.voiceEnabled = true;
-    this.lastDirectionSpoken = null;
     this.directionsQueue = [];
     this.processingDirections = false;
     this.routeHistory = [];
     this.streetVisitStatus = new Map(); // Map<segment_id, {visited: boolean, timestamp: Date}>
     this.locationName = null;
-    this.speechInitialized = false;
-    this.availableVoices = [];
-    this.selectedVoiceIndex = 0;
-  }
-
-  /**
-   * Initialize the speech synthesis system
-   */
-  initializeSpeech() {
-    if (this.speechInitialized) return;
-    
-    // Get available voices
-    const getVoices = () => {
-      this.availableVoices = this.speechSynthesis.getVoices();
-      
-      // Find English voices and select a good default
-      const englishVoices = this.availableVoices.filter(voice => 
-        voice.lang.includes('en-') || voice.lang === 'en');
-      
-      if (englishVoices.length > 0) {
-        // Prefer UK/US English voices
-        const preferredVoice = englishVoices.find(voice => 
-          voice.lang === 'en-US' || voice.lang === 'en-GB');
-        
-        this.selectedVoiceIndex = preferredVoice ? 
-          this.availableVoices.indexOf(preferredVoice) : 
-          this.availableVoices.indexOf(englishVoices[0]);
-      }
-      
-      this.speechInitialized = true;
-      console.log("Speech synthesis initialized with", this.availableVoices.length, "voices");
-    };
-    
-    // Check if voices are already loaded
-    if (this.speechSynthesis.getVoices().length > 0) {
-      getVoices();
-    } else {
-      // Wait for voices to be loaded
-      this.speechSynthesis.onvoiceschanged = getVoices;
-    }
   }
 
   /**
@@ -275,7 +232,6 @@ class NavigationService {
     }
     
     this.isNavigating = true;
-    this.initializeSpeech();
     
     // Prepare directions queue
     this._prepareDirections({
@@ -283,9 +239,6 @@ class NavigationService {
       route_duration_seconds: this.currentRoute.duration,
       route_distance_meters: this.currentRoute.distance
     });
-    
-    // Announce start of navigation
-    this._speak(`Starting navigation to ${this.targetStreet.street_name || 'your destination'}`);
     
     if (this.onNavigationUpdate) {
       this.onNavigationUpdate({
@@ -303,11 +256,6 @@ class NavigationService {
   stopNavigation() {
     this.isNavigating = false;
     this.directionsQueue = [];
-    
-    // Stop any current speech
-    if (this.speechSynthesis.speaking) {
-      this.speechSynthesis.cancel();
-    }
     
     if (this.onNavigationUpdate) {
       this.onNavigationUpdate({
@@ -329,9 +277,6 @@ class NavigationService {
     
     // If we're currently navigating to this street, update status
     if (this.isNavigating && this.targetStreet && this.targetStreet.segment_id === segmentId) {
-      // Announce arrival
-      this._speak("You have arrived at your destination");
-      
       if (this.onNavigationUpdate) {
         this.onNavigationUpdate({
           type: "arrived",
@@ -356,12 +301,6 @@ class NavigationService {
     
     try {
       const nextDirection = this.directionsQueue.shift();
-      this.lastDirectionSpoken = nextDirection;
-      
-      // Speak the direction if voice is enabled
-      if (this.voiceEnabled) {
-        await this._speak(nextDirection.instruction);
-      }
       
       // Notify listeners
       if (this.onDirectionChange) {
@@ -380,53 +319,6 @@ class NavigationService {
       this.processingDirections = false;
       this._handleError(`Error processing direction: ${error.message}`);
     }
-  }
-
-  /**
-   * Speak text using speech synthesis
-   */
-  async _speak(text) {
-    if (!this.voiceEnabled || !this.speechSynthesis) return Promise.resolve();
-    
-    return new Promise((resolve, reject) => {
-      try {
-        // Cancel any current speech
-        if (this.speechSynthesis.speaking) {
-          this.speechSynthesis.cancel();
-        }
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        
-        // Use selected voice if available
-        if (this.availableVoices.length > 0) {
-          utterance.voice = this.availableVoices[this.selectedVoiceIndex];
-        }
-        
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-        
-        utterance.onend = () => {
-          resolve();
-        };
-        
-        utterance.onerror = (event) => {
-          reject(new Error(`Speech synthesis error: ${event.error}`));
-        };
-        
-        this.speechSynthesis.speak(utterance);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
-
-  /**
-   * Toggle voice guidance on/off
-   */
-  toggleVoiceGuidance() {
-    this.voiceEnabled = !this.voiceEnabled;
-    return this.voiceEnabled;
   }
 
   /**
