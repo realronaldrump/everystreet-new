@@ -2002,6 +2002,16 @@ const STATUS = window.STATUS || {
         this.selectedLocation = data.coverage; // Store the full coverage data
         this.currentDashboardLocationId = locationId; // <--- ADD THIS LINE
         const coverage = data.coverage;
+        // Override cached GeoJSON with live streets data (to pick up manual overrides)
+        try {
+          const liveResp = await fetch(`/api/coverage_areas/${locationId}/streets`);
+          if (liveResp.ok) {
+            const liveGeo = await liveResp.json();
+            coverage.streets_geojson = liveGeo;
+          }
+        } catch (e) {
+          console.error('Error fetching live streets GeoJSON in dashboard:', e);
+        }
 
         const locationName = coverage.location_name || "Coverage Details";
         dashboardLocationName.textContent = locationName;
