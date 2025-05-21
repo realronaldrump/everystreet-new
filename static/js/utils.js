@@ -584,7 +584,7 @@ window.utils = {
 
   getStorage(key, defaultValue = null) {
     try {
-      const item = window.utils.getStorage(key);
+      const item = localStorage.getItem(key);
       if (item === null) return defaultValue;
       try {
         return JSON.parse(item);
@@ -601,7 +601,7 @@ window.utils = {
     try {
       const valueToStore =
         typeof value === "object" ? JSON.stringify(value) : String(value);
-      window.utils.setStorage(key, valueToStore);
+      localStorage.setItem(key, valueToStore);
       return true;
     } catch (error) {
       console.warn(`Error setting localStorage for key ${key}:`, error);

@@ -395,7 +395,7 @@ class EnhancedNavigation {
             }
           }).addTo(this.undrivenStreetsLayer);
         
-          if (this.undrivenStreetsLayer.getLayers().length > 0) {
+          if (this.undrivenStreetsLayer.getLayers().length > 0 && typeof this.undrivenStreetsLayer.getBounds === 'function') {
             const bounds = this.undrivenStreetsLayer.getBounds();
             if (bounds && bounds.isValid()) { 
               this.map.fitBounds(bounds);
@@ -403,7 +403,7 @@ class EnhancedNavigation {
               console.warn("Undriven streets layer bounds are not valid. Cannot fit map.");
             }
           } else {
-             console.warn("No layers added to undrivenStreetsLayer after L.geoJSON. Cannot get bounds.");
+             console.warn("No layers added to undrivenStreetsLayer or getBounds is not a function. Cannot get bounds.");
           }
         } catch (e) {
           console.error("Error processing GeoJSON data with Leaflet:", e);
@@ -529,12 +529,14 @@ class EnhancedNavigation {
       try {
         let boundsToFit = routeLayer.getBounds();
         
-        if (this.positionMarker) {
+        if (this.positionMarker && typeof this.positionMarker.getLatLng === 'function') {
           boundsToFit.extend(this.positionMarker.getLatLng());
         }
         
-        if (boundsToFit.isValid()) {
+        if (boundsToFit && typeof boundsToFit.isValid === 'function' && boundsToFit.isValid()) {
           this.map.fitBounds(boundsToFit, { padding: [70, 70] });
+        } else {
+          console.warn("Cannot fit map to route and user location: bounds are not valid.");
         }
       } catch (error) {
         console.error("Error fitting map bounds:", error);
@@ -1065,12 +1067,14 @@ class EnhancedNavigation {
         const routeBounds = L.geoJSON(route.geometry).getBounds();
         let boundsToFit = routeBounds;
         
-        if (this.positionMarker) {
+        if (this.positionMarker && typeof this.positionMarker.getLatLng === 'function') {
           boundsToFit.extend(this.positionMarker.getLatLng());
         }
         
-        if (boundsToFit.isValid()) {
+        if (boundsToFit && typeof boundsToFit.isValid === 'function' && boundsToFit.isValid()) {
           this.map.fitBounds(boundsToFit, { padding: [70, 70] });
+        } else {
+          console.warn("Cannot fit map to segment route and user location: bounds are not valid.");
         }
       } catch (error) {
         console.error("Error fitting map bounds:", error);
