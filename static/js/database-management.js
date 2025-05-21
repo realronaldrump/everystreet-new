@@ -84,9 +84,15 @@ document.addEventListener("DOMContentLoaded", () => {
         setButtonLoading(refreshStorageBtn, true);
         const data = await performDatabaseAction("/api/database/storage-info");
         updateStorageDisplay(data);
-        window.notificationManager.show("Storage information updated successfully", "success");
+        window.notificationManager.show(
+          "Storage information updated successfully",
+          "success",
+        );
       } catch (error) {
-        window.notificationManager.show("Failed to refresh storage information", "danger");
+        window.notificationManager.show(
+          "Failed to refresh storage information",
+          "danger",
+        );
         console.error("Error refreshing storage info:", error);
       } finally {
         setButtonLoading(refreshStorageBtn, false);

@@ -490,7 +490,10 @@
         format: elements["adv-format"]?.value,
       };
 
-      window.utils.setStorage("advancedExportSettings", JSON.stringify(settings));
+      window.utils.setStorage(
+        "advancedExportSettings",
+        JSON.stringify(settings),
+      );
     } catch (error) {
       console.warn("Error saving export settings:", error);
     }
@@ -498,7 +501,9 @@
 
   function loadSavedExportSettings() {
     try {
-      const savedSettingsJSON = window.utils.getStorage("advancedExportSettings");
+      const savedSettingsJSON = window.utils.getStorage(
+        "advancedExportSettings",
+      );
       if (!savedSettingsJSON) return;
       const settings = JSON.parse(savedSettingsJSON);
       setDataSources(settings.dataSources);
@@ -905,7 +910,10 @@
       URL.revokeObjectURL(blobUrl);
       console.info(`Download cleanup completed for ${filename}`);
     }, 100);
-    window.notificationManager.show(`Successfully exported ${filename}`, "success");
+    window.notificationManager.show(
+      `Successfully exported ${filename}`,
+      "success",
+    );
   }
 
   function getExtensionForFormat(format) {
@@ -978,7 +986,10 @@
       .catch((err) => {
         locationSelect.innerHTML =
           '<option value="">Failed to load areas</option>';
-        window.notificationManager.show("Failed to load areas: " + err.message, "error");
+        window.notificationManager.show(
+          "Failed to load areas: " + err.message,
+          "error",
+        );
       });
 
     // Enable export button only if area is selected
@@ -1037,9 +1048,15 @@
           document.body.removeChild(a);
           window.URL.revokeObjectURL(url);
         }, 100);
-        window.notificationManager.show("Undriven streets export completed", "success");
+        window.notificationManager.show(
+          "Undriven streets export completed",
+          "success",
+        );
       } catch (err) {
-        window.notificationManager.show("Export failed: " + err.message, "error");
+        window.notificationManager.show(
+          "Export failed: " + err.message,
+          "error",
+        );
       } finally {
         exportBtn.disabled = false;
         exportBtn.innerHTML = "Export Undriven Streets";

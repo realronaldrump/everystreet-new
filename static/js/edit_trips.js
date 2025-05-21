@@ -23,7 +23,8 @@ document.addEventListener("DOMContentLoaded", () => {
       library: "leaflet",
       center: [37.0902, -95.7129],
       zoom: 4,
-      tileLayer: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      tileLayer:
+        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
       tileOptions: { maxZoom: 19, attribution: "" },
     });
 

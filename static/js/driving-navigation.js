@@ -88,7 +88,8 @@ class DrivingNavigation {
         center: [37.8, -96],
         zoom: 4,
         zoomControl: true,
-        tileLayer: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        tileLayer:
+          "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         tileOptions: { attribution: "", maxZoom: 19 },
       });
       this.undrivenStreetsLayer.addTo(this.map);
@@ -297,7 +298,8 @@ class DrivingNavigation {
 
   loadAutoFollowState() {
     if (!this.autoFollowToggle) return;
-    const savedState = window.utils.getStorage("drivingNavAutoFollow") === "true";
+    const savedState =
+      window.utils.getStorage("drivingNavAutoFollow") === "true";
     this.autoFollowToggle.checked = savedState;
   }
 

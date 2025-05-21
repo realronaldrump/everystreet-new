@@ -53,7 +53,8 @@
           center: [37.0902, -95.7129],
           zoom: 4,
           zoomControl: true,
-          tileLayer: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+          tileLayer:
+            "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
           tileOptions: { maxZoom: 19 },
         });
         this.customPlacesLayer = L.featureGroup().addTo(this.map);

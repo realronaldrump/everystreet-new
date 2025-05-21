@@ -42,7 +42,8 @@
         attributionControl,
         ...mapOptions,
       });
-      const defaultTileLayer = tileLayer || "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+      const defaultTileLayer =
+        tileLayer || "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
       L.tileLayer(defaultTileLayer, tileOptions).addTo(map);
       return map;
     }
@@ -50,4 +51,4 @@
 
   window.mapBase = window.mapBase || {};
   window.mapBase.createMap = createMap;
-})(window, document, window.L, window.mapboxgl); 
+})(window, document, window.L, window.mapboxgl);
