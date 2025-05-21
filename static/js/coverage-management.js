@@ -2877,9 +2877,26 @@ const STATUS = window.STATUS || {
         }
         // --- END IMMEDIATE VISUAL UPDATE ---
 
-        // Refresh the dashboard to reflect the change from server and update stats
-        await this.displayCoverageDashboard(locationIdForApi);
-        // Also refresh the main table in case stats changed significantly
+        // Refresh statistics on the server and update stats UI
+        try {
+          const refreshResp = await fetch(`/api/coverage_areas/${locationIdForApi}/refresh_stats`, { method: 'POST' });
+          const refreshData = await refreshResp.json();
+          if (refreshResp.ok && refreshData.coverage) {
+            this.selectedLocation = refreshData.coverage;
+            this.updateDashboardStats(refreshData.coverage);
+            // Update summary control if map exists
+            this.addCoverageSummary(refreshData.coverage);
+          } else {
+            this.notificationManager.show(
+              `Failed to refresh stats: ${refreshData.detail || 'Unknown error'}`,
+              'warning',
+            );
+          }
+        } catch (e) {
+          console.error('Error refreshing stats:', e);
+          this.notificationManager.show(`Error fetching updated stats: ${e.message}`, 'danger');
+        }
+        // Refresh the main coverage areas table
         await this.loadCoverageAreas();
       } catch (error) {
         this.notificationManager.show(
