@@ -997,13 +997,17 @@ class CoverageCalculator:
         ).batch_size(self.trip_batch_size)
 
         pending_futures_map: dict[Future, list[tuple[str, list[Any]]]] = {}
-        processed_count_local = 0
-        completed_futures_count = 0
+        processed_count_local = (
+            0  # Count of trips iterated from DB cursor in this run
+        )
+        completed_futures_count = (
+            0  # Count of successfully completed worker tasks
+        )
         failed_futures_count = 0
         batch_num = 0
         last_progress_update_pct = 56
         last_progress_update_time = datetime.now(timezone.utc)
-        self.processed_trips_count = 0
+        # self.processed_trips_count is now the count of *unique* trips processed by workers
 
         try:
             async for trip_batch_docs in batch_cursor(
@@ -1022,7 +1026,9 @@ class CoverageCalculator:
 
                 for trip_doc in trip_batch_docs:
                     trip_id = str(trip_doc["_id"])
-                    if trip_id in processed_trip_ids_set:
+                    if (
+                        trip_id in processed_trip_ids_set
+                    ):  # Check if this unique trip was already processed
                         continue
 
                     is_valid, coords = self._is_valid_trip(trip_doc.get("gps"))
@@ -1042,6 +1048,8 @@ class CoverageCalculator:
                                         ),
                                     )
                                 else:
+                                    # This trip is outside the location, mark as processed for this run
+                                    # but don't send to worker for this location
                                     processed_trip_ids_set.add(trip_id)
                             else:
                                 logger.warning(
@@ -1060,6 +1068,7 @@ class CoverageCalculator:
                                 (trip_id, coords),
                             )
                     else:
+                        # Invalid trip, mark as processed for this run
                         processed_trip_ids_set.add(trip_id)
 
                 processed_count_local += len(trip_batch_docs)
@@ -1132,9 +1141,10 @@ class CoverageCalculator:
                         self.task_id,
                         batch_num,
                     )
-                    processed_trip_ids_set.update(
-                        [tid for tid, _ in valid_trips_for_processing],
-                    )
+                    for tid, _ in valid_trips_for_processing:
+                        if tid not in processed_trip_ids_set:
+                            processed_trip_ids_set.add(tid)
+                            # self.processed_trips_count +=1 # Don't increment here, only after worker success
                     continue
 
                 batch_candidate_utm_geoms: dict[str, Any] = {}
@@ -1165,9 +1175,10 @@ class CoverageCalculator:
                         self.task_id,
                         batch_num,
                     )
-                    processed_trip_ids_set.update(
-                        [tid for tid, _ in valid_trips_for_processing],
-                    )
+                    for tid, _ in valid_trips_for_processing:
+                        if tid not in processed_trip_ids_set:
+                            processed_trip_ids_set.add(tid)
+                            # self.processed_trips_count +=1 # Don't increment here
                     continue
 
                 logger.debug(
@@ -1224,9 +1235,9 @@ class CoverageCalculator:
                         i : i + self.trip_worker_sub_batch
                     ]
                     sub_batch_coords = [coords for _, coords in trip_sub_batch]
-                    sub_batch_trip_ids = [tid for tid, _ in trip_sub_batch]
+                    # sub_batch_trip_ids = [tid for tid, _ in trip_sub_batch] # Already captured in pending_futures_map value
 
-                    for (  # Removed unused chunk_idx from enumerate
+                    for (
                         geom_chunk,
                         bbox_chunk,
                     ) in zip(
@@ -1250,7 +1261,9 @@ class CoverageCalculator:
                                     self.match_buffer,
                                     self.min_match_length,
                                 )
-                                pending_futures_map[future] = trip_sub_batch
+                                pending_futures_map[future] = (
+                                    trip_sub_batch  # Store original trip_sub_batch with IDs
+                                )
                             except Exception as submit_err:
                                 logger.error(
                                     "Task %s: Error submitting sub-batch: %s",
@@ -1258,7 +1271,7 @@ class CoverageCalculator:
                                     submit_err,
                                 )
                                 failed_futures_count += 1
-                        else:
+                        else:  # Sequential processing
                             try:
                                 result_map = process_trip_worker(
                                     sub_batch_coords,
@@ -1269,8 +1282,8 @@ class CoverageCalculator:
                                     self.match_buffer,
                                     self.min_match_length,
                                 )
-                                for (  # Removed unused trip_idx_in_sub_batch
-                                    _,
+                                for (
+                                    trip_idx_in_sub_batch,  # This is the index within the sub_batch_coords
                                     matched_segment_ids,
                                 ) in result_map.items():
                                     if isinstance(
@@ -1286,14 +1299,19 @@ class CoverageCalculator:
                                         self.newly_covered_segments.update(
                                             valid_new_segments,
                                         )
-                                processed_trip_ids_set.update(
-                                    sub_batch_trip_ids,
+                                # Mark these trips as processed by worker
+                                for trip_id_processed, _ in trip_sub_batch:
+                                    if (
+                                        trip_id_processed
+                                        not in processed_trip_ids_set
+                                    ):
+                                        processed_trip_ids_set.add(
+                                            trip_id_processed
+                                        )
+                                        self.processed_trips_count += 1
+                                completed_futures_count += (
+                                    1  # Represents one unit of worker task
                                 )
-                                completed_futures_count += 1
-                                self.processed_trips_count += len(
-                                    trip_sub_batch,
-                                )
-
                             except Exception as seq_err:
                                 logger.error(
                                     "Task %s: Error during sequential processing: %s",
@@ -1311,11 +1329,11 @@ class CoverageCalculator:
                         self.task_id,
                         len(pending_futures_map),
                     )
-                    done_futures = []
                     try:
-                        for future in list(pending_futures_map.keys()):
+                        for future in list(
+                            pending_futures_map.keys()
+                        ):  # Iterate over a copy for safe removal
                             if future.done():
-                                done_futures.append(future)
                                 original_trip_sub_batch = (
                                     pending_futures_map.pop(future, [])
                                 )
@@ -1324,8 +1342,8 @@ class CoverageCalculator:
                                 ]
                                 try:
                                     result_map = future.result(timeout=0.1)
-                                    for (  # Removed unused trip_idx_in_sub_batch
-                                        _,
+                                    for (  # Iterate over results from worker
+                                        _,  # trip_idx_in_sub_batch (relative to worker input)
                                         matched_segment_ids,
                                     ) in result_map.items():
                                         if isinstance(
@@ -1341,14 +1359,19 @@ class CoverageCalculator:
                                             self.newly_covered_segments.update(
                                                 valid_new_segments,
                                             )
-
-                                    processed_trip_ids_set.update(
-                                        sub_batch_trip_ids,
-                                    )
+                                    # Mark these trips as processed by worker
+                                    for (
+                                        trip_id_processed
+                                    ) in sub_batch_trip_ids:
+                                        if (
+                                            trip_id_processed
+                                            not in processed_trip_ids_set
+                                        ):
+                                            processed_trip_ids_set.add(
+                                                trip_id_processed
+                                            )
+                                            self.processed_trips_count += 1
                                     completed_futures_count += 1
-                                    self.processed_trips_count += len(
-                                        original_trip_sub_batch,
-                                    )
 
                                 except FutureTimeoutError:
                                     logger.debug(
@@ -1356,7 +1379,7 @@ class CoverageCalculator:
                                         self.task_id,
                                     )
                                     pending_futures_map[future] = (
-                                        original_trip_sub_batch
+                                        original_trip_sub_batch  # Add back if not ready
                                     )
                                 except CancelledError:
                                     logger.warning(
@@ -1386,14 +1409,17 @@ class CoverageCalculator:
                 )
 
                 if should_update_progress:
-                    progress_pct = 50 + (
-                        (
-                            self.processed_trips_count
-                            / self.total_trips_to_process
-                            * 40
+                    progress_pct = (
+                        50
+                        + (
+                            (
+                                self.processed_trips_count  # Use the count of uniquely processed trips
+                                / self.total_trips_to_process
+                                * 40
+                            )
+                            if self.total_trips_to_process > 0
+                            else 40
                         )
-                        if self.total_trips_to_process > 0
-                        else 40
                     )
                     progress_pct = min(progress_pct, 90.0)
 
@@ -1430,7 +1456,7 @@ class CoverageCalculator:
                 ]
 
                 try:
-                    await asyncio.wait(  # Removed unused pending_wrapped
+                    await asyncio.wait(
                         wrapped_futures,
                         timeout=WORKER_RESULT_WAIT_TIMEOUT_S,
                         return_when=asyncio.ALL_COMPLETED,
@@ -1460,8 +1486,8 @@ class CoverageCalculator:
                                     result_map = future.result(
                                         timeout=0,
                                     )
-                                    for (  # Removed unused trip_idx
-                                        _,
+                                    for (
+                                        _,  # trip_idx_in_sub_batch
                                         matched_ids,
                                     ) in result_map.items():
                                         if isinstance(matched_ids, set):
@@ -1474,13 +1500,19 @@ class CoverageCalculator:
                                             self.newly_covered_segments.update(
                                                 valid_new_segments,
                                             )
-                                    processed_trip_ids_set.update(
-                                        sub_batch_trip_ids,
-                                    )
+                                    # Mark these trips as processed by worker
+                                    for (
+                                        trip_id_processed
+                                    ) in sub_batch_trip_ids:
+                                        if (
+                                            trip_id_processed
+                                            not in processed_trip_ids_set
+                                        ):
+                                            processed_trip_ids_set.add(
+                                                trip_id_processed
+                                            )
+                                            self.processed_trips_count += 1
                                     completed_futures_count += 1
-                                    self.processed_trips_count += len(
-                                        original_trip_sub_batch,
-                                    )
                             except Exception as e:
                                 logger.error(
                                     "Task %s: Final future processing error on done future: %s. NOT marking trips.",
@@ -1510,7 +1542,6 @@ class CoverageCalculator:
                     )
                     for future in original_futures_list:
                         if future in pending_futures_map:
-                            # original_trip_sub_batch = pending_futures_map.pop(future, None) # Not needed if just cancelling
                             pending_futures_map.pop(future, None)
                             logger.warning(
                                 "Task %s: Future pending after asyncio.wait timeout. Attempting cancel. NOT marking trips.",
@@ -1534,7 +1565,6 @@ class CoverageCalculator:
                     )
                     for future in original_futures_list:
                         if future in pending_futures_map:
-                            # original_trip_sub_batch = pending_futures_map.pop(future, None) # Not needed
                             pending_futures_map.pop(future, None)
                             logger.error(
                                 "Task %s: Marking future as failed due to wait error. NOT marking trips.",
@@ -1560,17 +1590,17 @@ class CoverageCalculator:
             )
             logger.info(
                 "Task %s: Finished trip processing stage for %s. "
-                "DB Trips Checked: %d/%d. "
-                "Successfully Processed by Workers/Seq: %d. "
-                "Submitted to Workers: %d. "
-                "Failed/Timeout: %d. "
-                "Newly covered segments found (incl. non-driveable): %d.",
+                "DB Trips Checked (this run): %d. Total Trips in Filter: %d. "
+                "Unique Trips Processed by Workers: %d. "
+                "Submitted to Workers (sub-batches): %d. "
+                "Failed/Timeout Futures: %d. "
+                "Newly covered segments found (driveable+undriveable): %d.",
                 self.task_id,
                 self.location_name,
-                processed_count_local,
-                self.total_trips_to_process,
-                self.processed_trips_count,
-                self.submitted_trips_count,
+                processed_count_local,  # How many docs were iterated from DB
+                self.total_trips_to_process,  # How many matched the initial filter
+                self.processed_trips_count,  # How many unique trips were successfully processed by workers
+                self.submitted_trips_count,  # How many sub-batches were sent to workers
                 failed_futures_count,
                 final_new_segments,
             )
@@ -1872,8 +1902,9 @@ class CoverageCalculator:
 
             MAX_TRIP_IDS_TO_STORE = 50000
             if len(trip_ids_list) <= MAX_TRIP_IDS_TO_STORE:
-                pass  # If you intended to store trip_ids_list, it's missing here.
-                # Based on the original code, it seems it was conditionally skipped.
+                # If you want to store the processed trip IDs, uncomment the next line
+                # update_doc["$set"]["processed_trips"]["trip_ids"] = trip_ids_list
+                pass
             else:
                 logger.warning(
                     "Task %s: Not storing %d trip IDs in metadata due to size limit.",
@@ -2039,24 +2070,20 @@ class CoverageCalculator:
                                 self.task_id,
                                 type(trip_ids_data).__name__,
                             )
-                            run_incremental = False  # Intentionally not modifying the parameter
+                            run_incremental = False
                     else:
                         logger.warning(
                             "Task %s: No previously processed trip IDs found in metadata. Running as full.",
                             self.task_id,
                         )
-                        run_incremental = (
-                            False  # Intentionally not modifying the parameter
-                        )
+                        run_incremental = False
                 except Exception as meta_err:
                     logger.error(
                         "Task %s: Error loading processed trips metadata: %s. Running as full.",
                         self.task_id,
                         meta_err,
                     )
-                    run_incremental = (
-                        False  # Intentionally not modifying the parameter
-                    )
+                    run_incremental = False
             else:
                 logger.info(
                     "Task %s: Starting full coverage run for %s.",

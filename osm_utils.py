@@ -34,14 +34,14 @@ EXCLUDED_HIGHWAY_TYPES_REGEX = (
     "service|alley|driveway|parking_aisle"  # Enhanced
 )
 
-EXCLUDED_ACCESS_TYPES_REGEX = (
-    "private|no|customers|delivery|agricultural|forestry|destination|permit"  # Enhanced
-)
+EXCLUDED_ACCESS_TYPES_REGEX = "private|no|customers|delivery|agricultural|forestry|destination|permit"  # Enhanced
 
 EXCLUDED_SERVICE_TYPES_REGEX = "parking_aisle|driveway"
 
 
-def build_standard_osm_streets_query(query_target_clause: str, timeout: int = 300) -> str:
+def build_standard_osm_streets_query(
+    query_target_clause: str, timeout: int = 300
+) -> str:
     """
     Builds a standardized Overpass QL query to fetch public, drivable streets.
 
@@ -56,19 +56,25 @@ def build_standard_osm_streets_query(query_target_clause: str, timeout: int = 30
         The complete Overpass QL query string.
     """
     # Ensure the target clause ends with a semicolon if it's an area definition
-    if "->.searchArea" in query_target_clause and not query_target_clause.strip().endswith(";"):
+    if (
+        "->.searchArea" in query_target_clause
+        and not query_target_clause.strip().endswith(";")
+    ):
         query_target_clause = query_target_clause.strip() + ";"
 
     # Determine if we are using .searchArea (for area queries) or direct bbox
-    area_filter_clause = "(area.searchArea)" if "->.searchArea" in query_target_clause else ""
+    area_filter_clause = (
+        "(area.searchArea)" if "->.searchArea" in query_target_clause else ""
+    )
 
     # If using direct bbox, the query_target_clause itself is the bbox filter
     if not area_filter_clause:
         bbox_filter_clause = query_target_clause
-        query_target_clause = "" # Clear it as it's now part of bbox_filter_clause
+        query_target_clause = (
+            ""  # Clear it as it's now part of bbox_filter_clause
+        )
     else:
         bbox_filter_clause = ""
-
 
     query = f"""
     [out:json][timeout:{timeout}];
@@ -120,7 +126,9 @@ async def process_elements(
             if len(coords) >= 2:
                 properties = e.get("tags", {})
                 try:
-                    if streets_only: # This implies it's a LineString from our query
+                    if (
+                        streets_only
+                    ):  # This implies it's a LineString from our query
                         line = LineString(coords)
                         features.append(
                             {
@@ -129,7 +137,9 @@ async def process_elements(
                                 "properties": properties,
                             },
                         )
-                    elif coords[0] == coords[-1]: # For boundary (non-streets_only)
+                    elif (
+                        coords[0] == coords[-1]
+                    ):  # For boundary (non-streets_only)
                         poly = Polygon(coords)
                         features.append(
                             {
@@ -138,7 +148,7 @@ async def process_elements(
                                 "properties": properties,
                             },
                         )
-                    else: # For boundary (non-streets_only) that isn't a closed polygon
+                    else:  # For boundary (non-streets_only) that isn't a closed polygon
                         line = LineString(coords)
                         features.append(
                             {
@@ -200,12 +210,13 @@ async def generate_geojson_osm(
         else:
             area_id_for_query = area_id
 
-
         if streets_only:
             # Use the new standard query builder for streets
             # The area(...) clause is specific to Overpass for defining a search area from an OSM object
             query_target_clause = f"area({area_id_for_query})->.searchArea;"
-            query = build_standard_osm_streets_query(query_target_clause, timeout=300)
+            query = build_standard_osm_streets_query(
+                query_target_clause, timeout=300
+            )
             logger.info(
                 "Using standard Overpass query for streets.",
             )
@@ -230,7 +241,7 @@ async def generate_geojson_osm(
             async with session.get(
                 OVERPASS_URL,
                 params={"data": query},
-                timeout=90, # HTTP client timeout
+                timeout=90,  # HTTP client timeout
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
@@ -268,7 +279,9 @@ async def generate_geojson_osm(
 
         try:
             bson_size_estimate = len(json.dumps(geojson_data).encode("utf-8"))
-            if bson_size_estimate <= 16793598: # MongoDB BSON document limit (approx)
+            if (
+                bson_size_estimate <= 16793598
+            ):  # MongoDB BSON document limit (approx)
                 existing_data = await find_one_with_retry(
                     osm_data_collection,
                     {
