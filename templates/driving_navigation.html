@@ -161,10 +161,238 @@ block head_content %}
   .step-title {
     font-size: 0.75rem;
   }
+  
+  /* New styles for enhanced navigation */
+  .navigation-panel {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    background-color: rgba(33, 37, 41, 0.9);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    padding: 12px;
+    max-width: 500px;
+    margin: 0 auto;
+    display: none;
+    color: white;
+  }
+  
+  .navigation-panel.active {
+    display: block;
+  }
+  
+  .direction-instruction {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  
+  .direction-distance {
+    font-size: 0.9rem;
+    color: #adb5bd;
+    margin-bottom: 12px;
+  }
+  
+  .nav-progress-bar {
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  
+  .nav-progress-inner {
+    height: 100%;
+    background-color: #76ff03;
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+  
+  .nav-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+  
+  .maneuver-icon {
+    font-size: 24px;
+    margin-right: 12px;
+  }
+  
+  .street-selector {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 10px;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+  
+  .street-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  .street-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .street-item:last-child {
+    border-bottom: none;
+  }
+  
+  .street-name {
+    font-weight: 500;
+  }
+  
+  .street-distance {
+    font-size: 0.8rem;
+    color: #adb5bd;
+  }
+  
+  .nav-options-panel {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+  
+  .voice-toggle {
+    transform: scale(1.2);
+  }
+  
+  .position-indicator {
+    position: fixed;
+    bottom: 80px; 
+    right: 20px;
+    background-color: rgba(33, 37, 41, 0.8);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 999;
+    cursor: pointer;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+  }
+  
+  .position-indicator:hover {
+    background-color: rgba(33, 37, 41, 1);
+    transform: scale(1.05);
+  }
+  
+  .position-indicator i {
+    color: #76ff03;
+    font-size: 24px;
+  }
+  
+  .position-indicator.tracking i {
+    color: #0dcaf0;
+  }
+  
+  .reconnecting-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    display: none;
+  }
+  
+  .reconnecting-overlay.active {
+    display: flex;
+  }
+  
+  .pulse {
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  
+  .position-marker-inner {
+    width: 10px;
+    height: 10px;
+    margin: auto;
+    border-radius: 50%;
+    background-color: #fff;
+  }
+  
+  .heading-indicator {
+    position: absolute;
+    top: -16px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+  }
+  
+  .heading-indicator i {
+    color: #0dcaf0;
+    font-size: 14px;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+  }
+  
+  .destination-marker {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .feature-highlight {
+    margin-bottom: 20px;
+    background-color: rgba(52, 58, 64, 0.5);
+    border-radius: 8px;
+    padding: 15px;
+    border-left: 4px solid #76ff03;
+  }
 </style>
 {% endblock %} {% block content %}
 <div class="container-fluid mt-3">
   <h2 class="mb-3">Driving Navigation</h2>
+  
+  <div class="feature-highlight">
+    <h5><i class="fas fa-star me-2"></i>Enhanced Navigation Experience</h5>
+    <p>This improved navigation system helps you efficiently cover undriven streets with features like:</p>
+    <div class="row">
+      <div class="col-md-4">
+        <ul class="mb-0">
+          <li>Real-time GPS tracking</li>
+          <li>Voice-guided navigation</li>
+          <li>Turn-by-turn directions</li>
+        </ul>
+      </div>
+      <div class="col-md-4">
+        <ul class="mb-0">
+          <li>Automatic route recalculation</li>
+          <li>Street connectivity prioritization</li>
+          <li>Highway avoidance option</li>
+        </ul>
+      </div>
+      <div class="col-md-4">
+        <ul class="mb-0">
+          <li>Visual progress tracking</li>
+          <li>One-tap navigation to any undriven street</li>
+          <li>Automatic street completion</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 
   <div class="row">
     <div class="col-md-4">
@@ -195,24 +423,42 @@ block head_content %}
           </button>
 
           <div class="mt-3 pt-3 border-top border-secondary">
-            <h6 class="card-subtitle mb-2 text-muted">Export Coverage Route</h6>
-            <div class="input-group mb-2">
-              <label class="input-group-text" for="coverage-route-format-select"
-                >Format</label
+            <h6 class="card-subtitle mb-2 text-muted">Navigation Options</h6>
+            <div class="form-check form-switch mb-2">
+              <input
+                class="form-check-input voice-toggle"
+                type="checkbox"
+                role="switch"
+                id="voice-guidance-toggle"
+                checked
+              />
+              <label class="form-check-label" for="voice-guidance-toggle"
+                >Voice Guidance</label
               >
-              <select class="form-select" id="coverage-route-format-select">
-                <option value="geojson" selected>GeoJSON</option>
-                <option value="gpx">GPX</option>
-                <option value="shapefile">Shapefile (Zip)</option>
-              </select>
             </div>
-            <button
-              id="export-coverage-route-btn"
-              class="btn btn-success w-100"
-              disabled
-            >
-              <i class="fas fa-download me-2"></i>Export Route
-            </button>
+            <div class="form-check form-switch mb-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="avoid-highways-toggle"
+              />
+              <label class="form-check-label" for="avoid-highways-toggle"
+                >Avoid Highways</label
+              >
+            </div>
+            <div class="form-check form-switch">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="prioritize-connectivity-toggle"
+                checked
+              />
+              <label class="form-check-label" for="prioritize-connectivity-toggle"
+                >Prioritize Connected Streets</label
+              >
+            </div>
           </div>
 
           <div class="form-check form-switch mt-3">
@@ -250,46 +496,110 @@ block head_content %}
               <div
                 id="route-progress-bar"
                 class="progress-bar progress-bar-striped progress-bar-animated"
+                role="progressbar"
                 style="width: 0%"
               ></div>
             </div>
           </div>
         </div>
       </div>
-      <div class="info-panel card bg-dark text-white">
+
+      <div class="card bg-dark text-white mb-3">
         <div class="card-body">
-          <h5 class="card-title">Navigation Information</h5>
-          <div id="status-message" class="mb-2">
-            Select an area and find the nearest street.
+          <h5 class="card-title">Navigation Status</h5>
+          <div id="status-message" class="info-panel">
+            Select an area to begin.
           </div>
           <div id="target-info"></div>
-          <div id="route-info" class="mt-2"></div>
-
-          <div id="route-details" class="mt-3" style="display: none">
-            <h6>Route Details</h6>
-            <div id="route-stats" class="route-stats"></div>
-            <div id="route-legend" class="route-legend"></div>
+          <div id="route-info"></div>
+          <div id="route-details" style="display: none">
+            <div class="mt-3 pt-3 border-top border-secondary">
+              <h6 class="card-subtitle mb-2 text-muted">Route Summary</h6>
+              <div id="route-stats" class="route-stats"></div>
+              <div id="route-legend" class="route-legend"></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <div class="col-md-8">
-      <div id="driving-map">
-        <div class="d-flex justify-content-center align-items-center h-100">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading Map...</span>
-          </div>
-        </div>
+
+    <div class="col-md-8 position-relative">
+      <div id="driving-map"></div>
+      
+      <!-- Position indicator button (fixed position) -->
+      <div class="position-indicator" id="center-position-btn">
+        <i class="fas fa-location-arrow"></i>
       </div>
     </div>
   </div>
 </div>
-{% endblock %} {% block extra_js %}
+
+<!-- Navigation panel (fixed at bottom) -->
+<div class="navigation-panel" id="navigation-panel">
+  <div class="d-flex align-items-center">
+    <div class="maneuver-icon">
+      <i class="fas fa-arrow-alt-circle-up" id="maneuver-icon"></i>
+    </div>
+    <div class="flex-grow-1">
+      <div class="direction-instruction" id="direction-instruction">
+        Starting navigation...
+      </div>
+      <div class="direction-distance" id="direction-distance">
+        Finding route...
+      </div>
+    </div>
+  </div>
+  
+  <div class="nav-progress-bar">
+    <div class="nav-progress-inner" id="nav-progress-bar"></div>
+  </div>
+  
+  <div class="nav-actions">
+    <button class="btn btn-sm btn-outline-light" id="stop-navigation-btn">
+      <i class="fas fa-stop me-1"></i>End
+    </button>
+    <button class="btn btn-sm btn-outline-light" id="recalculate-btn">
+      <i class="fas fa-sync-alt me-1"></i>Recalculate
+    </button>
+  </div>
+</div>
+
+<!-- Reconnecting overlay -->
+<div class="reconnecting-overlay" id="reconnecting-overlay">
+  <i class="fas fa-satellite-dish fa-3x mb-3 pulse"></i>
+  <h4>Reconnecting to GPS...</h4>
+  <p>Please wait while we reestablish your location.</p>
+</div>
+
+<!-- Export route modal -->
+<div class="modal fade" id="export-route-modal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title">Export Coverage Route</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="export-format" class="form-label">Select Format</label>
+          <select class="form-select" id="export-format">
+            <option value="geojson" selected>GeoJSON</option>
+            <option value="gpx">GPX</option>
+            <option value="shapefile">Shapefile (ZIP)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirm-export-btn">
+          <i class="fas fa-download me-1"></i>Download
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
-<script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
-<script>
-  const MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-</script>
-<script src="{{ url_for('static', path='js/driving-navigation.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/navigation-service.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/enhanced-navigation.js') | replace('http://', '//') }}"></script>
 {% endblock %}
