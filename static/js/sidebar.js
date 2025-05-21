@@ -21,7 +21,10 @@
     loadSavedState();
     handleResponsiveLayout();
 
-    window.addEventListener("resize", window.utils.debounce(handleResponsiveLayout, 250));
+    window.addEventListener(
+      "resize",
+      window.utils.debounce(handleResponsiveLayout, 250),
+    );
   }
 
   function cacheElements() {
@@ -70,7 +73,8 @@
   }
 
   function loadSavedState() {
-    const isCollapsed = window.utils.getStorage(CONFIG.storageKeys.sidebarState) === "true";
+    const isCollapsed =
+      window.utils.getStorage(CONFIG.storageKeys.sidebarState) === "true";
     if (isCollapsed && window.innerWidth >= CONFIG.mobileBreakpoint) {
       elements.body?.classList.add("sidebar-collapsed");
       elements.sidebar?.classList.add("collapsed");
@@ -113,7 +117,8 @@
     if (!elements.sidebar) return;
 
     const isMobile = window.innerWidth < CONFIG.mobileBreakpoint;
-    const isCollapsed = window.utils.getStorage(CONFIG.storageKeys.sidebarState) === "true";
+    const isCollapsed =
+      window.utils.getStorage(CONFIG.storageKeys.sidebarState) === "true";
 
     if (isMobile) {
       elements.sidebar.classList.remove("collapsed");

@@ -326,7 +326,9 @@ def process_element_parallel(
         location_name = element_data["location_name"]
         proj_to_utm: Callable = element_data["project_to_utm"]
         proj_to_wgs84: Callable = element_data["project_to_wgs84"]
-        boundary_polygon: BaseGeometry | None = element_data.get("boundary_polygon")
+        boundary_polygon: BaseGeometry | None = element_data.get(
+            "boundary_polygon"
+        )
         nodes = [(node["lon"], node["lat"]) for node in geometry_nodes]
         if len(nodes) < 2:
             return []
@@ -363,17 +365,20 @@ def process_element_parallel(
                     # logger.debug("Segment %s-%d outside boundary", osm_id, i)
                     continue  # Segment is entirely outside the boundary
 
-                clipped_segment_wgs84 = segment_wgs84.intersection(boundary_polygon)
+                clipped_segment_wgs84 = segment_wgs84.intersection(
+                    boundary_polygon
+                )
 
                 if (
                     not clipped_segment_wgs84.is_valid
                     or clipped_segment_wgs84.is_empty
-                    or not hasattr(clipped_segment_wgs84, 'geom_type')
-                    or clipped_segment_wgs84.geom_type not in ("LineString", "MultiLineString")
+                    or not hasattr(clipped_segment_wgs84, "geom_type")
+                    or clipped_segment_wgs84.geom_type
+                    not in ("LineString", "MultiLineString")
                 ):
                     # logger.debug("Segment %s-%d became invalid/empty or non-linear after clipping", osm_id, i)
-                    continue # Skip if clipping results in non-LineString or empty geometry
-                
+                    continue  # Skip if clipping results in non-LineString or empty geometry
+
                 # If clipping results in a MultiLineString, we might want to process each part
                 # For simplicity here, we'll take the largest LineString if it's a MultiLineString
                 # or just use it if it's a LineString.
@@ -386,15 +391,19 @@ def process_element_parallel(
                         if line.length > max_length:
                             max_length = line.length
                             largest_line = line
-                    if largest_line and largest_line.length > 1e-6: # Ensure it has some length
+                    if (
+                        largest_line and largest_line.length > 1e-6
+                    ):  # Ensure it has some length
                         segment_wgs84_to_use = largest_line
                     else:
                         # logger.debug("MultiLineString for %s-%d resulted in no suitable LineString after clipping", osm_id, i)
-                        continue # No suitable line found
-                else: # It's a LineString
-                     segment_wgs84_to_use = clipped_segment_wgs84
-                
-                if segment_wgs84_to_use.length < 1e-6: # Check length again after potential selection from MultiLineString
+                        continue  # No suitable line found
+                else:  # It's a LineString
+                    segment_wgs84_to_use = clipped_segment_wgs84
+
+                if (
+                    segment_wgs84_to_use.length < 1e-6
+                ):  # Check length again after potential selection from MultiLineString
                     # logger.debug("Segment %s-%d too short after clipping", osm_id, i)
                     continue
 
@@ -406,12 +415,14 @@ def process_element_parallel(
                 # Let's keep the original segment_utm.length for now, but acknowledge this.
                 # The geometry stored will be the clipped WGS84.
 
-            else: # No boundary polygon provided, use original segment
+            else:  # No boundary polygon provided, use original segment
                 segment_wgs84_to_use = segment_wgs84
 
             feature = {
                 "type": "Feature",
-                "geometry": mapping(segment_wgs84_to_use), # Use the (potentially) clipped WGS84 segment
+                "geometry": mapping(
+                    segment_wgs84_to_use
+                ),  # Use the (potentially) clipped WGS84 segment
                 "properties": {
                     "osm_id": osm_id,
                     "segment_id": f"{osm_id}-{i}",
@@ -757,7 +768,7 @@ async def preprocess_streets(
     Clips streets to the location's GeoJSON boundary if available.
     """
     location_name = validated_location["display_name"]
-    boundary_shape: BaseGeometry | None = None # Initialize boundary_shape
+    boundary_shape: BaseGeometry | None = None  # Initialize boundary_shape
 
     try:
         logger.info(
@@ -771,63 +782,137 @@ async def preprocess_streets(
                 # Assuming validated_location['geojson'] is a FeatureCollection dictionary
                 # or a single Feature dictionary.
                 # We need to handle both MultiPolygon and Polygon geometries.
-                
+
                 geojson_boundary_data = validated_location["geojson"]
-                
+
                 # Check if geojson_boundary_data is what Nominatim provides directly
                 # (a dict with 'type': 'Polygon'/'MultiPolygon')
-                if isinstance(geojson_boundary_data, dict) and geojson_boundary_data.get("type") in ["Polygon", "MultiPolygon"]:
+                if isinstance(
+                    geojson_boundary_data, dict
+                ) and geojson_boundary_data.get("type") in [
+                    "Polygon",
+                    "MultiPolygon",
+                ]:
                     boundary_shape = shape(geojson_boundary_data)
                     if not boundary_shape.is_valid:
-                        logger.warning("Boundary shape for %s is invalid, attempting to buffer by 0", location_name)
+                        logger.warning(
+                            "Boundary shape for %s is invalid, attempting to buffer by 0",
+                            location_name,
+                        )
                         boundary_shape = boundary_shape.buffer(0)
                     if boundary_shape.is_valid:
-                        logger.info("Successfully created boundary_shape for %s from 'geojson' field.", location_name)
+                        logger.info(
+                            "Successfully created boundary_shape for %s from 'geojson' field.",
+                            location_name,
+                        )
                     else:
-                        logger.error("Boundary shape for %s remains invalid after buffer(0). Cannot use for clipping.", location_name)
-                        boundary_shape = None # Ensure it's None if invalid
+                        logger.error(
+                            "Boundary shape for %s remains invalid after buffer(0). Cannot use for clipping.",
+                            location_name,
+                        )
+                        boundary_shape = None  # Ensure it's None if invalid
                 # Fallback for older structure or list of features (if Nominatim output changes or it's from another source)
-                elif isinstance(geojson_boundary_data, list) and geojson_boundary_data: 
+                elif (
+                    isinstance(geojson_boundary_data, list)
+                    and geojson_boundary_data
+                ):
                     raw_polygons = []
                     for item in geojson_boundary_data:
-                        if isinstance(item, dict) and item.get("geojson") and isinstance(item.get("geojson"), dict) and item.get("geojson").get("type") in ["Polygon", "MultiPolygon"]:
-                             raw_polygons.append(shape(item.get("geojson")))
-                        elif isinstance(item, dict) and item.get("type") in ["Polygon", "MultiPolygon"]:
-                             raw_polygons.append(shape(item))
-                        elif isinstance(item, dict) and item.get("type") == "Feature" and item.get("geometry", {}).get("type") in ["Polygon", "MultiPolygon"]:
+                        if (
+                            isinstance(item, dict)
+                            and item.get("geojson")
+                            and isinstance(item.get("geojson"), dict)
+                            and item.get("geojson").get("type")
+                            in ["Polygon", "MultiPolygon"]
+                        ):
+                            raw_polygons.append(shape(item.get("geojson")))
+                        elif isinstance(item, dict) and item.get("type") in [
+                            "Polygon",
+                            "MultiPolygon",
+                        ]:
+                            raw_polygons.append(shape(item))
+                        elif (
+                            isinstance(item, dict)
+                            and item.get("type") == "Feature"
+                            and item.get("geometry", {}).get("type")
+                            in ["Polygon", "MultiPolygon"]
+                        ):
                             raw_polygons.append(shape(item["geometry"]))
-                        elif isinstance(item, dict) and item.get("type") == "FeatureCollection":
+                        elif (
+                            isinstance(item, dict)
+                            and item.get("type") == "FeatureCollection"
+                        ):
                             for feature in item.get("features", []):
-                                if feature.get("geometry", {}).get("type") in ["Polygon", "MultiPolygon"]:
-                                    raw_polygons.append(shape(feature["geometry"]))
-                    
+                                if feature.get("geometry", {}).get("type") in [
+                                    "Polygon",
+                                    "MultiPolygon",
+                                ]:
+                                    raw_polygons.append(
+                                        shape(feature["geometry"])
+                                    )
+
                     if raw_polygons:
                         # Combine all valid polygons into a single geometry (MultiPolygon or Polygon)
                         # Filter for valid geometries before union to avoid errors
-                        valid_polygons = [p for p in raw_polygons if p.is_valid or p.buffer(0).is_valid]
+                        valid_polygons = [
+                            p
+                            for p in raw_polygons
+                            if p.is_valid or p.buffer(0).is_valid
+                        ]
                         if not valid_polygons:
-                             logger.warning("No valid polygon geometries found in 'geojson' list for %s after attempting to fix.", location_name)
+                            logger.warning(
+                                "No valid polygon geometries found in 'geojson' list for %s after attempting to fix.",
+                                location_name,
+                            )
                         else:
                             # Attempt to fix invalid geometries before union
-                            fixed_polygons = [p if p.is_valid else p.buffer(0) for p in valid_polygons]
+                            fixed_polygons = [
+                                p if p.is_valid else p.buffer(0)
+                                for p in valid_polygons
+                            ]
                             # Filter again as buffer(0) might result in empty or invalid geoms for some inputs
-                            final_polygons_for_union = [p for p in fixed_polygons if p.is_valid and not p.is_empty]
+                            final_polygons_for_union = [
+                                p
+                                for p in fixed_polygons
+                                if p.is_valid and not p.is_empty
+                            ]
                             if final_polygons_for_union:
-                                boundary_shape = unary_union(final_polygons_for_union)
+                                boundary_shape = unary_union(
+                                    final_polygons_for_union
+                                )
                                 if not boundary_shape.is_valid:
-                                    logger.warning("Union of boundary polygons for %s is invalid, attempting buffer(0).", location_name)
+                                    logger.warning(
+                                        "Union of boundary polygons for %s is invalid, attempting buffer(0).",
+                                        location_name,
+                                    )
                                     boundary_shape = boundary_shape.buffer(0)
                                 if boundary_shape.is_valid:
-                                    logger.info("Successfully created boundary_shape for %s from list of geojson items.", location_name)
+                                    logger.info(
+                                        "Successfully created boundary_shape for %s from list of geojson items.",
+                                        location_name,
+                                    )
                                 else:
-                                    logger.error("Boundary shape for %s from list remains invalid. Cannot use for clipping.", location_name)
+                                    logger.error(
+                                        "Boundary shape for %s from list remains invalid. Cannot use for clipping.",
+                                        location_name,
+                                    )
                                     boundary_shape = None
                             else:
-                                logger.warning("No valid polygons left after fixing for union for %s.", location_name)
+                                logger.warning(
+                                    "No valid polygons left after fixing for union for %s.",
+                                    location_name,
+                                )
                     else:
-                        logger.warning("No geometries could be extracted from the 'geojson' list for %s.", location_name)
+                        logger.warning(
+                            "No geometries could be extracted from the 'geojson' list for %s.",
+                            location_name,
+                        )
                 else:
-                    logger.warning("Validated_location.geojson for %s is not a recognized Polygon/MultiPolygon dict or a list of features. Type: %s", location_name, type(geojson_boundary_data).__name__)
+                    logger.warning(
+                        "Validated_location.geojson for %s is not a recognized Polygon/MultiPolygon dict or a list of features. Type: %s",
+                        location_name,
+                        type(geojson_boundary_data).__name__,
+                    )
 
             except Exception as e:
                 logger.error(
@@ -836,13 +921,18 @@ async def preprocess_streets(
                     e,
                     exc_info=True,
                 )
-                boundary_shape = None # Ensure it's None on error
-        
-        if boundary_shape:
-            logger.info("Boundary polygon successfully created for %s. Streets will be clipped.", location_name)
-        else:
-            logger.warning("No boundary polygon available for %s. Streets will not be clipped to a precise boundary.", location_name)
+                boundary_shape = None  # Ensure it's None on error
 
+        if boundary_shape:
+            logger.info(
+                "Boundary polygon successfully created for %s. Streets will be clipped.",
+                location_name,
+            )
+        else:
+            logger.warning(
+                "No boundary polygon available for %s. Streets will not be clipped to a precise boundary.",
+                location_name,
+            )
 
         center_lat = None
         center_lon = None

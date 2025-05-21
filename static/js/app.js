@@ -795,7 +795,11 @@ if (window.L?.Path) {
     });
 
     if (window.loadingManager)
-      window.loadingManager.updateOperation("FetchTrips", 10, "Fetching trips...");
+      window.loadingManager.updateOperation(
+        "FetchTrips",
+        10,
+        "Fetching trips...",
+      );
     try {
       const response = await fetch(`/api/trips?${params.toString()}`);
       window.loadingManager.finish("FetchTrips");
@@ -829,7 +833,11 @@ if (window.L?.Path) {
       await updateMapWithTrips(geojson); // Make sure updateMapWithTrips handles async correctly if needed
 
       // Fetch corresponding matched trips (can run concurrently or sequentially)
-      window.loadingManager.updateOperation("FetchTrips", 60, "Fetching matched trips...");
+      window.loadingManager.updateOperation(
+        "FetchTrips",
+        60,
+        "Fetching matched trips...",
+      );
       try {
         await fetchMatchedTrips(); // Assumes fetchMatchedTrips updates its own layer
       } catch (err) {
@@ -843,7 +851,11 @@ if (window.L?.Path) {
       }
 
       // Explicitly trigger a map update after all data fetching/processing
-      window.loadingManager.updateOperation("FetchTrips", 80, "Rendering map...");
+      window.loadingManager.updateOperation(
+        "FetchTrips",
+        80,
+        "Rendering map...",
+      );
       await updateMap();
 
       // Notify other parts of the app that trips are loaded
@@ -2079,7 +2091,8 @@ if (window.L?.Path) {
             locationFound = true;
             // If the layer was previously visible, fetch its data now
             if (
-              window.utils.getStorage("layer_visible_undrivenStreets") === "true"
+              window.utils.getStorage("layer_visible_undrivenStreets") ===
+              "true"
             ) {
               // Ensure the layer is marked as visible before fetching
               if (AppState.mapLayers.undrivenStreets) {

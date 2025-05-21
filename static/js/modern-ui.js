@@ -663,7 +663,8 @@ let baseTileLayer = null;
     }
 
     const today = DateUtils.getCurrentDate(); // YYYY-MM-DD format
-    const startDate = window.utils.getStorage(CONFIG.storage.startDate) || today;
+    const startDate =
+      window.utils.getStorage(CONFIG.storage.startDate) || today;
     const endDate = window.utils.getStorage(CONFIG.storage.endDate) || today;
 
     const dateConfig = {

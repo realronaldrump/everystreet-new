@@ -4479,7 +4479,9 @@ async def get_coverage_area_streets(location_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Error fetching streets for coverage area %s: %s", location_id, e)
+        logger.exception(
+            "Error fetching streets for coverage area %s: %s", location_id, e
+        )
         raise HTTPException(
             status_code=500,
             detail="Internal server error fetching streets",
