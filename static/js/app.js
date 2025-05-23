@@ -784,6 +784,11 @@ if (window.L?.Path) {
       return;
     }
 
+    // Start the loading operation
+    if (window.loadingManager) {
+      window.loadingManager.startOperation("FetchTrips", 100);
+    }
+
     // Update date input fields visually (optional)
     if (AppState.dom.startDateInput)
       AppState.dom.startDateInput.value = startDate;
@@ -873,8 +878,15 @@ if (window.L?.Path) {
         console.error("Error in fetchTrips:", error);
       }
       showNotification(CONFIG.ERROR_MESSAGES.fetchTripsFailed, "danger");
+      // Finish the loading operation on error
+      if (window.loadingManager) {
+        window.loadingManager.finish("FetchTrips");
+      }
     } finally {
-      // if (window.loadingManager) window.loadingManager.finish("FetchTrips"); // Removed: Let the event listener handle hiding the overlay
+      // Ensure loading operation is finished regardless of success or failure
+      if (window.loadingManager) {
+        window.loadingManager.finish("FetchTrips");
+      }
     }
   }
 
