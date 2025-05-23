@@ -807,7 +807,6 @@ if (window.L?.Path) {
       );
     try {
       const response = await fetch(`/api/trips?${params.toString()}`);
-      window.loadingManager.finish("FetchTrips");
       if (!response.ok) {
         throw new Error(
           `HTTP error fetching trips: ${response.status} ${response.statusText}`,
