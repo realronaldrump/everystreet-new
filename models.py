@@ -22,9 +22,7 @@ class BaseConfigMixin:
 class LocationModel(BaseModel):
     """Model for location data with validation."""
 
-    display_name: str = Field(
-        ..., min_length=1, description="Location display name"
-    )
+    display_name: str = Field(..., min_length=1, description="Location display name")
     osm_id: int = Field(..., gt=0, description="OpenStreetMap ID")
     osm_type: str = Field(..., description="OpenStreetMap type")
 
@@ -43,9 +41,7 @@ class LocationModel(BaseModel):
 class DeleteCoverageAreaModel(BaseModel):
     """Model for deleting a coverage area."""
 
-    display_name: str = Field(
-        ..., min_length=1, description="Location display name"
-    )
+    display_name: str = Field(..., min_length=1, description="Location display name")
 
     class Config(BaseConfigMixin):
         pass
@@ -55,9 +51,7 @@ class TripUpdateModel(BaseModel):
     """Model for trip update data with geometry validation."""
 
     type: str = Field(..., description="Update type")
-    geometry: dict[str, Any] | None = Field(
-        None, description="GeoJSON geometry"
-    )
+    geometry: dict[str, Any] | None = Field(None, description="GeoJSON geometry")
     properties: dict[str, Any] = Field(
         default_factory=dict, description="Trip properties"
     )
@@ -70,12 +64,8 @@ class TripUpdateModel(BaseModel):
         """Validate GeoJSON geometry structure if provided."""
         if v is not None:
             required_fields = {"type", "coordinates"}
-            if not isinstance(v, dict) or not required_fields.issubset(
-                v.keys()
-            ):
-                raise ValueError(
-                    "geometry must be a valid GeoJSON geometry object"
-                )
+            if not isinstance(v, dict) or not required_fields.issubset(v.keys()):
+                raise ValueError("geometry must be a valid GeoJSON geometry object")
         return v
 
 
@@ -118,15 +108,11 @@ class DateRangeModel(BaseModel):
 class BulkProcessModel(BaseModel):
     """Model for bulk processing parameters with constraints."""
 
-    query: dict[str, Any] = Field(
-        default_factory=dict, description="MongoDB query"
-    )
+    query: dict[str, Any] = Field(default_factory=dict, description="MongoDB query")
     options: dict[str, bool] = Field(
         default_factory=dict, description="Processing options"
     )
-    limit: int = Field(
-        100, gt=0, le=10000, description="Maximum items to process"
-    )
+    limit: int = Field(100, gt=0, le=10000, description="Maximum items to process")
 
     class Config(BaseConfigMixin):
         pass
@@ -136,9 +122,7 @@ class TaskConfigModel(BaseModel):
     """Base model for task configuration."""
 
     enabled: bool = Field(True, description="Whether task is enabled")
-    interval_minutes: int = Field(
-        60, gt=0, description="Task interval in minutes"
-    )
+    interval_minutes: int = Field(60, gt=0, description="Task interval in minutes")
 
     class Config(BaseConfigMixin):
         pass
@@ -161,9 +145,7 @@ class BackgroundTasksConfigModel(BaseModel):
 class TaskRunModel(BaseModel):
     """Model for manual task execution."""
 
-    tasks: list[str] = Field(
-        ..., min_items=1, description="List of task IDs to run"
-    )
+    tasks: list[str] = Field(..., min_items=1, description="List of task IDs to run")
 
     class Config(BaseConfigMixin):
         pass
@@ -180,9 +162,7 @@ class ValidateLocationModel(BaseModel):
     """Model for location validation requests."""
 
     location: str = Field(..., min_length=1, description="Location name")
-    location_type: str = Field(
-        ..., alias="locationType", description="Location type"
-    )
+    location_type: str = Field(..., alias="locationType", description="Location type")
 
     class Config(BaseConfigMixin):
         pass
@@ -203,9 +183,7 @@ class CoordinatePointModel(BaseModel):
     timestamp: datetime = Field(..., description="Point timestamp")
     lat: float = Field(..., ge=-90, le=90, description="Latitude")
     lon: float = Field(..., ge=-180, le=180, description="Longitude")
-    speed: float | None = Field(
-        None, ge=0, description="Speed in appropriate units"
-    )
+    speed: float | None = Field(None, ge=0, description="Speed in appropriate units")
 
     class Config(BaseConfigMixin):
         pass
@@ -326,9 +304,7 @@ class ActiveTripSuccessResponse(BaseResponseModel):
     """Response model for successful active trip retrieval."""
 
     status: str = Field("success", description="Response status")
-    has_active_trip: bool = Field(
-        True, description="Whether active trip exists"
-    )
+    has_active_trip: bool = Field(True, description="Whether active trip exists")
     trip: TripDataModel = Field(..., description="Active trip data")
 
 
@@ -336,13 +312,9 @@ class NoActiveTripResponse(BaseResponseModel):
     """Response model for no active trip found."""
 
     status: str = Field("success", description="Response status")
-    has_active_trip: bool = Field(
-        False, description="Whether active trip exists"
-    )
+    has_active_trip: bool = Field(False, description="Whether active trip exists")
     message: str = Field("No active trip", description="Status message")
 
 
 # Union type for active trip responses
-ActiveTripResponseUnion = Union[
-    ActiveTripSuccessResponse, NoActiveTripResponse
-]
+ActiveTripResponseUnion = Union[ActiveTripSuccessResponse, NoActiveTripResponse]

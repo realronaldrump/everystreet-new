@@ -27,9 +27,7 @@ def parse_bouncie_timestamp(ts: str | None) -> datetime | None:
         Timezone-aware datetime object or None if parsing fails
     """
     if not ts or not isinstance(ts, str):
-        logger.warning(
-            "Missing or invalid timestamp field in Bouncie event data."
-        )
+        logger.warning("Missing or invalid timestamp field in Bouncie event data.")
         return None
 
     try:
@@ -65,9 +63,7 @@ def sort_and_filter_trip_coordinates(
 
     for i, point in enumerate(trip_data):
         if not isinstance(point, dict):
-            logger.warning(
-                "Skipping invalid point at index %d: not a dictionary", i
-            )
+            logger.warning("Skipping invalid point at index %d: not a dictionary", i)
             continue
 
         # Parse timestamp
@@ -80,9 +76,7 @@ def sort_and_filter_trip_coordinates(
         # Extract GPS coordinates with validation
         gps_data = point.get("gps", {})
         if not isinstance(gps_data, dict):
-            logger.warning(
-                "Skipping point at index %d: invalid GPS data format", i
-            )
+            logger.warning("Skipping point at index %d: invalid GPS data format", i)
             continue
 
         lat = gps_data.get("lat")

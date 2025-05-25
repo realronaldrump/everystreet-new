@@ -14,10 +14,7 @@ import os
 import threading
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime, timezone
-from typing import (
-    Any,
-    TypeVar,
-)
+from typing import Any, TypeVar
 
 import bson
 import certifi
@@ -63,9 +60,7 @@ class DatabaseManager:
         if not getattr(self, "_initialized", False):
             self._client: AsyncIOMotorClient | None = None
             self._db: AsyncIOMotorDatabase | None = None
-            self._gridfs_bucket_instance: None | (
-                AsyncIOMotorGridFSBucket
-            ) = None
+            self._gridfs_bucket_instance: None | (AsyncIOMotorGridFSBucket) = None
             self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
@@ -197,10 +192,7 @@ class DatabaseManager:
             MongoDB collection
 
         """
-        if (
-            collection_name not in self._collections
-            or not self._connection_healthy
-        ):
+        if collection_name not in self._collections or not self._connection_healthy:
             self._collections[collection_name] = self.db[collection_name]
         return self._collections[collection_name]
 
@@ -621,13 +613,9 @@ class SerializationHelper:
                 if isinstance(value, ObjectId):
                     fallback_result[key] = value
                 elif isinstance(value, datetime):
-                    fallback_result[key] = (
-                        SerializationHelper.serialize_datetime(value)
-                    )
+                    fallback_result[key] = SerializationHelper.serialize_datetime(value)
                 elif isinstance(value, (dict, list)):
-                    fallback_result[key] = (
-                        f"<Complex Type: {type(value).__name__}>"
-                    )
+                    fallback_result[key] = f"<Complex Type: {type(value).__name__}>"
                 else:
                     try:
                         json.dumps(value)
@@ -879,9 +867,7 @@ class DatabaseOperationMixin:
                 else result
             )
         except Exception as e:
-            logger.error(
-                "%s failed on %s: %s", operation_name, collection.name, str(e)
-            )
+            logger.error("%s failed on %s: %s", operation_name, collection.name, str(e))
             if operation_name.startswith(("find", "count", "aggregate")):
                 return (
                     []
@@ -901,9 +887,7 @@ async def find_one_with_retry(
     """Execute find_one with retry logic and optimized parameter handling."""
 
     async def _operation():
-        return await collection.find_one(
-            query, projection, sort=sort if sort else None
-        )
+        return await collection.find_one(query, projection, sort=sort if sort else None)
 
     return await DatabaseOperationMixin._execute_operation(
         _operation, collection, "find_one"
@@ -974,9 +958,7 @@ async def update_many_with_retry(
     """Execute update_many with retry logic."""
 
     async def _operation():
-        return await collection.update_many(
-            filter_query, update, upsert=upsert
-        )
+        return await collection.update_many(filter_query, update, upsert=upsert)
 
     return await DatabaseOperationMixin._execute_operation(
         _operation, collection, "update_many", process_result=False

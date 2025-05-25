@@ -274,9 +274,7 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
         Total distance in miles
     """
     if not coordinates or not isinstance(coordinates, list):
-        logger.warning(
-            "Invalid or empty coordinates for distance calculation."
-        )
+        logger.warning("Invalid or empty coordinates for distance calculation.")
         return 0.0
 
     if len(coordinates) < 2:
@@ -294,9 +292,7 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
             lon1, lat1 = coordinates[i][:2]  # Take only first 2 elements
             lon2, lat2 = coordinates[i + 1][:2]
 
-            total_distance_meters += haversine(
-                lon1, lat1, lon2, lat2, unit="meters"
-            )
+            total_distance_meters += haversine(lon1, lat1, lon2, lat2, unit="meters")
         except (TypeError, ValueError, IndexError) as e:
             logger.warning(
                 "Skipping coordinate pair %d due to error: %s",
@@ -323,9 +319,7 @@ def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
                 future = executor.submit(asyncio.run, coro)
                 return future.result()
         else:
-            logger.debug(
-                "Reusing existing event loop for sync-to-async execution."
-            )
+            logger.debug("Reusing existing event loop for sync-to-async execution.")
     except RuntimeError:
         logger.debug("No event loop found, creating new one.")
         loop = asyncio.new_event_loop()
@@ -339,9 +333,7 @@ def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
     try:
         return loop.run_until_complete(coro)
     except Exception:
-        logger.error(
-            "Exception occurred during run_until_complete", exc_info=True
-        )
+        logger.error("Exception occurred during run_until_complete", exc_info=True)
         raise
 
 

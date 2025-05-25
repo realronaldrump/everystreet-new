@@ -87,9 +87,7 @@ class ProgressTracker:
 
     def set_failed(self, operation: str, error_message: str):
         """Set operation status to failed."""
-        self.update_status(
-            operation, "failed", message=f"Error: {error_message}"
-        )
+        self.update_status(operation, "failed", message=f"Error: {error_message}")
 
 
 async def get_access_token(session: aiohttp.ClientSession) -> Optional[str]:
@@ -188,33 +186,25 @@ async def fetch_trips_for_device(
     url = f"{API_BASE_URL}/trips"
 
     try:
-        async with session.get(
-            url, headers=headers, params=params
-        ) as response:
+        async with session.get(url, headers=headers, params=params) as response:
             response.raise_for_status()
             trips = await response.json()
 
             # Parse timestamps for all trips
             parsed_trips = [parse_trip_timestamps(trip) for trip in trips]
 
-            logger.info(
-                "Fetched %d trips for device %s", len(parsed_trips), imei
-            )
+            logger.info("Fetched %d trips for device %s", len(parsed_trips), imei)
             return parsed_trips
 
     except aiohttp.ClientError as e:
         logger.error("HTTP error fetching trips for device %s: %s", imei, e)
         return []
     except Exception as e:
-        logger.error(
-            "Unexpected error fetching trips for device %s: %s", imei, e
-        )
+        logger.error("Unexpected error fetching trips for device %s: %s", imei, e)
         return []
 
 
-async def process_single_trip(
-    trip: Dict, do_map_match: bool = False
-) -> Optional[str]:
+async def process_single_trip(trip: Dict, do_map_match: bool = False) -> Optional[str]:
     """Process a single trip using TripProcessor.
 
     Args:
@@ -232,9 +222,7 @@ async def process_single_trip(
         return None
 
     try:
-        processor = TripProcessor(
-            mapbox_token=MAPBOX_ACCESS_TOKEN, source="api"
-        )
+        processor = TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN, source="api")
         processor.set_trip_data(trip)
         await processor.process(do_map_match=do_map_match)
 
@@ -251,9 +239,7 @@ async def process_single_trip(
         saved_id = await processor.save(map_match_result=do_map_match)
 
         if saved_id:
-            map_matched = (
-                do_map_match and "matchedGps" in processor.processed_data
-            )
+            map_matched = do_map_match and "matchedGps" in processor.processed_data
             logger.info(
                 "Successfully processed trip %s (Map Matched: %s) with ID %s",
                 transaction_id,
@@ -262,15 +248,11 @@ async def process_single_trip(
             )
             return saved_id
         else:
-            logger.error(
-                "Trip %s processed but could not be saved", transaction_id
-            )
+            logger.error("Trip %s processed but could not be saved", transaction_id)
             return None
 
     except Exception as e:
-        logger.exception(
-            "Unexpected error processing trip %s: %s", transaction_id, e
-        )
+        logger.exception("Unexpected error processing trip %s: %s", transaction_id, e)
         return None
 
 
@@ -297,9 +279,7 @@ async def fetch_device_trips_in_chunks(
     current_start = start_dt
 
     while current_start < end_dt:
-        current_end = min(
-            current_start + timedelta(days=CHUNK_SIZE_DAYS), end_dt
-        )
+        current_end = min(current_start + timedelta(days=CHUNK_SIZE_DAYS), end_dt)
 
         trips_chunk = await fetch_trips_for_device(
             session, token, imei, current_start, current_end
