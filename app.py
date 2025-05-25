@@ -6070,6 +6070,190 @@ async def ws_trip_updates(websocket: WebSocket) -> None:
         )
 
 
+@app.post("/api/mapbox/directions")
+async def get_mapbox_directions(request: Request):
+    """Proxy endpoint for Mapbox Directions API to avoid CORS issues and hide API keys."""
+    try:
+        data = await request.json()
+        start_lon = data.get("start_lon")
+        start_lat = data.get("start_lat")
+        end_lon = data.get("end_lon")
+        end_lat = data.get("end_lat")
+
+        if None in [start_lon, start_lat, end_lon, end_lat]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing required coordinates",
+            )
+
+        # Use the existing helper function
+        route_data = await _get_mapbox_directions_route(
+            float(start_lon), float(start_lat), float(end_lon), float(end_lat)
+        )
+
+        # Wrap in the expected Mapbox API response format
+        formatted_response = {
+            "routes": [route_data] if route_data else [],
+            "code": "Ok" if route_data else "NoRoute",
+        }
+
+        return JSONResponse(content=formatted_response)
+
+    except Exception as e:
+        logger.error("Error getting Mapbox directions: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@app.post("/api/driving-navigation/simple-route")
+async def get_simple_driving_route(
+    request: Request,
+):
+    """Simple driving navigation endpoint that finds nearby undriven streets
+    and calculates basic routes without complex optimization.
+
+    Accepts a JSON payload with:
+    - location: The target area location model
+    - user_location: Current position {lat, lon}
+    - limit: Optional limit for number of streets to return (default: 10)
+    """
+    try:
+        data = await request.json()
+        if "location" not in data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Target location data is required",
+            )
+
+        location = LocationModel(**data["location"])
+        location_name = location.display_name
+
+        if not location_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Location display name is required.",
+            )
+
+        user_location = data.get("user_location")
+        if (
+            not user_location
+            or "lat" not in user_location
+            or "lon" not in user_location
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User location with lat/lon is required",
+            )
+
+        user_lat = float(user_location["lat"])
+        user_lon = float(user_location["lon"])
+        limit = int(data.get("limit", 10))
+
+    except (ValueError, TypeError) as e:
+        logger.error("Error parsing request data: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid request format: {e!s}",
+        )
+
+    try:
+        # Find undriven streets in the area
+        undriven_streets_cursor = streets_collection.find(
+            {
+                "properties.location": location_name,
+                "properties.driven": False,
+                "properties.undriveable": {"$ne": True},
+                "geometry.coordinates": {
+                    "$exists": True,
+                    "$not": {"$size": 0},
+                },
+            },
+            {
+                "geometry": 1,
+                "properties.segment_id": 1,
+                "properties.street_name": 1,
+                "_id": 0,
+            },
+        )
+        undriven_streets = await undriven_streets_cursor.to_list(length=None)
+
+        if not undriven_streets:
+            return JSONResponse(
+                content={
+                    "status": "success",
+                    "message": f"No undriven streets found in {location_name}.",
+                    "streets": [],
+                },
+            )
+
+        # Calculate distances and sort
+        streets_with_distance = []
+        for street in undriven_streets:
+            geometry = street.get("geometry", {})
+            if geometry.get("type") == "LineString" and geometry.get(
+                "coordinates"
+            ):
+                coords = geometry["coordinates"]
+                min_distance = float("inf")
+
+                # Find closest point on street to user
+                for coord in coords:
+                    if len(coord) >= 2:
+                        # Calculate great circle distance
+                        street_lat, street_lon = (
+                            float(coord[1]),
+                            float(coord[0]),
+                        )
+                        distance = calculate_distance(
+                            user_lat, user_lon, street_lat, street_lon
+                        )
+                        min_distance = min(min_distance, distance)
+
+                if min_distance != float("inf"):
+                    streets_with_distance.append(
+                        {
+                            "street": street,
+                            "distance_miles": min_distance,
+                            "start_coords": coords[0] if coords else None,
+                        }
+                    )
+
+        # Sort by distance and limit results
+        streets_with_distance.sort(key=lambda x: x["distance_miles"])
+        nearby_streets = streets_with_distance[:limit]
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": f"Found {len(nearby_streets)} nearby undriven streets.",
+                "streets": [
+                    {
+                        "properties": street_data["street"]["properties"],
+                        "geometry": street_data["street"]["geometry"],
+                        "distance_miles": round(
+                            street_data["distance_miles"], 2
+                        ),
+                        "start_coords": street_data["start_coords"],
+                    }
+                    for street_data in nearby_streets
+                ],
+                "user_location": {"lat": user_lat, "lon": user_lon},
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Error finding nearby streets: %s",
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to find nearby streets: {e}",
+        )
+
+
 if __name__ == "__main__":
     import uvicorn
 

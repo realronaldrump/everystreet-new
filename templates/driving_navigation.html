@@ -5,291 +5,671 @@ block head_content %}
   href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 />
 <style>
-  #driving-map {
-    height: calc(100vh - 200px);
+  #map-container {
+    height: calc(100vh - 140px);
     width: 100%;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   }
-  .map-controls {
-    padding: 10px;
-    background-color: rgba(var(--bs-dark-rgb), 0.9);
-    border-radius: 5px;
-    margin-bottom: 10px;
+
+  .control-panel {
+    background: rgba(var(--bs-dark-rgb), 0.95);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
-  .info-panel {
-    padding: 10px;
-    background-color: rgba(var(--bs-dark-rgb), 0.8);
-    border-radius: 5px;
-    min-height: 50px;
-    color: var(--bs-light);
-  }
-  .leaflet-control-container .leaflet-routing-container {
-    display: none;
-  }
-  .live-location-marker {
-    background-color: #0dcaf0;
-    border: 2px solid #fff;
-    border-radius: 50%;
-    box-shadow: 0 0 8px rgba(13, 202, 240, 0.8);
-    width: 16px !important;
-    height: 16px !important;
-    margin-left: -8px !important;
-    margin-top: -8px !important;
-  }
-  .target-street-segment {
-    stroke: #ffab00 !important;
-    stroke-width: 6px !important;
-    stroke-opacity: 1 !important;
-    stroke-dasharray: none !important;
-  }
-  .calculated-route {
-    stroke: #76ff03 !important;
-    stroke-width: 5px !important;
-    stroke-opacity: 0.8 !important;
-  }
-  .undriven-street-nav {
-    stroke: #00bfff;
-    stroke-width: 3px;
-    stroke-opacity: 0.6;
-    stroke-dasharray: 4, 4;
-  }
-  .progress-container {
-    margin-top: 10px;
-    display: none;
-  }
-  .progress-container.active {
-    display: block;
-  }
-  .progress-bar {
-    height: 8px;
-    border-radius: 4px;
-    margin-bottom: 5px;
-  }
-  .progress-label {
-    font-size: 0.85rem;
-    margin-bottom: 2px;
-  }
-  .route-info-detail {
+
+  .location-status {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
     align-items: center;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    border-left: 4px solid;
   }
-  .route-info-detail > div {
-    background-color: rgba(0, 0, 0, 0.2);
+
+  .location-status.active {
+    background: rgba(40, 167, 69, 0.2);
+    border-left-color: #28a745;
+  }
+
+  .location-status.inactive {
+    background: rgba(220, 53, 69, 0.2);
+    border-left-color: #dc3545;
+  }
+
+  .route-info {
+    background: rgba(var(--bs-info-rgb), 0.15);
+    border: 1px solid rgba(var(--bs-info-rgb), 0.3);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-top: 1rem;
+  }
+
+  .street-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .street-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .street-item.selected {
+    background: rgba(var(--bs-primary-rgb), 0.2);
+    border-color: var(--bs-primary);
+  }
+
+  .distance-badge {
+    font-size: 0.8rem;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
+    background: rgba(var(--bs-secondary-rgb), 0.3);
   }
-  .cluster-indicator {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    margin-right: 4px;
-  }
-  .route-stats {
-    margin-top: 10px;
-    padding: 8px;
-    background-color: rgba(0, 0, 0, 0.15);
-    border-radius: 4px;
-  }
-  .route-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
-    font-size: 0.85rem;
-  }
-  .legend-item {
-    display: flex;
-    align-items: center;
-    padding: 3px 6px;
-    border-radius: 4px;
-    background-color: rgba(0, 0, 0, 0.2);
-  }
-  .legend-color {
-    width: 10px;
-    height: 10px;
-    margin-right: 5px;
-    border-radius: 50%;
-  }
-  .step-indicator {
-    display: flex;
-    justify-content: space-between;
-    margin: 15px 0;
-  }
-  .step {
-    text-align: center;
-    position: relative;
-    flex: 1;
-  }
-  .step:before {
-    content: "";
-    height: 2px;
-    background-color: rgba(255, 255, 255, 0.2);
+
+  .loading-spinner {
+    display: none;
     position: absolute;
-    top: 15px;
-    left: 0;
-    right: 0;
-    z-index: 0;
-  }
-  .step:first-child:before {
+    top: 50%;
     left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 1rem;
+    border-radius: 8px;
   }
-  .step:last-child:before {
-    right: 50%;
+
+  .loading-spinner.show {
+    display: block;
   }
-  .step-circle {
-    width: 30px;
-    height: 30px;
-    line-height: 30px;
+
+  .live-location {
+    width: 16px !important;
+    height: 16px !important;
+    background: #00bfff;
+    border: 3px solid white;
     border-radius: 50%;
-    background-color: rgba(var(--bs-dark-rgb), 0.8);
-    margin: 0 auto 5px;
-    position: relative;
-    z-index: 1;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 10px rgba(0, 191, 255, 0.8);
+    margin: -8px 0 0 -8px !important;
   }
-  .step.active .step-circle {
-    background-color: var(--bs-primary);
-    color: white;
+
+  .target-street {
+    stroke: #ff6b6b !important;
+    stroke-width: 5px !important;
+    stroke-opacity: 0.9 !important;
   }
-  .step.completed .step-circle {
-    background-color: var(--bs-success);
-    color: white;
+
+  .route-line {
+    stroke: #4ecdc4 !important;
+    stroke-width: 4px !important;
+    stroke-opacity: 0.8 !important;
   }
-  .step-title {
-    font-size: 0.75rem;
+
+  .undriven-streets {
+    stroke: #ffd93d;
+    stroke-width: 2px;
+    stroke-opacity: 0.7;
+  }
+
+  @media (max-width: 768px) {
+    #map-container {
+      height: 50vh;
+    }
+    .control-panel {
+      padding: 1rem;
+    }
   }
 </style>
 {% endblock %} {% block content %}
 <div class="container-fluid mt-3">
-  <h2 class="mb-3">Driving Navigation</h2>
-
   <div class="row">
-    <div class="col-md-4">
-      <div class="map-controls card bg-dark text-white mb-3">
-        <div class="card-body">
-          <h5 class="card-title">Controls</h5>
-          <div class="mb-3">
-            <label for="area-select" class="form-label"
-              >Select Coverage Area:</label
-            >
-            <select id="area-select" class="form-select">
-              <option value="">Loading areas...</option>
-            </select>
-          </div>
-          <button
-            id="find-next-street-btn"
-            class="btn btn-primary w-100"
-            disabled
-          >
-            <i class="fas fa-route me-2"></i>Find Nearest Undriven Street
-          </button>
-          <button
-            id="calculate-coverage-route-btn"
-            class="btn btn-info w-100 mt-2"
-            disabled
-          >
-            <i class="fas fa-road me-2"></i>Calculate Full Coverage Route
-          </button>
+    <div class="col-lg-4">
+      <div class="control-panel">
+        <h3 class="h5 mb-3">
+          <i class="fas fa-route me-2"></i>Navigation Control
+        </h3>
 
-          <div class="mt-3 pt-3 border-top border-secondary">
-            <h6 class="card-subtitle mb-2 text-muted">Export Coverage Route</h6>
-            <div class="input-group mb-2">
-              <label class="input-group-text" for="coverage-route-format-select"
-                >Format</label
-              >
-              <select class="form-select" id="coverage-route-format-select">
-                <option value="geojson" selected>GeoJSON</option>
-                <option value="gpx">GPX</option>
-                <option value="shapefile">Shapefile (Zip)</option>
-              </select>
-            </div>
-            <button
-              id="export-coverage-route-btn"
-              class="btn btn-success w-100"
-              disabled
-            >
-              <i class="fas fa-download me-2"></i>Export Route
-            </button>
-          </div>
-
-          <div class="form-check form-switch mt-3">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              role="switch"
-              id="auto-follow-toggle"
-              checked
-            />
-            <label class="form-check-label" for="auto-follow-toggle"
-              >Auto-Follow Vehicle</label
-            >
-          </div>
-
-          <div id="route-progress-container" class="progress-container mt-3">
-            <div class="step-indicator">
-              <div class="step" id="step-clustering">
-                <div class="step-circle">1</div>
-                <div class="step-title">Clustering</div>
-              </div>
-              <div class="step" id="step-optimizing">
-                <div class="step-circle">2</div>
-                <div class="step-title">Optimizing</div>
-              </div>
-              <div class="step" id="step-rendering">
-                <div class="step-circle">3</div>
-                <div class="step-title">Rendering</div>
-              </div>
-            </div>
-            <div class="progress-label">
-              Processing: <span id="processing-status">Preparing...</span>
-            </div>
-            <div class="progress">
-              <div
-                id="route-progress-bar"
-                class="progress-bar progress-bar-striped progress-bar-animated"
-                style="width: 0%"
-              ></div>
-            </div>
-          </div>
+        <!-- Area Selection -->
+        <div class="mb-3">
+          <label for="area-select" class="form-label">Coverage Area</label>
+          <select id="area-select" class="form-select">
+            <option value="">Select an area...</option>
+          </select>
         </div>
-      </div>
-      <div class="info-panel card bg-dark text-white">
-        <div class="card-body">
-          <h5 class="card-title">Navigation Information</h5>
-          <div id="status-message" class="mb-2">
-            Select an area and find the nearest street.
-          </div>
-          <div id="target-info"></div>
-          <div id="route-info" class="mt-2"></div>
 
-          <div id="route-details" class="mt-3" style="display: none">
-            <h6>Route Details</h6>
-            <div id="route-stats" class="route-stats"></div>
-            <div id="route-legend" class="route-legend"></div>
-          </div>
+        <!-- Location Status -->
+        <div id="location-status" class="location-status inactive">
+          <i class="fas fa-location-dot me-2"></i>
+          <span>Getting your location...</span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-grid gap-2">
+          <button id="find-nearby-btn" class="btn btn-primary" disabled>
+            <i class="fas fa-search me-2"></i>Find Nearby Streets
+          </button>
+          <button id="get-location-btn" class="btn btn-outline-info">
+            <i class="fas fa-crosshairs me-2"></i>Update Location
+          </button>
+        </div>
+
+        <!-- Nearby Streets List -->
+        <div id="streets-container" style="display: none">
+          <h6 class="mt-3 mb-2">Nearby Undriven Streets</h6>
+          <div id="streets-list" class="max-height-300 overflow-auto"></div>
+        </div>
+
+        <!-- Route Information -->
+        <div id="route-info" style="display: none" class="route-info">
+          <h6 class="mb-2">
+            <i class="fas fa-info-circle me-2"></i>Route Details
+          </h6>
+          <div id="route-details"></div>
+          <button
+            id="clear-route-btn"
+            class="btn btn-sm btn-outline-warning mt-2"
+          >
+            Clear Route
+          </button>
         </div>
       </div>
     </div>
-    <div class="col-md-8">
-      <div id="driving-map">
-        <div class="d-flex justify-content-center align-items-center h-100">
+
+    <div class="col-lg-8">
+      <div id="map-container">
+        <div id="loading-spinner" class="loading-spinner">
           <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading Map...</span>
+            <span class="visually-hidden">Loading...</span>
           </div>
+          <div class="mt-2 text-white">Loading map...</div>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Notification container -->
+<div id="notification-container" class="notification-container"></div>
 {% endblock %} {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
-<script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
 <script>
   const MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+
+  class SimpleNavigationApp {
+    constructor() {
+      this.map = null;
+      this.userLocation = null;
+      this.selectedArea = null;
+      this.undrivenStreets = [];
+      this.nearbyStreets = [];
+      this.currentRoute = null;
+
+      // Map layers
+      this.userMarker = null;
+      this.streetsLayer = L.layerGroup();
+      this.routeLayer = L.layerGroup();
+      this.targetLayer = L.layerGroup();
+
+      this.initialize();
+    }
+
+    async initialize() {
+      this.initMap();
+      this.setupEventListeners();
+      await this.loadAreas();
+      this.requestLocation();
+    }
+
+    initMap() {
+      const container = document.getElementById("map-container");
+      const spinner = document.getElementById("loading-spinner");
+
+      try {
+        spinner.classList.add("show");
+
+        this.map = L.map(container, {
+          center: [39.8283, -98.5795], // Center of US
+          zoom: 4,
+          zoomControl: true,
+        });
+
+        // Add tile layer
+        L.tileLayer(
+          "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+          {
+            attribution: "© OpenStreetMap © CartoDB",
+            maxZoom: 19,
+          },
+        ).addTo(this.map);
+
+        // Add layers
+        this.streetsLayer.addTo(this.map);
+        this.routeLayer.addTo(this.map);
+        this.targetLayer.addTo(this.map);
+
+        spinner.classList.remove("show");
+      } catch (error) {
+        this.showNotification("Failed to initialize map", "error");
+        console.error("Map initialization error:", error);
+      }
+    }
+
+    setupEventListeners() {
+      document.getElementById("area-select").addEventListener("change", (e) => {
+        this.handleAreaChange(e.target.value);
+      });
+
+      document
+        .getElementById("find-nearby-btn")
+        .addEventListener("click", () => {
+          this.findNearbyStreets();
+        });
+
+      document
+        .getElementById("get-location-btn")
+        .addEventListener("click", () => {
+          this.requestLocation();
+        });
+
+      document
+        .getElementById("clear-route-btn")
+        .addEventListener("click", () => {
+          this.clearRoute();
+        });
+    }
+
+    async loadAreas() {
+      try {
+        const response = await fetch("/api/coverage_areas");
+        const data = await response.json();
+
+        const select = document.getElementById("area-select");
+        select.innerHTML = '<option value="">Select an area...</option>';
+
+        // Handle the response format from the API
+        const areas = data.success ? data.areas : [];
+
+        if (areas.length === 0) {
+          const option = document.createElement("option");
+          option.value = "";
+          option.textContent = "No coverage areas found";
+          option.disabled = true;
+          select.appendChild(option);
+          return;
+        }
+
+        areas.forEach((area) => {
+          const option = document.createElement("option");
+          // The area data needs to include the location object for the navigation
+          option.value = JSON.stringify(area.location);
+          option.textContent =
+            area.location?.display_name ||
+            area.location?.name ||
+            "Unknown Area";
+          select.appendChild(option);
+        });
+
+        this.showNotification(
+          `Loaded ${areas.length} coverage areas`,
+          "success",
+        );
+      } catch (error) {
+        this.showNotification("Failed to load coverage areas", "error");
+        console.error("Error loading areas:", error);
+      }
+    }
+
+    async handleAreaChange(areaData) {
+      if (!areaData) {
+        this.selectedArea = null;
+        this.streetsLayer.clearLayers();
+        return;
+      }
+
+      try {
+        this.selectedArea = JSON.parse(areaData);
+        await this.loadAreaStreets();
+        this.updateFindButton();
+      } catch (error) {
+        this.showNotification("Failed to load area data", "error");
+      }
+    }
+
+    async loadAreaStreets() {
+      if (!this.selectedArea) return;
+
+      try {
+        const response = await fetch("/api/undriven_streets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(this.selectedArea),
+        });
+
+        const geojson = await response.json();
+        this.undrivenStreets = geojson.features || [];
+
+        // Display streets on map
+        this.streetsLayer.clearLayers();
+        L.geoJSON(geojson, {
+          style: {
+            color: "#ffd93d",
+            weight: 2,
+            opacity: 0.7,
+            className: "undriven-streets",
+          },
+        }).addTo(this.streetsLayer);
+
+        // Fit map to streets
+        if (this.undrivenStreets.length > 0) {
+          const bounds = L.geoJSON(geojson).getBounds();
+          this.map.fitBounds(bounds, { padding: [20, 20] });
+        }
+
+        this.showNotification(
+          `Loaded ${this.undrivenStreets.length} undriven streets`,
+          "success",
+        );
+      } catch (error) {
+        this.showNotification("Failed to load streets", "error");
+      }
+    }
+
+    requestLocation() {
+      const status = document.getElementById("location-status");
+      status.className = "location-status inactive";
+      status.innerHTML =
+        '<i class="fas fa-spinner fa-spin me-2"></i>Getting location...';
+
+      if (!navigator.geolocation) {
+        this.handleLocationError("Geolocation not supported");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => this.handleLocationSuccess(position),
+        (error) => this.handleLocationError(error.message),
+        { enableHighAccuracy: true, timeout: 10000 },
+      );
+    }
+
+    handleLocationSuccess(position) {
+      this.userLocation = {
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+      };
+
+      const status = document.getElementById("location-status");
+      status.className = "location-status active";
+      status.innerHTML =
+        '<i class="fas fa-check-circle me-2"></i>Location found';
+
+      // Update user marker
+      if (this.userMarker) {
+        this.map.removeLayer(this.userMarker);
+      }
+
+      this.userMarker = L.divIcon({
+        className: "live-location",
+        iconSize: [16, 16],
+      });
+
+      L.marker([this.userLocation.lat, this.userLocation.lon], {
+        icon: this.userMarker,
+      }).addTo(this.map);
+
+      this.updateFindButton();
+    }
+
+    handleLocationError(message) {
+      const status = document.getElementById("location-status");
+      status.className = "location-status inactive";
+      status.innerHTML =
+        '<i class="fas fa-exclamation-triangle me-2"></i>Location unavailable';
+
+      this.showNotification(`Location error: ${message}`, "warning");
+    }
+
+    updateFindButton() {
+      const btn = document.getElementById("find-nearby-btn");
+      btn.disabled = !(
+        this.userLocation &&
+        this.selectedArea &&
+        this.undrivenStreets.length > 0
+      );
+    }
+
+    async findNearbyStreets() {
+      if (!this.userLocation || !this.undrivenStreets.length) return;
+
+      // Calculate distances to all undriven streets
+      const streetsWithDistance = this.undrivenStreets.map((street) => {
+        const coords = street.geometry.coordinates;
+        let minDistance = Infinity;
+
+        // Find closest point on the street to user
+        if (street.geometry.type === "LineString") {
+          coords.forEach((coord) => {
+            const distance = this.calculateDistance(
+              this.userLocation.lat,
+              this.userLocation.lon,
+              coord[1],
+              coord[0],
+            );
+            minDistance = Math.min(minDistance, distance);
+          });
+        }
+
+        return {
+          ...street,
+          distance: minDistance,
+        };
+      });
+
+      // Sort by distance and take closest 10
+      this.nearbyStreets = streetsWithDistance
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 10);
+
+      this.displayNearbyStreets();
+    }
+
+    displayNearbyStreets() {
+      const container = document.getElementById("streets-container");
+      const list = document.getElementById("streets-list");
+
+      if (this.nearbyStreets.length === 0) {
+        container.style.display = "none";
+        return;
+      }
+
+      list.innerHTML = "";
+
+      this.nearbyStreets.forEach((street, index) => {
+        const item = document.createElement("div");
+        item.className = "street-item";
+        item.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fw-medium">${street.properties.street_name || "Unnamed Street"}</div>
+            <div class="text-muted small">Segment ${street.properties.segment_id}</div>
+          </div>
+          <span class="distance-badge">${street.distance.toFixed(1)} mi</span>
+        </div>
+      `;
+
+        item.addEventListener("click", () => this.selectStreet(street, item));
+        list.appendChild(item);
+      });
+
+      container.style.display = "block";
+    }
+
+    async selectStreet(street, element) {
+      // Visual selection
+      document.querySelectorAll(".street-item").forEach((item) => {
+        item.classList.remove("selected");
+      });
+      element.classList.add("selected");
+
+      // Clear previous route/target
+      this.routeLayer.clearLayers();
+      this.targetLayer.clearLayers();
+
+      // Highlight target street
+      L.geoJSON(street, {
+        style: {
+          color: "#ff6b6b",
+          weight: 5,
+          opacity: 0.9,
+          className: "target-street",
+        },
+      }).addTo(this.targetLayer);
+
+      // Calculate and display route
+      await this.calculateRoute(street);
+    }
+
+    async calculateRoute(targetStreet) {
+      if (!this.userLocation) return;
+
+      try {
+        const targetCoords = targetStreet.geometry.coordinates[0]; // Start of street
+        const response = await this.getMapboxRoute(
+          this.userLocation.lon,
+          this.userLocation.lat,
+          targetCoords[0],
+          targetCoords[1],
+        );
+
+        if (response && response.routes && response.routes.length > 0) {
+          const route = response.routes[0];
+
+          // Display route on map
+          L.geoJSON(route.geometry, {
+            style: {
+              color: "#4ecdc4",
+              weight: 4,
+              opacity: 0.8,
+              className: "route-line",
+            },
+          }).addTo(this.routeLayer);
+
+          // Show route info
+          this.displayRouteInfo(route, targetStreet);
+
+          // Fit map to show user, route, and target
+          const bounds = L.latLngBounds([
+            [this.userLocation.lat, this.userLocation.lon],
+            [targetCoords[1], targetCoords[0]],
+          ]);
+          this.map.fitBounds(bounds, { padding: [50, 50] });
+        } else {
+          this.showNotification("Could not calculate route", "warning");
+        }
+      } catch (error) {
+        this.showNotification("Route calculation failed", "error");
+        console.error("Route error:", error);
+      }
+    }
+
+    async getMapboxRoute(startLon, startLat, endLon, endLat) {
+      const response = await fetch("/api/mapbox/directions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          start_lon: startLon,
+          start_lat: startLat,
+          end_lon: endLon,
+          end_lat: endLat,
+        }),
+      });
+      return await response.json();
+    }
+
+    displayRouteInfo(route, targetStreet) {
+      const info = document.getElementById("route-info");
+      const details = document.getElementById("route-details");
+
+      const duration = Math.round(route.duration / 60);
+      const distance = (route.distance * 0.000621371).toFixed(1);
+      const streetName =
+        targetStreet.properties.street_name || "Unnamed Street";
+
+      details.innerHTML = `
+      <div class="mb-2">
+        <strong>Target:</strong> ${streetName}
+      </div>
+      <div class="row g-2">
+        <div class="col-6">
+          <i class="fas fa-clock me-1"></i> ${duration} min
+        </div>
+        <div class="col-6">
+          <i class="fas fa-road me-1"></i> ${distance} mi
+        </div>
+      </div>
+    `;
+
+      info.style.display = "block";
+    }
+
+    clearRoute() {
+      this.routeLayer.clearLayers();
+      this.targetLayer.clearLayers();
+      document.getElementById("route-info").style.display = "none";
+      document.querySelectorAll(".street-item").forEach((item) => {
+        item.classList.remove("selected");
+      });
+    }
+
+    calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 3959; // Earth's radius in miles
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    showNotification(message, type = "info") {
+      const container = document.getElementById("notification-container");
+      const notification = document.createElement("div");
+      notification.className = `alert alert-${type === "error" ? "danger" : type} alert-dismissible fade show`;
+      notification.innerHTML = `
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+      container.appendChild(notification);
+
+      // Auto-remove after 5 seconds
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.remove();
+        }
+      }, 5000);
+    }
+  }
+
+  // Initialize when page loads
+  document.addEventListener("DOMContentLoaded", () => {
+    new SimpleNavigationApp();
+  });
 </script>
-<script src="{{ url_for('static', path='js/driving-navigation.js') | replace('http://', '//') }}"></script>
 {% endblock %}

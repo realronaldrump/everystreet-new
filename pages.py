@@ -144,7 +144,7 @@ async def driving_navigation_page(request: Request):
     """Render the driving navigation page."""
     return templates.TemplateResponse(
         "driving_navigation.html",
-        {"request": request},
+        {"request": request, "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN},
     )
 
 
