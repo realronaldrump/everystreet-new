@@ -2179,7 +2179,7 @@ async def validate_location(
     data: ValidateLocationModel,
 ):
     """Validate a location using OpenStreetMap."""
-    validated = await validate_location_osm(data.location, data.locationType)
+    validated = await validate_location_osm(data.location, data.location_type)
     return validated
 
 
