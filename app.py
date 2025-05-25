@@ -6204,11 +6204,15 @@ async def get_simple_driving_route(
                         # Calculate great circle distance
                         street_lat, street_lon = (
                             float(coord[1]),
-                            float(coord[0])
+                            float(coord[0]),
                         )
 
                         distance = haversine(
-                            user_lon, user_lat, street_lon, street_lat, unit="miles"
+                            user_lon,
+                            user_lat,
+                            street_lon,
+                            street_lat,
+                            unit="miles",
                         )
                         min_distance = min(min_distance, distance)
 
@@ -6261,7 +6265,7 @@ async def get_optimized_multi_street_route(
     request: Request,
 ):
     """Create an optimized route visiting multiple undriven streets efficiently.
-    
+
     Accepts a JSON payload with:
     - location: The target area location model
     - user_location: Current position {lat, lon}
@@ -6286,7 +6290,11 @@ async def get_optimized_multi_street_route(
             )
 
         user_location = data.get("user_location")
-        if not user_location or "lat" not in user_location or "lon" not in user_location:
+        if (
+            not user_location
+            or "lat" not in user_location
+            or "lon" not in user_location
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="User location with lat/lon is required",
@@ -6338,28 +6346,41 @@ async def get_optimized_multi_street_route(
         nearby_streets = []
         for street in undriven_streets:
             geometry = street.get("geometry", {})
-            if geometry.get("type") == "LineString" and geometry.get("coordinates"):
+            if geometry.get("type") == "LineString" and geometry.get(
+                "coordinates"
+            ):
                 coords = geometry["coordinates"]
                 min_distance = float("inf")
                 closest_point = None
-                
+
                 # Find closest point on street to user
                 for coord in coords:
                     if len(coord) >= 2:
-                        street_lat, street_lon = float(coord[1]), float(coord[0])
-                        distance = haversine(user_lon, user_lat, street_lon, street_lat, unit="miles")
+                        street_lat, street_lon = (
+                            float(coord[1]),
+                            float(coord[0]),
+                        )
+                        distance = haversine(
+                            user_lon,
+                            user_lat,
+                            street_lon,
+                            street_lat,
+                            unit="miles",
+                        )
                         if distance < min_distance:
                             min_distance = distance
                             closest_point = [street_lon, street_lat]
-                
+
                 if min_distance <= max_distance and closest_point:
-                    nearby_streets.append({
-                        "street": street,
-                        "distance_miles": min_distance,
-                        "closest_point": closest_point,
-                        "start_coords": coords[0] if coords else None,
-                        "end_coords": coords[-1] if coords else None,
-                    })
+                    nearby_streets.append(
+                        {
+                            "street": street,
+                            "distance_miles": min_distance,
+                            "closest_point": closest_point,
+                            "start_coords": coords[0] if coords else None,
+                            "end_coords": coords[-1] if coords else None,
+                        }
+                    )
 
         if not nearby_streets:
             return JSONResponse(
@@ -6376,7 +6397,7 @@ async def get_optimized_multi_street_route(
 
         # Create waypoints for optimization
         waypoints = [[user_lon, user_lat]]  # Start with user location
-        
+
         # Add street points (use start point of each street)
         for street_data in selected_streets:
             if street_data["start_coords"]:
@@ -6386,134 +6407,176 @@ async def get_optimized_multi_street_route(
         if len(selected_streets) > 1:
             try:
                 # For multiple streets, create a route that visits each street in order
-                waypoints_for_optimization = [[user_lon, user_lat]]  # Start point
-                
+                waypoints_for_optimization = [
+                    [user_lon, user_lat]
+                ]  # Start point
+
                 # Add each street's start point as a waypoint
                 for street_data in selected_streets:
                     if street_data["start_coords"]:
-                        waypoints_for_optimization.append(street_data["start_coords"])
-                
+                        waypoints_for_optimization.append(
+                            street_data["start_coords"]
+                        )
+
                 # Try Mapbox optimization first
                 if len(waypoints_for_optimization) > 2:
                     try:
                         optimized_route = await _get_mapbox_optimization_route(
-                            waypoints_for_optimization[0][0], waypoints_for_optimization[0][1],  # start
-                            waypoints_for_optimization[1:]  # destinations
+                            waypoints_for_optimization[0][0],
+                            waypoints_for_optimization[0][1],  # start
+                            waypoints_for_optimization[1:],  # destinations
                         )
-                        
-                        if optimized_route and "routes" in optimized_route and optimized_route["routes"]:
+
+                        if (
+                            optimized_route
+                            and "routes" in optimized_route
+                            and optimized_route["routes"]
+                        ):
                             route_info = optimized_route["routes"][0]
-                            
+
                             # Add detailed street information
                             route_info["streets_included"] = [
                                 {
-                                    "segment_id": street_data["street"]["properties"]["segment_id"],
-                                    "street_name": street_data["street"]["properties"].get("street_name", "Unknown"),
-                                    "distance_miles": round(street_data["distance_miles"], 2),
-                                    "start_coords": street_data["start_coords"],
-                                    "geometry": street_data["street"]["geometry"],
+                                    "segment_id": street_data["street"][
+                                        "properties"
+                                    ]["segment_id"],
+                                    "street_name": street_data["street"][
+                                        "properties"
+                                    ].get("street_name", "Unknown"),
+                                    "distance_miles": round(
+                                        street_data["distance_miles"], 2
+                                    ),
+                                    "start_coords": street_data[
+                                        "start_coords"
+                                    ],
+                                    "geometry": street_data["street"][
+                                        "geometry"
+                                    ],
                                 }
                                 for street_data in selected_streets
                             ]
-                            
+
                             return JSONResponse(
                                 content={
                                     "status": "success",
                                     "message": f"Optimized route created for {len(selected_streets)} streets.",
                                     "route": route_info,
                                     "total_streets": len(selected_streets),
-                                    "estimated_efficiency": f"{len(selected_streets)/max_distance:.1f} streets per mile radius",
+                                    "estimated_efficiency": f"{len(selected_streets) / max_distance:.1f} streets per mile radius",
                                 },
                             )
                     except Exception as route_error:
-                        logger.warning("Mapbox optimization failed, creating manual multi-street route: %s", route_error)
-                
+                        logger.warning(
+                            "Mapbox optimization failed, creating manual multi-street route: %s",
+                            route_error,
+                        )
+
                 # Fallback: Create a manual multi-street route using individual directions
                 all_coordinates = []
                 total_distance = 0
                 total_duration = 0
-                
+
                 # Start from user location
                 current_location = [user_lon, user_lat]
-                
+
                 for i, street_data in enumerate(selected_streets):
                     if street_data["start_coords"]:
                         # Get route to this street
                         route_segment = await _get_mapbox_directions_route(
-                            current_location[0], current_location[1],
-                            street_data["start_coords"][0], street_data["start_coords"][1]
+                            current_location[0],
+                            current_location[1],
+                            street_data["start_coords"][0],
+                            street_data["start_coords"][1],
                         )
-                        
+
                         if route_segment and route_segment.get("geometry"):
                             # Add this segment's coordinates
-                            segment_coords = route_segment["geometry"]["coordinates"]
+                            segment_coords = route_segment["geometry"][
+                                "coordinates"
+                            ]
                             if i == 0:
                                 all_coordinates.extend(segment_coords)
                             else:
                                 # Skip first coordinate to avoid duplication
                                 all_coordinates.extend(segment_coords[1:])
-                            
+
                             total_distance += route_segment.get("distance", 0)
                             total_duration += route_segment.get("duration", 0)
-                            
+
                             # Update current location for next segment
                             current_location = street_data["start_coords"]
-                
+
                 if all_coordinates:
                     multi_route = {
                         "geometry": {
                             "type": "LineString",
-                            "coordinates": all_coordinates
+                            "coordinates": all_coordinates,
                         },
                         "distance": total_distance,
                         "duration": total_duration,
                         "streets_included": [
                             {
-                                "segment_id": street_data["street"]["properties"]["segment_id"],
-                                "street_name": street_data["street"]["properties"].get("street_name", "Unknown"),
-                                "distance_miles": round(street_data["distance_miles"], 2),
+                                "segment_id": street_data["street"][
+                                    "properties"
+                                ]["segment_id"],
+                                "street_name": street_data["street"][
+                                    "properties"
+                                ].get("street_name", "Unknown"),
+                                "distance_miles": round(
+                                    street_data["distance_miles"], 2
+                                ),
                                 "start_coords": street_data["start_coords"],
                                 "geometry": street_data["street"]["geometry"],
                             }
                             for street_data in selected_streets
-                        ]
+                        ],
                     }
-                    
+
                     return JSONResponse(
                         content={
                             "status": "success",
                             "message": f"Multi-street route created for {len(selected_streets)} streets.",
                             "route": multi_route,
                             "total_streets": len(selected_streets),
-                            "estimated_efficiency": f"{len(selected_streets)/max_distance:.1f} streets per mile radius",
+                            "estimated_efficiency": f"{len(selected_streets) / max_distance:.1f} streets per mile radius",
                         },
                     )
-                    
+
             except Exception as multi_route_error:
-                logger.warning("Multi-street route creation failed, falling back to single street: %s", multi_route_error)
+                logger.warning(
+                    "Multi-street route creation failed, falling back to single street: %s",
+                    multi_route_error,
+                )
 
         # Fallback to simple route to nearest street
         nearest_street = selected_streets[0]
         simple_route = await _get_mapbox_directions_route(
-            user_lon, user_lat,
-            nearest_street["start_coords"][0], nearest_street["start_coords"][1]
+            user_lon,
+            user_lat,
+            nearest_street["start_coords"][0],
+            nearest_street["start_coords"][1],
         )
-        
+
         if simple_route:
-            simple_route["streets_included"] = [{
-                "segment_id": nearest_street["street"]["properties"]["segment_id"],
-                "street_name": nearest_street["street"]["properties"].get("street_name", "Unknown"),
-                "distance_miles": round(nearest_street["distance_miles"], 2),
-            }]
-            
-            formatted_response = {
-                "routes": [simple_route],
-                "code": "Ok"
-            }
-            
+            simple_route["streets_included"] = [
+                {
+                    "segment_id": nearest_street["street"]["properties"][
+                        "segment_id"
+                    ],
+                    "street_name": nearest_street["street"]["properties"].get(
+                        "street_name", "Unknown"
+                    ),
+                    "distance_miles": round(
+                        nearest_street["distance_miles"], 2
+                    ),
+                }
+            ]
+
+            formatted_response = {"routes": [simple_route], "code": "Ok"}
+
             return JSONResponse(
                 content={
-                    "status": "success", 
+                    "status": "success",
                     "message": f"Route to nearest street ({nearest_street['distance_miles']:.2f} miles away).",
                     "route": formatted_response["routes"][0],
                     "total_streets": 1,
