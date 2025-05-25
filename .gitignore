@@ -18,4 +18,3 @@ sim.html
 node_modules/
 eslint.config.mjs
 .vscode
-performance_monitor.py
