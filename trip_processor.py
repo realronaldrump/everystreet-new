@@ -346,6 +346,9 @@ class TripProcessor:
             self.processed_data["validation_status"] = (
                 TripState.VALIDATED.value
             )
+            # Clear previous invalid state
+            self.processed_data["invalid"] = False
+            self.processed_data["validation_message"] = None
 
             self._set_state(TripState.VALIDATED)
             logger.debug(
@@ -1447,8 +1450,15 @@ class TripProcessor:
 
             trip_to_save = self.processed_data.copy()
 
-            if isinstance(trip_to_save.get("gps"), dict):
-                trip_to_save["gps"] = json.dumps(trip_to_save["gps"])
+            # Ensure self.processed_data["gps"] is a GeoJSON object if it exists
+            current_gps_data = trip_to_save.get("gps")
+            if isinstance(current_gps_data, str):
+                try:
+                    trip_to_save["gps"] = json.loads(current_gps_data)
+                except json.JSONDecodeError:
+                    logger.error(
+                        f"Trip {trip_to_save.get('transactionId', 'unknown')}: Invalid JSON string in GPS field during save. Field will be kept as string."
+                    )
 
             trip_to_save["source"] = self.source
             trip_to_save["saved_at"] = datetime.now(timezone.utc)
@@ -1664,12 +1674,11 @@ class TripProcessor:
             "transactionId": transaction_id,
             "startTime": start_time,
             "endTime": end_time,
-            "gps": json.dumps(
-                {
-                    "type": "LineString",
-                    "coordinates": coordinates,
-                },
-            ),
+            # Store as GeoJSON object directly
+            "gps": {
+                "type": "LineString",
+                "coordinates": coordinates,
+            },
             "distance": total_distance,
             "imei": imei,
             "source": source,
