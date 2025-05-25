@@ -5660,6 +5660,79 @@ async def startup_event():
             )
             raise
 
+        # Add 2dsphere index for trips_collection.geometry
+        trips_index_name = "geometry_2dsphere"
+        try:
+            trips_indexes = await trips_collection.index_information()
+            if trips_index_name not in trips_indexes:
+                logger.info(
+                    "Creating 2dsphere index on trips_collection.geometry...",
+                )
+                await trips_collection.create_indexes(
+                    [
+                        IndexModel(
+                            [("geometry", GEOSPHERE)], name=trips_index_name
+                        ),
+                    ],
+                )
+                logger.info(
+                    "2dsphere index on trips_collection.geometry created successfully."
+                )
+            else:
+                logger.debug(
+                    "2dsphere index on trips_collection.geometry already exists."
+                )
+        except OperationFailure as e:
+            logger.warning(
+                "OperationFailure during trips_collection.geometry index creation: %s",
+                e,
+            )
+            # Handle specific errors if necessary, similar to matched_trips
+            if "Can't extract geo keys" in str(e) or "GeoJSON ordinary" in str(e).lower() or "not valid" in str(e).lower():
+                logger.error(
+                    "CRITICAL: Index creation on trips_collection.geometry failed due to invalid GeoJSON data. "
+                    "Ensure trip 'geometry' fields are valid GeoJSON objects (not strings, correct coordinates, etc.). "
+                    "Application will start, but coverage calculation will be very slow."
+                )
+            else:
+                logger.error(
+                    "Unhandled OperationFailure during trips_collection.geometry index creation, re-raising."
+                )
+                raise
+        except Exception as e:
+            logger.critical(
+                "CRITICAL: Unexpected error during trips_collection.geometry index creation: %s",
+                str(e),
+                exc_info=True,
+            )
+            raise
+
+        # Add unique index for coverage_metadata_collection on location.display_name
+        coverage_loc_index_name = "location_display_name_unique"
+        try:
+            coverage_indexes = await coverage_metadata_collection.index_information()
+            if coverage_loc_index_name not in coverage_indexes:
+                logger.info(
+                    "Creating unique index on coverage_metadata_collection.location.display_name..."
+                )
+                await coverage_metadata_collection.create_index(
+                    "location.display_name",
+                    name=coverage_loc_index_name,
+                    unique=True,
+                )
+                logger.info(
+                    "Unique index on coverage_metadata_collection.location.display_name created."
+                )
+            else:
+                logger.debug(
+                    "Unique index on coverage_metadata_collection.location.display_name already exists."
+                )
+        except Exception as e:
+            logger.error(
+                "Error creating unique index on coverage_metadata_collection.location.display_name: %s", e
+            )
+            # Decide if this is critical enough to stop startup
+
     except Exception as e:
         logger.critical(
             "CRITICAL: Failed to initialize application during startup: %s",
