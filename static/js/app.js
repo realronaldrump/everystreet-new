@@ -1560,19 +1560,24 @@ if (window.L?.Path) {
 
           // Restore layer visibility state
           Object.keys(AppState.mapLayers).forEach((layerName) => {
-            const savedVisibility = storage.get(`layer_visible_${layerName}`);
             const toggle = document.getElementById(`${layerName}-toggle`);
-
-            if (savedVisibility !== null) {
-              const isVisible = savedVisibility === "true";
-              AppState.mapLayers[layerName].visible = isVisible;
-              if (toggle) toggle.checked = isVisible;
+            if (layerName === "trips") {
+              // Always show trips layer by default
+              AppState.mapLayers[layerName].visible = true;
+              if (toggle) toggle.checked = true;
             } else {
-              if (toggle) toggle.checked = AppState.mapLayers[layerName].visible;
-            }
-
-            if (layerName === "undrivenStreets" && !AppState.mapLayers[layerName].visible) {
-              AppState.mapLayers[layerName].layer = { type: "FeatureCollection", features: [] };
+              const savedVisibility = storage.get(`layer_visible_${layerName}`);
+              if (savedVisibility !== null) {
+                const isVisible = savedVisibility === "true";
+                AppState.mapLayers[layerName].visible = isVisible;
+                if (toggle) toggle.checked = isVisible;
+              } else {
+                if (toggle) toggle.checked = AppState.mapLayers[layerName].visible;
+              }
+              // Clear layer data for undrivenStreets if not visible
+              if (layerName === "undrivenStreets" && !AppState.mapLayers[layerName].visible) {
+                AppState.mapLayers[layerName].layer = { type: "FeatureCollection", features: [] };
+              }
             }
           });
           
