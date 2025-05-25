@@ -1,27 +1,23 @@
 /* eslint-disable complexity */
-/* global handleError , DateUtils, L, $ */
+/* global handleError , DateUtils, mapboxgl, $ */
 /* eslint-disable no-unused-vars */
 
 "use strict";
-
-if (window.L?.Path) {
-  L.Path.prototype.options.clickTolerance = 8;
-}
 
 (function () {
   // Consolidated configuration
   const CONFIG = {
     MAP: {
-      defaultCenter: [37.0902, -95.7129],
+      defaultCenter: [-95.7129, 37.0902], // Note: Mapbox uses [lng, lat]
       defaultZoom: 4,
       maxZoom: 19,
       recentTripThreshold: 6 * 60 * 60 * 1000,
       debounceDelay: 100,
-      tileLayerUrls: {
-        dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      styles: {
+        dark: "mapbox://styles/mapbox/dark-v11",
+        light: "mapbox://styles/mapbox/light-v11",
+        satellite: "mapbox://styles/mapbox/satellite-v9",
+        streets: "mapbox://styles/mapbox/streets-v12",
       }
     },
     STORAGE_KEYS: {
@@ -69,15 +65,14 @@ if (window.L?.Path) {
   // Simplified application state
   const AppState = {
     map: null,
-    layerGroup: null,
-    mapLayers: { ...LAYER_DEFAULTS },
     mapInitialized: false,
+    mapLayers: { ...LAYER_DEFAULTS },
     mapSettings: { highlightRecentTrips: true },
     selectedTripId: null,
-    baseLayer: null,
-    geoJsonLayers: {},
     liveTracker: null,
     dom: new Map(), // Use Map for better performance
+    mapboxSources: new Map(), // Track Mapbox sources
+    mapboxLayers: new Map(), // Track Mapbox layers
   };
 
   // Simple cache for API responses
@@ -198,8 +193,7 @@ if (window.L?.Path) {
 
     const response = await fetch(url, options);
     if (!response.ok) {
-      const errorMsg = `API request failed for ${url} (Status: ${response.status})`;
-      throw new Error(errorMsg);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
     const data = await response.json();
@@ -207,80 +201,125 @@ if (window.L?.Path) {
     return data;
   };
 
+  // Mapbox-specific utility functions
+  const mapboxUtils = {
+    convertGeoJSONToMapboxFeatures(geojson) {
+      if (!geojson || !geojson.features) return [];
+      return geojson.features.map(feature => ({
+        ...feature,
+        id: feature.properties?.id || feature.properties?.tripId || Math.random().toString(36)
+      }));
+    },
+
+    createLayerStyle(layerInfo, layerType = 'line') {
+      const baseStyle = {
+        'line-color': layerInfo.color,
+        'line-opacity': layerInfo.opacity,
+        'line-width': layerInfo.weight || 2,
+      };
+
+      if (layerType === 'circle') {
+        return {
+          'circle-color': layerInfo.color,
+          'circle-opacity': layerInfo.opacity,
+          'circle-radius': layerInfo.weight || 4,
+        };
+      }
+
+      return baseStyle;
+    },
+
+    addOrUpdateSource(map, sourceId, data) {
+      if (map.getSource(sourceId)) {
+        map.getSource(sourceId).setData(data);
+      } else {
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: data
+        });
+      }
+    },
+
+    addOrUpdateLayer(map, layerId, sourceId, layerInfo, layerType = 'line') {
+      if (map.getLayer(layerId)) {
+        map.removeLayer(layerId);
+      }
+
+      const style = this.createLayerStyle(layerInfo, layerType);
+      
+      map.addLayer({
+        id: layerId,
+        type: layerType,
+        source: sourceId,
+        layout: {
+          'visibility': layerInfo.visible ? 'visible' : 'none'
+        },
+        paint: style
+      });
+    }
+  };
+
+  // Debounced versions of functions
+  const debouncedUpdateUrlWithMapState = debounce(updateUrlWithMapState, CONFIG.MAP.debounceDelay);
+
   // Date utilities
   const getStartDate = () => storage.get(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate();
   const getEndDate = () => storage.get(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
 
-  // Optimized trip styling
+  // Trip styling functions for Mapbox
   const getTripFeatureStyle = (feature, layerInfo) => {
-    const { properties = {} } = feature;
-    const { transactionId, startTime } = properties;
-    
-    const sixHoursAgo = Date.now() - CONFIG.MAP.recentTripThreshold;
-    const tripStartTime = new Date(startTime).getTime();
     const isRecent = AppState.mapSettings.highlightRecentTrips && 
-                     !isNaN(tripStartTime) && 
-                     tripStartTime > sixHoursAgo;
-    const isSelected = transactionId === AppState.selectedTripId;
-    
-    const isMatchedPair = isSelected || 
-      (AppState.selectedTripId && transactionId && 
-       (AppState.selectedTripId.replace("MATCHED-", "") === transactionId ||
-        transactionId.replace("MATCHED-", "") === AppState.selectedTripId));
+      feature.properties?.endTime && 
+      (Date.now() - new Date(feature.properties.endTime).getTime()) < CONFIG.MAP.recentTripThreshold;
 
-    let color = layerInfo.color;
-    let weight = layerInfo.weight || 2;
-    let opacity = layerInfo.opacity;
+    const isSelected = AppState.selectedTripId && 
+      (feature.properties?.id === AppState.selectedTripId || 
+       feature.properties?.tripId === AppState.selectedTripId);
 
     if (isSelected) {
-      color = layerInfo.highlightColor || "#FFD700";
-      weight = 3;
-      opacity = 1;
-    } else if (isMatchedPair) {
-      color = "#03DAC6";
-      weight = 2.5;
-      opacity = 0.8;
-    } else if (isRecent) {
-      color = "#FFA500";
-      weight = 2.5;
-      opacity = 0.9;
+      return {
+        color: layerInfo.highlightColor || "#FFD700",
+        opacity: 1,
+        weight: (layerInfo.weight || 2) + 2,
+      };
+    }
+
+    if (isRecent) {
+    return {
+        color: layerInfo.highlightColor || "#FFD700",
+        opacity: Math.min(layerInfo.opacity + 0.3, 1),
+        weight: (layerInfo.weight || 2) + 1,
+      };
     }
 
     return {
-      color,
-      weight,
-      opacity,
-      lineCap: "round",
-      lineJoin: "round",
-      className: isRecent ? "recent-trip" : "",
+      color: layerInfo.color,
+      opacity: layerInfo.opacity,
+      weight: layerInfo.weight || 2,
     };
   };
 
-  // Optimized style refresh
   const refreshTripStyles = () => {
-    if (!AppState.layerGroup) return;
+    if (!AppState.map || !AppState.mapInitialized) return;
 
-    AppState.layerGroup.eachLayer((layer) => {
-      if (layer.feature?.properties && typeof layer.setStyle === "function") {
-        const isMatched = layer.feature.properties.isMatched ||
-                         layer.feature.properties.transactionId?.startsWith("MATCHED-");
-        const layerInfo = isMatched ? AppState.mapLayers.matchedTrips : AppState.mapLayers.trips;
-        
-        layer.setStyle(getTripFeatureStyle(layer.feature, layerInfo));
-        
-        if (layer.feature.properties.transactionId === AppState.selectedTripId) {
-          layer.bringToFront();
-        }
+    ['trips', 'matchedTrips'].forEach(layerName => {
+      const layerInfo = AppState.mapLayers[layerName];
+      if (!layerInfo || !layerInfo.visible) return;
+
+      const mapboxLayerId = `${layerName}-layer`;
+      if (AppState.map.getLayer(mapboxLayerId)) {
+        // Update layer styles based on current state
+        const style = mapboxUtils.createLayerStyle(layerInfo);
+        Object.entries(style).forEach(([property, value]) => {
+          AppState.map.setPaintProperty(mapboxLayerId, property, value);
+        });
       }
     });
   };
 
-  const debouncedUpdateMap = debounce(updateMap, CONFIG.MAP.debounceDelay);
-  const debouncedUpdateUrlWithMapState = debounce(updateUrlWithMapState, 200);
+  const isMapReady = () => AppState.map && AppState.mapInitialized;
 
-  const isMapReady = () => AppState.map && AppState.mapInitialized && AppState.layerGroup;
-
-  // Simplified map initialization
+  // Map initialization with Mapbox GL JS
   async function initializeMap() {
     try {
       if (AppState.map) return true;
@@ -291,57 +330,74 @@ if (window.L?.Path) {
         return false;
       }
 
-      AppState.map = L.map("map", {
-        preferCanvas: true,
+      // Check for Mapbox access token
+      if (!window.MAPBOX_ACCESS_TOKEN) {
+        showNotification("Mapbox access token not configured", "danger");
+        return false;
+      }
+
+      mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+
+      // Disable telemetry to prevent 500 errors on events API
+      try {
+        // Block telemetry at source
+        if (mapboxgl.Map && mapboxgl.Map.prototype) {
+          const originalAddEventData = mapboxgl.Map.prototype._addEventData;
+          if (originalAddEventData) {
+            mapboxgl.Map.prototype._addEventData = function() {};
+          }
+        }
+        
+        // Disable prewarm which can trigger events
+        if (typeof mapboxgl.prewarm === 'function') {
+          mapboxgl.prewarm = function() {};
+        }
+      } catch (e) {
+        console.warn("Could not fully disable Mapbox telemetry:", e);
+      }
+
+      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const mapStyle = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
+
+      AppState.map = new mapboxgl.Map({
+        container: "map",
+        style: mapStyle,
         center: CONFIG.MAP.defaultCenter,
         zoom: CONFIG.MAP.defaultZoom,
-        zoomControl: false,
-        attributionControl: false,
-        minZoom: 2,
         maxZoom: CONFIG.MAP.maxZoom,
-        zoomSnap: 0.5,
-        zoomDelta: 0.5,
-        wheelPxPerZoomLevel: 120,
-        fadeAnimation: true,
-        markerZoomAnimation: true,
-        inertia: true,
-        worldCopyJump: true,
+        attributionControl: false,
+        logoPosition: 'bottom-right',
+        collectResourceTiming: false, // Disable resource timing collection
+        transformRequest: (url, resourceType) => {
+          // Block all telemetry and events API calls to prevent 500 errors
+          if (typeof url === 'string' && (
+            url.includes('events.mapbox.com') || 
+            url.includes('/events/v2') || 
+            url.includes('telemetry') ||
+            url.includes('/ping')
+          )) {
+            console.log('Blocked telemetry request:', url);
+            return null; // Return null to block the request
+          }
+          return { url };
+        }
       });
 
       window.map = AppState.map;
 
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-      const tileUrl = CONFIG.MAP.tileLayerUrls[theme] || CONFIG.MAP.tileLayerUrls.dark;
+      // Add controls
+      AppState.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      AppState.map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
 
-      AppState.baseLayer = L.tileLayer(tileUrl, {
-        maxZoom: CONFIG.MAP.maxZoom,
-        crossOrigin: true,
-      }).addTo(AppState.map);
+      // Setup event handlers
+      AppState.map.on('moveend', debouncedUpdateUrlWithMapState);
+      AppState.map.on('zoomend', debouncedUpdateUrlWithMapState);
+      AppState.map.on('click', handleMapClick);
 
-      L.control.zoom({ position: "topright" }).addTo(AppState.map);
-      L.control.attribution({ position: "bottomright", prefix: "" }).addTo(AppState.map);
-
-      AppState.layerGroup = L.layerGroup().addTo(AppState.map);
-
-      // Setup basemaps
-      const basemaps = Object.fromEntries(
-        Object.entries(CONFIG.MAP.tileLayerUrls).map(([key, url]) => [
-          key.charAt(0).toUpperCase() + key.slice(1),
-          L.tileLayer(url, { maxZoom: CONFIG.MAP.maxZoom })
-        ])
-      );
-
-      const defaultBasemap = theme === "light" ? "Light" : "Dark";
-      if (basemaps[defaultBasemap]) {
-        basemaps[defaultBasemap].addTo(AppState.map);
-        AppState.baseLayer = basemaps[defaultBasemap];
-      }
-
-      L.control.layers(basemaps, null, { position: "topright", collapsed: true }).addTo(AppState.map);
-
-      AppState.map.on("zoomend", debouncedUpdateUrlWithMapState);
-      AppState.map.on("moveend", debouncedUpdateUrlWithMapState);
-      AppState.map.on("click", handleMapClick);
+      // Wait for map to load
+      await new Promise((resolve) => {
+        AppState.map.on('load', resolve);
+      });
 
       document.dispatchEvent(new CustomEvent("mapInitialized"));
       AppState.mapInitialized = true;
@@ -358,11 +414,24 @@ if (window.L?.Path) {
     }
   }
 
-  function handleMapClick() {
-    if (!AppState.map._popup || !AppState.map._popup.isOpen()) {
+  function handleMapClick(e) {
+    // Check if clicking on a feature
+    const features = AppState.map.queryRenderedFeatures(e.point);
+    
+    if (features.length === 0) {
+      // Clicked on empty area, deselect trip
       if (AppState.selectedTripId) {
         AppState.selectedTripId = null;
         refreshTripStyles();
+      }
+    } else {
+      // Handle feature click
+      const tripFeature = features.find(f => 
+        f.source && (f.source.includes('trips') || f.source.includes('matched'))
+      );
+      
+      if (tripFeature) {
+        handleTripClick(e, tripFeature);
       }
     }
   }
@@ -375,7 +444,7 @@ if (window.L?.Path) {
       const zoom = AppState.map.getZoom();
       
       const url = new URL(window.location.href);
-      url.searchParams.set("zoom", zoom);
+      url.searchParams.set("zoom", zoom.toFixed(2));
       url.searchParams.set("lat", center.lat.toFixed(5));
       url.searchParams.set("lng", center.lng.toFixed(5));
 
@@ -399,7 +468,7 @@ if (window.L?.Path) {
     }
   }
 
-  // Consolidated layer control functions
+  // Layer control functions adapted for Mapbox
   function initializeLayerControls() {
     const layerToggles = getElement("layer-toggles");
     if (!layerToggles) return;
@@ -407,14 +476,6 @@ if (window.L?.Path) {
     createLayerControlsUI(layerToggles);
     setupLayerEventListeners(layerToggles);
     updateLayerOrderUI();
-
-    // Prevent map interaction
-    [layerToggles, getElement("layer-order")].forEach(el => {
-      if (el) {
-        L.DomEvent.disableClickPropagation(el);
-        L.DomEvent.disableScrollPropagation(el);
-      }
-    });
   }
 
   function createLayerControlsUI(container) {
@@ -482,427 +543,458 @@ if (window.L?.Path) {
       undrivenStreetsLoaded = false;
       lazyFetchUndrivenStreets();
     } else {
-      debouncedUpdateMap();
+      // Update Mapbox layer visibility
+      const mapboxLayerId = `${name}-layer`;
+      if (AppState.map && AppState.map.getLayer(mapboxLayerId)) {
+        AppState.map.setLayoutProperty(mapboxLayerId, 'visibility', visible ? 'visible' : 'none');
+      }
     }
 
-    updateLayerOrderUI();
-    document.dispatchEvent(new CustomEvent("layerVisibilityChanged", {
-      detail: { layer: name, visible }
-    }));
+    updateMap();
   }
 
   function changeLayerColor(name, color) {
-    if (AppState.mapLayers[name]) {
-      AppState.mapLayers[name].color = color;
-      debouncedUpdateMap();
+    const layerInfo = AppState.mapLayers[name];
+    if (!layerInfo) return;
+
+    layerInfo.color = color;
+    
+    // Update Mapbox layer color
+    const mapboxLayerId = `${name}-layer`;
+    if (AppState.map && AppState.map.getLayer(mapboxLayerId)) {
+      AppState.map.setPaintProperty(mapboxLayerId, 'line-color', color);
     }
   }
 
   function changeLayerOpacity(name, opacity) {
-    if (AppState.mapLayers[name]) {
-      AppState.mapLayers[name].opacity = opacity;
-      debouncedUpdateMap();
+    const layerInfo = AppState.mapLayers[name];
+    if (!layerInfo) return;
+
+    layerInfo.opacity = opacity;
+    
+    // Update Mapbox layer opacity
+    const mapboxLayerId = `${name}-layer`;
+    if (AppState.map && AppState.map.getLayer(mapboxLayerId)) {
+      AppState.map.setPaintProperty(mapboxLayerId, 'line-opacity', opacity);
     }
   }
 
   function updateLayerOrderUI() {
-    const layerOrderEl = getElement("layer-order");
-    if (!layerOrderEl) return;
+    const orderContainer = getElement("layer-order-list");
+    if (!orderContainer) return;
 
-    const visibleLayers = Object.entries(AppState.mapLayers)
-      .filter(([, info]) => info.visible && (info.layer || info === AppState.mapLayers.customPlaces))
-      .sort(([, a], [, b]) => b.order - a.order);
+    const sortedLayers = Object.entries(AppState.mapLayers)
+      .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
 
-    layerOrderEl.innerHTML = `
-      <h4 class="h6 mb-1">Layer Order (Drag to Reorder)</h4>
-      <ul id="layer-order-list" class="list-group layer-order-list">
-        ${visibleLayers.map(([name, info]) => `
-          <li class="list-group-item list-group-item-action list-group-item-dark p-1" 
-              draggable="true" data-layer="${name}" style="cursor: grab;">
-            ${info.name || name}
-          </li>
-        `).join('')}
-      </ul>
-    `;
+    orderContainer.innerHTML = "";
+    const fragment = document.createDocumentFragment();
 
+    sortedLayers.forEach(([name, info]) => {
+      const li = document.createElement("li");
+      li.className = "list-group-item d-flex justify-content-between align-items-center";
+      li.dataset.layerName = name;
+      li.innerHTML = `
+        <span>${info.name || name}</span>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-secondary move-up" title="Move Up">
+            <i class="fas fa-arrow-up"></i>
+          </button>
+          <button class="btn btn-outline-secondary move-down" title="Move Down">
+            <i class="fas fa-arrow-down"></i>
+          </button>
+        </div>
+      `;
+      fragment.appendChild(li);
+    });
+
+    orderContainer.appendChild(fragment);
     initializeDragAndDrop();
   }
 
   function initializeDragAndDrop() {
-    const list = getElement("layer-order-list");
-    if (!list) return;
+    const orderContainer = getElement("layer-order-list");
+    if (!orderContainer) return;
 
-    L.DomEvent.disableClickPropagation(list);
-    let draggedItem = null;
+    orderContainer.addEventListener("click", (e) => {
+      const button = e.target.closest("button");
+      if (!button) return;
 
-    eventManager.add(list, "dragstart", (e) => {
-      if (e.target.tagName === "LI" && e.target.draggable) {
-        draggedItem = e.target;
-        if (e.dataTransfer) {
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", e.target.dataset.layer);
+      const li = button.closest("li");
+      const layerName = li?.dataset.layerName;
+      if (!layerName) return;
+
+      if (button.classList.contains("move-up")) {
+        const prev = li.previousElementSibling;
+        if (prev) {
+          orderContainer.insertBefore(li, prev);
+          updateLayerOrder();
         }
-        setTimeout(() => draggedItem?.classList.add("dragging"), 0);
-      } else {
-        e.preventDefault();
-      }
-    });
-
-    eventManager.add(list, "dragover", (e) => {
-      e.preventDefault();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-      
-      const target = e.target.closest("li");
-      if (target && draggedItem && target !== draggedItem) {
-        const rect = target.getBoundingClientRect();
-        const midpoint = rect.top + rect.height / 2;
-        if (e.clientY > midpoint) {
-          list.insertBefore(draggedItem, target.nextSibling);
-        } else {
-          list.insertBefore(draggedItem, target);
+      } else if (button.classList.contains("move-down")) {
+        const next = li.nextElementSibling;
+        if (next) {
+          orderContainer.insertBefore(next, li);
+          updateLayerOrder();
         }
-      }
-    });
-
-    eventManager.add(list, "drop", (e) => e.preventDefault());
-
-    eventManager.add(list, "dragend", () => {
-      if (draggedItem) {
-        draggedItem.classList.remove("dragging");
-        draggedItem = null;
-        updateLayerOrder();
       }
     });
   }
 
   function updateLayerOrder() {
-    const list = getElement("layer-order-list");
-    if (!list) return;
+    const orderContainer = getElement("layer-order-list");
+    if (!orderContainer) return;
 
-    const items = Array.from(list.querySelectorAll("li"));
-    const total = items.length;
-
-    items.forEach((item, i) => {
-      const layerName = item.dataset.layer;
+    const items = Array.from(orderContainer.children);
+    items.forEach((item, index) => {
+      const layerName = item.dataset.layerName;
       if (AppState.mapLayers[layerName]) {
-        AppState.mapLayers[layerName].order = total - i;
+        AppState.mapLayers[layerName].order = index;
       }
     });
-    
-    debouncedUpdateMap();
+
+    // Re-order layers in Mapbox map
+    if (AppState.map && AppState.mapInitialized) {
+      const sortedLayers = Object.entries(AppState.mapLayers)
+        .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
+
+      let beforeLayer = null;
+      sortedLayers.reverse().forEach(([name]) => {
+        const mapboxLayerId = `${name}-layer`;
+        if (AppState.map.getLayer(mapboxLayerId)) {
+          if (beforeLayer) {
+            AppState.map.moveLayer(mapboxLayerId, beforeLayer);
+          }
+          beforeLayer = mapboxLayerId;
+        }
+      });
+    }
   }
 
-  // Consolidated fetch functions with improved error handling
+  // Continue with rest of functions...
   async function fetchTrips() {
-    const startDate = getStartDate();
-    const endDate = getEndDate();
-
-    if (!startDate || !endDate) {
-      showNotification("Invalid date range selected for fetching trips.", "warning");
-      return;
-    }
-
-    const loadingManager = window.loadingManager || { 
-      startOperation: () => {}, 
-      updateOperation: () => {}, 
-      finish: () => {} 
-    };
-
-    loadingManager.startOperation("FetchTrips", 100);
+    if (!isMapReady()) return null;
 
     try {
-      const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
-      loadingManager.updateOperation("FetchTrips", 10, "Fetching trips...");
+      const startDate = getStartDate();
+      const endDate = getEndDate();
       
-      const response = await fetch(`/api/trips?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error fetching trips: ${response.status} ${response.statusText}`);
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        format: "geojson",
+      });
+
+      const data = await cachedFetch(`/api/trips?${params}`);
+      
+      if (data?.type === "FeatureCollection") {
+        AppState.mapLayers.trips.layer = data;
+        updateTripsTable(data);
+        return data;
       }
-
-      let geojson = await response.json();
-      if (!geojson || !Array.isArray(geojson.features)) {
-        geojson = { type: "FeatureCollection", features: [] };
-      }
-
-      await Promise.all([
-        updateTripsTable(geojson),
-        updateMapWithTrips(geojson),
-        fetchMatchedTrips().catch(err => console.error("Error fetching matched trips:", err))
-      ]);
-
-      loadingManager.updateOperation("FetchTrips", 80, "Rendering map...");
-      await updateMap();
-
-      document.dispatchEvent(new CustomEvent("tripsLoaded", {
-        detail: { count: geojson.features.length }
-      }));
       
-      showNotification(`Loaded ${geojson.features.length} trips.`, "success");
-      loadingManager.updateOperation("FetchTrips", 100, "Trips loaded!");
-      
+      return null;
     } catch (error) {
       if (typeof handleError === "function") {
-        handleError(error, "Fetch Trips Main");
+        handleError(error, "Fetch Trips");
       } else {
-        console.error("Error in fetchTrips:", error);
+        console.error("Error fetching trips:", error);
       }
       showNotification(CONFIG.ERROR_MESSAGES.fetchTripsFailed, "danger");
-    } finally {
-      loadingManager.finish("FetchTrips");
+      return null;
     }
   }
 
   function updateTripsTable(geojson) {
-    if (!window.tripsTable || !$.fn.DataTable?.isDataTable("#tripsTable")) return;
+    // Update trips count and metrics display
+    const totalTripsElement = getElement("total-trips");
+    const totalDistanceElement = getElement("total-distance");
+    const avgDistanceElement = getElement("avg-distance");
+    const avgStartTimeElement = getElement("avg-start-time");
+    const avgDrivingTimeElement = getElement("avg-driving-time");
+    const avgSpeedElement = getElement("avg-speed");
+    const maxSpeedElement = getElement("max-speed");
 
-    const features = Array.isArray(geojson?.features) ? geojson.features : [];
-    const formattedTrips = features.map(trip => {
-      const props = trip.properties || {};
-      return {
-        transactionId: props.transactionId || "N/A",
-        imei: props.imei || "N/A",
-        startTime: props.startTime,
-        endTime: props.endTime,
-        startTimeFormatted: props.startTime ? DateUtils.formatForDisplay(props.startTime, {
-          dateStyle: "short", timeStyle: "short"
-        }) : "N/A",
-        endTimeFormatted: props.endTime ? DateUtils.formatForDisplay(props.endTime, {
-          dateStyle: "short", timeStyle: "short"
-        }) : "N/A",
-        duration: props.duration ? DateUtils.formatSecondsToHMS(props.duration) : "N/A",
-        distance: typeof props.distance === "number" ? props.distance.toFixed(2) : "N/A",
-        startOdometer: props.startOdometer ?? "N/A",
-        endOdometer: props.endOdometer ?? "N/A",
-        currentSpeed: typeof props.currentSpeed === "number" ? props.currentSpeed.toFixed(1) : "N/A",
-        avgSpeed: typeof (props.avgSpeed ?? props.averageSpeed) === "number" ? 
-          (props.avgSpeed ?? props.averageSpeed).toFixed(1) : "N/A",
-        maxSpeed: typeof props.maxSpeed === "number" ? props.maxSpeed.toFixed(1) : "N/A",
-        pointsRecorded: props.pointsRecorded ?? "N/A",
-        totalIdlingTime: props.totalIdlingTime ? DateUtils.formatSecondsToHMS(props.totalIdlingTime) : "N/A",
-        fuelConsumed: typeof props.fuelConsumed === "number" ? props.fuelConsumed.toFixed(2) : "N/A",
-        lastUpdate: props.lastUpdate ? DateUtils.formatForDisplay(props.lastUpdate, {
-          dateStyle: "medium", timeStyle: "short"
-        }) : "N/A",
-        destination: props.destination || "N/A",
-        startLocation: props.startLocation || "N/A",
-      };
+    if (!geojson?.features) {
+      [totalTripsElement, totalDistanceElement, avgDistanceElement, 
+       avgStartTimeElement, avgDrivingTimeElement, avgSpeedElement, 
+       maxSpeedElement].forEach(el => {
+        if (el) el.textContent = "0";
+      });
+      return;
+    }
+
+    const features = geojson.features;
+    const totalTrips = features.length;
+    
+    let totalDistance = 0;
+    let totalDrivingTime = 0;
+    let totalStartHours = 0;
+    let maxSpeed = 0;
+    let validDistanceCount = 0;
+    let validDrivingTimeCount = 0;
+    let validStartTimeCount = 0;
+
+    features.forEach(feature => {
+      const props = feature.properties || {};
+      
+      if (props.distance && !isNaN(props.distance)) {
+        totalDistance += parseFloat(props.distance);
+        validDistanceCount++;
+      }
+      
+      let drivingTime = props.duration || props.drivingTime;
+      
+      // Calculate duration if not provided (for matched trips)
+      if (!drivingTime && props.startTime && props.endTime) {
+        try {
+          const startTime = new Date(props.startTime);
+          const endTime = new Date(props.endTime);
+          if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+            drivingTime = (endTime - startTime) / 1000; // Convert to seconds
+          }
+        } catch (e) {
+          // Ignore calculation errors
+        }
+      }
+      
+      if (drivingTime && !isNaN(drivingTime)) {
+        totalDrivingTime += parseFloat(drivingTime);
+        validDrivingTimeCount++;
+      }
+      
+      if (props.startTime) {
+        const startTime = new Date(props.startTime);
+        if (!isNaN(startTime.getTime())) {
+          totalStartHours += startTime.getHours() + startTime.getMinutes() / 60;
+          validStartTimeCount++;
+        }
+      }
+      
+      if (props.maxSpeed && !isNaN(props.maxSpeed)) {
+        maxSpeed = Math.max(maxSpeed, parseFloat(props.maxSpeed));
+      }
     });
 
-    try {
-      window.tripsTable.clear().rows.add(formattedTrips).draw(false);
-    } catch (error) {
-      console.error("Error updating DataTable:", error);
-      showNotification("Failed to update the trips table.", "danger");
-    }
+    // Update display elements
+    if (totalTripsElement) totalTripsElement.textContent = totalTrips.toString();
+    if (totalDistanceElement) totalDistanceElement.textContent = totalDistance.toFixed(1);
+    if (avgDistanceElement) avgDistanceElement.textContent = 
+      validDistanceCount > 0 ? (totalDistance / validDistanceCount).toFixed(1) : "0";
+    if (avgStartTimeElement) avgStartTimeElement.textContent = 
+      validStartTimeCount > 0 ? 
+        DateUtils.formatTimeFromHours(totalStartHours / validStartTimeCount) : "--:--";
+    if (avgDrivingTimeElement) avgDrivingTimeElement.textContent = 
+      validDrivingTimeCount > 0 ? 
+        DateUtils.formatSecondsToHMS(totalDrivingTime / validDrivingTimeCount) : "--:--";
+    if (avgSpeedElement) avgSpeedElement.textContent = 
+      validDrivingTimeCount > 0 && totalDistance > 0 ? 
+        ((totalDistance / (totalDrivingTime / validDrivingTimeCount)) * 3600 / 5280).toFixed(1) : "0";
+    if (maxSpeedElement) maxSpeedElement.textContent = maxSpeed.toFixed(0);
   }
 
+  // Mapbox-specific layer update functions
   async function updateMapWithTrips(geojson) {
-    AppState.mapLayers.trips.layer = Array.isArray(geojson?.features) 
-      ? geojson 
-      : { type: "FeatureCollection", features: [] };
+    if (!AppState.map || !AppState.mapInitialized || !geojson) return;
+
+    const sourceId = 'trips-source';
+    const layerId = 'trips-layer';
+    const layerInfo = AppState.mapLayers.trips;
+
+    try {
+      mapboxUtils.addOrUpdateSource(AppState.map, sourceId, geojson);
+      
+      if (!AppState.map.getLayer(layerId)) {
+        mapboxUtils.addOrUpdateLayer(AppState.map, layerId, sourceId, layerInfo);
+        
+        // Add click handler
+        AppState.map.on('click', layerId, (e) => {
+          handleTripClick(e, e.features[0]);
+        });
+        
+        // Add hover effects
+        AppState.map.on('mouseenter', layerId, () => {
+          AppState.map.getCanvas().style.cursor = 'pointer';
+        });
+        
+        AppState.map.on('mouseleave', layerId, () => {
+          AppState.map.getCanvas().style.cursor = '';
+        });
+      }
+    } catch (error) {
+      console.error("Error updating trips layer:", error);
+    }
   }
 
   async function updateMapWithUndrivenStreets(geojson) {
-    AppState.mapLayers.undrivenStreets.layer = Array.isArray(geojson?.features)
-      ? geojson 
-      : { type: "FeatureCollection", features: [] };
+    if (!AppState.map || !AppState.mapInitialized || !geojson) return;
+
+    const sourceId = 'undriven-streets-source';
+    const layerId = 'undrivenStreets-layer';
+    const layerInfo = AppState.mapLayers.undrivenStreets;
+
+    try {
+      mapboxUtils.addOrUpdateSource(AppState.map, sourceId, geojson);
+      
+      if (!AppState.map.getLayer(layerId)) {
+        mapboxUtils.addOrUpdateLayer(AppState.map, layerId, sourceId, layerInfo);
+        
+        // Add specific styling for undriven streets
+        AppState.map.setPaintProperty(layerId, 'line-dasharray', [2, 2]);
+      }
+    } catch (error) {
+      console.error("Error updating undriven streets layer:", error);
+    }
   }
 
-  function fetchMatchedTrips() {
+  async function fetchMatchedTrips() {
+    if (!isMapReady()) return null;
+
+    try {
     const startDate = getStartDate();
     const endDate = getEndDate();
     
-    if (!startDate || !endDate) {
-      return Promise.reject(new Error("Invalid date range for matched trips"));
-    }
-
-    const url = `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`;
-    return cachedFetch(url, {}, 60000)
-      .then(data => {
-        AppState.mapLayers.matchedTrips.layer = data && Array.isArray(data.features) 
-          ? data 
-          : { type: "FeatureCollection", features: [] };
-        AppState.mapLayers.matchedTrips.visible = storage.get("layer_visible_matchedTrips") === "true";
-      })
-      .catch(error => {
-        console.error("Error fetching matched trips:", error);
-        AppState.mapLayers.matchedTrips.layer = { type: "FeatureCollection", features: [] };
-        AppState.mapLayers.matchedTrips.visible = false;
-        if (typeof handleError === "function") {
-          handleError(error, "Fetch Matched Trips");
-        }
-        throw error;
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        format: "geojson",
       });
-  }
 
-  async function fetchUndrivenStreets() {
-    const locationSelect = document.getElementById("undriven-streets-location");
-    
-    if (!locationSelect?.value) {
-      if (AppState.mapLayers.undrivenStreets?.visible) {
-        showNotification("Please select a location from the dropdown to show undriven streets.", "warning");
+      const data = await cachedFetch(`/api/matched_trips?${params}`);
+      
+      if (data?.type === "FeatureCollection") {
+        AppState.mapLayers.matchedTrips.layer = data;
+        
+        // Add to map if visible
+        if (AppState.mapLayers.matchedTrips.visible) {
+          const sourceId = 'matched-trips-source';
+          const layerId = 'matchedTrips-layer';
+          const layerInfo = AppState.mapLayers.matchedTrips;
+
+          mapboxUtils.addOrUpdateSource(AppState.map, sourceId, data);
+          
+          if (!AppState.map.getLayer(layerId)) {
+            mapboxUtils.addOrUpdateLayer(AppState.map, layerId, sourceId, layerInfo);
+            
+            // Add click handler
+            AppState.map.on('click', layerId, (e) => {
+              handleTripClick(e, e.features[0]);
+            });
+          }
+        }
+        
+        return data;
       }
-      AppState.mapLayers.undrivenStreets.visible = false;
-      AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] };
-      await updateMap();
+      
+      return null;
+    } catch (error) {
+      console.error("Error fetching matched trips:", error);
       return null;
     }
-
-    try {
-      const location = JSON.parse(locationSelect.value);
-      if (!location?.display_name) {
-        throw new Error("Invalid location data");
       }
 
-      storage.set("selectedLocationForUndrivenStreets", location._id || location.display_name);
-      showNotification(`Loading undriven streets for ${location.display_name}...`, "info");
+  async function fetchUndrivenStreets() {
+    const selectedLocationId = storage.get(CONFIG.STORAGE_KEYS.selectedLocation);
+    if (!selectedLocationId || !isMapReady()) return null;
 
+    try {
+      // Get the full location object from coverage areas
+      const coverageAreas = await fetchCoverageAreas();
+      const selectedLocation = coverageAreas.find(area => area._id === selectedLocationId);
+      
+      if (!selectedLocation || !selectedLocation.location) {
+        console.warn("Selected location not found in coverage areas:", selectedLocationId);
+        return null;
+      }
+
+      // Send the location object as expected by the API
+      const locationData = selectedLocation.location;
       const response = await fetch("/api/undriven_streets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(location),
+        body: JSON.stringify(locationData),
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to load undriven streets (HTTP ${response.status})`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const geojson = await response.json();
-      if (!geojson?.type || !Array.isArray(geojson.features)) {
-        throw new Error("Invalid GeoJSON structure received");
+      const data = await response.json();
+      
+      if (data?.type === "FeatureCollection") {
+        AppState.mapLayers.undrivenStreets.layer = data;
+        await updateMapWithUndrivenStreets(data);
+        return data;
       }
-
-      const message = geojson.features.length === 0 
-        ? `No undriven streets found in ${location.display_name}`
-        : `Loaded ${geojson.features.length} undriven street segments for ${location.display_name}`;
       
-      showNotification(message, geojson.features.length === 0 ? "info" : "success");
-
-      await updateMapWithUndrivenStreets(geojson);
-      await updateMap();
-      return geojson;
-      
+      return null;
     } catch (error) {
       console.error("Error fetching undriven streets:", error);
-      showNotification(`Failed to load undriven streets: ${error.message}`, "danger");
-      
-      AppState.mapLayers.undrivenStreets.visible = false;
-      AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] };
-      
-      const toggle = document.getElementById("undrivenStreets-toggle");
-      if (toggle) toggle.checked = false;
-      
-      await updateMap();
       return null;
     }
   }
 
-  // Optimized map update function
+  // Main update function
   async function updateMap(fitBounds = false) {
     if (!isMapReady()) return;
 
-    AppState.layerGroup.clearLayers();
-    const tripLayers = new Map();
-
-    const visibleLayers = Object.entries(AppState.mapLayers)
-      .filter(([name, info]) => 
-        info.visible && 
-        ((info.layer && Array.isArray(info.layer.features) && info.layer.features.length > 0) ||
-         (name === "customPlaces" && window.customPlaces?.isVisible()))
-      )
-      .sort(([, a], [, b]) => a.order - b.order);
-
-    for (const [name, info] of visibleLayers) {
-      try {
-        if (name === "customPlaces" && window.customPlaces?.getLayerGroup()) {
-          window.customPlaces.getLayerGroup().addTo(AppState.layerGroup);
-        } else if (["trips", "matchedTrips"].includes(name)) {
-          const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
-            style: (feature) => getTripFeatureStyle(feature, info),
-            onEachFeature: (feature, layer) => {
-              if (feature.properties?.transactionId) {
-                tripLayers.set(feature.properties.transactionId, layer);
-              }
-              layer.on("click", (e) => handleTripClick(e, feature, layer));
-              layer.on("popupopen", () => setupPopupEventListeners(layer, feature));
-              layer.bindPopup(createTripPopupContent(feature), { autoPan: false });
-            },
-          });
-          geoJsonLayer.addTo(AppState.layerGroup);
-
-          // Add hit layer for easier clicking
-          const hitLayer = L.geoJSON(info.layer, {
-            style: { color: "#000000", opacity: 0, weight: 20, interactive: true },
-            onEachFeature: (f, layer) => {
-              layer.on("click", (e) => handleTripClick(e, f, layer));
-              layer.bindPopup(createTripPopupContent(f), { autoPan: false });
-            },
-          });
-          hitLayer.addTo(AppState.layerGroup);
-          
-        } else if (name === "undrivenStreets") {
-          const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
-            style: () => ({
-              color: info.color,
-              weight: 3,
-              opacity: info.opacity,
-              className: "undriven-street",
-            }),
-            onEachFeature: (feature, layer) => {
-              if (feature.properties?.street_name) {
-                const props = feature.properties;
-                const streetName = props.street_name;
-                const segmentLength = typeof props.segment_length === "number" 
-                  ? props.segment_length.toFixed(2) : "Unknown";
-                const streetType = props.highway || "street";
-                layer.bindTooltip(
-                  `<strong>${streetName}</strong><br>Type: ${streetType}<br>Length: ${segmentLength}m`,
-                  { sticky: true }
-                );
-              }
-            },
-          });
-          geoJsonLayer.addTo(AppState.layerGroup);
-        }
-      } catch (layerError) {
-        console.error(`Error processing layer "${name}":`, layerError);
-        if (typeof handleError === "function") {
-          handleError(layerError, `Update Map - Layer ${name}`);
-        }
+    try {
+      const promises = [];
+      
+      // Fetch trips data
+      if (AppState.mapLayers.trips.visible) {
+        promises.push(fetchTrips().then(data => {
+          if (data) return updateMapWithTrips(data);
+        }));
       }
-    }
+      
+      // Fetch matched trips if visible
+      if (AppState.mapLayers.matchedTrips.visible) {
+        promises.push(fetchMatchedTrips());
+      }
+      
+      // Fetch undriven streets if visible
+      if (AppState.mapLayers.undrivenStreets.visible) {
+        promises.push(lazyFetchUndrivenStreets());
+      }
 
-    if (AppState.selectedTripId && tripLayers.has(AppState.selectedTripId)) {
-      tripLayers.get(AppState.selectedTripId)?.bringToFront();
-    }
+      await Promise.all(promises);
 
-    if (fitBounds) fitMapBounds();
-    AppState.map.invalidateSize();
-    document.dispatchEvent(new CustomEvent("mapUpdated"));
+      // Fit bounds if requested
+      if (fitBounds) {
+        fitMapBounds();
+      }
+
+    } catch (error) {
+      console.error("Error updating map:", error);
+      showNotification("Error updating map data", "danger");
+    }
   }
 
-  function handleTripClick(e, feature, layer) {
-    if (e.originalEvent?.button !== 0) return;
-    L.DomEvent.stopPropagation(e);
-    
-    const clickedTripId = feature.properties?.transactionId;
-    if (!clickedTripId) return;
+  // Trip interaction handlers adapted for Mapbox
+  function handleTripClick(e, feature) {
+    if (!feature || !feature.properties) return;
 
-    AppState.selectedTripId = clickedTripId;
-    refreshTripStyles();
-
-    let visibleLayer = null;
-    AppState.layerGroup.eachLayer((l) => {
-      if (l.feature?.properties?.transactionId === clickedTripId && 
-          l.options?.opacity > 0 && l.options?.weight > 0) {
-        visibleLayer = l;
-      }
-    });
-
-    const layerToOpenPopupOn = visibleLayer || layer;
-    if (layerToOpenPopupOn?.openPopup) {
-      layerToOpenPopupOn.openPopup(e.latlng);
+    const tripId = feature.properties.id || feature.properties.tripId;
+    if (tripId) {
+      AppState.selectedTripId = tripId;
+      refreshTripStyles();
     }
+
+    // Create and show popup
+    const popupContent = createTripPopupContent(feature);
+    
+    const popup = new mapboxgl.Popup({
+      closeButton: true,
+      closeOnClick: true,
+      maxWidth: '400px'
+    })
+    .setLngLat(e.lngLat)
+    .setHTML(popupContent)
+    .addTo(AppState.map);
+
+    // Setup popup event listeners
+    popup.on('open', () => {
+      setupPopupEventListeners(popup, feature);
+    });
   }
 
   function createTripPopupContent(feature) {
@@ -911,573 +1003,508 @@ if (window.L?.Path) {
     const format = (value, formatter) => value != null ? formatter(value) : "N/A";
     const formatNum = (value, digits = 1) => format(value, (v) => parseFloat(v).toFixed(digits));
     const formatTime = (value) => format(value, (v) => 
-      DateUtils.formatForDisplay(v, { dateStyle: "medium", timeStyle: "short" }));
+      new Date(v).toLocaleString('en-US', { 
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true 
+      })
+    );
     const formatDuration = (value) => format(value, (v) => DateUtils.formatSecondsToHMS(v));
-
-    const detailsHtml = `
-      <h4>Trip Details</h4>
-      <table class="table table-sm table-borderless table-dark popup-data small mb-0">
-        <tbody>
-          <tr><th scope="row" class="fw-bold">Trip ID</th><td>${props.transactionId || "N/A"}</td></tr>
-          <tr><th scope="row" class="fw-bold">IMEI</th><td>${props.imei || "N/A"}</td></tr>
-          <tr><th scope="row" class="fw-bold">Start Time</th><td>${formatTime(props.startTime)}</td></tr>
-          <tr><th scope="row" class="fw-bold">End Time</th><td>${formatTime(props.endTime)}</td></tr>
-          <tr><th scope="row" class="fw-bold">Duration</th><td>${formatDuration(props.duration)}</td></tr>
-          <tr><th scope="row" class="fw-bold">Distance</th><td>${formatNum(props.distance, 2)} mi</td></tr>
-          <tr><th scope="row" class="fw-bold">Avg Speed</th><td>${formatNum(props.avgSpeed ?? props.averageSpeed)} mph</td></tr>
-          <tr><th scope="row" class="fw-bold">Max Speed</th><td>${formatNum(props.maxSpeed)} mph</td></tr>
-          <tr><th scope="row" class="fw-bold">Points Recorded</th><td>${props.pointsRecorded ?? "N/A"}</td></tr>
-          <tr><th scope="row" class="fw-bold">Idling Time</th><td>${formatDuration(props.totalIdleDuration)}</td></tr>
-          <tr><th scope="row" class="fw-bold">Fuel Consumed</th><td>${formatNum(props.fuelConsumed, 2)} gal</td></tr>
-        </tbody>
-      </table>
-    `;
+    
+    // Calculate duration if not provided (especially for matched trips)
+    let duration = props.duration || props.drivingTime;
+    if (!duration && props.startTime && props.endTime) {
+      try {
+        const startTime = new Date(props.startTime);
+        const endTime = new Date(props.endTime);
+        if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+          duration = (endTime - startTime) / 1000; // Convert to seconds
+        }
+      } catch (e) {
+        console.warn("Could not calculate duration from timestamps:", e);
+      }
+    }
 
     return `
-      <div class="popup-content trip-popup bg-dark text-light p-1 rounded">
-        ${detailsHtml}
-        <div class="popup-actions border-top border-secondary pt-1 mt-1">
-          ${createActionButtons(feature)}
+      <div class="coverage-popup-content">
+        <div class="popup-title">Trip Details</div>
+        <div class="popup-detail">
+          <span class="popup-label">Start:</span>
+          <span>${formatTime(props.startTime)}</span>
         </div>
+        <div class="popup-detail">
+          <span class="popup-label">End:</span>
+          <span>${formatTime(props.endTime)}</span>
+        </div>
+        <div class="popup-detail">
+          <span class="popup-label">Distance:</span>
+          <span>${formatNum(props.distance)} mi</span>
+        </div>
+        <div class="popup-detail">
+          <span class="popup-label">Duration:</span>
+          <span>${formatDuration(duration)}</span>
+        </div>
+        <div class="popup-detail">
+          <span class="popup-label">Avg Speed:</span>
+          <span>${formatNum(props.averageSpeed)} mph</span>
+        </div>
+        <div class="popup-detail">
+          <span class="popup-label">Max Speed:</span>
+          <span>${formatNum(props.maxSpeed)} mph</span>
+        </div>
+        ${createActionButtons(feature)}
       </div>
     `;
   }
 
   function createActionButtons(feature) {
-    const tripId = feature.properties?.transactionId;
+    const props = feature.properties || {};
+    const isMatched = props.source === "matched" || props.mapMatchingStatus === "success";
+    const tripId = props.id || props.tripId;
+
     if (!tripId) return "";
 
-    const isMatched = Boolean(feature.properties.matchedTripId) ||
-                     (typeof tripId === "string" && tripId.startsWith("MATCHED-"));
-
     return `
-      <div class="trip-actions mt-2" data-trip-id="${tripId}">
-        ${isMatched 
-          ? `<button class="btn btn-sm btn-danger delete-matched-trip me-1">Delete Matched</button>
-             <button class="btn btn-sm btn-warning rematch-trip">Re-match</button>`
-          : `<button class="btn btn-sm btn-danger delete-trip">Delete Trip</button>`
-        }
+      <div class="popup-actions mt-3 d-flex gap-2 flex-wrap">
+        <button class="btn btn-sm btn-primary view-trip-btn" data-trip-id="${tripId}">
+          <i class="fas fa-eye"></i> View
+        </button>
+        ${isMatched ? `
+          <button class="btn btn-sm btn-warning rematch-trip-btn" data-trip-id="${tripId}">
+            <i class="fas fa-redo"></i> Rematch
+          </button>
+          <button class="btn btn-sm btn-danger delete-matched-trip-btn" data-trip-id="${tripId}">
+            <i class="fas fa-trash"></i> Delete Matched
+          </button>
+        ` : `
+          <button class="btn btn-sm btn-info map-match-btn" data-trip-id="${tripId}">
+            <i class="fas fa-route"></i> Map Match
+          </button>
+          <button class="btn btn-sm btn-danger delete-trip-btn" data-trip-id="${tripId}">
+            <i class="fas fa-trash"></i> Delete
+          </button>
+        `}
       </div>
     `;
   }
 
-  function setupPopupEventListeners(layer, feature) {
-    const popupEl = layer.getPopup()?.getElement();
-    if (!popupEl) return;
+  function setupPopupEventListeners(popup, feature) {
+    const popupElement = popup.getElement();
+    if (!popupElement) return;
 
     const handlePopupClick = async (e) => {
-      const target = e.target.closest("button");
-      if (!target) return;
+      const button = e.target.closest("button");
+      if (!button) return;
 
-      e.stopPropagation();
-      L.DomEvent.stopPropagation(e);
-
-      const tripId = target.closest(".trip-actions")?.dataset.tripId;
+      const tripId = button.dataset.tripId;
       if (!tripId) return;
 
-      if (target.classList.contains("delete-matched-trip")) {
-        e.preventDefault();
-        await handleDeleteMatchedTrip(tripId, layer);
-      } else if (target.classList.contains("delete-trip")) {
-        e.preventDefault();
-        await handleDeleteTrip(tripId, layer);
-      } else if (target.classList.contains("rematch-trip")) {
-        e.preventDefault();
-        await handleRematchTrip(tripId, layer, feature);
+      try {
+        if (button.classList.contains("delete-matched-trip-btn")) {
+          await handleDeleteMatchedTrip(tripId, popup);
+        } else if (button.classList.contains("delete-trip-btn")) {
+          await handleDeleteTrip(tripId, popup);
+        } else if (button.classList.contains("rematch-trip-btn")) {
+          await handleRematchTrip(tripId, popup, feature);
+        } else if (button.classList.contains("view-trip-btn")) {
+          window.open(`/trips/${tripId}`, '_blank');
+        } else if (button.classList.contains("map-match-btn")) {
+          await handleRematchTrip(tripId, popup, feature);
+        }
+      } catch (error) {
+        console.error("Error handling popup action:", error);
+        showNotification("Error performing action", "danger");
       }
     };
 
-    eventManager.add(popupEl, "mousedown", (e) => {
-      if (e.button === 0) handlePopupClick(e);
-    });
-
-    layer.once("popupclose", () => {
-      eventManager.remove(popupEl, "mousedown", "handlePopupClick");
-    });
+    popupElement.addEventListener("click", handlePopupClick);
   }
 
-  // Consolidated trip action handlers
-  async function handleDeleteMatchedTrip(tripId, layer) {
-    const confirmed = window.confirmationDialog
-      ? await window.confirmationDialog.show({
-          title: "Delete Matched Trip",
-          message: `Are you sure you want to delete matched trip ${tripId}? The original trip will remain.`,
-          confirmText: "Delete",
-          confirmButtonClass: "btn-danger",
-        })
-      : confirm(`Are you sure you want to delete matched trip ${tripId}?`);
+  // Continue with remaining functions like handleDeleteMatchedTrip, etc.
+  async function handleDeleteMatchedTrip(tripId, popup) {
+    if (!confirm("Are you sure you want to delete this matched trip?")) return;
 
-    if (!confirmed) return;
-
-    const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
-    loadingManager.startOperation("DeleteMatchedTrip", 100);
-    
     try {
-      const res = await fetch(`/api/matched_trips/${tripId}`, { method: "DELETE" });
-      if (!res.ok) {
-        throw new Error(`Failed to delete matched trip ${tripId}`);
-      }
-
-      layer.closePopup();
-      await fetchTrips();
-      showNotification(`Matched trip ${tripId} deleted successfully.`, "success");
-    } catch (error) {
-      if (typeof handleError === "function") {
-        handleError(error, "Deleting Matched Trip");
-      } else {
-        showNotification(`Error deleting matched trip: ${error.message}`, "danger");
-      }
-    } finally {
-      loadingManager.finish("DeleteMatchedTrip");
-    }
-  }
-
-  async function handleDeleteTrip(tripId, layer) {
-    const confirmed = window.confirmationDialog
-      ? await window.confirmationDialog.show({
-          title: "Delete Original Trip",
-          message: `Delete original trip ${tripId}? This will ALSO delete its corresponding matched trip, if one exists. This action cannot be undone.`,
-          confirmText: "Delete Both",
-          confirmButtonClass: "btn-danger",
-        })
-      : confirm(`Delete original trip ${tripId}? This will also delete its matched trip. Are you sure?`);
-
-    if (!confirmed) return;
-
-    const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
-    loadingManager.startOperation("DeleteTrip", 100);
-    
-    try {
-      const tripRes = await fetch(`/api/trips/${tripId}`, { method: "DELETE" });
-      if (!tripRes.ok) {
-        console.warn(`Failed to delete original trip ${tripId}`);
-      }
-
-      try {
-        await fetch(`/api/matched_trips/${tripId}`, { method: "DELETE" });
-      } catch (_) {
-        console.warn(`Could not delete potential matched trip for ${tripId}`);
-      }
-
-      layer.closePopup();
-      await fetchTrips();
-      showNotification(`Trip ${tripId} (and its matched trip, if any) deleted.`, "success");
-    } catch (error) {
-      if (typeof handleError === "function") {
-        handleError(error, "Deleting Trip and Matched Trip");
-      } else {
-        showNotification(`Error deleting trip: ${error.message}`, "danger");
-      }
-    } finally {
-      loadingManager.finish("DeleteTrip");
-    }
-  }
-
-  async function handleRematchTrip(tripId, layer, feature) {
-    const confirmed = window.confirmationDialog
-      ? await window.confirmationDialog.show({
-          title: "Re-match Trip",
-          message: `Re-match trip ${tripId}? This will delete the existing matched trip data and attempt to generate a new one based on the original trip points.`,
-          confirmText: "Re-match",
-          confirmButtonClass: "btn-warning",
-        })
-      : confirm(`Re-match trip ${tripId}? This deletes the current matched version.`);
-
-    if (!confirmed) return;
-
-    if (!feature.properties?.startTime || !feature.properties?.endTime) {
-      showNotification("Cannot re-match: Trip is missing start or end time.", "warning");
-      return;
-    }
-
-    const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
-    loadingManager.startOperation("RematchTrip", 100);
-    
-    try {
-      try {
-        const deleteRes = await fetch(`/api/matched_trips/${tripId}`, { method: "DELETE" });
-        if (!deleteRes.ok && deleteRes.status !== 404) {
-          console.warn(`Failed to delete existing matched trip ${tripId} before re-match`);
-        }
-      } catch (deleteError) {
-        console.warn("Error occurred while deleting existing matched trip:", deleteError);
-      }
-
-      const rematchRes = await fetch("/api/map_match_trips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trip_id: tripId }),
+      const response = await fetch(`/api/matched_trips/${tripId}`, {
+        method: "DELETE",
       });
 
-      if (!rematchRes.ok) {
-        throw new Error(`Failed to re-match trip ${tripId}`);
-      }
-
-      const result = await rematchRes.json();
-      layer.closePopup();
-      await fetchTrips();
-      showNotification(result.message || `Trip ${tripId} successfully re-matched.`, "success");
-    } catch (error) {
-      if (typeof handleError === "function") {
-        handleError(error, "Re-matching Trip");
+      if (response.ok) {
+        popup.remove();
+        showNotification("Matched trip deleted successfully", "success");
+        await updateMap();
       } else {
-        showNotification(`Error re-matching trip: ${error.message}`, "danger");
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to delete matched trip");
       }
-    } finally {
-      loadingManager.finish("RematchTrip");
+    } catch (error) {
+      console.error("Error deleting matched trip:", error);
+      showNotification(error.message, "danger");
     }
   }
 
+  async function handleDeleteTrip(tripId, popup) {
+    if (!confirm("Are you sure you want to delete this trip? This action cannot be undone.")) return;
+
+    try {
+      const response = await fetch(`/api/trips/${tripId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        popup.remove();
+        showNotification("Trip deleted successfully", "success");
+        await updateMap();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to delete trip");
+      }
+    } catch (error) {
+      console.error("Error deleting trip:", error);
+      showNotification(error.message, "danger");
+    }
+  }
+
+  async function handleRematchTrip(tripId, popup, feature) {
+    try {
+      showNotification("Starting map matching...", "info");
+      
+      const response = await fetch(`/api/process_trip/${tripId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ map_match: true }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        popup.remove();
+        showNotification("Trip map matching completed", "success");
+        await updateMap();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to remap trip");
+      }
+    } catch (error) {
+      console.error("Error remapping trip:", error);
+      showNotification(error.message, "danger");
+    }
+  }
+
+  // Map bounds and navigation functions
   function fitMapBounds() {
-    if (!AppState.map) return;
+    if (!AppState.map || !AppState.mapInitialized) return;
 
-    const bounds = L.latLngBounds();
-    let validBoundsExist = false;
-
-    Object.values(AppState.mapLayers).forEach((info) => {
-      if (!info.visible || !info.layer) return;
-
-      try {
-        let layerBounds = null;
-        if (typeof info.layer.getBounds === "function") {
-          layerBounds = info.layer.getBounds();
-        } else if (info.layer.type === "FeatureCollection" && info.layer.features?.length > 0) {
-          layerBounds = L.geoJSON(info.layer).getBounds();
-        } else if (info === AppState.mapLayers.customPlaces && window.customPlaces?.getBounds) {
-          layerBounds = window.customPlaces.getBounds();
-        }
-
-        if (layerBounds?.isValid()) {
-          bounds.extend(layerBounds);
-          validBoundsExist = true;
-        }
-      } catch (_) {
-        // Ignore errors for individual layers
+    const allFeatures = [];
+    
+    // Collect features from all visible layers
+    Object.entries(AppState.mapLayers).forEach(([name, layerInfo]) => {
+      if (layerInfo.visible && layerInfo.layer?.features) {
+        allFeatures.push(...layerInfo.layer.features);
       }
     });
 
-    if (validBoundsExist) {
-      AppState.map.fitBounds(bounds, { padding: [30, 30] });
+    if (allFeatures.length === 0) return;
+
+    // Calculate bounds
+    const bounds = new mapboxgl.LngLatBounds();
+    
+    allFeatures.forEach(feature => {
+      if (feature.geometry) {
+        if (feature.geometry.type === 'Point') {
+          bounds.extend(feature.geometry.coordinates);
+        } else if (feature.geometry.type === 'LineString') {
+          feature.geometry.coordinates.forEach(coord => bounds.extend(coord));
+        } else if (feature.geometry.type === 'MultiLineString') {
+          feature.geometry.coordinates.forEach(line => {
+            line.forEach(coord => bounds.extend(coord));
+          });
+        }
+      }
+    });
+
+    if (!bounds.isEmpty()) {
+      AppState.map.fitBounds(bounds, { 
+        padding: 50,
+        maxZoom: 15,
+        duration: 1000
+      });
     }
   }
 
-  // Optimized API functions
+  // Additional utility functions
   async function mapMatchTrips() {
+    try {
+      showNotification("Starting map matching process...", "info");
+      
     const startDate = getStartDate();
     const endDate = getEndDate();
 
-    if (!startDate || !endDate) {
-      showNotification("Please select valid start and end dates before map matching.", "warning");
-      return;
-    }
-
-    const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
-    loadingManager.startOperation("MapMatching", 100);
-    showNotification(`Starting map matching for trips between ${startDate} and ${endDate}...`, "info");
-
-    try {
       const response = await fetch("/api/map_match_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ start_date: startDate, end_date: endDate }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Map matching failed (HTTP ${response.status})`);
-      }
-
-      const results = await response.json();
-      showNotification(results.message || "Map matching process completed.", "success");
-      await fetchTrips();
-
-      document.dispatchEvent(new CustomEvent("mapMatchingCompleted", { detail: { results } }));
-    } catch (err) {
-      if (typeof handleError === "function") {
-        handleError(err, "Map Matching");
+      if (response.ok) {
+        const result = await response.json();
+        showNotification(`Map matching completed: ${result.message}`, "success");
+        await updateMap();
       } else {
-        showNotification(`Map matching failed: ${err.message}`, "danger");
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Map matching failed");
       }
-    } finally {
-      loadingManager.finish("MapMatching");
+    } catch (error) {
+      console.error("Error in map matching:", error);
+      showNotification(`Map matching error: ${error.message}`, "danger");
     }
   }
 
   async function fetchTripsInRange() {
+    try {
     const startDate = getStartDate();
     const endDate = getEndDate();
 
-    if (!startDate || !endDate) {
-      showNotification("Select valid start and end dates before fetching.", "warning");
-      return;
-    }
-
-    const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
-    loadingManager.startOperation("FetchTripsRange", 100);
-    showNotification(`Fetching raw trip data between ${startDate} and ${endDate}...`, "info");
-
-    try {
       const response = await fetch("/api/fetch_trips_range", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ start_date: startDate, end_date: endDate }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Fetching trips failed (HTTP ${response.status})`);
-      }
-
-      const data = await response.json();
-      if (data.status === "success") {
-        showNotification(data.message || "Successfully fetched raw trip data.", "success");
-        await fetchTrips();
+      if (response.ok) {
+        const result = await response.json();
+        showNotification(`Fetched ${result.new_trips || 0} new trips`, "success");
+        await updateMap();
       } else {
-        throw new Error(data.message || "An unknown error occurred while fetching trips.");
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to fetch trips");
       }
-    } catch (err) {
-      if (typeof handleError === "function") {
-        handleError(err, "Fetching Trips in Range");
-      } else {
-        showNotification(`Error fetching trip data: ${err.message}`, "danger");
-      }
-    } finally {
-      loadingManager.finish("FetchTripsRange");
+    } catch (error) {
+      console.error("Error fetching trips in range:", error);
+      showNotification(`Fetch error: ${error.message}`, "danger");
     }
   }
 
   async function fetchMetrics() {
+    try {
     const startDate = getStartDate();
     const endDate = getEndDate();
-    const imei = getElement("imei")?.value || "";
-
-    if (!startDate || !endDate) return;
-
-    try {
-      const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
-      if (imei) params.append("imei", imei);
-
-      const metrics = await cachedFetch(`/api/metrics?${params.toString()}`, {}, 30000);
-      if (!metrics) throw new Error("Received no data for metrics.");
-
-      const metricMap = {
-        "total-trips": metrics.total_trips ?? "N/A",
-        "total-distance": typeof metrics.total_distance === "number" 
-          ? `${metrics.total_distance.toFixed(2)} mi` : "N/A",
-        "avg-distance": typeof metrics.avg_distance === "number" 
-          ? `${metrics.avg_distance.toFixed(2)} mi` : "N/A",
-        "avg-start-time": metrics.avg_start_time ?? "N/A",
-        "avg-driving-time": metrics.avg_driving_time ?? "N/A",
-        "avg-speed": typeof metrics.avg_speed === "number" 
-          ? `${metrics.avg_speed.toFixed(1)} mph` : "N/A",
-        "max-speed": typeof metrics.max_speed === "number" 
-          ? `${metrics.max_speed.toFixed(1)} mph` : "N/A",
-      };
-
-      Object.entries(metricMap).forEach(([id, value]) => {
-        const el = getElement(id);
-        if (el) el.textContent = value;
+      
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
       });
 
-      document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: { metrics } }));
-    } catch (err) {
-      if (typeof handleError === "function") {
-        handleError(err, "Fetching Metrics");
+      const data = await cachedFetch(`/api/metrics?${params}`);
+      
+      // Update metrics display (implementation depends on your metrics structure)
+      if (data) {
+        document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
       }
-      showNotification(`Failed to load metrics: ${err.message}`, "warning");
+      
+      return data;
+    } catch (error) {
+      console.error("Error fetching metrics:", error);
+      return null;
     }
   }
 
   async function fetchCoverageAreas() {
     try {
-      const data = await cachedFetch("/api/coverage_areas", {}, 300000);
-      return data?.areas || [];
+      const data = await cachedFetch("/api/coverage_areas");
+      // The API returns {success: true, areas: [...]} so extract the areas
+      if (data && data.success && Array.isArray(data.areas)) {
+        return data.areas;
+      }
+      // Fallback for direct array response
+      if (Array.isArray(data)) {
+        return data;
+      }
+      console.warn("Unexpected coverage areas response format:", data);
+      return [];
     } catch (error) {
       console.error("Error fetching coverage areas:", error);
-      showNotification(`Failed to load coverage areas: ${error.message}`, "warning");
-      if (typeof handleError === "function") {
-        handleError(error, "Fetch Coverage Areas");
-      }
       return [];
     }
   }
 
   async function populateLocationDropdown() {
-    const dropdown = document.getElementById("undriven-streets-location");
+    const dropdown = getElement("undriven-streets-location");
     if (!dropdown) return;
 
-    while (dropdown.options.length > 1) {
-      dropdown.remove(1);
-    }
-
+    try {
     const coverageAreas = await fetchCoverageAreas();
-    if (coverageAreas.length === 0) {
-      const option = document.createElement("option");
-      option.textContent = "No coverage areas defined";
-      option.disabled = true;
-      dropdown.appendChild(option);
+      
+      dropdown.innerHTML = '<option value="">Select a location...</option>';
+      
+      // Ensure coverageAreas is an array
+      const areasArray = Array.isArray(coverageAreas) ? coverageAreas : [];
+      
+      if (areasArray.length === 0) {
+        console.warn("No coverage areas returned from API");
       return;
     }
 
-    coverageAreas.forEach((area) => {
-      if (area.location?.display_name) {
+      areasArray.forEach(area => {
         const option = document.createElement("option");
-        option.value = JSON.stringify(area.location);
-        option.textContent = area.location.display_name;
+        option.value = area._id || area.id;
+        option.textContent = area.location?.display_name || area.location?.city || area.name || area.city || "Unknown Location";
         dropdown.appendChild(option);
-      }
     });
 
-    // Restore previously selected location
-    const savedLocationId = storage.get("selectedLocationForUndrivenStreets");
+      // Restore saved selection
+      const savedLocationId = storage.get(CONFIG.STORAGE_KEYS.selectedLocation);
     if (savedLocationId) {
-      for (let i = 0; i < dropdown.options.length; i++) {
-        const value = dropdown.options[i].value;
-        if (!value) continue;
-        try {
-          const optionLocation = JSON.parse(value);
-          if (optionLocation && 
-              (optionLocation._id === savedLocationId || 
-               optionLocation.display_name === savedLocationId)) {
-            dropdown.selectedIndex = i;
-            if (storage.get("layer_visible_undrivenStreets") === "true") {
-              AppState.mapLayers.undrivenStreets.visible = true;
-              fetchUndrivenStreets();
-            }
-            break;
-          }
-        } catch (_) {
-          console.warn("Error parsing JSON from location dropdown option value.");
-        }
+        dropdown.value = savedLocationId;
       }
+
+    } catch (error) {
+      console.error("Error populating location dropdown:", error);
+      showNotification("Failed to load coverage areas", "warning");
     }
   }
 
+  // Event listeners setup
   function initializeEventListeners() {
     // Controls toggle
     const controlsToggle = getElement("controls-toggle");
-    const controlsContent = getElement("controls-content");
-    
-    if (controlsToggle && controlsContent) {
-      const icon = controlsToggle.querySelector("i");
+    if (controlsToggle) {
       const updateIcon = () => {
-        if (!icon) return;
-        if (controlsContent.classList.contains("show")) {
-          icon.classList.remove("fa-chevron-down");
-          icon.classList.add("fa-chevron-up");
-        } else {
-          icon.classList.remove("fa-chevron-up");
-          icon.classList.add("fa-chevron-down");
+        const content = getElement("controls-content");
+        const icon = controlsToggle.querySelector("i");
+        if (content && icon) {
+          const isCollapsed = !content.classList.contains("show");
+          icon.className = isCollapsed ? "fas fa-chevron-down" : "fas fa-chevron-up";
         }
       };
 
+      controlsToggle.addEventListener("click", () => {
+        setTimeout(updateIcon, 350);
+      });
       updateIcon();
-      controlsContent.addEventListener("show.bs.collapse", updateIcon);
-      controlsContent.addEventListener("hide.bs.collapse", updateIcon);
     }
 
-    // Button listeners
-    eventManager.add("map-match-trips", "click", mapMatchTrips);
-    eventManager.add("fetch-trips-range", "click", fetchTripsInRange);
-
-    // Checkbox listener
-    eventManager.add("highlight-recent-trips", "change", function (event) {
-      if (event.target.type === "checkbox") {
-        AppState.mapSettings.highlightRecentTrips = event.target.checked;
-        debouncedUpdateMap();
-      }
-    });
-
-    // Dropdown listener
-    const locationDropdown = document.getElementById("undriven-streets-location");
+    // Location dropdown
+    const locationDropdown = getElement("undriven-streets-location");
     if (locationDropdown) {
-      locationDropdown.addEventListener("change", () => {
-        if (AppState.mapLayers.undrivenStreets?.visible) {
-          fetchUndrivenStreets();
+      locationDropdown.addEventListener("change", (e) => {
+        const selectedLocationId = e.target.value;
+        storage.set(CONFIG.STORAGE_KEYS.selectedLocation, selectedLocationId);
+        
+        if (selectedLocationId && AppState.mapLayers.undrivenStreets.visible) {
+          undrivenStreetsLoaded = false;
+          lazyFetchUndrivenStreets();
         }
       });
     }
 
-    // Custom event listener
-    document.addEventListener("filtersApplied", async (e) => {
-      const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
-      loadingManager.startOperation("ApplyFilters");
+    // Center on location button
+    const centerButton = getElement("center-on-location");
+    if (centerButton) {
+      centerButton.addEventListener("click", () => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              AppState.map.flyTo({
+                center: [longitude, latitude],
+                zoom: 14,
+                duration: 1000
+              });
+            },
+            (error) => {
+              console.error("Geolocation error:", error);
+              showNotification("Unable to get your location", "warning");
+            }
+          );
+        } else {
+          showNotification("Geolocation is not supported", "warning");
+        }
+      });
+    }
 
-      try {
-        await Promise.all([fetchTrips(), fetchMetrics()]);
-      } catch (error) {
-        console.error("Error fetching data after filters applied:", error);
-        window.notificationManager?.show("Error loading data for the selected date range.", "danger");
-      } finally {
-        loadingManager.finish("ApplyFilters");
-      }
-    });
+    // Highlight recent trips toggle
+    const highlightToggle = getElement("highlight-recent-trips");
+    if (highlightToggle) {
+      highlightToggle.addEventListener("change", (e) => {
+        AppState.mapSettings.highlightRecentTrips = e.target.checked;
+        refreshTripStyles();
+      });
+    }
   }
 
+  // Date picker functions
   function setInitialDates() {
-    const today = DateUtils.getCurrentDate();
-    if (!storage.get(CONFIG.STORAGE_KEYS.startDate)) {
-      storage.set(CONFIG.STORAGE_KEYS.startDate, today);
+    const startDateInput = getElement("start-date");
+    const endDateInput = getElement("end-date");
+    
+    if (startDateInput && !startDateInput.value) {
+      startDateInput.value = getStartDate();
     }
-    if (!storage.get(CONFIG.STORAGE_KEYS.endDate)) {
-      storage.set(CONFIG.STORAGE_KEYS.endDate, today);
+    if (endDateInput && !endDateInput.value) {
+      endDateInput.value = getEndDate();
     }
   }
 
   function initializeDatePickers() {
+    if (!window.flatpickr) return;
+
     const startDateInput = getElement("start-date");
     const endDateInput = getElement("end-date");
 
-    if (!startDateInput || !endDateInput) return;
-
-    const storedStartDate = storage.get(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate();
-    const storedEndDate = storage.get(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
-
-    const config = {
+    if (startDateInput) {
+      window.flatpickr(startDateInput, {
       dateFormat: "Y-m-d",
-      altInput: true,
-      altFormat: "M j, Y",
-      static: false,
-      appendTo: document.body,
-      theme: document.documentElement.getAttribute("data-bs-theme") === "light" ? "light" : "dark",
-      disableMobile: true,
+        defaultDate: getStartDate(),
       onChange(selectedDates, dateStr) {
-        const input = this.input;
-        const formattedDate = DateUtils.formatDate(dateStr);
-        const isStartDate = input.id === "start-date";
-        const key = isStartDate ? CONFIG.STORAGE_KEYS.startDate : CONFIG.STORAGE_KEYS.endDate;
-        storage.set(key, formattedDate);
-      },
-    };
+          storage.set(CONFIG.STORAGE_KEYS.startDate, dateStr);
+          updateMap();
+        },
+      });
+    }
 
-    if (DateUtils.initDatePicker) {
-      DateUtils.initDatePicker(startDateInput, config);
-      DateUtils.initDatePicker(endDateInput, config);
-    } else if (window.flatpickr) {
-      window.flatpickr(startDateInput, config);
-      window.flatpickr(endDateInput, config);
-    } else {
-      startDateInput.value = storedStartDate;
-      endDateInput.value = storedEndDate;
+    if (endDateInput) {
+      window.flatpickr(endDateInput, {
+        dateFormat: "Y-m-d",
+        defaultDate: getEndDate(),
+        onChange(selectedDates, dateStr) {
+          storage.set(CONFIG.STORAGE_KEYS.endDate, dateStr);
+          updateMap();
+        },
+      });
     }
   }
 
+  // Layer management functions
   function getOrCreateGeoJsonLayer(name, data, options) {
-    if (!AppState.geoJsonLayers[name]) {
-      AppState.geoJsonLayers[name] = L.geoJSON(data, options);
-    } else {
-      const layer = AppState.geoJsonLayers[name];
-      layer.clearLayers();
-      layer.addData(data);
-      if (options) {
-        layer.options = { ...L.GeoJSON.prototype.options, ...options };
-        if (options.style) layer.setStyle(options.style);
-        if (options.onEachFeature) {
-          layer.eachLayer((featureLayer) => {
-            options.onEachFeature(featureLayer.feature, featureLayer);
+    if (!data?.features) {
+      console.warn(`No features found for layer: ${name}`);
+      return null;
+    }
+
+    const layerInfo = AppState.mapLayers[name];
+    if (layerInfo) {
+      layerInfo.layer = data;
+      
+      // Update Mapbox layer
+      const sourceId = `${name}-source`;
+      const layerId = `${name}-layer`;
+      
+      if (AppState.map && AppState.mapInitialized) {
+        mapboxUtils.addOrUpdateSource(AppState.map, sourceId, data);
+        
+        if (!AppState.map.getLayer(layerId)) {
+          mapboxUtils.addOrUpdateLayer(AppState.map, layerId, sourceId, layerInfo);
+          
+          // Apply additional options
+          if (options?.style) {
+            Object.entries(options.style).forEach(([property, value]) => {
+              AppState.map.setPaintProperty(layerId, property, value);
           });
         }
       }
     }
-    return AppState.geoJsonLayers[name];
+    }
+    
+    return AppState.mapLayers[name];
   }
 
   async function lazyFetchUndrivenStreets() {
@@ -1531,16 +1558,16 @@ if (window.L?.Path) {
 
     if (Array.isArray(lastCoord) && lastCoord.length === 2 &&
         typeof lastCoord[0] === "number" && typeof lastCoord[1] === "number") {
-      const targetLatLng = [lastCoord[1], lastCoord[0]];
-      AppState.map.flyTo(targetLatLng, targetZoom, {
-        animate: true,
-        duration: duration,
-        easeLinearity: 0.25,
+      AppState.map.flyTo({
+        center: lastCoord, // Mapbox uses [lng, lat]
+        zoom: targetZoom,
+        duration: duration * 1000,
+        essential: true
       });
     }
   }
 
-  // Main initialization function - simplified
+  // Main initialization function
   function initialize() {
     setInitialDates();
     initializeDatePickers();
@@ -1606,6 +1633,7 @@ if (window.L?.Path) {
 
     // Global exposure
     window.AppState = AppState;
+    window.CONFIG = CONFIG; // Make CONFIG globally available
     window.EveryStreet = window.EveryStreet || {};
     window.EveryStreet.App = {
       fetchTrips,
@@ -1634,7 +1662,7 @@ if (window.L?.Path) {
     apiCache.clear();
   });
 
-  // Keyboard navigation
+  // Keyboard navigation adapted for Mapbox
   window.addEventListener("keydown", function (e) {
     if (!AppState.map) return;
 
@@ -1658,6 +1686,7 @@ if (window.L?.Path) {
 
     if (keyActions[e.key]) {
       keyActions[e.key]();
+      e.preventDefault();
     }
   });
 

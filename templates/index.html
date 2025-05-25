@@ -189,10 +189,6 @@ block content %}
   </div>
 </div>
 {% endblock %} {% block extra_css %}
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
-/>
 <style>
   /* Modern map styling */
   .map-wrapper {
@@ -313,5 +309,8 @@ block content %}
   }
 </style>
 {% endblock %} {% block extra_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script>
+  // Make Mapbox access token available globally
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
 {% endblock %}

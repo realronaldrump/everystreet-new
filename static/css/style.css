@@ -3078,3 +3078,315 @@ body.light-mode #map-controls strong {
 .leaflet-draw-tooltip * {
   pointer-events: none !important;
 }
+
+/* === Mapbox GL JS Specific Styles === */
+
+/* Mapbox popup styling to match Leaflet popup design */
+.mapboxgl-popup .mapboxgl-popup-content {
+  background: var(--surface-1);
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--shadow-md);
+  padding: 12px 18px;
+  max-width: 400px;
+  font-family: var(--font-family);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+body.light-mode .mapboxgl-popup .mapboxgl-popup-content {
+  background: var(--light-surface-1);
+  color: var(--light-text-primary);
+  border-color: var(--light-border-color);
+}
+
+.mapboxgl-popup .mapboxgl-popup-tip {
+  background: var(--surface-1);
+  border-top-color: var(--surface-1);
+  border-right-color: var(--surface-1);
+}
+
+body.light-mode .mapboxgl-popup .mapboxgl-popup-tip {
+  background: var(--light-surface-1);
+  border-top-color: var(--light-surface-1);
+  border-right-color: var(--light-surface-1);
+}
+
+/* Coverage popup styling for Mapbox */
+.coverage-popup-content {
+  font-family: var(--font-family);
+  color: var(--text-primary);
+}
+
+.coverage-popup-content .popup-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-3);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--space-2);
+}
+
+.coverage-popup-content .popup-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.coverage-popup-content .popup-label {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+  margin-right: var(--space-2);
+  min-width: 80px;
+}
+
+.coverage-popup-content .popup-detail span:last-child {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  text-align: right;
+}
+
+.coverage-popup-content .popup-actions {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+body.light-mode .coverage-popup-content {
+  color: var(--light-text-primary);
+}
+
+body.light-mode .coverage-popup-content .popup-title {
+  color: var(--light-text-primary);
+  border-color: var(--light-border-color);
+}
+
+body.light-mode .coverage-popup-content .popup-label {
+  color: var(--light-text-secondary);
+}
+
+body.light-mode .coverage-popup-content .popup-detail span:last-child {
+  color: var(--light-text-primary);
+}
+
+body.light-mode .coverage-popup-content .popup-actions {
+  border-color: var(--light-border-color);
+}
+
+/* Mapbox GL JS Control styling to match theme */
+.mapboxgl-ctrl-group {
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-md) !important;
+  border: 1px solid var(--border-color) !important;
+  overflow: hidden;
+  background: var(--surface-1) !important;
+}
+
+.mapboxgl-ctrl-zoom-in,
+.mapboxgl-ctrl-zoom-out,
+.mapboxgl-ctrl button {
+  background-color: var(--surface-1) !important;
+  color: var(--text-primary) !important;
+  border: none !important;
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  font-size: 18px !important;
+  transition: background-color 0.2s;
+  border-radius: 0 !important;
+}
+
+.mapboxgl-ctrl-zoom-in:hover,
+.mapboxgl-ctrl-zoom-out:hover,
+.mapboxgl-ctrl button:hover {
+  background-color: var(--surface-2) !important;
+  color: var(--text-primary) !important;
+}
+
+body.light-mode .mapboxgl-ctrl-group {
+  background: var(--light-surface-1) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode .mapboxgl-ctrl-zoom-in,
+body.light-mode .mapboxgl-ctrl-zoom-out,
+body.light-mode .mapboxgl-ctrl button {
+  background-color: var(--light-surface-1) !important;
+  color: var(--light-text-primary) !important;
+}
+
+body.light-mode .mapboxgl-ctrl-zoom-in:hover,
+body.light-mode .mapboxgl-ctrl-zoom-out:hover,
+body.light-mode .mapboxgl-ctrl button:hover {
+  background-color: var(--light-surface-2) !important;
+  color: var(--light-text-primary) !important;
+}
+
+/* Mapbox attribution control styling */
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-attrib-inner {
+  background-color: rgba(var(--surface-1-rgb, 30, 30, 30), 0.8) !important;
+  color: var(--text-secondary) !important;
+  font-size: var(--font-size-xs) !important;
+  font-family: var(--font-family) !important;
+  border-radius: var(--radius-sm) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+body.light-mode .mapboxgl-ctrl-attrib,
+body.light-mode .mapboxgl-ctrl-attrib-inner {
+  background-color: rgba(248, 249, 250, 0.8) !important;
+  color: var(--light-text-secondary) !important;
+}
+
+.mapboxgl-ctrl-attrib a {
+  color: var(--text-secondary) !important;
+  text-decoration: none;
+}
+
+.mapboxgl-ctrl-attrib a:hover {
+  color: var(--text-primary) !important;
+  text-decoration: underline;
+}
+
+body.light-mode .mapboxgl-ctrl-attrib a {
+  color: var(--light-text-secondary) !important;
+}
+
+body.light-mode .mapboxgl-ctrl-attrib a:hover {
+  color: var(--light-text-primary) !important;
+}
+
+/* Mapbox compass and geolocate controls */
+.mapboxgl-ctrl-compass,
+.mapboxgl-ctrl-geolocate {
+  background-color: var(--surface-1) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon,
+.mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
+  filter: invert(1) opacity(0.8);
+}
+
+body.light-mode .mapboxgl-ctrl-compass,
+body.light-mode .mapboxgl-ctrl-geolocate {
+  background-color: var(--light-surface-1) !important;
+  border-color: var(--light-border-color) !important;
+}
+
+body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon,
+body.light-mode .mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
+  filter: invert(0) opacity(0.8);
+}
+
+/* Mapbox canvas container customizations */
+.mapboxgl-canvas-container {
+  cursor: grab;
+}
+
+.mapboxgl-canvas-container:active {
+  cursor: grabbing;
+}
+
+/* Mapbox marker customizations */
+.mapboxgl-marker {
+  transition: transform 0.2s ease;
+}
+
+.mapboxgl-marker:hover {
+  transform: scale(1.1);
+}
+
+/* Map container compatibility for Mapbox */
+.mapbox-container {
+  font-family: var(--font-family);
+  color: var(--text-primary);
+  width: 100%;
+  height: 100%;
+}
+
+body.light-mode .mapbox-container {
+  color: var(--light-text-primary);
+}
+
+/* Enhanced trip styling for Mapbox features */
+.trip-feature-selected {
+  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.8));
+}
+
+.trip-feature-recent {
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+}
+
+.undriven-street-feature {
+  transition: all 0.3s ease;
+}
+
+.undriven-street-feature:hover {
+  filter: drop-shadow(0 0 4px rgba(0, 191, 255, 0.7));
+}
+
+/* Mapbox loading states */
+.mapboxgl-canvas {
+  transition: opacity 0.3s ease;
+}
+
+.mapboxgl-canvas.loading {
+  opacity: 0.6;
+}
+
+/* Responsive adjustments for Mapbox controls */
+@media (max-width: 768px) {
+  .mapboxgl-ctrl-group {
+    margin: 10px !important;
+  }
+
+  .mapboxgl-ctrl-zoom-in,
+  .mapboxgl-ctrl-zoom-out,
+  .mapboxgl-ctrl button {
+    width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 16px !important;
+  }
+
+  .mapboxgl-popup .mapboxgl-popup-content {
+    max-width: 280px;
+    padding: 10px 14px;
+  }
+}
+
+@media (max-width: 576px) {
+  .mapboxgl-ctrl-group {
+    margin: 8px !important;
+  }
+
+  .mapboxgl-ctrl-zoom-in,
+  .mapboxgl-ctrl-zoom-out,
+  .mapboxgl-ctrl button {
+    width: 28px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+    font-size: 14px !important;
+  }
+
+  .mapboxgl-popup .mapboxgl-popup-content {
+    max-width: 240px;
+    padding: 8px 12px;
+  }
+
+  .coverage-popup-content .popup-actions {
+    flex-direction: column;
+  }
+
+  .coverage-popup-content .popup-actions .btn {
+    width: 100%;
+    margin-bottom: var(--space-1);
+  }
+}

@@ -12,21 +12,13 @@ class LiveTripTracker {
 
     this.map = map;
     this.activeTrip = null;
-    this.polyline = L.polyline([], {
-      color: "#00FF00",
-      weight: 3,
-      opacity: 0.8,
-      zIndex: 1000,
-    }).addTo(this.map);
-
-    this.marker = L.marker([0, 0], {
-      icon: L.divIcon({
-        className: "vehicle-marker",
-        iconSize: [12, 12],
-        iconAnchor: [6, 6],
-      }),
-      zIndexOffset: 1000,
-    });
+    // Initialize Mapbox GL JS sources and layers for live tracking
+    this.liveSourceId = "live-trip-source";
+    this.liveLineLayerId = "live-trip-line";
+    this.liveMarkerLayerId = "live-trip-marker";
+    
+    // Initialize empty GeoJSON data
+    this.initializeMapboxLayers();
 
     this.lastSequence = 0;
     this.pollingInterval = 2000;
@@ -45,6 +37,63 @@ class LiveTripTracker {
     this.errorMessageElem = document.querySelector(".error-message");
 
     this.initialize();
+  }
+
+  initializeMapboxLayers() {
+    if (!this.map || !this.map.addSource) {
+      console.warn("LiveTripTracker: Map not ready for Mapbox layers");
+      return;
+    }
+
+    try {
+      // Add source for live tracking data
+      if (!this.map.getSource(this.liveSourceId)) {
+        this.map.addSource(this.liveSourceId, {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: []
+          }
+        });
+      }
+
+      // Add line layer for the trip path
+      if (!this.map.getLayer(this.liveLineLayerId)) {
+        this.map.addLayer({
+          id: this.liveLineLayerId,
+          type: "line",
+          source: this.liveSourceId,
+          filter: ["==", ["get", "type"], "line"],
+          paint: {
+            "line-color": "#00FF00",
+            "line-width": 3,
+            "line-opacity": 0.8
+          },
+          layout: {
+            "line-cap": "round",
+            "line-join": "round"
+          }
+        });
+      }
+
+      // Add marker layer for current position
+      if (!this.map.getLayer(this.liveMarkerLayerId)) {
+        this.map.addLayer({
+          id: this.liveMarkerLayerId,
+          type: "circle",
+          source: this.liveSourceId,
+          filter: ["==", ["get", "type"], "marker"],
+          paint: {
+            "circle-radius": 6,
+            "circle-color": "#00FF00",
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff"
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error initializing Mapbox layers:", error);
+    }
   }
 
   async initialize() {
@@ -385,127 +434,116 @@ class LiveTripTracker {
     const sortedCoords = [...trip.coordinates];
     sortedCoords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    const latLngs = sortedCoords.map((coord) => [coord.lat, coord.lon]);
-    const lastPoint = latLngs[latLngs.length - 1];
+    // Convert coordinates to Mapbox format [lng, lat]
+    const coordinates = sortedCoords.map((coord) => [coord.lon, coord.lat]);
+    const lastPoint = coordinates[coordinates.length - 1];
 
-    if (isNewTrip) {
-      this.polyline.setLatLngs(latLngs);
-      this.polyline.bringToFront();
+    // Create GeoJSON features for Mapbox
+    const features = [];
 
-      if (!this.map.hasLayer(this.marker)) {
-        this.marker.addTo(this.map);
+    // Add line feature if we have multiple points
+    if (coordinates.length > 1) {
+      features.push({
+        type: "Feature",
+        properties: { type: "line" },
+        geometry: {
+          type: "LineString",
+          coordinates: coordinates
+        }
+      });
+    }
+
+    // Add marker feature for current position
+    if (lastPoint) {
+      features.push({
+        type: "Feature",
+        properties: { 
+          type: "marker",
+          speed: trip.currentSpeed || 0
+        },
+        geometry: {
+          type: "Point",
+          coordinates: lastPoint
+        }
+      });
       }
 
-      this.marker.setLatLng(lastPoint);
-      this.marker.setOpacity(1);
+    // Update the map source with new data
+    const source = this.map.getSource(this.liveSourceId);
+    if (source) {
+      source.setData({
+        type: "FeatureCollection",
+        features: features
+      });
+    }
 
-      if (latLngs.length > 1) {
+    // Update marker styling based on speed
+    this.updateMarkerStyle(trip.currentSpeed || 0);
+
+    // Handle map view for new trips
+    if (isNewTrip && coordinates.length > 0) {
+      if (coordinates.length > 1) {
         try {
-          const bounds = L.latLngBounds(latLngs);
-          this.map.fitBounds(bounds, { padding: [50, 50] });
+          // Create bounds and fit map to show entire trip
+          const bounds = new mapboxgl.LngLatBounds();
+          coordinates.forEach(coord => bounds.extend(coord));
+          this.map.fitBounds(bounds, { padding: 50 });
         } catch (e) {
           console.error("Error fitting bounds:", e);
-          this.map.setView(lastPoint, 15);
+          this.map.flyTo({ center: lastPoint, zoom: 15 });
           window.handleError(`Error fitting bounds: ${e}`, "setActiveTrip");
         }
       } else {
-        this.map.setView(lastPoint, 15);
+        this.map.flyTo({ center: lastPoint, zoom: 15 });
       }
-    } else {
-      const prevCoords = this.polyline.getLatLngs();
-
-      // Optimize for single new point added:
-      if (latLngs.length > prevCoords.length) {
-        if (latLngs.length - prevCoords.length === 1) {
-          // Just add the latest point to polyline:
-          this.polyline.addLatLng(lastPoint);
-        } else {
-          // More than one new point, redraw
-          this.polyline.setLatLngs(latLngs);
-        }
-        this.polyline.bringToFront();
-
-        if (prevCoords.length > 0) {
-          const prevLastPoint = prevCoords[prevCoords.length - 1];
-
-          if (
-            prevLastPoint[0] !== lastPoint[0] ||
-            prevLastPoint[1] !== lastPoint[1]
-          ) {
-            // Animate marker between old and new position for smoothness:
-            if (this.lastMarkerLatLng && lastPoint) {
-              this.animateMarker(this.lastMarkerLatLng, lastPoint);
-            } else {
-              this.marker.setLatLng(lastPoint);
-            }
-            this.lastMarkerLatLng = lastPoint;
-
-            if (window.utils.getStorage("autoFollowVehicle") === "true") {
-              if (!this.map.getBounds().contains(lastPoint)) {
+    } else if (lastPoint && window.utils.getStorage("autoFollowVehicle") === "true") {
+      // Auto-follow vehicle if enabled
+      const bounds = this.map.getBounds();
+      const point = new mapboxgl.LngLat(lastPoint[0], lastPoint[1]);
+      if (!bounds.contains(point)) {
                 this.map.panTo(lastPoint);
               }
             }
-          }
-        } else {
-          this.marker.setLatLng(lastPoint);
+
+    // Store last position for animation reference
           this.lastMarkerLatLng = lastPoint;
         }
-      }
-    }
 
-    this.updateMarkerIcon(trip.currentSpeed);
-  }
+  updateMarkerStyle(speed) {
+    if (!this.map || !this.map.getLayer(this.liveMarkerLayerId)) return;
 
-  animateMarker(from, to) {
-    const duration = 100; // ms
-    const start = performance.now();
-    const marker = this.marker;
-
-    function animate(now) {
-      const t = Math.min(1, (now - start) / duration);
-      const lat = from[0] + (to[0] - from[0]) * t;
-      const lng = from[1] + (to[1] - from[1]) * t;
-      marker.setLatLng([lat, lng]);
-      if (t < 1) requestAnimationFrame(animate);
-    }
-    requestAnimationFrame(animate);
-  }
-
-  updateMarkerIcon(speed) {
-    if (!this.marker) return;
-
-    let iconClass = "vehicle-marker";
+    let color = "#00FF00"; // Default green
+    let radius = 6;
 
     if (speed === 0) {
-      iconClass += " vehicle-stopped";
+      color = "#f44336"; // Red for stopped
+      radius = 8;
     } else if (speed < 10) {
-      iconClass += " vehicle-slow";
+      color = "#ff9800"; // Orange for slow
+      radius = 6;
     } else if (speed < 35) {
-      iconClass += " vehicle-medium";
+      color = "#2196f3"; // Blue for medium
+      radius = 6;
     } else {
-      iconClass += " vehicle-fast";
+      color = "#9c27b0"; // Purple for fast
+      radius = 8;
     }
 
-    if (this.marker.options.icon.options.className !== iconClass) {
-      this.marker.setIcon(
-        L.divIcon({
-          className: iconClass,
-          iconSize: [12, 12],
-          iconAnchor: [6, 6],
-          html: `<div class="vehicle-marker-inner" data-speed="${Math.round(
-            speed,
-          )}"></div>`,
-        }),
-      );
-    }
+    // Update marker paint properties
+    this.map.setPaintProperty(this.liveMarkerLayerId, "circle-color", color);
+    this.map.setPaintProperty(this.liveMarkerLayerId, "circle-radius", radius);
   }
 
   clearActiveTrip() {
     this.activeTrip = null;
-    this.polyline.setLatLngs([]);
-
-    if (this.map.hasLayer(this.marker)) {
-      this.marker.removeFrom(this.map);
+    
+    // Clear Mapbox source data
+    const source = this.map.getSource(this.liveSourceId);
+    if (source) {
+      source.setData({
+        type: "FeatureCollection",
+        features: []
+      });
     }
   }
 
@@ -652,53 +690,47 @@ class LiveTripTracker {
   }
 
   updatePolylineStyle(color, opacity) {
-    if (!this.polyline) return;
+    if (!this.map || !this.map.getLayer(this.liveLineLayerId)) return;
 
-    this.polyline.setStyle({
-      color: color || "#00FF00",
-      opacity: parseFloat(opacity) || 0.8,
-      zIndex: 1000,
-    });
-
-    if (
-      this.activeTrip?.coordinates &&
-      this.activeTrip.coordinates.length > 0
-    ) {
-      this.polyline.redraw();
-      this.bringLiveTripToFront();
-    }
+    // Update line paint properties in Mapbox
+    this.map.setPaintProperty(this.liveLineLayerId, "line-color", color || "#00FF00");
+    this.map.setPaintProperty(this.liveLineLayerId, "line-opacity", parseFloat(opacity) || 0.8);
 
     window.handleError(
-      "LiveTripTracker: Polyline style updated",
+      "LiveTripTracker: Line style updated",
       "updatePolylineStyle",
       "info",
     );
   }
 
   bringLiveTripToFront() {
-    if (this.polyline && this.map.hasLayer(this.polyline)) {
-      this.polyline.bringToFront();
+    // In Mapbox GL JS, layer order is determined by the order they're added
+    // We could potentially re-add the layers to bring them to front, but
+    // for live tracking this is usually not necessary as they're added last
       window.handleError(
-        "LiveTripTracker: Polyline brought to front",
+      "LiveTripTracker: Layers maintained at front (Mapbox GL JS)",
         "bringLiveTripToFront",
         "info",
       );
-    }
-    if (this.marker && this.map.hasLayer(this.marker)) {
-      this.marker.bringToFront();
-    }
   }
 
   destroy() {
     this.stopPolling();
 
+    // Remove Mapbox layers and sources
     if (this.map) {
-      if (this.map.hasLayer(this.polyline)) {
-        this.map.removeLayer(this.polyline);
+      try {
+        if (this.map.getLayer(this.liveLineLayerId)) {
+          this.map.removeLayer(this.liveLineLayerId);
       }
-
-      if (this.map.hasLayer(this.marker)) {
-        this.map.removeLayer(this.marker);
+        if (this.map.getLayer(this.liveMarkerLayerId)) {
+          this.map.removeLayer(this.liveMarkerLayerId);
+        }
+        if (this.map.getSource(this.liveSourceId)) {
+          this.map.removeSource(this.liveSourceId);
+        }
+      } catch (error) {
+        console.warn("Error removing live tracking layers:", error);
       }
     }
 

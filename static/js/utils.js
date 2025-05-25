@@ -151,6 +151,15 @@ const DateUtils = {
       .padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
   },
 
+  formatTimeFromHours(hours) {
+    if (typeof hours !== "number" || isNaN(hours)) return "--:--";
+    
+    const h = Math.floor(hours);
+    const m = Math.floor((hours - h) * 60);
+    
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  },
+
   isDateInRange(date, startDate, endDate) {
     const dateObj = this.parseDate(date);
     const start = this.parseDate(startDate);

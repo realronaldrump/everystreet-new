@@ -8,11 +8,7 @@
       content="Every Street - Tracking and Visualizing Davis's street coverage"
     />
     <meta name="theme-color" content="#121212" />
-    <link
-      rel="preload"
-      as="image"
-      href="https://a.basemaps.cartocdn.com/dark_all/0/0/0.png"
-    />
+
     <meta name="color-scheme" content="dark light" />
 
     <!-- Prevent flash of wrong theme -->
@@ -43,7 +39,9 @@
     <!-- Resource hints -->
     <link rel="dns-prefetch" href="//cdn.jsdelivr.net" />
     <link rel="dns-prefetch" href="//cdnjs.cloudflare.com" />
+    <link rel="dns-prefetch" href="//api.mapbox.com" />
     <link rel="preconnect" href="//cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="//api.mapbox.com" crossorigin />
 
     <!-- Favicon -->
     <link
@@ -73,6 +71,12 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
+    <!-- Mapbox GL JS CSS -->
+    <link
+      rel="stylesheet"
+      href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css"
+    />
+    <!-- Keep Leaflet for backwards compatibility with other pages -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -616,6 +620,9 @@
     ></script>
     <script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
     {# Load utils early #}
+    <!-- Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
+    <!-- Keep Leaflet for backwards compatibility -->
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       crossorigin=""

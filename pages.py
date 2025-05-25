@@ -1,4 +1,5 @@
 import logging
+import os
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
@@ -11,11 +12,17 @@ router = APIRouter()
 
 templates = Jinja2Templates(directory="templates")
 
+# Get Mapbox access token from environment
+MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
+
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """Render main index page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN
+    })
 
 
 @router.get("/trips", response_class=HTMLResponse)

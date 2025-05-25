@@ -238,23 +238,42 @@ let baseTileLayer = null;
     },
 
     updateMapTheme: (theme) => {
-      if (!window.map?.addLayer) return;
+      if (!window.map) return;
 
       const mapContainer = utils.getElement(CONFIG.selectors.mapContainer);
       if (mapContainer) {
         mapContainer.style.background = CONFIG.map[theme === "light" ? "lightBg" : "darkBg"];
       }
 
-      const tileUrl = CONFIG.map.tileUrls[theme];
-      if (!tileUrl) return;
+      // Check if this is a Mapbox GL JS map (has setStyle method)
+      if (window.map.setStyle && window.CONFIG?.MAP?.styles) {
+        const styleUrl = window.CONFIG.MAP.styles[theme];
+        if (styleUrl) {
+          window.map.setStyle(styleUrl);
+        }
+      }
+      // Legacy Leaflet support (for other pages)
+      else if (window.map.addLayer && CONFIG.map?.tileUrls) {
+        const tileUrl = CONFIG.map.tileUrls[theme];
+        if (!tileUrl) return;
 
-      if (baseTileLayer) {
-        baseTileLayer.setUrl(tileUrl);
-      } else {
-        baseTileLayer = L.tileLayer(tileUrl, { maxZoom: 19, attribution: "" }).addTo(window.map);
+        if (baseTileLayer) {
+          baseTileLayer.setUrl(tileUrl);
+        } else {
+          baseTileLayer = L.tileLayer(tileUrl, { maxZoom: 19, attribution: "" }).addTo(window.map);
+        }
+        
+        // Only call invalidateSize for Leaflet maps
+        if (window.map.invalidateSize) {
+          window.map.invalidateSize();
+        }
       }
 
-      window.map.invalidateSize();
+      // Trigger resize for Mapbox GL JS (equivalent to invalidateSize)
+      if (window.map.resize) {
+        setTimeout(() => window.map.resize(), 100);
+      }
+      
       document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
     },
 
