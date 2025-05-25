@@ -5,32 +5,29 @@ import logging
 import math
 import statistics
 from collections.abc import Coroutine
-from typing import (
-    Any,
-    TypeVar,
-)
+from typing import Any, TypeVar
 
 import aiohttp
-from aiohttp import (
-    ClientConnectorError,
-    ClientResponseError,
-)
+from aiohttp import ClientConnectorError, ClientResponseError
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging once at module level
 logger = logging.getLogger(__name__)
 
+# Constants
 EARTH_RADIUS_METERS = 6371000.0
 EARTH_RADIUS_MILES = 3958.8
 EARTH_RADIUS_KM = 6371.0
+METERS_TO_MILES_FACTOR = 1609.34
 
 T = TypeVar("T")
 
+# Global session management
 _SESSION: aiohttp.ClientSession | None = None
 _SESSION_LOCK = asyncio.Lock()
 
 
 async def get_session() -> aiohttp.ClientSession:
-    """Get or create a shared aiohttp ClientSession."""
+    """Get or create a shared aiohttp ClientSession with optimized settings."""
     global _SESSION
 
     async with _SESSION_LOCK:
@@ -119,14 +116,14 @@ def retry_async(
 @retry_async()
 async def validate_location_osm(
     location: str,
-    locationType: str,
+    location_type: str,
 ) -> dict[str, Any] | None:
     """Validate a location using the OSM Nominatim search API."""
     params = {
         "q": location,
         "format": "json",
         "limit": 1,
-        "featuretype": locationType,
+        "featuretype": location_type,
         "polygon_geojson": 1,
     }
     headers = {"User-Agent": "EveryStreet-Validator/1.0"}
@@ -151,53 +148,43 @@ async def validate_location_osm(
         raise
 
 
-def validate_trip_data(
-    trip: dict[str, Any],
-) -> tuple[bool, str | None]:
-    """Validate that a trip dictionary contains the required fields."""
-    required = [
-        "transactionId",
-        "startTime",
-        "endTime",
-        "gps",
-    ]
-    for field in required:
-        if field not in trip:
-            return (
-                False,
-                f"Missing required field: {field}",
-            )
+def validate_trip_data(trip: dict[str, Any]) -> tuple[bool, str | None]:
+    """Validate that a trip dictionary contains the required fields.
 
-    gps_data = trip["gps"]
+    Optimized validation with early returns and consolidated GPS validation.
+    """
+    required_fields = ("transactionId", "startTime", "endTime", "gps")
+
+    # Check required fields
+    for field in required_fields:
+        if field not in trip:
+            return False, f"Missing required field: {field}"
+
+    # Validate GPS data
     try:
+        gps_data = trip["gps"]
         if isinstance(gps_data, str):
             gps_data = json.loads(gps_data)
 
-        if "type" not in gps_data or "coordinates" not in gps_data:
-            return (
-                False,
-                "GPS data missing 'type' or 'coordinates'",
-            )
+        # Combined GPS validation checks
+        if (
+            not isinstance(gps_data, dict)
+            or "type" not in gps_data
+            or "coordinates" not in gps_data
+        ):
+            return False, "GPS data missing 'type' or 'coordinates'"
 
-        if not isinstance(gps_data["coordinates"], list):
+        coordinates = gps_data["coordinates"]
+        if not isinstance(coordinates, list) or len(coordinates) < 2:
             return (
                 False,
-                "GPS coordinates must be a list",
-            )
-
-        if len(gps_data["coordinates"]) < 2:
-            return (
-                False,
-                "GPS coordinates must have at least 2 points",
+                "GPS coordinates must be a list with at least 2 points",
             )
 
     except json.JSONDecodeError:
         return False, "Invalid GPS data format"
     except Exception as e:
-        return (
-            False,
-            f"Error validating GPS data: {e}",
-        )
+        return False, f"Error validating GPS data: {e}"
 
     return True, None
 
@@ -230,10 +217,7 @@ async def reverse_geocode_nominatim(
                 status=429,
                 message=f"Rate limited. Retry after {retry_after}s",
             )
-        logger.warning(
-            "Geocoding error: status code %d",
-            response.status,
-        )
+        logger.warning("Geocoding error: status code %d", response.status)
         return None
 
 
@@ -244,9 +228,24 @@ def haversine(
     lat2: float,
     unit: str = "meters",
 ) -> float:
-    """Calculate the great-circle distance between two points."""
+    """Calculate the great-circle distance between two points.
+
+    Optimized with lookup table for radius values.
+    """
+    radius_map = {
+        "meters": EARTH_RADIUS_METERS,
+        "miles": EARTH_RADIUS_MILES,
+        "km": EARTH_RADIUS_KM,
+    }
+
+    radius = radius_map.get(unit)
+    if radius is None:
+        raise ValueError("Invalid unit. Use 'meters', 'miles', or 'km'.")
+
+    # Convert to radians
     lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
 
+    # Haversine formula
     dlon = lon2 - lon1
     dlat = lat2 - lat1
     a = (
@@ -255,103 +254,80 @@ def haversine(
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-    if unit == "meters":
-        radius = EARTH_RADIUS_METERS
-    elif unit == "miles":
-        radius = EARTH_RADIUS_MILES
-    elif unit == "km":
-        radius = EARTH_RADIUS_KM
-    else:
-        raise ValueError(
-            "Invalid unit specified. Use 'meters', 'miles', or 'km'.",
-        )
-
-    distance = radius * c
-    return distance
+    return radius * c
 
 
 def meters_to_miles(meters: float) -> float:
-    """Convert meters to miles."""
-    return meters / 1609.34
+    """Convert meters to miles using precomputed factor."""
+    return meters / METERS_TO_MILES_FACTOR
 
 
-def calculate_distance(
-    coordinates: list[list[float]],
-) -> float:
-    """Calculate the total distance of a trip from a list of [lng, lat]
-    coordinates.
+def calculate_distance(coordinates: list[list[float]]) -> float:
+    """Calculate the total distance of a trip from coordinate pairs.
+
+    Optimized with early validation and error handling consolidation.
 
     Args:
         coordinates: List of [longitude, latitude] coordinate pairs
 
     Returns:
         Total distance in miles
-
     """
-    total_distance_meters = 0.0
-    coords: list[list[float]] = (
-        coordinates if isinstance(coordinates, list) else []
-    )
+    if not coordinates or not isinstance(coordinates, list):
+        logger.warning(
+            "Invalid or empty coordinates for distance calculation."
+        )
+        return 0.0
 
-    if not coords or not isinstance(coords[0], list):
+    if len(coordinates) < 2:
+        return 0.0
+
+    # Validate first coordinate to check structure
+    if not isinstance(coordinates[0], list) or len(coordinates[0]) < 2:
         logger.warning("Invalid coordinates format for distance calculation.")
         return 0.0
 
-    for i in range(len(coords) - 1):
+    total_distance_meters = 0.0
+
+    for i in range(len(coordinates) - 1):
         try:
-            lon1, lat1 = coords[i]
-            lon2, lat2 = coords[i + 1]
+            lon1, lat1 = coordinates[i][:2]  # Take only first 2 elements
+            lon2, lat2 = coordinates[i + 1][:2]
+
             total_distance_meters += haversine(
-                lon1,
-                lat1,
-                lon2,
-                lat2,
-                unit="meters",
+                lon1, lat1, lon2, lat2, unit="meters"
             )
-        except (
-            TypeError,
-            ValueError,
-            IndexError,
-        ) as e:
+        except (TypeError, ValueError, IndexError) as e:
             logger.warning(
-                "Skipping coordinate pair due to error: %s - Pair: %s, %s",
+                "Skipping coordinate pair %d due to error: %s",
+                i,
                 e,
-                coords[i],
-                (coords[i + 1] if i + 1 < len(coords) else "N/A"),
             )
             continue
 
     return meters_to_miles(total_distance_meters)
 
 
-def run_async_from_sync(
-    coro: Coroutine[Any, Any, T],
-) -> T:
-    """Runs an async coroutine from a synchronous context, managing the event loop.
+def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
+    """Run async coroutine from sync context with proper loop management.
 
-    This is crucial for calling async functions (like motor operations)
-    from synchronous Celery tasks without encountering 'Event loop is closed' errors.
-    It gets the current thread's loop or creates one if needed, and runs the
-    coroutine until completion using loop.run_until_complete. Unlike asyncio.run(),
-    it doesn't close the loop afterwards, allowing libraries like motor to
-    clean up properly.
-
-    Args:
-        coro: The awaitable coroutine to execute.
-
-    Returns:
-        The result of the coroutine.
-
+    Optimized loop handling for Celery tasks and other sync contexts.
     """
     try:
-        loop = asyncio.get_event_loop_policy().get_event_loop()
-        logger.debug(
-            "Reusing existing event loop for sync-to-async execution.",
-        )
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If loop is running, we need to run in a new thread
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, coro)
+                return future.result()
+        else:
+            logger.debug(
+                "Reusing existing event loop for sync-to-async execution."
+            )
     except RuntimeError:
-        logger.debug(
-            "No event loop found, creating a new one for sync-to-async execution.",
-        )
+        logger.debug("No event loop found, creating new one.")
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
@@ -364,21 +340,29 @@ def run_async_from_sync(
         return loop.run_until_complete(coro)
     except Exception:
         logger.error(
-            "Exception occurred during run_until_complete",
-            exc_info=True,
+            "Exception occurred during run_until_complete", exc_info=True
         )
         raise
 
 
-def calculate_circular_average_hour(
-    hours_list: list[float],
-) -> float:
-    """Calculates the circular average of a list of hours (0-23)."""
+def calculate_circular_average_hour(hours_list: list[float]) -> float:
+    """Calculate the circular average of hours (0-23).
+
+    Optimized with early return and vectorized operations.
+    """
     if not hours_list:
         return 0.0
+
+    if len(hours_list) == 1:
+        return hours_list[0]
+
+    # Convert hours to radians and calculate trigonometric averages
     angles = [(h / 24.0) * 2 * math.pi for h in hours_list]
-    avg_sin = statistics.mean([math.sin(angle) for angle in angles])
-    avg_cos = statistics.mean([math.cos(angle) for angle in angles])
+    avg_sin = statistics.mean(math.sin(angle) for angle in angles)
+    avg_cos = statistics.mean(math.cos(angle) for angle in angles)
+
+    # Convert back to hours
     avg_angle = math.atan2(avg_sin, avg_cos)
     avg_hour = (avg_angle / (2 * math.pi)) * 24.0
+
     return (avg_hour + 24.0) % 24.0

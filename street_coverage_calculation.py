@@ -1417,7 +1417,7 @@ class CoverageCalculator:
                                     self.min_match_length,
                                 )
                                 for (
-                                    trip_idx_in_sub_batch,  # This is the index within the sub_batch_coords
+                                    _,  # trip_idx_in_sub_batch (index within sub_batch_coords)
                                     matched_segment_ids,
                                 ) in result_map.items():
                                     if isinstance(

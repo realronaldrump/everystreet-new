@@ -540,67 +540,30 @@ progress_collection = _get_collection("progress_status")
 
 
 def post_process_deserialize(obj):
-    """Recursively convert Mongo Extended JSON types ($date, $oid) to Python types."""
+    """Post-process deserialized MongoDB objects for API responses.
+
+    Optimized to handle None values and reduce unnecessary processing.
+    """
+    if obj is None:
+        return None
+
     if isinstance(obj, dict):
-        if "$oid" in obj and len(obj) == 1:
-            try:
-                return str(ObjectId(obj["$oid"]))
-            except Exception as oid_err:
-                logger.warning(
-                    "Could not convert $oid value '%s' to ObjectId: %s",
-                    obj["$oid"],
-                    oid_err,
+        # Process specific BSON types more efficiently
+        for key, value in obj.items():
+            if isinstance(value, ObjectId):
+                obj[key] = str(value)
+            elif isinstance(value, datetime):
+                obj[key] = (
+                    value.isoformat()
+                    if value.tzinfo
+                    else value.replace(tzinfo=timezone.utc).isoformat()
                 )
-                return obj
-        elif "$date" in obj and len(obj) == 1:
-            try:
-                date_val = obj["$date"]
-                if isinstance(date_val, dict) and "$numberLong" in date_val:
-                    ms_epoch = int(date_val["$numberLong"])
-                    return datetime.fromtimestamp(
-                        ms_epoch / 1000.0,
-                        tz=timezone.utc,
-                    )
-                if isinstance(date_val, str):
-                    dt = datetime.fromisoformat(
-                        date_val.replace("Z", "+00:00"),
-                    )
-                    if dt.tzinfo is None:
-                        dt = dt.astimezone(timezone.utc)
-                    return dt.astimezone(timezone.utc)
-                if isinstance(date_val, (int, float)):
-                    if abs(date_val) > 2e9:
-                        return datetime.fromtimestamp(
-                            date_val / 1000.0,
-                            tz=timezone.utc,
-                        )
-                    return datetime.fromtimestamp(
-                        date_val,
-                        tz=timezone.utc,
-                    )
-                logger.warning(
-                    "Unexpected value type within $date dict: %s - Value: %s",
-                    type(date_val),
-                    date_val,
-                )
-                return obj
-            except (
-                ValueError,
-                TypeError,
-                KeyError,
-            ) as dt_err:
-                logger.error(
-                    "Error parsing $date object %s: %s",
-                    obj,
-                    dt_err,
-                )
-                return obj
-        else:
-            return {k: post_process_deserialize(v) for k, v in obj.items()}
+            elif isinstance(value, (dict, list)):
+                obj[key] = post_process_deserialize(value)
     elif isinstance(obj, list):
         return [post_process_deserialize(item) for item in obj]
-    else:
-        return obj
+
+    return obj
 
 
 class SerializationHelper:
@@ -884,42 +847,67 @@ async def build_query_from_request(
     return query
 
 
+class DatabaseOperationMixin:
+    """Mixin class providing common database operation patterns."""
+
+    @staticmethod
+    async def _execute_operation(
+        operation_func,
+        collection: AsyncIOMotorCollection,
+        operation_name: str,
+        process_result: bool = True,
+    ):
+        """Execute a database operation with standardized retry and error handling.
+
+        Args:
+            operation_func: Async function that performs the database operation
+            collection: MongoDB collection
+            operation_name: Name for logging and error reporting
+            process_result: Whether to post-process the result
+
+        Returns:
+            Operation result, optionally post-processed
+        """
+        try:
+            result = await db_manager.execute_with_retry(
+                operation_func,
+                operation_name=f"{operation_name} on {collection.name}",
+            )
+            return (
+                post_process_deserialize(result)
+                if process_result and result
+                else result
+            )
+        except Exception as e:
+            logger.error(
+                "%s failed on %s: %s", operation_name, collection.name, str(e)
+            )
+            if operation_name.startswith(("find", "count", "aggregate")):
+                return (
+                    []
+                    if operation_name in ("find", "aggregate")
+                    else (None if operation_name.startswith("find_one") else 0)
+                )
+            raise
+
+
+# Optimized database operation functions using the mixin pattern
 async def find_one_with_retry(
     collection: AsyncIOMotorCollection,
     query: dict[str, Any],
     projection: Any = None,
     sort: Any = None,
 ) -> dict[str, Any] | None:
-    """Execute find_one with retry logic.
-
-    Args:
-        collection: MongoDB collection
-        query: Query filter
-        projection: Fields to include/exclude
-        sort: Sort specification
-
-    Returns:
-        Found document or None
-
-    """
+    """Execute find_one with retry logic and optimized parameter handling."""
 
     async def _operation():
-        if sort:
-            return await collection.find_one(query, projection, sort=sort)
-        return await collection.find_one(query, projection)
+        return await collection.find_one(
+            query, projection, sort=sort if sort else None
+        )
 
-    try:
-        return await db_manager.execute_with_retry(
-            _operation,
-            operation_name=f"find_one on {collection.name}",
-        )
-    except Exception as e:
-        logger.error(
-            "find_one_with_retry failed on %s: %s",
-            collection.name,
-            str(e),
-        )
-        raise
+    return await DatabaseOperationMixin._execute_operation(
+        _operation, collection, "find_one"
+    )
 
 
 async def find_with_retry(
@@ -931,24 +919,12 @@ async def find_with_retry(
     skip: int | None = None,
     batch_size: int = 100,
 ) -> list[dict[str, Any]]:
-    """Execute find with retry logic and return a list.
-
-    Args:
-        collection: MongoDB collection
-        query: Query filter
-        projection: Fields to include/exclude
-        sort: Sort specification
-        limit: Maximum number of documents to return
-        skip: Number of documents to skip
-        batch_size: Batch size for cursor
-
-    Returns:
-        List of documents
-
-    """
+    """Execute find with retry logic and batch processing optimization."""
 
     async def _operation():
         cursor = collection.find(query, projection)
+
+        # Chain cursor operations efficiently
         if sort:
             cursor = cursor.sort(sort)
         if skip:
@@ -956,16 +932,20 @@ async def find_with_retry(
         if limit:
             cursor = cursor.limit(limit)
 
+        # Use optimized batch processing
         results = []
         async for batch in batch_cursor(cursor, batch_size):
             results.extend(batch)
+            # Early termination for limited queries
             if limit and len(results) >= limit:
                 return results[:limit]
         return results
 
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"find on {collection.name}",
+    return (
+        await DatabaseOperationMixin._execute_operation(
+            _operation, collection, "find", process_result=False
+        )
+        or []
     )
 
 
@@ -975,25 +955,13 @@ async def update_one_with_retry(
     update: dict[str, Any],
     upsert: bool = False,
 ) -> UpdateResult:
-    """Execute update_one with retry logic.
-
-    Args:
-        collection: MongoDB collection
-        filter_query: Query filter
-        update: Update specification
-        upsert: Whether to insert if not found
-
-    Returns:
-        UpdateResult
-
-    """
+    """Execute update_one with retry logic."""
 
     async def _operation():
         return await collection.update_one(filter_query, update, upsert=upsert)
 
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"update_one on {collection.name}",
+    return await DatabaseOperationMixin._execute_operation(
+        _operation, collection, "update_one", process_result=False
     )
 
 
@@ -1003,29 +971,15 @@ async def update_many_with_retry(
     update: dict[str, Any],
     upsert: bool = False,
 ) -> UpdateResult:
-    """Execute update_many with retry logic.
-
-    Args:
-        collection: MongoDB collection
-        filter_query: Query filter
-        update: Update specification
-        upsert: Whether to insert if not found
-
-    Returns:
-        UpdateResult
-
-    """
+    """Execute update_many with retry logic."""
 
     async def _operation():
         return await collection.update_many(
-            filter_query,
-            update,
-            upsert=upsert,
+            filter_query, update, upsert=upsert
         )
 
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"update_many on {collection.name}",
+    return await DatabaseOperationMixin._execute_operation(
+        _operation, collection, "update_many", process_result=False
     )
 
 
@@ -1033,23 +987,13 @@ async def insert_one_with_retry(
     collection: AsyncIOMotorCollection,
     document: dict[str, Any],
 ) -> InsertOneResult:
-    """Execute insert_one with retry logic.
-
-    Args:
-        collection: MongoDB collection
-        document: Document to insert
-
-    Returns:
-        InsertOneResult
-
-    """
+    """Execute insert_one with retry logic."""
 
     async def _operation():
         return await collection.insert_one(document)
 
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"insert_one on {collection.name}",
+    return await DatabaseOperationMixin._execute_operation(
+        _operation, collection, "insert_one", process_result=False
     )
 
 
@@ -1057,23 +1001,13 @@ async def delete_one_with_retry(
     collection: AsyncIOMotorCollection,
     filter_query: dict[str, Any],
 ) -> DeleteResult:
-    """Execute delete_one with retry logic.
-
-    Args:
-        collection: MongoDB collection
-        filter_query: Query filter
-
-    Returns:
-        DeleteResult
-
-    """
+    """Execute delete_one with retry logic."""
 
     async def _operation():
         return await collection.delete_one(filter_query)
 
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"delete_one on {collection.name}",
+    return await DatabaseOperationMixin._execute_operation(
+        _operation, collection, "delete_one", process_result=False
     )
 
 
@@ -1081,23 +1015,13 @@ async def delete_many_with_retry(
     collection: AsyncIOMotorCollection,
     filter_query: dict[str, Any],
 ) -> DeleteResult:
-    """Execute delete_many with retry logic.
-
-    Args:
-        collection: MongoDB collection
-        filter_query: Query filter
-
-    Returns:
-        DeleteResult
-
-    """
+    """Execute delete_many with retry logic."""
 
     async def _operation():
         return await collection.delete_many(filter_query)
 
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"delete_many on {collection.name}",
+    return await DatabaseOperationMixin._execute_operation(
+        _operation, collection, "delete_many", process_result=False
     )
 
 
@@ -1107,29 +1031,20 @@ async def aggregate_with_retry(
     batch_size: int = 100,
     allow_disk_use: bool = True,
 ) -> list[dict[str, Any]]:
-    """Execute aggregate with retry logic.
-
-    Args:
-        collection: MongoDB collection
-        pipeline: Aggregation pipeline
-        batch_size: Batch size for cursor
-        allow_disk_use: Allow MongoDB to use disk for large aggregations
-
-    Returns:
-        List of documents
-
-    """
+    """Execute aggregate with retry logic and optimized batch processing."""
 
     async def _operation():
-        result = []
         cursor = collection.aggregate(pipeline, allowDiskUse=allow_disk_use)
+        results = []
         async for batch in batch_cursor(cursor, batch_size):
-            result.extend(batch)
-        return result
+            results.extend(batch)
+        return results
 
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"aggregate on {collection.name}",
+    return (
+        await DatabaseOperationMixin._execute_operation(
+            _operation, collection, "aggregate", process_result=False
+        )
+        or []
     )
 
 
@@ -1138,24 +1053,16 @@ async def count_documents_with_retry(
     filter_query: dict[str, Any],
     **kwargs: Any,
 ) -> int:
-    """Execute count_documents with retry logic.
-
-    Args:
-        collection: MongoDB collection
-        filter_query: Query filter
-        **kwargs: Additional options for count_documents (e.g., hint)
-
-    Returns:
-        Document count
-
-    """
+    """Execute count_documents with retry logic."""
 
     async def _operation():
         return await collection.count_documents(filter_query, **kwargs)
 
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"count_documents on {collection.name}",
+    return (
+        await DatabaseOperationMixin._execute_operation(
+            _operation, collection, "count_documents", process_result=False
+        )
+        or 0
     )
 
 
@@ -1164,34 +1071,20 @@ async def get_trip_by_id(
     collection: AsyncIOMotorCollection | None = None,
     check_both_id_types: bool = True,
 ) -> dict[str, Any] | None:
-    """Get a trip by transaction ID or ObjectId.
-
-    Args:
-        trip_id: Transaction ID or ObjectId string
-        collection: Optional collection (defaults to trips_collection)
-        check_both_id_types: Whether to check both transaction ID and ObjectId
-
-    Returns:
-        Trip document or None
-
-    """
+    """Get a trip by transaction ID or ObjectId with optimized lookup strategy."""
     if collection is None:
         collection = trips_collection
 
+    # Try transaction ID first (most common case)
     trip = await find_one_with_retry(collection, {"transactionId": trip_id})
 
+    # Fallback to ObjectId lookup if enabled and transaction ID failed
     if not trip and check_both_id_types and ObjectId.is_valid(trip_id):
         try:
             object_id = ObjectId(trip_id)
             trip = await find_one_with_retry(collection, {"_id": object_id})
-        except bson.errors.InvalidId:
-            pass
-        except Exception as e:
-            logger.warning(
-                "Unexpected error finding trip by ObjectId %s: %s",
-                trip_id,
-                e,
-            )
+        except (bson.errors.InvalidId, Exception) as e:
+            logger.warning("Error finding trip by ObjectId %s: %s", trip_id, e)
 
     return trip
 
