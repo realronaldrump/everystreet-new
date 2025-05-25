@@ -16,7 +16,7 @@ class LiveTripTracker {
     this.liveSourceId = "live-trip-source";
     this.liveLineLayerId = "live-trip-line";
     this.liveMarkerLayerId = "live-trip-marker";
-    
+
     // Initialize empty GeoJSON data
     this.initializeMapboxLayers();
 
@@ -52,8 +52,8 @@ class LiveTripTracker {
           type: "geojson",
           data: {
             type: "FeatureCollection",
-            features: []
-          }
+            features: [],
+          },
         });
       }
 
@@ -67,12 +67,12 @@ class LiveTripTracker {
           paint: {
             "line-color": "#00FF00",
             "line-width": 3,
-            "line-opacity": 0.8
+            "line-opacity": 0.8,
           },
           layout: {
             "line-cap": "round",
-            "line-join": "round"
-          }
+            "line-join": "round",
+          },
         });
       }
 
@@ -87,8 +87,8 @@ class LiveTripTracker {
             "circle-radius": 6,
             "circle-color": "#00FF00",
             "circle-stroke-width": 2,
-            "circle-stroke-color": "#ffffff"
-          }
+            "circle-stroke-color": "#ffffff",
+          },
         });
       }
     } catch (error) {
@@ -448,8 +448,8 @@ class LiveTripTracker {
         properties: { type: "line" },
         geometry: {
           type: "LineString",
-          coordinates: coordinates
-        }
+          coordinates: coordinates,
+        },
       });
     }
 
@@ -457,23 +457,23 @@ class LiveTripTracker {
     if (lastPoint) {
       features.push({
         type: "Feature",
-        properties: { 
+        properties: {
           type: "marker",
-          speed: trip.currentSpeed || 0
+          speed: trip.currentSpeed || 0,
         },
         geometry: {
           type: "Point",
-          coordinates: lastPoint
-        }
+          coordinates: lastPoint,
+        },
       });
-      }
+    }
 
     // Update the map source with new data
     const source = this.map.getSource(this.liveSourceId);
     if (source) {
       source.setData({
         type: "FeatureCollection",
-        features: features
+        features: features,
       });
     }
 
@@ -486,7 +486,7 @@ class LiveTripTracker {
         try {
           // Create bounds and fit map to show entire trip
           const bounds = new mapboxgl.LngLatBounds();
-          coordinates.forEach(coord => bounds.extend(coord));
+          coordinates.forEach((coord) => bounds.extend(coord));
           this.map.fitBounds(bounds, { padding: 50 });
         } catch (e) {
           console.error("Error fitting bounds:", e);
@@ -496,18 +496,21 @@ class LiveTripTracker {
       } else {
         this.map.flyTo({ center: lastPoint, zoom: 15 });
       }
-    } else if (lastPoint && window.utils.getStorage("autoFollowVehicle") === "true") {
+    } else if (
+      lastPoint &&
+      window.utils.getStorage("autoFollowVehicle") === "true"
+    ) {
       // Auto-follow vehicle if enabled
       const bounds = this.map.getBounds();
       const point = new mapboxgl.LngLat(lastPoint[0], lastPoint[1]);
       if (!bounds.contains(point)) {
-                this.map.panTo(lastPoint);
-              }
-            }
+        this.map.panTo(lastPoint);
+      }
+    }
 
     // Store last position for animation reference
-          this.lastMarkerLatLng = lastPoint;
-        }
+    this.lastMarkerLatLng = lastPoint;
+  }
 
   updateMarkerStyle(speed) {
     if (!this.map || !this.map.getLayer(this.liveMarkerLayerId)) return;
@@ -536,13 +539,13 @@ class LiveTripTracker {
 
   clearActiveTrip() {
     this.activeTrip = null;
-    
+
     // Clear Mapbox source data
     const source = this.map.getSource(this.liveSourceId);
     if (source) {
       source.setData({
         type: "FeatureCollection",
-        features: []
+        features: [],
       });
     }
   }
@@ -693,8 +696,16 @@ class LiveTripTracker {
     if (!this.map || !this.map.getLayer(this.liveLineLayerId)) return;
 
     // Update line paint properties in Mapbox
-    this.map.setPaintProperty(this.liveLineLayerId, "line-color", color || "#00FF00");
-    this.map.setPaintProperty(this.liveLineLayerId, "line-opacity", parseFloat(opacity) || 0.8);
+    this.map.setPaintProperty(
+      this.liveLineLayerId,
+      "line-color",
+      color || "#00FF00",
+    );
+    this.map.setPaintProperty(
+      this.liveLineLayerId,
+      "line-opacity",
+      parseFloat(opacity) || 0.8,
+    );
 
     window.handleError(
       "LiveTripTracker: Line style updated",
@@ -707,11 +718,11 @@ class LiveTripTracker {
     // In Mapbox GL JS, layer order is determined by the order they're added
     // We could potentially re-add the layers to bring them to front, but
     // for live tracking this is usually not necessary as they're added last
-      window.handleError(
+    window.handleError(
       "LiveTripTracker: Layers maintained at front (Mapbox GL JS)",
-        "bringLiveTripToFront",
-        "info",
-      );
+      "bringLiveTripToFront",
+      "info",
+    );
   }
 
   destroy() {
@@ -722,7 +733,7 @@ class LiveTripTracker {
       try {
         if (this.map.getLayer(this.liveLineLayerId)) {
           this.map.removeLayer(this.liveLineLayerId);
-      }
+        }
         if (this.map.getLayer(this.liveMarkerLayerId)) {
           this.map.removeLayer(this.liveMarkerLayerId);
         }
