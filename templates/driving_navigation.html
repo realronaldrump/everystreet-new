@@ -171,7 +171,9 @@ block head_content %}
           <h6 class="mb-2">Route Optimization</h6>
           <div class="row g-2">
             <div class="col-6">
-              <label for="max-streets" class="form-label small">Max Streets</label>
+              <label for="max-streets" class="form-label small"
+                >Max Streets</label
+              >
               <select id="max-streets" class="form-select form-select-sm">
                 <option value="3">3 streets</option>
                 <option value="5" selected>5 streets</option>
@@ -182,7 +184,9 @@ block head_content %}
               </select>
             </div>
             <div class="col-6">
-              <label for="max-distance" class="form-label small">Max Distance</label>
+              <label for="max-distance" class="form-label small"
+                >Max Distance</label
+              >
               <select id="max-distance" class="form-select form-select-sm">
                 <option value="2">2 miles</option>
                 <option value="3" selected>3 miles</option>
@@ -235,10 +239,7 @@ block head_content %}
                 </button>
               </div>
             </div>
-            <button
-              id="clear-route-btn"
-              class="btn btn-sm btn-outline-warning"
-            >
+            <button id="clear-route-btn" class="btn btn-sm btn-outline-warning">
               Clear Route
             </button>
           </div>
@@ -250,10 +251,17 @@ block head_content %}
             <i class="fas fa-chart-line me-2"></i>Area Progress
           </h6>
           <div id="progress-details">
-            <div class="progress mb-2" style="height: 8px;">
-              <div id="progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+            <div class="progress mb-2" style="height: 8px">
+              <div
+                id="progress-bar"
+                class="progress-bar bg-success"
+                role="progressbar"
+                style="width: 0%"
+              ></div>
             </div>
-            <div class="small text-muted" id="progress-text">No data available</div>
+            <div class="small text-muted" id="progress-text">
+              No data available
+            </div>
           </div>
         </div>
       </div>
@@ -367,17 +375,23 @@ block head_content %}
           this.clearRoute();
         });
 
-      document.getElementById("mark-completed-btn").addEventListener("click", () => {
-        this.markStreetsCompleted();
-      });
+      document
+        .getElementById("mark-completed-btn")
+        .addEventListener("click", () => {
+          this.markStreetsCompleted();
+        });
 
-      document.getElementById("open-apple-maps-btn").addEventListener("click", () => {
-        this.openInAppleMaps();
-      });
+      document
+        .getElementById("open-apple-maps-btn")
+        .addEventListener("click", () => {
+          this.openInAppleMaps();
+        });
 
-      document.getElementById("open-google-maps-btn").addEventListener("click", () => {
-        this.openInGoogleMaps();
-      });
+      document
+        .getElementById("open-google-maps-btn")
+        .addEventListener("click", () => {
+          this.openInGoogleMaps();
+        });
     }
 
     async loadAreas() {
@@ -535,19 +549,20 @@ block head_content %}
     updateFindButton() {
       const findBtn = document.getElementById("find-nearby-btn");
       const optimizeBtn = document.getElementById("optimize-route-btn");
-      
+
       const canUse = !!(
         this.userLocation &&
         this.selectedArea &&
         this.undrivenStreets.length > 0
       );
-      
+
       findBtn.disabled = !canUse;
       optimizeBtn.disabled = !canUse;
-      
+
       // Show optimization settings when area is selected
       if (this.selectedArea) {
-        document.getElementById("optimization-settings").style.display = "block";
+        document.getElementById("optimization-settings").style.display =
+          "block";
       }
     }
 
@@ -590,21 +605,26 @@ block head_content %}
       if (!this.userLocation || !this.selectedArea) return;
 
       const maxStreets = parseInt(document.getElementById("max-streets").value);
-      const maxDistance = parseFloat(document.getElementById("max-distance").value);
+      const maxDistance = parseFloat(
+        document.getElementById("max-distance").value,
+      );
 
       try {
         this.showNotification("Creating optimized route...", "info");
 
-        const response = await fetch("/api/driving-navigation/optimized-route", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: this.selectedArea,
-            user_location: this.userLocation,
-            max_streets: maxStreets,
-            max_distance: maxDistance,
-          }),
-        });
+        const response = await fetch(
+          "/api/driving-navigation/optimized-route",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              location: this.selectedArea,
+              user_location: this.userLocation,
+              max_streets: maxStreets,
+              max_distance: maxDistance,
+            }),
+          },
+        );
 
         const data = await response.json();
 
@@ -613,9 +633,15 @@ block head_content %}
           this.showNotification(data.message, "success");
         } else if (data.status === "no_streets") {
           const maxDistance = document.getElementById("max-distance").value;
-          this.showNotification(`No undriven streets found within ${maxDistance} miles. Try increasing the distance range.`, "warning");
+          this.showNotification(
+            `No undriven streets found within ${maxDistance} miles. Try increasing the distance range.`,
+            "warning",
+          );
         } else {
-          this.showNotification(data.message || "No optimal route found", "warning");
+          this.showNotification(
+            data.message || "No optimal route found",
+            "warning",
+          );
         }
       } catch (error) {
         this.showNotification("Failed to create optimized route", "error");
@@ -655,24 +681,27 @@ block head_content %}
       // Show route information
       const routeInfo = document.getElementById("route-info");
       const routeDetails = document.getElementById("route-details");
-      
+
       const duration = Math.round(route.duration / 60);
       const distance = (route.distance / 1609.34).toFixed(1); // Convert to miles
-      
+
       let streetsHtml = "";
       if (route.streets_included) {
         streetsHtml = `
           <div class="mt-2">
             <strong>Streets included:</strong>
             <ul class="list-unstyled mt-1">
-              ${route.streets_included.map(street => 
-                `<li class="small">• ${street.street_name} (${street.distance_miles} mi away)</li>`
-              ).join('')}
+              ${route.streets_included
+                .map(
+                  (street) =>
+                    `<li class="small">• ${street.street_name} (${street.distance_miles} mi away)</li>`,
+                )
+                .join("")}
             </ul>
           </div>
         `;
       }
-      
+
       routeDetails.innerHTML = `
         <div class="small">
           <div><strong>Total Streets:</strong> ${total_streets}</div>
@@ -682,7 +711,7 @@ block head_content %}
           ${streetsHtml}
         </div>
       `;
-      
+
       routeInfo.style.display = "block";
       this.currentRoute = route;
 
@@ -835,7 +864,7 @@ block head_content %}
     `;
 
       info.style.display = "block";
-      
+
       // Show native map buttons for single street routes too
       document.getElementById("open-apple-maps-btn").style.display = "block";
       document.getElementById("open-google-maps-btn").style.display = "block";
@@ -843,35 +872,38 @@ block head_content %}
 
     openInAppleMaps() {
       if (!this.currentRoute) return;
-      
+
       let url = `https://maps.apple.com/?dirflg=d`;
-      
+
       // Add starting location (current user location)
       if (this.userLocation) {
         url += `&saddr=${this.userLocation.lat},${this.userLocation.lon}`;
       }
-      
+
       // Handle routes with multiple waypoints
-      if (this.currentRoute.streets_included && this.currentRoute.streets_included.length > 1) {
+      if (
+        this.currentRoute.streets_included &&
+        this.currentRoute.streets_included.length > 1
+      ) {
         // Create waypoints for all streets (Apple Maps supports up to 15 waypoints)
         const allWaypoints = this.currentRoute.streets_included
-          .map(street => {
+          .map((street) => {
             if (street.start_coords) {
               return `${street.start_coords[1]},${street.start_coords[0]}`;
             }
             return null;
           })
-          .filter(wp => wp !== null)
+          .filter((wp) => wp !== null)
           .slice(0, 15); // Apple Maps limit
-        
+
         if (allWaypoints.length > 0) {
           // Use last waypoint as destination
           const destination = allWaypoints.pop();
           url += `&daddr=${destination}`;
-          
+
           // Add intermediate waypoints
           if (allWaypoints.length > 0) {
-            url += `&waypoints=${allWaypoints.join('|')}`;
+            url += `&waypoints=${allWaypoints.join("|")}`;
           }
         }
       } else {
@@ -883,41 +915,49 @@ block head_content %}
           url += `&daddr=${destCoord[1]},${destCoord[0]}`;
         }
       }
-      
-      window.open(url, '_blank');
-      this.showNotification(`Opening route with ${this.currentRoute.streets_included?.length || 1} waypoints in Apple Maps...`, 'info');
+
+      window.open(url, "_blank");
+      this.showNotification(
+        `Opening route with ${this.currentRoute.streets_included?.length || 1} waypoints in Apple Maps...`,
+        "info",
+      );
     }
 
     openInGoogleMaps() {
       if (!this.currentRoute) return;
-      
+
       let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving`;
-      
+
       // Add starting location (current user location)
       if (this.userLocation) {
         url += `&origin=${this.userLocation.lat},${this.userLocation.lon}`;
       }
-      
+
       // Handle routes with multiple waypoints
-      if (this.currentRoute.streets_included && this.currentRoute.streets_included.length > 1) {
+      if (
+        this.currentRoute.streets_included &&
+        this.currentRoute.streets_included.length > 1
+      ) {
         // For multiple streets, create waypoints
         const allWaypoints = [];
-        
-        this.currentRoute.streets_included.forEach(street => {
+
+        this.currentRoute.streets_included.forEach((street) => {
           if (street.start_coords) {
-            allWaypoints.push(`${street.start_coords[1]},${street.start_coords[0]}`);
+            allWaypoints.push(
+              `${street.start_coords[1]},${street.start_coords[0]}`,
+            );
           }
         });
-        
+
         if (allWaypoints.length > 0) {
           // Use last waypoint as destination
           const destination = allWaypoints.pop();
           url += `&destination=${destination}`;
-          
+
           // Add intermediate waypoints (Google Maps supports up to 8)
           if (allWaypoints.length > 0) {
             const limitedWaypoints = allWaypoints.slice(0, 8);
-            url += `&waypoints=${limitedWaypoints.join('|')}`;
+            url += `&waypoints=${limitedWaypoints.join("|")}`;
           }
         }
       } else {
@@ -929,9 +969,12 @@ block head_content %}
           url += `&destination=${destCoord[1]},${destCoord[0]}`;
         }
       }
-      
-      window.open(url, '_blank');
-      this.showNotification(`Opening route with ${this.currentRoute.streets_included?.length || 1} waypoints in Google Maps...`, 'info');
+
+      window.open(url, "_blank");
+      this.showNotification(
+        `Opening route with ${this.currentRoute.streets_included?.length || 1} waypoints in Google Maps...`,
+        "info",
+      );
     }
 
     clearRoute() {
@@ -964,13 +1007,15 @@ block head_content %}
           });
         }
 
-        this.showNotification(`Marked ${this.currentRoute.streets_included.length} streets as driven!`, "success");
-        
+        this.showNotification(
+          `Marked ${this.currentRoute.streets_included.length} streets as driven!`,
+          "success",
+        );
+
         // Refresh the streets and progress
         await this.loadAreaStreets();
         this.updateProgress();
         this.clearRoute();
-        
       } catch (error) {
         this.showNotification("Failed to mark streets as completed", "error");
         console.error("Completion error:", error);
@@ -981,17 +1026,20 @@ block head_content %}
       if (!this.selectedArea || !this.selectedArea._id) return;
 
       try {
-        const response = await fetch(`/api/coverage_areas/${this.selectedArea._id}`);
+        const response = await fetch(
+          `/api/coverage_areas/${this.selectedArea._id}`,
+        );
         const data = await response.json();
-        
+
         if (data.location && data.location.stats) {
           const stats = data.location.stats;
           const total = stats.total_segments || 1;
           const driven = stats.driven_segments || 0;
           const percentage = Math.round((driven / total) * 100);
-          
-          document.getElementById("progress-bar").style.width = `${percentage}%`;
-          document.getElementById("progress-text").textContent = 
+
+          document.getElementById("progress-bar").style.width =
+            `${percentage}%`;
+          document.getElementById("progress-text").textContent =
             `${driven} of ${total} streets driven (${percentage}%)`;
           document.getElementById("progress-info").style.display = "block";
         }
