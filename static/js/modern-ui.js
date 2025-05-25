@@ -54,7 +54,7 @@ let baseTileLayer = null;
       tileUrls: {
         light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
         dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      }
+      },
     },
     themeColors: {
       light: "#f8f9fa",
@@ -87,7 +87,7 @@ let baseTileLayer = null;
       if (elementCache.has(selector)) {
         return elementCache.get(selector);
       }
-      
+
       const element = document.querySelector(selector);
       if (element) {
         elementCache.set(selector, element);
@@ -98,7 +98,7 @@ let baseTileLayer = null;
     getAllElements: (selector) => {
       const cached = elementCache.get(`all_${selector}`);
       if (cached) return cached;
-      
+
       const elements = document.querySelectorAll(selector);
       elementCache.set(`all_${selector}`, elements);
       return elements;
@@ -106,7 +106,11 @@ let baseTileLayer = null;
 
     getStorage: (key, defaultValue = null) => {
       try {
-        return window.utils?.getStorage?.(key) ?? localStorage.getItem(key) ?? defaultValue;
+        return (
+          window.utils?.getStorage?.(key) ??
+          localStorage.getItem(key) ??
+          defaultValue
+        );
       } catch {
         return defaultValue;
       }
@@ -135,17 +139,18 @@ let baseTileLayer = null;
 
     batchDomUpdates: (updates) => {
       requestAnimationFrame(() => {
-        updates.forEach(update => update());
+        updates.forEach((update) => update());
       });
-    }
+    },
   };
 
   // Consolidated event management
   const eventManager = {
     listeners: new WeakMap(),
-    
+
     add: (element, events, handler, options = {}) => {
-      const el = typeof element === "string" ? utils.getElement(element) : element;
+      const el =
+        typeof element === "string" ? utils.getElement(element) : element;
       if (!el) return false;
 
       if (!eventManager.listeners.has(el)) {
@@ -154,24 +159,31 @@ let baseTileLayer = null;
 
       const eventList = Array.isArray(events) ? events : [events];
       const elementListeners = eventManager.listeners.get(el);
-      
-      eventList.forEach(eventType => {
+
+      eventList.forEach((eventType) => {
         const key = `${eventType}_${handler.name || Math.random()}`;
         if (elementListeners.has(key)) return;
 
-        const wrappedHandler = options.leftClickOnly 
-          ? (e) => { if (e.button === 0) handler(e); }
+        const wrappedHandler = options.leftClickOnly
+          ? (e) => {
+              if (e.button === 0) handler(e);
+            }
           : handler;
 
-        el.addEventListener(eventType, wrappedHandler, options.passive ? { passive: true } : false);
+        el.addEventListener(
+          eventType,
+          wrappedHandler,
+          options.passive ? { passive: true } : false,
+        );
         elementListeners.set(key, { handler: wrappedHandler, eventType });
       });
-      
+
       return true;
     },
 
     delegate: (container, selector, eventType, handler) => {
-      const containerEl = typeof container === "string" ? utils.getElement(container) : container;
+      const containerEl =
+        typeof container === "string" ? utils.getElement(container) : container;
       if (!containerEl) return false;
 
       const delegatedHandler = (e) => {
@@ -186,7 +198,8 @@ let baseTileLayer = null;
     },
 
     cleanup: (element) => {
-      const el = typeof element === "string" ? utils.getElement(element) : element;
+      const el =
+        typeof element === "string" ? utils.getElement(element) : element;
       if (!el || !eventManager.listeners.has(el)) return;
 
       const elementListeners = eventManager.listeners.get(el);
@@ -194,7 +207,7 @@ let baseTileLayer = null;
         el.removeEventListener(eventType, handler);
       });
       elementListeners.clear();
-    }
+    },
   };
 
   // Theme management
@@ -203,19 +216,22 @@ let baseTileLayer = null;
 
     init: () => {
       const saved = utils.getStorage(CONFIG.storage.theme);
-      const preferred = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      const preferred = window.matchMedia("(prefers-color-scheme: dark)")
+        .matches
+        ? "dark"
+        : "light";
       const initial = saved || preferred;
-      
+
       themeManager.apply(initial);
       themeManager.setupToggles();
     },
 
     apply: (theme) => {
       if (themeManager.current === theme) return;
-      
+
       const isLight = theme === "light";
       themeManager.current = theme;
-      
+
       utils.batchDomUpdates([
         () => {
           document.body.classList.toggle(CONFIG.classes.lightMode, isLight);
@@ -223,11 +239,13 @@ let baseTileLayer = null;
         },
         () => themeManager.updateMetaColor(theme),
         () => themeManager.updateMapTheme(theme),
-        () => themeManager.syncToggles(theme)
+        () => themeManager.syncToggles(theme),
       ]);
 
       utils.setStorage(CONFIG.storage.theme, theme);
-      document.dispatchEvent(new CustomEvent("themeChanged", { detail: { theme } }));
+      document.dispatchEvent(
+        new CustomEvent("themeChanged", { detail: { theme } }),
+      );
     },
 
     updateMetaColor: (theme) => {
@@ -242,7 +260,8 @@ let baseTileLayer = null;
 
       const mapContainer = utils.getElement(CONFIG.selectors.mapContainer);
       if (mapContainer) {
-        mapContainer.style.background = CONFIG.map[theme === "light" ? "lightBg" : "darkBg"];
+        mapContainer.style.background =
+          CONFIG.map[theme === "light" ? "lightBg" : "darkBg"];
       }
 
       // Check if this is a Mapbox GL JS map (has setStyle method)
@@ -254,7 +273,7 @@ let baseTileLayer = null;
             window.map.setStyle(styleUrl);
           } else {
             // Wait for style to load before switching
-            window.map.once('style.load', () => {
+            window.map.once("style.load", () => {
               window.map.setStyle(styleUrl);
             });
           }
@@ -268,9 +287,12 @@ let baseTileLayer = null;
         if (baseTileLayer) {
           baseTileLayer.setUrl(tileUrl);
         } else {
-          baseTileLayer = L.tileLayer(tileUrl, { maxZoom: 19, attribution: "" }).addTo(window.map);
+          baseTileLayer = L.tileLayer(tileUrl, {
+            maxZoom: 19,
+            attribution: "",
+          }).addTo(window.map);
         }
-        
+
         // Only call invalidateSize for Leaflet maps
         if (window.map.invalidateSize) {
           window.map.invalidateSize();
@@ -281,14 +303,16 @@ let baseTileLayer = null;
       if (window.map.resize) {
         setTimeout(() => window.map.resize(), 100);
       }
-      
-      document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
+
+      document.dispatchEvent(
+        new CustomEvent("mapThemeChanged", { detail: { theme } }),
+      );
     },
 
     syncToggles: (theme) => {
       const themeToggle = utils.getElement(CONFIG.selectors.themeToggle);
       const darkModeToggle = utils.getElement(CONFIG.selectors.darkModeToggle);
-      
+
       if (themeToggle) themeToggle.checked = theme === "light";
       if (darkModeToggle) darkModeToggle.checked = theme === "dark";
     },
@@ -308,7 +332,7 @@ let baseTileLayer = null;
           themeManager.apply(darkModeToggle.checked ? "dark" : "light");
         });
       }
-    }
+    },
   };
 
   // Loading management
@@ -317,7 +341,7 @@ let baseTileLayer = null;
       const overlay = utils.getElement(".loading-overlay");
       const text = utils.getElement(".loading-text");
       const progress = utils.getElement(".progress-bar");
-      
+
       if (!overlay) return;
 
       utils.batchDomUpdates([
@@ -326,19 +350,19 @@ let baseTileLayer = null;
           if (progress) progress.style.width = "0%";
           overlay.style.display = "flex";
         },
-        () => overlay.style.opacity = "1"
+        () => (overlay.style.opacity = "1"),
       ]);
     },
 
     hide: () => {
       const overlay = utils.getElement(".loading-overlay");
       const progress = utils.getElement(".progress-bar");
-      
+
       if (!overlay) return;
 
       if (progress) progress.style.width = "100%";
       overlay.style.opacity = "0";
-      
+
       setTimeout(() => {
         overlay.style.display = "none";
       }, 400);
@@ -347,10 +371,11 @@ let baseTileLayer = null;
     updateProgress: (percent, message) => {
       const progress = utils.getElement(".progress-bar");
       const text = utils.getElement(".loading-text");
-      
-      if (progress) progress.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+
+      if (progress)
+        progress.style.width = `${Math.max(0, Math.min(100, percent))}%`;
       if (text && message) text.textContent = message;
-    }
+    },
   };
 
   // Location management
@@ -368,7 +393,10 @@ let baseTileLayer = null;
       // Try last known location
       const lastKnown = window.drivingNavigation?.lastKnownLocation;
       if (lastKnown?.lat && lastKnown?.lon) {
-        return { coords: [lastKnown.lat, lastKnown.lon], source: "last known location" };
+        return {
+          coords: [lastKnown.lat, lastKnown.lon],
+          source: "last known location",
+        };
       }
 
       // Try last trip end
@@ -387,7 +415,7 @@ let baseTileLayer = null;
       let latest = null;
       let latestTime = 0;
 
-      features.forEach(feature => {
+      features.forEach((feature) => {
         const endTime = feature.properties?.endTime;
         if (endTime) {
           const time = new Date(endTime).getTime();
@@ -401,21 +429,35 @@ let baseTileLayer = null;
       if (!latest) return null;
 
       const coords = locationManager.extractCoords(latest);
-      return coords ? { coords, featureId: latest.properties?.id || latest.properties?.transactionId } : null;
+      return coords
+        ? {
+            coords,
+            featureId:
+              latest.properties?.id || latest.properties?.transactionId,
+          }
+        : null;
     },
 
     extractCoords: (feature) => {
       const { type, coordinates } = feature?.geometry || {};
       let coord = null;
 
-      if (type === "LineString" && Array.isArray(coordinates) && coordinates.length > 0) {
+      if (
+        type === "LineString" &&
+        Array.isArray(coordinates) &&
+        coordinates.length > 0
+      ) {
         coord = coordinates[coordinates.length - 1];
       } else if (type === "Point" && Array.isArray(coordinates)) {
         coord = coordinates;
       }
 
-      if (Array.isArray(coord) && coord.length === 2 && 
-          typeof coord[0] === "number" && typeof coord[1] === "number") {
+      if (
+        Array.isArray(coord) &&
+        coord.length === 2 &&
+        typeof coord[0] === "number" &&
+        typeof coord[1] === "number"
+      ) {
         return [coord[1], coord[0]]; // Convert to [lat, lng] for Leaflet
       }
       return null;
@@ -429,16 +471,22 @@ let baseTileLayer = null;
 
       const location = locationManager.findBest();
       if (location.coords) {
-        const zoom = window.map.getZoom() < CONFIG.map.defaultZoom ? CONFIG.map.defaultZoom : window.map.getZoom();
+        const zoom =
+          window.map.getZoom() < CONFIG.map.defaultZoom
+            ? CONFIG.map.defaultZoom
+            : window.map.getZoom();
         window.map.flyTo(location.coords, zoom, {
           animate: true,
-          duration: CONFIG.map.flyToDuration
+          duration: CONFIG.map.flyToDuration,
         });
         utils.showNotification(`Centered map on ${location.source}.`, "info");
       } else {
-        utils.showNotification("Could not determine current or last known location.", "warning");
+        utils.showNotification(
+          "Could not determine current or last known location.",
+          "warning",
+        );
       }
-    }
+    },
   };
 
   // Date management
@@ -449,10 +497,14 @@ let baseTileLayer = null;
         return;
       }
 
-      const startInput = utils.getElement(`${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.startDate}`) || 
-                        utils.getElement(CONFIG.selectors.startDate);
-      const endInput = utils.getElement(`${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.endDate}`) || 
-                      utils.getElement(CONFIG.selectors.endDate);
+      const startInput =
+        utils.getElement(
+          `${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.startDate}`,
+        ) || utils.getElement(CONFIG.selectors.startDate);
+      const endInput =
+        utils.getElement(
+          `${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.endDate}`,
+        ) || utils.getElement(CONFIG.selectors.endDate);
 
       if (!startInput || !endInput) return;
 
@@ -480,10 +532,14 @@ let baseTileLayer = null;
     },
 
     updateInputs: (startDate, endDate) => {
-      const startInput = utils.getElement(`${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.startDate}`) || 
-                        utils.getElement(CONFIG.selectors.startDate);
-      const endInput = utils.getElement(`${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.endDate}`) || 
-                      utils.getElement(CONFIG.selectors.endDate);
+      const startInput =
+        utils.getElement(
+          `${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.startDate}`,
+        ) || utils.getElement(CONFIG.selectors.startDate);
+      const endInput =
+        utils.getElement(
+          `${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.endDate}`,
+        ) || utils.getElement(CONFIG.selectors.endDate);
 
       if (startInput) {
         if (startInput._flatpickr) {
@@ -509,7 +565,7 @@ let baseTileLayer = null;
       }
 
       window.loadingManager?.startOperation?.("DateRangeSet", 100);
-      
+
       DateUtils.getDateRangePreset(range)
         .then(({ startDate, endDate }) => {
           if (startDate && endDate) {
@@ -521,9 +577,12 @@ let baseTileLayer = null;
             throw new Error("Invalid date range received.");
           }
         })
-        .catch(error => {
+        .catch((error) => {
           console.error("Error setting date range:", error);
-          utils.showNotification(`Error setting date range: ${error.message}`, "danger");
+          utils.showNotification(
+            `Error setting date range: ${error.message}`,
+            "danger",
+          );
         })
         .finally(() => {
           window.loadingManager?.finish?.("DateRangeSet");
@@ -537,24 +596,36 @@ let baseTileLayer = null;
       const rangeSpan = indicator.querySelector(".filter-date-range");
       if (!rangeSpan) return;
 
-      const startDate = utils.getStorage(CONFIG.storage.startDate) || DateUtils.getCurrentDate();
-      const endDate = utils.getStorage(CONFIG.storage.endDate) || DateUtils.getCurrentDate();
+      const startDate =
+        utils.getStorage(CONFIG.storage.startDate) ||
+        DateUtils.getCurrentDate();
+      const endDate =
+        utils.getStorage(CONFIG.storage.endDate) || DateUtils.getCurrentDate();
 
-      const formatDate = (dateStr) => DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" }) || dateStr;
+      const formatDate = (dateStr) =>
+        DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" }) || dateStr;
 
-      rangeSpan.textContent = startDate === endDate 
-        ? formatDate(startDate)
-        : `${formatDate(startDate)} - ${formatDate(endDate)}`;
+      rangeSpan.textContent =
+        startDate === endDate
+          ? formatDate(startDate)
+          : `${formatDate(startDate)} - ${formatDate(endDate)}`;
     },
 
     applyFilters: () => {
-      const startInput = utils.getElement(`${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.startDate}`) || 
-                        utils.getElement(CONFIG.selectors.startDate);
-      const endInput = utils.getElement(`${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.endDate}`) || 
-                      utils.getElement(CONFIG.selectors.endDate);
+      const startInput =
+        utils.getElement(
+          `${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.startDate}`,
+        ) || utils.getElement(CONFIG.selectors.startDate);
+      const endInput =
+        utils.getElement(
+          `${CONFIG.selectors.filtersPanel} ${CONFIG.selectors.endDate}`,
+        ) || utils.getElement(CONFIG.selectors.endDate);
 
       if (!startInput || !endInput) {
-        utils.showNotification("UI Error: Date input elements missing.", "danger");
+        utils.showNotification(
+          "UI Error: Date input elements missing.",
+          "danger",
+        );
         return;
       }
 
@@ -562,7 +633,10 @@ let baseTileLayer = null;
       const endDate = endInput.value;
 
       if (!window.DateUtils?.isValidDateRange?.(startDate, endDate)) {
-        utils.showNotification("Invalid date range: Start date must be before or equal to end date.", "warning");
+        utils.showNotification(
+          "Invalid date range: Start date must be before or equal to end date.",
+          "warning",
+        );
         return;
       }
 
@@ -573,13 +647,15 @@ let baseTileLayer = null;
       // Close filter panel
       panelManager.close("filters");
 
-      document.dispatchEvent(new CustomEvent("filtersApplied", {
-        detail: { startDate, endDate }
-      }));
+      document.dispatchEvent(
+        new CustomEvent("filtersApplied", {
+          detail: { startDate, endDate },
+        }),
+      );
 
       utils.showNotification(
         `Filters applied: ${DateUtils.formatForDisplay(startDate)} to ${DateUtils.formatForDisplay(endDate)}`,
-        "success"
+        "success",
       );
     },
 
@@ -596,14 +672,16 @@ let baseTileLayer = null;
 
       // Update quick select buttons
       const quickBtns = utils.getAllElements(".quick-select-btn");
-      quickBtns.forEach(btn => btn.classList.remove(CONFIG.classes.active));
-      
-      const todayBtn = utils.getElement('.quick-select-btn[data-range="today"]');
+      quickBtns.forEach((btn) => btn.classList.remove(CONFIG.classes.active));
+
+      const todayBtn = utils.getElement(
+        '.quick-select-btn[data-range="today"]',
+      );
       if (todayBtn) todayBtn.classList.add(CONFIG.classes.active);
 
       dateManager.updateIndicator();
       dateManager.applyFilters();
-    }
+    },
   };
 
   // Panel management (drawer, filters)
@@ -611,15 +689,15 @@ let baseTileLayer = null;
     close: (type) => {
       const panelMap = {
         mobile: CONFIG.selectors.mobileDrawer,
-        filters: CONFIG.selectors.filtersPanel
+        filters: CONFIG.selectors.filtersPanel,
       };
 
       const panel = utils.getElement(panelMap[type]);
       const overlay = utils.getElement(CONFIG.selectors.contentOverlay);
-      
+
       if (panel) panel.classList.remove(CONFIG.classes.open);
       if (overlay) overlay.classList.remove(CONFIG.classes.visible);
-      
+
       if (type === "mobile") {
         document.body.style.overflow = "";
       }
@@ -628,15 +706,15 @@ let baseTileLayer = null;
     open: (type) => {
       const panelMap = {
         mobile: CONFIG.selectors.mobileDrawer,
-        filters: CONFIG.selectors.filtersPanel
+        filters: CONFIG.selectors.filtersPanel,
       };
 
       const panel = utils.getElement(panelMap[type]);
       const overlay = utils.getElement(CONFIG.selectors.contentOverlay);
-      
+
       if (panel) panel.classList.add(CONFIG.classes.open);
       if (overlay) overlay.classList.add(CONFIG.classes.visible);
-      
+
       if (type === "mobile") {
         document.body.style.overflow = "hidden";
       }
@@ -644,7 +722,7 @@ let baseTileLayer = null;
 
     toggle: (type) => {
       const panelMap = {
-        filters: CONFIG.selectors.filtersPanel
+        filters: CONFIG.selectors.filtersPanel,
       };
 
       const panel = utils.getElement(panelMap[type]);
@@ -662,23 +740,35 @@ let baseTileLayer = null;
         panelManager.open("mobile");
       });
 
-      eventManager.add(CONFIG.selectors.closeBtn, "click", () => panelManager.close("mobile"));
+      eventManager.add(CONFIG.selectors.closeBtn, "click", () =>
+        panelManager.close("mobile"),
+      );
       eventManager.add(CONFIG.selectors.contentOverlay, "click", () => {
         panelManager.close("mobile");
         panelManager.close("filters");
       });
 
       // Filter panel
-      eventManager.add(CONFIG.selectors.filterToggle, ["mousedown"], (e) => {
-        if (e.button === 0) {
-          e.stopPropagation();
-          panelManager.toggle("filters");
-        }
-      }, { leftClickOnly: true });
+      eventManager.add(
+        CONFIG.selectors.filterToggle,
+        ["mousedown"],
+        (e) => {
+          if (e.button === 0) {
+            e.stopPropagation();
+            panelManager.toggle("filters");
+          }
+        },
+        { leftClickOnly: true },
+      );
 
-      eventManager.add(CONFIG.selectors.filtersClose, ["mousedown"], (e) => {
-        if (e.button === 0) panelManager.close("filters");
-      }, { leftClickOnly: true });
+      eventManager.add(
+        CONFIG.selectors.filtersClose,
+        ["mousedown"],
+        (e) => {
+          if (e.button === 0) panelManager.close("filters");
+        },
+        { leftClickOnly: true },
+      );
 
       // Escape key
       document.addEventListener("keydown", (e) => {
@@ -687,7 +777,7 @@ let baseTileLayer = null;
           panelManager.close("filters");
         }
       });
-    }
+    },
   };
 
   // Map controls
@@ -695,7 +785,9 @@ let baseTileLayer = null;
     init: () => {
       const controls = utils.getElement(CONFIG.selectors.mapControls);
       const toggle = utils.getElement(CONFIG.selectors.controlsToggle);
-      const centerBtn = utils.getElement(CONFIG.selectors.centerOnLocationButton);
+      const centerBtn = utils.getElement(
+        CONFIG.selectors.centerOnLocationButton,
+      );
 
       if (!controls) return;
 
@@ -703,18 +795,21 @@ let baseTileLayer = null;
       Object.assign(controls.style, {
         touchAction: "pan-y",
         webkitOverflowScrolling: "touch",
-        overflowY: "auto"
+        overflowY: "auto",
       });
 
       // Toggle functionality
       if (toggle) {
         eventManager.add(toggle, "click", () => {
           controls.classList.toggle(CONFIG.classes.minimized);
-          
+
           const content = utils.getElement(CONFIG.selectors.controlsContent);
           if (content && window.bootstrap?.Collapse) {
-            const collapse = window.bootstrap.Collapse.getOrCreateInstance(content);
-            controls.classList.contains(CONFIG.classes.minimized) ? collapse.hide() : collapse.show();
+            const collapse =
+              window.bootstrap.Collapse.getOrCreateInstance(content);
+            controls.classList.contains(CONFIG.classes.minimized)
+              ? collapse.hide()
+              : collapse.show();
           }
 
           const icon = toggle.querySelector("i");
@@ -728,37 +823,67 @@ let baseTileLayer = null;
       }
 
       // Prevent map interaction
-      const stopEvents = ["mousedown", "mouseup", "click", "dblclick", "touchstart", "touchend", "wheel", "contextmenu"];
-      stopEvents.forEach(eventType => {
-        controls.addEventListener(eventType, (e) => {
-          const isInteractive = e.target.closest("input, select, textarea, button, a, .form-check, .nav-item, .list-group-item");
-          if (!isInteractive) e.stopPropagation();
-        }, { passive: false });
+      const stopEvents = [
+        "mousedown",
+        "mouseup",
+        "click",
+        "dblclick",
+        "touchstart",
+        "touchend",
+        "wheel",
+        "contextmenu",
+      ];
+      stopEvents.forEach((eventType) => {
+        controls.addEventListener(
+          eventType,
+          (e) => {
+            const isInteractive = e.target.closest(
+              "input, select, textarea, button, a, .form-check, .nav-item, .list-group-item",
+            );
+            if (!isInteractive) e.stopPropagation();
+          },
+          { passive: false },
+        );
       });
 
       // Center location button
       if (centerBtn) {
-        eventManager.add(centerBtn, ["mousedown"], (e) => {
-          if (e.button === 0) {
-            e.preventDefault();
-            locationManager.centerMap();
-          }
-        }, { leftClickOnly: true });
+        eventManager.add(
+          centerBtn,
+          ["mousedown"],
+          (e) => {
+            if (e.button === 0) {
+              e.preventDefault();
+              locationManager.centerMap();
+            }
+          },
+          { leftClickOnly: true },
+        );
       }
 
       // Opacity management
-      eventManager.add(controls, "mouseenter", () => controls.style.opacity = "1");
-      eventManager.add(controls, "mouseleave", () => mapControlsManager.updateOpacity());
-      
+      eventManager.add(
+        controls,
+        "mouseenter",
+        () => (controls.style.opacity = "1"),
+      );
+      eventManager.add(controls, "mouseleave", () =>
+        mapControlsManager.updateOpacity(),
+      );
+
       mapControlsManager.updateOpacity();
     },
 
     updateOpacity: () => {
       const controls = utils.getElement(CONFIG.selectors.mapControls);
       if (!controls || controls.matches(":hover")) return;
-      
-      controls.style.opacity = controls.classList.contains(CONFIG.classes.minimized) ? "0.8" : "1";
-    }
+
+      controls.style.opacity = controls.classList.contains(
+        CONFIG.classes.minimized,
+      )
+        ? "0.8"
+        : "1";
+    },
   };
 
   // Filter indicator
@@ -766,7 +891,7 @@ let baseTileLayer = null;
     create: () => {
       const toolsSection = utils.getElement(CONFIG.selectors.toolsSection);
       const existing = utils.getElement(CONFIG.selectors.filterIndicator);
-      
+
       if (!toolsSection || existing) return;
 
       const indicator = document.createElement("div");
@@ -785,12 +910,17 @@ let baseTileLayer = null;
 
       elementCache.set(CONFIG.selectors.filterIndicator, indicator);
 
-      eventManager.add(indicator, ["mousedown"], (e) => {
-        if (e.button === 0) panelManager.open("filters");
-      }, { leftClickOnly: true });
+      eventManager.add(
+        indicator,
+        ["mousedown"],
+        (e) => {
+          if (e.button === 0) panelManager.open("filters");
+        },
+        { leftClickOnly: true },
+      );
 
       dateManager.updateIndicator();
-    }
+    },
   };
 
   // Map enhancements
@@ -803,19 +933,21 @@ let baseTileLayer = null;
       // Add tooltips to zoom controls
       if (window.bootstrap?.Tooltip) {
         const zoomControls = utils.getAllElements(".leaflet-control-zoom a");
-        zoomControls.forEach(control => {
+        zoomControls.forEach((control) => {
           if (bootstrap.Tooltip.getInstance(control)) return;
 
           let title = "";
-          if (control.classList.contains("leaflet-control-zoom-in")) title = "Zoom In";
-          else if (control.classList.contains("leaflet-control-zoom-out")) title = "Zoom Out";
+          if (control.classList.contains("leaflet-control-zoom-in"))
+            title = "Zoom In";
+          else if (control.classList.contains("leaflet-control-zoom-out"))
+            title = "Zoom Out";
 
           if (title) {
             new bootstrap.Tooltip(control, {
               title,
               placement: "left",
               delay: CONFIG.tooltipDelay,
-              trigger: "hover"
+              trigger: "hover",
             });
           }
         });
@@ -828,45 +960,67 @@ let baseTileLayer = null;
     setupStatusIndicator: () => {
       const indicator = utils.getElement(".status-indicator");
       const text = utils.getElement(".status-text");
-      
+
       if (!indicator || !text) return;
 
       const updateStatus = () => {
         const textContent = text.textContent.toLowerCase();
-        indicator.classList.toggle(CONFIG.classes.connected, textContent.includes("connected"));
-        indicator.classList.toggle(CONFIG.classes.disconnected, 
-          textContent.includes("disconnected") && !textContent.includes("connected"));
+        indicator.classList.toggle(
+          CONFIG.classes.connected,
+          textContent.includes("connected"),
+        );
+        indicator.classList.toggle(
+          CONFIG.classes.disconnected,
+          textContent.includes("disconnected") &&
+            !textContent.includes("connected"),
+        );
       };
 
       updateStatus();
       setInterval(updateStatus, 3000);
-    }
+    },
   };
 
   // Event setup with delegation for better performance
   const setupEvents = () => {
     // Quick select buttons
-    eventManager.delegate(document, ".quick-select-btn", "mousedown", function(e) {
-      if (e.button !== 0) return;
-      
-      const range = this.dataset.range;
-      if (!range) return;
+    eventManager.delegate(
+      document,
+      ".quick-select-btn",
+      "mousedown",
+      function (e) {
+        if (e.button !== 0) return;
 
-      dateManager.setRange(range);
-      
-      utils.getAllElements(".quick-select-btn").forEach(btn => 
-        btn.classList.remove(CONFIG.classes.active));
-      this.classList.add(CONFIG.classes.active);
-    });
+        const range = this.dataset.range;
+        if (!range) return;
+
+        dateManager.setRange(range);
+
+        utils
+          .getAllElements(".quick-select-btn")
+          .forEach((btn) => btn.classList.remove(CONFIG.classes.active));
+        this.classList.add(CONFIG.classes.active);
+      },
+    );
 
     // Filter buttons
-    eventManager.add(CONFIG.selectors.applyFiltersBtn, ["mousedown"], (e) => {
-      if (e.button === 0) dateManager.applyFilters();
-    }, { leftClickOnly: true });
+    eventManager.add(
+      CONFIG.selectors.applyFiltersBtn,
+      ["mousedown"],
+      (e) => {
+        if (e.button === 0) dateManager.applyFilters();
+      },
+      { leftClickOnly: true },
+    );
 
-    eventManager.add(CONFIG.selectors.resetFilters, ["mousedown"], (e) => {
-      if (e.button === 0) dateManager.reset();
-    }, { leftClickOnly: true });
+    eventManager.add(
+      CONFIG.selectors.resetFilters,
+      ["mousedown"],
+      (e) => {
+        if (e.button === 0) dateManager.reset();
+      },
+      { leftClickOnly: true },
+    );
 
     // Scroll effects
     const header = utils.getElement(CONFIG.selectors.header);
@@ -892,13 +1046,13 @@ let baseTileLayer = null;
   // Main initialization function
   function init() {
     if (isInitialized) return;
-    
+
     try {
       themeManager.init();
       panelManager.init();
       mapControlsManager.init();
       filterIndicatorManager.create();
-      
+
       requestIdleCallback(() => {
         dateManager.init();
         setupEvents();
@@ -911,7 +1065,10 @@ let baseTileLayer = null;
       isInitialized = true;
     } catch (error) {
       console.error("Error initializing Modern UI:", error);
-      utils.showNotification(`Error initializing UI: ${error.message}`, "danger");
+      utils.showNotification(
+        `Error initializing UI: ${error.message}`,
+        "danger",
+      );
     }
   }
 
@@ -927,12 +1084,12 @@ let baseTileLayer = null;
 
   // Polyfill for requestIdleCallback
   if (!window.requestIdleCallback) {
-    window.requestIdleCallback = function(cb) {
+    window.requestIdleCallback = function (cb) {
       const start = Date.now();
       return setTimeout(() => {
         cb({
           didTimeout: false,
-          timeRemaining: () => Math.max(0, 50 - (Date.now() - start))
+          timeRemaining: () => Math.max(0, 50 - (Date.now() - start)),
         });
       }, 1);
     };
@@ -950,9 +1107,9 @@ let baseTileLayer = null;
 })();
 
 // Global passive event listeners for better performance
-(function() {
+(function () {
   const passiveEvents = ["wheel", "touchmove", "mousemove", "pointermove"];
-  passiveEvents.forEach(event => {
+  passiveEvents.forEach((event) => {
     window.addEventListener(event, () => {}, { passive: true });
   });
 })();

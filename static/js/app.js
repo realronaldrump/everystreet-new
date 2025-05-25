@@ -18,7 +18,7 @@
         light: "mapbox://styles/mapbox/light-v11",
         satellite: "mapbox://styles/mapbox/satellite-v9",
         streets: "mapbox://styles/mapbox/streets-v12",
-      }
+      },
     },
     STORAGE_KEYS: {
       startDate: "startDate",
@@ -82,10 +82,14 @@
   // Utility functions - consolidated and optimized
   const getElement = (selector) => {
     if (AppState.dom.has(selector)) return AppState.dom.get(selector);
-    
-    const normalizedSelector = selector.startsWith("#") || selector.includes(" ") || selector.startsWith(".") 
-      ? selector : `#${selector}`;
-    
+
+    const normalizedSelector =
+      selector.startsWith("#") ||
+      selector.includes(" ") ||
+      selector.startsWith(".")
+        ? selector
+        : `#${selector}`;
+
     try {
       const element = document.querySelector(normalizedSelector);
       if (element) AppState.dom.set(selector, element);
@@ -124,13 +128,13 @@
         console.warn(`Error writing to localStorage: ${e.message}`);
         return false;
       }
-    }
+    },
   };
 
   // Optimized event listener management
   const eventManager = {
     listeners: new WeakMap(),
-    
+
     add(element, eventType, handler) {
       const el = typeof element === "string" ? getElement(element) : element;
       if (!el) return false;
@@ -139,14 +143,17 @@
         this.listeners.set(el, new Map());
       }
 
-      const key = `${eventType}_${handler.name || 'anonymous'}`;
+      const key = `${eventType}_${handler.name || "anonymous"}`;
       const elementListeners = this.listeners.get(el);
-      
+
       if (elementListeners.has(key)) return false;
 
-      const wrappedHandler = eventType === "click" 
-        ? (e) => { if (e.button === 0) handler(e); }
-        : handler;
+      const wrappedHandler =
+        eventType === "click"
+          ? (e) => {
+              if (e.button === 0) handler(e);
+            }
+          : handler;
 
       el.addEventListener(eventType, wrappedHandler);
       elementListeners.set(key, wrappedHandler);
@@ -160,14 +167,14 @@
       const key = `${eventType}_${handlerName}`;
       const elementListeners = this.listeners.get(el);
       const handler = elementListeners.get(key);
-      
+
       if (handler) {
         el.removeEventListener(eventType, handler);
         elementListeners.delete(key);
         return true;
       }
       return false;
-    }
+    },
   };
 
   // Debounce utility
@@ -195,7 +202,7 @@
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     apiCache.set(key, { data, timestamp: now });
     return data;
@@ -205,24 +212,27 @@
   const mapboxUtils = {
     convertGeoJSONToMapboxFeatures(geojson) {
       if (!geojson || !geojson.features) return [];
-      return geojson.features.map(feature => ({
+      return geojson.features.map((feature) => ({
         ...feature,
-        id: feature.properties?.id || feature.properties?.tripId || Math.random().toString(36)
+        id:
+          feature.properties?.id ||
+          feature.properties?.tripId ||
+          Math.random().toString(36),
       }));
     },
 
-    createLayerStyle(layerInfo, layerType = 'line') {
+    createLayerStyle(layerInfo, layerType = "line") {
       const baseStyle = {
-        'line-color': layerInfo.color,
-        'line-opacity': layerInfo.opacity,
-        'line-width': layerInfo.weight || 2,
+        "line-color": layerInfo.color,
+        "line-opacity": layerInfo.opacity,
+        "line-width": layerInfo.weight || 2,
       };
 
-      if (layerType === 'circle') {
+      if (layerType === "circle") {
         return {
-          'circle-color': layerInfo.color,
-          'circle-opacity': layerInfo.opacity,
-          'circle-radius': layerInfo.weight || 4,
+          "circle-color": layerInfo.color,
+          "circle-opacity": layerInfo.opacity,
+          "circle-radius": layerInfo.weight || 4,
         };
       }
 
@@ -234,47 +244,55 @@
         map.getSource(sourceId).setData(data);
       } else {
         map.addSource(sourceId, {
-          type: 'geojson',
-          data: data
+          type: "geojson",
+          data: data,
         });
       }
     },
 
-    addOrUpdateLayer(map, layerId, sourceId, layerInfo, layerType = 'line') {
+    addOrUpdateLayer(map, layerId, sourceId, layerInfo, layerType = "line") {
       if (map.getLayer(layerId)) {
         map.removeLayer(layerId);
       }
 
       const style = this.createLayerStyle(layerInfo, layerType);
-      
+
       map.addLayer({
         id: layerId,
         type: layerType,
         source: sourceId,
         layout: {
-          'visibility': layerInfo.visible ? 'visible' : 'none'
+          visibility: layerInfo.visible ? "visible" : "none",
         },
-        paint: style
+        paint: style,
       });
-    }
+    },
   };
 
   // Debounced versions of functions
-  const debouncedUpdateUrlWithMapState = debounce(updateUrlWithMapState, CONFIG.MAP.debounceDelay);
+  const debouncedUpdateUrlWithMapState = debounce(
+    updateUrlWithMapState,
+    CONFIG.MAP.debounceDelay,
+  );
 
   // Date utilities
-  const getStartDate = () => storage.get(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate();
-  const getEndDate = () => storage.get(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
+  const getStartDate = () =>
+    storage.get(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate();
+  const getEndDate = () =>
+    storage.get(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
 
   // Trip styling functions for Mapbox
   const getTripFeatureStyle = (feature, layerInfo) => {
-    const isRecent = AppState.mapSettings.highlightRecentTrips && 
-      feature.properties?.endTime && 
-      (Date.now() - new Date(feature.properties.endTime).getTime()) < CONFIG.MAP.recentTripThreshold;
+    const isRecent =
+      AppState.mapSettings.highlightRecentTrips &&
+      feature.properties?.endTime &&
+      Date.now() - new Date(feature.properties.endTime).getTime() <
+        CONFIG.MAP.recentTripThreshold;
 
-    const isSelected = AppState.selectedTripId && 
-      (feature.properties?.id === AppState.selectedTripId || 
-       feature.properties?.tripId === AppState.selectedTripId);
+    const isSelected =
+      AppState.selectedTripId &&
+      (feature.properties?.id === AppState.selectedTripId ||
+        feature.properties?.tripId === AppState.selectedTripId);
 
     if (isSelected) {
       return {
@@ -285,7 +303,7 @@
     }
 
     if (isRecent) {
-    return {
+      return {
         color: layerInfo.highlightColor || "#FFD700",
         opacity: Math.min(layerInfo.opacity + 0.3, 1),
         weight: (layerInfo.weight || 2) + 1,
@@ -302,7 +320,7 @@
   const refreshTripStyles = () => {
     if (!AppState.map || !AppState.mapInitialized) return;
 
-    ['trips', 'matchedTrips'].forEach(layerName => {
+    ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = AppState.mapLayers[layerName];
       if (!layerInfo || !layerInfo.visible) return;
 
@@ -344,19 +362,20 @@
         if (mapboxgl.Map && mapboxgl.Map.prototype) {
           const originalAddEventData = mapboxgl.Map.prototype._addEventData;
           if (originalAddEventData) {
-            mapboxgl.Map.prototype._addEventData = function() {};
+            mapboxgl.Map.prototype._addEventData = function () {};
           }
         }
-        
+
         // Disable prewarm which can trigger events
-        if (typeof mapboxgl.prewarm === 'function') {
-          mapboxgl.prewarm = function() {};
+        if (typeof mapboxgl.prewarm === "function") {
+          mapboxgl.prewarm = function () {};
         }
       } catch (e) {
         console.warn("Could not fully disable Mapbox telemetry:", e);
       }
 
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
       const mapStyle = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
 
       AppState.map = new mapboxgl.Map({
@@ -366,44 +385,48 @@
         zoom: CONFIG.MAP.defaultZoom,
         maxZoom: CONFIG.MAP.maxZoom,
         attributionControl: false,
-        logoPosition: 'bottom-right',
+        logoPosition: "bottom-right",
         collectResourceTiming: false, // Disable resource timing collection
         transformRequest: (url, resourceType) => {
           // Block all telemetry and events API calls to prevent 500 errors
-          if (typeof url === 'string' && (
-            url.includes('events.mapbox.com') || 
-            url.includes('/events/v2') || 
-            url.includes('telemetry') ||
-            url.includes('/ping') ||
-            url.includes('api.mapbox.com/events') ||
-            url.includes('cloudfront.net/events')
-          )) {
-            console.log('Blocked telemetry request:', url);
+          if (
+            typeof url === "string" &&
+            (url.includes("events.mapbox.com") ||
+              url.includes("/events/v2") ||
+              url.includes("telemetry") ||
+              url.includes("/ping") ||
+              url.includes("api.mapbox.com/events") ||
+              url.includes("cloudfront.net/events"))
+          ) {
+            console.log("Blocked telemetry request:", url);
             return null; // Return null to block the request
           }
           return { url };
-        }
+        },
       });
 
       window.map = AppState.map;
 
       // Add controls
-      AppState.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      AppState.map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
+      AppState.map.addControl(new mapboxgl.NavigationControl(), "top-right");
+      AppState.map.addControl(
+        new mapboxgl.AttributionControl({ compact: true }),
+        "bottom-right",
+      );
 
       // Setup event handlers
-      AppState.map.on('moveend', debouncedUpdateUrlWithMapState);
-      AppState.map.on('zoomend', debouncedUpdateUrlWithMapState);
-      AppState.map.on('click', handleMapClick);
+      AppState.map.on("moveend", debouncedUpdateUrlWithMapState);
+      AppState.map.on("zoomend", debouncedUpdateUrlWithMapState);
+      AppState.map.on("click", handleMapClick);
 
       // Wait for map to load
       await new Promise((resolve) => {
-        AppState.map.on('load', resolve);
+        AppState.map.on("load", resolve);
       });
 
       document.dispatchEvent(new CustomEvent("mapInitialized"));
       AppState.mapInitialized = true;
-      
+
       return true;
     } catch (error) {
       if (typeof handleError === "function") {
@@ -411,7 +434,10 @@
       } else {
         console.error("Map initialization error:", error);
       }
-      showNotification(`${CONFIG.ERROR_MESSAGES.mapInitFailed}: ${error.message}`, "danger");
+      showNotification(
+        `${CONFIG.ERROR_MESSAGES.mapInitFailed}: ${error.message}`,
+        "danger",
+      );
       return false;
     }
   }
@@ -419,7 +445,7 @@
   function handleMapClick(e) {
     // Check if clicking on a feature
     const features = AppState.map.queryRenderedFeatures(e.point);
-    
+
     if (features.length === 0) {
       // Clicked on empty area, deselect trip
       if (AppState.selectedTripId) {
@@ -428,10 +454,12 @@
       }
     } else {
       // Handle feature click
-      const tripFeature = features.find(f => 
-        f.source && (f.source.includes('trips') || f.source.includes('matched'))
+      const tripFeature = features.find(
+        (f) =>
+          f.source &&
+          (f.source.includes("trips") || f.source.includes("matched")),
       );
-      
+
       if (tripFeature) {
         handleTripClick(e, tripFeature);
       }
@@ -444,7 +472,7 @@
     try {
       const center = AppState.map.getCenter();
       const zoom = AppState.map.getZoom();
-      
+
       const url = new URL(window.location.href);
       url.searchParams.set("zoom", zoom.toFixed(2));
       url.searchParams.set("lat", center.lat.toFixed(5));
@@ -457,7 +485,8 @@
   }
 
   function initializeLiveTracker() {
-    if (!window.LiveTripTracker || !AppState.map || AppState.liveTracker) return;
+    if (!window.LiveTripTracker || !AppState.map || AppState.liveTracker)
+      return;
 
     try {
       AppState.liveTracker = new window.LiveTripTracker(AppState.map);
@@ -485,7 +514,8 @@
 
     Object.entries(AppState.mapLayers).forEach(([name, info]) => {
       const div = document.createElement("div");
-      div.className = "layer-control d-flex align-items-center mb-1 p-1 border rounded";
+      div.className =
+        "layer-control d-flex align-items-center mb-1 p-1 border rounded";
       div.dataset.layerName = name;
 
       const checkboxId = `${name}-toggle`;
@@ -495,14 +525,18 @@
           <span class="checkmark"></span>
         </label>
         <label for="${checkboxId}" class="me-auto" style="cursor: pointer;">${info.name || name}</label>
-        ${!["customPlaces"].includes(name) ? `
+        ${
+          !["customPlaces"].includes(name)
+            ? `
           <input type="color" id="${name}-color" value="${info.color}" 
                  class="form-control form-control-sm layer-color-picker me-1" 
                  style="width: 30px;" title="Layer color for ${info.name || name}">
           <input type="range" id="${name}-opacity" min="0" max="1" step="0.1" value="${info.opacity}"
                  class="form-range layer-opacity-slider" style="width: 60px;" 
                  title="Layer opacity for ${info.name || name}">
-        ` : ''}
+        `
+            : ""
+        }
       `;
 
       fragment.appendChild(div);
@@ -548,7 +582,11 @@
       // Update Mapbox layer visibility
       const mapboxLayerId = `${name}-layer`;
       if (AppState.map && AppState.map.getLayer(mapboxLayerId)) {
-        AppState.map.setLayoutProperty(mapboxLayerId, 'visibility', visible ? 'visible' : 'none');
+        AppState.map.setLayoutProperty(
+          mapboxLayerId,
+          "visibility",
+          visible ? "visible" : "none",
+        );
       }
     }
 
@@ -560,11 +598,11 @@
     if (!layerInfo) return;
 
     layerInfo.color = color;
-    
+
     // Update Mapbox layer color
     const mapboxLayerId = `${name}-layer`;
     if (AppState.map && AppState.map.getLayer(mapboxLayerId)) {
-      AppState.map.setPaintProperty(mapboxLayerId, 'line-color', color);
+      AppState.map.setPaintProperty(mapboxLayerId, "line-color", color);
     }
   }
 
@@ -573,11 +611,11 @@
     if (!layerInfo) return;
 
     layerInfo.opacity = opacity;
-    
+
     // Update Mapbox layer opacity
     const mapboxLayerId = `${name}-layer`;
     if (AppState.map && AppState.map.getLayer(mapboxLayerId)) {
-      AppState.map.setPaintProperty(mapboxLayerId, 'line-opacity', opacity);
+      AppState.map.setPaintProperty(mapboxLayerId, "line-opacity", opacity);
     }
   }
 
@@ -585,15 +623,17 @@
     const orderContainer = getElement("layer-order-list");
     if (!orderContainer) return;
 
-    const sortedLayers = Object.entries(AppState.mapLayers)
-      .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
+    const sortedLayers = Object.entries(AppState.mapLayers).sort(
+      ([, a], [, b]) => (a.order || 0) - (b.order || 0),
+    );
 
     orderContainer.innerHTML = "";
     const fragment = document.createDocumentFragment();
 
     sortedLayers.forEach(([name, info]) => {
       const li = document.createElement("li");
-      li.className = "list-group-item d-flex justify-content-between align-items-center";
+      li.className =
+        "list-group-item d-flex justify-content-between align-items-center";
       li.dataset.layerName = name;
       li.innerHTML = `
         <span>${info.name || name}</span>
@@ -655,8 +695,9 @@
 
     // Re-order layers in Mapbox map
     if (AppState.map && AppState.mapInitialized) {
-      const sortedLayers = Object.entries(AppState.mapLayers)
-        .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
+      const sortedLayers = Object.entries(AppState.mapLayers).sort(
+        ([, a], [, b]) => (a.order || 0) - (b.order || 0),
+      );
 
       let beforeLayer = null;
       sortedLayers.reverse().forEach(([name]) => {
@@ -678,7 +719,7 @@
     try {
       const startDate = getStartDate();
       const endDate = getEndDate();
-      
+
       const params = new URLSearchParams({
         start_date: startDate,
         end_date: endDate,
@@ -686,13 +727,13 @@
       });
 
       const data = await cachedFetch(`/api/trips?${params}`);
-      
+
       if (data?.type === "FeatureCollection") {
         AppState.mapLayers.trips.layer = data;
         updateTripsTable(data);
         return data;
       }
-      
+
       return null;
     } catch (error) {
       if (typeof handleError === "function") {
@@ -716,9 +757,15 @@
     const maxSpeedElement = getElement("max-speed");
 
     if (!geojson?.features) {
-      [totalTripsElement, totalDistanceElement, avgDistanceElement, 
-       avgStartTimeElement, avgDrivingTimeElement, avgSpeedElement, 
-       maxSpeedElement].forEach(el => {
+      [
+        totalTripsElement,
+        totalDistanceElement,
+        avgDistanceElement,
+        avgStartTimeElement,
+        avgDrivingTimeElement,
+        avgSpeedElement,
+        maxSpeedElement,
+      ].forEach((el) => {
         if (el) el.textContent = "0";
       });
       return;
@@ -726,7 +773,7 @@
 
     const features = geojson.features;
     const totalTrips = features.length;
-    
+
     let totalDistance = 0;
     let totalDrivingTime = 0;
     let totalStartHours = 0;
@@ -735,16 +782,16 @@
     let validDrivingTimeCount = 0;
     let validStartTimeCount = 0;
 
-    features.forEach(feature => {
+    features.forEach((feature) => {
       const props = feature.properties || {};
-      
+
       if (props.distance && !isNaN(props.distance)) {
         totalDistance += parseFloat(props.distance);
         validDistanceCount++;
       }
-      
+
       let drivingTime = props.duration || props.drivingTime;
-      
+
       // Calculate duration if not provided (for matched trips)
       if (!drivingTime && props.startTime && props.endTime) {
         try {
@@ -757,12 +804,12 @@
           // Ignore calculation errors
         }
       }
-      
+
       if (drivingTime && !isNaN(drivingTime)) {
         totalDrivingTime += parseFloat(drivingTime);
         validDrivingTimeCount++;
       }
-      
+
       if (props.startTime) {
         const startTime = new Date(props.startTime);
         if (!isNaN(startTime.getTime())) {
@@ -770,26 +817,43 @@
           validStartTimeCount++;
         }
       }
-      
+
       if (props.maxSpeed && !isNaN(props.maxSpeed)) {
         maxSpeed = Math.max(maxSpeed, parseFloat(props.maxSpeed));
       }
     });
 
     // Update display elements
-    if (totalTripsElement) totalTripsElement.textContent = totalTrips.toString();
-    if (totalDistanceElement) totalDistanceElement.textContent = totalDistance.toFixed(1);
-    if (avgDistanceElement) avgDistanceElement.textContent = 
-      validDistanceCount > 0 ? (totalDistance / validDistanceCount).toFixed(1) : "0";
-    if (avgStartTimeElement) avgStartTimeElement.textContent = 
-      validStartTimeCount > 0 ? 
-        DateUtils.formatTimeFromHours(totalStartHours / validStartTimeCount) : "--:--";
-    if (avgDrivingTimeElement) avgDrivingTimeElement.textContent = 
-      validDrivingTimeCount > 0 ? 
-        DateUtils.formatSecondsToHMS(totalDrivingTime / validDrivingTimeCount) : "--:--";
-    if (avgSpeedElement) avgSpeedElement.textContent = 
-      validDrivingTimeCount > 0 && totalDistance > 0 ? 
-        ((totalDistance / (totalDrivingTime / validDrivingTimeCount)) * 3600 / 5280).toFixed(1) : "0";
+    if (totalTripsElement)
+      totalTripsElement.textContent = totalTrips.toString();
+    if (totalDistanceElement)
+      totalDistanceElement.textContent = totalDistance.toFixed(1);
+    if (avgDistanceElement)
+      avgDistanceElement.textContent =
+        validDistanceCount > 0
+          ? (totalDistance / validDistanceCount).toFixed(1)
+          : "0";
+    if (avgStartTimeElement)
+      avgStartTimeElement.textContent =
+        validStartTimeCount > 0
+          ? DateUtils.formatTimeFromHours(totalStartHours / validStartTimeCount)
+          : "--:--";
+    if (avgDrivingTimeElement)
+      avgDrivingTimeElement.textContent =
+        validDrivingTimeCount > 0
+          ? DateUtils.formatSecondsToHMS(
+              totalDrivingTime / validDrivingTimeCount,
+            )
+          : "--:--";
+    if (avgSpeedElement)
+      avgSpeedElement.textContent =
+        validDrivingTimeCount > 0 && totalDistance > 0
+          ? (
+              ((totalDistance / (totalDrivingTime / validDrivingTimeCount)) *
+                3600) /
+              5280
+            ).toFixed(1)
+          : "0";
     if (maxSpeedElement) maxSpeedElement.textContent = maxSpeed.toFixed(0);
   }
 
@@ -797,28 +861,33 @@
   async function updateMapWithTrips(geojson) {
     if (!AppState.map || !AppState.mapInitialized || !geojson) return;
 
-    const sourceId = 'trips-source';
-    const layerId = 'trips-layer';
+    const sourceId = "trips-source";
+    const layerId = "trips-layer";
     const layerInfo = AppState.mapLayers.trips;
 
     try {
       mapboxUtils.addOrUpdateSource(AppState.map, sourceId, geojson);
-      
+
       if (!AppState.map.getLayer(layerId)) {
-        mapboxUtils.addOrUpdateLayer(AppState.map, layerId, sourceId, layerInfo);
-        
+        mapboxUtils.addOrUpdateLayer(
+          AppState.map,
+          layerId,
+          sourceId,
+          layerInfo,
+        );
+
         // Add click handler
-        AppState.map.on('click', layerId, (e) => {
+        AppState.map.on("click", layerId, (e) => {
           handleTripClick(e, e.features[0]);
         });
-        
+
         // Add hover effects
-        AppState.map.on('mouseenter', layerId, () => {
-          AppState.map.getCanvas().style.cursor = 'pointer';
+        AppState.map.on("mouseenter", layerId, () => {
+          AppState.map.getCanvas().style.cursor = "pointer";
         });
-        
-        AppState.map.on('mouseleave', layerId, () => {
-          AppState.map.getCanvas().style.cursor = '';
+
+        AppState.map.on("mouseleave", layerId, () => {
+          AppState.map.getCanvas().style.cursor = "";
         });
       }
     } catch (error) {
@@ -829,18 +898,23 @@
   async function updateMapWithUndrivenStreets(geojson) {
     if (!AppState.map || !AppState.mapInitialized || !geojson) return;
 
-    const sourceId = 'undriven-streets-source';
-    const layerId = 'undrivenStreets-layer';
+    const sourceId = "undriven-streets-source";
+    const layerId = "undrivenStreets-layer";
     const layerInfo = AppState.mapLayers.undrivenStreets;
 
     try {
       mapboxUtils.addOrUpdateSource(AppState.map, sourceId, geojson);
-      
+
       if (!AppState.map.getLayer(layerId)) {
-        mapboxUtils.addOrUpdateLayer(AppState.map, layerId, sourceId, layerInfo);
-        
+        mapboxUtils.addOrUpdateLayer(
+          AppState.map,
+          layerId,
+          sourceId,
+          layerInfo,
+        );
+
         // Add specific styling for undriven streets
-        AppState.map.setPaintProperty(layerId, 'line-dasharray', [2, 2]);
+        AppState.map.setPaintProperty(layerId, "line-dasharray", [2, 2]);
       }
     } catch (error) {
       console.error("Error updating undriven streets layer:", error);
@@ -851,9 +925,9 @@
     if (!isMapReady()) return null;
 
     try {
-    const startDate = getStartDate();
-    const endDate = getEndDate();
-    
+      const startDate = getStartDate();
+      const endDate = getEndDate();
+
       const params = new URLSearchParams({
         start_date: startDate,
         end_date: endDate,
@@ -861,49 +935,61 @@
       });
 
       const data = await cachedFetch(`/api/matched_trips?${params}`);
-      
+
       if (data?.type === "FeatureCollection") {
         AppState.mapLayers.matchedTrips.layer = data;
-        
+
         // Add to map if visible
         if (AppState.mapLayers.matchedTrips.visible) {
-          const sourceId = 'matched-trips-source';
-          const layerId = 'matchedTrips-layer';
+          const sourceId = "matched-trips-source";
+          const layerId = "matchedTrips-layer";
           const layerInfo = AppState.mapLayers.matchedTrips;
 
           mapboxUtils.addOrUpdateSource(AppState.map, sourceId, data);
-          
+
           if (!AppState.map.getLayer(layerId)) {
-            mapboxUtils.addOrUpdateLayer(AppState.map, layerId, sourceId, layerInfo);
-            
+            mapboxUtils.addOrUpdateLayer(
+              AppState.map,
+              layerId,
+              sourceId,
+              layerInfo,
+            );
+
             // Add click handler
-            AppState.map.on('click', layerId, (e) => {
+            AppState.map.on("click", layerId, (e) => {
               handleTripClick(e, e.features[0]);
             });
           }
         }
-        
+
         return data;
       }
-      
+
       return null;
     } catch (error) {
       console.error("Error fetching matched trips:", error);
       return null;
     }
-      }
+  }
 
   async function fetchUndrivenStreets() {
-    const selectedLocationId = storage.get(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = storage.get(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
     if (!selectedLocationId || !isMapReady()) return null;
 
     try {
       // Get the full location object from coverage areas
       const coverageAreas = await fetchCoverageAreas();
-      const selectedLocation = coverageAreas.find(area => area._id === selectedLocationId);
-      
+      const selectedLocation = coverageAreas.find(
+        (area) => area._id === selectedLocationId,
+      );
+
       if (!selectedLocation || !selectedLocation.location) {
-        console.warn("Selected location not found in coverage areas:", selectedLocationId);
+        console.warn(
+          "Selected location not found in coverage areas:",
+          selectedLocationId,
+        );
         return null;
       }
 
@@ -920,13 +1006,13 @@
       }
 
       const data = await response.json();
-      
+
       if (data?.type === "FeatureCollection") {
         AppState.mapLayers.undrivenStreets.layer = data;
         await updateMapWithUndrivenStreets(data);
         return data;
       }
-      
+
       return null;
     } catch (error) {
       console.error("Error fetching undriven streets:", error);
@@ -940,19 +1026,21 @@
 
     try {
       const promises = [];
-      
+
       // Fetch trips data
       if (AppState.mapLayers.trips.visible) {
-        promises.push(fetchTrips().then(data => {
-          if (data) return updateMapWithTrips(data);
-        }));
+        promises.push(
+          fetchTrips().then((data) => {
+            if (data) return updateMapWithTrips(data);
+          }),
+        );
       }
-      
+
       // Fetch matched trips if visible
       if (AppState.mapLayers.matchedTrips.visible) {
         promises.push(fetchMatchedTrips());
       }
-      
+
       // Fetch undriven streets if visible
       if (AppState.mapLayers.undrivenStreets.visible) {
         promises.push(lazyFetchUndrivenStreets());
@@ -964,7 +1052,6 @@
       if (fitBounds) {
         fitMapBounds();
       }
-
     } catch (error) {
       console.error("Error updating map:", error);
       showNotification("Error updating map data", "danger");
@@ -983,35 +1070,43 @@
 
     // Create and show popup
     const popupContent = createTripPopupContent(feature);
-    
+
     const popup = new mapboxgl.Popup({
       closeButton: true,
       closeOnClick: true,
-      maxWidth: '400px'
+      maxWidth: "400px",
     })
-    .setLngLat(e.lngLat)
-    .setHTML(popupContent)
-    .addTo(AppState.map);
+      .setLngLat(e.lngLat)
+      .setHTML(popupContent)
+      .addTo(AppState.map);
 
     // Setup popup event listeners
-    popup.on('open', () => {
+    popup.on("open", () => {
       setupPopupEventListeners(popup, feature);
     });
   }
 
   function createTripPopupContent(feature) {
     const props = feature.properties || {};
-    
-    const format = (value, formatter) => value != null ? formatter(value) : "N/A";
-    const formatNum = (value, digits = 1) => format(value, (v) => parseFloat(v).toFixed(digits));
-    const formatTime = (value) => format(value, (v) => 
-      new Date(v).toLocaleString('en-US', { 
-        month: 'short', day: 'numeric', year: 'numeric',
-        hour: 'numeric', minute: '2-digit', hour12: true 
-      })
-    );
-    const formatDuration = (value) => format(value, (v) => DateUtils.formatSecondsToHMS(v));
-    
+
+    const format = (value, formatter) =>
+      value != null ? formatter(value) : "N/A";
+    const formatNum = (value, digits = 1) =>
+      format(value, (v) => parseFloat(v).toFixed(digits));
+    const formatTime = (value) =>
+      format(value, (v) =>
+        new Date(v).toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }),
+      );
+    const formatDuration = (value) =>
+      format(value, (v) => DateUtils.formatSecondsToHMS(v));
+
     // Calculate duration if not provided (especially for matched trips)
     let duration = props.duration || props.drivingTime;
     if (!duration && props.startTime && props.endTime) {
@@ -1060,7 +1155,8 @@
 
   function createActionButtons(feature) {
     const props = feature.properties || {};
-    const isMatched = props.source === "matched" || props.mapMatchingStatus === "success";
+    const isMatched =
+      props.source === "matched" || props.mapMatchingStatus === "success";
     const tripId = props.id || props.tripId;
 
     if (!tripId) return "";
@@ -1070,21 +1166,25 @@
         <button class="btn btn-sm btn-primary view-trip-btn" data-trip-id="${tripId}">
           <i class="fas fa-eye"></i> View
         </button>
-        ${isMatched ? `
+        ${
+          isMatched
+            ? `
           <button class="btn btn-sm btn-warning rematch-trip-btn" data-trip-id="${tripId}">
             <i class="fas fa-redo"></i> Rematch
           </button>
           <button class="btn btn-sm btn-danger delete-matched-trip-btn" data-trip-id="${tripId}">
             <i class="fas fa-trash"></i> Delete Matched
           </button>
-        ` : `
+        `
+            : `
           <button class="btn btn-sm btn-info map-match-btn" data-trip-id="${tripId}">
             <i class="fas fa-route"></i> Map Match
           </button>
           <button class="btn btn-sm btn-danger delete-trip-btn" data-trip-id="${tripId}">
             <i class="fas fa-trash"></i> Delete
           </button>
-        `}
+        `
+        }
       </div>
     `;
   }
@@ -1108,7 +1208,7 @@
         } else if (button.classList.contains("rematch-trip-btn")) {
           await handleRematchTrip(tripId, popup, feature);
         } else if (button.classList.contains("view-trip-btn")) {
-          window.open(`/trips/${tripId}`, '_blank');
+          window.open(`/trips/${tripId}`, "_blank");
         } else if (button.classList.contains("map-match-btn")) {
           await handleRematchTrip(tripId, popup, feature);
         }
@@ -1145,7 +1245,12 @@
   }
 
   async function handleDeleteTrip(tripId, popup) {
-    if (!confirm("Are you sure you want to delete this trip? This action cannot be undone.")) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this trip? This action cannot be undone.",
+      )
+    )
+      return;
 
     try {
       const response = await fetch(`/api/trips/${tripId}`, {
@@ -1169,7 +1274,7 @@
   async function handleRematchTrip(tripId, popup, feature) {
     try {
       showNotification("Starting map matching...", "info");
-      
+
       const response = await fetch(`/api/process_trip/${tripId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1196,7 +1301,7 @@
     if (!AppState.map || !AppState.mapInitialized) return;
 
     const allFeatures = [];
-    
+
     // Collect features from all visible layers
     Object.entries(AppState.mapLayers).forEach(([name, layerInfo]) => {
       if (layerInfo.visible && layerInfo.layer?.features) {
@@ -1208,26 +1313,26 @@
 
     // Calculate bounds
     const bounds = new mapboxgl.LngLatBounds();
-    
-    allFeatures.forEach(feature => {
+
+    allFeatures.forEach((feature) => {
       if (feature.geometry) {
-        if (feature.geometry.type === 'Point') {
+        if (feature.geometry.type === "Point") {
           bounds.extend(feature.geometry.coordinates);
-        } else if (feature.geometry.type === 'LineString') {
-          feature.geometry.coordinates.forEach(coord => bounds.extend(coord));
-        } else if (feature.geometry.type === 'MultiLineString') {
-          feature.geometry.coordinates.forEach(line => {
-            line.forEach(coord => bounds.extend(coord));
+        } else if (feature.geometry.type === "LineString") {
+          feature.geometry.coordinates.forEach((coord) => bounds.extend(coord));
+        } else if (feature.geometry.type === "MultiLineString") {
+          feature.geometry.coordinates.forEach((line) => {
+            line.forEach((coord) => bounds.extend(coord));
           });
         }
       }
     });
 
     if (!bounds.isEmpty()) {
-      AppState.map.fitBounds(bounds, { 
+      AppState.map.fitBounds(bounds, {
         padding: 50,
         maxZoom: 15,
-        duration: 1000
+        duration: 1000,
       });
     }
   }
@@ -1236,9 +1341,9 @@
   async function mapMatchTrips() {
     try {
       showNotification("Starting map matching process...", "info");
-      
-    const startDate = getStartDate();
-    const endDate = getEndDate();
+
+      const startDate = getStartDate();
+      const endDate = getEndDate();
 
       const response = await fetch("/api/map_match_trips", {
         method: "POST",
@@ -1248,7 +1353,10 @@
 
       if (response.ok) {
         const result = await response.json();
-        showNotification(`Map matching completed: ${result.message}`, "success");
+        showNotification(
+          `Map matching completed: ${result.message}`,
+          "success",
+        );
         await updateMap();
       } else {
         const errorData = await response.json();
@@ -1262,8 +1370,8 @@
 
   async function fetchTripsInRange() {
     try {
-    const startDate = getStartDate();
-    const endDate = getEndDate();
+      const startDate = getStartDate();
+      const endDate = getEndDate();
 
       const response = await fetch("/api/fetch_trips_range", {
         method: "POST",
@@ -1273,7 +1381,10 @@
 
       if (response.ok) {
         const result = await response.json();
-        showNotification(`Fetched ${result.new_trips || 0} new trips`, "success");
+        showNotification(
+          `Fetched ${result.new_trips || 0} new trips`,
+          "success",
+        );
         await updateMap();
       } else {
         const errorData = await response.json();
@@ -1287,21 +1398,23 @@
 
   async function fetchMetrics() {
     try {
-    const startDate = getStartDate();
-    const endDate = getEndDate();
-      
+      const startDate = getStartDate();
+      const endDate = getEndDate();
+
       const params = new URLSearchParams({
         start_date: startDate,
         end_date: endDate,
       });
 
       const data = await cachedFetch(`/api/metrics?${params}`);
-      
+
       // Update metrics display (implementation depends on your metrics structure)
       if (data) {
-        document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
+        document.dispatchEvent(
+          new CustomEvent("metricsUpdated", { detail: data }),
+        );
       }
-      
+
       return data;
     } catch (error) {
       console.error("Error fetching metrics:", error);
@@ -1333,31 +1446,35 @@
     if (!dropdown) return;
 
     try {
-    const coverageAreas = await fetchCoverageAreas();
-      
+      const coverageAreas = await fetchCoverageAreas();
+
       dropdown.innerHTML = '<option value="">Select a location...</option>';
-      
+
       // Ensure coverageAreas is an array
       const areasArray = Array.isArray(coverageAreas) ? coverageAreas : [];
-      
+
       if (areasArray.length === 0) {
         console.warn("No coverage areas returned from API");
-      return;
-    }
+        return;
+      }
 
-      areasArray.forEach(area => {
+      areasArray.forEach((area) => {
         const option = document.createElement("option");
         option.value = area._id || area.id;
-        option.textContent = area.location?.display_name || area.location?.city || area.name || area.city || "Unknown Location";
+        option.textContent =
+          area.location?.display_name ||
+          area.location?.city ||
+          area.name ||
+          area.city ||
+          "Unknown Location";
         dropdown.appendChild(option);
-    });
+      });
 
       // Restore saved selection
       const savedLocationId = storage.get(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (savedLocationId) {
+      if (savedLocationId) {
         dropdown.value = savedLocationId;
       }
-
     } catch (error) {
       console.error("Error populating location dropdown:", error);
       showNotification("Failed to load coverage areas", "warning");
@@ -1374,7 +1491,9 @@
         const icon = controlsToggle.querySelector("i");
         if (content && icon) {
           const isCollapsed = !content.classList.contains("show");
-          icon.className = isCollapsed ? "fas fa-chevron-down" : "fas fa-chevron-up";
+          icon.className = isCollapsed
+            ? "fas fa-chevron-down"
+            : "fas fa-chevron-up";
         }
       };
 
@@ -1390,7 +1509,7 @@
       locationDropdown.addEventListener("change", (e) => {
         const selectedLocationId = e.target.value;
         storage.set(CONFIG.STORAGE_KEYS.selectedLocation, selectedLocationId);
-        
+
         if (selectedLocationId && AppState.mapLayers.undrivenStreets.visible) {
           undrivenStreetsLoaded = false;
           lazyFetchUndrivenStreets();
@@ -1409,13 +1528,13 @@
               AppState.map.flyTo({
                 center: [longitude, latitude],
                 zoom: 14,
-                duration: 1000
+                duration: 1000,
               });
             },
             (error) => {
               console.error("Geolocation error:", error);
               showNotification("Unable to get your location", "warning");
-            }
+            },
           );
         } else {
           showNotification("Geolocation is not supported", "warning");
@@ -1437,7 +1556,7 @@
   function setInitialDates() {
     const startDateInput = getElement("start-date");
     const endDateInput = getElement("end-date");
-    
+
     if (startDateInput && !startDateInput.value) {
       startDateInput.value = getStartDate();
     }
@@ -1454,9 +1573,9 @@
 
     if (startDateInput) {
       window.flatpickr(startDateInput, {
-      dateFormat: "Y-m-d",
+        dateFormat: "Y-m-d",
         defaultDate: getStartDate(),
-      onChange(selectedDates, dateStr) {
+        onChange(selectedDates, dateStr) {
           storage.set(CONFIG.STORAGE_KEYS.startDate, dateStr);
           updateMap();
         },
@@ -1485,27 +1604,32 @@
     const layerInfo = AppState.mapLayers[name];
     if (layerInfo) {
       layerInfo.layer = data;
-      
+
       // Update Mapbox layer
       const sourceId = `${name}-source`;
       const layerId = `${name}-layer`;
-      
+
       if (AppState.map && AppState.mapInitialized) {
         mapboxUtils.addOrUpdateSource(AppState.map, sourceId, data);
-        
+
         if (!AppState.map.getLayer(layerId)) {
-          mapboxUtils.addOrUpdateLayer(AppState.map, layerId, sourceId, layerInfo);
-          
+          mapboxUtils.addOrUpdateLayer(
+            AppState.map,
+            layerId,
+            sourceId,
+            layerInfo,
+          );
+
           // Apply additional options
           if (options?.style) {
             Object.entries(options.style).forEach(([property, value]) => {
               AppState.map.setPaintProperty(layerId, property, value);
-          });
+            });
+          }
         }
       }
     }
-    }
-    
+
     return AppState.mapLayers[name];
   }
 
@@ -1520,7 +1644,10 @@
         undrivenStreetsLoaded = false;
         return null;
       }
-    } else if (undrivenStreetsLoaded && AppState.mapLayers.undrivenStreets?.layer) {
+    } else if (
+      undrivenStreetsLoaded &&
+      AppState.mapLayers.undrivenStreets?.layer
+    ) {
       return AppState.mapLayers.undrivenStreets.layer;
     }
     return null;
@@ -1552,19 +1679,27 @@
     const geomType = lastTripFeature.geometry?.type;
     const coords = lastTripFeature.geometry?.coordinates;
 
-    if (geomType === "LineString" && Array.isArray(coords) && coords.length > 0) {
+    if (
+      geomType === "LineString" &&
+      Array.isArray(coords) &&
+      coords.length > 0
+    ) {
       lastCoord = coords[coords.length - 1];
     } else if (geomType === "Point" && Array.isArray(coords)) {
       lastCoord = coords;
     }
 
-    if (Array.isArray(lastCoord) && lastCoord.length === 2 &&
-        typeof lastCoord[0] === "number" && typeof lastCoord[1] === "number") {
+    if (
+      Array.isArray(lastCoord) &&
+      lastCoord.length === 2 &&
+      typeof lastCoord[0] === "number" &&
+      typeof lastCoord[1] === "number"
+    ) {
       AppState.map.flyTo({
         center: lastCoord, // Mapbox uses [lng, lat]
         zoom: targetZoom,
         duration: duration * 1000,
-        essential: true
+        essential: true,
       });
     }
   }
@@ -1601,15 +1736,22 @@
                 AppState.mapLayers[layerName].visible = isVisible;
                 if (toggle) toggle.checked = isVisible;
               } else {
-                if (toggle) toggle.checked = AppState.mapLayers[layerName].visible;
+                if (toggle)
+                  toggle.checked = AppState.mapLayers[layerName].visible;
               }
               // Clear layer data for undrivenStreets if not visible
-              if (layerName === "undrivenStreets" && !AppState.mapLayers[layerName].visible) {
-                AppState.mapLayers[layerName].layer = { type: "FeatureCollection", features: [] };
+              if (
+                layerName === "undrivenStreets" &&
+                !AppState.mapLayers[layerName].visible
+              ) {
+                AppState.mapLayers[layerName].layer = {
+                  type: "FeatureCollection",
+                  features: [],
+                };
               }
             }
           });
-          
+
           updateLayerOrderUI();
           return populateLocationDropdown();
         })
@@ -1625,7 +1767,10 @@
           if (typeof handleError === "function") {
             handleError(error, "Application Initialization");
           } else {
-            showNotification(`Initialization Error: ${error.message}`, "danger");
+            showNotification(
+              `Initialization Error: ${error.message}`,
+              "danger",
+            );
           }
         })
         .finally(() => {
@@ -1669,21 +1814,22 @@
     if (!AppState.map) return;
 
     const activeElement = document.activeElement;
-    const isInputFocused = activeElement && 
-      (activeElement.tagName === "INPUT" || 
-       activeElement.tagName === "TEXTAREA" || 
-       activeElement.tagName === "SELECT");
+    const isInputFocused =
+      activeElement &&
+      (activeElement.tagName === "INPUT" ||
+        activeElement.tagName === "TEXTAREA" ||
+        activeElement.tagName === "SELECT");
     if (isInputFocused) return;
 
     const keyActions = {
       "+": () => AppState.map.zoomIn(),
       "=": () => AppState.map.zoomIn(),
       "-": () => AppState.map.zoomOut(),
-      "_": () => AppState.map.zoomOut(),
-      "ArrowUp": () => AppState.map.panBy([0, -100]),
-      "ArrowDown": () => AppState.map.panBy([0, 100]),
-      "ArrowLeft": () => AppState.map.panBy([-100, 0]),
-      "ArrowRight": () => AppState.map.panBy([100, 0]),
+      _: () => AppState.map.zoomOut(),
+      ArrowUp: () => AppState.map.panBy([0, -100]),
+      ArrowDown: () => AppState.map.panBy([0, 100]),
+      ArrowLeft: () => AppState.map.panBy([-100, 0]),
+      ArrowRight: () => AppState.map.panBy([100, 0]),
     };
 
     if (keyActions[e.key]) {
