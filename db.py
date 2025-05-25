@@ -14,10 +14,7 @@ import os
 import threading
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime, timezone
-from typing import (
-    Any,
-    TypeVar,
-)
+from typing import Any, TypeVar
 
 import bson
 import certifi
@@ -46,20 +43,22 @@ T = TypeVar("T")
 # Optimized query templates for common operations
 QUERY_TEMPLATES = {
     "trips_by_date_range": {
-        "template": {"$and": [
-            {"{date_field}": {"$gte": "{start_date}"}},
-            {"{date_field}": {"$lte": "{end_date}"}}
-        ]},
-        "indexes": [("{date_field}", 1), ("imei", 1)]
+        "template": {
+            "$and": [
+                {"{date_field}": {"$gte": "{start_date}"}},
+                {"{date_field}": {"$lte": "{end_date}"}},
+            ]
+        },
+        "indexes": [("{date_field}", 1), ("imei", 1)],
     },
     "coverage_by_location": {
         "template": {"properties.location": "{location_name}"},
-        "indexes": [("properties.location", 1), ("properties.driven", 1)]
+        "indexes": [("properties.location", 1), ("properties.driven", 1)],
     },
     "active_trips": {
         "template": {"status": "active", "endTime": None},
-        "indexes": [("status", 1), ("endTime", 1), ("lastUpdate", -1)]
-    }
+        "indexes": [("status", 1), ("endTime", 1), ("lastUpdate", -1)],
+    },
 }
 
 # Cache for frequently used aggregation pipelines
@@ -68,35 +67,35 @@ AGGREGATION_CACHE = {}
 
 class QueryOptimizer:
     """Utility class for optimizing database queries and operations."""
-    
+
     @staticmethod
     def build_indexed_query(template_name: str, **params) -> dict:
         """Build an optimized query using predefined templates."""
         if template_name not in QUERY_TEMPLATES:
             raise ValueError(f"Unknown query template: {template_name}")
-        
+
         template = QUERY_TEMPLATES[template_name]["template"]
         query_str = json.dumps(template)
-        
+
         for param, value in params.items():
             query_str = query_str.replace(f'"{{{param}}}"', json.dumps(value))
-        
+
         return json.loads(query_str)
-    
+
     @staticmethod
     def get_recommended_indexes(template_name: str) -> list:
         """Get recommended indexes for a query template."""
         return QUERY_TEMPLATES.get(template_name, {}).get("indexes", [])
-    
+
     @staticmethod
     def optimize_sort_projection(
         sort: list | None = None,
         projection: dict | None = None,
-        limit: int | None = None
+        limit: int | None = None,
     ) -> dict:
         """Optimize sort and projection for better performance."""
         options = {}
-        
+
         if sort:
             options["sort"] = sort
         if projection:
@@ -106,7 +105,7 @@ class QueryOptimizer:
             options["projection"] = projection
         if limit:
             options["limit"] = limit
-            
+
         return options
 
 
@@ -129,9 +128,7 @@ class DatabaseManager:
         if not getattr(self, "_initialized", False):
             self._client: AsyncIOMotorClient | None = None
             self._db: AsyncIOMotorDatabase | None = None
-            self._gridfs_bucket_instance: None | (
-                AsyncIOMotorGridFSBucket
-            ) = None
+            self._gridfs_bucket_instance: None | (AsyncIOMotorGridFSBucket) = None
             self._quota_exceeded = False
             self._connection_healthy = True
             # Increased semaphore limit for better concurrency
@@ -265,10 +262,7 @@ class DatabaseManager:
             MongoDB collection
 
         """
-        if (
-            collection_name not in self._collections
-            or not self._connection_healthy
-        ):
+        if collection_name not in self._collections or not self._connection_healthy:
             self._collections[collection_name] = self.db[collection_name]
         return self._collections[collection_name]
 
@@ -652,7 +646,7 @@ class SerializationHelper:
         """
         if dt is None:
             return None
-            
+
         # Handle case where dt is already a string
         if isinstance(dt, str):
             try:
@@ -666,7 +660,7 @@ class SerializationHelper:
                 if "T" in dt and (dt.endswith("Z") or "+" in dt or dt.count(":") >= 2):
                     return dt
                 return None
-        
+
         # Handle datetime objects
         if dt.tzinfo is None:
             dt = dt.astimezone(timezone.utc)
@@ -705,13 +699,9 @@ class SerializationHelper:
                 if isinstance(value, ObjectId):
                     fallback_result[key] = value
                 elif isinstance(value, datetime):
-                    fallback_result[key] = (
-                        SerializationHelper.serialize_datetime(value)
-                    )
+                    fallback_result[key] = SerializationHelper.serialize_datetime(value)
                 elif isinstance(value, (dict, list)):
-                    fallback_result[key] = (
-                        f"<Complex Type: {type(value).__name__}>"
-                    )
+                    fallback_result[key] = f"<Complex Type: {type(value).__name__}>"
                 else:
                     try:
                         json.dumps(value)
@@ -953,8 +943,9 @@ class DatabaseOperationMixin:
             Operation result, optionally post-processed
         """
         import time
+
         start_time = time.perf_counter()
-        
+
         try:
             result = await db_manager.execute_with_retry(
                 operation_func,
@@ -966,9 +957,7 @@ class DatabaseOperationMixin:
                 else result
             )
         except Exception as e:
-            logger.error(
-                "%s failed on %s: %s", operation_name, collection.name, str(e)
-            )
+            logger.error("%s failed on %s: %s", operation_name, collection.name, str(e))
             if operation_name.startswith(("find", "count", "aggregate")):
                 return (
                     []
@@ -980,6 +969,7 @@ class DatabaseOperationMixin:
             # Log performance metrics
             try:
                 from performance_monitor import log_database_operation
+
                 end_time = time.perf_counter()
                 duration_ms = (end_time - start_time) * 1000
                 log_database_operation(operation_name, collection.name, duration_ms)
@@ -998,9 +988,7 @@ async def find_one_with_retry(
     """Execute find_one with retry logic and optimized parameter handling."""
 
     async def _operation():
-        return await collection.find_one(
-            query, projection, sort=sort if sort else None
-        )
+        return await collection.find_one(query, projection, sort=sort if sort else None)
 
     return await DatabaseOperationMixin._execute_operation(
         _operation, collection, "find_one"
@@ -1071,9 +1059,7 @@ async def update_many_with_retry(
     """Execute update_many with retry logic."""
 
     async def _operation():
-        return await collection.update_many(
-            filter_query, update, upsert=upsert
-        )
+        return await collection.update_many(filter_query, update, upsert=upsert)
 
     return await DatabaseOperationMixin._execute_operation(
         _operation, collection, "update_many", process_result=False
@@ -1172,7 +1158,7 @@ async def optimized_paginate(
     projection: dict | None = None,
 ) -> dict[str, Any]:
     """Efficiently paginate query results with optimized sorting and projection.
-    
+
     Args:
         collection: MongoDB collection
         query: Query filter
@@ -1180,24 +1166,24 @@ async def optimized_paginate(
         limit: Items per page
         sort: Sort criteria
         projection: Fields to include/exclude
-        
+
     Returns:
         Dict with data, pagination info, and metadata
     """
     skip = (page - 1) * limit
-    
+
     # Optimize projection and sort
     options = QueryOptimizer.optimize_sort_projection(sort, projection, limit)
-    
+
     # Count total documents (only if needed for pagination)
     total_count = await count_documents_with_retry(collection, query)
-    
+
     # Execute the main query with optimizations
     cursor = collection.find(query, **options).skip(skip)
     documents = await cursor.to_list(limit)
-    
+
     total_pages = (total_count + limit - 1) // limit
-    
+
     return {
         "data": documents,
         "pagination": {
@@ -1206,8 +1192,8 @@ async def optimized_paginate(
             "total_count": total_count,
             "has_next": page < total_pages,
             "has_prev": page > 1,
-            "limit": limit
-        }
+            "limit": limit,
+        },
     }
 
 
@@ -1217,33 +1203,35 @@ async def bulk_update_optimized(
     batch_size: int = 1000,
 ) -> dict[str, Any]:
     """Perform bulk updates with optimized batching.
-    
+
     Args:
         collection: MongoDB collection
         updates: List of update operations
         batch_size: Size of each batch
-        
+
     Returns:
         Summary of operations performed
     """
     from pymongo import UpdateOne
-    
+
     total_matched = 0
     total_modified = 0
     total_upserted = 0
     errors = []
-    
+
     for i in range(0, len(updates), batch_size):
-        batch = updates[i:i + batch_size]
+        batch = updates[i : i + batch_size]
         operations = []
-        
+
         for update in batch:
-            operations.append(UpdateOne(
-                update.get("filter", {}),
-                update.get("update", {}),
-                upsert=update.get("upsert", False)
-            ))
-        
+            operations.append(
+                UpdateOne(
+                    update.get("filter", {}),
+                    update.get("update", {}),
+                    upsert=update.get("upsert", False),
+                )
+            )
+
         try:
             result = await collection.bulk_write(operations, ordered=False)
             total_matched += result.matched_count
@@ -1252,12 +1240,12 @@ async def bulk_update_optimized(
         except Exception as e:
             errors.append(str(e))
             logger.error(f"Bulk update batch failed: {e}")
-    
+
     return {
         "matched_count": total_matched,
         "modified_count": total_modified,
         "upserted_count": total_upserted,
-        "errors": errors
+        "errors": errors,
     }
 
 

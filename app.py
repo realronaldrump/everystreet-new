@@ -9,8 +9,8 @@ import io
 import json
 import logging
 import os
-import uuid
 import time
+import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
@@ -38,35 +38,15 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import (
-    HTMLResponse,
-    JSONResponse,
-    StreamingResponse,
-)
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from motor.motor_asyncio import (
-    AsyncIOMotorGridFSBucket,
-)
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from pymongo import GEOSPHERE, IndexModel
 from pymongo.errors import OperationFailure
 from sklearn.cluster import KMeans
 
-# Performance monitoring imports
-from performance_monitor import (
-    PerformanceTimer,
-    async_performance_timer,
-    get_optimization_report,
-    get_performance_summary,
-    get_real_time_metrics,
-    log_request_timing,
-    start_performance_monitoring,
-    monitor_performance,
-)
-
-from bouncie_trip_fetcher import (
-    fetch_bouncie_trips_in_range,
-)
+from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from coverage_tasks import (
     process_area,
     process_coverage_calculation,
@@ -99,13 +79,8 @@ from export_helpers import (
     get_location_filename,
     process_trip_for_export,
 )
-from live_tracking import (
-    get_active_trip,
-    get_trip_updates,
-)
-from live_tracking import (
-    initialize_db as initialize_live_tracking_db,
-)
+from live_tracking import get_active_trip, get_trip_updates
+from live_tracking import initialize_db as initialize_live_tracking_db
 from models import (
     ActiveTripResponseUnion,
     ActiveTripSuccessResponse,
@@ -121,6 +96,18 @@ from models import (
 )
 from osm_utils import generate_geojson_osm
 from pages import router as pages_router
+
+# Performance monitoring imports
+from performance_monitor import (
+    PerformanceTimer,
+    async_performance_timer,
+    get_optimization_report,
+    get_performance_summary,
+    get_real_time_metrics,
+    log_request_timing,
+    monitor_performance,
+    start_performance_monitoring,
+)
 from tasks import (
     TASK_METADATA,
     TaskPriority,
@@ -131,10 +118,7 @@ from tasks import (
     process_webhook_event_task,
     update_task_schedule,
 )
-from trip_processor import (
-    TripProcessor,
-    TripState,
-)
+from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
 from utils import (
     calculate_circular_average_hour,

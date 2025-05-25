@@ -9,18 +9,21 @@ The performance monitoring system provides real-time tracking of application per
 ## 🎯 Key Features
 
 ### Real-Time Monitoring
+
 - **API Request Tracking**: Response times, request counts, status codes
 - **Database Operation Monitoring**: Query durations, operation types, collection performance
 - **Processing Performance**: Task execution times, throughput metrics
 - **System Health Scoring**: 0-100 performance score with status indicators
 
 ### Automatic Analysis
+
 - **Performance Bottleneck Detection**: Identifies slow operations automatically
 - **Optimization Recommendations**: Actionable suggestions for improvements
 - **Trend Analysis**: Historical performance patterns and degradation detection
 - **Resource Usage Tracking**: Memory, connection pool, and cache performance
 
 ### Dashboard & API
+
 - **Interactive Web Dashboard**: Real-time charts and metrics visualization
 - **REST API Endpoints**: Programmatic access to all performance data
 - **Automatic Cleanup**: Prevents memory buildup with configurable retention
@@ -29,6 +32,7 @@ The performance monitoring system provides real-time tracking of application per
 ## 📊 Metrics Tracked
 
 ### API Performance
+
 ```python
 {
     "api_requests": {
@@ -43,6 +47,7 @@ The performance monitoring system provides real-time tracking of application per
 ```
 
 ### Database Performance
+
 ```python
 {
     "database_operations": {
@@ -57,6 +62,7 @@ The performance monitoring system provides real-time tracking of application per
 ```
 
 ### System Health
+
 ```python
 {
     "performance_score": 85,
@@ -114,37 +120,47 @@ log_processing_step("data_validation", duration_ms=125.5, items_processed=100)
 ### API Endpoints
 
 #### Get Performance Health
+
 ```bash
 GET /api/performance/health
 ```
+
 Returns overall system health status and performance score.
 
 #### Get Real-Time Metrics
+
 ```bash
 GET /api/performance/metrics
 ```
+
 Returns current performance metrics for monitoring dashboards.
 
 #### Get Performance Summary
+
 ```bash
 GET /api/performance/summary?hours=24
 ```
+
 Returns detailed performance summary for specified time period.
 
 #### Get Optimization Report
+
 ```bash
 GET /api/performance/report
 ```
+
 Returns comprehensive analysis with optimization recommendations.
 
 ### Web Dashboard
 
 Access the interactive performance dashboard at:
+
 ```
 http://localhost:8000/performance
 ```
 
 The dashboard provides:
+
 - Real-time performance charts
 - System health indicators
 - Optimization recommendations
@@ -161,14 +177,16 @@ The system calculates a performance score (0-100) based on:
 - **Cache Effectiveness**: Bonus points for good cache hit rates
 
 ### Score Ranges
+
 - **80-100**: Excellent (Green)
-- **60-79**: Good (Blue) 
+- **60-79**: Good (Blue)
 - **40-59**: Fair (Yellow)
 - **0-39**: Poor (Red)
 
 ## 🔧 Configuration
 
 ### Environment Variables
+
 ```bash
 # Optional: Configure cleanup intervals
 PERFORMANCE_CLEANUP_INTERVAL_MINUTES=30
@@ -194,16 +212,19 @@ CLEANUP_INTERVAL_MINUTES = 30
 The system automatically generates recommendations based on performance patterns:
 
 ### API Performance
+
 - **Slow Endpoints**: Identifies endpoints with >500ms average response time
 - **High Error Rates**: Detects endpoints with elevated error rates
 - **Suggestions**: Caching recommendations, query optimization hints
 
 ### Database Performance
+
 - **Slow Queries**: Identifies operations taking >200ms on average
 - **Index Recommendations**: Suggests indexes for frequently queried fields
 - **Connection Pool**: Monitors and suggests pool size adjustments
 
 ### Processing Performance
+
 - **Bottlenecks**: Identifies slow processing steps
 - **Throughput Issues**: Detects low items/second processing rates
 - **Optimization Hints**: Suggests batch processing or parallel execution
@@ -217,6 +238,7 @@ python test_performance_monitoring.py
 ```
 
 This test script:
+
 - Verifies all monitoring functions work correctly
 - Tests API endpoints
 - Simulates performance load
@@ -226,35 +248,38 @@ This test script:
 
 ```json
 {
-    "timestamp": "2024-01-20T15:30:00Z",
-    "last_minute": {
-        "api_requests": 45,
-        "api_avg_duration_ms": 125.5,
-        "database_operations": 32,
-        "db_avg_duration_ms": 35.2
-    },
-    "system_health": {
-        "performance_score": 85,
-        "total_optimization_metrics": 156
-    }
+  "timestamp": "2024-01-20T15:30:00Z",
+  "last_minute": {
+    "api_requests": 45,
+    "api_avg_duration_ms": 125.5,
+    "database_operations": 32,
+    "db_avg_duration_ms": 35.2
+  },
+  "system_health": {
+    "performance_score": 85,
+    "total_optimization_metrics": 156
+  }
 }
 ```
 
 ## 🔄 Best Practices
 
 ### Monitoring Strategy
+
 1. **Start with Dashboard**: Use web dashboard for real-time monitoring
 2. **Set Up Alerts**: Monitor performance score and implement alerting
 3. **Regular Reviews**: Weekly review of optimization recommendations
 4. **Trend Analysis**: Watch for performance degradation over time
 
 ### Performance Optimization
+
 1. **Address High-Priority Recommendations First**
 2. **Implement Caching**: For frequently accessed data
 3. **Database Indexing**: Based on slow query recommendations
 4. **Code Optimization**: Focus on operations taking >1 second
 
 ### Integration
+
 1. **CI/CD Integration**: Include performance tests in deployment pipeline
 2. **Monitoring Alerts**: Set up alerts for performance score drops
 3. **Capacity Planning**: Use metrics for scaling decisions
@@ -263,21 +288,25 @@ This test script:
 ## 🐛 Troubleshooting
 
 ### Performance Monitoring Not Working
+
 1. Check that `start_performance_monitoring()` is called in startup
 2. Verify imports are correct
 3. Check for ImportError exceptions in logs
 
 ### Missing Metrics
+
 1. Ensure middleware is properly configured
 2. Check database operation instrumentation
 3. Verify cleanup intervals aren't too aggressive
 
 ### Dashboard Not Loading
+
 1. Confirm the `/performance` route is accessible
 2. Check that the template file exists
 3. Verify no JavaScript errors in browser console
 
 ### High Memory Usage
+
 1. Reduce `MAX_METRIC_HISTORY` value
 2. Decrease `CLEANUP_INTERVAL_MINUTES`
 3. Monitor for memory leaks in custom instrumentation
@@ -285,6 +314,7 @@ This test script:
 ## 📚 Integration Examples
 
 ### Custom Monitoring
+
 ```python
 from performance_monitor import log_processing_step, PerformanceTimer
 
@@ -295,29 +325,30 @@ def process_large_dataset(data):
         for item in data:
             # Process each item
             results.append(process_item(item))
-        
+
         # Log additional metrics
         log_processing_step(
-            "batch_processing", 
+            "batch_processing",
             duration_ms=timer.duration_ms,
             items_processed=len(data)
         )
-        
+
         return results
 ```
 
 ### Health Check Integration
+
 ```python
 import requests
 
 def check_system_health():
     response = requests.get("http://localhost:8000/api/performance/health")
     health = response.json()
-    
+
     if health["performance_score"] < 60:
         # Send alert or notification
         send_alert(f"Performance degraded: {health['status']}")
-    
+
     return health
 ```
 
@@ -341,4 +372,4 @@ For issues or questions about the performance monitoring system:
 3. Examine the dashboard for real-time insights
 4. Check application logs for performance-related messages
 
-The performance monitoring system is designed to be transparent and non-intrusive while providing comprehensive insights into your application's performance characteristics. 
+The performance monitoring system is designed to be transparent and non-intrusive while providing comprehensive insights into your application's performance characteristics.
