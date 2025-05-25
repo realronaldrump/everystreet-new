@@ -5660,52 +5660,52 @@ async def startup_event():
             )
             raise
 
-        # Add 2dsphere index for trips_collection.geometry
-        trips_index_name = "geometry_2dsphere"
+        # Add 2dsphere index for trips_collection.gps
+        trips_index_name = "gps_2dsphere"
         try:
             trips_indexes = await trips_collection.index_information()
             if trips_index_name not in trips_indexes:
                 logger.info(
-                    "Creating 2dsphere index on trips_collection.geometry...",
+                    "Creating 2dsphere index on trips_collection.gps...",
                 )
                 await trips_collection.create_indexes(
                     [
                         IndexModel(
-                            [("geometry", GEOSPHERE)], name=trips_index_name
+                            [("gps", GEOSPHERE)], name=trips_index_name
                         ),
                     ],
                 )
                 logger.info(
-                    "2dsphere index on trips_collection.geometry created successfully."
+                    "2dsphere index on trips_collection.gps created successfully."
                 )
             else:
                 logger.debug(
-                    "2dsphere index on trips_collection.geometry already exists."
+                    "2dsphere index on trips_collection.gps already exists."
                 )
         except OperationFailure as e:
             logger.warning(
-                "OperationFailure during trips_collection.geometry index creation: %s",
+                "OperationFailure during trips_collection.gps index creation: %s",
                 e,
             )
-            # Handle specific errors if necessary, similar to matched_trips
-            if "Can't extract geo keys" in str(e) or "GeoJSON ordinary" in str(e).lower() or "not valid" in str(e).lower():
+            if "Can't extract geo keys" in str(e) or "GeoJSON ordinary" in str(e).lower() or "not valid" in str(e).lower() or "value may not be arrays" in str(e).lower():
                 logger.error(
-                    "CRITICAL: Index creation on trips_collection.geometry failed due to invalid GeoJSON data. "
-                    "Ensure trip 'geometry' fields are valid GeoJSON objects (not strings, correct coordinates, etc.). "
-                    "Application will start, but coverage calculation will be very slow."
+                    "CRITICAL: Index creation on trips_collection.gps failed likely due to invalid/stringified GeoJSON data. "
+                    "Ensure trip 'gps' fields are valid GeoJSON objects (not strings, correct coordinates, etc.). "
+                    "Application will start, but coverage calculation will be very slow until data is migrated and field is object type."
                 )
-            else:
-                logger.error(
-                    "Unhandled OperationFailure during trips_collection.geometry index creation, re-raising."
-                )
-                raise
+            # Allow startup even if index fails due to bad data, but log critically.
+            # else:
+            #     logger.error(
+            #         "Unhandled OperationFailure during trips_collection.gps index creation, re-raising."
+            #     )
+            #     raise
         except Exception as e:
             logger.critical(
-                "CRITICAL: Unexpected error during trips_collection.geometry index creation: %s",
+                "CRITICAL: Unexpected error during trips_collection.gps index creation: %s",
                 str(e),
                 exc_info=True,
             )
-            raise
+            raise # Other unexpected errors during index creation should still be fatal
 
         # Add unique index for coverage_metadata_collection on location.display_name
         coverage_loc_index_name = "location_display_name_unique"
