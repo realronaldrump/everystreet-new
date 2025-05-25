@@ -67,7 +67,7 @@ class Config:
 
 
 class RateLimiter:
-    """Rate limiter for API requests with thread-safe design."""
+    """Rate limiter for API requests with thread-safe design and improved performance."""
 
     def __init__(
         self,
@@ -76,7 +76,7 @@ class RateLimiter:
     ):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.window_start = time.time()
+        self.window_start = time.perf_counter()  # More precise timing
         self.request_count = 0
         self.lock = asyncio.Lock()
 
@@ -88,7 +88,7 @@ class RateLimiter:
         Returns (need_to_wait, wait_time_seconds)
         """
         async with self.lock:
-            current_time = time.time()
+            current_time = time.perf_counter()
             elapsed = current_time - self.window_start
 
             if elapsed > self.window_seconds:
@@ -280,57 +280,13 @@ class TripProcessor:
                     )
                     return False
 
-            gps_data = self.trip_data.get("gps")
-            if isinstance(gps_data, str):
-                try:
-                    gps_data = json.loads(gps_data)
-                except json.JSONDecodeError:
-                    error_message = "Invalid GPS data format"
-                    logger.warning(
-                        "Trip %s: %s",
-                        transaction_id,
-                        error_message,
-                    )
-                    self._set_state(
-                        TripState.FAILED,
-                        error_message,
-                    )
-                    return False
-
-            if (
-                not isinstance(gps_data, dict)
-                or "type" not in gps_data
-                or "coordinates" not in gps_data
-            ):
-                error_message = "GPS data missing 'type' or 'coordinates'"
+            # Use optimized validation from utils
+            from utils import validate_trip_data
+            
+            is_valid, error_message = validate_trip_data(self.trip_data)
+            if not is_valid:
                 logger.warning(
-                    "Trip %s: %s",
-                    transaction_id,
-                    error_message,
-                )
-                self._set_state(
-                    TripState.FAILED,
-                    error_message,
-                )
-                return False
-
-            if not isinstance(gps_data["coordinates"], list):
-                error_message = "GPS coordinates must be a list"
-                logger.warning(
-                    "Trip %s: %s",
-                    transaction_id,
-                    error_message,
-                )
-                self._set_state(
-                    TripState.FAILED,
-                    error_message,
-                )
-                return False
-
-            if len(gps_data["coordinates"]) < 2:
-                error_message = "GPS coordinates must have at least 2 points"
-                logger.warning(
-                    "Trip %s: %s",
+                    "Trip %s validation failed: %s",
                     transaction_id,
                     error_message,
                 )
@@ -443,17 +399,9 @@ class TripProcessor:
                 "distance" not in self.processed_data
                 or not self.processed_data["distance"]
             ):
-                total_distance = 0
-                for i in range(1, len(coords)):
-                    prev = coords[i - 1]
-                    curr = coords[i]
-                    total_distance += haversine(
-                        prev[0],
-                        prev[1],
-                        curr[0],
-                        curr[1],
-                        unit="miles",
-                    )
+                # Use optimized distance calculation from utils
+                from utils import calculate_distance
+                total_distance = calculate_distance(coords)
                 self.processed_data["distance"] = total_distance
 
             if "totalIdleDuration" in self.processed_data:

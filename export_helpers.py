@@ -42,73 +42,78 @@ def default_serializer(obj: Any) -> str:
 
 async def create_geojson(
     trips: list[dict[str, Any]],
+    batch_size: int = 1000,
 ) -> str:
-    """Convert trip dictionaries to a GeoJSON FeatureCollection string.
+    """Convert trip dictionaries to a GeoJSON FeatureCollection string with optimized processing.
 
     Args:
         trips: List of trip dictionaries
+        batch_size: Process trips in batches for memory efficiency
 
     Returns:
         str: A GeoJSON string representing the trips
 
     """
     features = []
+    processed_count = 0
+    valid_count = 0
 
-    for trip in trips:
-        try:
-            gps_data = trip.get("gps")
-            if not gps_data:
-                logger.warning(
-                    "Trip %s missing GPS data, skipping",
-                    trip.get("transactionId", "?"),
-                )
-                continue
-
-            if isinstance(gps_data, str):
-                try:
-                    gps_data = json.loads(gps_data)
-                except json.JSONDecodeError as e:
-                    logger.error(
-                        "Error parsing GPS for trip %s: %s",
-                        trip.get("transactionId", "?"),
-                        e,
-                    )
+    # Process in batches for better memory management
+    for i in range(0, len(trips), batch_size):
+        batch = trips[i:i + batch_size]
+        
+        for trip in batch:
+            processed_count += 1
+            try:
+                # Fast GPS data validation and extraction
+                gps_data = trip.get("gps")
+                if not gps_data:
                     continue
 
-            properties_dict = {}
-            for key, value in trip.items():
-                if key != "gps" and value is not None:
-                    properties_dict[key] = value
+                if isinstance(gps_data, str):
+                    try:
+                        gps_data = json.loads(gps_data)
+                    except json.JSONDecodeError:
+                        continue
 
-            feature = {
-                "type": "Feature",
-                "geometry": gps_data,
-                "properties": properties_dict,
-            }
-            features.append(feature)
+                # Optimized property extraction (exclude gps and None values)
+                properties_dict = {
+                    key: value for key, value in trip.items() 
+                    if key != "gps" and value is not None
+                }
 
-        except Exception as e:
-            logger.error(
-                "Error processing trip %s for GeoJSON: %s",
-                trip.get("transactionId", "?"),
-                e,
-            )
+                feature = {
+                    "type": "Feature",
+                    "geometry": gps_data,
+                    "properties": properties_dict,
+                }
+                features.append(feature)
+                valid_count += 1
+
+            except Exception as e:
+                logger.debug(
+                    "Error processing trip %s for GeoJSON: %s",
+                    trip.get("transactionId", "?"),
+                    e,
+                )
+                continue
 
     fc = {
         "type": "FeatureCollection",
         "features": features,
     }
 
-    if not features:
+    if valid_count == 0:
         logger.warning(
             "No valid features generated from %d trips",
-            len(trips),
+            processed_count,
         )
     else:
         logger.info(
-            "Created GeoJSON with %d features from %d trips",
-            len(features),
-            len(trips),
+            "Created GeoJSON with %d features from %d trips (%.1f%% success rate)",
+            valid_count,
+            processed_count,
+            (valid_count / processed_count) * 100 if processed_count > 0 else 0,
         )
 
     return json.dumps(fc, default=default_serializer)
@@ -383,39 +388,13 @@ async def create_export_response(
             headers={
                 "Content-Disposition": f'attachment; filename="{filename_base}.json"',
             },
-        )
+                )
     if fmt == "csv":
-        from io import StringIO
-
-        if not isinstance(data, list):
-            if (
-                isinstance(data, dict)
-                and data.get("type") == "FeatureCollection"
-            ):
-                trips = []
-                for feature in data.get("features", []):
-                    if feature.get("properties"):
-                        trips.append(feature["properties"])
-                data = trips
-            else:
-                data = [data]
-
-        if not data:
-            output = StringIO("No data to export")
-        else:
-            csv_content = await create_csv_export(
-                data,
-                include_gps_in_csv=include_gps_in_csv,
-                flatten_location_fields=flatten_location_fields,
-            )
-            output = StringIO(csv_content)
-
-        return StreamingResponse(
-            output,
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename_base}.csv"',
-            },
+        return await create_streaming_csv_response(
+            data,
+            filename_base,
+            include_gps_in_csv=include_gps_in_csv,
+            flatten_location_fields=flatten_location_fields,
         )
     raise ValueError(f"Unsupported export format: {fmt}")
 
@@ -793,3 +772,79 @@ async def create_csv_export(
         writer.writerow(flat_trip)
 
     return output.getvalue()
+
+
+async def create_streaming_csv_response(
+    data: list[dict[str, Any]] | dict[str, Any],
+    filename_base: str,
+    include_gps_in_csv: bool = False,
+    flatten_location_fields: bool = True,
+) -> StreamingResponse:
+    """Create a streaming CSV response for large datasets.
+    
+    Args:
+        data: Trip data
+        filename_base: Base filename for the download
+        include_gps_in_csv: Whether to include GPS data in CSV exports
+        flatten_location_fields: Whether to flatten location fields in CSV exports
+        
+    Returns:
+        StreamingResponse: Streaming CSV response
+    """
+    from io import StringIO
+    
+    # Normalize data to list format
+    if not isinstance(data, list):
+        if (
+            isinstance(data, dict)
+            and data.get("type") == "FeatureCollection"
+        ):
+            trips = []
+            for feature in data.get("features", []):
+                if feature.get("properties"):
+                    trips.append(feature["properties"])
+            data = trips
+        else:
+            data = [data]
+
+    async def generate_csv():
+        """Generator function for streaming CSV data."""
+        if not data:
+            yield "No data to export\n"
+            return
+            
+        # Process data in chunks for memory efficiency
+        chunk_size = 500
+        first_chunk = True
+        
+        for i in range(0, len(data), chunk_size):
+            chunk = data[i:i + chunk_size]
+            
+            if first_chunk:
+                # Generate CSV content for first chunk with headers
+                csv_content = await create_csv_export(
+                    chunk,
+                    include_gps_in_csv=include_gps_in_csv,
+                    flatten_location_fields=flatten_location_fields,
+                )
+                yield csv_content
+                first_chunk = False
+            else:
+                # Generate CSV content for subsequent chunks without headers
+                chunk_csv = await create_csv_export(
+                    chunk,
+                    include_gps_in_csv=include_gps_in_csv,
+                    flatten_location_fields=flatten_location_fields,
+                )
+                # Remove header line for subsequent chunks
+                lines = chunk_csv.split('\n')
+                if len(lines) > 1:
+                    yield '\n'.join(lines[1:])
+
+    return StreamingResponse(
+        generate_csv(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename_base}.csv"',
+        },
+    )

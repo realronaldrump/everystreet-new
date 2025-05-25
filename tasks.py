@@ -141,9 +141,11 @@ TASK_METADATA = {
 
 
 class TaskStatusManager:
-    """Centralized task status management using db_manager."""
+    """Centralized task status management using db_manager with optimized operations."""
 
     _instance = None
+    _status_cache = {}
+    _cache_ttl = 30  # seconds
 
     @classmethod
     def get_instance(cls):
@@ -206,6 +208,106 @@ class TaskStatusManager:
         except Exception as e:
             logger.exception(f"Error updating task status for {task_id}: {e}")
             return False
+
+
+async def execute_task_with_standard_handling(
+    task_id: str,
+    task_func,
+    celery_task_self,
+    task_display_name: str = None,
+    *args,
+    **kwargs
+) -> dict[str, Any]:
+    """Standard task execution wrapper with logging, status updates, and error handling.
+    
+    Args:
+        task_id: Task identifier
+        task_func: Async function to execute
+        celery_task_self: Celery task self reference
+        task_display_name: Human-readable task name for logging
+        *args, **kwargs: Arguments to pass to task_func
+        
+    Returns:
+        Task execution result dictionary
+    """
+    status_manager = TaskStatusManager.get_instance()
+    start_time = datetime.now(timezone.utc)
+    celery_task_id = celery_task_self.request.id
+    display_name = task_display_name or task_id.replace("_", " ").title()
+    
+    try:
+        logger.info(
+            "Task %s (%s) started at %s",
+            display_name,
+            celery_task_id,
+            start_time.isoformat(),
+        )
+        
+        # Set running status
+        await status_manager.update_status(task_id, TaskStatus.RUNNING.value)
+        await update_task_history_entry(
+            celery_task_id=celery_task_id,
+            task_name=task_id,
+            status=TaskStatus.RUNNING.value,
+            manual_run=celery_task_self.request.get("manual_run", False),
+            start_time=start_time,
+        )
+        
+        # Execute the actual task
+        result = await task_func(*args, **kwargs)
+        
+        # Mark as completed
+        end_time = datetime.now(timezone.utc)
+        runtime_ms = (end_time - start_time).total_seconds() * 1000
+        
+        await status_manager.update_status(task_id, TaskStatus.COMPLETED.value)
+        await update_task_history_entry(
+            celery_task_id=celery_task_id,
+            task_name=task_id,
+            status=TaskStatus.COMPLETED.value,
+            result=result,
+            end_time=end_time,
+            runtime_ms=runtime_ms,
+        )
+        
+        logger.info(
+            "Task %s (%s) completed successfully in %.2fms",
+            display_name,
+            celery_task_id,
+            runtime_ms,
+        )
+        
+        return result
+        
+    except Exception as e:
+        end_time = datetime.now(timezone.utc)
+        runtime_ms = (end_time - start_time).total_seconds() * 1000
+        error_msg = str(e)
+        
+        logger.exception(
+            "Task %s (%s) failed after %.2fms: %s",
+            display_name,
+            celery_task_id,
+            runtime_ms,
+            error_msg,
+        )
+        
+        await status_manager.update_status(task_id, TaskStatus.FAILED.value, error_msg)
+        await update_task_history_entry(
+            celery_task_id=celery_task_id,
+            task_name=task_id,
+            status=TaskStatus.FAILED.value,
+            error=error_msg,
+            end_time=end_time,
+            runtime_ms=runtime_ms,
+        )
+        
+        return {
+            "status": "error",
+            "error": error_msg,
+            "task_id": task_id,
+            "runtime_ms": runtime_ms,
+        }
 
 
 async def get_task_config() -> dict[str, Any]:
@@ -509,6 +611,18 @@ async def periodic_fetch_trips_async(
                 )
 
                 if latest_trip_end:
+                    # Handle both datetime objects and string dates
+                    if isinstance(latest_trip_end, str):
+                        try:
+                            latest_trip_end = datetime.fromisoformat(
+                                latest_trip_end.replace("Z", "+00:00")
+                            )
+                        except ValueError:
+                            logger.warning(
+                                f"Could not parse latest trip endTime: {latest_trip_end}"
+                            )
+                            latest_trip_end = now_utc - timedelta(hours=48)
+                    
                     if latest_trip_end.tzinfo is None:
                         latest_trip_end = latest_trip_end.replace(
                             tzinfo=timezone.utc,

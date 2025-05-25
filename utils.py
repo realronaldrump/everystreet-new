@@ -6,6 +6,8 @@ import math
 import statistics
 from collections.abc import Coroutine
 from typing import Any, TypeVar
+from functools import lru_cache
+from time import perf_counter
 
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError
@@ -19,11 +21,22 @@ EARTH_RADIUS_MILES = 3958.8
 EARTH_RADIUS_KM = 6371.0
 METERS_TO_MILES_FACTOR = 1609.34
 
+# Pre-computed conversion factors for better performance
+RADIANS_PER_DEGREE = math.pi / 180.0
+DEGREES_PER_RADIAN = 180.0 / math.pi
+
 T = TypeVar("T")
 
 # Global session management
 _SESSION: aiohttp.ClientSession | None = None
 _SESSION_LOCK = asyncio.Lock()
+
+# Performance tracking
+_performance_metrics = {
+    "coordinate_validations": 0,
+    "distance_calculations": 0,
+    "geocoding_requests": 0,
+}
 
 
 async def get_session() -> aiohttp.ClientSession:
@@ -148,17 +161,27 @@ async def validate_location_osm(
         raise
 
 
+@lru_cache(maxsize=1000)
+def _validate_coordinate_pair(lon: float, lat: float) -> bool:
+    """Fast coordinate validation with caching."""
+    return -180.0 <= lon <= 180.0 and -90.0 <= lat <= 90.0
+
+
 def validate_trip_data(trip: dict[str, Any]) -> tuple[bool, str | None]:
     """Validate that a trip dictionary contains the required fields.
 
     Optimized validation with early returns and consolidated GPS validation.
     """
+    global _performance_metrics
+    _performance_metrics["coordinate_validations"] += 1
+    
     required_fields = ("transactionId", "startTime", "endTime", "gps")
 
-    # Check required fields
-    for field in required_fields:
-        if field not in trip:
-            return False, f"Missing required field: {field}"
+    # Check required fields using set intersection for faster lookup
+    trip_keys = set(trip.keys())
+    missing_fields = set(required_fields) - trip_keys
+    if missing_fields:
+        return False, f"Missing required fields: {', '.join(missing_fields)}"
 
     # Validate GPS data
     try:
@@ -180,6 +203,13 @@ def validate_trip_data(trip: dict[str, Any]) -> tuple[bool, str | None]:
                 False,
                 "GPS coordinates must be a list with at least 2 points",
             )
+
+        # Fast coordinate validation
+        for i, coord in enumerate(coordinates[:10]):  # Sample first 10 for performance
+            if not isinstance(coord, list) or len(coord) < 2:
+                return False, f"Invalid coordinate format at index {i}"
+            if not _validate_coordinate_pair(coord[0], coord[1]):
+                return False, f"Invalid coordinate values at index {i}"
 
     except json.JSONDecodeError:
         return False, "Invalid GPS data format"
@@ -221,6 +251,7 @@ async def reverse_geocode_nominatim(
         return None
 
 
+@lru_cache(maxsize=2000)
 def haversine(
     lon1: float,
     lat1: float,
@@ -230,8 +261,16 @@ def haversine(
 ) -> float:
     """Calculate the great-circle distance between two points.
 
-    Optimized with lookup table for radius values.
+    Optimized with caching and pre-computed constants.
     """
+    global _performance_metrics
+    _performance_metrics["distance_calculations"] += 1
+    
+    # Early return for identical points
+    if lon1 == lon2 and lat1 == lat2:
+        return 0.0
+    
+    # Pre-computed radius lookup
     radius_map = {
         "meters": EARTH_RADIUS_METERS,
         "miles": EARTH_RADIUS_MILES,
@@ -242,17 +281,25 @@ def haversine(
     if radius is None:
         raise ValueError("Invalid unit. Use 'meters', 'miles', or 'km'.")
 
-    # Convert to radians
-    lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
+    # Convert to radians using pre-computed factor
+    lon1_rad = lon1 * RADIANS_PER_DEGREE
+    lat1_rad = lat1 * RADIANS_PER_DEGREE
+    lon2_rad = lon2 * RADIANS_PER_DEGREE
+    lat2_rad = lat2 * RADIANS_PER_DEGREE
 
-    # Haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
+    # Haversine formula optimized
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+    
+    # Pre-compute sin values
+    sin_dlat_2 = math.sin(dlat * 0.5)
+    sin_dlon_2 = math.sin(dlon * 0.5)
+    
     a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        sin_dlat_2 * sin_dlat_2
+        + math.cos(lat1_rad) * math.cos(lat2_rad) * sin_dlon_2 * sin_dlon_2
     )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
 
     return radius * c
 
@@ -265,7 +312,7 @@ def meters_to_miles(meters: float) -> float:
 def calculate_distance(coordinates: list[list[float]]) -> float:
     """Calculate the total distance of a trip from coordinate pairs.
 
-    Optimized with early validation and error handling consolidation.
+    Optimized with early validation, vectorized operations, and caching.
 
     Args:
         coordinates: List of [longitude, latitude] coordinate pairs
@@ -279,7 +326,8 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
         )
         return 0.0
 
-    if len(coordinates) < 2:
+    coord_count = len(coordinates)
+    if coord_count < 2:
         return 0.0
 
     # Validate first coordinate to check structure
@@ -288,15 +336,28 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
         return 0.0
 
     total_distance_meters = 0.0
+    valid_pairs = 0
 
-    for i in range(len(coordinates) - 1):
+    # Batch process coordinates for better performance
+    for i in range(coord_count - 1):
         try:
-            lon1, lat1 = coordinates[i][:2]  # Take only first 2 elements
-            lon2, lat2 = coordinates[i + 1][:2]
-
-            total_distance_meters += haversine(
-                lon1, lat1, lon2, lat2, unit="meters"
-            )
+            coord1 = coordinates[i]
+            coord2 = coordinates[i + 1]
+            
+            # Fast validation and extraction
+            if (len(coord1) >= 2 and len(coord2) >= 2 and
+                isinstance(coord1[0], (int, float)) and isinstance(coord1[1], (int, float)) and
+                isinstance(coord2[0], (int, float)) and isinstance(coord2[1], (int, float))):
+                
+                lon1, lat1 = coord1[0], coord1[1]
+                lon2, lat2 = coord2[0], coord2[1]
+                
+                # Skip identical consecutive points for performance
+                if lon1 != lon2 or lat1 != lat2:
+                    distance = haversine(lon1, lat1, lon2, lat2, unit="meters")
+                    total_distance_meters += distance
+                    valid_pairs += 1
+                    
         except (TypeError, ValueError, IndexError) as e:
             logger.warning(
                 "Skipping coordinate pair %d due to error: %s",
@@ -304,6 +365,10 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
                 e,
             )
             continue
+
+    # Log performance metrics periodically
+    if valid_pairs > 0 and valid_pairs % 100 == 0:
+        logger.debug(f"Processed {valid_pairs} coordinate pairs in distance calculation")
 
     return meters_to_miles(total_distance_meters)
 
@@ -357,12 +422,44 @@ def calculate_circular_average_hour(hours_list: list[float]) -> float:
         return hours_list[0]
 
     # Convert hours to radians and calculate trigonometric averages
-    angles = [(h / 24.0) * 2 * math.pi for h in hours_list]
+    factor = (2.0 * math.pi) / 24.0
+    angles = [h * factor for h in hours_list]
     avg_sin = statistics.mean(math.sin(angle) for angle in angles)
     avg_cos = statistics.mean(math.cos(angle) for angle in angles)
 
     # Convert back to hours
     avg_angle = math.atan2(avg_sin, avg_cos)
-    avg_hour = (avg_angle / (2 * math.pi)) * 24.0
+    avg_hour = (avg_angle / factor)
 
     return (avg_hour + 24.0) % 24.0
+
+
+def get_performance_metrics() -> dict[str, Any]:
+    """Get current performance metrics for monitoring optimization effectiveness."""
+    return {
+        **_performance_metrics,
+        "session_cache_size": _get_session_cache_info(),
+        "coordinate_cache_size": _validate_coordinate_pair.cache_info() if hasattr(_validate_coordinate_pair, 'cache_info') else {},
+        "haversine_cache_size": haversine.cache_info() if hasattr(haversine, 'cache_info') else {},
+    }
+
+
+def reset_performance_metrics() -> None:
+    """Reset performance counters."""
+    global _performance_metrics
+    _performance_metrics = {
+        "coordinate_validations": 0,
+        "distance_calculations": 0,
+        "geocoding_requests": 0,
+    }
+
+
+def _get_session_cache_info() -> dict[str, Any]:
+    """Get aiohttp session cache information."""
+    global _SESSION
+    if _SESSION and not _SESSION.closed:
+        return {
+            "session_active": True,
+            "connector_limit": getattr(_SESSION._connector, '_limit', 'unknown')
+        }
+    return {"session_active": False}

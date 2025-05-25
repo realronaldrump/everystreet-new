@@ -2988,6 +2988,18 @@ async def get_first_trip_date():
             return {"first_trip_date": now.isoformat()}
 
         earliest_trip_date = earliest_trip["startTime"]
+        
+        # Handle both datetime objects and string dates from database
+        if isinstance(earliest_trip_date, str):
+            try:
+                earliest_trip_date = datetime.fromisoformat(
+                    earliest_trip_date.replace("Z", "+00:00")
+                )
+            except ValueError:
+                logger.warning(f"Could not parse earliest trip date: {earliest_trip_date}")
+                now = datetime.now(timezone.utc)
+                return {"first_trip_date": now.isoformat()}
+        
         if earliest_trip_date.tzinfo is None:
             earliest_trip_date = earliest_trip_date.replace(
                 tzinfo=timezone.utc,

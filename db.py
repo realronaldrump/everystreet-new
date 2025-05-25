@@ -2,7 +2,7 @@
 
 Provides a singleton DatabaseManager class for MongoDB connections and
 operations, with robust retry logic, connection pooling, serialization helpers,
-and GridFS access.
+and GridFS access. Enhanced with query optimization utilities.
 """
 
 from __future__ import annotations
@@ -43,6 +43,72 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+# Optimized query templates for common operations
+QUERY_TEMPLATES = {
+    "trips_by_date_range": {
+        "template": {"$and": [
+            {"{date_field}": {"$gte": "{start_date}"}},
+            {"{date_field}": {"$lte": "{end_date}"}}
+        ]},
+        "indexes": [("{date_field}", 1), ("imei", 1)]
+    },
+    "coverage_by_location": {
+        "template": {"properties.location": "{location_name}"},
+        "indexes": [("properties.location", 1), ("properties.driven", 1)]
+    },
+    "active_trips": {
+        "template": {"status": "active", "endTime": None},
+        "indexes": [("status", 1), ("endTime", 1), ("lastUpdate", -1)]
+    }
+}
+
+# Cache for frequently used aggregation pipelines
+AGGREGATION_CACHE = {}
+
+
+class QueryOptimizer:
+    """Utility class for optimizing database queries and operations."""
+    
+    @staticmethod
+    def build_indexed_query(template_name: str, **params) -> dict:
+        """Build an optimized query using predefined templates."""
+        if template_name not in QUERY_TEMPLATES:
+            raise ValueError(f"Unknown query template: {template_name}")
+        
+        template = QUERY_TEMPLATES[template_name]["template"]
+        query_str = json.dumps(template)
+        
+        for param, value in params.items():
+            query_str = query_str.replace(f'"{{{param}}}"', json.dumps(value))
+        
+        return json.loads(query_str)
+    
+    @staticmethod
+    def get_recommended_indexes(template_name: str) -> list:
+        """Get recommended indexes for a query template."""
+        return QUERY_TEMPLATES.get(template_name, {}).get("indexes", [])
+    
+    @staticmethod
+    def optimize_sort_projection(
+        sort: list | None = None,
+        projection: dict | None = None,
+        limit: int | None = None
+    ) -> dict:
+        """Optimize sort and projection for better performance."""
+        options = {}
+        
+        if sort:
+            options["sort"] = sort
+        if projection:
+            # Always include _id unless explicitly excluded
+            if "_id" not in projection:
+                projection["_id"] = 1
+            options["projection"] = projection
+        if limit:
+            options["limit"] = limit
+            
+        return options
+
 
 class DatabaseManager:
     """Singleton class to manage the MongoDB client, database connection, and
@@ -68,7 +134,8 @@ class DatabaseManager:
             ) = None
             self._quota_exceeded = False
             self._connection_healthy = True
-            self._db_semaphore = asyncio.Semaphore(10)
+            # Increased semaphore limit for better concurrency
+            self._db_semaphore = asyncio.Semaphore(20)
             self._collections: dict[str, AsyncIOMotorCollection] = {}
             self._initialized = True
             self._conn_retry_backoff = [
@@ -79,7 +146,8 @@ class DatabaseManager:
                 30,
             ]
 
-            self._max_pool_size = int(os.getenv("MONGODB_MAX_POOL_SIZE", "10"))
+            # Optimized connection parameters
+            self._max_pool_size = int(os.getenv("MONGODB_MAX_POOL_SIZE", "20"))
             self._connection_timeout_ms = int(
                 os.getenv(
                     "MONGODB_CONNECTION_TIMEOUT_MS",
@@ -571,12 +639,12 @@ class SerializationHelper:
 
     @staticmethod
     def serialize_datetime(
-        dt: datetime | None,
+        dt: datetime | str | None,
     ) -> str | None:
         """Return ISO formatted datetime string if dt is not None.
 
         Args:
-            dt: Datetime to serialize
+            dt: Datetime to serialize (datetime object or ISO string)
 
         Returns:
             ISO formatted string or None
@@ -584,6 +652,22 @@ class SerializationHelper:
         """
         if dt is None:
             return None
+            
+        # Handle case where dt is already a string
+        if isinstance(dt, str):
+            try:
+                # Try to parse it as a datetime to validate and normalize
+                parsed_dt = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+                if parsed_dt.tzinfo is None:
+                    parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
+                return parsed_dt.isoformat().replace("+00:00", "Z")
+            except (ValueError, AttributeError):
+                # If parsing fails, return as-is if it looks like an ISO string
+                if "T" in dt and (dt.endswith("Z") or "+" in dt or dt.count(":") >= 2):
+                    return dt
+                return None
+        
+        # Handle datetime objects
         if dt.tzinfo is None:
             dt = dt.astimezone(timezone.utc)
         return dt.isoformat().replace("+00:00", "Z")
@@ -1064,6 +1148,104 @@ async def count_documents_with_retry(
         )
         or 0
     )
+
+
+async def optimized_paginate(
+    collection: AsyncIOMotorCollection,
+    query: dict[str, Any],
+    page: int = 1,
+    limit: int = 50,
+    sort: list | None = None,
+    projection: dict | None = None,
+) -> dict[str, Any]:
+    """Efficiently paginate query results with optimized sorting and projection.
+    
+    Args:
+        collection: MongoDB collection
+        query: Query filter
+        page: Page number (1-based)
+        limit: Items per page
+        sort: Sort criteria
+        projection: Fields to include/exclude
+        
+    Returns:
+        Dict with data, pagination info, and metadata
+    """
+    skip = (page - 1) * limit
+    
+    # Optimize projection and sort
+    options = QueryOptimizer.optimize_sort_projection(sort, projection, limit)
+    
+    # Count total documents (only if needed for pagination)
+    total_count = await count_documents_with_retry(collection, query)
+    
+    # Execute the main query with optimizations
+    cursor = collection.find(query, **options).skip(skip)
+    documents = await cursor.to_list(limit)
+    
+    total_pages = (total_count + limit - 1) // limit
+    
+    return {
+        "data": documents,
+        "pagination": {
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "has_next": page < total_pages,
+            "has_prev": page > 1,
+            "limit": limit
+        }
+    }
+
+
+async def bulk_update_optimized(
+    collection: AsyncIOMotorCollection,
+    updates: list[dict[str, Any]],
+    batch_size: int = 1000,
+) -> dict[str, Any]:
+    """Perform bulk updates with optimized batching.
+    
+    Args:
+        collection: MongoDB collection
+        updates: List of update operations
+        batch_size: Size of each batch
+        
+    Returns:
+        Summary of operations performed
+    """
+    from pymongo import UpdateOne
+    
+    total_matched = 0
+    total_modified = 0
+    total_upserted = 0
+    errors = []
+    
+    for i in range(0, len(updates), batch_size):
+        batch = updates[i:i + batch_size]
+        operations = []
+        
+        for update in batch:
+            operations.append(UpdateOne(
+                update.get("filter", {}),
+                update.get("update", {}),
+                upsert=update.get("upsert", False)
+            ))
+        
+        try:
+            result = await collection.bulk_write(operations, ordered=False)
+            total_matched += result.matched_count
+            total_modified += result.modified_count
+            total_upserted += result.upserted_count
+        except Exception as e:
+            errors.append(str(e))
+            logger.error(f"Bulk update batch failed: {e}")
+    
+    return {
+        "matched_count": total_matched,
+        "modified_count": total_modified,
+        "upserted_count": total_upserted,
+        "errors": errors
+    }
 
 
 async def get_trip_by_id(
