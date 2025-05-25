@@ -293,7 +293,7 @@ async def process_geojson_trip(
                     "transactionId": tid,
                     "startTime": stime_parsed,
                     "endTime": etime_parsed,
-                    "gps": json.dumps(trip_geo),
+                    "gps": trip_geo,
                     "distance": dist_miles,
                     "imei": "UPLOADED",
                     "source": "upload_geojson",
@@ -3158,12 +3158,10 @@ async def upload_files(
                                 "transactionId": f"GPX-{st.strftime('%Y%m%d%H%M%S')}-{filename}",
                                 "startTime": st,
                                 "endTime": en,
-                                "gps": json.dumps(
-                                    {
-                                        "type": "LineString",
-                                        "coordinates": coords,
-                                    },
-                                ),
+                                "gps": {
+                                    "type": "LineString",
+                                    "coordinates": coords,
+                                },
                                 "imei": "UPLOADED",
                                 "distance": calculate_distance(coords),
                                 "source": "upload_gpx",

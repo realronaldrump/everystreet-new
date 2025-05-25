@@ -81,7 +81,7 @@ async def coverage_management_page(request: Request):
     """Render coverage management page."""
     return templates.TemplateResponse(
         "coverage_management.html",
-        {"request": request},
+        {"request": request, "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN},
     )
 
 
