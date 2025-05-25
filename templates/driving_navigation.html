@@ -158,9 +158,37 @@ block head_content %}
           <button id="find-nearby-btn" class="btn btn-primary" disabled>
             <i class="fas fa-search me-2"></i>Find Nearby Streets
           </button>
+          <button id="optimize-route-btn" class="btn btn-success" disabled>
+            <i class="fas fa-route me-2"></i>Create Optimized Route
+          </button>
           <button id="get-location-btn" class="btn btn-outline-info">
             <i class="fas fa-crosshairs me-2"></i>Update Location
           </button>
+        </div>
+
+        <!-- Optimization Settings -->
+        <div id="optimization-settings" style="display: none" class="mt-3">
+          <h6 class="mb-2">Route Optimization</h6>
+          <div class="row g-2">
+            <div class="col-6">
+              <label for="max-streets" class="form-label small">Max Streets</label>
+              <select id="max-streets" class="form-select form-select-sm">
+                <option value="3">3 streets</option>
+                <option value="5" selected>5 streets</option>
+                <option value="8">8 streets</option>
+                <option value="10">10 streets</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label for="max-distance" class="form-label small">Max Distance</label>
+              <select id="max-distance" class="form-select form-select-sm">
+                <option value="1">1 mile</option>
+                <option value="2" selected>2 miles</option>
+                <option value="3">3 miles</option>
+                <option value="5">5 miles</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <!-- Nearby Streets List -->
@@ -175,12 +203,54 @@ block head_content %}
             <i class="fas fa-info-circle me-2"></i>Route Details
           </h6>
           <div id="route-details"></div>
-          <button
-            id="clear-route-btn"
-            class="btn btn-sm btn-outline-warning mt-2"
-          >
-            Clear Route
-          </button>
+          <div class="mt-2 d-grid gap-1">
+            <button
+              id="mark-completed-btn"
+              class="btn btn-sm btn-success"
+              style="display: none"
+            >
+              <i class="fas fa-check me-1"></i>Mark Streets as Driven
+            </button>
+            <div class="row g-1">
+              <div class="col-6">
+                <button
+                  id="open-apple-maps-btn"
+                  class="btn btn-sm btn-info w-100"
+                  style="display: none"
+                >
+                  <i class="fab fa-apple me-1"></i>Apple Maps
+                </button>
+              </div>
+              <div class="col-6">
+                <button
+                  id="open-google-maps-btn"
+                  class="btn btn-sm btn-primary w-100"
+                  style="display: none"
+                >
+                  <i class="fab fa-google me-1"></i>Google Maps
+                </button>
+              </div>
+            </div>
+            <button
+              id="clear-route-btn"
+              class="btn btn-sm btn-outline-warning"
+            >
+              Clear Route
+            </button>
+          </div>
+        </div>
+
+        <!-- Progress Tracking -->
+        <div id="progress-info" style="display: none" class="mt-3">
+          <h6 class="mb-2">
+            <i class="fas fa-chart-line me-2"></i>Area Progress
+          </h6>
+          <div id="progress-details">
+            <div class="progress mb-2" style="height: 8px;">
+              <div id="progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+            </div>
+            <div class="small text-muted" id="progress-text">No data available</div>
+          </div>
         </div>
       </div>
     </div>
@@ -276,6 +346,12 @@ block head_content %}
         });
 
       document
+        .getElementById("optimize-route-btn")
+        .addEventListener("click", () => {
+          this.createOptimizedRoute();
+        });
+
+      document
         .getElementById("get-location-btn")
         .addEventListener("click", () => {
           this.requestLocation();
@@ -286,6 +362,18 @@ block head_content %}
         .addEventListener("click", () => {
           this.clearRoute();
         });
+
+      document.getElementById("mark-completed-btn").addEventListener("click", () => {
+        this.markStreetsCompleted();
+      });
+
+      document.getElementById("open-apple-maps-btn").addEventListener("click", () => {
+        this.openInAppleMaps();
+      });
+
+      document.getElementById("open-google-maps-btn").addEventListener("click", () => {
+        this.openInGoogleMaps();
+      });
     }
 
     async loadAreas() {
@@ -340,6 +428,7 @@ block head_content %}
         this.selectedArea = JSON.parse(areaData);
         await this.loadAreaStreets();
         this.updateFindButton();
+        this.updateProgress();
       } catch (error) {
         this.showNotification("Failed to load area data", "error");
       }
@@ -440,12 +529,22 @@ block head_content %}
     }
 
     updateFindButton() {
-      const btn = document.getElementById("find-nearby-btn");
-      btn.disabled = !(
+      const findBtn = document.getElementById("find-nearby-btn");
+      const optimizeBtn = document.getElementById("optimize-route-btn");
+      
+      const canUse = !!(
         this.userLocation &&
         this.selectedArea &&
         this.undrivenStreets.length > 0
       );
+      
+      findBtn.disabled = !canUse;
+      optimizeBtn.disabled = !canUse;
+      
+      // Show optimization settings when area is selected
+      if (this.selectedArea) {
+        document.getElementById("optimization-settings").style.display = "block";
+      }
     }
 
     async findNearbyStreets() {
@@ -481,6 +580,113 @@ block head_content %}
         .slice(0, 10);
 
       this.displayNearbyStreets();
+    }
+
+    async createOptimizedRoute() {
+      if (!this.userLocation || !this.selectedArea) return;
+
+      const maxStreets = parseInt(document.getElementById("max-streets").value);
+      const maxDistance = parseFloat(document.getElementById("max-distance").value);
+
+      try {
+        this.showNotification("Creating optimized route...", "info");
+
+        const response = await fetch("/api/driving-navigation/optimized-route", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: this.selectedArea,
+            user_location: this.userLocation,
+            max_streets: maxStreets,
+            max_distance: maxDistance,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.status === "success" && data.route) {
+          this.displayOptimizedRoute(data);
+          this.showNotification(data.message, "success");
+        } else {
+          this.showNotification(data.message || "No optimal route found", "warning");
+        }
+      } catch (error) {
+        this.showNotification("Failed to create optimized route", "error");
+        console.error("Optimization error:", error);
+      }
+    }
+
+    displayOptimizedRoute(data) {
+      const { route, total_streets, estimated_efficiency } = data;
+
+      // Clear existing route and target layers
+      this.routeLayer.clearLayers();
+      this.targetLayer.clearLayers();
+
+      // Display route on map
+      if (route.geometry) {
+        const routeGeoJSON = {
+          type: "Feature",
+          geometry: route.geometry,
+        };
+
+        L.geoJSON(routeGeoJSON, {
+          style: {
+            color: "#4ecdc4",
+            weight: 4,
+            opacity: 0.8,
+            className: "route-line",
+          },
+        }).addTo(this.routeLayer);
+
+        // Fit map to route
+        this.map.fitBounds(L.geoJSON(routeGeoJSON).getBounds(), {
+          padding: [50, 50],
+        });
+      }
+
+      // Show route information
+      const routeInfo = document.getElementById("route-info");
+      const routeDetails = document.getElementById("route-details");
+      
+      const duration = Math.round(route.duration / 60);
+      const distance = (route.distance / 1609.34).toFixed(1); // Convert to miles
+      
+      let streetsHtml = "";
+      if (route.streets_included) {
+        streetsHtml = `
+          <div class="mt-2">
+            <strong>Streets included:</strong>
+            <ul class="list-unstyled mt-1">
+              ${route.streets_included.map(street => 
+                `<li class="small">• ${street.street_name} (${street.distance_miles} mi away)</li>`
+              ).join('')}
+            </ul>
+          </div>
+        `;
+      }
+      
+      routeDetails.innerHTML = `
+        <div class="small">
+          <div><strong>Total Streets:</strong> ${total_streets}</div>
+          <div><strong>Distance:</strong> ${distance} miles</div>
+          <div><strong>Time:</strong> ~${duration} minutes</div>
+          <div><strong>Efficiency:</strong> ${estimated_efficiency}</div>
+          ${streetsHtml}
+        </div>
+      `;
+      
+      routeInfo.style.display = "block";
+      this.currentRoute = route;
+
+      // Show completion button for optimized routes with multiple streets
+      if (route.streets_included && route.streets_included.length > 0) {
+        document.getElementById("mark-completed-btn").style.display = "block";
+      }
+
+      // Show native map buttons for any route
+      document.getElementById("open-apple-maps-btn").style.display = "block";
+      document.getElementById("open-google-maps-btn").style.display = "block";
     }
 
     displayNearbyStreets() {
@@ -622,15 +828,171 @@ block head_content %}
     `;
 
       info.style.display = "block";
+      
+      // Show native map buttons for single street routes too
+      document.getElementById("open-apple-maps-btn").style.display = "block";
+      document.getElementById("open-google-maps-btn").style.display = "block";
+    }
+
+    openInAppleMaps() {
+      if (!this.currentRoute) return;
+      
+      let url = `https://maps.apple.com/?dirflg=d`;
+      
+      // Add starting location (current user location)
+      if (this.userLocation) {
+        url += `&saddr=${this.userLocation.lat},${this.userLocation.lon}`;
+      }
+      
+      // Handle routes with multiple waypoints
+      if (this.currentRoute.streets_included && this.currentRoute.streets_included.length > 1) {
+        // For multiple streets, use first street as destination and others as waypoints
+        const firstStreet = this.currentRoute.streets_included[0];
+        const geometry = firstStreet.geometry || this.currentRoute.geometry;
+        
+        if (geometry && geometry.coordinates) {
+          const coords = geometry.coordinates;
+          const destCoord = coords[0]; // First coordinate of the route
+          url += `&daddr=${destCoord[1]},${destCoord[0]}`;
+          
+          // Add waypoints for other streets (Apple Maps supports limited waypoints)
+          const waypoints = this.currentRoute.streets_included.slice(1, 4) // Max 3 additional waypoints
+            .map(street => {
+              if (street.start_coords) {
+                return `${street.start_coords[1]},${street.start_coords[0]}`;
+              }
+              return null;
+            })
+            .filter(wp => wp !== null);
+            
+          if (waypoints.length > 0) {
+            url += `&waypoints=${waypoints.join('|')}`;
+          }
+        }
+      } else {
+        // Single destination
+        const geometry = this.currentRoute.geometry;
+        if (geometry && geometry.coordinates) {
+          const coords = geometry.coordinates;
+          const destCoord = coords[coords.length - 1]; // Last coordinate
+          url += `&daddr=${destCoord[1]},${destCoord[0]}`;
+        }
+      }
+      
+      window.open(url, '_blank');
+      this.showNotification('Opening route in Apple Maps...', 'info');
+    }
+
+    openInGoogleMaps() {
+      if (!this.currentRoute) return;
+      
+      let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving`;
+      
+      // Add starting location (current user location)
+      if (this.userLocation) {
+        url += `&origin=${this.userLocation.lat},${this.userLocation.lon}`;
+      }
+      
+      // Handle routes with multiple waypoints
+      if (this.currentRoute.streets_included && this.currentRoute.streets_included.length > 1) {
+        // For multiple streets, create waypoints
+        const allWaypoints = [];
+        
+        this.currentRoute.streets_included.forEach(street => {
+          if (street.start_coords) {
+            allWaypoints.push(`${street.start_coords[1]},${street.start_coords[0]}`);
+          }
+        });
+        
+        if (allWaypoints.length > 0) {
+          // Use last waypoint as destination
+          const destination = allWaypoints.pop();
+          url += `&destination=${destination}`;
+          
+          // Add intermediate waypoints (Google Maps supports up to 8)
+          if (allWaypoints.length > 0) {
+            const limitedWaypoints = allWaypoints.slice(0, 8);
+            url += `&waypoints=${limitedWaypoints.join('|')}`;
+          }
+        }
+      } else {
+        // Single destination
+        const geometry = this.currentRoute.geometry;
+        if (geometry && geometry.coordinates) {
+          const coords = geometry.coordinates;
+          const destCoord = coords[coords.length - 1]; // Last coordinate
+          url += `&destination=${destCoord[1]},${destCoord[0]}`;
+        }
+      }
+      
+      window.open(url, '_blank');
+      this.showNotification('Opening route in Google Maps...', 'info');
     }
 
     clearRoute() {
       this.routeLayer.clearLayers();
       this.targetLayer.clearLayers();
       document.getElementById("route-info").style.display = "none";
+      document.getElementById("mark-completed-btn").style.display = "none";
+      document.getElementById("open-apple-maps-btn").style.display = "none";
+      document.getElementById("open-google-maps-btn").style.display = "none";
       document.querySelectorAll(".street-item").forEach((item) => {
         item.classList.remove("selected");
       });
+      this.currentRoute = null;
+    }
+
+    async markStreetsCompleted() {
+      if (!this.currentRoute || !this.currentRoute.streets_included) return;
+
+      try {
+        this.showNotification("Marking streets as completed...", "info");
+
+        for (const street of this.currentRoute.streets_included) {
+          await fetch("/api/street_segments/mark_driven", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              location_id: this.selectedArea._id,
+              segment_id: street.segment_id,
+            }),
+          });
+        }
+
+        this.showNotification(`Marked ${this.currentRoute.streets_included.length} streets as driven!`, "success");
+        
+        // Refresh the streets and progress
+        await this.loadAreaStreets();
+        this.updateProgress();
+        this.clearRoute();
+        
+      } catch (error) {
+        this.showNotification("Failed to mark streets as completed", "error");
+        console.error("Completion error:", error);
+      }
+    }
+
+    async updateProgress() {
+      if (!this.selectedArea) return;
+
+      try {
+        const response = await fetch(`/api/coverage_areas/${this.selectedArea._id}`);
+        const data = await response.json();
+        
+        if (data.location && data.location.stats) {
+          const stats = data.location.stats;
+          const total = stats.total_segments || 1;
+          const driven = stats.driven_segments || 0;
+          const percentage = Math.round((driven / total) * 100);
+          
+          document.getElementById("progress-bar").style.width = `${percentage}%`;
+          document.getElementById("progress-text").textContent = 
+            `${driven} of ${total} streets driven (${percentage}%)`;
+          document.getElementById("progress-info").style.display = "block";
+        }
+      } catch (error) {
+        console.error("Progress update error:", error);
+      }
     }
 
     calculateDistance(lat1, lon1, lat2, lon2) {

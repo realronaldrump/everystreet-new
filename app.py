@@ -127,6 +127,7 @@ from utils import (
     calculate_circular_average_hour,
     calculate_distance,
     cleanup_session,
+    haversine,
     validate_location_osm,
 )
 from visits import init_collections
@@ -6203,10 +6204,11 @@ async def get_simple_driving_route(
                         # Calculate great circle distance
                         street_lat, street_lon = (
                             float(coord[1]),
-                            float(coord[0]),
+                            float(coord[0])
                         )
-                        distance = calculate_distance(
-                            user_lat, user_lon, street_lat, street_lon
+
+                        distance = haversine(
+                            user_lon, user_lat, street_lon, street_lat, unit="miles"
                         )
                         min_distance = min(min_distance, distance)
 
@@ -6251,6 +6253,214 @@ async def get_simple_driving_route(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to find nearby streets: {e}",
+        )
+
+
+@app.post("/api/driving-navigation/optimized-route")
+async def get_optimized_multi_street_route(
+    request: Request,
+):
+    """Create an optimized route visiting multiple undriven streets efficiently.
+    
+    Accepts a JSON payload with:
+    - location: The target area location model
+    - user_location: Current position {lat, lon}
+    - max_streets: Maximum number of streets to include (default: 5)
+    - max_distance: Maximum distance to consider streets (default: 2 miles)
+    """
+    try:
+        data = await request.json()
+        if "location" not in data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Target location data is required",
+            )
+
+        location = LocationModel(**data["location"])
+        location_name = location.display_name
+
+        if not location_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Location display name is required.",
+            )
+
+        user_location = data.get("user_location")
+        if not user_location or "lat" not in user_location or "lon" not in user_location:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User location with lat/lon is required",
+            )
+
+        user_lat = float(user_location["lat"])
+        user_lon = float(user_location["lon"])
+        max_streets = int(data.get("max_streets", 5))
+        max_distance = float(data.get("max_distance", 2.0))
+
+    except (ValueError, TypeError) as e:
+        logger.error("Error parsing request data: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid request format: {e!s}",
+        )
+
+    try:
+        # Find undriven streets within distance limit
+        undriven_streets_cursor = streets_collection.find(
+            {
+                "properties.location": location_name,
+                "properties.driven": False,
+                "properties.undriveable": {"$ne": True},
+                "geometry.coordinates": {
+                    "$exists": True,
+                    "$not": {"$size": 0},
+                },
+            },
+            {
+                "geometry": 1,
+                "properties.segment_id": 1,
+                "properties.street_name": 1,
+                "_id": 0,
+            },
+        )
+        undriven_streets = await undriven_streets_cursor.to_list(length=None)
+
+        if not undriven_streets:
+            return JSONResponse(
+                content={
+                    "status": "success",
+                    "message": f"No undriven streets found in {location_name}.",
+                    "route": None,
+                },
+            )
+
+        # Calculate distances and filter by max_distance
+        nearby_streets = []
+        for street in undriven_streets:
+            geometry = street.get("geometry", {})
+            if geometry.get("type") == "LineString" and geometry.get("coordinates"):
+                coords = geometry["coordinates"]
+                min_distance = float("inf")
+                closest_point = None
+                
+                # Find closest point on street to user
+                for coord in coords:
+                    if len(coord) >= 2:
+                        street_lat, street_lon = float(coord[1]), float(coord[0])
+                        distance = haversine(user_lon, user_lat, street_lon, street_lat, unit="miles")
+                        if distance < min_distance:
+                            min_distance = distance
+                            closest_point = [street_lon, street_lat]
+                
+                if min_distance <= max_distance and closest_point:
+                    nearby_streets.append({
+                        "street": street,
+                        "distance_miles": min_distance,
+                        "closest_point": closest_point,
+                        "start_coords": coords[0] if coords else None,
+                        "end_coords": coords[-1] if coords else None,
+                    })
+
+        if not nearby_streets:
+            return JSONResponse(
+                content={
+                    "status": "success",
+                    "message": f"No undriven streets found within {max_distance} miles.",
+                    "route": None,
+                },
+            )
+
+        # Sort by distance and limit
+        nearby_streets.sort(key=lambda x: x["distance_miles"])
+        selected_streets = nearby_streets[:max_streets]
+
+        # Create waypoints for optimization
+        waypoints = [[user_lon, user_lat]]  # Start with user location
+        
+        # Add street points (use start point of each street)
+        for street_data in selected_streets:
+            if street_data["start_coords"]:
+                waypoints.append(street_data["start_coords"])
+
+        # Get optimized route if we have multiple points
+        if len(waypoints) > 2:
+            try:
+                optimized_route = await _get_mapbox_optimization_route(
+                    waypoints[0][0], waypoints[0][1],  # start
+                    waypoints[1:]  # destinations
+                )
+                
+                if optimized_route and "routes" in optimized_route and optimized_route["routes"]:
+                    route_info = optimized_route["routes"][0]
+                    
+                    # Add street information to the route
+                    route_info["streets_included"] = [
+                        {
+                            "segment_id": street_data["street"]["properties"]["segment_id"],
+                            "street_name": street_data["street"]["properties"].get("street_name", "Unknown"),
+                            "distance_miles": round(street_data["distance_miles"], 2),
+                        }
+                        for street_data in selected_streets
+                    ]
+                    
+                    return JSONResponse(
+                        content={
+                            "status": "success",
+                            "message": f"Optimized route created for {len(selected_streets)} streets.",
+                            "route": route_info,
+                            "total_streets": len(selected_streets),
+                            "estimated_efficiency": f"{len(selected_streets)/max_distance:.1f} streets per mile radius",
+                        },
+                    )
+            except Exception as route_error:
+                logger.warning("Route optimization failed, falling back to simple route: %s", route_error)
+
+        # Fallback to simple route to nearest street
+        nearest_street = selected_streets[0]
+        simple_route = await _get_mapbox_directions_route(
+            user_lon, user_lat,
+            nearest_street["start_coords"][0], nearest_street["start_coords"][1]
+        )
+        
+        if simple_route:
+            simple_route["streets_included"] = [{
+                "segment_id": nearest_street["street"]["properties"]["segment_id"],
+                "street_name": nearest_street["street"]["properties"].get("street_name", "Unknown"),
+                "distance_miles": round(nearest_street["distance_miles"], 2),
+            }]
+            
+            formatted_response = {
+                "routes": [simple_route],
+                "code": "Ok"
+            }
+            
+            return JSONResponse(
+                content={
+                    "status": "success", 
+                    "message": f"Route to nearest street ({nearest_street['distance_miles']:.2f} miles away).",
+                    "route": formatted_response["routes"][0],
+                    "total_streets": 1,
+                    "estimated_efficiency": "1.0 streets per mile radius",
+                },
+            )
+
+        return JSONResponse(
+            content={
+                "status": "error",
+                "message": "Could not create route to nearby streets.",
+                "route": None,
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            "Error creating optimized route: %s",
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create optimized route: {e}",
         )
 
 
