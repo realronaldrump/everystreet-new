@@ -50,6 +50,7 @@ from motor.motor_asyncio import (
 from pymongo import GEOSPHERE, IndexModel
 from pymongo.errors import OperationFailure
 from sklearn.cluster import KMeans
+from gridfs import errors
 
 from bouncie_trip_fetcher import (
     fetch_bouncie_trips_in_range,
