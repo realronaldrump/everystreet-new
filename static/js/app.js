@@ -20,9 +20,10 @@ if (window.L?.Path) {
       tileLayerUrls: {
         dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        satellite:
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      }
+      },
     },
     STORAGE_KEYS: {
       startDate: "startDate",
@@ -87,10 +88,14 @@ if (window.L?.Path) {
   // Utility functions - consolidated and optimized
   const getElement = (selector) => {
     if (AppState.dom.has(selector)) return AppState.dom.get(selector);
-    
-    const normalizedSelector = selector.startsWith("#") || selector.includes(" ") || selector.startsWith(".") 
-      ? selector : `#${selector}`;
-    
+
+    const normalizedSelector =
+      selector.startsWith("#") ||
+      selector.includes(" ") ||
+      selector.startsWith(".")
+        ? selector
+        : `#${selector}`;
+
     try {
       const element = document.querySelector(normalizedSelector);
       if (element) AppState.dom.set(selector, element);
@@ -129,13 +134,13 @@ if (window.L?.Path) {
         console.warn(`Error writing to localStorage: ${e.message}`);
         return false;
       }
-    }
+    },
   };
 
   // Optimized event listener management
   const eventManager = {
     listeners: new WeakMap(),
-    
+
     add(element, eventType, handler) {
       const el = typeof element === "string" ? getElement(element) : element;
       if (!el) return false;
@@ -144,14 +149,17 @@ if (window.L?.Path) {
         this.listeners.set(el, new Map());
       }
 
-      const key = `${eventType}_${handler.name || 'anonymous'}`;
+      const key = `${eventType}_${handler.name || "anonymous"}`;
       const elementListeners = this.listeners.get(el);
-      
+
       if (elementListeners.has(key)) return false;
 
-      const wrappedHandler = eventType === "click" 
-        ? (e) => { if (e.button === 0) handler(e); }
-        : handler;
+      const wrappedHandler =
+        eventType === "click"
+          ? (e) => {
+              if (e.button === 0) handler(e);
+            }
+          : handler;
 
       el.addEventListener(eventType, wrappedHandler);
       elementListeners.set(key, wrappedHandler);
@@ -165,14 +173,14 @@ if (window.L?.Path) {
       const key = `${eventType}_${handlerName}`;
       const elementListeners = this.listeners.get(el);
       const handler = elementListeners.get(key);
-      
+
       if (handler) {
         el.removeEventListener(eventType, handler);
         elementListeners.delete(key);
         return true;
       }
       return false;
-    }
+    },
   };
 
   // Debounce utility
@@ -201,32 +209,37 @@ if (window.L?.Path) {
       const errorMsg = `API request failed for ${url} (Status: ${response.status})`;
       throw new Error(errorMsg);
     }
-    
+
     const data = await response.json();
     apiCache.set(key, { data, timestamp: now });
     return data;
   };
 
   // Date utilities
-  const getStartDate = () => storage.get(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate();
-  const getEndDate = () => storage.get(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
+  const getStartDate = () =>
+    storage.get(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate();
+  const getEndDate = () =>
+    storage.get(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
 
   // Optimized trip styling
   const getTripFeatureStyle = (feature, layerInfo) => {
     const { properties = {} } = feature;
     const { transactionId, startTime } = properties;
-    
+
     const sixHoursAgo = Date.now() - CONFIG.MAP.recentTripThreshold;
     const tripStartTime = new Date(startTime).getTime();
-    const isRecent = AppState.mapSettings.highlightRecentTrips && 
-                     !isNaN(tripStartTime) && 
-                     tripStartTime > sixHoursAgo;
+    const isRecent =
+      AppState.mapSettings.highlightRecentTrips &&
+      !isNaN(tripStartTime) &&
+      tripStartTime > sixHoursAgo;
     const isSelected = transactionId === AppState.selectedTripId;
-    
-    const isMatchedPair = isSelected || 
-      (AppState.selectedTripId && transactionId && 
-       (AppState.selectedTripId.replace("MATCHED-", "") === transactionId ||
-        transactionId.replace("MATCHED-", "") === AppState.selectedTripId));
+
+    const isMatchedPair =
+      isSelected ||
+      (AppState.selectedTripId &&
+        transactionId &&
+        (AppState.selectedTripId.replace("MATCHED-", "") === transactionId ||
+          transactionId.replace("MATCHED-", "") === AppState.selectedTripId));
 
     let color = layerInfo.color;
     let weight = layerInfo.weight || 2;
@@ -262,13 +275,18 @@ if (window.L?.Path) {
 
     AppState.layerGroup.eachLayer((layer) => {
       if (layer.feature?.properties && typeof layer.setStyle === "function") {
-        const isMatched = layer.feature.properties.isMatched ||
-                         layer.feature.properties.transactionId?.startsWith("MATCHED-");
-        const layerInfo = isMatched ? AppState.mapLayers.matchedTrips : AppState.mapLayers.trips;
-        
+        const isMatched =
+          layer.feature.properties.isMatched ||
+          layer.feature.properties.transactionId?.startsWith("MATCHED-");
+        const layerInfo = isMatched
+          ? AppState.mapLayers.matchedTrips
+          : AppState.mapLayers.trips;
+
         layer.setStyle(getTripFeatureStyle(layer.feature, layerInfo));
-        
-        if (layer.feature.properties.transactionId === AppState.selectedTripId) {
+
+        if (
+          layer.feature.properties.transactionId === AppState.selectedTripId
+        ) {
           layer.bringToFront();
         }
       }
@@ -278,7 +296,8 @@ if (window.L?.Path) {
   const debouncedUpdateMap = debounce(updateMap, CONFIG.MAP.debounceDelay);
   const debouncedUpdateUrlWithMapState = debounce(updateUrlWithMapState, 200);
 
-  const isMapReady = () => AppState.map && AppState.mapInitialized && AppState.layerGroup;
+  const isMapReady = () =>
+    AppState.map && AppState.mapInitialized && AppState.layerGroup;
 
   // Simplified map initialization
   async function initializeMap() {
@@ -310,8 +329,10 @@ if (window.L?.Path) {
 
       window.map = AppState.map;
 
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-      const tileUrl = CONFIG.MAP.tileLayerUrls[theme] || CONFIG.MAP.tileLayerUrls.dark;
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const tileUrl =
+        CONFIG.MAP.tileLayerUrls[theme] || CONFIG.MAP.tileLayerUrls.dark;
 
       AppState.baseLayer = L.tileLayer(tileUrl, {
         maxZoom: CONFIG.MAP.maxZoom,
@@ -319,7 +340,9 @@ if (window.L?.Path) {
       }).addTo(AppState.map);
 
       L.control.zoom({ position: "topright" }).addTo(AppState.map);
-      L.control.attribution({ position: "bottomright", prefix: "" }).addTo(AppState.map);
+      L.control
+        .attribution({ position: "bottomright", prefix: "" })
+        .addTo(AppState.map);
 
       AppState.layerGroup = L.layerGroup().addTo(AppState.map);
 
@@ -327,8 +350,8 @@ if (window.L?.Path) {
       const basemaps = Object.fromEntries(
         Object.entries(CONFIG.MAP.tileLayerUrls).map(([key, url]) => [
           key.charAt(0).toUpperCase() + key.slice(1),
-          L.tileLayer(url, { maxZoom: CONFIG.MAP.maxZoom })
-        ])
+          L.tileLayer(url, { maxZoom: CONFIG.MAP.maxZoom }),
+        ]),
       );
 
       const defaultBasemap = theme === "light" ? "Light" : "Dark";
@@ -337,7 +360,9 @@ if (window.L?.Path) {
         AppState.baseLayer = basemaps[defaultBasemap];
       }
 
-      L.control.layers(basemaps, null, { position: "topright", collapsed: true }).addTo(AppState.map);
+      L.control
+        .layers(basemaps, null, { position: "topright", collapsed: true })
+        .addTo(AppState.map);
 
       AppState.map.on("zoomend", debouncedUpdateUrlWithMapState);
       AppState.map.on("moveend", debouncedUpdateUrlWithMapState);
@@ -345,7 +370,7 @@ if (window.L?.Path) {
 
       document.dispatchEvent(new CustomEvent("mapInitialized"));
       AppState.mapInitialized = true;
-      
+
       return true;
     } catch (error) {
       if (typeof handleError === "function") {
@@ -353,7 +378,10 @@ if (window.L?.Path) {
       } else {
         console.error("Map initialization error:", error);
       }
-      showNotification(`${CONFIG.ERROR_MESSAGES.mapInitFailed}: ${error.message}`, "danger");
+      showNotification(
+        `${CONFIG.ERROR_MESSAGES.mapInitFailed}: ${error.message}`,
+        "danger",
+      );
       return false;
     }
   }
@@ -373,7 +401,7 @@ if (window.L?.Path) {
     try {
       const center = AppState.map.getCenter();
       const zoom = AppState.map.getZoom();
-      
+
       const url = new URL(window.location.href);
       url.searchParams.set("zoom", zoom);
       url.searchParams.set("lat", center.lat.toFixed(5));
@@ -386,7 +414,8 @@ if (window.L?.Path) {
   }
 
   function initializeLiveTracker() {
-    if (!window.LiveTripTracker || !AppState.map || AppState.liveTracker) return;
+    if (!window.LiveTripTracker || !AppState.map || AppState.liveTracker)
+      return;
 
     try {
       AppState.liveTracker = new window.LiveTripTracker(AppState.map);
@@ -409,7 +438,7 @@ if (window.L?.Path) {
     updateLayerOrderUI();
 
     // Prevent map interaction
-    [layerToggles, getElement("layer-order")].forEach(el => {
+    [layerToggles, getElement("layer-order")].forEach((el) => {
       if (el) {
         L.DomEvent.disableClickPropagation(el);
         L.DomEvent.disableScrollPropagation(el);
@@ -422,7 +451,8 @@ if (window.L?.Path) {
 
     Object.entries(AppState.mapLayers).forEach(([name, info]) => {
       const div = document.createElement("div");
-      div.className = "layer-control d-flex align-items-center mb-1 p-1 border rounded";
+      div.className =
+        "layer-control d-flex align-items-center mb-1 p-1 border rounded";
       div.dataset.layerName = name;
 
       const checkboxId = `${name}-toggle`;
@@ -432,14 +462,18 @@ if (window.L?.Path) {
           <span class="checkmark"></span>
         </label>
         <label for="${checkboxId}" class="me-auto" style="cursor: pointer;">${info.name || name}</label>
-        ${!["customPlaces"].includes(name) ? `
+        ${
+          !["customPlaces"].includes(name)
+            ? `
           <input type="color" id="${name}-color" value="${info.color}" 
                  class="form-control form-control-sm layer-color-picker me-1" 
                  style="width: 30px;" title="Layer color for ${info.name || name}">
           <input type="range" id="${name}-opacity" min="0" max="1" step="0.1" value="${info.opacity}"
                  class="form-range layer-opacity-slider" style="width: 60px;" 
                  title="Layer opacity for ${info.name || name}">
-        ` : ''}
+        `
+            : ""
+        }
       `;
 
       fragment.appendChild(div);
@@ -486,9 +520,11 @@ if (window.L?.Path) {
     }
 
     updateLayerOrderUI();
-    document.dispatchEvent(new CustomEvent("layerVisibilityChanged", {
-      detail: { layer: name, visible }
-    }));
+    document.dispatchEvent(
+      new CustomEvent("layerVisibilityChanged", {
+        detail: { layer: name, visible },
+      }),
+    );
   }
 
   function changeLayerColor(name, color) {
@@ -510,18 +546,26 @@ if (window.L?.Path) {
     if (!layerOrderEl) return;
 
     const visibleLayers = Object.entries(AppState.mapLayers)
-      .filter(([, info]) => info.visible && (info.layer || info === AppState.mapLayers.customPlaces))
+      .filter(
+        ([, info]) =>
+          info.visible &&
+          (info.layer || info === AppState.mapLayers.customPlaces),
+      )
       .sort(([, a], [, b]) => b.order - a.order);
 
     layerOrderEl.innerHTML = `
       <h4 class="h6 mb-1">Layer Order (Drag to Reorder)</h4>
       <ul id="layer-order-list" class="list-group layer-order-list">
-        ${visibleLayers.map(([name, info]) => `
+        ${visibleLayers
+          .map(
+            ([name, info]) => `
           <li class="list-group-item list-group-item-action list-group-item-dark p-1" 
               draggable="true" data-layer="${name}" style="cursor: grab;">
             ${info.name || name}
           </li>
-        `).join('')}
+        `,
+          )
+          .join("")}
       </ul>
     `;
 
@@ -551,7 +595,7 @@ if (window.L?.Path) {
     eventManager.add(list, "dragover", (e) => {
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-      
+
       const target = e.target.closest("li");
       if (target && draggedItem && target !== draggedItem) {
         const rect = target.getBoundingClientRect();
@@ -588,7 +632,7 @@ if (window.L?.Path) {
         AppState.mapLayers[layerName].order = total - i;
       }
     });
-    
+
     debouncedUpdateMap();
   }
 
@@ -598,25 +642,33 @@ if (window.L?.Path) {
     const endDate = getEndDate();
 
     if (!startDate || !endDate) {
-      showNotification("Invalid date range selected for fetching trips.", "warning");
+      showNotification(
+        "Invalid date range selected for fetching trips.",
+        "warning",
+      );
       return;
     }
 
-    const loadingManager = window.loadingManager || { 
-      startOperation: () => {}, 
-      updateOperation: () => {}, 
-      finish: () => {} 
+    const loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      updateOperation: () => {},
+      finish: () => {},
     };
 
     loadingManager.startOperation("FetchTrips", 100);
 
     try {
-      const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+      });
       loadingManager.updateOperation("FetchTrips", 10, "Fetching trips...");
-      
+
       const response = await fetch(`/api/trips?${params.toString()}`);
       if (!response.ok) {
-        throw new Error(`HTTP error fetching trips: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `HTTP error fetching trips: ${response.status} ${response.statusText}`,
+        );
       }
 
       let geojson = await response.json();
@@ -627,19 +679,22 @@ if (window.L?.Path) {
       await Promise.all([
         updateTripsTable(geojson),
         updateMapWithTrips(geojson),
-        fetchMatchedTrips().catch(err => console.error("Error fetching matched trips:", err))
+        fetchMatchedTrips().catch((err) =>
+          console.error("Error fetching matched trips:", err),
+        ),
       ]);
 
       loadingManager.updateOperation("FetchTrips", 80, "Rendering map...");
       await updateMap();
 
-      document.dispatchEvent(new CustomEvent("tripsLoaded", {
-        detail: { count: geojson.features.length }
-      }));
-      
+      document.dispatchEvent(
+        new CustomEvent("tripsLoaded", {
+          detail: { count: geojson.features.length },
+        }),
+      );
+
       showNotification(`Loaded ${geojson.features.length} trips.`, "success");
       loadingManager.updateOperation("FetchTrips", 100, "Trips loaded!");
-      
     } catch (error) {
       if (typeof handleError === "function") {
         handleError(error, "Fetch Trips Main");
@@ -653,36 +708,64 @@ if (window.L?.Path) {
   }
 
   function updateTripsTable(geojson) {
-    if (!window.tripsTable || !$.fn.DataTable?.isDataTable("#tripsTable")) return;
+    if (!window.tripsTable || !$.fn.DataTable?.isDataTable("#tripsTable"))
+      return;
 
     const features = Array.isArray(geojson?.features) ? geojson.features : [];
-    const formattedTrips = features.map(trip => {
+    const formattedTrips = features.map((trip) => {
       const props = trip.properties || {};
       return {
         transactionId: props.transactionId || "N/A",
         imei: props.imei || "N/A",
         startTime: props.startTime,
         endTime: props.endTime,
-        startTimeFormatted: props.startTime ? DateUtils.formatForDisplay(props.startTime, {
-          dateStyle: "short", timeStyle: "short"
-        }) : "N/A",
-        endTimeFormatted: props.endTime ? DateUtils.formatForDisplay(props.endTime, {
-          dateStyle: "short", timeStyle: "short"
-        }) : "N/A",
-        duration: props.duration ? DateUtils.formatSecondsToHMS(props.duration) : "N/A",
-        distance: typeof props.distance === "number" ? props.distance.toFixed(2) : "N/A",
+        startTimeFormatted: props.startTime
+          ? DateUtils.formatForDisplay(props.startTime, {
+              dateStyle: "short",
+              timeStyle: "short",
+            })
+          : "N/A",
+        endTimeFormatted: props.endTime
+          ? DateUtils.formatForDisplay(props.endTime, {
+              dateStyle: "short",
+              timeStyle: "short",
+            })
+          : "N/A",
+        duration: props.duration
+          ? DateUtils.formatSecondsToHMS(props.duration)
+          : "N/A",
+        distance:
+          typeof props.distance === "number"
+            ? props.distance.toFixed(2)
+            : "N/A",
         startOdometer: props.startOdometer ?? "N/A",
         endOdometer: props.endOdometer ?? "N/A",
-        currentSpeed: typeof props.currentSpeed === "number" ? props.currentSpeed.toFixed(1) : "N/A",
-        avgSpeed: typeof (props.avgSpeed ?? props.averageSpeed) === "number" ? 
-          (props.avgSpeed ?? props.averageSpeed).toFixed(1) : "N/A",
-        maxSpeed: typeof props.maxSpeed === "number" ? props.maxSpeed.toFixed(1) : "N/A",
+        currentSpeed:
+          typeof props.currentSpeed === "number"
+            ? props.currentSpeed.toFixed(1)
+            : "N/A",
+        avgSpeed:
+          typeof (props.avgSpeed ?? props.averageSpeed) === "number"
+            ? (props.avgSpeed ?? props.averageSpeed).toFixed(1)
+            : "N/A",
+        maxSpeed:
+          typeof props.maxSpeed === "number"
+            ? props.maxSpeed.toFixed(1)
+            : "N/A",
         pointsRecorded: props.pointsRecorded ?? "N/A",
-        totalIdlingTime: props.totalIdlingTime ? DateUtils.formatSecondsToHMS(props.totalIdlingTime) : "N/A",
-        fuelConsumed: typeof props.fuelConsumed === "number" ? props.fuelConsumed.toFixed(2) : "N/A",
-        lastUpdate: props.lastUpdate ? DateUtils.formatForDisplay(props.lastUpdate, {
-          dateStyle: "medium", timeStyle: "short"
-        }) : "N/A",
+        totalIdlingTime: props.totalIdlingTime
+          ? DateUtils.formatSecondsToHMS(props.totalIdlingTime)
+          : "N/A",
+        fuelConsumed:
+          typeof props.fuelConsumed === "number"
+            ? props.fuelConsumed.toFixed(2)
+            : "N/A",
+        lastUpdate: props.lastUpdate
+          ? DateUtils.formatForDisplay(props.lastUpdate, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })
+          : "N/A",
         destination: props.destination || "N/A",
         startLocation: props.startLocation || "N/A",
       };
@@ -697,36 +780,41 @@ if (window.L?.Path) {
   }
 
   async function updateMapWithTrips(geojson) {
-    AppState.mapLayers.trips.layer = Array.isArray(geojson?.features) 
-      ? geojson 
+    AppState.mapLayers.trips.layer = Array.isArray(geojson?.features)
+      ? geojson
       : { type: "FeatureCollection", features: [] };
   }
 
   async function updateMapWithUndrivenStreets(geojson) {
     AppState.mapLayers.undrivenStreets.layer = Array.isArray(geojson?.features)
-      ? geojson 
+      ? geojson
       : { type: "FeatureCollection", features: [] };
   }
 
   function fetchMatchedTrips() {
     const startDate = getStartDate();
     const endDate = getEndDate();
-    
+
     if (!startDate || !endDate) {
       return Promise.reject(new Error("Invalid date range for matched trips"));
     }
 
     const url = `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`;
     return cachedFetch(url, {}, 60000)
-      .then(data => {
-        AppState.mapLayers.matchedTrips.layer = data && Array.isArray(data.features) 
-          ? data 
-          : { type: "FeatureCollection", features: [] };
-        AppState.mapLayers.matchedTrips.visible = storage.get("layer_visible_matchedTrips") === "true";
+      .then((data) => {
+        AppState.mapLayers.matchedTrips.layer =
+          data && Array.isArray(data.features)
+            ? data
+            : { type: "FeatureCollection", features: [] };
+        AppState.mapLayers.matchedTrips.visible =
+          storage.get("layer_visible_matchedTrips") === "true";
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("Error fetching matched trips:", error);
-        AppState.mapLayers.matchedTrips.layer = { type: "FeatureCollection", features: [] };
+        AppState.mapLayers.matchedTrips.layer = {
+          type: "FeatureCollection",
+          features: [],
+        };
         AppState.mapLayers.matchedTrips.visible = false;
         if (typeof handleError === "function") {
           handleError(error, "Fetch Matched Trips");
@@ -737,13 +825,19 @@ if (window.L?.Path) {
 
   async function fetchUndrivenStreets() {
     const locationSelect = document.getElementById("undriven-streets-location");
-    
+
     if (!locationSelect?.value) {
       if (AppState.mapLayers.undrivenStreets?.visible) {
-        showNotification("Please select a location from the dropdown to show undriven streets.", "warning");
+        showNotification(
+          "Please select a location from the dropdown to show undriven streets.",
+          "warning",
+        );
       }
       AppState.mapLayers.undrivenStreets.visible = false;
-      AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] };
+      AppState.mapLayers.undrivenStreets.layer = {
+        type: "FeatureCollection",
+        features: [],
+      };
       await updateMap();
       return null;
     }
@@ -754,8 +848,14 @@ if (window.L?.Path) {
         throw new Error("Invalid location data");
       }
 
-      storage.set("selectedLocationForUndrivenStreets", location._id || location.display_name);
-      showNotification(`Loading undriven streets for ${location.display_name}...`, "info");
+      storage.set(
+        "selectedLocationForUndrivenStreets",
+        location._id || location.display_name,
+      );
+      showNotification(
+        `Loading undriven streets for ${location.display_name}...`,
+        "info",
+      );
 
       const response = await fetch("/api/undriven_streets", {
         method: "POST",
@@ -764,7 +864,9 @@ if (window.L?.Path) {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to load undriven streets (HTTP ${response.status})`);
+        throw new Error(
+          `Failed to load undriven streets (HTTP ${response.status})`,
+        );
       }
 
       const geojson = await response.json();
@@ -772,26 +874,35 @@ if (window.L?.Path) {
         throw new Error("Invalid GeoJSON structure received");
       }
 
-      const message = geojson.features.length === 0 
-        ? `No undriven streets found in ${location.display_name}`
-        : `Loaded ${geojson.features.length} undriven street segments for ${location.display_name}`;
-      
-      showNotification(message, geojson.features.length === 0 ? "info" : "success");
+      const message =
+        geojson.features.length === 0
+          ? `No undriven streets found in ${location.display_name}`
+          : `Loaded ${geojson.features.length} undriven street segments for ${location.display_name}`;
+
+      showNotification(
+        message,
+        geojson.features.length === 0 ? "info" : "success",
+      );
 
       await updateMapWithUndrivenStreets(geojson);
       await updateMap();
       return geojson;
-      
     } catch (error) {
       console.error("Error fetching undriven streets:", error);
-      showNotification(`Failed to load undriven streets: ${error.message}`, "danger");
-      
+      showNotification(
+        `Failed to load undriven streets: ${error.message}`,
+        "danger",
+      );
+
       AppState.mapLayers.undrivenStreets.visible = false;
-      AppState.mapLayers.undrivenStreets.layer = { type: "FeatureCollection", features: [] };
-      
+      AppState.mapLayers.undrivenStreets.layer = {
+        type: "FeatureCollection",
+        features: [],
+      };
+
       const toggle = document.getElementById("undrivenStreets-toggle");
       if (toggle) toggle.checked = false;
-      
+
       await updateMap();
       return null;
     }
@@ -805,10 +916,13 @@ if (window.L?.Path) {
     const tripLayers = new Map();
 
     const visibleLayers = Object.entries(AppState.mapLayers)
-      .filter(([name, info]) => 
-        info.visible && 
-        ((info.layer && Array.isArray(info.layer.features) && info.layer.features.length > 0) ||
-         (name === "customPlaces" && window.customPlaces?.isVisible()))
+      .filter(
+        ([name, info]) =>
+          info.visible &&
+          ((info.layer &&
+            Array.isArray(info.layer.features) &&
+            info.layer.features.length > 0) ||
+            (name === "customPlaces" && window.customPlaces?.isVisible())),
       )
       .sort(([, a], [, b]) => a.order - b.order);
 
@@ -824,22 +938,30 @@ if (window.L?.Path) {
                 tripLayers.set(feature.properties.transactionId, layer);
               }
               layer.on("click", (e) => handleTripClick(e, feature, layer));
-              layer.on("popupopen", () => setupPopupEventListeners(layer, feature));
-              layer.bindPopup(createTripPopupContent(feature), { autoPan: false });
+              layer.on("popupopen", () =>
+                setupPopupEventListeners(layer, feature),
+              );
+              layer.bindPopup(createTripPopupContent(feature), {
+                autoPan: false,
+              });
             },
           });
           geoJsonLayer.addTo(AppState.layerGroup);
 
           // Add hit layer for easier clicking
           const hitLayer = L.geoJSON(info.layer, {
-            style: { color: "#000000", opacity: 0, weight: 20, interactive: true },
+            style: {
+              color: "#000000",
+              opacity: 0,
+              weight: 20,
+              interactive: true,
+            },
             onEachFeature: (f, layer) => {
               layer.on("click", (e) => handleTripClick(e, f, layer));
               layer.bindPopup(createTripPopupContent(f), { autoPan: false });
             },
           });
           hitLayer.addTo(AppState.layerGroup);
-          
         } else if (name === "undrivenStreets") {
           const geoJsonLayer = getOrCreateGeoJsonLayer(name, info.layer, {
             style: () => ({
@@ -852,12 +974,14 @@ if (window.L?.Path) {
               if (feature.properties?.street_name) {
                 const props = feature.properties;
                 const streetName = props.street_name;
-                const segmentLength = typeof props.segment_length === "number" 
-                  ? props.segment_length.toFixed(2) : "Unknown";
+                const segmentLength =
+                  typeof props.segment_length === "number"
+                    ? props.segment_length.toFixed(2)
+                    : "Unknown";
                 const streetType = props.highway || "street";
                 layer.bindTooltip(
                   `<strong>${streetName}</strong><br>Type: ${streetType}<br>Length: ${segmentLength}m`,
-                  { sticky: true }
+                  { sticky: true },
                 );
               }
             },
@@ -884,7 +1008,7 @@ if (window.L?.Path) {
   function handleTripClick(e, feature, layer) {
     if (e.originalEvent?.button !== 0) return;
     L.DomEvent.stopPropagation(e);
-    
+
     const clickedTripId = feature.properties?.transactionId;
     if (!clickedTripId) return;
 
@@ -893,8 +1017,11 @@ if (window.L?.Path) {
 
     let visibleLayer = null;
     AppState.layerGroup.eachLayer((l) => {
-      if (l.feature?.properties?.transactionId === clickedTripId && 
-          l.options?.opacity > 0 && l.options?.weight > 0) {
+      if (
+        l.feature?.properties?.transactionId === clickedTripId &&
+        l.options?.opacity > 0 &&
+        l.options?.weight > 0
+      ) {
         visibleLayer = l;
       }
     });
@@ -907,12 +1034,20 @@ if (window.L?.Path) {
 
   function createTripPopupContent(feature) {
     const props = feature.properties || {};
-    
-    const format = (value, formatter) => value != null ? formatter(value) : "N/A";
-    const formatNum = (value, digits = 1) => format(value, (v) => parseFloat(v).toFixed(digits));
-    const formatTime = (value) => format(value, (v) => 
-      DateUtils.formatForDisplay(v, { dateStyle: "medium", timeStyle: "short" }));
-    const formatDuration = (value) => format(value, (v) => DateUtils.formatSecondsToHMS(v));
+
+    const format = (value, formatter) =>
+      value != null ? formatter(value) : "N/A";
+    const formatNum = (value, digits = 1) =>
+      format(value, (v) => parseFloat(v).toFixed(digits));
+    const formatTime = (value) =>
+      format(value, (v) =>
+        DateUtils.formatForDisplay(v, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+      );
+    const formatDuration = (value) =>
+      format(value, (v) => DateUtils.formatSecondsToHMS(v));
 
     const detailsHtml = `
       <h4>Trip Details</h4>
@@ -947,15 +1082,17 @@ if (window.L?.Path) {
     const tripId = feature.properties?.transactionId;
     if (!tripId) return "";
 
-    const isMatched = Boolean(feature.properties.matchedTripId) ||
-                     (typeof tripId === "string" && tripId.startsWith("MATCHED-"));
+    const isMatched =
+      Boolean(feature.properties.matchedTripId) ||
+      (typeof tripId === "string" && tripId.startsWith("MATCHED-"));
 
     return `
       <div class="trip-actions mt-2" data-trip-id="${tripId}">
-        ${isMatched 
-          ? `<button class="btn btn-sm btn-danger delete-matched-trip me-1">Delete Matched</button>
+        ${
+          isMatched
+            ? `<button class="btn btn-sm btn-danger delete-matched-trip me-1">Delete Matched</button>
              <button class="btn btn-sm btn-warning rematch-trip">Re-match</button>`
-          : `<button class="btn btn-sm btn-danger delete-trip">Delete Trip</button>`
+            : `<button class="btn btn-sm btn-danger delete-trip">Delete Trip</button>`
         }
       </div>
     `;
@@ -1009,23 +1146,34 @@ if (window.L?.Path) {
 
     if (!confirmed) return;
 
-    const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
+    const loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      finish: () => {},
+    };
     loadingManager.startOperation("DeleteMatchedTrip", 100);
-    
+
     try {
-      const res = await fetch(`/api/matched_trips/${tripId}`, { method: "DELETE" });
+      const res = await fetch(`/api/matched_trips/${tripId}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
         throw new Error(`Failed to delete matched trip ${tripId}`);
       }
 
       layer.closePopup();
       await fetchTrips();
-      showNotification(`Matched trip ${tripId} deleted successfully.`, "success");
+      showNotification(
+        `Matched trip ${tripId} deleted successfully.`,
+        "success",
+      );
     } catch (error) {
       if (typeof handleError === "function") {
         handleError(error, "Deleting Matched Trip");
       } else {
-        showNotification(`Error deleting matched trip: ${error.message}`, "danger");
+        showNotification(
+          `Error deleting matched trip: ${error.message}`,
+          "danger",
+        );
       }
     } finally {
       loadingManager.finish("DeleteMatchedTrip");
@@ -1040,13 +1188,18 @@ if (window.L?.Path) {
           confirmText: "Delete Both",
           confirmButtonClass: "btn-danger",
         })
-      : confirm(`Delete original trip ${tripId}? This will also delete its matched trip. Are you sure?`);
+      : confirm(
+          `Delete original trip ${tripId}? This will also delete its matched trip. Are you sure?`,
+        );
 
     if (!confirmed) return;
 
-    const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
+    const loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      finish: () => {},
+    };
     loadingManager.startOperation("DeleteTrip", 100);
-    
+
     try {
       const tripRes = await fetch(`/api/trips/${tripId}`, { method: "DELETE" });
       if (!tripRes.ok) {
@@ -1061,7 +1214,10 @@ if (window.L?.Path) {
 
       layer.closePopup();
       await fetchTrips();
-      showNotification(`Trip ${tripId} (and its matched trip, if any) deleted.`, "success");
+      showNotification(
+        `Trip ${tripId} (and its matched trip, if any) deleted.`,
+        "success",
+      );
     } catch (error) {
       if (typeof handleError === "function") {
         handleError(error, "Deleting Trip and Matched Trip");
@@ -1081,26 +1237,41 @@ if (window.L?.Path) {
           confirmText: "Re-match",
           confirmButtonClass: "btn-warning",
         })
-      : confirm(`Re-match trip ${tripId}? This deletes the current matched version.`);
+      : confirm(
+          `Re-match trip ${tripId}? This deletes the current matched version.`,
+        );
 
     if (!confirmed) return;
 
     if (!feature.properties?.startTime || !feature.properties?.endTime) {
-      showNotification("Cannot re-match: Trip is missing start or end time.", "warning");
+      showNotification(
+        "Cannot re-match: Trip is missing start or end time.",
+        "warning",
+      );
       return;
     }
 
-    const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
+    const loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      finish: () => {},
+    };
     loadingManager.startOperation("RematchTrip", 100);
-    
+
     try {
       try {
-        const deleteRes = await fetch(`/api/matched_trips/${tripId}`, { method: "DELETE" });
+        const deleteRes = await fetch(`/api/matched_trips/${tripId}`, {
+          method: "DELETE",
+        });
         if (!deleteRes.ok && deleteRes.status !== 404) {
-          console.warn(`Failed to delete existing matched trip ${tripId} before re-match`);
+          console.warn(
+            `Failed to delete existing matched trip ${tripId} before re-match`,
+          );
         }
       } catch (deleteError) {
-        console.warn("Error occurred while deleting existing matched trip:", deleteError);
+        console.warn(
+          "Error occurred while deleting existing matched trip:",
+          deleteError,
+        );
       }
 
       const rematchRes = await fetch("/api/map_match_trips", {
@@ -1116,7 +1287,10 @@ if (window.L?.Path) {
       const result = await rematchRes.json();
       layer.closePopup();
       await fetchTrips();
-      showNotification(result.message || `Trip ${tripId} successfully re-matched.`, "success");
+      showNotification(
+        result.message || `Trip ${tripId} successfully re-matched.`,
+        "success",
+      );
     } catch (error) {
       if (typeof handleError === "function") {
         handleError(error, "Re-matching Trip");
@@ -1141,9 +1315,15 @@ if (window.L?.Path) {
         let layerBounds = null;
         if (typeof info.layer.getBounds === "function") {
           layerBounds = info.layer.getBounds();
-        } else if (info.layer.type === "FeatureCollection" && info.layer.features?.length > 0) {
+        } else if (
+          info.layer.type === "FeatureCollection" &&
+          info.layer.features?.length > 0
+        ) {
           layerBounds = L.geoJSON(info.layer).getBounds();
-        } else if (info === AppState.mapLayers.customPlaces && window.customPlaces?.getBounds) {
+        } else if (
+          info === AppState.mapLayers.customPlaces &&
+          window.customPlaces?.getBounds
+        ) {
           layerBounds = window.customPlaces.getBounds();
         }
 
@@ -1167,13 +1347,22 @@ if (window.L?.Path) {
     const endDate = getEndDate();
 
     if (!startDate || !endDate) {
-      showNotification("Please select valid start and end dates before map matching.", "warning");
+      showNotification(
+        "Please select valid start and end dates before map matching.",
+        "warning",
+      );
       return;
     }
 
-    const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
+    const loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      finish: () => {},
+    };
     loadingManager.startOperation("MapMatching", 100);
-    showNotification(`Starting map matching for trips between ${startDate} and ${endDate}...`, "info");
+    showNotification(
+      `Starting map matching for trips between ${startDate} and ${endDate}...`,
+      "info",
+    );
 
     try {
       const response = await fetch("/api/map_match_trips", {
@@ -1187,10 +1376,15 @@ if (window.L?.Path) {
       }
 
       const results = await response.json();
-      showNotification(results.message || "Map matching process completed.", "success");
+      showNotification(
+        results.message || "Map matching process completed.",
+        "success",
+      );
       await fetchTrips();
 
-      document.dispatchEvent(new CustomEvent("mapMatchingCompleted", { detail: { results } }));
+      document.dispatchEvent(
+        new CustomEvent("mapMatchingCompleted", { detail: { results } }),
+      );
     } catch (err) {
       if (typeof handleError === "function") {
         handleError(err, "Map Matching");
@@ -1207,13 +1401,22 @@ if (window.L?.Path) {
     const endDate = getEndDate();
 
     if (!startDate || !endDate) {
-      showNotification("Select valid start and end dates before fetching.", "warning");
+      showNotification(
+        "Select valid start and end dates before fetching.",
+        "warning",
+      );
       return;
     }
 
-    const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
+    const loadingManager = window.loadingManager || {
+      startOperation: () => {},
+      finish: () => {},
+    };
     loadingManager.startOperation("FetchTripsRange", 100);
-    showNotification(`Fetching raw trip data between ${startDate} and ${endDate}...`, "info");
+    showNotification(
+      `Fetching raw trip data between ${startDate} and ${endDate}...`,
+      "info",
+    );
 
     try {
       const response = await fetch("/api/fetch_trips_range", {
@@ -1228,10 +1431,15 @@ if (window.L?.Path) {
 
       const data = await response.json();
       if (data.status === "success") {
-        showNotification(data.message || "Successfully fetched raw trip data.", "success");
+        showNotification(
+          data.message || "Successfully fetched raw trip data.",
+          "success",
+        );
         await fetchTrips();
       } else {
-        throw new Error(data.message || "An unknown error occurred while fetching trips.");
+        throw new Error(
+          data.message || "An unknown error occurred while fetching trips.",
+        );
       }
     } catch (err) {
       if (typeof handleError === "function") {
@@ -1252,24 +1460,39 @@ if (window.L?.Path) {
     if (!startDate || !endDate) return;
 
     try {
-      const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+      });
       if (imei) params.append("imei", imei);
 
-      const metrics = await cachedFetch(`/api/metrics?${params.toString()}`, {}, 30000);
+      const metrics = await cachedFetch(
+        `/api/metrics?${params.toString()}`,
+        {},
+        30000,
+      );
       if (!metrics) throw new Error("Received no data for metrics.");
 
       const metricMap = {
         "total-trips": metrics.total_trips ?? "N/A",
-        "total-distance": typeof metrics.total_distance === "number" 
-          ? `${metrics.total_distance.toFixed(2)} mi` : "N/A",
-        "avg-distance": typeof metrics.avg_distance === "number" 
-          ? `${metrics.avg_distance.toFixed(2)} mi` : "N/A",
+        "total-distance":
+          typeof metrics.total_distance === "number"
+            ? `${metrics.total_distance.toFixed(2)} mi`
+            : "N/A",
+        "avg-distance":
+          typeof metrics.avg_distance === "number"
+            ? `${metrics.avg_distance.toFixed(2)} mi`
+            : "N/A",
         "avg-start-time": metrics.avg_start_time ?? "N/A",
         "avg-driving-time": metrics.avg_driving_time ?? "N/A",
-        "avg-speed": typeof metrics.avg_speed === "number" 
-          ? `${metrics.avg_speed.toFixed(1)} mph` : "N/A",
-        "max-speed": typeof metrics.max_speed === "number" 
-          ? `${metrics.max_speed.toFixed(1)} mph` : "N/A",
+        "avg-speed":
+          typeof metrics.avg_speed === "number"
+            ? `${metrics.avg_speed.toFixed(1)} mph`
+            : "N/A",
+        "max-speed":
+          typeof metrics.max_speed === "number"
+            ? `${metrics.max_speed.toFixed(1)} mph`
+            : "N/A",
       };
 
       Object.entries(metricMap).forEach(([id, value]) => {
@@ -1277,7 +1500,9 @@ if (window.L?.Path) {
         if (el) el.textContent = value;
       });
 
-      document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: { metrics } }));
+      document.dispatchEvent(
+        new CustomEvent("metricsUpdated", { detail: { metrics } }),
+      );
     } catch (err) {
       if (typeof handleError === "function") {
         handleError(err, "Fetching Metrics");
@@ -1292,7 +1517,10 @@ if (window.L?.Path) {
       return data?.areas || [];
     } catch (error) {
       console.error("Error fetching coverage areas:", error);
-      showNotification(`Failed to load coverage areas: ${error.message}`, "warning");
+      showNotification(
+        `Failed to load coverage areas: ${error.message}`,
+        "warning",
+      );
       if (typeof handleError === "function") {
         handleError(error, "Fetch Coverage Areas");
       }
@@ -1334,9 +1562,11 @@ if (window.L?.Path) {
         if (!value) continue;
         try {
           const optionLocation = JSON.parse(value);
-          if (optionLocation && 
-              (optionLocation._id === savedLocationId || 
-               optionLocation.display_name === savedLocationId)) {
+          if (
+            optionLocation &&
+            (optionLocation._id === savedLocationId ||
+              optionLocation.display_name === savedLocationId)
+          ) {
             dropdown.selectedIndex = i;
             if (storage.get("layer_visible_undrivenStreets") === "true") {
               AppState.mapLayers.undrivenStreets.visible = true;
@@ -1345,7 +1575,9 @@ if (window.L?.Path) {
             break;
           }
         } catch (_) {
-          console.warn("Error parsing JSON from location dropdown option value.");
+          console.warn(
+            "Error parsing JSON from location dropdown option value.",
+          );
         }
       }
     }
@@ -1355,7 +1587,7 @@ if (window.L?.Path) {
     // Controls toggle
     const controlsToggle = getElement("controls-toggle");
     const controlsContent = getElement("controls-content");
-    
+
     if (controlsToggle && controlsContent) {
       const icon = controlsToggle.querySelector("i");
       const updateIcon = () => {
@@ -1387,7 +1619,9 @@ if (window.L?.Path) {
     });
 
     // Dropdown listener
-    const locationDropdown = document.getElementById("undriven-streets-location");
+    const locationDropdown = document.getElementById(
+      "undriven-streets-location",
+    );
     if (locationDropdown) {
       locationDropdown.addEventListener("change", () => {
         if (AppState.mapLayers.undrivenStreets?.visible) {
@@ -1398,14 +1632,20 @@ if (window.L?.Path) {
 
     // Custom event listener
     document.addEventListener("filtersApplied", async (e) => {
-      const loadingManager = window.loadingManager || { startOperation: () => {}, finish: () => {} };
+      const loadingManager = window.loadingManager || {
+        startOperation: () => {},
+        finish: () => {},
+      };
       loadingManager.startOperation("ApplyFilters");
 
       try {
         await Promise.all([fetchTrips(), fetchMetrics()]);
       } catch (error) {
         console.error("Error fetching data after filters applied:", error);
-        window.notificationManager?.show("Error loading data for the selected date range.", "danger");
+        window.notificationManager?.show(
+          "Error loading data for the selected date range.",
+          "danger",
+        );
       } finally {
         loadingManager.finish("ApplyFilters");
       }
@@ -1428,8 +1668,10 @@ if (window.L?.Path) {
 
     if (!startDateInput || !endDateInput) return;
 
-    const storedStartDate = storage.get(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate();
-    const storedEndDate = storage.get(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
+    const storedStartDate =
+      storage.get(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate();
+    const storedEndDate =
+      storage.get(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate();
 
     const config = {
       dateFormat: "Y-m-d",
@@ -1437,13 +1679,18 @@ if (window.L?.Path) {
       altFormat: "M j, Y",
       static: false,
       appendTo: document.body,
-      theme: document.documentElement.getAttribute("data-bs-theme") === "light" ? "light" : "dark",
+      theme:
+        document.documentElement.getAttribute("data-bs-theme") === "light"
+          ? "light"
+          : "dark",
       disableMobile: true,
       onChange(selectedDates, dateStr) {
         const input = this.input;
         const formattedDate = DateUtils.formatDate(dateStr);
         const isStartDate = input.id === "start-date";
-        const key = isStartDate ? CONFIG.STORAGE_KEYS.startDate : CONFIG.STORAGE_KEYS.endDate;
+        const key = isStartDate
+          ? CONFIG.STORAGE_KEYS.startDate
+          : CONFIG.STORAGE_KEYS.endDate;
         storage.set(key, formattedDate);
       },
     };
@@ -1491,7 +1738,10 @@ if (window.L?.Path) {
         undrivenStreetsLoaded = false;
         return null;
       }
-    } else if (undrivenStreetsLoaded && AppState.mapLayers.undrivenStreets?.layer) {
+    } else if (
+      undrivenStreetsLoaded &&
+      AppState.mapLayers.undrivenStreets?.layer
+    ) {
       return AppState.mapLayers.undrivenStreets.layer;
     }
     return null;
@@ -1523,14 +1773,22 @@ if (window.L?.Path) {
     const geomType = lastTripFeature.geometry?.type;
     const coords = lastTripFeature.geometry?.coordinates;
 
-    if (geomType === "LineString" && Array.isArray(coords) && coords.length > 0) {
+    if (
+      geomType === "LineString" &&
+      Array.isArray(coords) &&
+      coords.length > 0
+    ) {
       lastCoord = coords[coords.length - 1];
     } else if (geomType === "Point" && Array.isArray(coords)) {
       lastCoord = coords;
     }
 
-    if (Array.isArray(lastCoord) && lastCoord.length === 2 &&
-        typeof lastCoord[0] === "number" && typeof lastCoord[1] === "number") {
+    if (
+      Array.isArray(lastCoord) &&
+      lastCoord.length === 2 &&
+      typeof lastCoord[0] === "number" &&
+      typeof lastCoord[1] === "number"
+    ) {
       const targetLatLng = [lastCoord[1], lastCoord[0]];
       AppState.map.flyTo(targetLatLng, targetZoom, {
         animate: true,
@@ -1572,15 +1830,22 @@ if (window.L?.Path) {
                 AppState.mapLayers[layerName].visible = isVisible;
                 if (toggle) toggle.checked = isVisible;
               } else {
-                if (toggle) toggle.checked = AppState.mapLayers[layerName].visible;
+                if (toggle)
+                  toggle.checked = AppState.mapLayers[layerName].visible;
               }
               // Clear layer data for undrivenStreets if not visible
-              if (layerName === "undrivenStreets" && !AppState.mapLayers[layerName].visible) {
-                AppState.mapLayers[layerName].layer = { type: "FeatureCollection", features: [] };
+              if (
+                layerName === "undrivenStreets" &&
+                !AppState.mapLayers[layerName].visible
+              ) {
+                AppState.mapLayers[layerName].layer = {
+                  type: "FeatureCollection",
+                  features: [],
+                };
               }
             }
           });
-          
+
           updateLayerOrderUI();
           return populateLocationDropdown();
         })
@@ -1596,7 +1861,10 @@ if (window.L?.Path) {
           if (typeof handleError === "function") {
             handleError(error, "Application Initialization");
           } else {
-            showNotification(`Initialization Error: ${error.message}`, "danger");
+            showNotification(
+              `Initialization Error: ${error.message}`,
+              "danger",
+            );
           }
         })
         .finally(() => {
@@ -1639,21 +1907,22 @@ if (window.L?.Path) {
     if (!AppState.map) return;
 
     const activeElement = document.activeElement;
-    const isInputFocused = activeElement && 
-      (activeElement.tagName === "INPUT" || 
-       activeElement.tagName === "TEXTAREA" || 
-       activeElement.tagName === "SELECT");
+    const isInputFocused =
+      activeElement &&
+      (activeElement.tagName === "INPUT" ||
+        activeElement.tagName === "TEXTAREA" ||
+        activeElement.tagName === "SELECT");
     if (isInputFocused) return;
 
     const keyActions = {
       "+": () => AppState.map.zoomIn(),
       "=": () => AppState.map.zoomIn(),
       "-": () => AppState.map.zoomOut(),
-      "_": () => AppState.map.zoomOut(),
-      "ArrowUp": () => AppState.map.panBy([0, -100]),
-      "ArrowDown": () => AppState.map.panBy([0, 100]),
-      "ArrowLeft": () => AppState.map.panBy([-100, 0]),
-      "ArrowRight": () => AppState.map.panBy([100, 0]),
+      _: () => AppState.map.zoomOut(),
+      ArrowUp: () => AppState.map.panBy([0, -100]),
+      ArrowDown: () => AppState.map.panBy([0, 100]),
+      ArrowLeft: () => AppState.map.panBy([-100, 0]),
+      ArrowRight: () => AppState.map.panBy([100, 0]),
     };
 
     if (keyActions[e.key]) {
