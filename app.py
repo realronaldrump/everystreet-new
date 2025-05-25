@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import uuid
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import ceil
@@ -50,6 +51,18 @@ from motor.motor_asyncio import (
 from pymongo import GEOSPHERE, IndexModel
 from pymongo.errors import OperationFailure
 from sklearn.cluster import KMeans
+
+# Performance monitoring imports
+from performance_monitor import (
+    PerformanceTimer,
+    async_performance_timer,
+    get_optimization_report,
+    get_performance_summary,
+    get_real_time_metrics,
+    log_request_timing,
+    start_performance_monitoring,
+    monitor_performance,
+)
 
 from bouncie_trip_fetcher import (
     fetch_bouncie_trips_in_range,
@@ -142,6 +155,36 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Street Coverage Tracker")
+
+
+# Performance Monitoring Middleware
+@app.middleware("http")
+async def performance_monitoring_middleware(request: Request, call_next):
+    """Middleware to track API request performance automatically."""
+    start_time = time.perf_counter()
+    
+    # Process the request
+    response = await call_next(request)
+    
+    # Calculate duration
+    end_time = time.perf_counter()
+    duration_ms = (end_time - start_time) * 1000
+    
+    # Log the request timing
+    log_request_timing(
+        endpoint=str(request.url.path),
+        method=request.method,
+        duration_ms=duration_ms,
+        status_code=response.status_code
+    )
+    
+    # Add performance headers
+    response.headers["X-Response-Time"] = f"{duration_ms:.2f}ms"
+    response.headers["X-Process-Time"] = f"{duration_ms:.2f}"
+    
+    return response
+
+
 app.mount(
     "/static",
     StaticFiles(directory="static"),
@@ -5594,10 +5637,99 @@ async def export_advanced(
         )
 
 
+@app.get("/performance", response_class=HTMLResponse)
+async def performance_dashboard(request: Request):
+    """Serve the performance monitoring dashboard."""
+    return templates.TemplateResponse("performance_dashboard.html", {"request": request})
+
+
+# Performance Monitoring Endpoints
+@app.get("/api/performance/summary")
+async def get_performance_summary_endpoint(
+    hours: int = Query(1, description="Number of hours to look back", ge=1, le=168)
+):
+    """Get performance summary for the specified time period."""
+    try:
+        async with async_performance_timer("get_performance_summary", "api"):
+            summary = get_performance_summary(hours=hours)
+            return JSONResponse(content=summary)
+    except Exception as e:
+        logger.error(f"Error getting performance summary: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve performance summary"
+        )
+
+
+@app.get("/api/performance/report")
+async def get_optimization_report_endpoint():
+    """Get comprehensive optimization effectiveness report."""
+    try:
+        async with async_performance_timer("get_optimization_report", "api"):
+            report = get_optimization_report()
+            return JSONResponse(content=report)
+    except Exception as e:
+        logger.error(f"Error generating optimization report: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate optimization report"
+        )
+
+
+@app.get("/api/performance/metrics")
+async def get_real_time_metrics_endpoint():
+    """Get real-time performance metrics for monitoring dashboards."""
+    try:
+        async with async_performance_timer("get_real_time_metrics", "api"):
+            metrics = get_real_time_metrics()
+            return JSONResponse(content=metrics)
+    except Exception as e:
+        logger.error(f"Error getting real-time metrics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve real-time metrics"
+        )
+
+
+@app.get("/api/performance/health")
+async def get_performance_health():
+    """Get overall system performance health status."""
+    try:
+        async with async_performance_timer("get_performance_health", "api"):
+            # Get recent metrics
+            report = get_optimization_report()
+            real_time = get_real_time_metrics()
+            
+            # Determine health status
+            performance_score = report.get("performance_score", 0)
+            health_status = "excellent" if performance_score >= 80 else \
+                          "good" if performance_score >= 60 else \
+                          "fair" if performance_score >= 40 else "poor"
+            
+            return JSONResponse(content={
+                "status": health_status,
+                "performance_score": performance_score,
+                "recommendations_count": len(report.get("recommendations", [])),
+                "last_minute_requests": real_time["last_minute"]["api_requests"],
+                "avg_response_time_ms": real_time["last_minute"]["api_avg_duration_ms"],
+                "timestamp": real_time["timestamp"]
+            })
+    except Exception as e:
+        logger.error(f"Error getting performance health: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve performance health"
+        )
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize database indexes and components on application startup."""
     try:
+        # Start performance monitoring first
+        await start_performance_monitoring()
+        logger.info("Performance monitoring started successfully.")
+        
         await init_database()
         logger.info("Core database initialized successfully (indexes, etc.).")
 

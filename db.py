@@ -952,6 +952,9 @@ class DatabaseOperationMixin:
         Returns:
             Operation result, optionally post-processed
         """
+        import time
+        start_time = time.perf_counter()
+        
         try:
             result = await db_manager.execute_with_retry(
                 operation_func,
@@ -973,6 +976,16 @@ class DatabaseOperationMixin:
                     else (None if operation_name.startswith("find_one") else 0)
                 )
             raise
+        finally:
+            # Log performance metrics
+            try:
+                from performance_monitor import log_database_operation
+                end_time = time.perf_counter()
+                duration_ms = (end_time - start_time) * 1000
+                log_database_operation(operation_name, collection.name, duration_ms)
+            except ImportError:
+                # Performance monitor not available, skip logging
+                pass
 
 
 # Optimized database operation functions using the mixin pattern
