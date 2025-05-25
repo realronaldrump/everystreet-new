@@ -50,6 +50,7 @@ from motor.motor_asyncio import (
 )
 from pymongo import GEOSPHERE, IndexModel
 from pymongo.errors import OperationFailure
+from gridfs.errors import NoFile
 from sklearn.cluster import KMeans
 
 # Performance monitoring imports
@@ -4458,10 +4459,49 @@ async def get_coverage_area_details(location_id: str):
         streets_geojson = {}
         gridfs_id = coverage_doc.get("streets_geojson_gridfs_id")
         if gridfs_id:
-            fs = AsyncIOMotorGridFSBucket(db_manager.db)
-            stream = await fs.open_download_stream(gridfs_id)
-            bytes_data = await stream.read()
-            streets_geojson = json.loads(bytes_data.decode("utf-8"))
+            try:
+                fs = AsyncIOMotorGridFSBucket(db_manager.db)
+                stream = await fs.open_download_stream(gridfs_id)
+                bytes_data = await stream.read()
+                streets_geojson = json.loads(bytes_data.decode("utf-8"))
+            except (NoFile, Exception) as gridfs_error:
+                # Handle GridFS file not found or other GridFS errors
+                if isinstance(gridfs_error, NoFile):
+                    logger.warning(
+                        "GridFS file not found for coverage area %s (GridFS ID: %s)",
+                        location_id,
+                        gridfs_id
+                    )
+                else:
+                    logger.error(
+                        "Failed to load GeoJSON from GridFS for coverage area %s (GridFS ID: %s): %s",
+                        location_id,
+                        gridfs_id,
+                        str(gridfs_error)
+                    )
+                
+                # Clear the invalid GridFS reference from metadata
+                try:
+                    await update_one_with_retry(
+                        coverage_metadata_collection,
+                        {"_id": ObjectId(location_id)},
+                        {
+                            "$unset": {"streets_geojson_gridfs_id": ""},
+                            "$set": {"needs_reprocessing": True}
+                        }
+                    )
+                    logger.info(
+                        "Cleared invalid GridFS reference and marked coverage area %s for reprocessing",
+                        location_id
+                    )
+                except Exception as cleanup_error:
+                    logger.error(
+                        "Failed to cleanup invalid GridFS reference for coverage area %s: %s",
+                        location_id,
+                        str(cleanup_error)
+                    )
+                # Continue with empty GeoJSON instead of crashing
+                streets_geojson = {}
 
         # compute metrics
         total_length = coverage_doc.get(

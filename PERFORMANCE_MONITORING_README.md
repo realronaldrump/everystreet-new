@@ -141,7 +141,7 @@ Returns comprehensive analysis with optimization recommendations.
 
 Access the interactive performance dashboard at:
 ```
-http://localhost:8000/performance
+http://localhost:8080/performance
 ```
 
 The dashboard provides:
@@ -311,7 +311,7 @@ def process_large_dataset(data):
 import requests
 
 def check_system_health():
-    response = requests.get("http://localhost:8000/api/performance/health")
+    response = requests.get("http://localhost:8080/api/performance/health")
     health = response.json()
     
     if health["performance_score"] < 60:

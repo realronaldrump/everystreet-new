@@ -77,7 +77,7 @@ async def test_api_endpoints():
     """Test the performance monitoring API endpoints."""
     print("\n5. Testing API endpoints...")
     
-    base_url = "http://localhost:8000"
+    base_url = "http://localhost:8080"
     
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
@@ -181,7 +181,7 @@ async def main():
         else:
             print("\n✅ No optimization recommendations - system performing well!")
         
-        print(f"\n🕒 Dashboard available at: http://localhost:8000/performance")
+        print(f"\n🕒 Dashboard available at: http://localhost:8080/performance")
         print("   (Start the FastAPI app to view the dashboard)")
         
     except Exception as e:
