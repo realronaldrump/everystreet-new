@@ -1382,7 +1382,7 @@ if (window.L?.Path) {
     eventManager.add("highlight-recent-trips", "change", function (event) {
       if (event.target.type === "checkbox") {
         AppState.mapSettings.highlightRecentTrips = event.target.checked;
-        refreshTripStyles();
+        debouncedUpdateMap();
       }
     });
 
