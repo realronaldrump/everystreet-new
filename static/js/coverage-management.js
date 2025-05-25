@@ -1654,12 +1654,12 @@ const STATUS = window.STATUS || {
           markComplete("initializing"); // Assume init done if we are here
           markActive("preprocessing");
           break;
-        
+
         case STATUS.POST_PREPROCESSING: // New stage from coverage_tasks.py
           markComplete("initializing");
           markComplete("preprocessing");
           markActive("initializing"); // Indicate that the next phase (calculation) is initializing
-                                      // This will be quickly followed by CoverageCalculator's own "initializing" or "indexing"
+          // This will be quickly followed by CoverageCalculator's own "initializing" or "indexing"
           break;
 
         case STATUS.INDEXING: // From CoverageCalculator
@@ -1706,7 +1706,8 @@ const STATUS = window.STATUS || {
             markComplete("initializing");
             markComplete("preprocessing");
             markActive("indexing");
-          } else if (progress > 25 || stage?.startsWith("preprocessing")) { // Catch specific preprocessing stages if not general
+          } else if (progress > 25 || stage?.startsWith("preprocessing")) {
+            // Catch specific preprocessing stages if not general
             markComplete("initializing");
             markActive("preprocessing");
           } else {
