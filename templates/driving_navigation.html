@@ -177,15 +177,19 @@ block head_content %}
                 <option value="5" selected>5 streets</option>
                 <option value="8">8 streets</option>
                 <option value="10">10 streets</option>
+                <option value="15">15 streets</option>
+                <option value="20">20 streets</option>
               </select>
             </div>
             <div class="col-6">
               <label for="max-distance" class="form-label small">Max Distance</label>
               <select id="max-distance" class="form-select form-select-sm">
-                <option value="1">1 mile</option>
-                <option value="2" selected>2 miles</option>
-                <option value="3">3 miles</option>
+                <option value="2">2 miles</option>
+                <option value="3" selected>3 miles</option>
                 <option value="5">5 miles</option>
+                <option value="8">8 miles</option>
+                <option value="10">10 miles</option>
+                <option value="15">15 miles</option>
               </select>
             </div>
           </div>
@@ -607,6 +611,9 @@ block head_content %}
         if (data.status === "success" && data.route) {
           this.displayOptimizedRoute(data);
           this.showNotification(data.message, "success");
+        } else if (data.status === "no_streets") {
+          const maxDistance = document.getElementById("max-distance").value;
+          this.showNotification(`No undriven streets found within ${maxDistance} miles. Try increasing the distance range.`, "warning");
         } else {
           this.showNotification(data.message || "No optimal route found", "warning");
         }
@@ -846,27 +853,25 @@ block head_content %}
       
       // Handle routes with multiple waypoints
       if (this.currentRoute.streets_included && this.currentRoute.streets_included.length > 1) {
-        // For multiple streets, use first street as destination and others as waypoints
-        const firstStreet = this.currentRoute.streets_included[0];
-        const geometry = firstStreet.geometry || this.currentRoute.geometry;
+        // Create waypoints for all streets (Apple Maps supports up to 15 waypoints)
+        const allWaypoints = this.currentRoute.streets_included
+          .map(street => {
+            if (street.start_coords) {
+              return `${street.start_coords[1]},${street.start_coords[0]}`;
+            }
+            return null;
+          })
+          .filter(wp => wp !== null)
+          .slice(0, 15); // Apple Maps limit
         
-        if (geometry && geometry.coordinates) {
-          const coords = geometry.coordinates;
-          const destCoord = coords[0]; // First coordinate of the route
-          url += `&daddr=${destCoord[1]},${destCoord[0]}`;
+        if (allWaypoints.length > 0) {
+          // Use last waypoint as destination
+          const destination = allWaypoints.pop();
+          url += `&daddr=${destination}`;
           
-          // Add waypoints for other streets (Apple Maps supports limited waypoints)
-          const waypoints = this.currentRoute.streets_included.slice(1, 4) // Max 3 additional waypoints
-            .map(street => {
-              if (street.start_coords) {
-                return `${street.start_coords[1]},${street.start_coords[0]}`;
-              }
-              return null;
-            })
-            .filter(wp => wp !== null);
-            
-          if (waypoints.length > 0) {
-            url += `&waypoints=${waypoints.join('|')}`;
+          // Add intermediate waypoints
+          if (allWaypoints.length > 0) {
+            url += `&waypoints=${allWaypoints.join('|')}`;
           }
         }
       } else {
@@ -880,7 +885,7 @@ block head_content %}
       }
       
       window.open(url, '_blank');
-      this.showNotification('Opening route in Apple Maps...', 'info');
+      this.showNotification(`Opening route with ${this.currentRoute.streets_included?.length || 1} waypoints in Apple Maps...`, 'info');
     }
 
     openInGoogleMaps() {
@@ -926,7 +931,7 @@ block head_content %}
       }
       
       window.open(url, '_blank');
-      this.showNotification('Opening route in Google Maps...', 'info');
+      this.showNotification(`Opening route with ${this.currentRoute.streets_included?.length || 1} waypoints in Google Maps...`, 'info');
     }
 
     clearRoute() {
@@ -973,7 +978,7 @@ block head_content %}
     }
 
     async updateProgress() {
-      if (!this.selectedArea) return;
+      if (!this.selectedArea || !this.selectedArea._id) return;
 
       try {
         const response = await fetch(`/api/coverage_areas/${this.selectedArea._id}`);

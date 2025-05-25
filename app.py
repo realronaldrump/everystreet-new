@@ -6364,7 +6364,7 @@ async def get_optimized_multi_street_route(
         if not nearby_streets:
             return JSONResponse(
                 content={
-                    "status": "success",
+                    "status": "no_streets",
                     "message": f"No undriven streets found within {max_distance} miles.",
                     "route": None,
                 },
@@ -6382,38 +6382,115 @@ async def get_optimized_multi_street_route(
             if street_data["start_coords"]:
                 waypoints.append(street_data["start_coords"])
 
-        # Get optimized route if we have multiple points
-        if len(waypoints) > 2:
+        # Create a multi-street route
+        if len(selected_streets) > 1:
             try:
-                optimized_route = await _get_mapbox_optimization_route(
-                    waypoints[0][0], waypoints[0][1],  # start
-                    waypoints[1:]  # destinations
-                )
+                # For multiple streets, create a route that visits each street in order
+                waypoints_for_optimization = [[user_lon, user_lat]]  # Start point
                 
-                if optimized_route and "routes" in optimized_route and optimized_route["routes"]:
-                    route_info = optimized_route["routes"][0]
-                    
-                    # Add street information to the route
-                    route_info["streets_included"] = [
-                        {
-                            "segment_id": street_data["street"]["properties"]["segment_id"],
-                            "street_name": street_data["street"]["properties"].get("street_name", "Unknown"),
-                            "distance_miles": round(street_data["distance_miles"], 2),
-                        }
-                        for street_data in selected_streets
-                    ]
+                # Add each street's start point as a waypoint
+                for street_data in selected_streets:
+                    if street_data["start_coords"]:
+                        waypoints_for_optimization.append(street_data["start_coords"])
+                
+                # Try Mapbox optimization first
+                if len(waypoints_for_optimization) > 2:
+                    try:
+                        optimized_route = await _get_mapbox_optimization_route(
+                            waypoints_for_optimization[0][0], waypoints_for_optimization[0][1],  # start
+                            waypoints_for_optimization[1:]  # destinations
+                        )
+                        
+                        if optimized_route and "routes" in optimized_route and optimized_route["routes"]:
+                            route_info = optimized_route["routes"][0]
+                            
+                            # Add detailed street information
+                            route_info["streets_included"] = [
+                                {
+                                    "segment_id": street_data["street"]["properties"]["segment_id"],
+                                    "street_name": street_data["street"]["properties"].get("street_name", "Unknown"),
+                                    "distance_miles": round(street_data["distance_miles"], 2),
+                                    "start_coords": street_data["start_coords"],
+                                    "geometry": street_data["street"]["geometry"],
+                                }
+                                for street_data in selected_streets
+                            ]
+                            
+                            return JSONResponse(
+                                content={
+                                    "status": "success",
+                                    "message": f"Optimized route created for {len(selected_streets)} streets.",
+                                    "route": route_info,
+                                    "total_streets": len(selected_streets),
+                                    "estimated_efficiency": f"{len(selected_streets)/max_distance:.1f} streets per mile radius",
+                                },
+                            )
+                    except Exception as route_error:
+                        logger.warning("Mapbox optimization failed, creating manual multi-street route: %s", route_error)
+                
+                # Fallback: Create a manual multi-street route using individual directions
+                all_coordinates = []
+                total_distance = 0
+                total_duration = 0
+                
+                # Start from user location
+                current_location = [user_lon, user_lat]
+                
+                for i, street_data in enumerate(selected_streets):
+                    if street_data["start_coords"]:
+                        # Get route to this street
+                        route_segment = await _get_mapbox_directions_route(
+                            current_location[0], current_location[1],
+                            street_data["start_coords"][0], street_data["start_coords"][1]
+                        )
+                        
+                        if route_segment and route_segment.get("geometry"):
+                            # Add this segment's coordinates
+                            segment_coords = route_segment["geometry"]["coordinates"]
+                            if i == 0:
+                                all_coordinates.extend(segment_coords)
+                            else:
+                                # Skip first coordinate to avoid duplication
+                                all_coordinates.extend(segment_coords[1:])
+                            
+                            total_distance += route_segment.get("distance", 0)
+                            total_duration += route_segment.get("duration", 0)
+                            
+                            # Update current location for next segment
+                            current_location = street_data["start_coords"]
+                
+                if all_coordinates:
+                    multi_route = {
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": all_coordinates
+                        },
+                        "distance": total_distance,
+                        "duration": total_duration,
+                        "streets_included": [
+                            {
+                                "segment_id": street_data["street"]["properties"]["segment_id"],
+                                "street_name": street_data["street"]["properties"].get("street_name", "Unknown"),
+                                "distance_miles": round(street_data["distance_miles"], 2),
+                                "start_coords": street_data["start_coords"],
+                                "geometry": street_data["street"]["geometry"],
+                            }
+                            for street_data in selected_streets
+                        ]
+                    }
                     
                     return JSONResponse(
                         content={
                             "status": "success",
-                            "message": f"Optimized route created for {len(selected_streets)} streets.",
-                            "route": route_info,
+                            "message": f"Multi-street route created for {len(selected_streets)} streets.",
+                            "route": multi_route,
                             "total_streets": len(selected_streets),
                             "estimated_efficiency": f"{len(selected_streets)/max_distance:.1f} streets per mile radius",
                         },
                     )
-            except Exception as route_error:
-                logger.warning("Route optimization failed, falling back to simple route: %s", route_error)
+                    
+            except Exception as multi_route_error:
+                logger.warning("Multi-street route creation failed, falling back to single street: %s", multi_route_error)
 
         # Fallback to simple route to nearest street
         nearest_street = selected_streets[0]
