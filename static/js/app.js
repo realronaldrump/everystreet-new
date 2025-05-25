@@ -1,5 +1,4 @@
-/* eslint-disable complexity */
-/* global handleError , DateUtils, mapboxgl, $ */
+/* global handleError , DateUtils, mapboxgl */
 /* eslint-disable no-unused-vars */
 
 "use strict";
@@ -245,7 +244,7 @@
       } else {
         map.addSource(sourceId, {
           type: "geojson",
-          data: data,
+          data,
         });
       }
     },
