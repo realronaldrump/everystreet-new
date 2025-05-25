@@ -374,7 +374,9 @@
             url.includes('events.mapbox.com') || 
             url.includes('/events/v2') || 
             url.includes('telemetry') ||
-            url.includes('/ping')
+            url.includes('/ping') ||
+            url.includes('api.mapbox.com/events') ||
+            url.includes('cloudfront.net/events')
           )) {
             console.log('Blocked telemetry request:', url);
             return null; // Return null to block the request

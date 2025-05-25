@@ -249,7 +249,15 @@ let baseTileLayer = null;
       if (window.map.setStyle && window.CONFIG?.MAP?.styles) {
         const styleUrl = window.CONFIG.MAP.styles[theme];
         if (styleUrl) {
-          window.map.setStyle(styleUrl);
+          // Only update style if map is loaded to prevent style diff warnings
+          if (window.map.isStyleLoaded()) {
+            window.map.setStyle(styleUrl);
+          } else {
+            // Wait for style to load before switching
+            window.map.once('style.load', () => {
+              window.map.setStyle(styleUrl);
+            });
+          }
         }
       }
       // Legacy Leaflet support (for other pages)
