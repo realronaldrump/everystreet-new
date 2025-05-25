@@ -296,7 +296,7 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
                 },
             },
         )
-        await async_preprocess_streets(location)
+        await async_preprocess_streets(location, task_id)
 
         metadata = await find_one_with_retry(
             coverage_metadata_collection,
@@ -346,9 +346,9 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
             {"_id": task_id},
             {
                 "$set": {
-                    "stage": "calculating",
-                    "progress": 25,
-                    "message": "Starting coverage calculation...",
+                    "stage": "post_preprocessing",
+                    "progress": 40,
+                    "message": "Street preprocessing complete. Initializing coverage calculation...",
                     "updated_at": datetime.now(timezone.utc),
                 },
             },

@@ -20,6 +20,7 @@ const STATUS = window.STATUS || {
   CANCELED: "canceled",
   UNKNOWN: "unknown",
   POLLING_CHECK: "polling_check",
+  POST_PREPROCESSING: "post_preprocessing",
 };
 
 (() => {
@@ -1582,20 +1583,22 @@ const STATUS = window.STATUS || {
     }
 
     static updateStepIndicators(stage, progress) {
-      const modalElement = document.getElementById("taskProgressModal");
-      if (!modalElement) return;
+      const modal = document.getElementById("taskProgressModal");
+      if (!modal) return;
 
       const steps = {
-        initializing: modalElement.querySelector(".step-initializing"),
-        preprocessing: modalElement.querySelector(".step-preprocessing"),
-        indexing: modalElement.querySelector(".step-indexing"),
-        calculating: modalElement.querySelector(".step-calculating"),
-        complete: modalElement.querySelector(".step-complete"),
+        initializing: modal.querySelector(".step-initializing"),
+        preprocessing: modal.querySelector(".step-preprocessing"),
+        indexing: modal.querySelector(".step-indexing"),
+        calculating: modal.querySelector(".step-calculating"),
+        complete: modal.querySelector(".step-complete"),
       };
 
-      // Reset all steps first
+      // Reset all steps
       Object.values(steps).forEach((step) => {
-        if (step) step.classList.remove("active", "complete", "error");
+        if (step) {
+          step.classList.remove("active", "complete", "error");
+        }
       });
 
       const markComplete = (stepKey) => {
@@ -1608,84 +1611,108 @@ const STATUS = window.STATUS || {
         if (steps[stepKey]) steps[stepKey].classList.add("error");
       };
 
-      // Determine state based on current stage
+      // Determine current step based on stage
+      // This logic might need adjustment based on actual stage names from backend
       if (stage === STATUS.ERROR) {
-        // Mark steps up to the point of failure as complete/error
-        if ([STATUS.INITIALIZING].includes(stage) || progress < 5) {
-          markError("initializing");
-        } else if (
-          [STATUS.PREPROCESSING, STATUS.LOADING_STREETS].includes(stage) ||
-          progress < 50 // Assuming preprocessing/loading happens before 50%
-        ) {
+        // Try to mark the step where error occurred, or a generic error display
+        // This is tricky as 'progress' might not directly map to a step when an error occurs early.
+        // For now, mark all previous potential steps as complete if progress is high, then current as error.
+        if (progress > 75) {
           markComplete("initializing");
-          markError("preprocessing");
-        } else if ([STATUS.INDEXING].includes(stage) || progress < 60) {
-          // Assuming indexing before 60%
+          markComplete("preprocessing");
+          markComplete("indexing");
+          markError("calculating"); // Assume error in calc if progress high
+        } else if (progress > 50) {
           markComplete("initializing");
           markComplete("preprocessing");
           markError("indexing");
-        } else if (
-          [
-            STATUS.PROCESSING_TRIPS,
-            STATUS.CALCULATING,
-            STATUS.COUNTING_TRIPS,
-          ].includes(stage) ||
-          progress < 90 // Assuming calculation before 90%
-        ) {
+        } else if (progress > 10) {
           markComplete("initializing");
-          markComplete("preprocessing");
-          markComplete("indexing");
-          markError("calculating");
+          markError("preprocessing");
         } else {
-          // Error occurred during finalization/completion stages
+          markError("initializing");
+        }
+        // If a specific error step is identified, ensure others are not 'active'
+        return; // Stop further processing if error
+      }
+
+      if (stage === STATUS.CANCELED) {
+        // Mark current or last known step as error/warning if canceled
+        // Similar logic to error, maybe show as 'warning' or distinct style
+        // For simplicity, treat as error for step indication
+        markError("initializing"); // Default to first step on cancel for now
+        return;
+      }
+
+      switch (stage) {
+        case STATUS.INITIALIZING: // From CoverageCalculator start
+          markActive("initializing");
+          break;
+
+        case STATUS.PREPROCESSING: // From async_preprocess_streets
+        case STATUS.LOADING_STREETS: // Legacy, but keep for now
+          markComplete("initializing"); // Assume init done if we are here
+          markActive("preprocessing");
+          break;
+        
+        case STATUS.POST_PREPROCESSING: // New stage from coverage_tasks.py
           markComplete("initializing");
           markComplete("preprocessing");
-          markComplete("indexing");
-          markComplete("calculating");
-          markError("complete");
-        }
-      } else if (stage === STATUS.COMPLETE || stage === STATUS.COMPLETED) {
-        Object.keys(steps).forEach(markComplete); // All steps complete
-      } else {
-        // Mark steps as complete/active based on progress
-        if ([STATUS.INITIALIZING].includes(stage)) {
-          markActive("initializing");
-        } else if (
-          [STATUS.PREPROCESSING, STATUS.LOADING_STREETS].includes(stage)
-        ) {
-          markComplete("initializing");
-          markActive("preprocessing");
-        } else if ([STATUS.INDEXING].includes(stage)) {
+          markActive("initializing"); // Indicate that the next phase (calculation) is initializing
+                                      // This will be quickly followed by CoverageCalculator's own "initializing" or "indexing"
+          break;
+
+        case STATUS.INDEXING: // From CoverageCalculator
           markComplete("initializing");
           markComplete("preprocessing");
           markActive("indexing");
-        } else if (
-          [
-            STATUS.PROCESSING_TRIPS,
-            STATUS.CALCULATING,
-            STATUS.COUNTING_TRIPS,
-          ].includes(stage)
-        ) {
+          break;
+
+        case STATUS.COUNTING_TRIPS: // From CoverageCalculator, part of "calculating"
+        case STATUS.PROCESSING_TRIPS: // From CoverageCalculator
+        case STATUS.CALCULATING: // Generic, if used
+        case STATUS.FINALIZING: // From CoverageCalculator
+        case STATUS.GENERATING_GEOJSON: // From CoverageCalculator
+        case STATUS.COMPLETE_STATS: // From CoverageCalculator
           markComplete("initializing");
           markComplete("preprocessing");
           markComplete("indexing");
           markActive("calculating");
-        } else if (
-          [
-            STATUS.FINALIZING,
-            STATUS.GENERATING_GEOJSON,
-            STATUS.COMPLETE_STATS,
-          ].includes(stage)
-        ) {
+          break;
+
+        case STATUS.COMPLETE:
+        case STATUS.COMPLETED:
           markComplete("initializing");
           markComplete("preprocessing");
           markComplete("indexing");
           markComplete("calculating");
-          markActive("complete"); // Mark final step as active during these stages
-        } else {
-          // Default to initializing if stage is unknown but not error/complete
-          markActive("initializing");
-        }
+          markComplete("complete");
+          break;
+
+        default:
+          // If stage is unknown, try to guess based on progress
+          if (progress >= 100) {
+            markComplete("initializing");
+            markComplete("preprocessing");
+            markComplete("indexing");
+            markComplete("calculating");
+            markComplete("complete");
+          } else if (progress > 75) {
+            markComplete("initializing");
+            markComplete("preprocessing");
+            markComplete("indexing");
+            markActive("calculating");
+          } else if (progress > 50) {
+            markComplete("initializing");
+            markComplete("preprocessing");
+            markActive("indexing");
+          } else if (progress > 25 || stage?.startsWith("preprocessing")) { // Catch specific preprocessing stages if not general
+            markComplete("initializing");
+            markActive("preprocessing");
+          } else {
+            markActive("initializing");
+          }
+          break;
       }
     }
 
@@ -3103,6 +3130,7 @@ const STATUS = window.STATUS || {
         [STATUS.CANCELED]: '<i class="fas fa-ban"></i>',
         [STATUS.POLLING_CHECK]: '<i class="fas fa-sync-alt fa-spin"></i>',
         [STATUS.UNKNOWN]: '<i class="fas fa-question-circle"></i>',
+        [STATUS.POST_PREPROCESSING]: '<i class="fas fa-cog fa-spin"></i>',
       };
       return icons[stage] || icons[STATUS.UNKNOWN];
     }
@@ -3114,6 +3142,7 @@ const STATUS = window.STATUS || {
         [STATUS.ERROR]: "text-danger",
         [STATUS.WARNING]: "text-warning",
         [STATUS.CANCELED]: "text-warning",
+        [STATUS.POST_PREPROCESSING]: "text-info",
       };
       return classes[stage] || "text-info"; // Default to info color
     }
@@ -3137,6 +3166,7 @@ const STATUS = window.STATUS || {
         [STATUS.CANCELED]: "Canceled",
         [STATUS.POLLING_CHECK]: "Checking Status",
         [STATUS.UNKNOWN]: "Unknown",
+        [STATUS.POST_PREPROCESSING]: "Post-processing",
       };
       // Fallback for potentially new stages from backend
       return (

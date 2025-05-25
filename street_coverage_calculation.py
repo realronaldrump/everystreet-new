@@ -2036,15 +2036,17 @@ class CoverageCalculator:
 
             MAX_TRIP_IDS_TO_STORE = 50000
             if len(trip_ids_list) <= MAX_TRIP_IDS_TO_STORE:
-                # If you want to store the processed trip IDs, uncomment the next line
-                # update_doc["$set"]["processed_trips"]["trip_ids"] = trip_ids_list
-                pass
+                update_doc["$set"]["processed_trips"]["trip_ids"] = trip_ids_list
             else:
                 logger.warning(
-                    "Task %s: Not storing %d trip IDs in metadata due to size limit.",
+                    "Task %s: Processed trip ID list length (%d) exceeds MAX_TRIP_IDS_TO_STORE (%d). "
+                    "Not storing full list in metadata, which will affect future incremental calculations (they will run as full).",
                     self.task_id,
                     len(trip_ids_list),
+                    MAX_TRIP_IDS_TO_STORE,
                 )
+                # Explicitly do not set trip_ids if too large to avoid partial/misleading state for incremental.
+                # This means next incremental will fetch no prior IDs and run as full.
 
             await update_one_with_retry(
                 coverage_metadata_collection,
