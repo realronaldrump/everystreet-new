@@ -5,9 +5,9 @@ import logging
 import math
 import statistics
 from collections.abc import Coroutine
-from typing import Any, TypeVar
 from functools import lru_cache
 from time import perf_counter
+from typing import Any, TypeVar
 
 import aiohttp
 from aiohttp import ClientConnectorError, ClientResponseError
@@ -174,7 +174,7 @@ def validate_trip_data(trip: dict[str, Any]) -> tuple[bool, str | None]:
     """
     global _performance_metrics
     _performance_metrics["coordinate_validations"] += 1
-    
+
     required_fields = ("transactionId", "startTime", "endTime", "gps")
 
     # Check required fields using set intersection for faster lookup
@@ -265,11 +265,11 @@ def haversine(
     """
     global _performance_metrics
     _performance_metrics["distance_calculations"] += 1
-    
+
     # Early return for identical points
     if lon1 == lon2 and lat1 == lat2:
         return 0.0
-    
+
     # Pre-computed radius lookup
     radius_map = {
         "meters": EARTH_RADIUS_METERS,
@@ -290,11 +290,11 @@ def haversine(
     # Haversine formula optimized
     dlon = lon2_rad - lon1_rad
     dlat = lat2_rad - lat1_rad
-    
+
     # Pre-compute sin values
     sin_dlat_2 = math.sin(dlat * 0.5)
     sin_dlon_2 = math.sin(dlon * 0.5)
-    
+
     a = (
         sin_dlat_2 * sin_dlat_2
         + math.cos(lat1_rad) * math.cos(lat2_rad) * sin_dlon_2 * sin_dlon_2
@@ -321,9 +321,7 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
         Total distance in miles
     """
     if not coordinates or not isinstance(coordinates, list):
-        logger.warning(
-            "Invalid or empty coordinates for distance calculation."
-        )
+        logger.warning("Invalid or empty coordinates for distance calculation.")
         return 0.0
 
     coord_count = len(coordinates)
@@ -343,21 +341,26 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
         try:
             coord1 = coordinates[i]
             coord2 = coordinates[i + 1]
-            
+
             # Fast validation and extraction
-            if (len(coord1) >= 2 and len(coord2) >= 2 and
-                isinstance(coord1[0], (int, float)) and isinstance(coord1[1], (int, float)) and
-                isinstance(coord2[0], (int, float)) and isinstance(coord2[1], (int, float))):
-                
+            if (
+                len(coord1) >= 2
+                and len(coord2) >= 2
+                and isinstance(coord1[0], (int, float))
+                and isinstance(coord1[1], (int, float))
+                and isinstance(coord2[0], (int, float))
+                and isinstance(coord2[1], (int, float))
+            ):
+
                 lon1, lat1 = coord1[0], coord1[1]
                 lon2, lat2 = coord2[0], coord2[1]
-                
+
                 # Skip identical consecutive points for performance
                 if lon1 != lon2 or lat1 != lat2:
                     distance = haversine(lon1, lat1, lon2, lat2, unit="meters")
                     total_distance_meters += distance
                     valid_pairs += 1
-                    
+
         except (TypeError, ValueError, IndexError) as e:
             logger.warning(
                 "Skipping coordinate pair %d due to error: %s",
@@ -368,7 +371,9 @@ def calculate_distance(coordinates: list[list[float]]) -> float:
 
     # Log performance metrics periodically
     if valid_pairs > 0 and valid_pairs % 100 == 0:
-        logger.debug(f"Processed {valid_pairs} coordinate pairs in distance calculation")
+        logger.debug(
+            f"Processed {valid_pairs} coordinate pairs in distance calculation"
+        )
 
     return meters_to_miles(total_distance_meters)
 
@@ -388,9 +393,7 @@ def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
                 future = executor.submit(asyncio.run, coro)
                 return future.result()
         else:
-            logger.debug(
-                "Reusing existing event loop for sync-to-async execution."
-            )
+            logger.debug("Reusing existing event loop for sync-to-async execution.")
     except RuntimeError:
         logger.debug("No event loop found, creating new one.")
         loop = asyncio.new_event_loop()
@@ -404,9 +407,7 @@ def run_async_from_sync(coro: Coroutine[Any, Any, T]) -> T:
     try:
         return loop.run_until_complete(coro)
     except Exception:
-        logger.error(
-            "Exception occurred during run_until_complete", exc_info=True
-        )
+        logger.error("Exception occurred during run_until_complete", exc_info=True)
         raise
 
 
@@ -429,7 +430,7 @@ def calculate_circular_average_hour(hours_list: list[float]) -> float:
 
     # Convert back to hours
     avg_angle = math.atan2(avg_sin, avg_cos)
-    avg_hour = (avg_angle / factor)
+    avg_hour = avg_angle / factor
 
     return (avg_hour + 24.0) % 24.0
 
@@ -439,8 +440,14 @@ def get_performance_metrics() -> dict[str, Any]:
     return {
         **_performance_metrics,
         "session_cache_size": _get_session_cache_info(),
-        "coordinate_cache_size": _validate_coordinate_pair.cache_info() if hasattr(_validate_coordinate_pair, 'cache_info') else {},
-        "haversine_cache_size": haversine.cache_info() if hasattr(haversine, 'cache_info') else {},
+        "coordinate_cache_size": (
+            _validate_coordinate_pair.cache_info()
+            if hasattr(_validate_coordinate_pair, "cache_info")
+            else {}
+        ),
+        "haversine_cache_size": (
+            haversine.cache_info() if hasattr(haversine, "cache_info") else {}
+        ),
     }
 
 
@@ -460,6 +467,6 @@ def _get_session_cache_info() -> dict[str, Any]:
     if _SESSION and not _SESSION.closed:
         return {
             "session_active": True,
-            "connector_limit": getattr(_SESSION._connector, '_limit', 'unknown')
+            "connector_limit": getattr(_SESSION._connector, "_limit", "unknown"),
         }
     return {"session_active": False}

@@ -60,8 +60,8 @@ async def create_geojson(
 
     # Process in batches for better memory management
     for i in range(0, len(trips), batch_size):
-        batch = trips[i:i + batch_size]
-        
+        batch = trips[i : i + batch_size]
+
         for trip in batch:
             processed_count += 1
             try:
@@ -78,7 +78,8 @@ async def create_geojson(
 
                 # Optimized property extraction (exclude gps and None values)
                 properties_dict = {
-                    key: value for key, value in trip.items() 
+                    key: value
+                    for key, value in trip.items()
                     if key != "gps" and value is not None
                 }
 
@@ -159,7 +160,9 @@ async def create_gpx(
             track.name = f"Trip {trip.get('transactionId', 'UNKNOWN')}"
 
             if trip.get("startLocation") and trip.get("destination"):
-                track.description = f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                track.description = (
+                    f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                )
 
             gpx.tracks.append(track)
 
@@ -388,7 +391,7 @@ async def create_export_response(
             headers={
                 "Content-Disposition": f'attachment; filename="{filename_base}.json"',
             },
-                )
+        )
     if fmt == "csv":
         return await create_streaming_csv_response(
             data,
@@ -413,14 +416,10 @@ def extract_date_range_string(
 
     """
     start_date = (
-        query["startTime"].get("$gte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
     )
     end_date = (
-        query["startTime"].get("$lte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
     )
 
     if start_date and end_date:
@@ -441,11 +440,7 @@ def get_location_filename(
 
     """
     return (
-        location.get("display_name", "")
-        .split(",")[0]
-        .strip()
-        .replace(" ", "_")
-        .lower()
+        location.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
     )
 
 
@@ -655,9 +650,7 @@ async def create_csv_export(
                         default=default_serializer,
                     )
                 else:
-                    flat_trip[key] = (
-                        "[Geometry data not included in CSV format]"
-                    )
+                    flat_trip[key] = "[Geometry data not included in CSV format]"
             elif flatten_location_fields and key in [
                 "startLocation",
                 "destination",
@@ -781,24 +774,21 @@ async def create_streaming_csv_response(
     flatten_location_fields: bool = True,
 ) -> StreamingResponse:
     """Create a streaming CSV response for large datasets.
-    
+
     Args:
         data: Trip data
         filename_base: Base filename for the download
         include_gps_in_csv: Whether to include GPS data in CSV exports
         flatten_location_fields: Whether to flatten location fields in CSV exports
-        
+
     Returns:
         StreamingResponse: Streaming CSV response
     """
     from io import StringIO
-    
+
     # Normalize data to list format
     if not isinstance(data, list):
-        if (
-            isinstance(data, dict)
-            and data.get("type") == "FeatureCollection"
-        ):
+        if isinstance(data, dict) and data.get("type") == "FeatureCollection":
             trips = []
             for feature in data.get("features", []):
                 if feature.get("properties"):
@@ -812,14 +802,14 @@ async def create_streaming_csv_response(
         if not data:
             yield "No data to export\n"
             return
-            
+
         # Process data in chunks for memory efficiency
         chunk_size = 500
         first_chunk = True
-        
+
         for i in range(0, len(data), chunk_size):
-            chunk = data[i:i + chunk_size]
-            
+            chunk = data[i : i + chunk_size]
+
             if first_chunk:
                 # Generate CSV content for first chunk with headers
                 csv_content = await create_csv_export(
@@ -837,9 +827,9 @@ async def create_streaming_csv_response(
                     flatten_location_fields=flatten_location_fields,
                 )
                 # Remove header line for subsequent chunks
-                lines = chunk_csv.split('\n')
+                lines = chunk_csv.split("\n")
                 if len(lines) > 1:
-                    yield '\n'.join(lines[1:])
+                    yield "\n".join(lines[1:])
 
     return StreamingResponse(
         generate_csv(),
