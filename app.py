@@ -4423,7 +4423,7 @@ async def get_coverage_area_details(location_id: str):
         street_types = coverage_doc.get("street_types", [])
         status = coverage_doc.get("status", "completed")
         last_error = coverage_doc.get("last_error")
-        needs_reprocessing = coverage_doc.get("needs_reprocessing", False)
+        needs_reprocessing = coverage_doc.get("needs_stats_update", False)
 
         # build the response
         result = {
