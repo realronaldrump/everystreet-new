@@ -4402,10 +4402,33 @@ async def get_coverage_area_details(location_id: str):
         streets_geojson = {}
         gridfs_id = coverage_doc.get("streets_geojson_gridfs_id")
         if gridfs_id:
-            fs = AsyncIOMotorGridFSBucket(db_manager.db)
-            stream = await fs.open_download_stream(gridfs_id)
-            bytes_data = await stream.read()
-            streets_geojson = json.loads(bytes_data.decode("utf-8"))
+            try:
+                fs = AsyncIOMotorGridFSBucket(db_manager.db)
+                # Check if file exists before attempting to open stream
+                grid_out_file = await fs.find_one({"_id": gridfs_id})
+                if grid_out_file:
+                    stream = await fs.open_download_stream(gridfs_id)
+                    bytes_data = await stream.read()
+                    streets_geojson = json.loads(bytes_data.decode("utf-8"))
+                else:
+                    logger.warning(
+                        f"GridFS ID {gridfs_id} found in metadata for location {location_id}, "
+                        f"but no corresponding file exists in GridFS. Treating as no GeoJSON."
+                    )
+                    # To prevent repeated errors for this missing file, consider clearing the orphaned ID:
+                    # await coverage_metadata_collection.update_one({"_id": ObjectId(location_id)}, {"$unset": {"streets_geojson_gridfs_id": ""}})
+                    # This would then require a new GeoJSON generation for this area.
+            except errors.NoFile: # Make sure 'errors' is imported from gridfs
+                logger.warning(
+                    f"GridFS file with ID {gridfs_id} not found for location {location_id} (NoFile error). "
+                    f"Treating as no GeoJSON."
+                )
+                # Optionally, clear the orphaned GridFS ID here as well.
+            except Exception as e_gridfs:
+                logger.error(
+                    f"Error reading GridFS file {gridfs_id} for location {location_id}: {e_gridfs}", exc_info=True
+                )
+                # streets_geojson remains empty, error is logged
 
         # compute metrics
         total_length = coverage_doc.get(
