@@ -1055,8 +1055,13 @@
 
     static extractTripGeometry(trip) {
       // Prioritize using trip.gps if it's already a valid GeoJSON object
-      if (trip.gps && typeof trip.gps === "object" && trip.gps.type === "LineString" && 
-          trip.gps.coordinates && trip.gps.coordinates.length > 0) {
+      if (
+        trip.gps &&
+        typeof trip.gps === "object" &&
+        trip.gps.type === "LineString" &&
+        trip.gps.coordinates &&
+        trip.gps.coordinates.length > 0
+      ) {
         trip.geometry = trip.gps;
         return;
       }
