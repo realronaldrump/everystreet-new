@@ -25,15 +25,12 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import (
-    HTMLResponse,
-    JSONResponse,
-)
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sklearn.cluster import KMeans
 
-
+from coverage_api import router as coverage_api_router  # This is key
 from db import (
     SerializationHelper,
     aggregate_with_retry,
@@ -47,13 +44,9 @@ from db import (
     init_database,
     parse_query_date,
 )
-from live_tracking import (
-    get_active_trip,
-    get_trip_updates,
-)
-from live_tracking import (
-    initialize_db as initialize_live_tracking_db,
-)
+from export_api import router as export_api_router
+from live_tracking import get_active_trip, get_trip_updates
+from live_tracking import initialize_db as initialize_live_tracking_db
 from models import (
     ActiveTripResponseUnion,
     ActiveTripSuccessResponse,
@@ -66,25 +59,13 @@ from models import (
 )
 from osm_utils import generate_geojson_osm
 from pages import router as pages_router
-from tasks import (
-    process_webhook_event_task,
-)
-from trip_processor import (
-    TripProcessor,
-    TripState,
-)
+from tasks import process_webhook_event_task
+from tasks_api import router as tasks_api_router
+from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import (
-    calculate_distance,
-    cleanup_session,
-    haversine,
-    validate_location_osm,
-)
+from utils import calculate_distance, cleanup_session, haversine, validate_location_osm
 from visits import init_collections
 from visits import router as visits_router
-from tasks_api import router as tasks_api_router
-from export_api import router as export_api_router
-from coverage_api import router as coverage_api_router  # This is key
 
 # Removed export_helpers imports that were specific to export endpoints
 # from export_helpers import (

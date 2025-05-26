@@ -302,9 +302,7 @@ async def process_trip_data(
         )
         return
 
-    existing_coords: list[dict[str, Any]] = (
-        trip_doc.get("coordinates", []) or []
-    )
+    existing_coords: list[dict[str, Any]] = trip_doc.get("coordinates", []) or []
     all_coords_map: dict[str, dict[str, Any]] = {}
     for c in existing_coords:
         ts = c.get("timestamp")
@@ -351,9 +349,7 @@ async def process_trip_data(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
         if not isinstance(start_time, datetime):
@@ -487,9 +483,7 @@ async def process_trip_data(
     if duration_seconds > 0:
         duration_hours = duration_seconds / 3600
         avg_speed_mph = (
-            full_trip_distance_miles / duration_hours
-            if duration_hours > 0
-            else 0.0
+            full_trip_distance_miles / duration_hours if duration_hours > 0 else 0.0
         )
     elif valid_speeds_for_avg_mph:
         avg_speed_mph = sum(valid_speeds_for_avg_mph) / len(
@@ -895,9 +889,7 @@ async def process_trip_end(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
 
@@ -989,9 +981,7 @@ async def process_trip_end(
             if isinstance(point_data, list) and len(point_data) >= 2:
                 coord_tuple = (point_data[0], point_data[1])
                 if coord_tuple not in seen_coords:
-                    processed_coords_for_geojson.append(
-                        [point_data[0], point_data[1]]
-                    )
+                    processed_coords_for_geojson.append([point_data[0], point_data[1]])
                     seen_coords.add(coord_tuple)
             # Add handling for other coordinate structures if necessary
 

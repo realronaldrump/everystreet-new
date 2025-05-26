@@ -7,15 +7,10 @@ from datetime import datetime, timezone
 
 import bson  # For bson.json_util
 from bson import ObjectId
-from fastapi import (
-    APIRouter,
-    HTTPException,
-    status,
-    Request,
-)
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from gridfs import errors
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from coverage_tasks import (
     process_area,
@@ -23,17 +18,17 @@ from coverage_tasks import (
     process_incremental_coverage_calculation,
 )
 from db import (
-    db_manager,
-    find_one_with_retry,
-    find_with_retry,
-    update_one_with_retry,
-    delete_many_with_retry,
-    delete_one_with_retry,
     aggregate_with_retry,
     batch_cursor,
     count_documents_with_retry,
+    db_manager,
+    delete_many_with_retry,
+    delete_one_with_retry,
+    find_one_with_retry,
+    find_with_retry,
+    update_one_with_retry,
 )
-from models import LocationModel, DeleteCoverageAreaModel
+from models import DeleteCoverageAreaModel, LocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -167,9 +162,7 @@ async def _recalculate_coverage_stats(
                 stype,
                 data,
             ) in street_types_summary.items():
-                type_driveable_length = (
-                    data["length"] - data["undriveable_length"]
-                )
+                type_driveable_length = data["length"] - data["undriveable_length"]
                 type_coverage_pct = (
                     (data["covered_length"] / type_driveable_length * 100)
                     if type_driveable_length > 0
@@ -241,9 +234,9 @@ async def _recalculate_coverage_stats(
             if "last_stats_update" in updated_coverage_area and isinstance(
                 updated_coverage_area["last_stats_update"], datetime
             ):
-                updated_coverage_area["last_stats_update"] = (
-                    updated_coverage_area["last_stats_update"].isoformat()
-                )
+                updated_coverage_area["last_stats_update"] = updated_coverage_area[
+                    "last_stats_update"
+                ].isoformat()
 
             return updated_coverage_area
 
@@ -253,9 +246,7 @@ async def _recalculate_coverage_stats(
         base_response = {
             **stats,
             "_id": str(location_id),
-            "location": coverage_area.get(
-                "location", {}
-            ),  # from initial fetch
+            "location": coverage_area.get("location", {}),  # from initial fetch
             "last_updated": datetime.now(timezone.utc).isoformat(),
             "last_stats_update": datetime.now(timezone.utc).isoformat(),
         }
@@ -322,9 +313,7 @@ async def get_coverage_status(task_id: str):
         )
 
     # Ensure datetime is serializable
-    if "updated_at" in progress and isinstance(
-        progress["updated_at"], datetime
-    ):
+    if "updated_at" in progress and isinstance(progress["updated_at"], datetime):
         progress["updated_at"] = progress["updated_at"].isoformat()
 
     return {
@@ -642,9 +631,7 @@ async def get_coverage_area_details(location_id: str):
     try:
         obj_location_id = ObjectId(location_id)
     except Exception:
-        raise HTTPException(
-            status_code=400, detail="Invalid location_id format"
-        )
+        raise HTTPException(status_code=400, detail="Invalid location_id format")
 
     coverage_doc = await find_one_with_retry(
         coverage_metadata_collection,
@@ -704,9 +691,7 @@ async def get_coverage_area_details(location_id: str):
                 "driven_length_m",
                 coverage_doc.get("driven_length", 0),
             ),
-            "coverage_percentage": coverage_doc.get(
-                "coverage_percentage", 0.0
-            ),
+            "coverage_percentage": coverage_doc.get("coverage_percentage", 0.0),
             "last_updated": last_updated_iso,
             "total_segments": coverage_doc.get("total_segments", 0),
             "streets_geojson": streets_geojson,
@@ -718,9 +703,7 @@ async def get_coverage_area_details(location_id: str):
                 if coverage_doc.get("status") == "error"
                 else None
             ),
-            "needs_reprocessing": coverage_doc.get(
-                "needs_stats_update", False
-            ),
+            "needs_reprocessing": coverage_doc.get("needs_stats_update", False),
         },
     }
     return JSONResponse(content=result)
@@ -732,9 +715,7 @@ async def get_coverage_area_streets(location_id: str):
     try:
         obj_location_id = ObjectId(location_id)
     except Exception:
-        raise HTTPException(
-            status_code=400, detail="Invalid location_id format"
-        )
+        raise HTTPException(status_code=400, detail="Invalid location_id format")
 
     meta = await find_one_with_retry(
         coverage_metadata_collection,
@@ -913,9 +894,7 @@ async def _mark_segment(
         {"_id": obj_location_id},
         {"location.display_name": 1},
     )
-    if not coverage_meta or not coverage_meta.get("location", {}).get(
-        "display_name"
-    ):
+    if not coverage_meta or not coverage_meta.get("location", {}).get("display_name"):
         # This case should ideally be caught if location_id is invalid,
         # but good to have a fallback if DB state is inconsistent.
         raise HTTPException(
@@ -937,9 +916,7 @@ async def _mark_segment(
         )
         # The original code proceeded with a warning. If strict matching is required, raise HTTPException here.
 
-    update_payload = {
-        f"properties.{key}": value for key, value in updates.items()
-    }
+    update_payload = {f"properties.{key}": value for key, value in updates.items()}
     update_payload["properties.manual_override"] = True
     update_payload["properties.last_manual_update"] = datetime.now(
         timezone.utc,
@@ -947,9 +924,7 @@ async def _mark_segment(
 
     result = await update_one_with_retry(
         streets_collection,
-        {
-            "_id": segment_doc["_id"]
-        },  # Use the actual _id of the segment document
+        {"_id": segment_doc["_id"]},  # Use the actual _id of the segment document
         {"$set": update_payload},
     )
 
