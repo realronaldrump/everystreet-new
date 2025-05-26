@@ -4,6 +4,7 @@ import logging
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
+import time # Added for timing
 
 import bson  # For bson.json_util
 from bson import ObjectId
@@ -243,6 +244,18 @@ async def _recalculate_coverage_stats(
             ):
                 updated_coverage_area["last_stats_update"] = (
                     updated_coverage_area["last_stats_update"].isoformat()
+                )
+            if "last_modified" in updated_coverage_area and isinstance(
+                updated_coverage_area["last_modified"], datetime
+            ): # Explicitly convert last_modified
+                updated_coverage_area["last_modified"] = updated_coverage_area[
+                    "last_modified"
+                ].isoformat()
+            if "streets_geojson_gridfs_id" in updated_coverage_area and isinstance(
+                updated_coverage_area["streets_geojson_gridfs_id"], ObjectId
+            ): # Convert ObjectId to string
+                updated_coverage_area["streets_geojson_gridfs_id"] = str(
+                    updated_coverage_area["streets_geojson_gridfs_id"]
                 )
 
             return updated_coverage_area
@@ -639,6 +652,8 @@ async def cancel_coverage_area(
 @router.get("/api/coverage_areas/{location_id}")
 async def get_coverage_area_details(location_id: str):
     """Get detailed information about a coverage area, fetching GeoJSON from GridFS."""
+    overall_start_time = time.perf_counter()
+    logger.info(f"[{location_id}] Request received for coverage area details.")
     try:
         obj_location_id = ObjectId(location_id)
     except Exception:
@@ -646,10 +661,14 @@ async def get_coverage_area_details(location_id: str):
             status_code=400, detail="Invalid location_id format"
         )
 
+    t_start_find_meta = time.perf_counter()
     coverage_doc = await find_one_with_retry(
         coverage_metadata_collection,
         {"_id": obj_location_id},
     )
+    t_end_find_meta = time.perf_counter()
+    logger.info(f"[{location_id}] Found coverage_doc in {t_end_find_meta - t_start_find_meta:.4f}s.")
+
     if not coverage_doc:
         raise HTTPException(
             status_code=404,
@@ -673,28 +692,42 @@ async def get_coverage_area_details(location_id: str):
     if gridfs_id:
         try:
             fs = AsyncIOMotorGridFSBucket(db_manager.db)
+            
+            t_start_find_gridfs_meta = time.perf_counter()
             grid_out_file_metadata = await db_manager.db.fs.files.find_one(
                 {"_id": gridfs_id}
             )
+            t_end_find_gridfs_meta = time.perf_counter()
+            logger.info(f"[{location_id}] Found GridFS metadata in {t_end_find_gridfs_meta - t_start_find_gridfs_meta:.4f}s. File length: {grid_out_file_metadata.get('length') if grid_out_file_metadata else 'N/A'}")
+
             if grid_out_file_metadata:
+                t_start_gridfs_read = time.perf_counter()
                 stream = await fs.open_download_stream(gridfs_id)
                 bytes_data = await stream.read()
+                t_end_gridfs_read = time.perf_counter()
+                logger.info(f"[{location_id}] Read {len(bytes_data)} bytes from GridFS in {t_end_gridfs_read - t_start_gridfs_read:.4f}s.")
+
+                t_start_json_load = time.perf_counter()
                 streets_geojson = json.loads(bytes_data.decode("utf-8"))
+                t_end_json_load = time.perf_counter()
+                logger.info(f"[{location_id}] Parsed GeoJSON in {t_end_json_load - t_start_json_load:.4f}s.")
             else:
                 logger.warning(
-                    f"GridFS ID {gridfs_id} found in metadata for location {location_id}, "
+                    f"[{location_id}] GridFS ID {gridfs_id} found in metadata, "
                     f"but no corresponding file exists in GridFS. Treating as no GeoJSON."
                 )
         except errors.NoFile:
             logger.warning(
-                f"GridFS file with ID {gridfs_id} not found for location {location_id} (NoFile error). "
+                f"[{location_id}] GridFS file with ID {gridfs_id} not found (NoFile error). "
                 f"Treating as no GeoJSON."
             )
         except Exception as e_gridfs:
             logger.error(
-                f"Error reading GridFS file {gridfs_id} for location {location_id}: {e_gridfs}",
+                f"[{location_id}] Error reading GridFS file {gridfs_id}: {e_gridfs}",
                 exc_info=True,
             )
+    else:
+        logger.info(f"[{location_id}] No streets_geojson_gridfs_id found in coverage_doc.")
 
     last_updated_iso = None
     if isinstance(coverage_doc.get("last_updated"), datetime):
@@ -735,6 +768,8 @@ async def get_coverage_area_details(location_id: str):
             ),
         },
     }
+    overall_end_time = time.perf_counter()
+    logger.info(f"[{location_id}] Total processing time for get_coverage_area_details: {overall_end_time - overall_start_time:.4f}s.")
     return JSONResponse(content=result)
 
 
