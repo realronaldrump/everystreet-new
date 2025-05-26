@@ -688,47 +688,27 @@ async def get_coverage_area_details(location_id: str):
                    f"malformed internal location information. Please check data integrity.",
         )
 
+    # Load streets GeoJSON from GridFS for performance
     streets_geojson = {}
     gridfs_id = coverage_doc.get("streets_geojson_gridfs_id")
     if gridfs_id:
         try:
             fs = AsyncIOMotorGridFSBucket(db_manager.db)
-            
-            t_start_find_gridfs_meta = time.perf_counter()
-            grid_out_file_metadata = await db_manager.db.fs.files.find_one(
-                {"_id": gridfs_id}
-            )
-            t_end_find_gridfs_meta = time.perf_counter()
-            logger.info(f"[{location_id}] Found GridFS metadata in {t_end_find_gridfs_meta - t_start_find_gridfs_meta:.4f}s. File length: {grid_out_file_metadata.get('length') if grid_out_file_metadata else 'N/A'}")
-
-            if grid_out_file_metadata:
-                t_start_gridfs_read = time.perf_counter()
+            grid_meta = await db_manager.db.fs.files.find_one({"_id": gridfs_id})
+            if grid_meta:
                 stream = await fs.open_download_stream(gridfs_id)
                 bytes_data = await stream.read()
-                t_end_gridfs_read = time.perf_counter()
-                logger.info(f"[{location_id}] Read {len(bytes_data)} bytes from GridFS in {t_end_gridfs_read - t_start_gridfs_read:.4f}s.")
-
-                t_start_json_load = time.perf_counter()
                 streets_geojson = json.loads(bytes_data.decode("utf-8"))
-                t_end_json_load = time.perf_counter()
-                logger.info(f"[{location_id}] Parsed GeoJSON in {t_end_json_load - t_start_json_load:.4f}s.")
             else:
                 logger.warning(
-                    f"[{location_id}] GridFS ID {gridfs_id} found in metadata, "
-                    f"but no corresponding file exists in GridFS. Treating as no GeoJSON."
+                    f"[{location_id}] GridFS ID {gridfs_id} found but no file present, consider regenerating."
                 )
         except errors.NoFile:
-            logger.warning(
-                f"[{location_id}] GridFS file with ID {gridfs_id} not found (NoFile error). "
-                f"Treating as no GeoJSON."
-            )
-        except Exception as e_gridfs:
-            logger.error(
-                f"[{location_id}] Error reading GridFS file {gridfs_id}: {e_gridfs}",
-                exc_info=True,
-            )
+            logger.warning(f"[{location_id}] GridFS file {gridfs_id} not found.")
+        except Exception as e:
+            logger.error(f"[{location_id}] Error reading GridFS file {gridfs_id}: {e}", exc_info=True)
     else:
-        logger.info(f"[{location_id}] No streets_geojson_gridfs_id found in coverage_doc.")
+        logger.info(f"[{location_id}] No streets_geojson_gridfs_id present; client can fetch /streets as fallback.")
 
     last_updated_iso = None
     if isinstance(coverage_doc.get("last_updated"), datetime):
@@ -797,11 +777,18 @@ async def get_coverage_area_streets(location_id: str):
     name = meta["location"]["display_name"]
     cursor = streets_collection.find(
         {"properties.location": name},
-        {"_id": 0, "geometry": 1, "properties": 1},
+        {
+            "_id": 0,
+            "geometry": 1,
+            "properties.segment_id": 1,
+            "properties.street_name": 1,
+            "properties.highway": 1,
+            "properties.segment_length": 1,
+            "properties.driven": 1,
+            "properties.undriveable": 1,
+        },
     )
-    features = await cursor.to_list(
-        length=None
-    )  # length=None to get all matching documents
+    features = await cursor.to_list(length=None)
     return {"type": "FeatureCollection", "features": features}
 
 
@@ -840,6 +827,9 @@ async def refresh_coverage_stats(
 
     # Explicitly encode the content to handle all types (like datetime)
     encoded_content = jsonable_encoder(response_content)
+
+    # Schedule static GeoJSON regeneration in GridFS
+    asyncio.create_task(_regenerate_streets_geojson(obj_location_id))
 
     return JSONResponse(content=encoded_content)
 
@@ -1205,3 +1195,63 @@ async def get_street_segment_details(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching segment details: {str(e)}",
         )
+
+
+async def _regenerate_streets_geojson(location_id: ObjectId):
+    """Helper to regenerate and store streets GeoJSON in GridFS."""
+    coverage_doc = await find_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": location_id},
+        {"location.display_name": 1, "streets_geojson_gridfs_id": 1},
+    )
+    if not coverage_doc or not coverage_doc.get("location", {}).get("display_name"):
+        logger.warning(f"Cannot regenerate GeoJSON: missing coverage metadata for {location_id}")
+        return
+    location_name = coverage_doc["location"]["display_name"]
+    # Stream and clean features to include only minimal properties for performance
+    raw_features = await streets_collection.find(
+        {"properties.location": location_name},
+        {
+            "_id": 0,
+            "geometry": 1,
+            "properties.segment_id": 1,
+            "properties.street_name": 1,
+            "properties.highway": 1,
+            "properties.segment_length": 1,
+            "properties.driven": 1,
+            "properties.undriveable": 1,
+        },
+    ).to_list(length=None)
+    # Build a clean GeoJSON without extra metadata
+    clean_features = []
+    for f in raw_features:
+        props = f.get("properties", {})
+        clean_props = {
+            "segment_id": props.get("segment_id"),
+            "street_name": props.get("street_name"),
+            "highway": props.get("highway"),
+            "segment_length": props.get("segment_length"),
+            "driven": props.get("driven"),
+            "undriveable": props.get("undriveable"),
+        }
+        clean_features.append({"type": "Feature", "geometry": f.get("geometry"), "properties": clean_props})
+    geojson = {"type": "FeatureCollection", "features": clean_features}
+    bucket = AsyncIOMotorGridFSBucket(db_manager.db)
+    # Delete old GridFS file if present
+    old_id = coverage_doc.get("streets_geojson_gridfs_id")
+    if isinstance(old_id, ObjectId):
+        try:
+            await bucket.delete(old_id)
+            logger.info(f"Deleted old GridFS geojson {old_id} for {location_name}")
+        except Exception as e:
+            logger.warning(f"Error deleting old GridFS file {old_id}: {e}")
+    # Serialize using FastAPI encoder to handle datetime conversion
+    safe_geojson = jsonable_encoder(geojson)
+    data_bytes = json.dumps(safe_geojson).encode("utf-8")
+    new_id = await bucket.upload_from_stream(f"{location_name}_streets.geojson", data_bytes)
+    await update_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": location_id},
+        {"$set": {"streets_geojson_gridfs_id": new_id}},
+    )
+    logger.info(f"Regenerated GridFS geojson {new_id} for {location_name}")
