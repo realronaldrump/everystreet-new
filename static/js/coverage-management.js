@@ -1971,10 +1971,12 @@ const STATUS = window.STATUS || {
       );
       const mapContainer = document.getElementById("coverage-map");
 
-
       if (!dashboardElement || !locationNameElement || !mapContainer) {
         console.error("Essential dashboard elements not found.");
-        this.notificationManager.show("UI Error: Essential dashboard components are missing.", "danger");
+        this.notificationManager.show(
+          "UI Error: Essential dashboard components are missing.",
+          "danger",
+        );
         return;
       }
 
@@ -1984,7 +1986,9 @@ const STATUS = window.STATUS || {
       locationNameElement.textContent = "Loading area details...";
       if (streetTypeChartElement) {
         streetTypeChartElement.innerHTML =
-          CoverageManager.createLoadingIndicator("Loading chart data...").outerHTML;
+          CoverageManager.createLoadingIndicator(
+            "Loading chart data...",
+          ).outerHTML;
       }
       if (streetTypeCoverageElement) {
         streetTypeCoverageElement.innerHTML =
@@ -1993,8 +1997,9 @@ const STATUS = window.STATUS || {
           ).outerHTML;
       }
       // Add a loading indicator to the map container itself
-      mapContainer.innerHTML = CoverageManager.createLoadingIndicator("Loading map data...").outerHTML;
-
+      mapContainer.innerHTML = CoverageManager.createLoadingIndicator(
+        "Loading map data...",
+      ).outerHTML;
 
       try {
         // --- STAGE 1: Fetch Metadata ---
@@ -2016,7 +2021,8 @@ const STATUS = window.STATUS || {
         ) {
           const errorMessage =
             apiResponse.success === false
-              ? apiResponse.error || "API request failed (no metadata error detail)."
+              ? apiResponse.error ||
+                "API request failed (no metadata error detail)."
               : "Incomplete metadata received (missing coverage or location info).";
           throw new Error(errorMessage);
         }
@@ -2038,50 +2044,83 @@ const STATUS = window.STATUS || {
 
         if (gridfsId) {
           try {
-            this.notificationManager.show("Fetching map data from optimized source...", "info");
-            const geojsonResponse = await fetch(`/api/coverage_areas/${locationId}/geojson/gridfs?cache_bust=${new Date().getTime()}`);
+            this.notificationManager.show(
+              "Fetching map data from optimized source...",
+              "info",
+            );
+            const geojsonResponse = await fetch(
+              `/api/coverage_areas/${locationId}/geojson/gridfs?cache_bust=${new Date().getTime()}`,
+            );
             if (geojsonResponse.ok) {
               streetsGeoJson = await geojsonResponse.json();
-              this.notificationManager.show("Map data loaded from optimized source.", "success", 2000);
+              this.notificationManager.show(
+                "Map data loaded from optimized source.",
+                "success",
+                2000,
+              );
             } else {
               const errData = await geojsonResponse.json().catch(() => ({}));
-              console.warn(`Failed to load GeoJSON from GridFS (${geojsonResponse.status}): ${errData.detail || geojsonResponse.statusText}. Falling back.`);
-              this.notificationManager.show(`Optimized map data failed (HTTP ${geojsonResponse.status}). Trying fallback...`, "warning");
+              console.warn(
+                `Failed to load GeoJSON from GridFS (${geojsonResponse.status}): ${errData.detail || geojsonResponse.statusText}. Falling back.`,
+              );
+              this.notificationManager.show(
+                `Optimized map data failed (HTTP ${geojsonResponse.status}). Trying fallback...`,
+                "warning",
+              );
             }
           } catch (e) {
-            console.error(`Error fetching GeoJSON from GridFS: ${e.message}`, e);
-            this.notificationManager.show(`Error fetching optimized map data: ${e.message}. Trying fallback...`, "warning");
+            console.error(
+              `Error fetching GeoJSON from GridFS: ${e.message}`,
+              e,
+            );
+            this.notificationManager.show(
+              `Error fetching optimized map data: ${e.message}. Trying fallback...`,
+              "warning",
+            );
           }
         }
 
         // Fallback if GridFS failed or no ID was present
         if (!streetsGeoJson) {
-          this.notificationManager.show("Fetching map data using fallback method...", "info");
+          this.notificationManager.show(
+            "Fetching map data using fallback method...",
+            "info",
+          );
           const streetsResp = await fetch(
             `/api/coverage_areas/${locationId}/streets?cache_bust=${new Date().getTime()}`,
           );
           if (streetsResp.ok) {
             streetsGeoJson = await streetsResp.json();
-            this.notificationManager.show("Map data loaded using fallback.", "success", 2000);
+            this.notificationManager.show(
+              "Map data loaded using fallback.",
+              "success",
+              2000,
+            );
           } else {
             const errData = await streetsResp.json().catch(() => ({}));
-            throw new Error(`Failed to load street geometry (fallback): ${streetsResp.status} ${errData.detail || streetsResp.statusText}`);
+            throw new Error(
+              `Failed to load street geometry (fallback): ${streetsResp.status} ${errData.detail || streetsResp.statusText}`,
+            );
           }
         }
-        
+
         if (streetsGeoJson) {
           this.selectedLocation.streets_geojson = streetsGeoJson; // Add to stored data
           this.initializeCoverageMap(this.selectedLocation); // Pass all selected location data, now including GeoJSON
         } else {
-            mapContainer.innerHTML = CoverageManager.createAlertMessage("Map Data Error", "Could not load street geometry for the map.", "danger", locationId);
-            throw new Error("Failed to load street geometry from all sources.");
+          mapContainer.innerHTML = CoverageManager.createAlertMessage(
+            "Map Data Error",
+            "Could not load street geometry for the map.",
+            "danger",
+            locationId,
+          );
+          throw new Error("Failed to load street geometry from all sources.");
         }
 
         // fitMapToBounds is now called within initializeCoverageMap or its 'load' listener
         // if (this.mapBounds && this.coverageMap) {
         //   this.fitMapToBounds();
         // }
-
       } catch (error) {
         console.error("Error displaying coverage dashboard:", error);
         locationNameElement.textContent = "Error loading data";
@@ -2092,7 +2131,11 @@ const STATUS = window.STATUS || {
         // Clear out potentially partial loading indicators
         if (streetTypeChartElement) streetTypeChartElement.innerHTML = "";
         if (streetTypeCoverageElement) streetTypeCoverageElement.innerHTML = "";
-        mapContainer.innerHTML = CoverageManager.createAlertMessage("Dashboard Load Error", error.message, "danger");
+        mapContainer.innerHTML = CoverageManager.createAlertMessage(
+          "Dashboard Load Error",
+          error.message,
+          "danger",
+        );
         // dashboardElement.style.display = "none"; // Optionally hide the whole thing again
       } finally {
         this.initTooltips(); // Re-init tooltips if new buttons appeared
@@ -2111,8 +2154,9 @@ const STATUS = window.STATUS || {
       const drivenLengthM = parseFloat(coverage.driven_length || 0);
       // const driveableLengthM = parseFloat(coverage.driveable_length || 0); // Available if needed for display
 
-      const coveragePercentage =
-        parseFloat(coverage.coverage_percentage || 0).toFixed(1);
+      const coveragePercentage = parseFloat(
+        coverage.coverage_percentage || 0,
+      ).toFixed(1);
       const totalSegments = parseInt(coverage.total_segments || 0, 10);
 
       // Calculate covered segments from the street_types array (authoritative from backend)
@@ -2137,10 +2181,13 @@ const STATUS = window.STATUS || {
         coverage.status === STATUS.CANCELED
       ) {
         barColor = "bg-danger";
-      } else if (coverage.status !== STATUS.COMPLETED && coverage.status !== STATUS.COMPLETE) {
+      } else if (
+        coverage.status !== STATUS.COMPLETED &&
+        coverage.status !== STATUS.COMPLETE
+      ) {
         barColor = "bg-warning";
       }
-      
+
       const html = `
         <div class="row">
           <div class="col-md-3 col-6 mb-3">
@@ -2858,9 +2905,14 @@ const STATUS = window.STATUS || {
             this.selectedLocation = refreshData.coverage; // Store the new, complete coverage object
             this.updateDashboardStats(refreshData.coverage);
             this.addCoverageSummary(refreshData.coverage); // Update map overlay summary
-            this.updateStreetTypeCoverage(refreshData.coverage.street_types || []); // Update street type table
-            if (this.streetTypeChartInstance && typeof this.streetTypeChartInstance.destroy === 'function') {
-                this.streetTypeChartInstance.destroy(); // Destroy old chart before creating new one
+            this.updateStreetTypeCoverage(
+              refreshData.coverage.street_types || [],
+            ); // Update street type table
+            if (
+              this.streetTypeChartInstance &&
+              typeof this.streetTypeChartInstance.destroy === "function"
+            ) {
+              this.streetTypeChartInstance.destroy(); // Destroy old chart before creating new one
             }
             this.createStreetTypeChart(refreshData.coverage.street_types || []); // Re-create street type chart
           } else {
