@@ -1388,12 +1388,12 @@ async def ensure_street_coverage_indexes() -> None:
             name="trips_coverage_query_idx",
             background=True,
         )
-        await db_manager.safe_create_index(
-            "trips",
-            [("source", pymongo.ASCENDING)],
-            name="trips_source_idx",
-            background=True,
-        )
+        # await db_manager.safe_create_index(
+        #     "trips",
+        #     [("source", pymongo.ASCENDING)],
+        #     name="trips_source_idx",
+        #     background=True,
+        # )
 
         # CRITICAL PERFORMANCE INDEXES - Adding missing indexes for frequent lookups and sorts
         await db_manager.safe_create_index(

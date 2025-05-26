@@ -1288,7 +1288,8 @@ async def get_trips(request: Request):
     try:
         query = await build_query_from_request(request)
 
-        all_trips = await find_with_retry(trips_collection, query)
+        # Use endTime descending sort to leverage trips_endTime_desc_idx index
+        all_trips = await find_with_retry(trips_collection, query, sort=[("endTime", -1)])
         features = []
 
         processor = TripProcessor()
@@ -2256,7 +2257,8 @@ async def get_matched_trips(request: Request):
     try:
         query = await build_query_from_request(request)
 
-        matched = await find_with_retry(matched_trips_collection, query)
+        # Sort matched trips by startTime descending to use matched_trips_startTime_idx
+        matched = await find_with_retry(matched_trips_collection, query, sort=[("startTime", -1)])
         features = []
 
         for trip in matched:
