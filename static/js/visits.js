@@ -1054,8 +1054,15 @@
     }
 
     static extractTripGeometry(trip) {
-      if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
+      // Prioritize using trip.gps if it's already a valid GeoJSON object
+      if (trip.gps && typeof trip.gps === "object" && trip.gps.type === "LineString" && 
+          trip.gps.coordinates && trip.gps.coordinates.length > 0) {
+        trip.geometry = trip.gps;
         return;
+      }
+
+      if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
+        return; // Already has geometry
       }
       if (
         trip.matchedGps?.coordinates &&
@@ -1064,6 +1071,7 @@
         trip.geometry = trip.matchedGps;
         return;
       }
+      // Fallback for older data where trip.gps might be a string
       if (typeof trip.gps === "string" && trip.gps) {
         try {
           const gpsData = JSON.parse(trip.gps);

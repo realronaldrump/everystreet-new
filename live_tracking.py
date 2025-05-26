@@ -963,10 +963,6 @@ async def process_trip_end(
         base_trip_data.get("hardAccelerationCounts", 0),
     )
     trip_to_archive.setdefault(
-        "coordinates",
-        base_trip_data.get("coordinates", []),
-    )
-    trip_to_archive.setdefault(
         "pointsRecorded",
         base_trip_data.get("pointsRecorded", 0),
     )
@@ -978,6 +974,40 @@ async def process_trip_end(
         base_trip_data.get("sequence", 0) + 1,
         int(time.time_ns() / 1000),
     )
+
+    # --- Begin modification: Construct GeoJSON for 'gps' field ---
+    final_coordinates = trip_to_archive.pop("coordinates", []) # Get and remove old 'coordinates' field
+    if final_coordinates and len(final_coordinates) >= 2:
+        # Ensure coordinates are just [lon, lat] if they contain more (e.g., timestamp from CoordinatePointModel-like structure)
+        # Assuming coordinates in live_collection are [lon, lat, timestamp, speed, ...]
+        # or just [lon, lat]. If more complex, this part might need adjustment.
+        # For a simple LineString, we only need [lon, lat].
+        # This example assumes the first two elements are lon and lat.
+        # If your live coordinates are already just [lon, lat], this map is simpler.
+        processed_coords_for_geojson = []
+        for point_data in final_coordinates:
+            if isinstance(point_data, list) and len(point_data) >= 2:
+                # Assuming point_data might be [lon, lat, timestamp, speed, etc.]
+                # or just [lon, lat]. We only take lon, lat for standard LineString.
+                processed_coords_for_geojson.append([point_data[0], point_data[1]])
+            # Add handling for other coordinate structures if necessary
+        
+        if len(processed_coords_for_geojson) >= 2:
+            trip_to_archive["gps"] = {
+                "type": "LineString",
+                "coordinates": processed_coords_for_geojson 
+            }
+        else:
+            logger.warning(
+                f"Trip {transaction_id}: Not enough valid coordinate pairs ({len(processed_coords_for_geojson)}) after processing for GeoJSON LineString. 'gps' field will be omitted."
+            )
+            trip_to_archive["gps"] = None # Or omit, or set to an empty LineString if preferred
+    else:
+        logger.warning(
+            f"Trip {transaction_id}: 'coordinates' list has < 2 points ({len(final_coordinates)}). 'gps' field will be omitted/set to null."
+        )
+        trip_to_archive["gps"] = None # Or omit
+    # --- End modification ---
 
     final_duration = trip_to_archive.get("duration", 0.0)
     final_distance = trip_to_archive.get("distance", 0.0)
@@ -1233,6 +1263,32 @@ async def cleanup_stale_trips_logic(
                 trip.get("sequence", 0) + 1,
                 int(time.time_ns() / 1000),
             )
+
+            # --- Begin modification: Construct GeoJSON for 'gps' field for stale trips ---
+            final_coordinates = trip_to_archive.pop("coordinates", []) # Get and remove old 'coordinates' field
+            if final_coordinates and len(final_coordinates) >= 2:
+                processed_coords_for_geojson = []
+                for point_data in final_coordinates:
+                    if isinstance(point_data, list) and len(point_data) >= 2:
+                        # Assuming point_data might be [lon, lat, timestamp, speed, etc.] or just [lon, lat]
+                        processed_coords_for_geojson.append([point_data[0], point_data[1]])
+                
+                if len(processed_coords_for_geojson) >= 2:
+                    trip_to_archive["gps"] = {
+                        "type": "LineString",
+                        "coordinates": processed_coords_for_geojson
+                    }
+                else:
+                    logger.warning(
+                        f"Stale Trip {transaction_id}: Not enough valid coordinate pairs ({len(processed_coords_for_geojson)}) for GeoJSON. 'gps' field omitted."
+                    )
+                    trip_to_archive["gps"] = None 
+            else:
+                logger.warning(
+                    f"Stale Trip {transaction_id}: 'coordinates' list has < 2 points ({len(final_coordinates)}). 'gps' field omitted."
+                )
+                trip_to_archive["gps"] = None
+            # --- End modification ---
 
             async def archive_stale_op(
                 session=None,

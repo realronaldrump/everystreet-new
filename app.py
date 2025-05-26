@@ -1144,7 +1144,7 @@ async def update_trip(trip_id: str, data: TripUpdateModel):
                 "coordinates": geometry["coordinates"],
             }
             update_fields["geometry"] = geometry
-            update_fields["gps"] = json.dumps(gps_data)
+            update_fields["gps"] = gps_data
 
         if props:
             for field in ["startTime", "endTime"]:
@@ -6697,81 +6697,6 @@ async def get_optimized_multi_street_route(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create optimized route: {e}",
         )
-
-
-@app.post("/api/admin/migrate_gps_to_geojson")
-async def migrate_gps_to_geojson_endpoint():
-    """Migrate stringified 'gps' field in trips_collection to GeoJSON objects.
-    This is a one-time administrative task.
-    """
-    logger.info("Starting migration of stringified GPS data in trips_collection...")
-    migrated_count = 0
-    failed_count = 0
-    already_object_count = 0
-
-    # It's safer to process in batches if the collection is very large
-    # However, for a one-time script, direct iteration might be acceptable
-    # depending on collection size and server resources.
-    # For simplicity here, we iterate. Add batching if needed for production.
-
-    async for trip in trips_collection.find({"gps": {"$type": "string"}}):
-        trip_id = trip.get("_id")
-        transaction_id = trip.get("transactionId", "Unknown")
-        gps_str = trip.get("gps")
-
-        if not gps_str: # Should not happen due to query, but good check
-            logger.warning(f"Trip {transaction_id} ({trip_id}) has null/empty string GPS, skipping.")
-            failed_count +=1
-            continue
-
-        try:
-            gps_obj = json.loads(gps_str)
-            # Basic validation that it parsed to something like GeoJSON LineString
-            if (isinstance(gps_obj, dict) and 
-               gps_obj.get("type") == "LineString" and 
-               isinstance(gps_obj.get("coordinates"), list)):
-
-                # Validate coordinates further to ensure they are lists of numbers
-                valid_coords = True
-                for coord_pair in gps_obj["coordinates"]:
-                    if not (isinstance(coord_pair, list) and len(coord_pair) == 2 and 
-                            all(isinstance(c, (int, float)) for c in coord_pair)):
-                        valid_coords = False
-                        break
-                if not gps_obj["coordinates"]: # Empty coordinates list
-                    valid_coords = False
-
-                if valid_coords:
-                    result = await trips_collection.update_one(
-                        {"_id": trip_id},
-                        {"$set": {"gps": gps_obj}}
-                    )
-                    if result.modified_count > 0:
-                        migrated_count += 1
-                    else:
-                        logger.warning(f"Trip {transaction_id} ({trip_id}) string GPS matched but was not modified (unexpected). GPS: {gps_str[:100]}")
-                        failed_count +=1
-                else:
-                    logger.error(f"Trip {transaction_id} ({trip_id}) parsed from string but had invalid coordinates structure. GPS: {gps_obj}")
-                    failed_count += 1
-            else:
-                logger.error(f"Trip {transaction_id} ({trip_id}) GPS string did not parse into a valid LineString GeoJSON object. Parsed: {gps_obj}")
-                failed_count += 1
-        except json.JSONDecodeError:
-            logger.error(f"Trip {transaction_id} ({trip_id}) failed to parse GPS string: {gps_str[:100]}...", exc_info=False)
-            failed_count += 1
-        except Exception as e:
-            logger.error(f"Unexpected error migrating GPS for trip {transaction_id} ({trip_id}): {e}", exc_info=True)
-            failed_count += 1
-    
-    # Count trips where GPS is already an object (for reporting)
-    already_object_count = await trips_collection.count_documents({"gps": {"$type": "object"}})
-    total_count = await trips_collection.count_documents({})
-
-    summary_message = f"GPS migration completed. Migrated: {migrated_count}, Failed: {failed_count}, Already Object: {already_object_count}, Total: {total_count}."
-    logger.info(summary_message)
-    return {"status": "success", "message": summary_message, "migrated": migrated_count, "failed": failed_count, "already_object": already_object_count, "total_trips": total_count}
-
 
 if __name__ == "__main__":
     import uvicorn

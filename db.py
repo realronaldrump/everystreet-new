@@ -1339,6 +1339,32 @@ async def ensure_street_coverage_indexes() -> None:
             background=True,
         )
 
+        # CRITICAL PERFORMANCE INDEXES - Adding missing indexes for frequent lookups and sorts
+        await db_manager.safe_create_index(
+            "trips",
+            [("transactionId", pymongo.ASCENDING)],
+            name="trips_transactionId_idx",
+            background=True,
+        )
+        await db_manager.safe_create_index(
+            "trips",
+            [("endTime", pymongo.DESCENDING)],
+            name="trips_endTime_desc_idx",
+            background=True,
+        )
+        await db_manager.safe_create_index(
+            "matched_trips",
+            [("transactionId", pymongo.ASCENDING)],
+            name="matched_trips_transactionId_idx",
+            background=True,
+        )
+        await db_manager.safe_create_index(
+            "matched_trips",
+            [("startTime", pymongo.ASCENDING)],
+            name="matched_trips_startTime_idx",
+            background=True,
+        )
+
         logger.info("Street coverage indexes ensured/created successfully")
     except Exception as e:
         logger.error(
@@ -1413,80 +1439,33 @@ async def ensure_location_indexes() -> None:
         )
 
 
-async def run_transaction(
-    operations: list[Callable[[], Awaitable[Any]]],
-    max_retries: int = 3,
-) -> bool:
-    """Run a series of operations within a MongoDB transaction with retry logic for
-    write conflicts.
-    Note: Requires replica set or sharded cluster. Standalone instances do not support
-    transactions.
-
-    Args:
-        operations: List of async operations to execute
-        max_retries: Maximum number of retries for transient errors like write conflicts
-
-    Returns:
-        True if transaction succeeded, False otherwise
-
-    """
-    client = db_manager.client
-    session = None
-
-    retry_count = 0
-    while retry_count <= max_retries:
-        try:
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    logger.debug("Starting transaction...")
-                    results = []
-                    for i, op in enumerate(operations):
-                        logger.debug(
-                            "Executing operation %d in transaction...",
-                            i + 1,
-                        )
-                        result = await op(session=session)
-                        results.append(result)
-                    logger.debug("Committing transaction...")
-                logger.info("Transaction committed successfully.")
-                return True
-        except (
-            ConnectionFailure,
-            OperationFailure,
-        ) as e:
-            is_transient = False
-            if hasattr(e, "has_error_label"):
-                is_transient = e.has_error_label("TransientTransactionError")
-            elif hasattr(e, "details") and isinstance(e.details, dict):
-                error_labels = e.details.get("errorLabels", [])
-                is_transient = "TransientTransactionError" in error_labels
-
-            if is_transient and retry_count < max_retries:
-                retry_count += 1
-                wait_time = 0.1 * (2**retry_count)
-                logger.warning(
-                    "Transient transaction error detected (attempt %d/%d), retrying in %.2f seconds: %s",
-                    retry_count,
-                    max_retries,
-                    wait_time,
-                    str(e),
-                )
-                await asyncio.sleep(wait_time)
-                continue
-            logger.error(
-                "Transaction failed after %d attempts: %s",
-                retry_count + 1,
-                str(e),
-                exc_info=True,
-            )
-            return False
-        except Exception as e:
-            logger.error(
-                "Unexpected error during transaction: %s",
-                str(e),
-                exc_info=True,
-            )
-            return False
+async def ensure_archived_trip_indexes() -> None:
+    """Ensure necessary indexes exist on the archived_live_trips collection."""
+    db = DatabaseManager()
+    collection_name = "archived_live_trips"
+    # 2dsphere index for GPS data
+    await db.safe_create_index(
+        collection_name,
+        [("gps", pymongo.GEOSPHERE)],
+        name="archived_gps_2dsphere_idx",
+        background=True,
+    )
+    # Index on transactionId for faster lookups if not already present
+    await db.safe_create_index(
+        collection_name,
+        "transactionId",
+        name="archived_transactionId_idx",
+        unique=True, # Assuming transactionId should be unique in this collection
+        background=True,
+    )
+    # Index on endTime for sorting or querying by time
+    await db.safe_create_index(
+        collection_name,
+        "endTime",
+        name="archived_endTime_idx",
+        background=True,
+    )
+    logger.info(f"Indexes ensured for '{collection_name}'.")
 
 
 async def init_database() -> None:
@@ -1505,6 +1484,7 @@ async def init_database() -> None:
 
     await ensure_street_coverage_indexes()
     await ensure_location_indexes()
+    await ensure_archived_trip_indexes()
 
     _ = db_manager.get_collection("places")
     _ = db_manager.get_collection("task_config")
