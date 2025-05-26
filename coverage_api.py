@@ -1,22 +1,17 @@
 import asyncio
 import json
 import logging
+import time  # Added for timing
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-import time # Added for timing
 
 import bson  # For bson.json_util
 from bson import ObjectId
-from fastapi import (
-    APIRouter,
-    HTTPException,
-    status,
-    Request,
-)
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from gridfs import errors
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from coverage_tasks import (
     process_area,
@@ -24,17 +19,17 @@ from coverage_tasks import (
     process_incremental_coverage_calculation,
 )
 from db import (
-    db_manager,
-    find_one_with_retry,
-    find_with_retry,
-    update_one_with_retry,
-    delete_many_with_retry,
-    delete_one_with_retry,
     aggregate_with_retry,
     batch_cursor,
     count_documents_with_retry,
+    db_manager,
+    delete_many_with_retry,
+    delete_one_with_retry,
+    find_one_with_retry,
+    find_with_retry,
+    update_one_with_retry,
 )
-from models import LocationModel, DeleteCoverageAreaModel
+from models import DeleteCoverageAreaModel, LocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -168,9 +163,7 @@ async def _recalculate_coverage_stats(
                 stype,
                 data,
             ) in street_types_summary.items():
-                type_driveable_length = (
-                    data["length"] - data["undriveable_length"]
-                )
+                type_driveable_length = data["length"] - data["undriveable_length"]
                 type_coverage_pct = (
                     (data["covered_length"] / type_driveable_length * 100)
                     if type_driveable_length > 0
@@ -242,18 +235,18 @@ async def _recalculate_coverage_stats(
             if "last_stats_update" in updated_coverage_area and isinstance(
                 updated_coverage_area["last_stats_update"], datetime
             ):
-                updated_coverage_area["last_stats_update"] = (
-                    updated_coverage_area["last_stats_update"].isoformat()
-                )
+                updated_coverage_area["last_stats_update"] = updated_coverage_area[
+                    "last_stats_update"
+                ].isoformat()
             if "last_modified" in updated_coverage_area and isinstance(
                 updated_coverage_area["last_modified"], datetime
-            ): # Explicitly convert last_modified
+            ):  # Explicitly convert last_modified
                 updated_coverage_area["last_modified"] = updated_coverage_area[
                     "last_modified"
                 ].isoformat()
             if "streets_geojson_gridfs_id" in updated_coverage_area and isinstance(
                 updated_coverage_area["streets_geojson_gridfs_id"], ObjectId
-            ): # Convert ObjectId to string
+            ):  # Convert ObjectId to string
                 updated_coverage_area["streets_geojson_gridfs_id"] = str(
                     updated_coverage_area["streets_geojson_gridfs_id"]
                 )
@@ -266,9 +259,7 @@ async def _recalculate_coverage_stats(
         base_response = {
             **stats,
             "_id": str(location_id),
-            "location": coverage_area.get(
-                "location", {}
-            ),  # from initial fetch
+            "location": coverage_area.get("location", {}),  # from initial fetch
             "last_updated": datetime.now(timezone.utc).isoformat(),
             "last_stats_update": datetime.now(timezone.utc).isoformat(),
         }
@@ -335,9 +326,7 @@ async def get_coverage_status(task_id: str):
         )
 
     # Ensure datetime is serializable
-    if "updated_at" in progress and isinstance(
-        progress["updated_at"], datetime
-    ):
+    if "updated_at" in progress and isinstance(progress["updated_at"], datetime):
         progress["updated_at"] = progress["updated_at"].isoformat()
 
     return {
@@ -657,9 +646,7 @@ async def get_coverage_area_details(location_id: str):
     try:
         obj_location_id = ObjectId(location_id)
     except Exception:
-        raise HTTPException(
-            status_code=400, detail="Invalid location_id format"
-        )
+        raise HTTPException(status_code=400, detail="Invalid location_id format")
 
     t_start_find_meta = time.perf_counter()
     coverage_doc = await find_one_with_retry(
@@ -667,7 +654,9 @@ async def get_coverage_area_details(location_id: str):
         {"_id": obj_location_id},
     )
     t_end_find_meta = time.perf_counter()
-    logger.info(f"[{location_id}] Found coverage_doc in {t_end_find_meta - t_start_find_meta:.4f}s.")
+    logger.info(
+        f"[{location_id}] Found coverage_doc in {t_end_find_meta - t_start_find_meta:.4f}s."
+    )
 
     if not coverage_doc:
         raise HTTPException(
@@ -684,7 +673,7 @@ async def get_coverage_area_details(location_id: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Coverage area with ID '{location_id}' was found but contains incomplete or "
-                   f"malformed internal location information. Please check data integrity.",
+            f"malformed internal location information. Please check data integrity.",
         )
 
     streets_geojson = {}
@@ -692,25 +681,31 @@ async def get_coverage_area_details(location_id: str):
     if gridfs_id:
         try:
             fs = AsyncIOMotorGridFSBucket(db_manager.db)
-            
+
             t_start_find_gridfs_meta = time.perf_counter()
             grid_out_file_metadata = await db_manager.db.fs.files.find_one(
                 {"_id": gridfs_id}
             )
             t_end_find_gridfs_meta = time.perf_counter()
-            logger.info(f"[{location_id}] Found GridFS metadata in {t_end_find_gridfs_meta - t_start_find_gridfs_meta:.4f}s. File length: {grid_out_file_metadata.get('length') if grid_out_file_metadata else 'N/A'}")
+            logger.info(
+                f"[{location_id}] Found GridFS metadata in {t_end_find_gridfs_meta - t_start_find_gridfs_meta:.4f}s. File length: {grid_out_file_metadata.get('length') if grid_out_file_metadata else 'N/A'}"
+            )
 
             if grid_out_file_metadata:
                 t_start_gridfs_read = time.perf_counter()
                 stream = await fs.open_download_stream(gridfs_id)
                 bytes_data = await stream.read()
                 t_end_gridfs_read = time.perf_counter()
-                logger.info(f"[{location_id}] Read {len(bytes_data)} bytes from GridFS in {t_end_gridfs_read - t_start_gridfs_read:.4f}s.")
+                logger.info(
+                    f"[{location_id}] Read {len(bytes_data)} bytes from GridFS in {t_end_gridfs_read - t_start_gridfs_read:.4f}s."
+                )
 
                 t_start_json_load = time.perf_counter()
                 streets_geojson = json.loads(bytes_data.decode("utf-8"))
                 t_end_json_load = time.perf_counter()
-                logger.info(f"[{location_id}] Parsed GeoJSON in {t_end_json_load - t_start_json_load:.4f}s.")
+                logger.info(
+                    f"[{location_id}] Parsed GeoJSON in {t_end_json_load - t_start_json_load:.4f}s."
+                )
             else:
                 logger.warning(
                     f"[{location_id}] GridFS ID {gridfs_id} found in metadata, "
@@ -727,7 +722,9 @@ async def get_coverage_area_details(location_id: str):
                 exc_info=True,
             )
     else:
-        logger.info(f"[{location_id}] No streets_geojson_gridfs_id found in coverage_doc.")
+        logger.info(
+            f"[{location_id}] No streets_geojson_gridfs_id found in coverage_doc."
+        )
 
     last_updated_iso = None
     if isinstance(coverage_doc.get("last_updated"), datetime):
@@ -749,9 +746,7 @@ async def get_coverage_area_details(location_id: str):
                 "driven_length_m",
                 coverage_doc.get("driven_length", 0),
             ),
-            "coverage_percentage": coverage_doc.get(
-                "coverage_percentage", 0.0
-            ),
+            "coverage_percentage": coverage_doc.get("coverage_percentage", 0.0),
             "last_updated": last_updated_iso,
             "total_segments": coverage_doc.get("total_segments", 0),
             "streets_geojson": streets_geojson,
@@ -763,13 +758,13 @@ async def get_coverage_area_details(location_id: str):
                 if coverage_doc.get("status") == "error"
                 else None
             ),
-            "needs_reprocessing": coverage_doc.get(
-                "needs_stats_update", False
-            ),
+            "needs_reprocessing": coverage_doc.get("needs_stats_update", False),
         },
     }
     overall_end_time = time.perf_counter()
-    logger.info(f"[{location_id}] Total processing time for get_coverage_area_details: {overall_end_time - overall_start_time:.4f}s.")
+    logger.info(
+        f"[{location_id}] Total processing time for get_coverage_area_details: {overall_end_time - overall_start_time:.4f}s."
+    )
     return JSONResponse(content=result)
 
 
@@ -779,9 +774,7 @@ async def get_coverage_area_streets(location_id: str):
     try:
         obj_location_id = ObjectId(location_id)
     except Exception:
-        raise HTTPException(
-            status_code=400, detail="Invalid location_id format"
-        )
+        raise HTTPException(status_code=400, detail="Invalid location_id format")
 
     meta = await find_one_with_retry(
         coverage_metadata_collection,
@@ -960,9 +953,7 @@ async def _mark_segment(
         {"_id": obj_location_id},
         {"location.display_name": 1},
     )
-    if not coverage_meta or not coverage_meta.get("location", {}).get(
-        "display_name"
-    ):
+    if not coverage_meta or not coverage_meta.get("location", {}).get("display_name"):
         # This case should ideally be caught if location_id is invalid,
         # but good to have a fallback if DB state is inconsistent.
         raise HTTPException(
@@ -984,9 +975,7 @@ async def _mark_segment(
         )
         # The original code proceeded with a warning. If strict matching is required, raise HTTPException here.
 
-    update_payload = {
-        f"properties.{key}": value for key, value in updates.items()
-    }
+    update_payload = {f"properties.{key}": value for key, value in updates.items()}
     update_payload["properties.manual_override"] = True
     update_payload["properties.last_manual_update"] = datetime.now(
         timezone.utc,
@@ -994,9 +983,7 @@ async def _mark_segment(
 
     result = await update_one_with_retry(
         streets_collection,
-        {
-            "_id": segment_doc["_id"]
-        },  # Use the actual _id of the segment document
+        {"_id": segment_doc["_id"]},  # Use the actual _id of the segment document
         {"$set": update_payload},
     )
 
