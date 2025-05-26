@@ -15,6 +15,7 @@ from fastapi import (
     Request,
 )
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder # <--- ADDED THIS IMPORT
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from gridfs import errors
 
@@ -831,14 +832,16 @@ async def refresh_coverage_stats(
             detail="Failed to recalculate statistics or coverage area not found.",
         )
 
-    # _recalculate_coverage_stats should already handle datetime to isoformat for its direct return
-    # This JSONResponse will handle the final serialization
-    return JSONResponse(
-        content={
-            "success": True,
-            "coverage": updated_coverage_data,
-        }
-    )
+    # Prepare the full content payload
+    response_content = {
+        "success": True,
+        "coverage": updated_coverage_data,
+    }
+
+    # Explicitly encode the content to handle all types (like datetime)
+    encoded_content = jsonable_encoder(response_content)
+
+    return JSONResponse(content=encoded_content)
 
 
 @router.post("/api/undriven_streets")
