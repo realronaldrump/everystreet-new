@@ -4406,7 +4406,9 @@ async def get_coverage_area_details(location_id: str):
             try:
                 fs = AsyncIOMotorGridFSBucket(db_manager.db)
                 # Check if file exists by querying the underlying 'fs.files' collection
-                grid_out_file_metadata = await db_manager.db.fs.files.find_one({"_id": gridfs_id})
+                grid_out_file_metadata = await db_manager.db.fs.files.find_one(
+                    {"_id": gridfs_id}
+                )
                 if grid_out_file_metadata:
                     stream = await fs.open_download_stream(gridfs_id)
                     bytes_data = await stream.read()
@@ -4419,7 +4421,7 @@ async def get_coverage_area_details(location_id: str):
                     # To prevent repeated errors for this missing file, consider clearing the orphaned ID:
                     # await coverage_metadata_collection.update_one({"_id": ObjectId(location_id)}, {"$unset": {"streets_geojson_gridfs_id": ""}})
                     # This would then require a new GeoJSON generation for this area.
-            except errors.NoFile: # Make sure 'errors' is imported from gridfs
+            except errors.NoFile:  # Make sure 'errors' is imported from gridfs
                 logger.warning(
                     f"GridFS file with ID {gridfs_id} not found for location {location_id} (NoFile error). "
                     f"Treating as no GeoJSON."
@@ -4427,7 +4429,8 @@ async def get_coverage_area_details(location_id: str):
                 # Optionally, clear the orphaned GridFS ID here as well.
             except Exception as e_gridfs:
                 logger.error(
-                    f"Error reading GridFS file {gridfs_id} for location {location_id}: {e_gridfs}", exc_info=True
+                    f"Error reading GridFS file {gridfs_id} for location {location_id}: {e_gridfs}",
+                    exc_info=True,
                 )
                 # streets_geojson remains empty, error is logged
 
@@ -5684,14 +5687,14 @@ async def startup_event():
             raise
 
         # Add 2dsphere index for trips_collection.gps
-        trips_gps_index_name = "gps_2dsphere_index" 
+        trips_gps_index_name = "gps_2dsphere_index"
         try:
             # safe_create_index handles checking if index exists and logs appropriately
             await db_manager.safe_create_index(
-                trips_collection.name, # Use the collection name attribute
+                trips_collection.name,  # Use the collection name attribute
                 [("gps", GEOSPHERE)],
                 name=trips_gps_index_name,
-                background=True # Explicitly set background for potentially long operations
+                background=True,  # Explicitly set background for potentially long operations
             )
             # safe_create_index will log success or if it already exists / skipped.
             # It also handles OperationFailure for geoKey errors by logging and returning None.
@@ -5711,18 +5714,20 @@ async def startup_event():
         coverage_display_name_index = "coverage_metadata_display_name_idx"
         try:
             await db_manager.safe_create_index(
-                coverage_metadata_collection.name, # Use the collection name attribute
-                [("location.display_name", pymongo.ASCENDING)], # Match key format from db.py
+                coverage_metadata_collection.name,  # Use the collection name attribute
+                [
+                    ("location.display_name", pymongo.ASCENDING)
+                ],  # Match key format from db.py
                 name=coverage_display_name_index,
                 unique=True,
-                background=True # Match options from db.py
+                background=True,  # Match options from db.py
             )
             # safe_create_index handles logging for success, already_exists, or specific handled failures.
         except Exception as e:
             # This catch is for truly unexpected errors during the setup call itself.
             logger.error(
                 f"Error during the setup of unique index '{coverage_display_name_index}' on coverage_metadata_collection.location.display_name: {e}",
-                 exc_info=True
+                exc_info=True,
             )
             # Decide if this is critical enough to stop startup. Currently, init_database lets most index errors pass.
 
@@ -6668,6 +6673,7 @@ async def get_optimized_multi_street_route(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create optimized route: {e}",
         )
+
 
 if __name__ == "__main__":
     import uvicorn

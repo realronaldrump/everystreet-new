@@ -635,7 +635,11 @@ async def process_osm_data(
                             )
                             # Update progress based on segments inserted
                             current_progress = 50 + int(
-                                (processed_segments_count / max(1, total_segments_count)) * 40
+                                (
+                                    processed_segments_count
+                                    / max(1, total_segments_count)
+                                )
+                                * 40
                             )
                             await _update_task_progress(
                                 task_id,
@@ -718,7 +722,7 @@ async def process_osm_data(
                         task_id,
                         "preprocessing",
                         futures_progress,
-                        f"Processed {i+1}/{len(tasks)} OSM ways for {location_name}. (Detail: Way future processed)",
+                        f"Processed {i + 1}/{len(tasks)} OSM ways for {location_name}. (Detail: Way future processed)",
                     )
 
             # Insert any remaining segments

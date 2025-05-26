@@ -2036,7 +2036,9 @@ class CoverageCalculator:
 
             MAX_TRIP_IDS_TO_STORE = 50000
             if len(trip_ids_list) <= MAX_TRIP_IDS_TO_STORE:
-                update_doc["$set"]["processed_trips"]["trip_ids"] = trip_ids_list
+                update_doc["$set"]["processed_trips"]["trip_ids"] = (
+                    trip_ids_list
+                )
             else:
                 logger.warning(
                     "Task %s: Processed trip ID list length (%d) exceeds MAX_TRIP_IDS_TO_STORE (%d). "
