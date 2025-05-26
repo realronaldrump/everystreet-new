@@ -1969,7 +1969,8 @@ const STATUS = window.STATUS || {
       const locationNameElement = document.getElementById(
         "dashboard-location-name",
       );
-      const streetTypeChartElement = document.getElementById("street-type-chart");
+      const streetTypeChartElement =
+        document.getElementById("street-type-chart");
       const streetTypeCoverageElement = document.getElementById(
         "street-type-coverage",
       );
