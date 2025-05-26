@@ -3,7 +3,7 @@ import json
 import logging
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import time # Added for timing
 
 import bson  # For bson.json_util
@@ -13,8 +13,9 @@ from fastapi import (
     HTTPException,
     status,
     Request,
+    Response,
 )
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.encoders import jsonable_encoder # <--- ADDED THIS IMPORT
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from gridfs import errors
@@ -688,28 +689,6 @@ async def get_coverage_area_details(location_id: str):
                    f"malformed internal location information. Please check data integrity.",
         )
 
-    # Load streets GeoJSON from GridFS for performance
-    streets_geojson = {}
-    gridfs_id = coverage_doc.get("streets_geojson_gridfs_id")
-    if gridfs_id:
-        try:
-            fs = AsyncIOMotorGridFSBucket(db_manager.db)
-            grid_meta = await db_manager.db.fs.files.find_one({"_id": gridfs_id})
-            if grid_meta:
-                stream = await fs.open_download_stream(gridfs_id)
-                bytes_data = await stream.read()
-                streets_geojson = json.loads(bytes_data.decode("utf-8"))
-            else:
-                logger.warning(
-                    f"[{location_id}] GridFS ID {gridfs_id} found but no file present, consider regenerating."
-                )
-        except errors.NoFile:
-            logger.warning(f"[{location_id}] GridFS file {gridfs_id} not found.")
-        except Exception as e:
-            logger.error(f"[{location_id}] Error reading GridFS file {gridfs_id}: {e}", exc_info=True)
-    else:
-        logger.info(f"[{location_id}] No streets_geojson_gridfs_id present; client can fetch /streets as fallback.")
-
     last_updated_iso = None
     if isinstance(coverage_doc.get("last_updated"), datetime):
         last_updated_iso = coverage_doc["last_updated"].isoformat()
@@ -735,7 +714,7 @@ async def get_coverage_area_details(location_id: str):
             ),
             "last_updated": last_updated_iso,
             "total_segments": coverage_doc.get("total_segments", 0),
-            "streets_geojson": streets_geojson,
+            "streets_geojson_gridfs_id": str(coverage_doc.get("streets_geojson_gridfs_id")) if coverage_doc.get("streets_geojson_gridfs_id") else None,
             "street_types": coverage_doc.get("street_types", []),
             "status": coverage_doc.get("status", "completed"),
             "has_error": coverage_doc.get("status") == "error",
@@ -752,6 +731,77 @@ async def get_coverage_area_details(location_id: str):
     overall_end_time = time.perf_counter()
     logger.info(f"[{location_id}] Total processing time for get_coverage_area_details: {overall_end_time - overall_start_time:.4f}s.")
     return JSONResponse(content=result)
+
+
+@router.get("/api/coverage_areas/{location_id}/geojson/gridfs")
+async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Response):
+    """Stream raw GeoJSON from GridFS for a given coverage area."""
+    logger.info(f"[{location_id}] Request received for GridFS GeoJSON stream.")
+    try:
+        obj_location_id = ObjectId(location_id)
+    except Exception:
+        raise HTTPException(
+            status_code=400, detail="Invalid location_id format"
+        )
+
+    coverage_doc = await find_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": obj_location_id},
+        {"streets_geojson_gridfs_id": 1, "location.display_name": 1} # Only fetch needed fields
+    )
+
+    if not coverage_doc:
+        raise HTTPException(
+            status_code=404,
+            detail="Coverage area metadata not found",
+        )
+
+    gridfs_id = coverage_doc.get("streets_geojson_gridfs_id")
+    location_name = coverage_doc.get("location", {}).get("display_name", "UnknownLocation")
+
+    if not gridfs_id:
+        logger.warning(f"[{location_id}] No streets_geojson_gridfs_id found for {location_name}.")
+        raise HTTPException(
+            status_code=404,
+            detail="No GeoJSON GridFS ID associated with this coverage area.",
+        )
+
+    try:
+        fs = AsyncIOMotorGridFSBucket(db_manager.db)
+        # Check if file exists and get metadata for content length and type
+        grid_out_file_metadata = await db_manager.db.fs.files.find_one({"_id": gridfs_id})
+        if not grid_out_file_metadata:
+            logger.warning(f"[{location_id}] GridFS ID {gridfs_id} for {location_name} exists in metadata but file not found in GridFS.")
+            raise HTTPException(status_code=404, detail="GeoJSON file not found in GridFS.")
+
+        # Set headers for streaming
+        response.headers["Content-Type"] = "application/json" # Or application/geo+json
+        response.headers["Content-Disposition"] = f'attachment; filename="{location_name}_streets.geojson"'
+        if "length" in grid_out_file_metadata:
+             response.headers["Content-Length"] = str(grid_out_file_metadata["length"])
+
+
+        async def stream_geojson_data():
+            grid_out_stream = await fs.open_download_stream(gridfs_id)
+            chunk_size = 8192  # Read in 8KB chunks
+            while True:
+                chunk = await grid_out_stream.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
+            await grid_out_stream.close()
+            logger.info(f"[{location_id}] Finished streaming GridFS geojson {gridfs_id} for {location_name}")
+
+        return StreamingResponse(stream_geojson_data(), media_type="application/json")
+
+    except errors.NoFile:
+        logger.warning(f"[{location_id}] GridFS file {gridfs_id} for {location_name} not found (NoFile error).")
+        raise HTTPException(status_code=404, detail="GeoJSON file not found in GridFS (NoFile).")
+    except Exception as e:
+        logger.error(f"[{location_id}] Error streaming GridFS file {gridfs_id} for {location_name}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail="Error streaming GeoJSON data."
+        )
 
 
 @router.get("/api/coverage_areas/{location_id}/streets")
