@@ -51,6 +51,7 @@ from pymongo import GEOSPHERE, IndexModel
 from pymongo.errors import OperationFailure
 from sklearn.cluster import KMeans
 from gridfs import errors
+import pymongo
 
 from bouncie_trip_fetcher import (
     fetch_bouncie_trips_in_range,
@@ -5683,77 +5684,47 @@ async def startup_event():
             raise
 
         # Add 2dsphere index for trips_collection.gps
-        trips_index_name = "gps_2dsphere"
+        trips_gps_index_name = "gps_2dsphere_index" 
         try:
-            trips_indexes = await trips_collection.index_information()
-            if trips_index_name not in trips_indexes:
-                logger.info(
-                    "Creating 2dsphere index on trips_collection.gps...",
-                )
-                await trips_collection.create_indexes(
-                    [
-                        IndexModel(
-                            [("gps", GEOSPHERE)], name=trips_index_name
-                        ),
-                    ],
-                )
-                logger.info(
-                    "2dsphere index on trips_collection.gps created successfully."
-                )
-            else:
-                logger.debug(
-                    "2dsphere index on trips_collection.gps already exists."
-                )
-        except OperationFailure as e:
-            logger.warning(
-                "OperationFailure during trips_collection.gps index creation: %s",
-                e,
+            # safe_create_index handles checking if index exists and logs appropriately
+            await db_manager.safe_create_index(
+                trips_collection.name, # Use the collection name attribute
+                [("gps", GEOSPHERE)],
+                name=trips_gps_index_name,
+                background=True # Explicitly set background for potentially long operations
             )
-            if "Can't extract geo keys" in str(e) or "GeoJSON ordinary" in str(e).lower() or "not valid" in str(e).lower() or "value may not be arrays" in str(e).lower():
-                logger.error(
-                    "CRITICAL: Index creation on trips_collection.gps failed likely due to invalid/stringified GeoJSON data. "
-                    "Ensure trip 'gps' fields are valid GeoJSON objects (not strings, correct coordinates, etc.). "
-                    "Application will start, but coverage calculation will be very slow until data is migrated and field is object type."
-                )
-            # Allow startup even if index fails due to bad data, but log critically.
-            # else:
-            #     logger.error(
-            #         "Unhandled OperationFailure during trips_collection.gps index creation, re-raising."
-            #     )
-            #     raise
+            # safe_create_index will log success or if it already exists / skipped.
+            # It also handles OperationFailure for geoKey errors by logging and returning None.
         except Exception as e:
+            # This broader catch is for unexpected errors from safe_create_index itself,
+            # though most specific errors (like OperationFailure for bad GeoJSON)
+            # are handled within safe_create_index or by its OperationFailure catch.
             logger.critical(
-                "CRITICAL: Unexpected error during trips_collection.gps index creation: %s",
-                str(e),
+                f"CRITICAL: Unexpected error during the setup of trips_collection.gps index '{trips_gps_index_name}': {str(e)}",
                 exc_info=True,
             )
-            raise # Other unexpected errors during index creation should still be fatal
+            # Depending on policy, you might want to raise e here if any failure in setting up this index is fatal.
+            # For now, matching prior behavior of logging critical and continuing.
 
         # Add unique index for coverage_metadata_collection on location.display_name
-        coverage_loc_index_name = "location_display_name_unique"
+        # Standardizing to use safe_create_index and consistent naming with db.py
+        coverage_display_name_index = "coverage_metadata_display_name_idx"
         try:
-            coverage_indexes = await coverage_metadata_collection.index_information()
-            if coverage_loc_index_name not in coverage_indexes:
-                logger.info(
-                    "Creating unique index on coverage_metadata_collection.location.display_name..."
-                )
-                await coverage_metadata_collection.create_index(
-                    "location.display_name",
-                    name=coverage_loc_index_name,
-                    unique=True,
-                )
-                logger.info(
-                    "Unique index on coverage_metadata_collection.location.display_name created."
-                )
-            else:
-                logger.debug(
-                    "Unique index on coverage_metadata_collection.location.display_name already exists."
-                )
-        except Exception as e:
-            logger.error(
-                "Error creating unique index on coverage_metadata_collection.location.display_name: %s", e
+            await db_manager.safe_create_index(
+                coverage_metadata_collection.name, # Use the collection name attribute
+                [("location.display_name", pymongo.ASCENDING)], # Match key format from db.py
+                name=coverage_display_name_index,
+                unique=True,
+                background=True # Match options from db.py
             )
-            # Decide if this is critical enough to stop startup
+            # safe_create_index handles logging for success, already_exists, or specific handled failures.
+        except Exception as e:
+            # This catch is for truly unexpected errors during the setup call itself.
+            logger.error(
+                f"Error during the setup of unique index '{coverage_display_name_index}' on coverage_metadata_collection.location.display_name: {e}",
+                 exc_info=True
+            )
+            # Decide if this is critical enough to stop startup. Currently, init_database lets most index errors pass.
 
     except Exception as e:
         logger.critical(

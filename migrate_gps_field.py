@@ -54,7 +54,7 @@ def is_valid_linestring(data: any) -> bool:
 
 async def migrate_gps_data():
     """Migrates the 'gps' field in the 'trips_collection' to be valid GeoJSON
-    LineString objects.
+    LineString or Point objects.
     """
     db_manager = DatabaseManager()
     try:
@@ -92,73 +92,122 @@ async def migrate_gps_data():
         if gps_data is None:
             continue # Should not happen due to query, but good practice
 
-        if is_valid_linestring(gps_data):
-            already_correct_count += 1
-            # logger.debug(f"Document {doc_id}: 'gps' field is already a valid GeoJSON LineString.")
-            continue
-
+        # Try to make the existing data valid first, before detailed checks
+        processed_gps_data = None
         original_gps_data_type = type(gps_data).__name__
-        new_gps_data = None
+        needs_update = False
 
         if isinstance(gps_data, str):
             try:
                 parsed_gps = json.loads(gps_data)
-                if is_valid_linestring(parsed_gps):
-                    new_gps_data = parsed_gps
-                    logger.info(
-                        f"Document {doc_id}: Converted string 'gps' field to GeoJSON LineString."
-                    )
-                else:
-                    logger.error(
-                        f"Document {doc_id}: Parsed string 'gps' field is not a valid GeoJSON LineString. Data: {gps_data[:200]}"
-                    )
-                    error_count += 1
+                # Now treat the parsed_gps as if it were a dict from the start
+                gps_data = parsed_gps 
+                original_gps_data_type = f"str_parsed_to_{type(gps_data).__name__}"
             except json.JSONDecodeError:
                 logger.error(
                     f"Document {doc_id}: Failed to parse string 'gps' field. Data: {gps_data[:200]}"
                 )
                 error_count += 1
+                continue # Skip to next document
             except Exception as e:
                 logger.error(
-                    f"Document {doc_id}: Unexpected error processing string 'gps' field. Error: {e}, Data: {gps_data[:200]}"
+                    f"Document {doc_id}: Unexpected error parsing string 'gps' field. Error: {e}, Data: {gps_data[:200]}"
                 )
                 error_count += 1
-        elif isinstance(gps_data, dict):
-            # It's a dict but not a valid LineString as per the initial check
-            logger.error(
-                f"Document {doc_id}: 'gps' field is a dictionary but not a valid GeoJSON LineString. Data: {str(gps_data)[:200]}"
-            )
-            error_count += 1
-        else:
-            logger.error(
-                f"Document {doc_id}: 'gps' field is of unexpected type '{original_gps_data_type}'. Data: {str(gps_data)[:200]}"
-            )
-            error_count += 1
+                continue # Skip to next document
 
-        if new_gps_data:
+        if isinstance(gps_data, dict):
+            if gps_data.get("type") == "LineString":
+                coordinates = gps_data.get("coordinates")
+                if isinstance(coordinates, list) and len(coordinates) >= 1:
+                    seen_coords = set()
+                    deduplicated_coords = []
+                    for p_idx, point_data in enumerate(coordinates):
+                        if isinstance(point_data, list) and len(point_data) == 2 and \
+                           all(isinstance(coord, (int, float)) for coord in point_data) and \
+                           (-180 <= point_data[0] <= 180 and -90 <= point_data[1] <= 90):
+                            coord_tuple = (point_data[0], point_data[1])
+                            if coord_tuple not in seen_coords:
+                                deduplicated_coords.append(list(coord_tuple))
+                                seen_coords.add(coord_tuple)
+                        else:
+                            logger.warning(f"Document {doc_id}: Invalid point data at index {p_idx} in LineString: {point_data}. Skipping point.")
+                    
+                    if len(deduplicated_coords) >= 2:
+                        # If the deduplicated version is different from original, or if original wasn't valid LineString based on strict check
+                        if len(deduplicated_coords) != len(coordinates) or not is_valid_linestring(gps_data):
+                            processed_gps_data = {"type": "LineString", "coordinates": deduplicated_coords}
+                            logger.info(f"Document {doc_id}: Corrected LineString (deduplicated/validated). Original had {len(coordinates)} points, new has {len(deduplicated_coords)}.")
+                            needs_update = True
+                        else:
+                            # Already a valid LineString with distinct points
+                            pass 
+                    elif len(deduplicated_coords) == 1:
+                        processed_gps_data = {"type": "Point", "coordinates": deduplicated_coords[0]}
+                        logger.info(f"Document {doc_id}: Converted LineString to Point due to single unique coordinate.")
+                        needs_update = True
+                    else: # 0 unique valid points
+                        logger.warning(f"Document {doc_id}: LineString resulted in 0 valid unique points. Setting GPS to null/omitting.")
+                        processed_gps_data = None # Explicitly set to None for update
+                        needs_update = True
+                else: # Invalid coordinates list for LineString
+                    logger.warning(f"Document {doc_id}: LineString has invalid 'coordinates' (type: {type(coordinates).__name__}, len: {len(coordinates) if isinstance(coordinates, list) else 'N/A'}). Setting GPS to null/omitting.")
+                    processed_gps_data = None
+                    needs_update = True
+            elif gps_data.get("type") == "Point":
+                # Validate existing Point
+                coordinates = gps_data.get("coordinates")
+                if isinstance(coordinates, list) and len(coordinates) == 2 and \
+                   all(isinstance(coord, (int, float)) for coord in coordinates) and \
+                   (-180 <= coordinates[0] <= 180 and -90 <= coordinates[1] <= 90):
+                    pass # Already a valid Point
+                else:
+                    logger.warning(f"Document {doc_id}: Invalid GeoJSON Point. Data: {str(gps_data)[:200]}. Setting GPS to null/omitting.")
+                    processed_gps_data = None
+                    needs_update = True
+            else: # Not LineString or Point, or invalid type
+                logger.warning(f"Document {doc_id}: 'gps' field is a dictionary but not a valid LineString or Point (type: {gps_data.get('type')}). Data: {str(gps_data)[:200]}. Setting GPS to null/omitting.")
+                processed_gps_data = None
+                needs_update = True
+        else: # Not a string, not a dict (e.g. list, int, etc.)
+            logger.error(
+                f"Document {doc_id}: 'gps' field is of unexpected type '{original_gps_data_type}' and not a parsable string. Data: {str(gps_data)[:200]}. Setting GPS to null/omitting."
+            )
+            processed_gps_data = None
+            needs_update = True
+
+        if needs_update:
             documents_to_update.append(
                 (
                     {"_id": doc_id},
-                    {"$set": {"gps": new_gps_data}},
+                    {"$set": {"gps": processed_gps_data}} if processed_gps_data is not None else {"$unset": {"gps": ""}}
                 )
             )
-            migrated_count +=1
+            if processed_gps_data is not None:
+                 migrated_count += 1
+            else:
+                 logger.info(f"Document {doc_id}: Marked GPS field for removal due to invalid data.")
+                 error_count +=1 # Counting removal due to error as an error/fix action
+        elif is_valid_linestring(gps_data) or (isinstance(gps_data, dict) and gps_data.get("type") == "Point" and is_valid_linestring({"type":"LineString", "coordinates": [gps_data.get("coordinates"), gps_data.get("coordinates")]})): # A bit hacky for Point, but reuses logic
+            already_correct_count += 1
+            # logger.debug(f"Document {doc_id}: 'gps' field is already valid GeoJSON.")
 
-            if len(documents_to_update) >= batch_size:
-                logger.info(f"Writing batch of {len(documents_to_update)} updates...")
-                try:
-                    operations = [
-                        pymongo.UpdateOne(query, update) for query, update in documents_to_update
-                    ]
-                    await trips_collection.bulk_write(operations, ordered=False)
-                    logger.info(f"Successfully wrote batch of {len(documents_to_update)} updates.")
-                except BulkWriteError as bwe:
-                    logger.error(f"Bulk write error during migration: {bwe.details}")
-                    error_count += len(documents_to_update) # Assuming all in batch might have failed or partially
-                except Exception as e:
-                    logger.error(f"Error during bulk update: {e}")
-                    error_count += len(documents_to_update)
-                documents_to_update = []
+        # Batch update logic (remains the same)
+        if len(documents_to_update) >= batch_size:
+            logger.info(f"Writing batch of {len(documents_to_update)} updates...")
+            try:
+                operations = [
+                    pymongo.UpdateOne(query, update) for query, update in documents_to_update
+                ]
+                await trips_collection.bulk_write(operations, ordered=False)
+                logger.info(f"Successfully wrote batch of {len(documents_to_update)} updates.")
+            except BulkWriteError as bwe:
+                logger.error(f"Bulk write error during migration: {bwe.details}")
+                error_count += len(documents_to_update) # Assuming all in batch might have failed or partially
+            except Exception as e:
+                logger.error(f"Error during bulk update: {e}")
+                error_count += len(documents_to_update)
+            documents_to_update = []
 
     # Write any remaining updates
     if documents_to_update:

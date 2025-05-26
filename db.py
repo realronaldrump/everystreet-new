@@ -455,9 +455,57 @@ class DatabaseManager:
             if "over your space quota" in str(e).lower():
                 self._quota_exceeded = True
                 logger.warning("Cannot create index due to quota exceeded")
-            elif e.code in (85, 86, 68):
+            elif e.code == 85:  # IndexOptionsConflict
+                # Check if the conflict is due to an index with the same name but different options
+                index_name_to_create = kwargs.get("name")
+                if index_name_to_create and index_name_to_create in str(e.details.get("errmsg", "")):
+                    logger.warning(
+                        "IndexOptionsConflict for index '%s' on collection '%s'. Attempting to drop and recreate. Error: %s",
+                        index_name_to_create,
+                        collection_name,
+                        str(e),
+                    )
+                    try:
+                        await collection.drop_index(index_name_to_create)
+                        logger.info(
+                            "Successfully dropped conflicting index '%s' on '%s'. Retrying creation.",
+                            index_name_to_create,
+                            collection_name,
+                        )
+                        # Retry the original create_index call
+                        result = await self.execute_with_retry(
+                            _create_index,  # _create_index is defined above
+                            operation_name=f"index recreation on {collection_name} after conflict",
+                        )
+                        logger.info(
+                            "Index recreated on %s with keys %s (Name: %s)",
+                            collection_name,
+                            keys,
+                            result,
+                        )
+                        return result
+                    except Exception as drop_recreate_e:
+                        logger.error(
+                            "Failed to drop and recreate index '%s' on '%s' after IndexOptionsConflict: %s",
+                            index_name_to_create,
+                            collection_name,
+                            str(drop_recreate_e),
+                        )
+                        # If drop/recreate fails, re-raise original error or just log and return None
+                        # For now, let's log and return None to avoid startup failure
+                        return None
+                else:
+                    # Different kind of IndexOptionsConflict or name not specified/matched
+                    logger.warning(
+                        "IndexOptionsConflict on %s (but not a simple name/options mismatch or name not specified): %s",
+                        collection_name,
+                        str(e),
+                    )
+                    return None
+
+            elif e.code in (86, 68):  # Other conflicts (IndexKeySpecsConflict, IndexNameAlreadyExists and not options conflict)
                 logger.warning(
-                    "Index conflict or options mismatch: %s",
+                    "Index conflict (key specs or name already exists and options match): %s",
                     str(e),
                 )
             else:
