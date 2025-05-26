@@ -302,9 +302,7 @@ async def process_trip_data(
         )
         return
 
-    existing_coords: list[dict[str, Any]] = (
-        trip_doc.get("coordinates", []) or []
-    )
+    existing_coords: list[dict[str, Any]] = trip_doc.get("coordinates", []) or []
     all_coords_map: dict[str, dict[str, Any]] = {}
     for c in existing_coords:
         ts = c.get("timestamp")
@@ -351,9 +349,7 @@ async def process_trip_data(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
         if not isinstance(start_time, datetime):
@@ -487,9 +483,7 @@ async def process_trip_data(
     if duration_seconds > 0:
         duration_hours = duration_seconds / 3600
         avg_speed_mph = (
-            full_trip_distance_miles / duration_hours
-            if duration_hours > 0
-            else 0.0
+            full_trip_distance_miles / duration_hours if duration_hours > 0 else 0.0
         )
     elif valid_speeds_for_avg_mph:
         avg_speed_mph = sum(valid_speeds_for_avg_mph) / len(
@@ -895,9 +889,7 @@ async def process_trip_end(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
 
@@ -976,8 +968,12 @@ async def process_trip_end(
     )
 
     # --- Begin modification: Construct GeoJSON for 'gps' field ---
-    final_coordinates = trip_to_archive.pop("coordinates", []) # Get and remove old 'coordinates' field
-    if final_coordinates and len(final_coordinates) >= 1: # Need at least one point to potentially form a valid LineString if duplicated by chance, or to become a Point
+    final_coordinates = trip_to_archive.pop(
+        "coordinates", []
+    )  # Get and remove old 'coordinates' field
+    if (
+        final_coordinates and len(final_coordinates) >= 1
+    ):  # Need at least one point to potentially form a valid LineString if duplicated by chance, or to become a Point
         processed_coords_for_geojson = []
         # Deduplicate coordinates while preserving order for the first unique occurrences
         seen_coords = set()
@@ -993,27 +989,27 @@ async def process_trip_end(
         if len(processed_coords_for_geojson) >= 2:
             trip_to_archive["gps"] = {
                 "type": "LineString",
-                "coordinates": processed_coords_for_geojson
+                "coordinates": processed_coords_for_geojson,
             }
         elif len(processed_coords_for_geojson) == 1:
             # If only one unique point, store as Point
             trip_to_archive["gps"] = {
                 "type": "Point",
-                "coordinates": processed_coords_for_geojson[0]
+                "coordinates": processed_coords_for_geojson[0],
             }
             logger.info(
                 f"Trip {transaction_id}: Only one unique coordinate point. Storing 'gps' as GeoJSON Point."
             )
-        else: # 0 unique points after processing (e.g. if original list was empty or contained no valid coord pairs)
+        else:  # 0 unique points after processing (e.g. if original list was empty or contained no valid coord pairs)
             logger.warning(
                 f"Trip {transaction_id}: Not enough valid unique coordinate pairs ({len(processed_coords_for_geojson)}) after processing for GeoJSON. 'gps' field will be omitted."
             )
-            trip_to_archive["gps"] = None # Or omit
-    else: # Original final_coordinates list was empty or had less than 1 point (effectively empty)
+            trip_to_archive["gps"] = None  # Or omit
+    else:  # Original final_coordinates list was empty or had less than 1 point (effectively empty)
         logger.warning(
             f"Trip {transaction_id}: Original 'coordinates' list was empty or had insufficient points ({len(final_coordinates)}). 'gps' field will be omitted/set to null."
         )
-        trip_to_archive["gps"] = None # Or omit
+        trip_to_archive["gps"] = None  # Or omit
     # --- End modification ---
 
     final_duration = trip_to_archive.get("duration", 0.0)
@@ -1272,8 +1268,12 @@ async def cleanup_stale_trips_logic(
             )
 
             # --- Begin modification: Construct GeoJSON for 'gps' field for stale trips ---
-            final_coordinates = trip_to_archive.pop("coordinates", []) # Get and remove old 'coordinates' field
-            if final_coordinates and len(final_coordinates) >= 1: # Need at least one point to potentially form a valid LineString if duplicated by chance, or to become a Point
+            final_coordinates = trip_to_archive.pop(
+                "coordinates", []
+            )  # Get and remove old 'coordinates' field
+            if (
+                final_coordinates and len(final_coordinates) >= 1
+            ):  # Need at least one point to potentially form a valid LineString if duplicated by chance, or to become a Point
                 processed_coords_for_geojson = []
                 # Deduplicate coordinates while preserving order for the first unique occurrences
                 seen_coords = set()
@@ -1282,29 +1282,31 @@ async def cleanup_stale_trips_logic(
                         # Assuming point_data is [lon, lat, possibly_other_data,...]
                         coord_tuple = (point_data[0], point_data[1])
                         if coord_tuple not in seen_coords:
-                            processed_coords_for_geojson.append([point_data[0], point_data[1]])
+                            processed_coords_for_geojson.append(
+                                [point_data[0], point_data[1]]
+                            )
                             seen_coords.add(coord_tuple)
                     # Add handling for other coordinate structures if necessary
-                
+
                 if len(processed_coords_for_geojson) >= 2:
                     trip_to_archive["gps"] = {
                         "type": "LineString",
-                        "coordinates": processed_coords_for_geojson
+                        "coordinates": processed_coords_for_geojson,
                     }
                 elif len(processed_coords_for_geojson) == 1:
                     # If only one unique point, store as Point
                     trip_to_archive["gps"] = {
                         "type": "Point",
-                        "coordinates": processed_coords_for_geojson[0]
+                        "coordinates": processed_coords_for_geojson[0],
                     }
                     logger.info(
                         f"Stale Trip {transaction_id}: Only one unique coordinate point. Storing 'gps' as GeoJSON Point."
                     )
-                else: # 0 unique points after processing (e.g. if original list was empty or contained no valid coord pairs)
+                else:  # 0 unique points after processing (e.g. if original list was empty or contained no valid coord pairs)
                     logger.warning(
                         f"Stale Trip {transaction_id}: Not enough valid unique coordinate pairs ({len(processed_coords_for_geojson)}) for GeoJSON. 'gps' field omitted."
                     )
-                    trip_to_archive["gps"] = None 
+                    trip_to_archive["gps"] = None
             else:
                 logger.warning(
                     f"Stale Trip {transaction_id}: 'coordinates' list has < 1 points ({len(final_coordinates)}). 'gps' field omitted."

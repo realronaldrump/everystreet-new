@@ -14,10 +14,7 @@ import os
 import threading
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime, timezone
-from typing import (
-    Any,
-    TypeVar,
-)
+from typing import Any, TypeVar
 
 import bson
 import certifi
@@ -63,9 +60,7 @@ class DatabaseManager:
         if not getattr(self, "_initialized", False):
             self._client: AsyncIOMotorClient | None = None
             self._db: AsyncIOMotorDatabase | None = None
-            self._gridfs_bucket_instance: None | (
-                AsyncIOMotorGridFSBucket
-            ) = None
+            self._gridfs_bucket_instance: None | (AsyncIOMotorGridFSBucket) = None
             self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
@@ -197,10 +192,7 @@ class DatabaseManager:
             MongoDB collection
 
         """
-        if (
-            collection_name not in self._collections
-            or not self._connection_healthy
-        ):
+        if collection_name not in self._collections or not self._connection_healthy:
             self._collections[collection_name] = self.db[collection_name]
         return self._collections[collection_name]
 
@@ -458,7 +450,9 @@ class DatabaseManager:
             elif e.code == 85:  # IndexOptionsConflict
                 # Check if the conflict is due to an index with the same name but different options
                 index_name_to_create = kwargs.get("name")
-                if index_name_to_create and index_name_to_create in str(e.details.get("errmsg", "")):
+                if index_name_to_create and index_name_to_create in str(
+                    e.details.get("errmsg", "")
+                ):
                     logger.warning(
                         "IndexOptionsConflict for index '%s' on collection '%s'. Attempting to drop and recreate. Error: %s",
                         index_name_to_create,
@@ -503,7 +497,10 @@ class DatabaseManager:
                     )
                     return None
 
-            elif e.code in (86, 68):  # Other conflicts (IndexKeySpecsConflict, IndexNameAlreadyExists and not options conflict)
+            elif e.code in (
+                86,
+                68,
+            ):  # Other conflicts (IndexKeySpecsConflict, IndexNameAlreadyExists and not options conflict)
                 logger.warning(
                     "Index conflict (key specs or name already exists and options match): %s",
                     str(e),
@@ -706,13 +703,9 @@ class SerializationHelper:
                 if isinstance(value, ObjectId):
                     fallback_result[key] = value
                 elif isinstance(value, datetime):
-                    fallback_result[key] = (
-                        SerializationHelper.serialize_datetime(value)
-                    )
+                    fallback_result[key] = SerializationHelper.serialize_datetime(value)
                 elif isinstance(value, (dict, list)):
-                    fallback_result[key] = (
-                        f"<Complex Type: {type(value).__name__}>"
-                    )
+                    fallback_result[key] = f"<Complex Type: {type(value).__name__}>"
                 else:
                     try:
                         json.dumps(value)
@@ -1527,7 +1520,7 @@ async def run_transaction(
                 )
             if is_transient and retry_count < max_retries:
                 retry_count += 1
-                delay = 0.1 * (2 ** retry_count)
+                delay = 0.1 * (2**retry_count)
                 logger.warning(
                     f"Transient transaction error (attempt {retry_count}/{max_retries}), retrying in {delay}s: {e}"
                 )
@@ -1539,9 +1532,7 @@ async def run_transaction(
             )
             return False
         except Exception as e:
-            logger.error(
-                "Unexpected error during transaction: %s", e, exc_info=True
-            )
+            logger.error("Unexpected error during transaction: %s", e, exc_info=True)
             return False
 
 
@@ -1561,7 +1552,7 @@ async def ensure_archived_trip_indexes() -> None:
         collection_name,
         "transactionId",
         name="archived_transactionId_idx",
-        unique=True, # Assuming transactionId should be unique in this collection
+        unique=True,  # Assuming transactionId should be unique in this collection
         background=True,
     )
     # Index on endTime for sorting or querying by time
