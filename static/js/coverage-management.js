@@ -2004,19 +2004,24 @@ const STATUS = window.STATUS || {
             }`,
           );
         }
-        const coverageData = await response.json();
+        const apiResponse = await response.json();
 
-        if (!coverageData || !coverageData.location) {
-          throw new Error("Incomplete coverage data received.");
+        if (!apiResponse.success || !apiResponse.coverage || !apiResponse.coverage.location) {
+          const errorMessage = apiResponse.success === false
+                               ? (apiResponse.error || "API request failed (no error detail).")
+                               : "Incomplete coverage data received (missing coverage or location info).";
+          throw new Error(errorMessage);
         }
+
+        const coverageData = apiResponse.coverage; // Use the nested 'coverage' object
 
         this.selectedLocation = coverageData; // Store the full coverage data
         locationNameElement.textContent =
           coverageData.location.display_name || "Unnamed Area";
 
         this.updateDashboardStats(coverageData);
-        this.updateStreetTypeCoverage(coverageData.stats?.street_types || []);
-        this.createStreetTypeChart(coverageData.stats?.street_types || []);
+        this.updateStreetTypeCoverage(coverageData.street_types || []);
+        this.createStreetTypeChart(coverageData.street_types || []);
 
         // Initialize or update the map
         if (coverageData.streets_geojson) {
@@ -2065,7 +2070,7 @@ const STATUS = window.STATUS || {
       if (!statsContainer) return;
 
       // Log the coverage object to help debug segment counts
-      console.log("Coverage object for dashboard stats:", coverage); // <--- ADD THIS LINE
+      // console.log("Coverage object for dashboard stats:", coverage); // Keep for debugging if needed
 
       // Extract data safely, providing defaults
       const totalLengthM = parseFloat(
@@ -2156,7 +2161,7 @@ const STATUS = window.STATUS || {
       `;
 
       // Update the separate street type list (if data exists)
-      this.updateStreetTypeCoverage(coverage.street_types);
+      this.updateStreetTypeCoverage(coverage.street_types || []);
 
       // Update the map summary control if the map exists
       if (this.coverageMap) {

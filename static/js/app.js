@@ -251,7 +251,17 @@
 
     addOrUpdateLayer(map, layerId, sourceId, layerInfo, layerType = "line") {
       if (map.getLayer(layerId)) {
-        map.removeLayer(layerId);
+        // Update existing layer's visibility and paint properties
+        const style = this.createLayerStyle(layerInfo, layerType);
+        map.setLayoutProperty(
+          layerId,
+          "visibility",
+          layerInfo.visible ? "visible" : "none",
+        );
+        Object.entries(style).forEach(([property, value]) => {
+          map.setPaintProperty(layerId, property, value);
+        });
+        return;
       }
 
       const style = this.createLayerStyle(layerInfo, layerType);
@@ -994,17 +1004,12 @@
 
       // Send the location object as expected by the API
       const locationData = selectedLocation.location;
-      const response = await fetch("/api/undriven_streets", {
+      // Use cachedFetch to cache undriven streets responses
+      const data = await cachedFetch("/api/undriven_streets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(locationData),
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
 
       if (data?.type === "FeatureCollection") {
         AppState.mapLayers.undrivenStreets.layer = data;

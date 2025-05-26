@@ -1288,8 +1288,32 @@ async def get_trips(request: Request):
     try:
         query = await build_query_from_request(request)
 
-        # Use endTime descending sort to leverage trips_endTime_desc_idx index
-        all_trips = await find_with_retry(trips_collection, query, sort=[("endTime", -1)])
+        # Only fetch necessary fields for performance
+        projection = {
+            "gps": 1,
+            "startTime": 1,
+            "endTime": 1,
+            "distance": 1,
+            "maxSpeed": 1,
+            "transactionId": 1,
+            "imei": 1,
+            "startLocation": 1,
+            "destination": 1,
+            "totalIdleDuration": 1,
+            "fuelConsumed": 1,
+            "source": 1,
+            "hardBrakingCount": 1,
+            "hardAccelerationCount": 1,
+            "startOdometer": 1,
+            "endOdometer": 1,
+            "averageSpeed": 1,
+        }
+        all_trips = await find_with_retry(
+            trips_collection,
+            query,
+            projection=projection,
+            sort=[("endTime", -1)],
+        )
         features = []
 
         processor = TripProcessor()
@@ -4457,6 +4481,7 @@ async def get_coverage_area_details(location_id: str):
         result = {
             "success": True,
             "coverage": {
+                "_id": str(coverage_doc["_id"]),
                 "location": coverage_doc["location"],
                 "location_name": coverage_doc["location"].get("display_name"),
                 "total_length": total_length,
