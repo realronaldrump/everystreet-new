@@ -3,8 +3,8 @@ import json
 import logging
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone, timedelta
-import time # Added for timing
+from datetime import datetime, timezone
+import time  # Added for timing
 
 import bson  # For bson.json_util
 from bson import ObjectId
@@ -16,7 +16,7 @@ from fastapi import (
     Response,
 )
 from fastapi.responses import JSONResponse, StreamingResponse
-from fastapi.encoders import jsonable_encoder # <--- ADDED THIS IMPORT
+from fastapi.encoders import jsonable_encoder  # <--- ADDED THIS IMPORT
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from gridfs import errors
 
@@ -249,13 +249,17 @@ async def _recalculate_coverage_stats(
                 )
             if "last_modified" in updated_coverage_area and isinstance(
                 updated_coverage_area["last_modified"], datetime
-            ): # Explicitly convert last_modified
+            ):  # Explicitly convert last_modified
                 updated_coverage_area["last_modified"] = updated_coverage_area[
                     "last_modified"
                 ].isoformat()
-            if "streets_geojson_gridfs_id" in updated_coverage_area and isinstance(
-                updated_coverage_area["streets_geojson_gridfs_id"], ObjectId
-            ): # Convert ObjectId to string
+            if (
+                "streets_geojson_gridfs_id" in updated_coverage_area
+                and isinstance(
+                    updated_coverage_area["streets_geojson_gridfs_id"],
+                    ObjectId,
+                )
+            ):  # Convert ObjectId to string
                 updated_coverage_area["streets_geojson_gridfs_id"] = str(
                     updated_coverage_area["streets_geojson_gridfs_id"]
                 )
@@ -669,7 +673,9 @@ async def get_coverage_area_details(location_id: str):
         {"_id": obj_location_id},
     )
     t_end_find_meta = time.perf_counter()
-    logger.info(f"[{location_id}] Found coverage_doc in {t_end_find_meta - t_start_find_meta:.4f}s.")
+    logger.info(
+        f"[{location_id}] Found coverage_doc in {t_end_find_meta - t_start_find_meta:.4f}s."
+    )
 
     if not coverage_doc:
         raise HTTPException(
@@ -678,7 +684,9 @@ async def get_coverage_area_details(location_id: str):
         )
 
     location_info = coverage_doc.get("location")
-    if not isinstance(location_info, dict) or not location_info.get("display_name"):
+    if not isinstance(location_info, dict) or not location_info.get(
+        "display_name"
+    ):
         logger.error(
             f"Coverage area {location_id} (ID: {obj_location_id}) has malformed or missing 'location' data. "
             f"Location data: {location_info}. Full document: {coverage_doc}",
@@ -686,7 +694,7 @@ async def get_coverage_area_details(location_id: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Coverage area with ID '{location_id}' was found but contains incomplete or "
-                   f"malformed internal location information. Please check data integrity.",
+            f"malformed internal location information. Please check data integrity.",
         )
 
     last_updated_iso = None
@@ -714,7 +722,11 @@ async def get_coverage_area_details(location_id: str):
             ),
             "last_updated": last_updated_iso,
             "total_segments": coverage_doc.get("total_segments", 0),
-            "streets_geojson_gridfs_id": str(coverage_doc.get("streets_geojson_gridfs_id")) if coverage_doc.get("streets_geojson_gridfs_id") else None,
+            "streets_geojson_gridfs_id": (
+                str(coverage_doc.get("streets_geojson_gridfs_id"))
+                if coverage_doc.get("streets_geojson_gridfs_id")
+                else None
+            ),
             "street_types": coverage_doc.get("street_types", []),
             "status": coverage_doc.get("status", "completed"),
             "has_error": coverage_doc.get("status") == "error",
@@ -729,12 +741,16 @@ async def get_coverage_area_details(location_id: str):
         },
     }
     overall_end_time = time.perf_counter()
-    logger.info(f"[{location_id}] Total processing time for get_coverage_area_details: {overall_end_time - overall_start_time:.4f}s.")
+    logger.info(
+        f"[{location_id}] Total processing time for get_coverage_area_details: {overall_end_time - overall_start_time:.4f}s."
+    )
     return JSONResponse(content=result)
 
 
 @router.get("/api/coverage_areas/{location_id}/geojson/gridfs")
-async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Response):
+async def get_coverage_area_geojson_from_gridfs(
+    location_id: str, response: Response
+):
     """Stream raw GeoJSON from GridFS for a given coverage area."""
     logger.info(f"[{location_id}] Request received for GridFS GeoJSON stream.")
     try:
@@ -747,7 +763,10 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
     coverage_doc = await find_one_with_retry(
         coverage_metadata_collection,
         {"_id": obj_location_id},
-        {"streets_geojson_gridfs_id": 1, "location.display_name": 1} # Only fetch needed fields
+        {
+            "streets_geojson_gridfs_id": 1,
+            "location.display_name": 1,
+        },  # Only fetch needed fields
     )
 
     if not coverage_doc:
@@ -757,10 +776,14 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
         )
 
     gridfs_id = coverage_doc.get("streets_geojson_gridfs_id")
-    location_name = coverage_doc.get("location", {}).get("display_name", "UnknownLocation")
+    location_name = coverage_doc.get("location", {}).get(
+        "display_name", "UnknownLocation"
+    )
 
     if not gridfs_id:
-        logger.warning(f"[{location_id}] No streets_geojson_gridfs_id found for {location_name}.")
+        logger.warning(
+            f"[{location_id}] No streets_geojson_gridfs_id found for {location_name}."
+        )
         raise HTTPException(
             status_code=404,
             detail="No GeoJSON GridFS ID associated with this coverage area.",
@@ -769,17 +792,28 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
     try:
         fs = AsyncIOMotorGridFSBucket(db_manager.db)
         # Check if file exists and get metadata for content length and type
-        grid_out_file_metadata = await db_manager.db.fs.files.find_one({"_id": gridfs_id})
+        grid_out_file_metadata = await db_manager.db.fs.files.find_one(
+            {"_id": gridfs_id}
+        )
         if not grid_out_file_metadata:
-            logger.warning(f"[{location_id}] GridFS ID {gridfs_id} for {location_name} exists in metadata but file not found in GridFS.")
-            raise HTTPException(status_code=404, detail="GeoJSON file not found in GridFS.")
+            logger.warning(
+                f"[{location_id}] GridFS ID {gridfs_id} for {location_name} exists in metadata but file not found in GridFS."
+            )
+            raise HTTPException(
+                status_code=404, detail="GeoJSON file not found in GridFS."
+            )
 
         # Set headers for streaming
-        response.headers["Content-Type"] = "application/json" # Or application/geo+json
-        response.headers["Content-Disposition"] = f'attachment; filename="{location_name}_streets.geojson"'
+        response.headers["Content-Type"] = (
+            "application/json"  # Or application/geo+json
+        )
+        response.headers["Content-Disposition"] = (
+            f'attachment; filename="{location_name}_streets.geojson"'
+        )
         if "length" in grid_out_file_metadata:
-             response.headers["Content-Length"] = str(grid_out_file_metadata["length"])
-
+            response.headers["Content-Length"] = str(
+                grid_out_file_metadata["length"]
+            )
 
         async def stream_geojson_data():
             grid_out_stream = await fs.open_download_stream(gridfs_id)
@@ -790,15 +824,27 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
                     break
                 yield chunk
             await grid_out_stream.close()
-            logger.info(f"[{location_id}] Finished streaming GridFS geojson {gridfs_id} for {location_name}")
+            logger.info(
+                f"[{location_id}] Finished streaming GridFS geojson {gridfs_id} for {location_name}"
+            )
 
-        return StreamingResponse(stream_geojson_data(), media_type="application/json")
+        return StreamingResponse(
+            stream_geojson_data(), media_type="application/json"
+        )
 
     except errors.NoFile:
-        logger.warning(f"[{location_id}] GridFS file {gridfs_id} for {location_name} not found (NoFile error).")
-        raise HTTPException(status_code=404, detail="GeoJSON file not found in GridFS (NoFile).")
+        logger.warning(
+            f"[{location_id}] GridFS file {gridfs_id} for {location_name} not found (NoFile error)."
+        )
+        raise HTTPException(
+            status_code=404,
+            detail="GeoJSON file not found in GridFS (NoFile).",
+        )
     except Exception as e:
-        logger.error(f"[{location_id}] Error streaming GridFS file {gridfs_id} for {location_name}: {e}", exc_info=True)
+        logger.error(
+            f"[{location_id}] Error streaming GridFS file {gridfs_id} for {location_name}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500, detail="Error streaming GeoJSON data."
         )
@@ -1254,8 +1300,12 @@ async def _regenerate_streets_geojson(location_id: ObjectId):
         {"_id": location_id},
         {"location.display_name": 1, "streets_geojson_gridfs_id": 1},
     )
-    if not coverage_doc or not coverage_doc.get("location", {}).get("display_name"):
-        logger.warning(f"Cannot regenerate GeoJSON: missing coverage metadata for {location_id}")
+    if not coverage_doc or not coverage_doc.get("location", {}).get(
+        "display_name"
+    ):
+        logger.warning(
+            f"Cannot regenerate GeoJSON: missing coverage metadata for {location_id}"
+        )
         return
     location_name = coverage_doc["location"]["display_name"]
     # Stream and clean features to include only minimal properties for performance
@@ -1284,7 +1334,13 @@ async def _regenerate_streets_geojson(location_id: ObjectId):
             "driven": props.get("driven"),
             "undriveable": props.get("undriveable"),
         }
-        clean_features.append({"type": "Feature", "geometry": f.get("geometry"), "properties": clean_props})
+        clean_features.append(
+            {
+                "type": "Feature",
+                "geometry": f.get("geometry"),
+                "properties": clean_props,
+            }
+        )
     geojson = {"type": "FeatureCollection", "features": clean_features}
     bucket = AsyncIOMotorGridFSBucket(db_manager.db)
     # Delete old GridFS file if present
@@ -1292,13 +1348,17 @@ async def _regenerate_streets_geojson(location_id: ObjectId):
     if isinstance(old_id, ObjectId):
         try:
             await bucket.delete(old_id)
-            logger.info(f"Deleted old GridFS geojson {old_id} for {location_name}")
+            logger.info(
+                f"Deleted old GridFS geojson {old_id} for {location_name}"
+            )
         except Exception as e:
             logger.warning(f"Error deleting old GridFS file {old_id}: {e}")
     # Serialize using FastAPI encoder to handle datetime conversion
     safe_geojson = jsonable_encoder(geojson)
     data_bytes = json.dumps(safe_geojson).encode("utf-8")
-    new_id = await bucket.upload_from_stream(f"{location_name}_streets.geojson", data_bytes)
+    new_id = await bucket.upload_from_stream(
+        f"{location_name}_streets.geojson", data_bytes
+    )
     await update_one_with_retry(
         coverage_metadata_collection,
         {"_id": location_id},
