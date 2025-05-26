@@ -378,15 +378,15 @@ let baseTileLayer = null;
     },
 
     // Add operation methods for backward compatibility and global access
-    startOperation: function(message = "Loading...") {
+    startOperation: function (message = "Loading...") {
       this.show(message);
     },
 
-    finish: function() {
+    finish: function () {
       this.hide();
     },
 
-    error: function(message) {
+    error: function (message) {
       this.hide();
       utils.showNotification(message, "danger");
     },
