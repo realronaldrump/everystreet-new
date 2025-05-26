@@ -4404,9 +4404,9 @@ async def get_coverage_area_details(location_id: str):
         if gridfs_id:
             try:
                 fs = AsyncIOMotorGridFSBucket(db_manager.db)
-                # Check if file exists before attempting to open stream
-                grid_out_file = await fs.find_one({"_id": gridfs_id})
-                if grid_out_file:
+                # Check if file exists by querying the underlying 'fs.files' collection
+                grid_out_file_metadata = await db_manager.db.fs.files.find_one({"_id": gridfs_id})
+                if grid_out_file_metadata:
                     stream = await fs.open_download_stream(gridfs_id)
                     bytes_data = await stream.read()
                     streets_geojson = json.loads(bytes_data.decode("utf-8"))
