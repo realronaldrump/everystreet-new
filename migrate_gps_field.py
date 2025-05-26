@@ -2,10 +2,11 @@ import asyncio
 import json
 import logging
 import os
-from bson import ObjectId
+
 import pymongo
-from pymongo.errors import BulkWriteError, OperationFailure
+from bson import ObjectId
 from dotenv import load_dotenv
+from pymongo.errors import BulkWriteError, OperationFailure
 
 # Configure logging
 logging.basicConfig(
@@ -87,9 +88,7 @@ async def migrate_gps_data():
     batch_size = 500
     cursor = trips_collection.find({"gps": {"$exists": True}})
 
-    logger.info(
-        f"Starting migration of 'gps' field in '{trips_collection.name}'..."
-    )
+    logger.info(f"Starting migration of 'gps' field in '{trips_collection.name}'...")
 
     async for doc in cursor:
         doc_id = doc["_id"]
@@ -108,9 +107,7 @@ async def migrate_gps_data():
                 parsed_gps = json.loads(gps_data)
                 # Now treat the parsed_gps as if it were a dict from the start
                 gps_data = parsed_gps
-                original_gps_data_type = (
-                    f"str_parsed_to_{type(gps_data).__name__}"
-                )
+                original_gps_data_type = f"str_parsed_to_{type(gps_data).__name__}"
             except json.JSONDecodeError:
                 logger.error(
                     f"Document {doc_id}: Failed to parse string 'gps' field. Data: {gps_data[:200]}"
@@ -135,8 +132,7 @@ async def migrate_gps_data():
                             isinstance(point_data, list)
                             and len(point_data) == 2
                             and all(
-                                isinstance(coord, (int, float))
-                                for coord in point_data
+                                isinstance(coord, (int, float)) for coord in point_data
                             )
                             and (
                                 -180 <= point_data[0] <= 180
@@ -181,9 +177,7 @@ async def migrate_gps_data():
                         logger.warning(
                             f"Document {doc_id}: LineString resulted in 0 valid unique points. Setting GPS to null/omitting."
                         )
-                        processed_gps_data = (
-                            None  # Explicitly set to None for update
-                        )
+                        processed_gps_data = None  # Explicitly set to None for update
                         needs_update = True
                 else:  # Invalid coordinates list for LineString
                     logger.warning(
@@ -197,14 +191,8 @@ async def migrate_gps_data():
                 if (
                     isinstance(coordinates, list)
                     and len(coordinates) == 2
-                    and all(
-                        isinstance(coord, (int, float))
-                        for coord in coordinates
-                    )
-                    and (
-                        -180 <= coordinates[0] <= 180
-                        and -90 <= coordinates[1] <= 90
-                    )
+                    and all(isinstance(coord, (int, float)) for coord in coordinates)
+                    and (-180 <= coordinates[0] <= 180 and -90 <= coordinates[1] <= 90)
                 ):
                     pass  # Already a valid Point
                 else:
@@ -243,9 +231,7 @@ async def migrate_gps_data():
                 logger.info(
                     f"Document {doc_id}: Marked GPS field for removal due to invalid data."
                 )
-                error_count += (
-                    1  # Counting removal due to error as an error/fix action
-                )
+                error_count += 1  # Counting removal due to error as an error/fix action
         elif is_valid_linestring(gps_data) or (
             isinstance(gps_data, dict)
             and gps_data.get("type") == "Point"
@@ -264,9 +250,7 @@ async def migrate_gps_data():
 
         # Batch update logic (remains the same)
         if len(documents_to_update) >= batch_size:
-            logger.info(
-                f"Writing batch of {len(documents_to_update)} updates..."
-            )
+            logger.info(f"Writing batch of {len(documents_to_update)} updates...")
             try:
                 operations = [
                     pymongo.UpdateOne(query, update)
@@ -277,9 +261,7 @@ async def migrate_gps_data():
                     f"Successfully wrote batch of {len(documents_to_update)} updates."
                 )
             except BulkWriteError as bwe:
-                logger.error(
-                    f"Bulk write error during migration: {bwe.details}"
-                )
+                logger.error(f"Bulk write error during migration: {bwe.details}")
                 error_count += len(
                     documents_to_update
                 )  # Assuming all in batch might have failed or partially
@@ -290,9 +272,7 @@ async def migrate_gps_data():
 
     # Write any remaining updates
     if documents_to_update:
-        logger.info(
-            f"Writing final batch of {len(documents_to_update)} updates..."
-        )
+        logger.info(f"Writing final batch of {len(documents_to_update)} updates...")
         try:
             operations = [
                 pymongo.UpdateOne(query, update)
