@@ -656,6 +656,18 @@ async def get_coverage_area_details(location_id: str):
             detail="Coverage area not found",
         )
 
+    location_info = coverage_doc.get("location")
+    if not isinstance(location_info, dict) or not location_info.get("display_name"):
+        logger.error(
+            f"Coverage area {location_id} (ID: {obj_location_id}) has malformed or missing 'location' data. "
+            f"Location data: {location_info}. Full document: {coverage_doc}",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Coverage area with ID '{location_id}' was found but contains incomplete or "
+                   f"malformed internal location information. Please check data integrity.",
+        )
+
     streets_geojson = {}
     gridfs_id = coverage_doc.get("streets_geojson_gridfs_id")
     if gridfs_id:
@@ -694,8 +706,8 @@ async def get_coverage_area_details(location_id: str):
         "success": True,
         "coverage": {
             "_id": str(coverage_doc["_id"]),
-            "location": coverage_doc["location"],
-            "location_name": coverage_doc["location"].get("display_name"),
+            "location": location_info,
+            "location_name": location_info.get("display_name"),
             "total_length": coverage_doc.get(
                 "total_length_m",
                 coverage_doc.get("total_length", 0),
