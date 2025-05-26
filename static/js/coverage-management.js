@@ -2075,104 +2075,91 @@ const STATUS = window.STATUS || {
       );
       if (!statsContainer) return;
 
-      // Log the coverage object to help debug segment counts
-      // console.log("Coverage object for dashboard stats:", coverage); // Keep for debugging if needed
+      // Use authoritative stats from the coverage object (calculated by backend)
+      const totalLengthM = parseFloat(coverage.total_length || 0);
+      const drivenLengthM = parseFloat(coverage.driven_length || 0);
+      // const driveableLengthM = parseFloat(coverage.driveable_length || 0); // Available if needed for display
 
-      // Extract data safely, providing defaults
-      const totalLengthM = parseFloat(
-        coverage.total_length_m ||
-          coverage.total_length ||
-          coverage.driveable_length_m ||
-          0,
-      ); // Prefer specific _m field
-      const drivenLengthM = parseFloat(
-        coverage.driven_length_m ||
-          coverage.covered_length_m ||
-          coverage.driven_length ||
-          0,
-      );
       const coveragePercentage =
-        coverage.coverage_percentage?.toFixed(1) || "0.0";
+        parseFloat(coverage.coverage_percentage || 0).toFixed(1);
       const totalSegments = parseInt(coverage.total_segments || 0, 10);
 
-      // Calculate covered segments from GeoJSON features
+      // Calculate covered segments from the street_types array (authoritative from backend)
       let calculatedCoveredSegments = 0;
-      if (
-        coverage.streets_geojson &&
-        Array.isArray(coverage.streets_geojson.features)
-      ) {
-        calculatedCoveredSegments = coverage.streets_geojson.features.reduce(
-          (count, feature) => {
-            if (
-              feature &&
-              feature.properties &&
-              feature.properties.driven === true
-            ) {
-              return count + 1;
-            }
-            return count;
-          },
+      if (Array.isArray(coverage.street_types)) {
+        calculatedCoveredSegments = coverage.street_types.reduce(
+          (count, typeStats) => count + (parseInt(typeStats.covered, 10) || 0),
           0,
         );
       }
       const coveredSegments = calculatedCoveredSegments;
 
-      const lastUpdated = coverage.last_updated
-        ? new Date(coverage.last_updated).toLocaleString()
-        : "Never";
+      const lastUpdated = coverage.last_stats_update // Prefer last_stats_update for relevance
+        ? new Date(coverage.last_stats_update).toLocaleString()
+        : coverage.last_updated
+          ? new Date(coverage.last_updated).toLocaleString()
+          : "Never";
 
-      // Determine progress bar color
       let barColor = "bg-success";
       if (
         coverage.status === STATUS.ERROR ||
         coverage.status === STATUS.CANCELED
-      )
-        barColor = "bg-secondary";
-      else if (parseFloat(coveragePercentage) < 25) barColor = "bg-danger";
-      else if (parseFloat(coveragePercentage) < 75) barColor = "bg-warning";
-
-      // Update the HTML
-      statsContainer.innerHTML = `
-        <div class="progress mb-3" style="height: 25px" title="Overall Coverage: ${coveragePercentage}%">
-          <div id="coverage-percentage-bar"
-               class="progress-bar ${barColor}"
-               role="progressbar"
-               style="width: ${coveragePercentage}%"
-               aria-valuenow="${coveragePercentage}"
-               aria-valuemin="0"
-               aria-valuemax="100">
-            <span id="dashboard-coverage-percentage-text">${coveragePercentage}%</span>
+      ) {
+        barColor = "bg-danger";
+      } else if (coverage.status !== STATUS.COMPLETED && coverage.status !== STATUS.COMPLETE) {
+        barColor = "bg-warning";
+      }
+      
+      const html = `
+        <div class="row">
+          <div class="col-md-3 col-6 mb-3">
+            <div class="stat-item">
+              <div class="stat-value">${CoverageManager.distanceInUserUnits(totalLengthM)}</div>
+              <div class="stat-label">Total Length</div>
+            </div>
+          </div>
+          <div class="col-md-3 col-6 mb-3">
+            <div class="stat-item">
+              <div class="stat-value">${CoverageManager.distanceInUserUnits(drivenLengthM)}</div>
+              <div class="stat-label text-success">Driven Length</div>
+            </div>
+          </div>
+          <div class="col-md-3 col-6 mb-3">
+            <div class="stat-item">
+              <div class="stat-value">${coveragePercentage}%</div>
+              <div class="stat-label text-primary">Coverage</div>
+            </div>
+          </div>
+           <div class="col-md-3 col-6 mb-3">
+            <div class="stat-item">
+              <div class="stat-value">${totalSegments}</div>
+              <div class="stat-label">Total Segments</div>
+            </div>
+          </div>
+          <div class="col-md-3 col-6 mb-3">
+             <div class="stat-item">
+                <div class="stat-value">${coveredSegments}</div>
+                <div class="stat-label text-success">Driven Segments</div>
+            </div>
+          </div>
+          <div class="col-md-3 col-6 mb-3">
+            <div class="stat-item">
+              <div class="stat-value">${lastUpdated}</div>
+              <div class="stat-label">Last Updated</div>
+            </div>
           </div>
         </div>
-        <div class="d-flex justify-content-between mb-2">
-          <small><i class="fas fa-road me-1 text-secondary"></i>Total Segments:</small>
-          <small id="dashboard-total-segments">${totalSegments.toLocaleString()}</small>
-        </div>
-         <div class="d-flex justify-content-between mb-2">
-          <small><i class="fas fa-check-circle me-1 text-success"></i>Covered Segments:</small>
-          <small id="dashboard-covered-segments">${coveredSegments.toLocaleString()}</small>
-        </div>
-        <div class="d-flex justify-content-between mb-2">
-          <small><i class="fas fa-ruler-horizontal me-1 text-secondary"></i>Total Length:</small>
-          <small id="dashboard-total-length">${CoverageManager.distanceInUserUnits(totalLengthM)}</small>
-        </div>
-        <div class="d-flex justify-content-between mb-2">
-          <small><i class="fas fa-route me-1 text-success"></i>Driven Length:</small>
-          <small id="dashboard-driven-length">${CoverageManager.distanceInUserUnits(drivenLengthM)}</small>
-        </div>
-        <div class="d-flex justify-content-between mb-2">
-          <small><i class="fas fa-clock me-1 text-secondary"></i>Last Updated:</small>
-          <small id="dashboard-last-updated">${lastUpdated}</small>
+        <div class="progress mt-2 mb-2" style="height: 10px;">
+          <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePercentage}%" aria-valuenow="${coveragePercentage}" aria-valuemin="0" aria-valuemax="100"></div>
         </div>
       `;
+      statsContainer.innerHTML = html;
 
-      // Update the separate street type list (if data exists)
-      this.updateStreetTypeCoverage(coverage.street_types || []);
-
-      // Update the map summary control if the map exists
-      if (this.coverageMap) {
-        this.addCoverageSummary(coverage);
+      // Update page title with percentage
+      if (coverage.location && coverage.location.display_name) {
+        document.title = `${coverage.location.display_name} (${coveragePercentage}%) - Coverage`;
       }
+      this.initTooltips(); // Re-init if any tooltips are in the dynamic HTML
     }
 
     updateStreetTypeCoverage(streetTypes) {
@@ -2745,13 +2732,6 @@ const STATUS = window.STATUS || {
         return;
       }
 
-      // if (!this.selectedLocation || !this.selectedLocation._id) {
-      //   this.notificationManager.show(
-      //     "Cannot perform action: No location selected.",
-      //     "warning",
-      //   );
-      //   return;
-      // }
       if (!segmentId) {
         this.notificationManager.show(
           "Cannot perform action: Segment ID missing.",
@@ -2760,7 +2740,7 @@ const STATUS = window.STATUS || {
         return;
       }
 
-      const locationIdForApi = activeLocationId; // const locationId = this.selectedLocation._id;
+      const locationIdForApi = activeLocationId;
       let endpoint = "";
       const payload = {
         location_id: locationIdForApi,
@@ -2814,15 +2794,13 @@ const STATUS = window.STATUS || {
                 break;
               case "undriven":
                 feature.properties.driven = false;
-                // undriveable status is not changed by "mark undriven" action alone
                 break;
               case "undriveable":
                 feature.properties.undriveable = true;
-                feature.properties.driven = false; // Marking undriveable implies not driven
+                feature.properties.driven = false;
                 break;
               case "driveable":
                 feature.properties.undriveable = false;
-                // driven status is not changed by "mark driveable" action alone
                 break;
             }
             // Ensure the source is updated.
@@ -2838,7 +2816,7 @@ const STATUS = window.STATUS || {
         }
         // --- END IMMEDIATE VISUAL UPDATE ---
 
-        // Refresh statistics on the server and update stats UI
+        // Refresh statistics on the server and update all relevant UI parts
         try {
           const refreshResp = await fetch(
             `/api/coverage_areas/${locationIdForApi}/refresh_stats`,
@@ -2846,10 +2824,14 @@ const STATUS = window.STATUS || {
           );
           const refreshData = await refreshResp.json();
           if (refreshResp.ok && refreshData.coverage) {
-            this.selectedLocation = refreshData.coverage;
+            this.selectedLocation = refreshData.coverage; // Store the new, complete coverage object
             this.updateDashboardStats(refreshData.coverage);
-            // Update summary control if map exists
-            this.addCoverageSummary(refreshData.coverage);
+            this.addCoverageSummary(refreshData.coverage); // Update map overlay summary
+            this.updateStreetTypeCoverage(refreshData.coverage.street_types || []); // Update street type table
+            if (this.streetTypeChartInstance && typeof this.streetTypeChartInstance.destroy === 'function') {
+                this.streetTypeChartInstance.destroy(); // Destroy old chart before creating new one
+            }
+            this.createStreetTypeChart(refreshData.coverage.street_types || []); // Re-create street type chart
           } else {
             this.notificationManager.show(
               `Failed to refresh stats: ${refreshData.detail || "Unknown error"}`,
@@ -2863,7 +2845,7 @@ const STATUS = window.STATUS || {
             "danger",
           );
         }
-        // Fetch live streets GeoJSON and update the map
+        // Fetch live streets GeoJSON and update the map (already part of the original logic, good for map source)
         try {
           const streetsResp = await fetch(
             `/api/coverage_areas/${locationIdForApi}/streets?cache_bust=${new Date().getTime()}`,
@@ -2872,16 +2854,10 @@ const STATUS = window.STATUS || {
             const freshGeoJson = await streetsResp.json();
             if (this.coverageMap && this.coverageMap.getSource("streets")) {
               this.coverageMap.getSource("streets").setData(freshGeoJson);
-              this.streetsGeoJson = freshGeoJson;
+              this.streetsGeoJson = freshGeoJson; // Update stored GeoJSON for immediate interaction
             }
-            this.updateDashboardStats({
-              ...this.selectedLocation,
-              streets_geojson: freshGeoJson,
-            });
-            this.addCoverageSummary({
-              ...this.selectedLocation,
-              streets_geojson: freshGeoJson,
-            });
+            // Optionally, re-update stats if /streets brings more truth, but refresh_stats should be primary
+            // this.updateDashboardStats({ ...this.selectedLocation, streets_geojson: freshGeoJson });
           }
         } catch (e) {
           console.error("Error fetching live streets data:", e);
