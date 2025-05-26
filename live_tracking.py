@@ -987,7 +987,6 @@ async def process_trip_end(
         seen_coords = set()
         for point_data in final_coordinates:
             if isinstance(point_data, list) and len(point_data) >= 2:
-                # Assuming point_data is [lon, lat, possibly_other_data,...]
                 coord_tuple = (point_data[0], point_data[1])
                 if coord_tuple not in seen_coords:
                     processed_coords_for_geojson.append(
@@ -1289,7 +1288,6 @@ async def cleanup_stale_trips_logic(
                 seen_coords = set()
                 for point_data in final_coordinates:
                     if isinstance(point_data, list) and len(point_data) >= 2:
-                        # Assuming point_data is [lon, lat, possibly_other_data,...]
                         coord_tuple = (point_data[0], point_data[1])
                         if coord_tuple not in seen_coords:
                             processed_coords_for_geojson.append(

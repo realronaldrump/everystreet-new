@@ -348,7 +348,6 @@
       const s = Math.floor(seconds % 60);
       return `${m}m ${s}s`;
     }
-    // Assuming formatSecondsToHMS returns "HH:MM:SS"
     const hms = dateUtils.formatSecondsToHMS(seconds);
     const parts = hms.split(":");
     const hours = parseInt(parts[0], 10);

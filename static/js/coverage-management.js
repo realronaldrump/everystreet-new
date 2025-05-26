@@ -1969,7 +1969,8 @@ const STATUS = window.STATUS || {
       const locationNameElement = document.getElementById(
         "dashboard-location-name",
       );
-      const streetTypeChartElement = document.getElementById("street-type-chart");
+      const streetTypeChartElement =
+        document.getElementById("street-type-chart");
       const streetTypeCoverageElement = document.getElementById(
         "street-type-coverage",
       );
@@ -2006,10 +2007,15 @@ const STATUS = window.STATUS || {
         }
         const apiResponse = await response.json();
 
-        if (!apiResponse.success || !apiResponse.coverage || !apiResponse.coverage.location) {
-          const errorMessage = apiResponse.success === false
-                               ? (apiResponse.error || "API request failed (no error detail).")
-                               : "Incomplete coverage data received (missing coverage or location info).";
+        if (
+          !apiResponse.success ||
+          !apiResponse.coverage ||
+          !apiResponse.coverage.location
+        ) {
+          const errorMessage =
+            apiResponse.success === false
+              ? apiResponse.error || "API request failed (no error detail)."
+              : "Incomplete coverage data received (missing coverage or location info).";
           throw new Error(errorMessage);
         }
 

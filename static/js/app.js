@@ -365,8 +365,27 @@
 
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
+      // Check for WebGL support BEFORE initializing the map
+      if (!mapboxgl.supported()) {
+        showNotification(
+          "WebGL is not supported by your browser. The map cannot be displayed.",
+          "danger",
+        );
+        // Optionally, hide the map container or display a more prominent message elsewhere
+        mapElement.innerHTML =
+          '<div class="webgl-unsupported-message">Map cannot be displayed: WebGL not supported.</div>';
+        return false;
+      }
+
       // Disable telemetry to prevent 500 errors on events API
       try {
+        // Additional attempts to disable telemetry
+        if (mapboxgl.config) {
+          mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
+          // Attempt to nullify the events URL. This might be aggressive.
+          // mapboxgl.config.EVENTS_URL = undefined;
+        }
+
         // Block telemetry at source
         if (mapboxgl.Map && mapboxgl.Map.prototype) {
           const originalAddEventData = mapboxgl.Map.prototype._addEventData;
@@ -732,10 +751,10 @@
       const params = new URLSearchParams({
         start_date: startDate,
         end_date: endDate,
-        format: "geojson",
+        fmt: "geojson",
       });
 
-      const data = await cachedFetch(`/api/trips?${params}`);
+      const data = await cachedFetch(`/api/export/trips?${params}`);
 
       if (data?.type === "FeatureCollection") {
         AppState.mapLayers.trips.layer = data;
@@ -1410,7 +1429,7 @@
         end_date: endDate,
       });
 
-      const data = await cachedFetch(`/api/metrics?${params}`);
+      const data = await cachedFetch(`/api/trip-analytics?${params}`);
 
       // Update metrics display (implementation depends on your metrics structure)
       if (data) {

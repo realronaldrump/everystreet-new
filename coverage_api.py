@@ -1,0 +1,1157 @@
+import asyncio
+import json
+import logging
+import uuid
+from collections import defaultdict
+from datetime import datetime, timezone
+
+import bson  # For bson.json_util
+from bson import ObjectId
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    status,
+    Request,
+)
+from fastapi.responses import JSONResponse
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+from gridfs import errors
+
+from coverage_tasks import (
+    process_area,
+    process_coverage_calculation,
+    process_incremental_coverage_calculation,
+)
+from db import (
+    db_manager,
+    find_one_with_retry,
+    find_with_retry,
+    update_one_with_retry,
+    delete_many_with_retry,
+    delete_one_with_retry,
+    aggregate_with_retry,
+    batch_cursor,
+    count_documents_with_retry,
+)
+from models import LocationModel, DeleteCoverageAreaModel
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+coverage_metadata_collection = db_manager.db["coverage_metadata"]
+streets_collection = db_manager.db["streets"]
+progress_collection = db_manager.db["progress_status"]
+osm_data_collection = db_manager.db["osm_data"]
+
+
+async def _recalculate_coverage_stats(
+    location_id: ObjectId,
+) -> dict | None:
+    """Internal helper to recalculate stats for a coverage area based on
+    streets_collection.
+    """
+    try:
+        coverage_area = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"_id": location_id},
+            {"location.display_name": 1},
+        )
+        if not coverage_area or not coverage_area.get("location", {}).get(
+            "display_name",
+        ):
+            logger.error(
+                "Cannot recalculate stats: Coverage area %s or its display_name not found.",
+                location_id,
+            )
+            return None
+
+        location_name = coverage_area["location"]["display_name"]
+
+        pipeline = [
+            {"$match": {"properties.location": location_name}},
+            {
+                "$group": {
+                    "_id": None,
+                    "total_segments": {"$sum": 1},
+                    "total_length": {"$sum": "$properties.segment_length"},
+                    "driveable_length": {
+                        "$sum": {
+                            "$cond": [
+                                {
+                                    "$eq": [
+                                        "$properties.undriveable",
+                                        True,
+                                    ],
+                                },
+                                0,
+                                "$properties.segment_length",
+                            ],
+                        },
+                    },
+                    "driven_length": {
+                        "$sum": {
+                            "$cond": [
+                                {
+                                    "$eq": [
+                                        "$properties.driven",
+                                        True,
+                                    ],
+                                },
+                                "$properties.segment_length",
+                                0,
+                            ],
+                        },
+                    },
+                    "street_types_data": {
+                        "$push": {
+                            "type": "$properties.highway",
+                            "length": "$properties.segment_length",
+                            "driven": "$properties.driven",
+                            "undriveable": "$properties.undriveable",
+                        },
+                    },
+                },
+            },
+        ]
+
+        results = await aggregate_with_retry(streets_collection, pipeline)
+
+        if not results:
+            stats = {
+                "total_length": 0.0,
+                "driven_length": 0.0,
+                "driveable_length": 0.0,
+                "coverage_percentage": 0.0,
+                "total_segments": 0,
+                "street_types": [],
+            }
+        else:
+            agg_result = results[0]
+            total_length = agg_result.get("total_length", 0.0) or 0.0
+            driven_length = agg_result.get("driven_length", 0.0) or 0.0
+            driveable_length = agg_result.get("driveable_length", 0.0) or 0.0
+            total_segments = agg_result.get("total_segments", 0) or 0
+
+            coverage_percentage = (
+                (driven_length / driveable_length * 100)
+                if driveable_length > 0
+                else 0.0
+            )
+
+            street_types_summary = defaultdict(
+                lambda: {
+                    "length": 0.0,
+                    "covered_length": 0.0,
+                    "undriveable_length": 0.0,
+                    "total": 0,
+                    "covered": 0,
+                },
+            )
+            for item in agg_result.get("street_types_data", []):
+                stype = item.get("type", "unknown")
+                length = item.get("length", 0.0) or 0.0
+                is_driven = item.get("driven", False)
+                is_undriveable = item.get("undriveable", False)
+
+                street_types_summary[stype]["length"] += length
+                street_types_summary[stype]["total"] += 1
+
+                if is_undriveable:
+                    street_types_summary[stype]["undriveable_length"] += length
+                elif is_driven:
+                    street_types_summary[stype]["covered_length"] += length
+                    street_types_summary[stype]["covered"] += 1
+
+            final_street_types = []
+            for (
+                stype,
+                data,
+            ) in street_types_summary.items():
+                type_driveable_length = (
+                    data["length"] - data["undriveable_length"]
+                )
+                type_coverage_pct = (
+                    (data["covered_length"] / type_driveable_length * 100)
+                    if type_driveable_length > 0
+                    else 0.0
+                )
+                final_street_types.append(
+                    {
+                        "type": stype,
+                        "length": data["length"],
+                        "covered_length": data["covered_length"],
+                        "coverage_percentage": type_coverage_pct,
+                        "total": data["total"],
+                        "covered": data["covered"],
+                        "undriveable_length": data["undriveable_length"],
+                    },
+                )
+            final_street_types.sort(
+                key=lambda x: x["length"],
+                reverse=True,
+            )
+
+            stats = {
+                "total_length": total_length,
+                "driven_length": driven_length,
+                "driveable_length": driveable_length,
+                "coverage_percentage": coverage_percentage,
+                "total_segments": total_segments,
+                "street_types": final_street_types,
+            }
+
+        update_result = await update_one_with_retry(
+            coverage_metadata_collection,
+            {"_id": location_id},
+            {
+                "$set": {
+                    **stats,
+                    "needs_stats_update": False,
+                    "last_stats_update": datetime.now(timezone.utc),
+                    "last_modified": datetime.now(timezone.utc),
+                },
+            },
+        )
+
+        if update_result.modified_count == 0:
+            logger.warning(
+                "Stats recalculated for %s, but metadata document was not modified (maybe no change or error?).",
+                location_id,
+            )
+        else:
+            logger.info(
+                "Successfully recalculated and updated stats for %s.",
+                location_id,
+            )
+
+        updated_coverage_area = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"_id": location_id},
+        )
+        if updated_coverage_area:
+            updated_coverage_area["_id"] = str(
+                updated_coverage_area["_id"]
+            )  # Ensure _id is string for JSON
+            if "last_updated" in updated_coverage_area and isinstance(
+                updated_coverage_area["last_updated"], datetime
+            ):
+                updated_coverage_area["last_updated"] = updated_coverage_area[
+                    "last_updated"
+                ].isoformat()
+            if "last_stats_update" in updated_coverage_area and isinstance(
+                updated_coverage_area["last_stats_update"], datetime
+            ):
+                updated_coverage_area["last_stats_update"] = (
+                    updated_coverage_area["last_stats_update"].isoformat()
+                )
+
+            return updated_coverage_area
+
+        # If find_one_with_retry returns None after update (should not happen if update succeeded)
+        # or if we want to return the calculated stats directly if the re-fetch fails for some reason.
+        # Construct a basic response with the calculated stats.
+        base_response = {
+            **stats,
+            "_id": str(location_id),
+            "location": coverage_area.get(
+                "location", {}
+            ),  # from initial fetch
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_stats_update": datetime.now(timezone.utc).isoformat(),
+        }
+        return base_response
+
+    except Exception as e:
+        logger.error(
+            "Error recalculating stats for %s: %s",
+            location_id,
+            e,
+            exc_info=True,
+        )
+        await update_one_with_retry(
+            coverage_metadata_collection,
+            {"_id": location_id},
+            {
+                "$set": {
+                    "status": "error",
+                    "last_error": f"Stats recalc failed: {e}",
+                },
+            },
+        )
+        return None
+
+
+@router.post("/api/street_coverage")
+async def get_street_coverage(
+    location: LocationModel,
+):
+    """Calculate street coverage for a location."""
+    try:
+        task_id = str(uuid.uuid4())
+        asyncio.create_task(
+            process_coverage_calculation(location.dict(), task_id),
+        )
+        return {
+            "task_id": task_id,
+            "status": "processing",
+        }
+    except Exception as e:
+        logger.exception(
+            "Error in street coverage calculation: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/api/street_coverage/{task_id}")
+async def get_coverage_status(task_id: str):
+    """Get status of a coverage calculation task."""
+    progress = await find_one_with_retry(progress_collection, {"_id": task_id})
+    if not progress:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found",
+        )
+    if progress.get("stage") == "error":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=progress.get("error", "Unknown error"),
+        )
+
+    # Ensure datetime is serializable
+    if "updated_at" in progress and isinstance(
+        progress["updated_at"], datetime
+    ):
+        progress["updated_at"] = progress["updated_at"].isoformat()
+
+    return {
+        "_id": str(progress.get("_id")),  # Ensure _id is string
+        "stage": progress.get("stage", "unknown"),
+        "progress": progress.get("progress", 0),
+        "message": progress.get("message", ""),
+        "error": progress.get("error"),
+        "result": progress.get(
+            "result"
+        ),  # This might contain complex objects; ensure serializable if issues arise
+        "metrics": progress.get("metrics", {}),
+        "updated_at": progress.get("updated_at"),
+        "location": progress.get("location"),
+    }
+
+
+@router.post("/api/street_coverage/incremental")
+async def get_incremental_street_coverage(
+    location: LocationModel,
+):
+    """Update street coverage incrementally, processing only new trips since
+    last update.
+    """
+    try:
+        task_id = str(uuid.uuid4())
+        asyncio.create_task(
+            process_incremental_coverage_calculation(location.dict(), task_id),
+        )
+        return {
+            "task_id": task_id,
+            "status": "processing",
+        }
+    except Exception as e:
+        logger.exception(
+            "Error in incremental street coverage calculation: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.post("/api/preprocess_streets")
+async def preprocess_streets_route(
+    location_data: LocationModel,
+):
+    """Preprocess streets data for a validated location received in the request
+    body.
+    """
+    display_name = None
+    try:
+        validated_location_dict = location_data.dict()
+        display_name = validated_location_dict.get("display_name")
+
+        if not display_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid location data provided (missing display_name).",
+            )
+
+        existing = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": display_name},
+        )
+        if existing and existing.get("status") == "processing":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This area is already being processed",
+            )
+
+        await update_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": display_name},
+            {
+                "$set": {
+                    "location": validated_location_dict,
+                    "status": "processing",
+                    "last_error": None,
+                    "last_updated": datetime.now(timezone.utc),
+                    "total_length": 0,
+                    "driven_length": 0,
+                    "coverage_percentage": 0,
+                    "total_segments": 0,
+                },
+            },
+            upsert=True,
+        )
+
+        task_id = str(uuid.uuid4())
+        asyncio.create_task(process_area(validated_location_dict, task_id))
+        return {
+            "status": "success",
+            "task_id": task_id,
+        }
+
+    except Exception as e:
+        logger.exception(
+            "Error in preprocess_streets_route for %s: %s",
+            display_name,
+            e,
+        )
+        try:
+            if display_name:
+                await coverage_metadata_collection.update_one(  # Direct call, consider retry wrapper if needed
+                    {"location.display_name": display_name},
+                    {
+                        "$set": {
+                            "status": "error",
+                            "last_error": str(e),
+                        },
+                    },
+                )
+        except Exception as db_err:
+            logger.error(
+                "Failed to update error status for %s: %s",
+                display_name,
+                db_err,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/api/coverage_areas")
+async def get_coverage_areas():
+    """Get all coverage areas."""
+    try:
+        areas = await find_with_retry(coverage_metadata_collection, {})
+
+        processed_areas = []
+        for area in areas:
+            processed_area = {
+                "_id": str(area["_id"]),
+                "location": area["location"],
+                "total_length": area.get(
+                    "total_length_m",
+                    area.get("total_length", 0),
+                ),
+                "driven_length": area.get(
+                    "driven_length_m",
+                    area.get("driven_length", 0),
+                ),
+                "coverage_percentage": area.get("coverage_percentage", 0),
+                "last_updated": area.get("last_updated"),
+                "total_segments": area.get("total_segments", 0),
+                "status": area.get("status", "completed"),
+                "last_error": area.get("last_error"),
+            }
+            if isinstance(processed_area["last_updated"], datetime):
+                processed_area["last_updated"] = processed_area[
+                    "last_updated"
+                ].isoformat()
+            processed_areas.append(processed_area)
+
+        return {
+            "success": True,
+            "areas": processed_areas,
+        }
+    except Exception as e:
+        logger.error(
+            "Error fetching coverage areas: %s",
+            str(e),
+            exc_info=True,
+        )
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
+@router.post("/api/coverage_areas/delete")
+async def delete_coverage_area(
+    location: DeleteCoverageAreaModel,
+):
+    """Delete a coverage area and all associated data."""
+    try:
+        display_name = location.display_name
+        if not display_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid location display name",
+            )
+
+        coverage_metadata = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": display_name},
+        )
+
+        if not coverage_metadata:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Coverage area not found",
+            )
+
+        if gridfs_id := coverage_metadata.get("streets_geojson_gridfs_id"):
+            try:
+                fs = AsyncIOMotorGridFSBucket(db_manager.db)
+                await fs.delete(gridfs_id)
+                logger.info(
+                    "Deleted GridFS file %s for %s",
+                    gridfs_id,
+                    display_name,
+                )
+            except errors.NoFile:
+                logger.warning(
+                    "GridFS file %s not found for deletion for %s, continuing.",
+                    gridfs_id,
+                    display_name,
+                )
+            except Exception as gridfs_err:
+                logger.warning(
+                    "Error deleting GridFS file for %s: %s",
+                    display_name,
+                    gridfs_err,
+                )
+
+        try:
+            await delete_many_with_retry(
+                progress_collection,
+                {"location": display_name},
+            )
+            logger.info("Deleted progress data for %s", display_name)
+        except Exception as progress_err:
+            logger.warning(
+                f"Error deleting progress data for {display_name}: {progress_err}",
+            )
+
+        try:
+            await delete_many_with_retry(
+                osm_data_collection,
+                {"location.display_name": display_name},
+            )
+            logger.info("Deleted cached OSM data for %s", display_name)
+        except Exception as osm_err:
+            logger.warning(
+                f"Error deleting OSM data for {display_name}: {osm_err}",
+            )
+
+        await delete_many_with_retry(
+            streets_collection,
+            {"properties.location": display_name},
+        )
+        logger.info("Deleted street segments for %s", display_name)
+
+        _ = await delete_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": display_name},
+        )
+        logger.info("Deleted coverage metadata for %s", display_name)
+
+        return {
+            "status": "success",
+            "message": "Coverage area and all associated data deleted successfully",
+        }
+
+    except HTTPException:
+        # logger.warning("HTTPException in delete_coverage_area", exc_info=True) # Already logged by FastAPI
+        raise
+    except Exception as e:
+        logger.exception(
+            "Error deleting coverage area: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.post("/api/coverage_areas/cancel")
+async def cancel_coverage_area(
+    location: DeleteCoverageAreaModel,
+):
+    """Cancel processing of a coverage area."""
+    try:
+        display_name = location.display_name
+        if not display_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid location display name",
+            )
+
+        await update_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": display_name},
+            {
+                "$set": {
+                    "status": "canceled",
+                    "last_error": "Task was canceled by user.",
+                },
+            },
+        )
+
+        return {
+            "status": "success",
+            "message": "Coverage area processing canceled",
+        }
+
+    except Exception as e:
+        logger.exception(
+            "Error canceling coverage area: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/api/coverage_areas/{location_id}")
+async def get_coverage_area_details(location_id: str):
+    """Get detailed information about a coverage area, fetching GeoJSON from GridFS."""
+    try:
+        obj_location_id = ObjectId(location_id)
+    except Exception:
+        raise HTTPException(
+            status_code=400, detail="Invalid location_id format"
+        )
+
+    coverage_doc = await find_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": obj_location_id},
+    )
+    if not coverage_doc:
+        raise HTTPException(
+            status_code=404,
+            detail="Coverage area not found",
+        )
+
+    streets_geojson = {}
+    gridfs_id = coverage_doc.get("streets_geojson_gridfs_id")
+    if gridfs_id:
+        try:
+            fs = AsyncIOMotorGridFSBucket(db_manager.db)
+            grid_out_file_metadata = await db_manager.db.fs.files.find_one(
+                {"_id": gridfs_id}
+            )
+            if grid_out_file_metadata:
+                stream = await fs.open_download_stream(gridfs_id)
+                bytes_data = await stream.read()
+                streets_geojson = json.loads(bytes_data.decode("utf-8"))
+            else:
+                logger.warning(
+                    f"GridFS ID {gridfs_id} found in metadata for location {location_id}, "
+                    f"but no corresponding file exists in GridFS. Treating as no GeoJSON."
+                )
+        except errors.NoFile:
+            logger.warning(
+                f"GridFS file with ID {gridfs_id} not found for location {location_id} (NoFile error). "
+                f"Treating as no GeoJSON."
+            )
+        except Exception as e_gridfs:
+            logger.error(
+                f"Error reading GridFS file {gridfs_id} for location {location_id}: {e_gridfs}",
+                exc_info=True,
+            )
+
+    last_updated_iso = None
+    if isinstance(coverage_doc.get("last_updated"), datetime):
+        last_updated_iso = coverage_doc["last_updated"].isoformat()
+    elif coverage_doc.get("last_updated"):  # if it's already a string
+        last_updated_iso = coverage_doc.get("last_updated")
+
+    result = {
+        "success": True,
+        "coverage": {
+            "_id": str(coverage_doc["_id"]),
+            "location": coverage_doc["location"],
+            "location_name": coverage_doc["location"].get("display_name"),
+            "total_length": coverage_doc.get(
+                "total_length_m",
+                coverage_doc.get("total_length", 0),
+            ),
+            "driven_length": coverage_doc.get(
+                "driven_length_m",
+                coverage_doc.get("driven_length", 0),
+            ),
+            "coverage_percentage": coverage_doc.get(
+                "coverage_percentage", 0.0
+            ),
+            "last_updated": last_updated_iso,
+            "total_segments": coverage_doc.get("total_segments", 0),
+            "streets_geojson": streets_geojson,
+            "street_types": coverage_doc.get("street_types", []),
+            "status": coverage_doc.get("status", "completed"),
+            "has_error": coverage_doc.get("status") == "error",
+            "error_message": (
+                coverage_doc.get("last_error")
+                if coverage_doc.get("status") == "error"
+                else None
+            ),
+            "needs_reprocessing": coverage_doc.get(
+                "needs_stats_update", False
+            ),
+        },
+    }
+    return JSONResponse(content=result)
+
+
+@router.get("/api/coverage_areas/{location_id}/streets")
+async def get_coverage_area_streets(location_id: str):
+    """Get updated street GeoJSON for a coverage area, including manual overrides."""
+    try:
+        obj_location_id = ObjectId(location_id)
+    except Exception:
+        raise HTTPException(
+            status_code=400, detail="Invalid location_id format"
+        )
+
+    meta = await find_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": obj_location_id},
+        {"location.display_name": 1},
+    )
+    if not meta:
+        raise HTTPException(
+            status_code=404,
+            detail="Coverage area not found",
+        )
+    name = meta["location"]["display_name"]
+    cursor = streets_collection.find(
+        {"properties.location": name},
+        {"_id": 0, "geometry": 1, "properties": 1},
+    )
+    features = await cursor.to_list(
+        length=None
+    )  # length=None to get all matching documents
+    return {"type": "FeatureCollection", "features": features}
+
+
+@router.post("/api/coverage_areas/{location_id}/refresh_stats")
+async def refresh_coverage_stats(
+    location_id: str,
+):
+    """Refresh statistics for a coverage area after manual street modifications."""
+    logger.info(
+        "Received request to refresh stats for location_id: %s",
+        location_id,
+    )
+    try:
+        obj_location_id = ObjectId(location_id)
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid location_id format",
+        )
+
+    updated_coverage_data = await _recalculate_coverage_stats(
+        obj_location_id,
+    )
+
+    if updated_coverage_data is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to recalculate statistics or coverage area not found.",
+        )
+
+    # _recalculate_coverage_stats should already handle datetime to isoformat for its direct return
+    # This JSONResponse will handle the final serialization
+    return JSONResponse(
+        content={
+            "success": True,
+            "coverage": updated_coverage_data,
+        }
+    )
+
+
+@router.post("/api/undriven_streets")
+async def get_undriven_streets(
+    location: LocationModel,
+):
+    """Get undriven streets for a specific location."""
+    location_name = "UNKNOWN"
+    try:
+        location_name = location.display_name
+        logger.info(
+            "Request received for undriven streets for '%s'.",
+            location_name,
+        )
+
+        coverage_metadata = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": location_name},
+        )
+
+        if not coverage_metadata:
+            logger.warning(
+                "No coverage metadata found for location: '%s'. Raising 404.",
+                location_name,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No coverage data found for location: {location_name}",
+            )
+
+        query = {
+            "properties.location": location_name,
+            "properties.driven": False,
+        }
+
+        count = await count_documents_with_retry(streets_collection, query)
+        logger.info(
+            "Found %d undriven street documents for '%s'.",
+            count,
+            location_name,
+        )
+
+        if count == 0:
+            return JSONResponse(
+                content={
+                    "type": "FeatureCollection",
+                    "features": [],
+                },
+            )
+
+        features = []
+        # Directly use the collection object from db_manager
+        cursor = streets_collection.find(query)
+
+        async for street_batch in batch_cursor(cursor):
+            for street_doc in street_batch:
+                if "geometry" in street_doc and "properties" in street_doc:
+                    features.append(street_doc)
+
+        content_to_return = {
+            "type": "FeatureCollection",
+            "features": features,
+        }
+        # bson.json_util.dumps handles MongoDB specific types like ObjectId, datetime
+        return JSONResponse(
+            content=json.loads(bson.json_util.dumps(content_to_return)),
+        )
+
+    except HTTPException:
+        # logger.warning already handled by FastAPI for HTTPExceptions
+        raise
+    except Exception as e:
+        logger.error(
+            "Unexpected error getting undriven streets for '%s': %s",
+            location_name,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error retrieving undriven streets.",
+        )
+
+
+async def _mark_segment(
+    location_id_str: str,
+    segment_id: str,
+    updates: dict,
+    action_name: str,
+):
+    """Helper function to mark a street segment."""
+    if not location_id_str or not segment_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing location_id or segment_id",
+        )
+
+    try:
+        obj_location_id = ObjectId(location_id_str)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid location_id format",
+        )
+
+    segment_doc = await find_one_with_retry(
+        streets_collection,
+        {"properties.segment_id": segment_id},
+    )
+
+    if not segment_doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Street segment not found",
+        )
+
+    coverage_meta = await find_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": obj_location_id},
+        {"location.display_name": 1},
+    )
+    if not coverage_meta or not coverage_meta.get("location", {}).get(
+        "display_name"
+    ):
+        # This case should ideally be caught if location_id is invalid,
+        # but good to have a fallback if DB state is inconsistent.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coverage location metadata not found for the given ID.",
+        )
+
+    expected_location_name = coverage_meta["location"]["display_name"]
+    segment_location_name = segment_doc.get("properties", {}).get("location")
+
+    if segment_location_name != expected_location_name:
+        logger.warning(
+            "Segment %s (in location '%s') does not appear to belong to the target location '%s' (ID: %s). "
+            "This might indicate a mismatch or data issue. Proceeding with update based on segment_id.",
+            segment_id,
+            segment_location_name,
+            expected_location_name,
+            location_id_str,
+        )
+        # The original code proceeded with a warning. If strict matching is required, raise HTTPException here.
+
+    update_payload = {
+        f"properties.{key}": value for key, value in updates.items()
+    }
+    update_payload["properties.manual_override"] = True
+    update_payload["properties.last_manual_update"] = datetime.now(
+        timezone.utc,
+    )
+
+    result = await update_one_with_retry(
+        streets_collection,
+        {
+            "_id": segment_doc["_id"]
+        },  # Use the actual _id of the segment document
+        {"$set": update_payload},
+    )
+
+    if (
+        result.modified_count == 0 and result.matched_count > 0
+    ):  # Matched but not modified
+        logger.info(
+            "Segment %s already had the desired state for action '%s'. No DB change made.",
+            segment_id,
+            action_name,
+        )
+    elif result.matched_count == 0:
+        logger.warning(
+            "Segment %s with _id %s not found during update for action '%s'. This is unexpected.",
+            segment_id,
+            segment_doc["_id"],
+            action_name,
+        )
+
+    await update_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": obj_location_id},
+        {
+            "$set": {
+                "needs_stats_update": True,
+                "last_modified": datetime.now(timezone.utc),
+            },
+        },
+    )
+
+    return {
+        "success": True,
+        "message": f"Segment marked as {action_name}",
+    }
+
+
+@router.post("/api/street_segments/mark_driven")
+async def mark_street_segment_as_driven(
+    request: Request,
+):
+    """Mark a street segment as manually driven."""
+    try:
+        data = await request.json()
+        location_id = data.get("location_id")
+        segment_id = data.get("segment_id")
+        updates = {
+            "driven": True,
+            "undriveable": False,  # Explicitly set undriveable to false if marking as driven
+            "manually_marked_driven": True,
+            "manually_marked_undriven": False,
+            "manually_marked_undriveable": False,
+            "manually_marked_driveable": False,  # Reset other manual flags
+        }
+        return await _mark_segment(
+            location_id,
+            segment_id,
+            updates,
+            "driven",
+        )
+    except HTTPException as http_exc:
+        # logger.error already handled by FastAPI
+        raise http_exc
+    except Exception as e:
+        logger.error(
+            "Error marking street segment as driven: %s",
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post("/api/street_segments/mark_undriven")
+async def mark_street_segment_as_undriven(
+    request: Request,
+):
+    """Mark a street segment as manually undriven (not driven)."""
+    try:
+        data = await request.json()
+        location_id = data.get("location_id")
+        segment_id = data.get("segment_id")
+        updates = {
+            "driven": False,
+            "manually_marked_undriven": True,
+            "manually_marked_driven": False,
+            # Does not change 'undriveable' status by itself
+        }
+        return await _mark_segment(
+            location_id,
+            segment_id,
+            updates,
+            "undriven",
+        )
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(
+            "Error marking street segment as undriven: %s",
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post("/api/street_segments/mark_undriveable")
+async def mark_street_segment_as_undriveable(
+    request: Request,
+):
+    """Mark a street segment as undriveable (cannot be driven)."""
+    try:
+        data = await request.json()
+        location_id = data.get("location_id")
+        segment_id = data.get("segment_id")
+        updates = {
+            "undriveable": True,
+            "driven": False,  # If undriveable, it cannot be driven
+            "manually_marked_undriveable": True,
+            "manually_marked_driveable": False,
+            "manually_marked_driven": False,  # Reset other manual flags
+            "manually_marked_undriven": False,
+        }
+        return await _mark_segment(
+            location_id,
+            segment_id,
+            updates,
+            "undriveable",
+        )
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(
+            "Error marking street segment as undriveable: %s",
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post("/api/street_segments/mark_driveable")
+async def mark_street_segment_as_driveable(
+    request: Request,
+):
+    """Mark a street segment as driveable (removing undriveable status)."""
+    try:
+        data = await request.json()
+        location_id = data.get("location_id")
+        segment_id = data.get("segment_id")
+        updates = {
+            "undriveable": False,
+            "manually_marked_driveable": True,
+            "manually_marked_undriveable": False,
+            # Does not change 'driven' status by itself
+        }
+        return await _mark_segment(
+            location_id,
+            segment_id,
+            updates,
+            "driveable",
+        )
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(
+            "Error marking street segment as driveable: %s",
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get("/api/street_segment/{segment_id}")
+async def get_street_segment_details(
+    segment_id: str,
+):
+    """Get details for a specific street segment."""
+    try:
+        # The projection {"_id": 0} ensures the MongoDB internal _id is not returned.
+        segment = await find_one_with_retry(
+            streets_collection,
+            {"properties.segment_id": segment_id},
+            projection={"_id": 0},
+        )
+        if not segment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Segment not found",
+            )
+        return segment  # FastAPI will automatically convert to JSONResponse
+    except Exception as e:
+        logger.exception(
+            "Error fetching segment details for segment_id %s: %s",
+            segment_id,
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching segment details: {str(e)}",
+        )
