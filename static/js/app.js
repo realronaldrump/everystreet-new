@@ -1843,4 +1843,13 @@
       apiCache.clear();
     }
   });
+
+  // Listen for filter application events to update map
+  document.addEventListener("filtersApplied", () => {
+    if (!isMapReady()) return;
+    window.loadingManager?.show("Loading trips...");
+    updateMap(true).finally(() => {
+      window.loadingManager?.hide();
+    });
+  });
 })();

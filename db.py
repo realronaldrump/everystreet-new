@@ -1408,6 +1408,19 @@ async def ensure_street_coverage_indexes() -> None:
             name="trips_endTime_desc_idx",
             background=True,
         )
+        # Add index on startTime for efficient date-range filtering
+        await db_manager.safe_create_index(
+            "trips",
+            [("startTime", pymongo.ASCENDING)],
+            name="trips_startTime_idx",
+            background=True,
+        )
+        await db_manager.safe_create_index(
+            "matched_trips",
+            [("transactionId", pymongo.ASCENDING)],
+            name="matched_trips_transactionId_idx",
+            background=True,
+        )
         await db_manager.safe_create_index(
             "matched_trips",
             [("transactionId", pymongo.ASCENDING)],

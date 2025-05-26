@@ -376,7 +376,24 @@ let baseTileLayer = null;
         progress.style.width = `${Math.max(0, Math.min(100, percent))}%`;
       if (text && message) text.textContent = message;
     },
+
+    // Add operation methods for backward compatibility and global access
+    startOperation: function(message = "Loading...") {
+      this.show(message);
+    },
+
+    finish: function() {
+      this.hide();
+    },
+
+    error: function(message) {
+      this.hide();
+      utils.showNotification(message, "danger");
+    },
   };
+
+  // Expose loadingManager globally for use in other scripts
+  window.loadingManager = loadingManager;
 
   // Location management
   const locationManager = {
