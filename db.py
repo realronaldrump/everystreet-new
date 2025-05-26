@@ -1439,6 +1439,64 @@ async def ensure_location_indexes() -> None:
         )
 
 
+async def run_transaction(
+    operations: list[Callable[[], Awaitable[Any]]],
+    max_retries: int = 3,
+) -> bool:
+    """Run a series of operations within a MongoDB transaction with retry logic for write conflicts.
+    Note: Requires replica set or sharded cluster. Standalone instances do not support transactions.
+
+    Args:
+        operations: List of async operations to execute
+        max_retries: Maximum number of retries for transient errors like write conflicts
+
+    Returns:
+        True if transaction succeeded, False otherwise
+
+    """
+    client = db_manager.client
+    retry_count = 0
+    while retry_count <= max_retries:
+        try:
+            async with await client.start_session() as session:
+                async with session.start_transaction():
+                    logger.debug("Starting transaction...")
+                    for i, op in enumerate(operations):
+                        logger.debug(
+                            "Executing operation %d in transaction...",
+                            i + 1,
+                        )
+                        await op(session=session)
+                    logger.debug("Transaction committed.")
+            return True
+        except (ConnectionFailure, OperationFailure) as e:
+            is_transient = False
+            if hasattr(e, "has_error_label"):
+                is_transient = e.has_error_label("TransientTransactionError")
+            elif hasattr(e, "details") and isinstance(e.details, dict):
+                is_transient = "TransientTransactionError" in (
+                    e.details.get("errorLabels", [])
+                )
+            if is_transient and retry_count < max_retries:
+                retry_count += 1
+                delay = 0.1 * (2 ** retry_count)
+                logger.warning(
+                    f"Transient transaction error (attempt {retry_count}/{max_retries}), retrying in {delay}s: {e}"
+                )
+                await asyncio.sleep(delay)
+                continue
+            logger.error(
+                f"Transaction failed after {retry_count+1} attempts: {e}",
+                exc_info=True,
+            )
+            return False
+        except Exception as e:
+            logger.error(
+                "Unexpected error during transaction: %s", e, exc_info=True
+            )
+            return False
+
+
 async def ensure_archived_trip_indexes() -> None:
     """Ensure necessary indexes exist on the archived_live_trips collection."""
     db = DatabaseManager()
