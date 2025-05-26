@@ -1374,7 +1374,6 @@ async def ensure_street_coverage_indexes() -> None:
             background=True,
         )
 
-
         # CRITICAL PERFORMANCE INDEXES - Adding missing indexes for frequent lookups and sorts
         await db_manager.safe_create_index(
             "trips",
