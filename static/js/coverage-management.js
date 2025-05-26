@@ -1958,194 +1958,102 @@ const STATUS = window.STATUS || {
     }
 
     async displayCoverageDashboard(locationId) {
-      const dashboardContainer = document.getElementById("coverage-dashboard");
-      const dashboardLocationName = document.getElementById(
+      // If no locationId, or it's the same as current, and data exists, don't reload (optional optimization)
+      // if (!locationId || (this.currentDashboardLocationId === locationId && this.selectedLocation && this.streetsGeoJson)) {
+      //   console.log("Dashboard display request for current/empty location, not reloading.");
+      //   return;
+      // }
+      this.currentDashboardLocationId = locationId;
+
+      const dashboardElement = document.getElementById("coverage-dashboard");
+      const locationNameElement = document.getElementById(
         "dashboard-location-name",
       );
-      const mapContainer = document.getElementById("coverage-map");
-      const chartContainer = document.getElementById("street-type-chart");
-      const statsContainer = document.querySelector(
-        ".dashboard-stats-card .stats-container",
-      );
-      const streetTypeCoverageEl = document.getElementById(
+      const streetTypeChartElement = document.getElementById("street-type-chart");
+      const streetTypeCoverageElement = document.getElementById(
         "street-type-coverage",
       );
 
-      // Ensure all required elements exist
-      if (
-        !dashboardContainer ||
-        !dashboardLocationName ||
-        !mapContainer ||
-        !chartContainer ||
-        !statsContainer ||
-        !streetTypeCoverageEl
-      ) {
-        this.notificationManager.show(
-          "UI Error: Dashboard components missing.",
-          "danger",
-        );
+      if (!dashboardElement || !locationNameElement) {
+        console.error("Dashboard elements not found.");
         return;
       }
 
-      // Show dashboard and loading indicators
-      dashboardContainer.style.display = "block";
-      dashboardLocationName.innerHTML =
-        '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Loading...';
-      mapContainer.innerHTML = CoverageManager.createLoadingIndicator(
-        "Loading map data...",
-      );
-      chartContainer.innerHTML = CoverageManager.createLoadingIndicator(
-        "Loading chart data...",
-      );
-      statsContainer.innerHTML = CoverageManager.createLoadingIndicator(
-        "Loading statistics...",
-      );
-      streetTypeCoverageEl.innerHTML = CoverageManager.createLoadingIndicator(
-        "Loading breakdown...",
-      );
-
-      // Scroll to dashboard
-      dashboardContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Clear previous state and show loading
+      this.clearDashboardUI();
+      dashboardElement.style.display = "block";
+      locationNameElement.textContent = "Loading...";
+      if (streetTypeChartElement) {
+        streetTypeChartElement.innerHTML =
+          CoverageManager.createLoadingIndicator("Loading chart...").outerHTML;
+      }
+      if (streetTypeCoverageElement) {
+        streetTypeCoverageElement.innerHTML =
+          CoverageManager.createLoadingIndicator(
+            "Loading coverage details...",
+          ).outerHTML;
+      }
 
       try {
-        // Fetch detailed data for the specific location
         const response = await fetch(`/api/coverage_areas/${locationId}`);
         if (!response.ok) {
-          let errorDetail = `HTTP ${response.status}`;
-          try {
-            errorDetail = (await response.json()).detail || errorDetail;
-          } catch (e) {
-            /* ignore json parsing error */
-          }
-          throw new Error(`Failed to load coverage data (${errorDetail})`);
-        }
-
-        const data = await response.json();
-        if (!data.success || !data.coverage) {
+          const errorData = await response.json().catch(() => ({}));
           throw new Error(
-            data.error || "Failed to load coverage data from API",
+            `Failed to load coverage area details: ${response.status} ${
+              errorData.detail || response.statusText
+            }`,
           );
         }
+        const coverageData = await response.json();
 
-        this.selectedLocation = data.coverage; // Store the full coverage data
-        this.currentDashboardLocationId = locationId; // <--- ADD THIS LINE
-        const coverage = data.coverage;
-        // coverage.streets_geojson provided by API (GridFS data) is used directly
-        const locationName = coverage.location_name || "Coverage Details";
+        if (!coverageData || !coverageData.location) {
+          throw new Error("Incomplete coverage data received.");
+        }
 
-        dashboardLocationName.textContent = locationName;
+        this.selectedLocation = coverageData; // Store the full coverage data
+        locationNameElement.textContent =
+          coverageData.location.display_name || "Unnamed Area";
 
-        // Update the stats panel first
-        this.updateDashboardStats(coverage);
+        this.updateDashboardStats(coverageData);
+        this.updateStreetTypeCoverage(coverageData.stats?.street_types || []);
+        this.createStreetTypeChart(coverageData.stats?.street_types || []);
 
-        // Determine if map data is available and valid
-        const hasStreetData = coverage.streets_geojson?.features?.length > 0;
-        const needsReprocessing = coverage.needs_reprocessing || false; // Check if backend flagged reprocessing need
-        const hasError = coverage.has_error || false;
-        const status = coverage.status || STATUS.UNKNOWN;
-        const isCurrentlyProcessing = [
-          STATUS.PROCESSING_TRIPS,
-          STATUS.PREPROCESSING,
-          STATUS.CALCULATING,
-          STATUS.INDEXING,
-          STATUS.FINALIZING,
-          STATUS.GENERATING_GEOJSON,
-          STATUS.COMPLETE_STATS,
-          STATUS.INITIALIZING,
-          STATUS.LOADING_STREETS,
-          STATUS.COUNTING_TRIPS,
-        ].includes(status);
-
-        // Handle cases where map/chart cannot be displayed
-        if (
-          hasError ||
-          needsReprocessing ||
-          isCurrentlyProcessing ||
-          !hasStreetData
-        ) {
-          let statusMessageHtml = null;
-          let chartMessageHtml =
-            '<div class="alert alert-secondary small p-2">Chart requires map data.</div>';
-          let notificationType = "info";
-          let notificationMessage = `Map data unavailable for ${locationName}.`;
-
-          if (hasError) {
-            statusMessageHtml = CoverageManager.createAlertMessage(
-              "Error in Last Calculation",
-              coverage.error_message || "An unexpected error occurred.",
-              "danger",
-              locationId, // Pass locationId to allow re-running
-            );
-            notificationType = "danger";
-            notificationMessage = `Error loading map for ${locationName}.`;
-          } else if (isCurrentlyProcessing) {
-            statusMessageHtml = CoverageManager.createAlertMessage(
-              "Processing in Progress",
-              `Coverage data for ${locationName} is currently being processed (Status: ${CoverageManager.formatStageName(status)}). The map will be available once complete.`,
-              "info",
-            );
-            chartMessageHtml =
-              '<div class="alert alert-info small p-2">Chart data will be available after processing.</div>';
-            notificationMessage = `Processing map data for ${locationName}...`;
-            // Optionally set a timer to re-check
-            setTimeout(() => this.displayCoverageDashboard(locationId), 15000);
-          } else if (status === STATUS.COMPLETED && !hasStreetData) {
-            // This state means stats are done, but GeoJSON generation might still be running or failed
-            statusMessageHtml = CoverageManager.createAlertMessage(
-              "Finalizing Map Data",
-              "Coverage statistics calculated. Generating detailed map data...",
-              "info",
-            );
-            chartMessageHtml =
-              '<div class="alert alert-info small p-2">Generating chart data...</div>';
-            notificationMessage = `Finalizing map data for ${locationName}.`;
-            // Re-check shortly
-            setTimeout(() => this.displayCoverageDashboard(locationId), 10000);
-          } else {
-            // Default case: No error, not processing, but no data (needs update)
-            statusMessageHtml = CoverageManager.createAlertMessage(
-              "Map Data Not Available",
-              "Please update the coverage data to generate the map.",
-              "warning",
-              locationId, // Pass locationId to allow running update
-            );
-            notificationType = "warning";
-            notificationMessage = `Map data needs to be generated for ${locationName}.`;
-          }
-
-          mapContainer.innerHTML = statusMessageHtml;
-          chartContainer.innerHTML = chartMessageHtml;
-          this.notificationManager.show(notificationMessage, notificationType);
+        // Initialize or update the map
+        if (coverageData.streets_geojson) {
+          this.initializeCoverageMap(coverageData);
         } else {
-          // Map data is available - initialize map and chart
+          // Fetch streets separately if not included (should ideally be included)
           this.notificationManager.show(
-            `Loaded coverage map for ${locationName}`,
-            "success",
+            "Street geometry not included in main payload, fetching separately...",
+            "info",
           );
-
-          this.initializeCoverageMap(coverage); // Pass full coverage object
-          this.createStreetTypeChart(coverage.street_types);
-          this.updateStreetTypeCoverage(coverage.street_types); // Update the list view as well
-
-          // Fit map after initialization (map needs to be loaded)
-          // initializeCoverageMap handles fitting internally now
+          const streetsResp = await fetch(
+            `/api/coverage_areas/${locationId}/streets?cache_bust=${new Date().getTime()}`,
+          );
+          if (streetsResp.ok) {
+            const freshGeoJson = await streetsResp.json();
+            this.selectedLocation.streets_geojson = freshGeoJson; // Add to stored data
+            this.initializeCoverageMap({
+              ...this.selectedLocation, // Pass all selected location data
+            });
+          } else {
+            throw new Error("Failed to load street geometry.");
+          }
         }
-
-        // Ensure tooltips are initialized for any new buttons (like in alerts)
-        this.initTooltips();
+        if (this.mapBounds && this.coverageMap) {
+          this.fitMapToBounds();
+        }
+        this.updateFilterButtonStates(); // Ensure buttons reflect current state
       } catch (error) {
         console.error("Error displaying coverage dashboard:", error);
-        dashboardLocationName.textContent = "Error Loading Data";
-        mapContainer.innerHTML = `<div class="alert alert-danger p-4"><strong>Error:</strong> ${error.message}</div>`;
-        chartContainer.innerHTML = ""; // Clear chart area on error
-        statsContainer.innerHTML =
-          '<div class="text-danger p-2">Failed to load stats.</div>';
-        streetTypeCoverageEl.innerHTML =
-          '<div class="text-danger p-2">Failed to load breakdown.</div>';
+        locationNameElement.textContent = "Error loading data";
         this.notificationManager.show(
           `Error loading dashboard: ${error.message}`,
           "danger",
         );
+        dashboardElement.style.display = "none"; // Hide dashboard on error
+      } finally {
+        this.initTooltips(); // Re-init tooltips if new buttons appeared
       }
     }
 
@@ -2947,7 +2855,7 @@ const STATUS = window.STATUS || {
         // Fetch live streets GeoJSON and update the map
         try {
           const streetsResp = await fetch(
-            `/api/coverage_areas/${locationIdForApi}/streets`,
+            `/api/coverage_areas/${locationIdForApi}/streets?cache_bust=${new Date().getTime()}`,
           );
           if (streetsResp.ok) {
             const freshGeoJson = await streetsResp.json();
