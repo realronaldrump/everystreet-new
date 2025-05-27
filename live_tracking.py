@@ -335,7 +335,7 @@ async def process_trip_data(
             initial_point = {
                 "lon": gps_coords_raw[0],
                 "lat": gps_coords_raw[1],
-                "timestamp": gps_data.get("timestamp", None) or trip_start_time
+                "timestamp": gps_data.get("timestamp", None) or trip_start_time,
             }
 
             # Combine the initial point with new_coords, ensuring no duplicates.
@@ -346,7 +346,9 @@ async def process_trip_data(
 
             # Update gps_data with the merged coordinates.
             gps_data["type"] = "LineString"
-            gps_data["coordinates"] = [[c["lon"], c["lat"]] for c in sorted_unique_coords]
+            gps_data["coordinates"] = [
+                [c["lon"], c["lat"]] for c in sorted_unique_coords
+            ]
         elif gps_type == "LineString" and gps_coords_raw:
             # For LineString, we assume coordinates are [[lon, lat], [lon, lat], ...].
             # We need to reconstruct their timestamps. This is a simplification.
