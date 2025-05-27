@@ -770,6 +770,7 @@ async def get_coverage_area_geojson_from_gridfs(
     )
 
     if not coverage_doc:
+        logger.warning(f"[{location_id}] Coverage area metadata not found for ID.")
         raise HTTPException(
             status_code=404,
             detail="Coverage area metadata not found",
@@ -780,7 +781,7 @@ async def get_coverage_area_geojson_from_gridfs(
         "display_name", "UnknownLocation"
     )
 
-    if not gridfs_id:
+    if not gridfs_id: # This should be an ObjectId if it exists
         logger.warning(
             f"[{location_id}] No streets_geojson_gridfs_id found for {location_name}."
         )
@@ -788,25 +789,34 @@ async def get_coverage_area_geojson_from_gridfs(
             status_code=404,
             detail="No GeoJSON GridFS ID associated with this coverage area.",
         )
+    
+    # Ensure gridfs_id is an ObjectId if it's a string (it should be ObjectId from DB)
+    if isinstance(gridfs_id, str):
+        try:
+            gridfs_id = ObjectId(gridfs_id)
+        except Exception:
+            logger.error(f"[{location_id}] Invalid GridFS ID format: {gridfs_id}")
+            raise HTTPException(
+                status_code=400, detail="Invalid GridFS ID format."
+            )
+
 
     try:
         fs = AsyncIOMotorGridFSBucket(db_manager.db)
-        # Check if file exists and get metadata for content length and type
-        grid_out_file_metadata = await db_manager.db.fs.files.find_one(
-            {"_id": gridfs_id}
-        )
+        # Correct way to check metadata using the bucket instance
+        grid_out_file_metadata = await db_manager.db["fs.files"].find_one({"_id": gridfs_id})
+
+        
         if not grid_out_file_metadata:
             logger.warning(
-                f"[{location_id}] GridFS ID {gridfs_id} for {location_name} exists in metadata but file not found in GridFS."
+                f"[{location_id}] GridFS ID {gridfs_id} for {location_name} exists in metadata but file not found in GridFS via fs.files."
             )
             raise HTTPException(
                 status_code=404, detail="GeoJSON file not found in GridFS."
             )
 
         # Set headers for streaming
-        response.headers["Content-Type"] = (
-            "application/json"  # Or application/geo+json
-        )
+        response.headers["Content-Type"] = "application/json"
         response.headers["Content-Disposition"] = (
             f'attachment; filename="{location_name}_streets.geojson"'
         )
@@ -816,39 +826,72 @@ async def get_coverage_area_geojson_from_gridfs(
             )
 
         async def stream_geojson_data():
-            grid_out_stream = await fs.open_download_stream(gridfs_id)
-            chunk_size = 8192  # Read in 8KB chunks
-            while True:
-                chunk = await grid_out_stream.read(chunk_size)
-                if not chunk:
-                    break
-                yield chunk
-            await grid_out_stream.close()
-            logger.info(
-                f"[{location_id}] Finished streaming GridFS geojson {gridfs_id} for {location_name}"
-            )
+            grid_out_stream = None  # Initialize to None
+            try:
+                logger.debug(f"[{location_id}] Attempting to open download stream for {gridfs_id}.")
+                grid_out_stream = await fs.open_download_stream(gridfs_id)
+                logger.info(f"[{location_id}] Successfully opened download stream for {gridfs_id}. Type: {type(grid_out_stream)}")
 
+                if grid_out_stream is None:
+                    # This case should ideally be covered by NoFile or other exceptions from Motor
+                    logger.error(f"[{location_id}] fs.open_download_stream unexpectedly returned None for {gridfs_id}.")
+                    return # Ends the generator, resulting in an empty response body
+
+                chunk_size = 8192
+                while True:
+                    logger.debug(f"[{location_id}] Attempting to read chunk from stream for {gridfs_id}.")
+                    chunk = await grid_out_stream.read(chunk_size)
+                    logger.debug(f"[{location_id}] Read {len(chunk)} bytes for {gridfs_id}.")
+                    if not chunk:  # End of file
+                        logger.info(f"[{location_id}] EOF reached for stream {gridfs_id}.")
+                        break
+                    yield chunk
+                
+                logger.info(f"[{location_id}] Finished reading and yielding all chunks for {gridfs_id}.")
+
+            except errors.NoFile:
+                logger.warning(f"[{location_id}] NoFile error during GridFS streaming for {gridfs_id}.", exc_info=True)
+                # This exception will propagate to the outer try/except in the route handler
+                raise
+            except Exception as e_stream:
+                logger.error(f"[{location_id}] Exception during GridFS stream processing for {gridfs_id}: {e_stream}", exc_info=True)
+                # This exception will propagate to the outer try/except in the route handler
+                raise
+            finally:
+                if grid_out_stream is not None:
+                    logger.info(f"[{location_id}] In finally block: Attempting to close stream for {gridfs_id}. Stream object: {grid_out_stream}, Type: {type(grid_out_stream)}")
+                    try:
+                        await grid_out_stream.close() # This is where the original error occurred (line 826)
+                        logger.info(f"[{location_id}] Successfully closed GridFS stream {gridfs_id} for {location_name}.")
+                    except Exception as e_close:
+                        logger.error(f"[{location_id}] Error closing GridFS stream {gridfs_id}: {e_close}", exc_info=True)
+                        # Depending on policy, you might want to raise this or just log it
+                else:
+                    logger.warning(f"[{location_id}] In finally block: grid_out_stream was None for {gridfs_id}, cannot close. This indicates an issue with stream opening or an earlier error.")
+        
         return StreamingResponse(
             stream_geojson_data(), media_type="application/json"
         )
 
-    except errors.NoFile:
+    except errors.NoFile: # Catch NoFile from fs.open_download_stream or fs.files.find_one if it were to raise it
         logger.warning(
-            f"[{location_id}] GridFS file {gridfs_id} for {location_name} not found (NoFile error)."
+            f"[{location_id}] GridFS file with ID {gridfs_id} for {location_name} not found (NoFile error).",
+            exc_info=True
         )
         raise HTTPException(
             status_code=404,
             detail="GeoJSON file not found in GridFS (NoFile).",
         )
-    except Exception as e:
+    except HTTPException: # Re-raise HTTPExceptions explicitly
+        raise
+    except Exception as e: # Catch other potential errors
         logger.error(
-            f"[{location_id}] Error streaming GridFS file {gridfs_id} for {location_name}: {e}",
+            f"[{location_id}] General error streaming GridFS file {gridfs_id} for {location_name}: {e}",
             exc_info=True,
         )
         raise HTTPException(
-            status_code=500, detail="Error streaming GeoJSON data."
+            status_code=500, detail=f"Error streaming GeoJSON data: {str(e)}"
         )
-
 
 @router.get("/api/coverage_areas/{location_id}/streets")
 async def get_coverage_area_streets(location_id: str):

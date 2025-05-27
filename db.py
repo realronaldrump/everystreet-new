@@ -1328,15 +1328,15 @@ async def ensure_street_coverage_indexes() -> None:
             name="streets_properties_location_idx",
             background=True,
         )
+        # Create a unique compound index on location + segment_id to enforce per-location uniqueness
         await db_manager.safe_create_index(
             "streets",
             [
-                (
-                    "properties.segment_id",
-                    pymongo.ASCENDING,
-                ),
+                ("properties.location", pymongo.ASCENDING),
+                ("properties.segment_id", pymongo.ASCENDING),
             ],
-            name="streets_properties_segment_id_idx",
+            name="streets_location_segment_id_unique_idx",
+            unique=True,
             background=True,
         )
         await db_manager.safe_create_index(
