@@ -156,7 +156,7 @@ class TripProcessor:
                 logger.warning(
                     "Trip %s: Invalid JSON string in GPS data. Input: %s",
                     transaction_id,
-                    gps_input[:100], # Log a snippet
+                    gps_input[:100],  # Log a snippet
                 )
                 return None
         elif isinstance(gps_input, (list, dict)):
@@ -169,38 +169,50 @@ class TripProcessor:
             )
             return None
 
-        if isinstance(gps_data, list): # Assumed to be a list of coordinate pairs
+        if isinstance(
+            gps_data, list
+        ):  # Assumed to be a list of coordinate pairs
             raw_coords = gps_data
         elif isinstance(gps_data, dict):
-            if gps_data.get("type") in ["Point", "LineString"] and "coordinates" in gps_data:
+            if (
+                gps_data.get("type") in ["Point", "LineString"]
+                and "coordinates" in gps_data
+            ):
                 # It might already be GeoJSON, extract coordinates for validation/standardization
                 raw_coords = gps_data.get("coordinates")
                 if gps_data["type"] == "Point":
                     # Wrap single point coordinates in a list to use the common processing loop
-                    if isinstance(raw_coords, list) and len(raw_coords) == 2 and all(isinstance(c, (int, float)) for c in raw_coords):
-                        raw_coords = [raw_coords] # Make it a list of a single coordinate pair
-                    else: # Invalid point coordinates structure
-                         logger.warning(
+                    if (
+                        isinstance(raw_coords, list)
+                        and len(raw_coords) == 2
+                        and all(
+                            isinstance(c, (int, float)) for c in raw_coords
+                        )
+                    ):
+                        raw_coords = [
+                            raw_coords
+                        ]  # Make it a list of a single coordinate pair
+                    else:  # Invalid point coordinates structure
+                        logger.warning(
                             "Trip %s: GPS data (dict, Point) has invalid coordinates: %s",
                             transaction_id,
                             raw_coords,
                         )
-                         return None
-            else: # Dictionary but not in expected GeoJSON structure
+                        return None
+            else:  # Dictionary but not in expected GeoJSON structure
                 logger.warning(
                     "Trip %s: GPS data (dict) is not a valid GeoJSON Point or LineString: %s",
                     transaction_id,
                     gps_data,
                 )
                 return None
-        else: # Should have been caught by initial type check, but as a safeguard
+        else:  # Should have been caught by initial type check, but as a safeguard
             logger.warning(
                 "Trip %s: GPS data format is unrecognized after initial parsing. Type: %s",
                 transaction_id,
                 type(gps_data).__name__,
             )
             return None
-
 
         if not isinstance(raw_coords, list):
             logger.warning(
@@ -218,18 +230,21 @@ class TripProcessor:
                 and isinstance(coord_pair[0], (int, float))
                 and isinstance(coord_pair[1], (int, float))
                 and -180 <= coord_pair[0] <= 180  # Longitude
-                and -90 <= coord_pair[1] <= 90    # Latitude
+                and -90 <= coord_pair[1] <= 90  # Latitude
             ):
                 processed_coords.append([coord_pair[0], coord_pair[1]])
             else:
-                logger.debug( # More verbose logging for individual bad points
+                logger.debug(  # More verbose logging for individual bad points
                     "Trip %s: Skipping invalid coordinate pair: %s",
                     transaction_id,
                     coord_pair,
                 )
-        
+
         if not processed_coords:
-            logger.warning("Trip %s: No valid coordinate pairs found after validation.", transaction_id)
+            logger.warning(
+                "Trip %s: No valid coordinate pairs found after validation.",
+                transaction_id,
+            )
             return None
 
         # Deduplicate coordinates while preserving order
@@ -239,19 +254,26 @@ class TripProcessor:
             for i in range(1, len(processed_coords)):
                 if processed_coords[i] != processed_coords[i - 1]:
                     unique_coords.append(processed_coords[i])
-        
-        if not unique_coords: # Should not happen if processed_coords had items, but defensive
-            logger.warning("Trip %s: No unique coordinates after deduplication (unexpected).", transaction_id)
+
+        if (
+            not unique_coords
+        ):  # Should not happen if processed_coords had items, but defensive
+            logger.warning(
+                "Trip %s: No unique coordinates after deduplication (unexpected).",
+                transaction_id,
+            )
             return None
 
         if len(unique_coords) == 1:
             return {"type": "Point", "coordinates": unique_coords[0]}
         elif len(unique_coords) >= 2:
             return {"type": "LineString", "coordinates": unique_coords}
-        else: # Should be len 0 if initial processed_coords was empty
-            logger.warning("Trip %s: Not enough unique coordinates to form Point or LineString.", transaction_id)
+        else:  # Should be len 0 if initial processed_coords was empty
+            logger.warning(
+                "Trip %s: Not enough unique coordinates to form Point or LineString.",
+                transaction_id,
+            )
             return None
-
 
     def _set_state(
         self,
@@ -288,26 +310,33 @@ class TripProcessor:
 
         """
         self.trip_data = trip_data
-        self.processed_data = trip_data.copy() # Keep a copy of original for reference if needed
+        self.processed_data = (
+            trip_data.copy()
+        )  # Keep a copy of original for reference if needed
 
         # Standardize GPS data early
         raw_gps = self.processed_data.get("gps")
-        transaction_id = self.processed_data.get("transactionId", f"unknown-{uuid.uuid4()}")
-        
-        standardized_gps = self._standardize_and_validate_gps_data(raw_gps, transaction_id)
-        
+        transaction_id = self.processed_data.get(
+            "transactionId", f"unknown-{uuid.uuid4()}"
+        )
+
+        standardized_gps = self._standardize_and_validate_gps_data(
+            raw_gps, transaction_id
+        )
+
         if standardized_gps is None:
             logger.warning(
                 "Trip %s: GPS data could not be standardized and is invalid. Setting to None.",
-                transaction_id
+                transaction_id,
             )
             # Depending on strictness, you might fail early here or let validation catch it.
             # For now, set to None and let validation handle if it's missing/invalid.
-        self.processed_data["gps"] = standardized_gps # Replace with standardized version or None
-        
+        self.processed_data["gps"] = (
+            standardized_gps  # Replace with standardized version or None
+        )
+
         self.state = TripState.NEW
         self._set_state(TripState.NEW)
-
 
     def get_processing_status(
         self,
@@ -407,11 +436,17 @@ class TripProcessor:
                     )
                     return False
 
-            gps_data = self.processed_data.get("gps") # Use already standardized GPS data
+            gps_data = self.processed_data.get(
+                "gps"
+            )  # Use already standardized GPS data
 
             # Validation of the standardized GPS data
-            if gps_data is None: # Was set to None by standardization if invalid
-                error_message = "GPS data is missing or invalid after standardization"
+            if (
+                gps_data is None
+            ):  # Was set to None by standardization if invalid
+                error_message = (
+                    "GPS data is missing or invalid after standardization"
+                )
                 logger.warning(
                     "Trip %s: %s",
                     transaction_id,
@@ -424,9 +459,11 @@ class TripProcessor:
                 return False
 
             # Further checks if gps_data is not None (i.e., it's a dict from standardization)
-            if not isinstance(gps_data, dict) or \
-               gps_data.get("type") not in ["Point", "LineString"] or \
-               not isinstance(gps_data.get("coordinates"), list):
+            if (
+                not isinstance(gps_data, dict)
+                or gps_data.get("type") not in ["Point", "LineString"]
+                or not isinstance(gps_data.get("coordinates"), list)
+            ):
                 error_message = "Standardized GPS data is not a valid GeoJSON Point or LineString"
                 logger.warning(
                     "Trip %s: %s",
@@ -438,7 +475,7 @@ class TripProcessor:
                     error_message,
                 )
                 return False
-            
+
             # Check for minimum points based on type
             gps_type = gps_data.get("type")
             gps_coords_list = gps_data.get("coordinates")
@@ -446,31 +483,52 @@ class TripProcessor:
             if gps_type == "Point":
                 # For a Point, coordinates should be a list of 2 numbers.
                 # The _standardize_and_validate_gps_data should ensure this.
-                if not (isinstance(gps_coords_list, list) and len(gps_coords_list) == 2 and all(isinstance(c, (float, int)) for c in gps_coords_list)):
+                if not (
+                    isinstance(gps_coords_list, list)
+                    and len(gps_coords_list) == 2
+                    and all(
+                        isinstance(c, (float, int)) for c in gps_coords_list
+                    )
+                ):
                     error_message = "GeoJSON Point 'coordinates' must be a list of two numbers [lon, lat]"
-                    logger.warning("Trip %s: %s", transaction_id, error_message)
+                    logger.warning(
+                        "Trip %s: %s", transaction_id, error_message
+                    )
                     self._set_state(TripState.FAILED, error_message)
                     return False
             elif gps_type == "LineString":
                 # For a LineString, coordinates should be a list of at least two coordinate pairs.
-                if not (isinstance(gps_coords_list, list) and len(gps_coords_list) >= 2):
+                if not (
+                    isinstance(gps_coords_list, list)
+                    and len(gps_coords_list) >= 2
+                ):
                     error_message = "GeoJSON LineString 'coordinates' must be a list of at least two points"
-                    logger.warning("Trip %s: %s", transaction_id, error_message)
+                    logger.warning(
+                        "Trip %s: %s", transaction_id, error_message
+                    )
                     self._set_state(TripState.FAILED, error_message)
                     return False
                 # Further check each point in LineString is valid pair (already done by standardize, but good for defense)
                 for point_pair in gps_coords_list:
-                    if not (isinstance(point_pair, list) and len(point_pair) == 2 and all(isinstance(c, (float, int)) for c in point_pair)):
+                    if not (
+                        isinstance(point_pair, list)
+                        and len(point_pair) == 2
+                        and all(
+                            isinstance(c, (float, int)) for c in point_pair
+                        )
+                    ):
                         error_message = "Invalid point found in GeoJSON LineString coordinates"
-                        logger.warning("Trip %s: %s", transaction_id, error_message)
+                        logger.warning(
+                            "Trip %s: %s", transaction_id, error_message
+                        )
                         self._set_state(TripState.FAILED, error_message)
                         return False
-            else: # Should not happen if standardization worked
+            else:  # Should not happen if standardization worked
                 error_message = f"Unexpected GeoJSON type after standardization: {gps_type}"
                 logger.warning("Trip %s: %s", transaction_id, error_message)
                 self._set_state(TripState.FAILED, error_message)
                 return False
-                
+
             # self.processed_data is already a copy from set_trip_data and gps field is standardized
 
             self.processed_data["validated_at"] = datetime.now(timezone.utc)
@@ -539,63 +597,111 @@ class TripProcessor:
             if isinstance(gps_data, str):
                 try:
                     # gps_data is already standardized GeoJSON dict or None
-                    gps_data = self.processed_data.get("gps") 
+                    gps_data = self.processed_data.get("gps")
 
-                    if not gps_data: # Should have been caught by validate, but defensive
-                        self._set_state(TripState.FAILED, "Missing GPS data for basic processing")
+                    if (
+                        not gps_data
+                    ):  # Should have been caught by validate, but defensive
+                        self._set_state(
+                            TripState.FAILED,
+                            "Missing GPS data for basic processing",
+                        )
                         return False
                 except Exception as e:
-                    self._set_state(TripState.FAILED, f"Error processing GPS data: {e!s}")
+                    self._set_state(
+                        TripState.FAILED, f"Error processing GPS data: {e!s}"
+                    )
                     return False
-            
+
             gps_type = gps_data.get("type")
             gps_coords = gps_data.get("coordinates")
 
             if gps_type == "Point":
-                if not (gps_coords and isinstance(gps_coords, list) and len(gps_coords) == 2):
-                     self._set_state(TripState.FAILED, "Point GeoJSON has invalid coordinates for processing")
-                     return False
-                start_coord = gps_coords 
-                end_coord = gps_coords   
-                self.processed_data["distance"] = 0.0 # Distance is 0 for a single point trip
+                if not (
+                    gps_coords
+                    and isinstance(gps_coords, list)
+                    and len(gps_coords) == 2
+                ):
+                    self._set_state(
+                        TripState.FAILED,
+                        "Point GeoJSON has invalid coordinates for processing",
+                    )
+                    return False
+                start_coord = gps_coords
+                end_coord = gps_coords
+                self.processed_data["distance"] = (
+                    0.0  # Distance is 0 for a single point trip
+                )
             elif gps_type == "LineString":
-                if not (gps_coords and isinstance(gps_coords, list) and len(gps_coords) >= 2):
-                    self._set_state(TripState.FAILED, "LineString GeoJSON has insufficient coordinates for processing")
+                if not (
+                    gps_coords
+                    and isinstance(gps_coords, list)
+                    and len(gps_coords) >= 2
+                ):
+                    self._set_state(
+                        TripState.FAILED,
+                        "LineString GeoJSON has insufficient coordinates for processing",
+                    )
                     return False
                 start_coord = gps_coords[0]
                 end_coord = gps_coords[-1]
                 # Calculate distance if not already provided and it's a LineString
-                if "distance" not in self.processed_data or not self.processed_data["distance"]:
+                if (
+                    "distance" not in self.processed_data
+                    or not self.processed_data["distance"]
+                ):
                     total_distance = 0.0
                     for i in range(1, len(gps_coords)):
                         prev = gps_coords[i - 1]
                         curr = gps_coords[i]
-                        if ( isinstance(prev, list) and len(prev) == 2 and
-                             isinstance(curr, list) and len(curr) == 2 ):
+                        if (
+                            isinstance(prev, list)
+                            and len(prev) == 2
+                            and isinstance(curr, list)
+                            and len(curr) == 2
+                        ):
                             total_distance += haversine(
-                                prev[0], prev[1], curr[0], curr[1], unit="miles"
+                                prev[0],
+                                prev[1],
+                                curr[0],
+                                curr[1],
+                                unit="miles",
                             )
                         else:
                             logger.warning(
                                 "Trip %s: Skipping distance calculation for invalid segment in LineString: %s to %s",
-                                transaction_id, prev, curr
+                                transaction_id,
+                                prev,
+                                curr,
                             )
                     self.processed_data["distance"] = total_distance
-            else: # Should not happen due to standardization
-                self._set_state(TripState.FAILED, f"Unsupported GPS type '{gps_type}' for basic processing")
+            else:  # Should not happen due to standardization
+                self._set_state(
+                    TripState.FAILED,
+                    f"Unsupported GPS type '{gps_type}' for basic processing",
+                )
                 return False
 
             # Ensure start_coord and end_coord are valid before creating GeoPoints
-            if not (isinstance(start_coord, list) and len(start_coord) == 2 and
-                    isinstance(end_coord, list) and len(end_coord) == 2):
-                self._set_state(TripState.FAILED, "Invalid start or end coordinates derived for GeoPoint creation.")
+            if not (
+                isinstance(start_coord, list)
+                and len(start_coord) == 2
+                and isinstance(end_coord, list)
+                and len(end_coord) == 2
+            ):
+                self._set_state(
+                    TripState.FAILED,
+                    "Invalid start or end coordinates derived for GeoPoint creation.",
+                )
                 return False
 
             self.processed_data["startGeoPoint"] = {
-                "type": "Point", "coordinates": [start_coord[0], start_coord[1]]
+                "type": "Point",
+                "coordinates": [start_coord[0], start_coord[1]],
             }
             self.processed_data["destinationGeoPoint"] = {
-                "type": "Point", "coordinates": [end_coord[0], end_coord[1]]
+                "type": "Point",
+                "coordinates": [end_coord[0], end_coord[1]],
             }
 
             if "totalIdleDuration" in self.processed_data:
@@ -994,10 +1100,15 @@ class TripProcessor:
                 )
                 return True
 
-            gps_data = self.processed_data.get("gps") # Should be a GeoJSON dict or None
+            gps_data = self.processed_data.get(
+                "gps"
+            )  # Should be a GeoJSON dict or None
 
             if not gps_data or not isinstance(gps_data, dict):
-                self._set_state(TripState.FAILED, "Invalid or missing GPS data for map matching")
+                self._set_state(
+                    TripState.FAILED,
+                    "Invalid or missing GPS data for map matching",
+                )
                 return False
 
             gps_type = gps_data.get("type")
@@ -1006,11 +1117,14 @@ class TripProcessor:
             if gps_type == "Point":
                 # Map matching a single point doesn't make sense with Mapbox Matching API
                 # which expects a path. We can skip or treat it as already "matched".
-                logger.info("Trip %s: GPS data is a single Point, skipping Mapbox map matching.", transaction_id)
+                logger.info(
+                    "Trip %s: GPS data is a single Point, skipping Mapbox map matching.",
+                    transaction_id,
+                )
                 # Optionally, set matchedGps to be the same as gps if it's a Point
-                # self.processed_data["matchedGps"] = gps_data 
+                # self.processed_data["matchedGps"] = gps_data
                 # self._set_state(TripState.MAP_MATCHED) # Or just return True
-                return True 
+                return True
             elif gps_type == "LineString":
                 map_match_input_coords = gps_data.get("coordinates", [])
                 if len(map_match_input_coords) < 2:
@@ -1019,16 +1133,20 @@ class TripProcessor:
                         transaction_id,
                         len(map_match_input_coords),
                     )
-                    return True # Not a failure of the process, just unmatchable
+                    return (
+                        True  # Not a failure of the process, just unmatchable
+                    )
             else:
                 logger.warning(
                     "Trip %s: GPS data has unexpected type '%s' for map matching. Skipping.",
                     transaction_id,
                     gps_type,
                 )
-                return True # Not a failure, but can't match
+                return True  # Not a failure, but can't match
 
-            match_result_api = await self._map_match_coordinates(map_match_input_coords)
+            match_result_api = await self._map_match_coordinates(
+                map_match_input_coords
+            )
 
             if match_result_api.get("code") != "Ok":
                 error_msg = match_result_api.get(
@@ -1607,12 +1725,16 @@ class TripProcessor:
             # `trip_to_save['gps']` should already be a GeoJSON dict or None due to standardization.
             # Perform a final validation check.
             gps_to_save = trip_to_save.get("gps")
-            if gps_to_save is not None and not self._is_valid_geojson_object(gps_to_save):
+            if gps_to_save is not None and not self._is_valid_geojson_object(
+                gps_to_save
+            ):
                 logger.error(
                     f"Trip {trip_to_save.get('transactionId', 'unknown')}: 'gps' field is invalid at save time. Value: {gps_to_save}. Setting to null."
                 )
-                trip_to_save["gps"] = None # Ensure invalid GPS data is not saved.
-            
+                trip_to_save["gps"] = (
+                    None  # Ensure invalid GPS data is not saved.
+                )
+
             trip_to_save["source"] = self.source
             trip_to_save["saved_at"] = datetime.now(timezone.utc)
             trip_to_save["processing_history"] = self.state_history
@@ -1635,53 +1757,56 @@ class TripProcessor:
                 # `matchedGps` should also be a GeoJSON dict (Point or LineString) or None.
                 matched_gps_to_save = trip_to_save.get("matchedGps")
                 if matched_gps_to_save is not None and not (
-                    isinstance(matched_gps_to_save, dict) and
-                    matched_gps_to_save.get("type") in ["Point", "LineString"] and
-                    "coordinates" in matched_gps_to_save
+                    isinstance(matched_gps_to_save, dict)
+                    and matched_gps_to_save.get("type")
+                    in ["Point", "LineString"]
+                    and "coordinates" in matched_gps_to_save
                 ):
                     logger.warning(
                         "Invalid GeoJSON structure in matchedGps for trip %s. Not saving to matched_trips_collection. Value: %s",
                         transaction_id,
                         matched_gps_to_save,
                     )
-                elif matched_gps_to_save: # It's a valid GeoJSON dict
+                elif matched_gps_to_save:  # It's a valid GeoJSON dict
                     # Ensure it's a LineString for matched_trips_collection as per original logic,
                     # For `matchedGps`, use `_is_valid_geojson_for_matched_collection`
                     # which might have specific rules (e.g. must be LineString).
-                    if not self._is_valid_geojson_for_matched_collection(matched_gps_to_save):
-                         logger.warning(
+                    if not self._is_valid_geojson_for_matched_collection(
+                        matched_gps_to_save
+                    ):
+                        logger.warning(
                             "matchedGps for trip %s is not suitable for matched_trips_collection. Value: %s. Not saving to matched_trips.",
                             transaction_id,
                             matched_gps_to_save,
                         )
-                         # Do not proceed to save this to matched_trips_collection
+                        # Do not proceed to save this to matched_trips_collection
                     else:
                         # Ensure that matchedGps is also explicitly set to null if it becomes invalid,
                         # though _is_valid_geojson_for_matched_collection should catch it.
                         # This 'else' branch means it IS valid for the matched collection.
                         matched_trip_data = {
                             "transactionId": transaction_id,
-                        "startTime": trip_to_save.get("startTime"),
-                        "endTime": trip_to_save.get("endTime"),
-                        "matchedGps": matched_gps_to_save,
-                        "source": self.source,
-                        "matched_at": trip_to_save.get("matched_at"),
-                        "distance": trip_to_save.get("distance"),
-                        "imei": trip_to_save.get("imei"),
-                        "startLocation": trip_to_save.get("startLocation"),
-                        "destination": trip_to_save.get("destination"),
-                        "maxSpeed": trip_to_save.get("maxSpeed"),
-                        "averageSpeed": trip_to_save.get("averageSpeed"),
-                        "hardBrakingCount": trip_to_save.get(
-                            "hardBrakingCount",
-                        ),
-                        "hardAccelerationCount": trip_to_save.get(
-                            "hardAccelerationCount",
-                        ),
-                        "totalIdleDurationFormatted": trip_to_save.get(
-                            "totalIdleDurationFormatted",
-                        ),
-                    }
+                            "startTime": trip_to_save.get("startTime"),
+                            "endTime": trip_to_save.get("endTime"),
+                            "matchedGps": matched_gps_to_save,
+                            "source": self.source,
+                            "matched_at": trip_to_save.get("matched_at"),
+                            "distance": trip_to_save.get("distance"),
+                            "imei": trip_to_save.get("imei"),
+                            "startLocation": trip_to_save.get("startLocation"),
+                            "destination": trip_to_save.get("destination"),
+                            "maxSpeed": trip_to_save.get("maxSpeed"),
+                            "averageSpeed": trip_to_save.get("averageSpeed"),
+                            "hardBrakingCount": trip_to_save.get(
+                                "hardBrakingCount",
+                            ),
+                            "hardAccelerationCount": trip_to_save.get(
+                                "hardAccelerationCount",
+                            ),
+                            "totalIdleDurationFormatted": trip_to_save.get(
+                                "totalIdleDurationFormatted",
+                            ),
+                        }
 
                     matched_trip_data = {
                         k: v
@@ -1724,34 +1849,40 @@ class TripProcessor:
             return None
 
     @staticmethod
-    def _is_valid_geojson_object(geojson_data: Any) -> bool: # Renamed
+    def _is_valid_geojson_object(geojson_data: Any) -> bool:  # Renamed
         """Checks if the input is a structurally valid GeoJSON Point or LineString
         dictionary suitable for MongoDB 2dsphere indexing, including WGS84 range checks.
         """
         if not isinstance(geojson_data, dict):
             return False
-        
+
         geom_type = geojson_data.get("type")
         coordinates = geojson_data.get("coordinates")
 
         if geom_type == "Point":
             if not isinstance(coordinates, list) or len(coordinates) != 2:
                 return False
-            if not all(isinstance(coord, (int, float)) for coord in coordinates):
+            if not all(
+                isinstance(coord, (int, float)) for coord in coordinates
+            ):
                 return False
             lon, lat = coordinates
             if not (-180 <= lon <= 180 and -90 <= lat <= 90):
-                 logger.debug(f"Point coordinates out of WGS84 range: {[lon, lat]}")
-                 return False
+                logger.debug(
+                    f"Point coordinates out of WGS84 range: {[lon, lat]}"
+                )
+                return False
             return True
-            
+
         elif geom_type == "LineString":
-            if not isinstance(coordinates, list) or len(coordinates) < 2: 
-                # LineString must have at least 2 points. 
+            if not isinstance(coordinates, list) or len(coordinates) < 2:
+                # LineString must have at least 2 points.
                 # Note: _standardize_and_validate_gps_data might produce LineString with 1 point temporarily
                 # if input was e.g. a list containing one point, but it should be converted to Point type.
                 # This validator enforces GeoJSON spec for LineString.
-                logger.debug(f"LineString must have at least 2 coordinate pairs. Found: {len(coordinates)}")
+                logger.debug(
+                    f"LineString must have at least 2 coordinate pairs. Found: {len(coordinates)}"
+                )
                 return False
             for point in coordinates:
                 if not isinstance(point, list) or len(point) != 2:
@@ -1760,13 +1891,17 @@ class TripProcessor:
                     return False
                 lon, lat = point
                 if not (-180 <= lon <= 180 and -90 <= lat <= 90):
-                    logger.debug(f"LineString point out of WGS84 range: {[lon, lat]}")
+                    logger.debug(
+                        f"LineString point out of WGS84 range: {[lon, lat]}"
+                    )
                     return False
             return True
-            
-        return False # Not a Point or LineString
 
-    def _is_valid_geojson_for_matched_collection(self, geojson_data: Any) -> bool:
+        return False  # Not a Point or LineString
+
+    def _is_valid_geojson_for_matched_collection(
+        self, geojson_data: Any
+    ) -> bool:
         """
         Checks if the GeoJSON is suitable for the matched_trips_collection.
         This primarily ensures it's a valid GeoJSON Point or LineString,
@@ -1775,13 +1910,12 @@ class TripProcessor:
         """
         if not self._is_valid_geojson_object(geojson_data):
             return False
-        
+
         # Example: If matched_trips_collection *must* contain LineStrings only:
         # if geojson_data.get("type") != "LineString":
         #     logger.debug(f"Data for matched_trips_collection is not a LineString: type {geojson_data.get('type')}")
         #     return False
         return True
-
 
     @staticmethod
     def format_idle_time(seconds: Any) -> str:
@@ -1863,7 +1997,7 @@ class TripProcessor:
             "startTime": start_time,
             "endTime": end_time,
             # Standardize GPS data immediately upon creation
-            "gps": coordinates, # Pass raw coordinates to set_trip_data for standardization
+            "gps": coordinates,  # Pass raw coordinates to set_trip_data for standardization
             "distance": total_distance,
             "imei": imei,
             "source": source,
@@ -1871,11 +2005,13 @@ class TripProcessor:
 
         processor = cls(mapbox_token=mapbox_token, source=source)
         # set_trip_data will call _standardize_and_validate_gps_data
-        processor.set_trip_data(trip_data) 
-        
+        processor.set_trip_data(trip_data)
+
         # After set_trip_data, processor.processed_data["gps"] will be GeoJSON or None
         # If it's None and required, .validate() will fail it.
-        
-        await processor.process(do_map_match=False) # process calls validate, process_basic etc.
+
+        await processor.process(
+            do_map_match=False
+        )  # process calls validate, process_basic etc.
 
         return processor.processed_data
