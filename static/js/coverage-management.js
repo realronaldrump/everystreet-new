@@ -2048,7 +2048,7 @@ const STATUS = window.STATUS || {
         if (!streetsResp.ok) {
           const errData = await streetsResp.json().catch(() => ({}));
           throw new Error(
-            `Failed to load street geometry: ${streetsResp.status} ${errData.detail || streetsResp.statusText}`
+            `Failed to load street geometry: ${streetsResp.status} ${errData.detail || streetsResp.statusText}`,
           );
         }
         streetsGeoJson = await streetsResp.json();
