@@ -304,8 +304,14 @@ if (!window.loadingManager) {
 
 function showLoadingOverlay(message = "Loading...") {
   if (window.loadingManager) {
-    window.loadingManager.startOperation("global", 100);
-    window.loadingManager._showOverlay(message);
+    if (typeof window.loadingManager.show === 'function') {
+      window.loadingManager.show(message);
+    } else if (typeof window.loadingManager._showOverlay === 'function') {
+      window.loadingManager.startOperation("global", 100);
+      window.loadingManager._showOverlay(message);
+    } else {
+      console.warn("Loading manager does not support showOverlay or show");
+    }
   } else {
     console.warn("Loading manager not initialized");
   }
@@ -313,7 +319,13 @@ function showLoadingOverlay(message = "Loading...") {
 
 function hideLoadingOverlay() {
   if (window.loadingManager) {
-    window.loadingManager.finish();
+    if (typeof window.loadingManager.hide === 'function') {
+      window.loadingManager.hide();
+    } else if (typeof window.loadingManager.finish === 'function') {
+      window.loadingManager.finish();
+    } else {
+      console.warn("Loading manager does not support hide or finish");
+    }
   } else {
     console.warn("Loading manager not initialized");
   }
