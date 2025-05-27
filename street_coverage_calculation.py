@@ -912,46 +912,60 @@ class CoverageCalculator:
             return None
 
     @staticmethod
-    def _is_valid_trip(
-        gps_data: Any,
-    ) -> tuple[bool, list[Any]]:
-        """Validates GPS data structure and basic coordinate validity."""
-        try:
-            if isinstance(gps_data, (dict, list)):
-                coords = (
-                    gps_data.get("coordinates", [])
-                    if isinstance(gps_data, dict)
-                    else gps_data
-                )
-            elif isinstance(gps_data, str):
-                try:
-                    data = json.loads(gps_data)
-                    coords = (
-                        data.get("coordinates", [])
-                        if isinstance(data, dict)
-                        else data
-                    )
-                except json.JSONDecodeError:
-                    return False, []
-            else:
-                return False, []
+    def _is_valid_trip(gps_data: Optional[Dict[str, Any]]) -> Tuple[bool, List[List[float]]]:
+        """
+        Validates if the GPS data (expected to be a GeoJSON Point or LineString dict)
+        is suitable for coverage calculation.
 
-            if not isinstance(coords, list) or len(coords) < 2:
-                return False, []
+        Args:
+            gps_data: A GeoJSON dictionary (Point or LineString) or None.
 
-            p_start, p_end = coords[0], coords[-1]
-            if not (
-                isinstance(p_start, (list, tuple))
-                and len(p_start) >= 2
-                and isinstance(p_end, (list, tuple))
-                and len(p_end) >= 2
-                and all(isinstance(val, (int, float)) for val in p_start[:2])
-                and all(isinstance(val, (int, float)) for val in p_end[:2])
-            ):
-                return False, []
+        Returns:
+            A tuple: (is_valid, list_of_coordinate_pairs).
+            For Point, the list_of_coordinate_pairs will be [coords, coords].
+            Returns (False, []) if invalid.
+        """
+        if not gps_data or not isinstance(gps_data, dict):
+            return False, []
 
-            return True, coords
-        except Exception:
+        trip_type = gps_data.get("type")
+        coordinates = gps_data.get("coordinates")
+
+        if not trip_type or not isinstance(coordinates, list):
+            return False, []
+
+        if trip_type == "LineString":
+            if len(coordinates) < 2:
+                logger.debug("Invalid LineString: less than 2 coordinates.")
+                return False, []
+            
+            # Validate each coordinate pair in the LineString
+            valid_coords_list = []
+            for coord_pair in coordinates:
+                if (isinstance(coord_pair, list) and len(coord_pair) == 2 and
+                    all(isinstance(c, (int, float)) for c in coord_pair) and
+                    (-180 <= coord_pair[0] <= 180 and -90 <= coord_pair[1] <= 90)): # Lon, Lat check
+                    valid_coords_list.append(coord_pair)
+                else:
+                    logger.debug(f"Invalid coordinate pair in LineString: {coord_pair}")
+                    return False, [] # Strict: entire LineString invalid if one point is bad
+            
+            if len(valid_coords_list) < 2: # Ensure after validation we still have a line
+                 logger.debug("LineString has less than 2 valid coordinates after validation.")
+                 return False, []
+            return True, valid_coords_list
+
+        elif trip_type == "Point":
+            if not (isinstance(coordinates, list) and len(coordinates) == 2 and
+                    all(isinstance(c, (int, float)) for c in coordinates) and
+                    (-180 <= coordinates[0] <= 180 and -90 <= coordinates[1] <= 90)): # Lon, Lat check
+                logger.debug(f"Invalid Point coordinates: {coordinates}")
+                return False, []
+            # For coverage, simulate a very short line segment from a Point
+            return True, [coordinates, coordinates] 
+        
+        else:
+            logger.debug(f"Unsupported GeoJSON type for trip: {trip_type}")
             return False, []
 
     async def process_trips(self, processed_trip_ids_set: set[str]) -> bool:

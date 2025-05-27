@@ -1101,12 +1101,24 @@ async def upload_gpx_endpoint(
                     data_geojson = json.loads(content)
                     trips_to_process = await process_geojson_trip(data_geojson)
                     if trips_to_process:
+                        valid_trip_count_for_file = 0
                         for trip_dict in trips_to_process:
-                            await process_and_store_trip(
-                                trip_dict,
-                                source="upload_geojson",
-                            )
-                            success_count += 1
+                            # process_geojson_trip now returns 'gps' as validated GeoJSON or None.
+                            # process_and_store_trip will pass this to TripProcessor.
+                            if trip_dict.get("gps") is not None: # Only process if GPS data is valid
+                                await process_and_store_trip(
+                                    trip_dict,
+                                    source="upload_geojson",
+                                )
+                                success_count += 1
+                                valid_trip_count_for_file +=1
+                            else:
+                                logger.warning(
+                                    f"Skipping trip with transactionId {trip_dict.get('transactionId', 'N/A')} "
+                                    f"from GeoJSON file {filename} due to invalid or missing GPS data after validation."
+                                )
+                        if valid_trip_count_for_file == 0 and trips_to_process:
+                             logger.warning(f"GeoJSON file {filename} contained trips, but none had valid GPS data after processing.")
                 except json.JSONDecodeError:
                     logger.warning(
                         "Invalid GeoJSON: %s",
@@ -1181,14 +1193,47 @@ async def upload_files(
                                     "coordinates": coords,
                                 },
                                 "imei": "UPLOADED",
-                                "distance": calculate_distance(coords),
+                                # "distance": calculate_distance(coords), # Will be recalculated by TripProcessor
                                 "source": "upload_gpx",
                             }
-                            await process_and_store_trip(
-                                trip_dict,
-                                source="upload_gpx",
-                            )
-                            count += 1
+                            
+                            # Standardize GPS for GPX upload
+                            standardized_gpx_gps = None
+                            if coords:
+                                # Deduplicate and determine Point/LineString
+                                unique_gpx_coords = []
+                                if coords:
+                                    unique_gpx_coords.append(coords[0])
+                                    for i in range(1, len(coords)):
+                                        if coords[i] != coords[i-1]:
+                                            unique_gpx_coords.append(coords[i])
+                                
+                                if len(unique_gpx_coords) == 1:
+                                    standardized_gpx_gps = {
+                                        "type": "Point",
+                                        "coordinates": unique_gpx_coords[0]
+                                    }
+                                elif len(unique_gpx_coords) >= 2:
+                                    standardized_gpx_gps = {
+                                        "type": "LineString",
+                                        "coordinates": unique_gpx_coords
+                                    }
+                                else: # No valid unique points
+                                    logger.warning(f"GPX segment for {filename} produced no valid unique coordinates.")
+                            
+                            if standardized_gpx_gps:
+                                trip_dict["gps"] = standardized_gpx_gps
+                                # Calculate distance based on the final unique coordinates
+                                trip_dict["distance"] = calculate_distance(standardized_gpx_gps.get("coordinates", []))
+
+                                await process_and_store_trip(
+                                    trip_dict,
+                                    source="upload_gpx",
+                                )
+                                count += 1
+                            else:
+                                logger.warning(f"Skipping GPX track/segment in {filename} due to no valid GPS data after standardization.")
+                                
                 except Exception as gpx_err:
                     logger.error(
                         "Error processing GPX file %s in /api/upload: %s",
@@ -1201,13 +1246,24 @@ async def upload_files(
                 try:
                     data_geojson = json.loads(content_data)
                     trips = await process_geojson_trip(data_geojson)
-                    if trips:
+                    if trips: # trips is a list of trip_dicts from process_geojson_trip
+                        processed_one_from_file = False
                         for t in trips:
-                            await process_and_store_trip(
-                                t,
-                                source="upload_geojson",
-                            )
-                            count += 1
+                            # t['gps'] is already a validated GeoJSON dict or None
+                            if t.get("gps") is not None: 
+                                await process_and_store_trip(
+                                    t,
+                                    source="upload_geojson",
+                                )
+                                count += 1
+                                processed_one_from_file = True
+                            else:
+                                logger.warning(
+                                    f"Skipping trip with transactionId {t.get('transactionId', 'N/A')} "
+                                    f"from GeoJSON file {filename} in /api/upload due to invalid/missing GPS after validation."
+                                )
+                        if not processed_one_from_file and trips:
+                            logger.warning(f"GeoJSON file {filename} in /api/upload contained trips, but none had valid GPS after processing.")
                 except json.JSONDecodeError:
                     logger.warning(
                         "Invalid geojson: %s",
