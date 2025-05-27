@@ -3468,6 +3468,23 @@ async def get_optimized_multi_street_route(
         )
 
 
+@app.get("/api/trips")
+async def list_trips(request: Request):
+    """
+    List trips (as a GeoJSON FeatureCollection) optionally filtered
+    by start_date/end_date query parameters.
+    """
+    # build_query_from_request will look for ?start_date=…&end_date=…
+    query = await build_query_from_request(request)
+    docs = await find_with_retry(trips_collection, query)
+    features = []
+    for doc in docs:
+        # serialize_trip will turn your MongoDB document into JSON-safe dict
+        props = SerializationHelper.serialize_trip(doc)
+        features.append(geojson_module.Feature(geometry=doc["gps"], properties=props))
+    return geojson_module.FeatureCollection(features)
+
+
 if __name__ == "__main__":
     import uvicorn
 

@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import pymongo
 from bson import ObjectId
@@ -90,7 +90,7 @@ async def process_gps_data_field(
         - is_error_bool: True if a significant error occurred during processing that implies data loss or fundamental unfixable issue.
     """
     current_data = gps_data_raw
-    is_error = False  # Becomes true for fundamental issues like JSON parsing errors on strings.
+    # is_error = False  # Becomes true for fundamental issues like JSON parsing errors on strings.
 
     # 1. Handle Stringified JSON
     if isinstance(current_data, str):

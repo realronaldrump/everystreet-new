@@ -313,7 +313,7 @@ async def process_trip_data(
 
     # GPS Data Handling - GeoJSON
     gps_data = trip_doc.get("gps")
-    current_gps_coords_with_timestamps = []  # Stores [lon, lat, timestamp]
+    # current_gps_coords_with_timestamps = []  # Stores [lon, lat, timestamp]
 
     if gps_data and isinstance(gps_data, dict):
         gps_type = gps_data.get("type")
@@ -335,7 +335,7 @@ async def process_trip_data(
             initial_point = {
                 "lon": gps_coords_raw[0],
                 "lat": gps_coords_raw[1],
-                "timestamp": gps_data.get("timestamp", None) or trip_start_time,
+                "timestamp": gps_data.get("timestamp", None) or trip_doc.get("startTime"),
             }
 
             # Combine the initial point with new_coords, ensuring no duplicates.

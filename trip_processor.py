@@ -538,12 +538,15 @@ class TripProcessor:
             gps_data = self.processed_data.get("gps")
             if isinstance(gps_data, str):
                 try:
-            # gps_data is already standardized GeoJSON dict or None
-            gps_data = self.processed_data.get("gps") 
+                    # gps_data is already standardized GeoJSON dict or None
+                    gps_data = self.processed_data.get("gps") 
 
-            if not gps_data: # Should have been caught by validate, but defensive
-                self._set_state(TripState.FAILED, "Missing GPS data for basic processing")
-                return False
+                    if not gps_data: # Should have been caught by validate, but defensive
+                        self._set_state(TripState.FAILED, "Missing GPS data for basic processing")
+                        return False
+                except Exception as e:
+                    self._set_state(TripState.FAILED, f"Error processing GPS data: {e!s}")
+                    return False
             
             gps_type = gps_data.get("type")
             gps_coords = gps_data.get("coordinates")
@@ -1660,7 +1663,7 @@ class TripProcessor:
                             "transactionId": transaction_id,
                         "startTime": trip_to_save.get("startTime"),
                         "endTime": trip_to_save.get("endTime"),
-                        "matchedGps": matched_gps_data,
+                        "matchedGps": matched_gps_to_save,
                         "source": self.source,
                         "matched_at": trip_to_save.get("matched_at"),
                         "distance": trip_to_save.get("distance"),
