@@ -23,12 +23,14 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from coverage_api import router as coverage_api_router
 from driving_routes import router as driving_routes_router
+import mercantile
+import mapbox_vector_tile
 from db import (
     SerializationHelper,
     aggregate_with_retry,
@@ -2371,6 +2373,142 @@ async def list_trips(request: Request):
             geojson_module.Feature(geometry=doc["gps"], properties=props)
         )
     return geojson_module.FeatureCollection(features)
+
+
+@app.get("/api/trips/mvt/{z}/{x}/{y}.pbf")
+async def get_trip_mvt_tile(
+    z: int,
+    x: int,
+    y: int,
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    """Serve vector tiles for trips."""
+    try:
+        bounds = mercantile.bounds(x, y, z)
+        tile_bbox_polygon_coords = [
+            [bounds.west, bounds.south],
+            [bounds.east, bounds.south],
+            [bounds.east, bounds.north],
+            [bounds.west, bounds.north],
+            [bounds.west, bounds.south],
+        ]
+
+        query = {
+            "gps": {
+                "$geoIntersects": {
+                    "$geometry": {
+                        "type": "Polygon",
+                        "coordinates": [tile_bbox_polygon_coords],
+                    },
+                },
+            },
+        }
+
+        if start_date and end_date:
+            try:
+                start_dt = dateutil_parser.isoparse(start_date)
+                end_dt = dateutil_parser.isoparse(end_date)
+                if start_dt.tzinfo is None:
+                    start_dt = start_dt.replace(tzinfo=timezone.utc)
+                if end_dt.tzinfo is None:
+                    end_dt = end_dt.replace(tzinfo=timezone.utc)
+                query["startTime"] = {"$gte": start_dt, "$lte": end_dt}
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid date format. Use ISO format.",
+                )
+
+        projection = {
+            "gps": 1,
+            "transactionId": 1,
+            "startTime": 1,
+            "endTime": 1,
+            "_id": 0,
+        }
+
+        cursor = trips_collection.find(query, projection)
+        features = []
+        async for trip_doc in cursor:
+            if trip_doc.get("gps"):
+                # Ensure startTime and endTime are serialized to ISO format strings
+                start_time_iso = (
+                    SerializationHelper.serialize_datetime(trip_doc.get("startTime"))
+                    if trip_doc.get("startTime")
+                    else None
+                )
+                end_time_iso = (
+                    SerializationHelper.serialize_datetime(trip_doc.get("endTime"))
+                    if trip_doc.get("endTime")
+                    else None
+                )
+
+                features.append(
+                    {
+                        "geometry": trip_doc["gps"],
+                        "properties": {
+                            "transactionId": trip_doc.get("transactionId", "N/A"),
+                            "startTime": start_time_iso,
+                            "endTime": end_time_iso,
+                        },
+                    }
+                )
+        
+        # Filter out features with missing or invalid geometry before encoding
+        valid_features = []
+        for f in features:
+            geom = f.get("geometry")
+            if geom and geom.get("type") and geom.get("coordinates"):
+                if geom["type"] == "Point" and isinstance(geom["coordinates"], list) and len(geom["coordinates"]) == 2:
+                    valid_features.append(f)
+                elif geom["type"] == "LineString" and isinstance(geom["coordinates"], list) and len(geom["coordinates"]) >= 2:
+                     # Further check if all coordinates in LineString are valid pairs
+                    if all(isinstance(coord, list) and len(coord) == 2 for coord in geom["coordinates"]):
+                        valid_features.append(f)
+                    else:
+                        logger.warning(f"Invalid coordinate structure in LineString for MVT: {f.get('properties', {}).get('transactionId')}")
+                # Add other geometry types if necessary
+            else:
+                logger.warning(f"Skipping feature with invalid/missing geometry for MVT: {f.get('properties', {}).get('transactionId')}")
+
+
+        if not valid_features:
+            # Return empty PBF if no features are valid or found
+            return Response(
+                content=b"", media_type="application/vnd.mapbox-vector-tile"
+            )
+
+        pbf_data = mapbox_vector_tile.encode(
+            [
+                {
+                    "name": "trips",  # Layer name
+                    "features": valid_features,
+                }
+            ],
+            default_options={'y_coord_down': False} # Correct y-coordinate orientation for Mapbox GL JS
+        )
+
+        return Response(
+            content=pbf_data, media_type="application/vnd.mapbox-vector-tile"
+        )
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException in MVT endpoint: {http_exc.detail}")
+        raise http_exc
+    except mercantile.TileArgParsingError:
+        logger.error(f"Invalid tile coordinates: z={z}, x={x}, y={y}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid tile coordinates"
+        )
+    except Exception as e:
+        logger.exception(
+            f"Error generating MVT tile for z={z}, x={x}, y={y}: {str(e)}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate MVT tile: {str(e)}",
+        )
 
 
 if __name__ == "__main__":
