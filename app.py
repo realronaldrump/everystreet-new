@@ -28,7 +28,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from coverage_api import router as coverage_api_router
-from driving_routes import router as driving_routes_router
 from db import (
     SerializationHelper,
     aggregate_with_retry,
@@ -42,6 +41,7 @@ from db import (
     init_database,
     parse_query_date,
 )
+from driving_routes import router as driving_routes_router
 from export_api import router as export_api_router
 from live_tracking import get_active_trip, get_trip_updates
 from live_tracking import initialize_db as initialize_live_tracking_db
@@ -61,11 +61,7 @@ from tasks import process_webhook_event_task
 from tasks_api import router as tasks_api_router
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import (
-    calculate_distance,
-    cleanup_session,
-    validate_location_osm,
-)
+from utils import calculate_distance, cleanup_session, validate_location_osm
 from visits import init_collections
 from visits import router as visits_router
 

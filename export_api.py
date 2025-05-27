@@ -1,35 +1,28 @@
 import io
 import json
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import geojson as geojson_module
-from fastapi import (
-    APIRouter,
-    Body,
-    HTTPException,
-    Query,
-    Request,
-    status,
-)
+from fastapi import APIRouter, Body, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from db import (
     build_query_from_request,
+    db_manager,
     find_one_with_retry,
     find_with_retry,
     parse_query_date,
-    db_manager,
 )
 from export_helpers import (
     create_csv_export,
     create_export_response,
     default_serializer,
+    export_gpx_response,
     extract_date_range_string,
     get_location_filename,
     process_trip_for_export,
-    export_gpx_response,
 )
 from osm_utils import generate_geojson_osm
 
@@ -104,9 +97,7 @@ async def export_single_trip(
             )
 
         start_date = t.get("startTime")
-        date_str = (
-            start_date.strftime("%Y%m%d") if start_date else "unknown_date"
-        )
+        date_str = start_date.strftime("%Y%m%d") if start_date else "unknown_date"
         filename_base = f"trip_{trip_id}_{date_str}"
 
         return await create_export_response([t], fmt, filename_base)
@@ -423,9 +414,7 @@ async def export_coverage_route_endpoint(
     except HTTPException as http_exc:
         raise http_exc
     except ValueError as ve:
-        logger.error(
-            f"ValueError in export_coverage_route_endpoint: {str(ve)}"
-        )
+        logger.error(f"ValueError in export_coverage_route_endpoint: {str(ve)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),

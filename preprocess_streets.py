@@ -11,16 +11,10 @@ import logging
 import math
 import multiprocessing
 from collections.abc import Callable
-from concurrent.futures import (
-    ProcessPoolExecutor,
-)
-from concurrent.futures import (
-    TimeoutError as FutureTimeoutError,
-)
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
-from typing import (
-    Any,
-)
+from typing import Any
 
 import aiohttp
 import pyproj
@@ -33,9 +27,9 @@ from shapely.ops import transform, unary_union
 from db import (
     coverage_metadata_collection,
     delete_many_with_retry,
+    progress_collection,
     streets_collection,
     update_one_with_retry,
-    progress_collection,
 )
 
 # Import the centralized query builder

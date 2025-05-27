@@ -5,16 +5,10 @@ import logging
 import math
 import statistics
 from collections.abc import Coroutine
-from typing import (
-    Any,
-    TypeVar,
-)
+from typing import Any, TypeVar
 
 import aiohttp
-from aiohttp import (
-    ClientConnectorError,
-    ClientResponseError,
-)
+from aiohttp import ClientConnectorError, ClientResponseError
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -289,9 +283,7 @@ def calculate_distance(
 
     """
     total_distance_meters = 0.0
-    coords: list[list[float]] = (
-        coordinates if isinstance(coordinates, list) else []
-    )
+    coords: list[list[float]] = coordinates if isinstance(coordinates, list) else []
 
     if not coords or not isinstance(coords[0], list):
         logger.warning("Invalid coordinates format for distance calculation.")
