@@ -4,11 +4,12 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import pymongo
 from bson import ObjectId
 from pymongo.collection import Collection
 from pymongo.results import UpdateResult
 
-from db import run_transaction
+from db import run_transaction, SerializationHelper
 from timestamp_utils import sort_and_filter_trip_coordinates
 from utils import haversine
 
@@ -685,12 +686,13 @@ async def process_trip_data(
         if unset_payload:
             update_ops["$unset"] = unset_payload
 
-        update_result = await live_collection.update_one(
-            {"_id": trip_doc["_id"]},
+        update_result = await live_collection.find_one_and_update(
+            {"_id": trip_doc["_id"], "status": "active"},
             update_ops,
+            return_document=pymongo.ReturnDocument.AFTER,
         )
 
-        if update_result.modified_count > 0:
+        if update_result:
             logger.info(
                 "Updated trip data for %s: %d new points processed, total unique GPS points: %d (seq=%d). GPS type: %s",
                 transaction_id,
@@ -701,27 +703,17 @@ async def process_trip_data(
                 sequence,
                 updated_gps_field.get("type", "N/A"),
             )
-        elif update_result.matched_count == 0:
-            logger.error(
-                "Failed to find trip %s (_id: %s) for update after processing data. It might have been deleted/archived concurrently.",
+        else:
+            logger.warning(
+                "Failed to find active trip %s (_id: %s) for update after processing data. It might have been deleted/archived concurrently.",
                 transaction_id,
                 trip_doc.get("_id"),
             )
-        else:
-            logger.info(
-                "Trip data for %s processed, but no calculated fields changed. Sequence updated to %d.",
-                transaction_id,
-                sequence,
-            )
-            await live_collection.update_one(
-                {"_id": trip_doc["_id"]},
-                {
-                    "$set": {
-                        "sequence": sequence,
-                        "lastUpdate": update_payload["lastUpdate"],
-                    },
-                },
-            )
+            archived_check = await archive_collection.find_one({"transactionId": transaction_id})
+            if archived_check:
+                logger.info("Trip %s was found in archive after failed live data update.", transaction_id)
+            else:
+                logger.warning("Trip %s not found in live or archive after failed data update.", transaction_id)
     except Exception as update_err:
         logger.error(
             "Database error updating trip %s after tripData processing: %s",
@@ -756,178 +748,138 @@ async def process_trip_metrics(
         )
         return
     if not metrics_data or not isinstance(metrics_data, dict):
-        logger.error(
+        logger.warning(
             "Missing or invalid 'metrics' object in tripMetrics event for %s. Payload: %s",
             transaction_id,
             data,
         )
         return
 
+    # Top-level try-except for the entire processing logic for this event
     try:
-        trip_doc = await live_collection.find_one(
+        # Initial fetch to check existence. Updates will be atomic using find_one_and_update.
+        initial_trip_doc = await live_collection.find_one(
             {
                 "transactionId": transaction_id,
                 "status": "active",
             },
         )
-    except Exception as find_err:
-        logger.error(
-            "Database error finding active trip %s for tripMetrics: %s",
-            transaction_id,
-            find_err,
-        )
-        return
 
-    if not trip_doc:
-        try:
-            archived_trip = await archive_collection.find_one(
-                {"transactionId": transaction_id},
-            )
-            if archived_trip:
-                logger.info(
-                    "Received tripMetrics for already completed/archived trip: %s. Ignoring.",
-                    transaction_id,
-                )
-            else:
-                logger.warning(
-                    "Received tripMetrics for unknown or inactive trip: %s. Ignoring metrics.",
-                    transaction_id,
-                )
-        except Exception as find_archive_err:
-            logger.error(
-                "Database error checking archive for trip %s during tripMetrics: %s",
-                transaction_id,
-                find_archive_err,
-            )
-        return
-
-    logger.info(
-        "Processing tripMetrics event for transactionId: %s",
-        transaction_id,
-    )
-
-    update_fields = {}
-    metrics_timestamp_str = metrics_data.get("timestamp")
-    metrics_timestamp = _parse_iso_datetime(metrics_timestamp_str)
-    update_fields["lastUpdate"] = metrics_timestamp or trip_doc.get(
-        "lastUpdate",
-        datetime.now(timezone.utc),
-    )
-
-    def _safe_update_float(key: str, metric_key: str):
-        if metric_key in metrics_data and metrics_data[metric_key] is not None:
+        if not initial_trip_doc:
             try:
-                update_fields[key] = float(metrics_data[metric_key])
-            except (ValueError, TypeError):
-                logger.warning(
-                    "Invalid %s value in metrics for %s: %s",
-                    metric_key,
-                    transaction_id,
-                    metrics_data[metric_key],
+                archived_trip = await archive_collection.find_one(
+                    {"transactionId": transaction_id},
                 )
-
-    def _safe_update_int(key: str, metric_key: str):
-        if metric_key in metrics_data and metrics_data[metric_key] is not None:
-            try:
-                update_fields[key] = int(metrics_data[metric_key])
-            except (ValueError, TypeError):
-                logger.warning(
-                    "Invalid %s value in metrics for %s: %s",
-                    metric_key,
+                if archived_trip:
+                    logger.info(
+                        "Received tripMetrics for already completed/archived trip: %s. Ignoring.",
+                        transaction_id,
+                    )
+                else:
+                    logger.warning(
+                        "Received tripMetrics for unknown or inactive trip: %s. Ignoring metrics.",
+                        transaction_id,
+                    )
+            except Exception as find_archive_err:
+                logger.error(
+                    "Database error checking archive for trip %s during tripMetrics: %s",
                     transaction_id,
-                    metrics_data[metric_key],
+                    find_archive_err,
                 )
+            return
 
-    _safe_update_float("duration", "tripTime")
-    _safe_update_float("distance", "tripDistance")
-    _safe_update_float("totalIdlingTime", "totalIdlingTime")
-    _safe_update_float("avgSpeed", "averageDriveSpeed")
-    _safe_update_int("hardBrakingCounts", "hardBrakingCounts")
-    _safe_update_int(
-        "hardAccelerationCounts",
-        "hardAccelerationCounts",
-    )
-
-    if "maxSpeed" in metrics_data and metrics_data["maxSpeed"] is not None:
-        try:
-            metric_max_speed = float(metrics_data["maxSpeed"])
-            current_max_speed = trip_doc.get("maxSpeed", 0.0)
-            if not isinstance(current_max_speed, (int, float)):
-                current_max_speed = 0.0
-            update_fields["maxSpeed"] = max(
-                current_max_speed,
-                metric_max_speed,
-            )
-        except (ValueError, TypeError):
-            logger.warning(
-                "Invalid maxSpeed value in metrics for %s: %s",
-                transaction_id,
-                metrics_data["maxSpeed"],
-            )
-
-    if len(update_fields) <= 1:
         logger.info(
-            "No new metric values found to update in tripMetrics payload for %s.",
+            "Processing tripMetrics event for transactionId: %s",
             transaction_id,
         )
+
+        update_fields = {}
+        metrics_timestamp_str = metrics_data.get("timestamp")
+        metrics_timestamp = _parse_iso_datetime(metrics_timestamp_str)
+        
+        # Use initial_trip_doc's lastUpdate as a fallback if metrics_timestamp is invalid
+        last_update_fallback = initial_trip_doc.get("lastUpdate", datetime.now(timezone.utc))
+        update_fields["lastUpdate"] = metrics_timestamp or last_update_fallback
+
+        # Helper to safely update fields from metrics_data
+        def _safe_update_float(key: str, metric_key: str):
+            if metric_key in metrics_data and metrics_data[metric_key] is not None:
+                try:
+                    update_fields[key] = float(metrics_data[metric_key])
+                except (ValueError, TypeError):
+                    logger.warning(
+                        "Invalid %s value in metrics for %s: %s",
+                        metric_key,
+                        transaction_id,
+                        metrics_data[metric_key],
+                    )
+
+        def _safe_update_int(key: str, metric_key: str):
+            if metric_key in metrics_data and metrics_data[metric_key] is not None:
+                try:
+                    update_fields[key] = int(metrics_data[metric_key])
+                except (ValueError, TypeError):
+                    logger.warning(
+                        "Invalid %s value in metrics for %s: %s",
+                        metric_key,
+                        transaction_id,
+                        metrics_data[metric_key],
+                    )
+
+        _safe_update_float("currentSpeed", "speed")
+        _safe_update_float("maxSpeed", "maxSpeed") # Bouncie might send this
+        _safe_update_float("avgSpeed", "averageSpeed")
+        _safe_update_float("totalIdlingTime", "idlingTime")
+        _safe_update_int("hardBrakingCounts", "hardBraking")
+        _safe_update_int("hardAccelerationCounts", "hardAcceleration")
+        
+        # If Bouncie sends overall distance or fuel, update them.
+        # These might be more accurate than our segment calculations in some cases.
+        _safe_update_float("distance", "distance") 
+        _safe_update_float("fuelConsumed", "fuelConsumed")
+
+        # Always update sequence number
         sequence = max(
-            trip_doc.get("sequence", 0) + 1,
+            initial_trip_doc.get("sequence", 0) + 1,
             int(time.time_ns() / 1000),
         )
-        await live_collection.update_one(
-            {"_id": trip_doc["_id"]},
-            {
-                "$set": {
-                    "sequence": sequence,
-                    "lastUpdate": update_fields["lastUpdate"],
-                },
-            },
-        )
-        return
+        update_fields["sequence"] = sequence
 
-    update_fields["sequence"] = max(
-        trip_doc.get("sequence", 0) + 1,
-        int(time.time_ns() / 1000),
-    )
+        if not update_fields:
+            logger.info("No fields to update from tripMetrics for %s.", transaction_id)
+            return
+        
+        trip_id_to_update = initial_trip_doc["_id"]
 
-    try:
-        update_result = await live_collection.update_one(
-            {"_id": trip_doc["_id"]},
+        updated_trip_doc = await live_collection.find_one_and_update(
+            {"_id": trip_id_to_update, "status": "active"}, # Ensure still active
             {"$set": update_fields},
+            return_document=pymongo.ReturnDocument.AFTER,
         )
 
-        if update_result.modified_count > 0:
+        if updated_trip_doc:
             logger.info(
                 "Updated trip metrics for: %s (seq=%d)",
                 transaction_id,
-                update_fields["sequence"],
-            )
-        elif update_result.matched_count == 0:
-            logger.error(
-                "Failed to find trip %s (_id: %s) for metrics update. Possible race condition.",
-                transaction_id,
-                trip_doc.get("_id"),
+                updated_trip_doc.get("sequence"),
             )
         else:
-            logger.info(
-                "Trip metrics for %s processed, but no fields were modified in DB. Sequence updated to %d.",
+            logger.warning(
+                "Failed to find active trip %s (_id: %s) for metrics find_one_and_update. It might have been archived/deleted or status changed concurrently.",
                 transaction_id,
-                update_fields["sequence"],
+                trip_id_to_update,
             )
-            await live_collection.update_one(
-                {"_id": trip_doc["_id"]},
-                {
-                    "$set": {
-                        "sequence": update_fields["sequence"],
-                        "lastUpdate": update_fields["lastUpdate"],
-                    },
-                },
-            )
-    except Exception as update_err:
-        logger.error(
-            "Database error updating trip %s after tripMetrics processing: %s",
+            archived_check = await archive_collection.find_one({"transactionId": transaction_id})
+            if archived_check:
+                logger.info("Trip %s was found in archive after failed live metrics update.", transaction_id)
+            else:
+                logger.warning("Trip %s not found in live or archive after failed metrics update.", transaction_id)
+
+    except Exception as e:
+        logger.exception(
+            "Unhandled error in process_trip_metrics for transactionId %s: %s",
             transaction_id,
-            update_err,
+            e,
         )
 
 
@@ -1675,16 +1627,13 @@ async def get_trip_updates(
                 current_server_seq,
                 client_sequence,
             )
-            if "_id" in active_trip_update and isinstance(
-                active_trip_update["_id"],
-                ObjectId,
-            ):
-                active_trip_update["_id"] = str(active_trip_update["_id"])
+            # Ensure _id is str, and other fields like datetimes are serialized
+            serialized_trip_update = SerializationHelper.serialize_document(active_trip_update)
 
             return {
                 "status": "success",
                 "has_update": True,
-                "trip": active_trip_update,
+                "trip": serialized_trip_update, # Use serialized version
             }
         try:
             any_active_trip_doc = await live_trips_collection_global.find_one(

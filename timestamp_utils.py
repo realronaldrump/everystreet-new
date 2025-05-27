@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_bouncie_timestamp(
-    ts: str,
+    ts: str | datetime,
 ) -> datetime | None:
     """Parse an ISO 8601 timestamp from Bouncie, ensure it's timezone-aware,
     default UTC.
@@ -22,6 +22,11 @@ def parse_bouncie_timestamp(
     if not ts:
         logger.warning("Missing timestamp field in Bouncie event data.")
         return None
+
+    if isinstance(ts, datetime):
+        if ts.tzinfo is None:
+            return ts.astimezone(timezone.utc)
+        return ts
 
     try:
         parsed_time = parser.isoparse(ts)
