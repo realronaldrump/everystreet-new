@@ -2917,13 +2917,15 @@ const STATUS = window.STATUS || {
       const coveragePercentage = parseFloat(coverage.coverage_percentage || 0).toFixed(1);
       const totalSegments = parseInt(coverage.total_segments || 0, 10);
 
-      let calculatedCoveredSegments = 0;
+      // Sum covered segments, handling both key names from different API shapes
+      let coveredSegments = 0;
       if (Array.isArray(coverage.street_types)) {
-        calculatedCoveredSegments = coverage.street_types.reduce(
-          (count, typeStats) => count + (parseInt(typeStats.covered, 10) || 0), 0
-        );
+        coveredSegments = coverage.street_types.reduce((sum, typeStats) => {
+          const c1 = parseInt(typeStats.covered, 10);
+          const c2 = parseInt(typeStats.covered_segments, 10);
+          return sum + ( !isNaN(c1) ? c1 : (c2 || 0) );
+        }, 0);
       }
-      const coveredSegments = calculatedCoveredSegments;
 
       const lastUpdated = coverage.last_stats_update || coverage.last_updated
         ? this.formatRelativeTime(coverage.last_stats_update || coverage.last_updated)
@@ -3368,7 +3370,8 @@ const STATUS = window.STATUS || {
     fitMapToBounds() {
       if (this.coverageMap && this.mapBounds && !this.mapBounds.isEmpty()) {
         try {
-          this.coverageMap.fitBounds(this.mapBounds, { padding: {top: 60, bottom: 60, left: 60, right: 60}, maxZoom: 17, duration: 800 });
+          // Use tighter padding so the area fills more of the container
+          this.coverageMap.fitBounds(this.mapBounds, { padding: 20, maxZoom: 17, duration: 800 });
         } catch (e) {
           console.error("Error fitting map to bounds:", e);
           // Don't set a default center here, let it stay at world view if bounds are problematic
