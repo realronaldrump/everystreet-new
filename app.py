@@ -63,12 +63,7 @@ from tasks import process_webhook_event_task
 from tasks_api import router as tasks_api_router
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import (
-    calculate_distance,
-    cleanup_session,
-    haversine,
-    validate_location_osm,
-)
+from utils import calculate_distance, cleanup_session, haversine, validate_location_osm
 from visits import init_collections
 from visits import router as visits_router
 
