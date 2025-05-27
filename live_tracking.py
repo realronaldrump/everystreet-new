@@ -146,9 +146,11 @@ async def process_trip_start(
         "startOdometer": start_odometer,
         "gps": {
             "type": "Point",
-            "coordinates": [start_lon, start_lat]
-            if start_lon is not None and start_lat is not None
-            else [],
+            "coordinates": (
+                [start_lon, start_lat]
+                if start_lon is not None and start_lat is not None
+                else []
+            ),
         },
         "lastUpdate": start_time,
         "distance": 0.0,
@@ -156,9 +158,7 @@ async def process_trip_start(
         "maxSpeed": 0.0,
         "avgSpeed": 0.0,
         "duration": 0.0,
-        "pointsRecorded": 1
-        if start_lon is not None and start_lat is not None
-        else 0,
+        "pointsRecorded": 1 if start_lon is not None and start_lat is not None else 0,
         "sequence": sequence,
         "totalIdlingTime": 0.0,
         "hardBrakingCounts": 0,
@@ -331,7 +331,7 @@ async def process_trip_data(
             # The initial point from trip_start is implicitly timestamped with startTime.
             # We will build sorted_unique_coords_with_timestamps from scratch using new_coords
             # and potentially the initial point if it's distinct.
-            pass # Placeholder: logic below handles merging.
+            pass  # Placeholder: logic below handles merging.
 
         elif gps_type == "LineString" and gps_coords_raw:
             # For LineString, we assume coordinates are [[lon, lat], [lon, lat], ...].
@@ -346,31 +346,40 @@ async def process_trip_data(
             # This section is simplified: assumes existing_coords_with_timestamps can be reconstructed
             # if necessary, but for this flow, we'll focus on merging new_coords.
             # The `all_coords_map` logic below will handle the merging based on timestamps.
-            pass # Placeholder: logic below handles merging.
-
+            pass  # Placeholder: logic below handles merging.
 
     # Merge new_coords with existing coordinate data for metric calculation
     # new_coords is a list of dicts: [{'lon': ..., 'lat': ..., 'timestamp': ...}, ...]
     # We need to maintain a list of such dicts for calculations.
-    
-    all_coords_map: dict[str, dict[str, Any]] = {} # timestamp_iso_string -> {lon, lat, timestamp}
+
+    all_coords_map: dict[str, dict[str, Any]] = (
+        {}
+    )  # timestamp_iso_string -> {lon, lat, timestamp}
 
     # Populate from existing trip_doc's initial point if it exists and is valid
     # This handles the case where the trip started with a point and this is the first tripData
     if gps_data and gps_data.get("type") == "Point" and gps_data.get("coordinates"):
         initial_lon, initial_lat = gps_data["coordinates"]
-        initial_ts = trip_doc.get("startTime") # Timestamp of the initial point
-        if isinstance(initial_ts, datetime) and initial_lon is not None and initial_lat is not None:
-             all_coords_map[initial_ts.isoformat()] = {
+        initial_ts = trip_doc.get("startTime")  # Timestamp of the initial point
+        if (
+            isinstance(initial_ts, datetime)
+            and initial_lon is not None
+            and initial_lat is not None
+        ):
+            all_coords_map[initial_ts.isoformat()] = {
                 "lon": initial_lon,
                 "lat": initial_lat,
-                "timestamp": initial_ts
+                "timestamp": initial_ts,
             }
-            
+
     # Add new coordinates, potentially overwriting if timestamps are identical (unlikely for distinct points)
-    for c_dict in new_coords: # c_dict is {'lon': ..., 'lat': ..., 'timestamp': ...}
+    for c_dict in new_coords:  # c_dict is {'lon': ..., 'lat': ..., 'timestamp': ...}
         ts = c_dict.get("timestamp")
-        if isinstance(ts, datetime) and c_dict.get("lon") is not None and c_dict.get("lat") is not None:
+        if (
+            isinstance(ts, datetime)
+            and c_dict.get("lon") is not None
+            and c_dict.get("lat") is not None
+        ):
             all_coords_map[ts.isoformat()] = c_dict
         else:
             logger.warning(
@@ -378,14 +387,17 @@ async def process_trip_data(
                 c_dict,
                 transaction_id,
             )
-    
+
     if not all_coords_map:
-        logger.warning("No valid coordinates (initial or new) to process for trip %s.", transaction_id)
+        logger.warning(
+            "No valid coordinates (initial or new) to process for trip %s.",
+            transaction_id,
+        )
         # No change to GPS, but update sequence and lastUpdate
         sequence = max(trip_doc.get("sequence", 0) + 1, int(time.time_ns() / 1000))
         await live_collection.update_one(
             {"_id": trip_doc["_id"]},
-            {"$set": {"sequence": sequence, "lastUpdate": datetime.now(timezone.utc)}}
+            {"$set": {"sequence": sequence, "lastUpdate": datetime.now(timezone.utc)}},
         )
         return
 
@@ -394,38 +406,46 @@ async def process_trip_data(
     sorted_coords_for_metrics = sorted(
         all_coords_map.values(), key=lambda c: c["timestamp"]
     )
-    
+
     # Now, prepare the GeoJSON `gps` field based on `sorted_coords_for_metrics`
     # This list contains just [lon, lat] pairs for GeoJSON.
     geojson_coordinate_list = [
-        [c["lon"], c["lat"]] for c in sorted_coords_for_metrics if c.get("lon") is not None and c.get("lat") is not None
+        [c["lon"], c["lat"]]
+        for c in sorted_coords_for_metrics
+        if c.get("lon") is not None and c.get("lat") is not None
     ]
-    
+
     # Deduplicate consecutive points for GeoJSON LineString
     if len(geojson_coordinate_list) > 1:
         unique_geojson_coords = [geojson_coordinate_list[0]]
         for i in range(1, len(geojson_coordinate_list)):
-            if geojson_coordinate_list[i] != geojson_coordinate_list[i-1]:
+            if geojson_coordinate_list[i] != geojson_coordinate_list[i - 1]:
                 unique_geojson_coords.append(geojson_coordinate_list[i])
         geojson_coordinate_list = unique_geojson_coords
 
     updated_gps_field = None
     if not geojson_coordinate_list:
-        logger.warning("No valid [lon, lat] pairs to form GeoJSON for trip %s.", transaction_id)
+        logger.warning(
+            "No valid [lon, lat] pairs to form GeoJSON for trip %s.", transaction_id
+        )
         # Keep existing gps field or set to Point with empty coordinates if it was null
-        updated_gps_field = gps_data if gps_data else {"type": "Point", "coordinates": []}
+        updated_gps_field = (
+            gps_data if gps_data else {"type": "Point", "coordinates": []}
+        )
     elif len(geojson_coordinate_list) == 1:
         updated_gps_field = {
             "type": "Point",
             "coordinates": geojson_coordinate_list[0],
         }
-    else: # >= 2 points
+    else:  # >= 2 points
         updated_gps_field = {
             "type": "LineString",
             "coordinates": geojson_coordinate_list,
         }
 
-    if not sorted_coords_for_metrics: # Should be caught by all_coords_map check, but as a safeguard
+    if (
+        not sorted_coords_for_metrics
+    ):  # Should be caught by all_coords_map check, but as a safeguard
         logger.warning(
             "No coordinates available for metric calculation after sorting/deduplication for trip %s.",
             transaction_id,
@@ -438,9 +458,7 @@ async def process_trip_data(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
         if not isinstance(start_time, datetime):
@@ -482,8 +500,12 @@ async def process_trip_data(
     # Use sorted_coords_for_metrics for calculations as it contains timestamps
     if len(sorted_coords_for_metrics) >= 2:
         for i in range(1, len(sorted_coords_for_metrics)):
-            prev = sorted_coords_for_metrics[i - 1] # This is a dict with lon, lat, timestamp
-            curr = sorted_coords_for_metrics[i]   # This is a dict with lon, lat, timestamp
+            prev = sorted_coords_for_metrics[
+                i - 1
+            ]  # This is a dict with lon, lat, timestamp
+            curr = sorted_coords_for_metrics[
+                i
+            ]  # This is a dict with lon, lat, timestamp
 
             if (
                 not all(
@@ -536,7 +558,9 @@ async def process_trip_data(
                             segment_speed_mph,
                         )
                         valid_speeds_for_avg_mph.append(segment_speed_mph)
-                        if i == len(sorted_coords_for_metrics) - 1: # Check if it's the last segment
+                        if (
+                            i == len(sorted_coords_for_metrics) - 1
+                        ):  # Check if it's the last segment
                             current_speed_mph = segment_speed_mph
                     else:
                         logger.debug(
@@ -575,9 +599,7 @@ async def process_trip_data(
     if duration_seconds > 0:
         duration_hours = duration_seconds / 3600
         avg_speed_mph = (
-            full_trip_distance_miles / duration_hours
-            if duration_hours > 0
-            else 0.0
+            full_trip_distance_miles / duration_hours if duration_hours > 0 else 0.0
         )
     elif valid_speeds_for_avg_mph:
         avg_speed_mph = sum(valid_speeds_for_avg_mph) / len(
@@ -606,21 +628,20 @@ async def process_trip_data(
         "avgSpeed": avg_speed_mph,
         "duration": duration_seconds,
         "sequence": sequence,
-        "pointsRecorded": len(geojson_coordinate_list), # Count of points in GeoJSON
+        "pointsRecorded": len(geojson_coordinate_list),  # Count of points in GeoJSON
     }
-    
+
     # Remove old 'coordinates' field if it exists in the document from a previous structure
     # This is done using $unset. If it's already not there, this does nothing.
     unset_payload = {}
-    if "coordinates" in trip_doc: # Check if the key exists in the loaded document
+    if "coordinates" in trip_doc:  # Check if the key exists in the loaded document
         unset_payload["coordinates"] = ""
-
 
     try:
         update_ops = {"$set": update_payload}
         if unset_payload:
             update_ops["$unset"] = unset_payload
-            
+
         update_result = await live_collection.update_one(
             {"_id": trip_doc["_id"]},
             update_ops,
@@ -630,10 +651,10 @@ async def process_trip_data(
             logger.info(
                 "Updated trip data for %s: %d new points processed, total unique GPS points: %d (seq=%d). GPS type: %s",
                 transaction_id,
-                len(new_coords), # Number of points received in this batch
-                len(geojson_coordinate_list), # Number of points in the final GeoJSON
+                len(new_coords),  # Number of points received in this batch
+                len(geojson_coordinate_list),  # Number of points in the final GeoJSON
                 sequence,
-                updated_gps_field.get("type", "N/A")
+                updated_gps_field.get("type", "N/A"),
             )
         elif update_result.matched_count == 0:
             logger.error(
@@ -996,9 +1017,7 @@ async def process_trip_end(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
 
@@ -1075,7 +1094,7 @@ async def process_trip_end(
         base_trip_data.get("sequence", 0) + 1,
         int(time.time_ns() / 1000),
     )
-    
+
     # --- Final Validation for 'gps' field before archiving ---
     gps_field_to_archive = trip_to_archive.get("gps")
     if isinstance(gps_field_to_archive, dict):
@@ -1091,12 +1110,14 @@ async def process_trip_end(
             else:
                 # Deduplicate points for accurate count
                 distinct_points = []
-                if gps_coords: # Check if list is not empty
-                    distinct_points.append(gps_coords[0]) # Add first point
+                if gps_coords:  # Check if list is not empty
+                    distinct_points.append(gps_coords[0])  # Add first point
                     for i in range(1, len(gps_coords)):
-                        if gps_coords[i] != gps_coords[i-1]: # Compare with the last added distinct point
+                        if (
+                            gps_coords[i] != gps_coords[i - 1]
+                        ):  # Compare with the last added distinct point
                             distinct_points.append(gps_coords[i])
-                
+
                 if len(distinct_points) < 2:
                     if len(distinct_points) == 1:
                         logger.info(
@@ -1106,13 +1127,13 @@ async def process_trip_end(
                             "type": "Point",
                             "coordinates": distinct_points[0],
                         }
-                    else: # 0 distinct points
+                    else:  # 0 distinct points
                         logger.warning(
                             f"Trip {transaction_id}: LineString has no distinct points. Setting gps to null for archive."
                         )
                         trip_to_archive["gps"] = None
                 # else: LineString is valid with >= 2 distinct points, keep as is.
-        
+
         elif gps_type == "Point":
             if (
                 not gps_coords
@@ -1125,14 +1146,14 @@ async def process_trip_end(
                 )
                 trip_to_archive["gps"] = None
             # else: Point is valid, keep as is.
-        
-        else: # Unknown GPS type
+
+        else:  # Unknown GPS type
             logger.warning(
                 f"Trip {transaction_id}: Unknown GPS type '{gps_type}' for archiving. Setting gps to null."
             )
             trip_to_archive["gps"] = None
-            
-    elif gps_field_to_archive is not None: # It exists but is not a dict (unexpected)
+
+    elif gps_field_to_archive is not None:  # It exists but is not a dict (unexpected)
         logger.warning(
             f"Trip {transaction_id}: 'gps' field is not a dict as expected for archiving ({type(gps_field_to_archive)}). Setting to null."
         )
@@ -1416,9 +1437,9 @@ async def cleanup_stale_trips_logic(
                         if gps_coords:
                             distinct_points.append(gps_coords[0])
                             for i in range(1, len(gps_coords)):
-                                if gps_coords[i] != gps_coords[i-1]:
+                                if gps_coords[i] != gps_coords[i - 1]:
                                     distinct_points.append(gps_coords[i])
-                        
+
                         if len(distinct_points) < 2:
                             if len(distinct_points) == 1:
                                 logger.info(
@@ -1428,19 +1449,21 @@ async def cleanup_stale_trips_logic(
                                     "type": "Point",
                                     "coordinates": distinct_points[0],
                                 }
-                            else: # 0 distinct points
+                            else:  # 0 distinct points
                                 logger.warning(
                                     f"Stale Trip {transaction_id}: LineString has no distinct points. Setting gps to null for archive."
                                 )
                                 trip_to_archive["gps"] = None
                         # else: LineString is valid, keep as is
-                
+
                 elif gps_type == "Point":
                     if (
                         not gps_coords
                         or not isinstance(gps_coords, list)
                         or len(gps_coords) != 2
-                        or not all(isinstance(coord, (int, float)) for coord in gps_coords)
+                        or not all(
+                            isinstance(coord, (int, float)) for coord in gps_coords
+                        )
                     ):
                         logger.warning(
                             f"Stale Trip {transaction_id}: Invalid Point coordinates for archiving. Setting gps to null."
@@ -1448,19 +1471,19 @@ async def cleanup_stale_trips_logic(
                         trip_to_archive["gps"] = None
                     # else: Point is valid, keep as is
 
-                else: # Unknown GPS type
+                else:  # Unknown GPS type
                     logger.warning(
                         f"Stale Trip {transaction_id}: Unknown GPS type '{gps_type}' for archiving. Setting gps to null."
                     )
                     trip_to_archive["gps"] = None
-            
-            elif gps_field_to_archive is not None: # exists but not a dict
-                 logger.warning(
+
+            elif gps_field_to_archive is not None:  # exists but not a dict
+                logger.warning(
                     f"Stale Trip {transaction_id}: 'gps' field is not a dict as expected for archiving ({type(gps_field_to_archive)}). Setting to null."
                 )
-                 trip_to_archive["gps"] = None
+                trip_to_archive["gps"] = None
             # If gps_field_to_archive is None, it remains None.
-            
+
             # Remove old 'coordinates' field explicitly if it somehow persists
             if "coordinates" in trip_to_archive:
                 del trip_to_archive["coordinates"]
