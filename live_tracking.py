@@ -331,8 +331,22 @@ async def process_trip_data(
             # The initial point from trip_start is implicitly timestamped with startTime.
             # We will build sorted_unique_coords_with_timestamps from scratch using new_coords
             # and potentially the initial point if it's distinct.
-            pass  # Placeholder: logic below handles merging.
+            # Extract the initial point's coordinates and timestamp (if available).
+            initial_point = {
+                "lon": gps_coords_raw[0],
+                "lat": gps_coords_raw[1],
+                "timestamp": gps_data.get("timestamp", None) or trip_start_time
+            }
 
+            # Combine the initial point with new_coords, ensuring no duplicates.
+            all_coords = [initial_point] + new_coords
+
+            # Sort and filter the combined coordinates by timestamp.
+            sorted_unique_coords = sort_and_filter_trip_coordinates(all_coords)
+
+            # Update gps_data with the merged coordinates.
+            gps_data["type"] = "LineString"
+            gps_data["coordinates"] = [[c["lon"], c["lat"]] for c in sorted_unique_coords]
         elif gps_type == "LineString" and gps_coords_raw:
             # For LineString, we assume coordinates are [[lon, lat], [lon, lat], ...].
             # We need to reconstruct their timestamps. This is a simplification.
