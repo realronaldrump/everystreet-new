@@ -41,6 +41,8 @@
       highlightColor: "#FFD700",
       name: "Trips",
       weight: 2,
+      sourceType: "vector", // Indicate this layer uses a vector source
+      sourceLayerName: "trips", // Name of the layer within the MVT
     },
     matchedTrips: {
       order: 3,
@@ -250,9 +252,26 @@
     },
 
     addOrUpdateLayer(map, layerId, sourceId, layerInfo, layerType = "line") {
+      const style = this.createLayerStyle(layerInfo, layerType);
+      const layerConfig = {
+        id: layerId,
+        type: layerType,
+        source: sourceId,
+        layout: {
+          visibility: layerInfo.visible ? "visible" : "none",
+        },
+        paint: style,
+      };
+
+      // If the source is a vector source, specify the source-layer
+      const source = map.getSource(sourceId);
+      if (source && source.type === "vector") {
+        layerConfig["source-layer"] =
+          layerInfo.sourceLayerName || sourceId;
+      }
+
       if (map.getLayer(layerId)) {
         // Update existing layer's visibility and paint properties
-        const style = this.createLayerStyle(layerInfo, layerType);
         map.setLayoutProperty(
           layerId,
           "visibility",
@@ -261,20 +280,11 @@
         Object.entries(style).forEach(([property, value]) => {
           map.setPaintProperty(layerId, property, value);
         });
-        return;
+        // If source-layer needs update (e.g. if layerInfo.sourceLayerName could change)
+        // It's generally not changed dynamically for an existing layer, but if so, layer removal and re-add is safer.
+      } else {
+        map.addLayer(layerConfig);
       }
-
-      const style = this.createLayerStyle(layerInfo, layerType);
-
-      map.addLayer({
-        id: layerId,
-        type: layerType,
-        source: sourceId,
-        layout: {
-          visibility: layerInfo.visible ? "visible" : "none",
-        },
-        paint: style,
-      });
     },
   };
 
@@ -886,40 +896,67 @@
   }
 
   // Mapbox-specific layer update functions
-  async function updateMapWithTrips(geojson) {
-    if (!AppState.map || !AppState.mapInitialized || !geojson) return;
+  async function updateMapWithTrips() {
+    // GeoJSON for table/metrics is fetched by fetchTrips() and handled by updateTripsTable separately.
+    // This function now focuses on the MVT source for map display.
+    if (!AppState.map || !AppState.mapInitialized) return;
 
+    const map = AppState.map;
     const sourceId = "trips-source";
     const layerId = "trips-layer";
     const layerInfo = AppState.mapLayers.trips;
 
+    const startDate = getStartDate(); // Assume YYYY-MM-DD
+    const endDate = getEndDate(); // Assume YYYY-MM-DD
+    const tilesUrl = `/api/trips/mvt/{z}/{x}/{y}.pbf?start_date=${startDate}&end_date=${endDate}`;
+
     try {
-      mapboxUtils.addOrUpdateSource(AppState.map, sourceId, geojson);
-
-      if (!AppState.map.getLayer(layerId)) {
-        mapboxUtils.addOrUpdateLayer(
-          AppState.map,
-          layerId,
-          sourceId,
-          layerInfo,
-        );
-
-        // Add click handler
-        AppState.map.on("click", layerId, (e) => {
-          handleTripClick(e, e.features[0]);
-        });
-
-        // Add hover effects
-        AppState.map.on("mouseenter", layerId, () => {
-          AppState.map.getCanvas().style.cursor = "pointer";
-        });
-
-        AppState.map.on("mouseleave", layerId, () => {
-          AppState.map.getCanvas().style.cursor = "";
-        });
+      // Remove existing layer and source if they exist, to update the tile URL
+      if (map.getLayer(layerId)) {
+        map.removeLayer(layerId);
       }
+      if (map.getSource(sourceId)) {
+        map.removeSource(sourceId);
+      }
+
+      // Add the new vector source with updated tile URL
+      map.addSource(sourceId, {
+        type: "vector",
+        tiles: [tilesUrl],
+        minzoom: CONFIG.MAP.minZoom || 0, // Optional: define min/max zoom for MVT source
+        maxzoom: CONFIG.MAP.maxZoomMVT || 22, // Optional: define min/max zoom for MVT source
+      });
+
+      // Add the layer for the vector source
+      // mapboxUtils.addOrUpdateLayer will correctly set 'source-layer' due to earlier modification
+      mapboxUtils.addOrUpdateLayer(map, layerId, sourceId, layerInfo, "line");
+
+      // Re-attach event handlers if they were removed with the layer
+      // Or ensure they are attached in a way that persists (e.g., on map, filtered by layerId)
+      // For simplicity, re-adding them if the layer is new or re-created.
+      // Check if handlers are already attached to avoid duplicates if addOrUpdateLayer doesn't remove them.
+      // A common pattern is to remove them before re-adding layer if layerId is constant.
+      // However, map.on handlers are generally safe to call multiple times if the handler itself is idempotent or managed.
+
+      // Click handler for popups
+      // Ensure this is not duplicated if addOrUpdateLayer doesn't remove previous layer instance fully
+      // A simple way: map.off('click', layerId, specificHandlerFunction) before map.on(...)
+      // For now, assuming map.on handles this gracefully or that layer removal cleans them.
+      map.on("click", layerId, (e) => {
+        if (e.features && e.features.length > 0) {
+          handleTripClick(e, e.features[0]);
+        }
+      });
+
+      map.on("mouseenter", layerId, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", layerId, () => {
+        map.getCanvas().style.cursor = "";
+      });
     } catch (error) {
-      console.error("Error updating trips layer:", error);
+      console.error("Error updating MVT trips layer:", error);
+      showNotification("Error displaying trips on map.", "danger");
     }
   }
 
@@ -1050,16 +1087,22 @@
     try {
       const promises = [];
 
-      // Fetch trips data
+      // Update trips layer (MVT)
       if (AppState.mapLayers.trips.visible) {
-        promises.push(
-          fetchTrips().then((data) => {
-            if (data) return updateMapWithTrips(data);
-          }),
-        );
+        // updateMapWithTrips now handles its own MVT source setup.
+        // It doesn't depend on fetchTrips() for map display anymore.
+        promises.push(updateMapWithTrips());
+      } else {
+        // If trips layer is not visible, ensure it's removed from map
+        if (AppState.map.getLayer("trips-layer")) {
+          AppState.map.removeLayer("trips-layer");
+        }
+        if (AppState.map.getSource("trips-source")) {
+          AppState.map.removeSource("trips-source");
+        }
       }
 
-      // Fetch matched trips if visible
+      // Fetch matched trips if visible (still GeoJSON)
       if (AppState.mapLayers.matchedTrips.visible) {
         promises.push(fetchMatchedTrips());
       }
@@ -1110,10 +1153,10 @@
   }
 
   function createTripPopupContent(feature) {
-    const props = feature.properties || {};
+    const props = feature.properties || {}; // Vector tile features have properties under 'properties'
 
     const format = (value, formatter) =>
-      value != null ? formatter(value) : "N/A";
+      value !== undefined && value !== null ? formatter(value) : "N/A";
     const formatNum = (value, digits = 1) =>
       format(value, (v) => parseFloat(v).toFixed(digits));
     const formatTime = (value) =>
@@ -1600,7 +1643,10 @@
         defaultDate: getStartDate(),
         onChange(selectedDates, dateStr) {
           storage.set(CONFIG.STORAGE_KEYS.startDate, dateStr);
-          updateMap();
+          // updateMap will now trigger MVT source update
+          updateMap(false); // Pass false to avoid refitting bounds just on date change
+          fetchMetrics(); // Also update metrics
+          fetchTrips().then(data => updateTripsTable(data)); // Update table
         },
       });
     }
@@ -1611,7 +1657,10 @@
         defaultDate: getEndDate(),
         onChange(selectedDates, dateStr) {
           storage.set(CONFIG.STORAGE_KEYS.endDate, dateStr);
-          updateMap();
+          // updateMap will now trigger MVT source update
+          updateMap(false); // Pass false to avoid refitting bounds just on date change
+          fetchMetrics(); // Also update metrics
+          fetchTrips().then(data => updateTripsTable(data)); // Update table
         },
       });
     }
@@ -1748,41 +1797,45 @@
           // Restore layer visibility state
           Object.keys(AppState.mapLayers).forEach((layerName) => {
             const toggle = document.getElementById(`${layerName}-toggle`);
-            if (layerName === "trips") {
-              // Always show trips layer by default
-              AppState.mapLayers[layerName].visible = true;
-              if (toggle) toggle.checked = true;
-            } else {
-              const savedVisibility = storage.get(`layer_visible_${layerName}`);
-              if (savedVisibility !== null) {
-                const isVisible = savedVisibility === "true";
-                AppState.mapLayers[layerName].visible = isVisible;
-                if (toggle) toggle.checked = isVisible;
-              } else {
-                if (toggle)
-                  toggle.checked = AppState.mapLayers[layerName].visible;
-              }
-              // Clear layer data for undrivenStreets if not visible
-              if (
-                layerName === "undrivenStreets" &&
-                !AppState.mapLayers[layerName].visible
-              ) {
-                AppState.mapLayers[layerName].layer = {
-                  type: "FeatureCollection",
-                  features: [],
-                };
-              }
+            let isVisible = AppState.mapLayers[layerName].visible; // Default visibility
+
+            const savedVisibility = storage.get(`layer_visible_${layerName}`);
+            if (savedVisibility !== null) {
+              isVisible = savedVisibility === "true";
+            }
+            
+            AppState.mapLayers[layerName].visible = isVisible;
+            if (toggle) toggle.checked = isVisible;
+
+            // Special handling for undrivenStreets (still GeoJSON)
+            if (layerName === "undrivenStreets" && !isVisible) {
+              AppState.mapLayers[layerName].layer = { type: "FeatureCollection", features: [] };
             }
           });
-
+          
           updateLayerOrderUI();
-          return populateLocationDropdown();
-        })
-        .then(() => Promise.all([fetchTrips(), fetchMetrics()]))
-        .then(() => {
+          await populateLocationDropdown(); // Ensure this completes
+
+          // Initial data fetch and map update sequence
+          // 1. Fetch GeoJSON for table/metrics (fetchTrips)
+          // 2. Fetch other metrics (fetchMetrics)
+          // 3. Update map (which now includes setting up MVT source for trips)
+          const tripsDataForTable = await fetchTrips(); // For table
+          if (tripsDataForTable) {
+            updateTripsTable(tripsDataForTable); // Populate table
+             // Storing GeoJSON for potential zoomToLastTrip logic if MVT doesn't provide needed info easily
+            AppState.mapLayers.trips.layer = tripsDataForTable;
+          }
+          await fetchMetrics(); // For metrics display
+
+          await updateMap(true); // This will setup MVT source and other visible GeoJSON layers. True to fit bounds.
+          
+          // zoomToLastTrip might need adjustment if it relies on AppState.mapLayers.trips.layer which is GeoJSON
+          // For now, let it use the GeoJSON data if available
           if (AppState.mapLayers.trips?.layer?.features?.length > 0) {
             zoomToLastTrip();
           }
+
           document.dispatchEvent(new CustomEvent("initialDataLoaded"));
         })
         .catch((error) => {

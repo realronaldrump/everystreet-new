@@ -23,3 +23,5 @@ Shapely
 uvicorn[standard]
 jinja2
 python-multipart
+mercantile
+mapbox-vector-tile
