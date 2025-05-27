@@ -158,9 +158,7 @@ async def process_trip_start(
         "maxSpeed": 0.0,
         "avgSpeed": 0.0,
         "duration": 0.0,
-        "pointsRecorded": 1
-        if start_lon is not None and start_lat is not None
-        else 0,
+        "pointsRecorded": 1 if start_lon is not None and start_lat is not None else 0,
         "sequence": sequence,
         "totalIdlingTime": 0.0,
         "hardBrakingCounts": 0,
@@ -371,21 +369,15 @@ async def process_trip_data(
     # new_coords is a list of dicts: [{'lon': ..., 'lat': ..., 'timestamp': ...}, ...]
     # We need to maintain a list of such dicts for calculations.
 
-    all_coords_map: dict[
-        str, dict[str, Any]
-    ] = {}  # timestamp_iso_string -> {lon, lat, timestamp}
+    all_coords_map: dict[str, dict[str, Any]] = (
+        {}
+    )  # timestamp_iso_string -> {lon, lat, timestamp}
 
     # Populate from existing trip_doc's initial point if it exists and is valid
     # This handles the case where the trip started with a point and this is the first tripData
-    if (
-        gps_data
-        and gps_data.get("type") == "Point"
-        and gps_data.get("coordinates")
-    ):
+    if gps_data and gps_data.get("type") == "Point" and gps_data.get("coordinates"):
         initial_lon, initial_lat = gps_data["coordinates"]
-        initial_ts = trip_doc.get(
-            "startTime"
-        )  # Timestamp of the initial point
+        initial_ts = trip_doc.get("startTime")  # Timestamp of the initial point
         if (
             isinstance(initial_ts, datetime)
             and initial_lon is not None
@@ -398,9 +390,7 @@ async def process_trip_data(
             }
 
     # Add new coordinates, potentially overwriting if timestamps are identical (unlikely for distinct points)
-    for (
-        c_dict
-    ) in new_coords:  # c_dict is {'lon': ..., 'lat': ..., 'timestamp': ...}
+    for c_dict in new_coords:  # c_dict is {'lon': ..., 'lat': ..., 'timestamp': ...}
         ts = c_dict.get("timestamp")
         if (
             isinstance(ts, datetime)
@@ -421,9 +411,7 @@ async def process_trip_data(
             transaction_id,
         )
         # No change to GPS, but update sequence and lastUpdate
-        sequence = max(
-            trip_doc.get("sequence", 0) + 1, int(time.time_ns() / 1000)
-        )
+        sequence = max(trip_doc.get("sequence", 0) + 1, int(time.time_ns() / 1000))
         await live_collection.update_one(
             {"_id": trip_doc["_id"]},
             {
@@ -493,9 +481,7 @@ async def process_trip_data(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
         if not isinstance(start_time, datetime):
@@ -636,9 +622,7 @@ async def process_trip_data(
     if duration_seconds > 0:
         duration_hours = duration_seconds / 3600
         avg_speed_mph = (
-            full_trip_distance_miles / duration_hours
-            if duration_hours > 0
-            else 0.0
+            full_trip_distance_miles / duration_hours if duration_hours > 0 else 0.0
         )
     elif valid_speeds_for_avg_mph:
         avg_speed_mph = sum(valid_speeds_for_avg_mph) / len(
@@ -667,17 +651,13 @@ async def process_trip_data(
         "avgSpeed": avg_speed_mph,
         "duration": duration_seconds,
         "sequence": sequence,
-        "pointsRecorded": len(
-            geojson_coordinate_list
-        ),  # Count of points in GeoJSON
+        "pointsRecorded": len(geojson_coordinate_list),  # Count of points in GeoJSON
     }
 
     # Remove old 'coordinates' field if it exists in the document from a previous structure
     # This is done using $unset. If it's already not there, this does nothing.
     unset_payload = {}
-    if (
-        "coordinates" in trip_doc
-    ):  # Check if the key exists in the loaded document
+    if "coordinates" in trip_doc:  # Check if the key exists in the loaded document
         unset_payload["coordinates"] = ""
 
     try:
@@ -695,9 +675,7 @@ async def process_trip_data(
                 "Updated trip data for %s: %d new points processed, total unique GPS points: %d (seq=%d). GPS type: %s",
                 transaction_id,
                 len(new_coords),  # Number of points received in this batch
-                len(
-                    geojson_coordinate_list
-                ),  # Number of points in the final GeoJSON
+                len(geojson_coordinate_list),  # Number of points in the final GeoJSON
                 sequence,
                 updated_gps_field.get("type", "N/A"),
             )
@@ -1062,9 +1040,7 @@ async def process_trip_end(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
 
@@ -1186,9 +1162,7 @@ async def process_trip_end(
                 not gps_coords
                 or not isinstance(gps_coords, list)
                 or len(gps_coords) != 2
-                or not all(
-                    isinstance(coord, (int, float)) for coord in gps_coords
-                )
+                or not all(isinstance(coord, (int, float)) for coord in gps_coords)
             ):
                 logger.warning(
                     f"Trip {transaction_id}: Invalid Point coordinates for archiving. Setting gps to null."
@@ -1202,9 +1176,7 @@ async def process_trip_end(
             )
             trip_to_archive["gps"] = None
 
-    elif (
-        gps_field_to_archive is not None
-    ):  # It exists but is not a dict (unexpected)
+    elif gps_field_to_archive is not None:  # It exists but is not a dict (unexpected)
         logger.warning(
             f"Trip {transaction_id}: 'gps' field is not a dict as expected for archiving ({type(gps_field_to_archive)}). Setting to null."
         )
@@ -1513,8 +1485,7 @@ async def cleanup_stale_trips_logic(
                         or not isinstance(gps_coords, list)
                         or len(gps_coords) != 2
                         or not all(
-                            isinstance(coord, (int, float))
-                            for coord in gps_coords
+                            isinstance(coord, (int, float)) for coord in gps_coords
                         )
                     ):
                         logger.warning(
