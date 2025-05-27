@@ -64,16 +64,42 @@ async def create_geojson(
                 )
                 continue
 
-            if isinstance(gps_data, str):
-                try:
-                    gps_data = json.loads(gps_data)
-                except json.JSONDecodeError as e:
-                    logger.error(
-                        "Error parsing GPS for trip %s: %s",
+            # Expect gps_data to be a GeoJSON dictionary or None
+            if (
+                not isinstance(gps_data, dict)
+                or "type" not in gps_data
+                or "coordinates" not in gps_data
+            ):
+                logger.warning(
+                    "Trip %s has invalid or missing GeoJSON gps_data structure, skipping for GeoJSON export. Data: %s",
+                    trip.get("transactionId", "?"),
+                    str(gps_data)[:100],  # Log a snippet
+                )
+                continue
+
+            # Basic validation for Point/LineString coordinates structure
+            # More robust validation should happen upstream or via a shared helper if needed
+            if gps_data["type"] == "Point":
+                if not (
+                    isinstance(gps_data["coordinates"], list)
+                    and len(gps_data["coordinates"]) == 2
+                ):
+                    logger.warning(
+                        f"Trip %s: GeoJSON Point has invalid coordinates structure. Skipping. Coords: {gps_data['coordinates']}",
                         trip.get("transactionId", "?"),
-                        e,
                     )
                     continue
+            elif gps_data["type"] == "LineString":
+                if not (
+                    isinstance(gps_data["coordinates"], list)
+                    and len(gps_data["coordinates"]) >= 2
+                ):  # LineString needs at least 2 points
+                    logger.warning(
+                        f"Trip %s: GeoJSON LineString has invalid coordinates structure or not enough points. Skipping. Coords: {gps_data['coordinates']}",
+                        trip.get("transactionId", "?"),
+                    )
+                    continue
+            # Allow other types if they are valid GeoJSON geometries, Feature creation will handle them.
 
             properties_dict = {}
             for key, value in trip.items():
@@ -139,22 +165,65 @@ async def create_gpx(
                 )
                 continue
 
-            if isinstance(gps_data, str):
-                try:
-                    gps_data = json.loads(gps_data)
-                except json.JSONDecodeError as e:
-                    logger.error(
-                        "Error parsing GPS for trip %s: %s",
+            # Expect gps_data to be a GeoJSON dictionary or None
+            if (
+                not isinstance(gps_data, dict)
+                or "type" not in gps_data
+                or "coordinates" not in gps_data
+            ):
+                logger.warning(
+                    "Trip %s has invalid or missing GeoJSON gps_data structure, skipping for GPX export. Data: %s",
+                    trip.get("transactionId", "?"),
+                    str(gps_data)[:100],  # Log a snippet
+                )
+                continue
+
+            # Validate coordinates based on type for GPX generation
+            if gps_data["type"] == "Point":
+                coords = gps_data.get("coordinates", [])
+                if not (
+                    isinstance(coords, list)
+                    and len(coords) == 2
+                    and all(isinstance(c, (float, int)) for c in coords)
+                ):
+                    logger.warning(
+                        f"Trip %s: GPX export - Invalid Point coordinate structure: {coords}. Skipping.",
                         trip.get("transactionId", "?"),
-                        e,
                     )
                     continue
+            elif gps_data["type"] == "LineString":
+                coords_list = gps_data.get("coordinates", [])
+                if not (isinstance(coords_list, list) and len(coords_list) >= 2):
+                    logger.warning(
+                        f"Trip %s: GPX export - LineString has too few points: {len(coords_list) if isinstance(coords_list, list) else 'N/A'}. Skipping.",
+                        trip.get("transactionId", "?"),
+                    )
+                    continue
+                for coord_pair in coords_list:
+                    if not (
+                        isinstance(coord_pair, list)
+                        and len(coord_pair) == 2
+                        and all(isinstance(c, (float, int)) for c in coord_pair)
+                    ):
+                        logger.warning(
+                            f"Trip %s: GPX export - Invalid coordinate pair in LineString: {coord_pair}. Skipping trip.",
+                            trip.get("transactionId", "?"),
+                        )
+                        continue  # Skip this trip
+            else:
+                logger.warning(
+                    f"Trip %s: GPX export - Unsupported GPS type: {gps_data.get('type')}. Skipping.",
+                    trip.get("transactionId", "?"),
+                )
+                continue
 
             track = gpxpy.gpx.GPXTrack()
             track.name = f"Trip {trip.get('transactionId', 'UNKNOWN')}"
 
             if trip.get("startLocation") and trip.get("destination"):
-                track.description = f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                track.description = (
+                    f"From {trip.get('startLocation')} to {trip.get('destination')}"
+                )
 
             gpx.tracks.append(track)
 
@@ -388,10 +457,7 @@ async def create_export_response(
         from io import StringIO
 
         if not isinstance(data, list):
-            if (
-                isinstance(data, dict)
-                and data.get("type") == "FeatureCollection"
-            ):
+            if isinstance(data, dict) and data.get("type") == "FeatureCollection":
                 trips = []
                 for feature in data.get("features", []):
                     if feature.get("properties"):
@@ -434,14 +500,10 @@ def extract_date_range_string(
 
     """
     start_date = (
-        query["startTime"].get("$gte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
     )
     end_date = (
-        query["startTime"].get("$lte")
-        if isinstance(query["startTime"], dict)
-        else None
+        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
     )
 
     if start_date and end_date:
@@ -462,11 +524,7 @@ def get_location_filename(
 
     """
     return (
-        location.get("display_name", "")
-        .split(",")[0]
-        .strip()
-        .replace(" ", "_")
-        .lower()
+        location.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
     )
 
 
@@ -676,9 +734,7 @@ async def create_csv_export(
                         default=default_serializer,
                     )
                 else:
-                    flat_trip[key] = (
-                        "[Geometry data not included in CSV format]"
-                    )
+                    flat_trip[key] = "[Geometry data not included in CSV format]"
             elif flatten_location_fields and key in [
                 "startLocation",
                 "destination",
