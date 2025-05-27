@@ -335,7 +335,8 @@ async def process_trip_data(
             initial_point = {
                 "lon": gps_coords_raw[0],
                 "lat": gps_coords_raw[1],
-                "timestamp": gps_data.get("timestamp", None) or trip_doc.get("startTime"),
+                "timestamp": gps_data.get("timestamp", None)
+                or trip_doc.get("startTime"),
             }
 
             # Combine the initial point with new_coords, ensuring no duplicates.
