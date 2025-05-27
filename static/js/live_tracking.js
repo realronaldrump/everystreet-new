@@ -1,4 +1,4 @@
-/* global L, DateUtils */
+/* global DateUtils, mapboxgl */
 
 class LiveTripTracker {
   constructor(map) {
