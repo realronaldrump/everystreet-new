@@ -3092,13 +3092,13 @@ const STATUS = window.STATUS || {
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
       try {
-        const lastMapView = JSON.parse(localStorage.getItem('lastMapView'));
+        // const lastMapView = JSON.parse(localStorage.getItem('lastMapView')); // Removed for initial dashboard load
         const mapOptions = {
             container: "coverage-map",
             style: "mapbox://styles/mapbox/dark-v11", // Or a user-selectable style
-            center: lastMapView?.center || [-97.15, 31.55],
-            zoom: lastMapView?.zoom || 11,
-            minZoom: 3,
+            center: [0, 0], // Default to world view initially
+            zoom: 1,        // Default to world view initially
+            minZoom: 0,     // Allow zooming out to world view
             maxZoom: 20,
             preserveDrawingBuffer: true, // For export
             attributionControl: false
@@ -3371,10 +3371,13 @@ const STATUS = window.STATUS || {
           this.coverageMap.fitBounds(this.mapBounds, { padding: {top: 60, bottom: 60, left: 60, right: 60}, maxZoom: 17, duration: 800 });
         } catch (e) {
           console.error("Error fitting map to bounds:", e);
-          this.coverageMap.setCenter([-97.15, 31.55]); this.coverageMap.setZoom(11);
+          // Don't set a default center here, let it stay at world view if bounds are problematic
+          this.notificationManager.show("Could not zoom to area bounds. Map view may be incorrect.", "warning");
         }
       } else if (this.coverageMap) {
-        this.coverageMap.setCenter([-97.15, 31.55]); this.coverageMap.setZoom(11);
+        // If no bounds, it means the area is likely empty or has no geometry.
+        // The map will remain at the initial world view.
+        this.notificationManager.show("No geographical data to display for this area.", "info");
       }
     }
 
