@@ -63,7 +63,12 @@ from tasks import process_webhook_event_task
 from tasks_api import router as tasks_api_router
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import calculate_distance, cleanup_session, haversine, validate_location_osm
+from utils import (
+    calculate_distance,
+    cleanup_session,
+    haversine,
+    validate_location_osm,
+)
 from visits import init_collections
 from visits import router as visits_router
 
@@ -595,6 +600,164 @@ async def map_match_trips_endpoint(
         )
 
 
+@app.get("/api/trips")
+async def get_trips(request: Request):
+    """Get all trips as GeoJSON."""
+    try:
+        query = await build_query_from_request(request)
+
+        # Only fetch necessary fields for performance
+        projection = {
+            "gps": 1,
+            "startTime": 1,
+            "endTime": 1,
+            "distance": 1,
+            "maxSpeed": 1,
+            "transactionId": 1,
+            "imei": 1,
+            "startLocation": 1,
+            "destination": 1,
+            "totalIdleDuration": 1,
+            "fuelConsumed": 1,
+            "source": 1,
+            "hardBrakingCount": 1,
+            "hardAccelerationCount": 1,
+            "startOdometer": 1,
+            "endOdometer": 1,
+            "averageSpeed": 1,
+        }
+        all_trips = await find_with_retry(
+            trips_collection,
+            query,
+            projection=projection,
+            sort=[("endTime", -1)],
+        )
+        features = []
+
+        processor = TripProcessor()
+
+        for trip in all_trips:
+            try:
+                st = trip.get("startTime")
+                et = trip.get("endTime")
+                if not st or not et:
+                    logger.warning(
+                        "Skipping trip with missing start/end times: %s",
+                        trip.get("transactionId"),
+                    )
+                    continue
+
+                if isinstance(st, str):
+                    st = dateutil_parser.isoparse(st)
+                if isinstance(et, str):
+                    et = dateutil_parser.isoparse(et)
+                if st.tzinfo is None:
+                    st = st.astimezone(timezone.utc)
+                if et.tzinfo is None:
+                    et = et.astimezone(timezone.utc)
+
+                # Calculate duration in seconds
+                duration_seconds = (
+                    (et - st).total_seconds() if st and et else 0
+                )
+
+                geom = trip.get("gps")
+                num_points = 0
+                if isinstance(geom, str):
+                    try:
+                        geom_obj = geojson_module.loads(geom)
+                        if (
+                            geom_obj
+                            and "coordinates" in geom_obj
+                            and isinstance(geom_obj["coordinates"], list)
+                        ):
+                            num_points = len(geom_obj["coordinates"])
+                        geom = geom_obj  # Use the parsed object
+                    except Exception:
+                        logger.warning(
+                            "Could not parse geometry string for trip %s",
+                            trip.get("transactionId"),
+                            exc_info=True,
+                        )
+                        geom = None  # Set geom to None if parsing failed
+                elif (
+                    isinstance(geom, dict)
+                    and "coordinates" in geom
+                    and isinstance(geom["coordinates"], list)
+                ):
+                    num_points = len(geom["coordinates"])
+                else:
+                    # Handle cases where geom might be None or unexpected type
+                    logger.warning(
+                        "Unexpected geometry type (%s) or missing coordinates for trip %s. Cannot determine point count.",
+                        type(geom).__name__,
+                        trip.get("transactionId"),
+                    )
+
+                props = {
+                    "transactionId": trip.get("transactionId", "??"),
+                    "imei": trip.get("imei", "UPLOAD"),
+                    "startTime": st.astimezone(timezone.utc).isoformat(),
+                    "endTime": et.astimezone(timezone.utc).isoformat(),
+                    "duration": duration_seconds,  # Add duration here
+                    "distance": float(trip.get("distance", 0)),
+                    "timeZone": trip.get(
+                        "timeZone",
+                        "America/Chicago",
+                    ),
+                    "maxSpeed": float(trip.get("maxSpeed", 0)),
+                    "startLocation": trip.get("startLocation", "N/A"),
+                    "destination": trip.get("destination", "N/A"),
+                    "totalIdleDuration": trip.get("totalIdleDuration", 0),
+                    "totalIdleDurationFormatted": processor.format_idle_time(
+                        trip.get("totalIdleDuration", 0),
+                    ),
+                    "fuelConsumed": float(trip.get("fuelConsumed", 0)),
+                    "source": trip.get("source", "unknown"),
+                    "hardBrakingCount": trip.get("hardBrakingCount"),
+                    "hardAccelerationCount": trip.get("hardAccelerationCount"),
+                    "startOdometer": trip.get("startOdometer"),
+                    "endOdometer": trip.get("endOdometer"),
+                    "averageSpeed": trip.get("averageSpeed"),
+                    "pointsRecorded": num_points,  # Use calculated number of points
+                }
+
+                # Ensure geom is a valid GeoJSON geometry dict or None before passing
+                # to Feature
+                valid_geom = (
+                    geom
+                    if isinstance(geom, dict)
+                    and "type" in geom
+                    and "coordinates" in geom
+                    else None
+                )
+
+                feature = geojson_module.Feature(
+                    geometry=valid_geom,
+                    properties=props,
+                )
+                features.append(feature)
+            except Exception as e:
+                logger.exception(
+                    "Error processing trip for transactionId: %s - %s",
+                    trip.get("transactionId"),
+                    str(e),
+                )
+                continue
+
+        fc = geojson_module.FeatureCollection(features)
+        return JSONResponse(content=fc)
+    except Exception as e:
+        logger.exception(
+            "Error in /api/trips endpoint: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve trips",
+        )
+
+
 @app.get("/api/matched_trips")
 async def get_matched_trips(request: Request):
     """Get map-matched trips as GeoJSON."""
@@ -1086,20 +1249,24 @@ async def upload_gpx_endpoint(
                         for trip_dict in trips_to_process:
                             # process_geojson_trip now returns 'gps' as validated GeoJSON or None.
                             # process_and_store_trip will pass this to TripProcessor.
-                            if trip_dict.get("gps") is not None: # Only process if GPS data is valid
+                            if (
+                                trip_dict.get("gps") is not None
+                            ):  # Only process if GPS data is valid
                                 await process_and_store_trip(
                                     trip_dict,
                                     source="upload_geojson",
                                 )
                                 success_count += 1
-                                valid_trip_count_for_file +=1
+                                valid_trip_count_for_file += 1
                             else:
                                 logger.warning(
                                     f"Skipping trip with transactionId {trip_dict.get('transactionId', 'N/A')} "
                                     f"from GeoJSON file {filename} due to invalid or missing GPS data after validation."
                                 )
                         if valid_trip_count_for_file == 0 and trips_to_process:
-                             logger.warning(f"GeoJSON file {filename} contained trips, but none had valid GPS data after processing.")
+                            logger.warning(
+                                f"GeoJSON file {filename} contained trips, but none had valid GPS data after processing."
+                            )
                 except json.JSONDecodeError:
                     logger.warning(
                         "Invalid GeoJSON: %s",
@@ -1177,7 +1344,7 @@ async def upload_files(
                                 # "distance": calculate_distance(coords), # Will be recalculated by TripProcessor
                                 "source": "upload_gpx",
                             }
-                            
+
                             # Standardize GPS for GPX upload
                             standardized_gpx_gps = None
                             if coords:
@@ -1186,26 +1353,30 @@ async def upload_files(
                                 if coords:
                                     unique_gpx_coords.append(coords[0])
                                     for i in range(1, len(coords)):
-                                        if coords[i] != coords[i-1]:
+                                        if coords[i] != coords[i - 1]:
                                             unique_gpx_coords.append(coords[i])
-                                
+
                                 if len(unique_gpx_coords) == 1:
                                     standardized_gpx_gps = {
                                         "type": "Point",
-                                        "coordinates": unique_gpx_coords[0]
+                                        "coordinates": unique_gpx_coords[0],
                                     }
                                 elif len(unique_gpx_coords) >= 2:
                                     standardized_gpx_gps = {
                                         "type": "LineString",
-                                        "coordinates": unique_gpx_coords
+                                        "coordinates": unique_gpx_coords,
                                     }
-                                else: # No valid unique points
-                                    logger.warning(f"GPX segment for {filename} produced no valid unique coordinates.")
-                            
+                                else:  # No valid unique points
+                                    logger.warning(
+                                        f"GPX segment for {filename} produced no valid unique coordinates."
+                                    )
+
                             if standardized_gpx_gps:
                                 trip_dict["gps"] = standardized_gpx_gps
                                 # Calculate distance based on the final unique coordinates
-                                trip_dict["distance"] = calculate_distance(standardized_gpx_gps.get("coordinates", []))
+                                trip_dict["distance"] = calculate_distance(
+                                    standardized_gpx_gps.get("coordinates", [])
+                                )
 
                                 await process_and_store_trip(
                                     trip_dict,
@@ -1213,8 +1384,10 @@ async def upload_files(
                                 )
                                 count += 1
                             else:
-                                logger.warning(f"Skipping GPX track/segment in {filename} due to no valid GPS data after standardization.")
-                                
+                                logger.warning(
+                                    f"Skipping GPX track/segment in {filename} due to no valid GPS data after standardization."
+                                )
+
                 except Exception as gpx_err:
                     logger.error(
                         "Error processing GPX file %s in /api/upload: %s",
@@ -1227,11 +1400,11 @@ async def upload_files(
                 try:
                     data_geojson = json.loads(content_data)
                     trips = await process_geojson_trip(data_geojson)
-                    if trips: # trips is a list of trip_dicts from process_geojson_trip
+                    if trips:  # trips is a list of trip_dicts from process_geojson_trip
                         processed_one_from_file = False
                         for t in trips:
                             # t['gps'] is already a validated GeoJSON dict or None
-                            if t.get("gps") is not None: 
+                            if t.get("gps") is not None:
                                 await process_and_store_trip(
                                     t,
                                     source="upload_geojson",
@@ -1244,7 +1417,9 @@ async def upload_files(
                                     f"from GeoJSON file {filename} in /api/upload due to invalid/missing GPS after validation."
                                 )
                         if not processed_one_from_file and trips:
-                            logger.warning(f"GeoJSON file {filename} in /api/upload contained trips, but none had valid GPS after processing.")
+                            logger.warning(
+                                f"GeoJSON file {filename} in /api/upload contained trips, but none had valid GPS after processing."
+                            )
                 except json.JSONDecodeError:
                     logger.warning(
                         "Invalid geojson: %s",
@@ -3481,7 +3656,9 @@ async def list_trips(request: Request):
     for doc in docs:
         # serialize_trip will turn your MongoDB document into JSON-safe dict
         props = SerializationHelper.serialize_trip(doc)
-        features.append(geojson_module.Feature(geometry=doc["gps"], properties=props))
+        features.append(
+            geojson_module.Feature(geometry=doc["gps"], properties=props)
+        )
     return geojson_module.FeatureCollection(features)
 
 
