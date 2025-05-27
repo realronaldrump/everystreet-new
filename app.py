@@ -30,7 +30,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sklearn.cluster import KMeans
 
-from coverage_api import router as coverage_api_router  # This is key
+from coverage_api import router as coverage_api_router
 from db import (
     SerializationHelper,
     aggregate_with_retry,
@@ -113,8 +113,8 @@ app.add_middleware(
 app.include_router(visits_router)
 app.include_router(pages_router)
 app.include_router(tasks_api_router)
-app.include_router(export_api_router)  # Router for export endpoints
-app.include_router(coverage_api_router)  # Router for coverage endpoints
+app.include_router(export_api_router)
+app.include_router(coverage_api_router)
 
 CLIENT_ID = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -983,18 +983,6 @@ async def remap_matched_trips(
             detail=f"Error re-matching trips: {e}",
         )
 
-
-# --- START: Endpoints moved to export_api.py ---
-# @app.get("/api/export/trip/{trip_id}") ...
-# @app.delete("/api/matched_trips/{trip_id}") ... # This was not an export endpoint, should remain or be moved elsewhere if not fitting. It's a matched_trip specific delete.
-# @app.get("/api/export/all_trips") ...
-# @app.get("/api/export/trips") ...
-# @app.get("/api/export/matched_trips") ...
-# @app.get("/api/export/streets") ...
-# @app.get("/api/export/boundary") ...
-# @app.post("/api/export/coverage-route") ...
-# @app.get("/api/export/advanced") ...
-# --- END: Endpoints moved to export_api.py ---
 
 
 @app.delete("/api/matched_trips/{trip_id}")

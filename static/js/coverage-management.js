@@ -2040,69 +2040,19 @@ const STATUS = window.STATUS || {
 
         // --- STAGE 2: Fetch GeoJSON and Initialize Map ---
         let streetsGeoJson = null;
-        const gridfsId = coverageData.streets_geojson_gridfs_id;
-
-        if (gridfsId) {
-          try {
-            this.notificationManager.show(
-              "Fetching map data from optimized source...",
-              "info",
-            );
-            const geojsonResponse = await fetch(
-              `/api/coverage_areas/${locationId}/geojson/gridfs?cache_bust=${new Date().getTime()}`,
-            );
-            if (geojsonResponse.ok) {
-              streetsGeoJson = await geojsonResponse.json();
-              this.notificationManager.show(
-                "Map data loaded from optimized source.",
-                "success",
-                2000,
-              );
-            } else {
-              const errData = await geojsonResponse.json().catch(() => ({}));
-              console.warn(
-                `Failed to load GeoJSON from GridFS (${geojsonResponse.status}): ${errData.detail || geojsonResponse.statusText}. Falling back.`,
-              );
-              this.notificationManager.show(
-                `Optimized map data failed (HTTP ${geojsonResponse.status}). Trying fallback...`,
-                "warning",
-              );
-            }
-          } catch (e) {
-            console.error(
-              `Error fetching GeoJSON from GridFS: ${e.message}`,
-              e,
-            );
-            this.notificationManager.show(
-              `Error fetching optimized map data: ${e.message}. Trying fallback...`,
-              "warning",
-            );
-          }
-        }
-
-        // Fallback if GridFS failed or no ID was present
-        if (!streetsGeoJson) {
-          this.notificationManager.show(
-            "Fetching map data using fallback method...",
-            "info",
+        // Always fetch street geometry directly
+        this.notificationManager.show("Fetching map data...", "info");
+        const streetsResp = await fetch(
+          `/api/coverage_areas/${locationId}/streets?cache_bust=${new Date().getTime()}`,
+        );
+        if (!streetsResp.ok) {
+          const errData = await streetsResp.json().catch(() => ({}));
+          throw new Error(
+            `Failed to load street geometry: ${streetsResp.status} ${errData.detail || streetsResp.statusText}`
           );
-          const streetsResp = await fetch(
-            `/api/coverage_areas/${locationId}/streets?cache_bust=${new Date().getTime()}`,
-          );
-          if (streetsResp.ok) {
-            streetsGeoJson = await streetsResp.json();
-            this.notificationManager.show(
-              "Map data loaded using fallback.",
-              "success",
-              2000,
-            );
-          } else {
-            const errData = await streetsResp.json().catch(() => ({}));
-            throw new Error(
-              `Failed to load street geometry (fallback): ${streetsResp.status} ${errData.detail || streetsResp.statusText}`,
-            );
-          }
         }
+        streetsGeoJson = await streetsResp.json();
+        this.notificationManager.show("Map data loaded.", "success", 2000);
 
         if (streetsGeoJson) {
           this.selectedLocation.streets_geojson = streetsGeoJson; // Add to stored data

@@ -781,14 +781,15 @@ async def get_coverage_area_geojson_from_gridfs(
         "display_name", "UnknownLocation"
     )
 
-    if not gridfs_id: # This should be an ObjectId if it exists
+    if not gridfs_id:  # No GridFS ID, fallback to direct streets and schedule regeneration
         logger.warning(
-            f"[{location_id}] No streets_geojson_gridfs_id found for {location_name}."
+            f"[{location_id}] No streets_geojson_gridfs_id found for {location_name}, falling back."
         )
-        raise HTTPException(
-            status_code=404,
-            detail="No GeoJSON GridFS ID associated with this coverage area.",
-        )
+        # Trigger background regeneration of GridFS geojson
+        asyncio.create_task(_regenerate_streets_geojson(obj_location_id))
+        # Return streets directly
+        streets_data = await get_coverage_area_streets(location_id)
+        return JSONResponse(content=streets_data, media_type="application/json")
     
     # Ensure gridfs_id is an ObjectId if it's a string (it should be ObjectId from DB)
     if isinstance(gridfs_id, str):
@@ -809,11 +810,13 @@ async def get_coverage_area_geojson_from_gridfs(
         
         if not grid_out_file_metadata:
             logger.warning(
-                f"[{location_id}] GridFS ID {gridfs_id} for {location_name} exists in metadata but file not found in GridFS via fs.files."
+                f"[{location_id}] GridFS ID {gridfs_id} exists in metadata but file not found in GridFS, falling back."
             )
-            raise HTTPException(
-                status_code=404, detail="GeoJSON file not found in GridFS."
-            )
+            # Trigger background regeneration of GridFS geojson
+            asyncio.create_task(_regenerate_streets_geojson(obj_location_id))
+            # Fallback to direct streets
+            streets_data = await get_coverage_area_streets(location_id)
+            return JSONResponse(content=streets_data, media_type="application/json")
 
         # Set headers for streaming
         response.headers["Content-Type"] = "application/json"
@@ -873,15 +876,16 @@ async def get_coverage_area_geojson_from_gridfs(
             stream_geojson_data(), media_type="application/json"
         )
 
-    except errors.NoFile: # Catch NoFile from fs.open_download_stream or fs.files.find_one if it were to raise it
+    except errors.NoFile:  # GridFS file not found, fallback
         logger.warning(
-            f"[{location_id}] GridFS file with ID {gridfs_id} for {location_name} not found (NoFile error).",
+            f"[{location_id}] NoFile error for GridFS ID {gridfs_id}, falling back.",
             exc_info=True
         )
-        raise HTTPException(
-            status_code=404,
-            detail="GeoJSON file not found in GridFS (NoFile).",
-        )
+        # Trigger background regeneration
+        asyncio.create_task(_regenerate_streets_geojson(obj_location_id))
+        # Fallback to direct streets
+        streets_data = await get_coverage_area_streets(location_id)
+        return JSONResponse(content=streets_data, media_type="application/json")
     except HTTPException: # Re-raise HTTPExceptions explicitly
         raise
     except Exception as e: # Catch other potential errors
