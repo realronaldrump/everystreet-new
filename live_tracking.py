@@ -103,20 +103,24 @@ async def process_trip_start(
 
     start_timestamp_str = start_data.get("timestamp")
     start_time_zone = start_data.get("timeZone")
+    if start_time_zone is None: # Try the lowercase version if camelCase is not found
+        start_time_zone = start_data.get("timezone")
     start_odometer = start_data.get("odometer")
     start_lat = start_data.get("lat")
     start_lon = start_data.get("lon")
 
     if start_time_zone is None:
-        logger.warning(
-            "Missing 'timeZone' in tripStart payload for %s. Defaulting to UTC.",
+        logger.error(
+            "Missing 'timeZone' in tripStart payload for %s. Defaulting to UTC. Payload: %s",
             transaction_id,
+            str(start_data)[:250],  # Log a portion of the data
         )
         start_time_zone = "UTC"
     if start_odometer is None:
-        logger.warning(
-            "Missing 'odometer' in tripStart payload for %s. Storing as null.",
+        logger.error(
+            "Missing 'odometer' in tripStart payload for %s. Storing as null. Payload: %s",
             transaction_id,
+            str(start_data)[:250],  # Log a portion of the data
         )
         start_odometer = None
 
@@ -947,21 +951,26 @@ async def process_trip_end(
 
     end_timestamp_str = end_data.get("timestamp")
     end_time_zone = end_data.get("timeZone")
+    if end_time_zone is None: # Try the lowercase version if camelCase is not found
+        end_time_zone = end_data.get("timezone")
     end_odometer = end_data.get("odometer")
     fuel_consumed_raw = end_data.get("fuelConsumed")
 
     if end_time_zone is None:
-        logger.warning(
-            "Missing 'timeZone' in tripEnd payload for %s. Defaulting to UTC.",
+        logger.error(
+            "Missing 'timeZone' in tripEnd payload for %s. Defaulting to UTC. Payload: %s",
             transaction_id,
+            str(end_data)[:250],  # Log a portion of the data
         )
         end_time_zone = "UTC"
 
     if end_odometer is None:
-        logger.warning(
-            "Missing 'odometer' in tripEnd payload for %s. Storing as null.",
+        logger.error(
+            "Missing 'odometer' in tripEnd payload for %s. Storing as null. Payload: %s",
             transaction_id,
+            str(end_data)[:250],  # Log a portion of the data
         )
+        # We keep end_odometer as None as per original logic if it's missing
 
     fuel_consumed = None
     if fuel_consumed_raw is not None:
@@ -974,9 +983,10 @@ async def process_trip_end(
                 transaction_id,
             )
     else:
-        logger.warning(
-            "Missing 'fuelConsumed' in tripEnd payload for %s. Storing as null.",
+        logger.error(
+            "Missing 'fuelConsumed' in tripEnd payload for %s. Storing as null. Payload: %s",
             transaction_id,
+            str(end_data)[:250],  # Log a portion of the data
         )
 
     end_time = _parse_iso_datetime(end_timestamp_str)
