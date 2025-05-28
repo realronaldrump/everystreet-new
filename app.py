@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import pytz
 import os
 import uuid
 from collections import defaultdict
@@ -10,64 +9,38 @@ from typing import Any
 
 import geojson as geojson_module
 import gpxpy
+import pytz
 from dateutil import parser as dateutil_parser
 from dotenv import load_dotenv
-from fastapi import (
-    FastAPI,
-    File,
-    HTTPException,
-    Query,
-    Request,
-    UploadFile,
-    WebSocket,
-    WebSocketDisconnect,
-    status,
-)
+from fastapi import (FastAPI, File, HTTPException, Query, Request, UploadFile,
+                     WebSocket, WebSocketDisconnect, status)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from coverage_api import router as coverage_api_router
-from db import (
-    SerializationHelper,
-    aggregate_with_retry,
-    build_query_from_request,
-    db_manager,
-    delete_many_with_retry,
-    delete_one_with_retry,
-    find_one_with_retry,
-    find_with_retry,
-    get_trip_by_id,
-    init_database,
-    parse_query_date,
-)
+from db import (SerializationHelper, aggregate_with_retry,
+                build_query_from_request, db_manager, delete_many_with_retry,
+                delete_one_with_retry, find_one_with_retry, find_with_retry,
+                get_trip_by_id, init_database, parse_query_date)
 from driving_routes import router as driving_routes_router
 from export_api import router as export_api_router
 from live_tracking import get_active_trip, get_trip_updates
 from live_tracking import initialize_db as initialize_live_tracking_db
-from models import (
-    ActiveTripResponseUnion,
-    ActiveTripSuccessResponse,
-    BulkProcessModel,
-    CollectionModel,
-    DateRangeModel,
-    LocationModel,
-    NoActiveTripResponse,
-    ValidateLocationModel,
-)
-
-from utils import calculate_circular_average_hour
+from models import (ActiveTripResponseUnion, ActiveTripSuccessResponse,
+                    BulkProcessModel, CollectionModel, DateRangeModel,
+                    LocationModel, NoActiveTripResponse, ValidateLocationModel)
 from osm_utils import generate_geojson_osm
 from pages import router as pages_router
 from tasks import process_webhook_event_task
 from tasks_api import router as tasks_api_router
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import calculate_distance, cleanup_session, validate_location_osm
+from utils import (calculate_circular_average_hour, calculate_distance,
+                   cleanup_session, validate_location_osm)
 from visits import init_collections
 from visits import router as visits_router
-
 
 load_dotenv()
 
@@ -2638,9 +2611,7 @@ async def get_metrics(request: Request):
             if display_hour == 0:
                 display_hour = 12
 
-            avg_start_time_str = (
-                f"{display_hour:02d}:{local_minute:02d} {am_pm}"
-            )
+            avg_start_time_str = f"{display_hour:02d}:{local_minute:02d} {am_pm}"
 
         avg_driving_time_str = "00:00"
         if total_trips > 0:

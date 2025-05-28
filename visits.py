@@ -14,14 +14,9 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from shapely.geometry import shape
 
-from db import (
-    SerializationHelper,
-    aggregate_with_retry,
-    delete_one_with_retry,
-    find_one_with_retry,
-    find_with_retry,
-    insert_one_with_retry,
-)
+from db import (SerializationHelper, aggregate_with_retry,
+                delete_one_with_retry, find_one_with_retry, find_with_retry,
+                insert_one_with_retry)
 
 logger = logging.getLogger(__name__)
 

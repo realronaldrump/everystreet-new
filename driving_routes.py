@@ -14,10 +14,7 @@ from fastapi.responses import JSONResponse
 from sklearn.cluster import KMeans
 
 from db import (  # Assuming db_manager and collections are accessible
-    find_one_with_retry,
-    streets_collection,
-    trips_collection,
-)
+    find_one_with_retry, streets_collection, trips_collection)
 from live_tracking import get_active_trip
 from models import LocationModel
 from utils import haversine  # Assuming haversine is in utils

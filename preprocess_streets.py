@@ -24,14 +24,8 @@ from shapely.geometry import LineString, mapping, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import transform, unary_union
 
-from db import (
-    coverage_metadata_collection,
-    delete_many_with_retry,
-    progress_collection,
-    streets_collection,
-    update_one_with_retry,
-)
-
+from db import (coverage_metadata_collection, delete_many_with_retry,
+                progress_collection, streets_collection, update_one_with_retry)
 # Import the centralized query builder
 from osm_utils import build_standard_osm_streets_query
 

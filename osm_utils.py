@@ -14,12 +14,8 @@ import aiohttp
 import geopandas as gpd
 from shapely.geometry import LineString, Polygon
 
-from db import (
-    find_one_with_retry,
-    insert_one_with_retry,
-    osm_data_collection,
-    update_one_with_retry,
-)
+from db import (find_one_with_retry, insert_one_with_retry,
+                osm_data_collection, update_one_with_retry)
 
 logger = logging.getLogger(__name__)
 

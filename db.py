@@ -21,19 +21,11 @@ import certifi
 import pymongo
 from bson import ObjectId, json_util
 from fastapi import Request
-from motor.motor_asyncio import (
-    AsyncIOMotorClient,
-    AsyncIOMotorCollection,
-    AsyncIOMotorCursor,
-    AsyncIOMotorDatabase,
-    AsyncIOMotorGridFSBucket,
-)
-from pymongo.errors import (
-    ConnectionFailure,
-    DuplicateKeyError,
-    OperationFailure,
-    ServerSelectionTimeoutError,
-)
+from motor.motor_asyncio import (AsyncIOMotorClient, AsyncIOMotorCollection,
+                                 AsyncIOMotorCursor, AsyncIOMotorDatabase,
+                                 AsyncIOMotorGridFSBucket)
+from pymongo.errors import (ConnectionFailure, DuplicateKeyError,
+                            OperationFailure, ServerSelectionTimeoutError)
 from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
 logger = logging.getLogger(__name__)

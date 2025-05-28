@@ -27,20 +27,11 @@ from shapely.errors import GEOSException
 from shapely.geometry import LineString, MultiPoint, box, mapping, shape
 from shapely.ops import transform, unary_union
 
-from db import (
-    batch_cursor,
-    count_documents_with_retry,
-    coverage_metadata_collection,
-    db_manager,
-    ensure_street_coverage_indexes,
-    find_one_with_retry,
-    progress_collection,
-    streets_collection,
-    trips_collection,
-    update_many_with_retry,
-    update_one_with_retry,
-)
-
+from db import (batch_cursor, count_documents_with_retry,
+                coverage_metadata_collection, db_manager,
+                ensure_street_coverage_indexes, find_one_with_retry,
+                progress_collection, streets_collection, trips_collection,
+                update_many_with_retry, update_one_with_retry)
 # Moved import to top level to avoid local import issues if not strictly necessary for circular deps
 from osm_utils import generate_geojson_osm
 
