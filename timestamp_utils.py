@@ -56,9 +56,15 @@ def sort_and_filter_trip_coordinates(
         lat = point.get("lat")
         lon = point.get("lon")
 
+        if lat is None or lon is None:  # If not found at top level
+            gps_data = point.get("gps")
+            if isinstance(gps_data, dict):
+                lat = gps_data.get("lat")
+                lon = gps_data.get("lon")
+
         if ts is None or lat is None or lon is None:
             logger.warning(
-                "Skipping invalid tripData point: %s",
+                "Skipping invalid tripData point (missing ts, lat, or lon after checking both direct and nested 'gps'): %s",
                 point,
             )
             continue
