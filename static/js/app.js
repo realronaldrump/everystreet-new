@@ -957,11 +957,8 @@
               )
             : "--:--",
         avgSpeed:
-          metrics.validDrivingTimeCount > 0 && metrics.totalDistance > 0
-            ? ((metrics.totalDistance /
-                (metrics.totalDrivingTime / metrics.validDrivingTimeCount)) *
-                3600) /
-              5280
+          metrics.totalDrivingTime > 0
+            ? (metrics.totalDistance / metrics.totalDrivingTime) * 3600
             : 0,
         maxSpeed: metrics.maxSpeed,
       };
