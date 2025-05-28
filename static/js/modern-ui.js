@@ -286,59 +286,61 @@
   };
 
   // Loading management (expose globally for other scripts)
-  window.loadingManager = {
-    show(message = "Loading...") {
-      const overlay = state.getElement(".loading-overlay");
-      const text = state.getElement(".loading-text");
-      const progress = state.getElement(".progress-bar");
+  if (!window.loadingManager || typeof window.loadingManager.addSubOperation !== "function") {
+    window.loadingManager = {
+      show(message = "Loading...") {
+        const overlay = state.getElement(".loading-overlay");
+        const text = state.getElement(".loading-text");
+        const progress = state.getElement(".progress-bar");
 
-      if (!overlay) return;
+        if (!overlay) return;
 
-      utils.batchDomUpdates([
-        () => {
-          if (text) text.textContent = message;
-          if (progress) progress.style.width = "0%";
-          overlay.style.display = "flex";
-        },
-        () => (overlay.style.opacity = "1"),
-      ]);
-    },
+        utils.batchDomUpdates([
+          () => {
+            if (text) text.textContent = message;
+            if (progress) progress.style.width = "0%";
+            overlay.style.display = "flex";
+          },
+          () => (overlay.style.opacity = "1"),
+        ]);
+      },
 
-    hide() {
-      const overlay = state.getElement(".loading-overlay");
-      const progress = state.getElement(".progress-bar");
+      hide() {
+        const overlay = state.getElement(".loading-overlay");
+        const progress = state.getElement(".progress-bar");
 
-      if (!overlay) return;
+        if (!overlay) return;
 
-      if (progress) progress.style.width = "100%";
-      overlay.style.opacity = "0";
+        if (progress) progress.style.width = "100%";
+        overlay.style.opacity = "0";
 
-      setTimeout(() => {
-        overlay.style.display = "none";
-      }, 400);
-    },
+        setTimeout(() => {
+          overlay.style.display = "none";
+        }, 400);
+      },
 
-    updateProgress(percent, message) {
-      const progress = state.getElement(".progress-bar");
-      const text = state.getElement(".loading-text");
+      updateProgress(percent, message) {
+        const progress = state.getElement(".progress-bar");
+        const text = state.getElement(".loading-text");
 
-      if (progress)
-        progress.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-      if (text && message) text.textContent = message;
-    },
+        if (progress)
+          progress.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+        if (text && message) text.textContent = message;
+      },
 
-    // Compatibility methods
-    startOperation(message) {
-      this.show(message);
-    },
-    finish() {
-      this.hide();
-    },
-    error(message) {
-      this.hide();
-      utils.showNotification(message, "danger");
-    },
-  };
+      // Compatibility methods
+      startOperation(message) {
+        this.show(message);
+      },
+      finish() {
+        this.hide();
+      },
+      error(message) {
+        this.hide();
+        utils.showNotification(message, "danger");
+      },
+    };
+  }
 
   // Panel management
   const panelManager = {

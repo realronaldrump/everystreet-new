@@ -296,6 +296,23 @@ class LoadingManager {
       this.fadeTimeout = null;
     }, 300);
   }
+
+  // Compatibility alias methods for modern-ui.js
+  show(message = "Loading...") {
+    this.startOperation("global", 100);
+    this._showOverlay(message);
+    return this;
+  }
+
+  hide() {
+    this.finish();
+    return this;
+  }
+
+  updateProgress(percent, message) {
+    this.updateOperation("global", percent, message);
+    return this;
+  }
 }
 
 if (!window.loadingManager) {
