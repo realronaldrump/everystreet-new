@@ -117,9 +117,7 @@ async def process_gps_data_field(
                     lon, lat = item["lon"], item["lat"]
                 elif "longitude" in item and "latitude" in item:
                     lon, lat = item["longitude"], item["latitude"]
-                elif (
-                    "lng" in item and "lat" in item
-                ):  # common in some JS contexts
+                elif "lng" in item and "lat" in item:  # common in some JS contexts
                     lon, lat = item["lng"], item["lat"]
                 # Add other variations if necessary
 
@@ -226,9 +224,7 @@ async def process_gps_data_field(
                             if -180 <= lon_f <= 180 and -90 <= lat_f <= 90:
                                 coord_tuple_temp = tuple([lon_f, lat_f])
                                 if coord_tuple_temp not in seen_tuples:
-                                    valid_coords_for_dict.append(
-                                        [lon_f, lat_f]
-                                    )
+                                    valid_coords_for_dict.append([lon_f, lat_f])
                                     seen_tuples.add(coord_tuple_temp)
                             else:
                                 logger.warning(
@@ -300,9 +296,7 @@ async def migrate_collections_gps_data():
     try:
         _ = db_manager.client  # Ensure client is initialized
         db_instance = db_manager.db
-        logger.info(
-            f"Successfully connected to MongoDB database '{db_instance.name}'."
-        )
+        logger.info(f"Successfully connected to MongoDB database '{db_instance.name}'.")
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB or get database: {e}")
         return
@@ -398,17 +392,15 @@ async def migrate_collections_gps_data():
                     migrated_count += 1
                 else:  # processed_gps_data is None, field should be unset
                     documents_to_update_ops.append(
-                        pymongo.UpdateOne(
-                            {"_id": doc_id}, {"$unset": {field_name: ""}}
-                        )
+                        pymongo.UpdateOne({"_id": doc_id}, {"$unset": {field_name: ""}})
                     )
                     unset_count += 1
-                    if (
-                        is_error_flag
-                    ):  # If it was an error that led to unsetting
+                    if is_error_flag:  # If it was an error that led to unsetting
                         error_count += 1
                     # logger.info(f"Doc {doc_id} ({logging_tag}): Marked for field unset. Original type: {type(gps_data_raw).__name__}")
-            elif is_error_flag:  # Needs no update (e.g. already valid by some path not caught by initial check) but was an error
+            elif (
+                is_error_flag
+            ):  # Needs no update (e.g. already valid by some path not caught by initial check) but was an error
                 error_count += 1
 
             if len(documents_to_update_ops) >= batch_size:
@@ -416,9 +408,7 @@ async def migrate_collections_gps_data():
                     f"Collection '{collection_name}': Writing batch of {len(documents_to_update_ops)} updates..."
                 )
                 try:
-                    await collection.bulk_write(
-                        documents_to_update_ops, ordered=False
-                    )
+                    await collection.bulk_write(documents_to_update_ops, ordered=False)
                 except BulkWriteError as bwe:
                     logger.error(
                         f"Bulk write error for '{collection_name}': {bwe.details}"
@@ -437,9 +427,7 @@ async def migrate_collections_gps_data():
                 f"Collection '{collection_name}': Writing final batch of {len(documents_to_update_ops)} updates..."
             )
             try:
-                await collection.bulk_write(
-                    documents_to_update_ops, ordered=False
-                )
+                await collection.bulk_write(documents_to_update_ops, ordered=False)
             except BulkWriteError as bwe:
                 logger.error(
                     f"Bulk write error for '{collection_name}' (final batch): {bwe.details}"
@@ -457,12 +445,8 @@ async def migrate_collections_gps_data():
         )
         logger.info(f"Successfully migrated/corrected: {migrated_count}")
         logger.info(f"Already valid GeoJSON: {already_correct_count}")
-        logger.info(
-            f"Fields unset due to invalid/unfixable data: {unset_count}"
-        )
-        logger.info(
-            f"Errors encountered (leading to unset or skipped): {error_count}"
-        )
+        logger.info(f"Fields unset due to invalid/unfixable data: {unset_count}")
+        logger.info(f"Errors encountered (leading to unset or skipped): {error_count}")
 
         current_config_summary = {
             "collection": collection_name,
@@ -507,45 +491,29 @@ async def migrate_collections_gps_data():
             logger.info(
                 f"No documents with field '{field_name}' found in '{collection_name}'. Index creation skipped."
             )
-            current_config_summary["index_status"] = (
-                "Skipped (no relevant documents)."
-            )
+            current_config_summary["index_status"] = "Skipped (no relevant documents)."
         else:  # No migrations, no already correct, or errors during processing.
             logger.warning(
                 f"Skipping index creation on '{collection_name}.{field_name}' due to processing state "
                 f"(migrated: {migrated_count}, already_correct: {already_correct_count}, errors: {error_count})."
             )
-            current_config_summary["index_status"] = (
-                "Skipped (processing state)."
-            )
+            current_config_summary["index_status"] = "Skipped (processing state)."
 
         overall_summary.append(current_config_summary)
 
     logger.info("\n--- Overall Migration Summary ---")
     for summary_item in overall_summary:
-        logger.info(
-            f"Collection: {summary_item['collection']}.{summary_item['field']}"
-        )
+        logger.info(f"Collection: {summary_item['collection']}.{summary_item['field']}")
         logger.info(f"  Status: {summary_item['status']}")
         if "error" in summary_item:
             logger.info(f"  Error: {summary_item['error']}")
         else:
-            logger.info(
-                f"  Total Inspected: {summary_item['total_inspected']}"
-            )
-            logger.info(
-                f"  Migrated/Corrected: {summary_item['migrated_corrected']}"
-            )
+            logger.info(f"  Total Inspected: {summary_item['total_inspected']}")
+            logger.info(f"  Migrated/Corrected: {summary_item['migrated_corrected']}")
             logger.info(f"  Already Valid: {summary_item['already_valid']}")
-            logger.info(
-                f"  Unset due to Errors: {summary_item['unset_due_to_errors']}"
-            )
-            logger.info(
-                f"  Processing Errors: {summary_item['processing_errors']}"
-            )
-            logger.info(
-                f"  Index Status: {summary_item.get('index_status', 'N/A')}"
-            )
+            logger.info(f"  Unset due to Errors: {summary_item['unset_due_to_errors']}")
+            logger.info(f"  Processing Errors: {summary_item['processing_errors']}")
+            logger.info(f"  Index Status: {summary_item.get('index_status', 'N/A')}")
         logger.info("-" * 20)
 
     # Clean up client connection
@@ -573,9 +541,7 @@ if __name__ == "__main__":
                 )
                 exit(1)
             else:
-                logger.info(
-                    "MONGO_URI loaded successfully from .env for local run."
-                )
+                logger.info("MONGO_URI loaded successfully from .env for local run.")
         else:
             logger.error(".env file not found and MONGO_URI not set. Exiting.")
             exit(1)

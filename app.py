@@ -65,7 +65,6 @@ from utils import calculate_distance, cleanup_session, validate_location_osm
 from visits import init_collections
 from visits import router as visits_router
 
-
 load_dotenv()
 
 
