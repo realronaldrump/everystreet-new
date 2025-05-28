@@ -1,0 +1,166 @@
+/* Map Enhancement Styles - Performance optimized */
+
+/* Smooth transitions for map elements */
+.mapboxgl-marker,
+.leaflet-marker-icon {
+  transition: transform 0.2s ease-out;
+  will-change: transform;
+}
+
+.mapboxgl-marker:hover,
+.leaflet-marker-icon:hover {
+  transform: scale(1.1);
+}
+
+/* Optimized popup animations */
+.mapboxgl-popup,
+.leaflet-popup {
+  animation: fadeInScale 0.2s ease-out;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Enhanced trip path interactions */
+.trip-path {
+  transition:
+    stroke-width 0.15s ease-out,
+    opacity 0.15s ease-out;
+  cursor: pointer;
+}
+
+.trip-path:hover {
+  stroke-width: 4px !important;
+  opacity: 1 !important;
+}
+
+.trip-path.selected {
+  stroke-width: 5px !important;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+/* Performant hover effects for controls */
+.control-panel button,
+.layer-control input,
+.quick-select-btn {
+  transition: all 0.15s ease-out;
+  transform: translateZ(0); /* Hardware acceleration */
+}
+
+.control-panel button:hover:not(:disabled),
+.layer-control input:hover:not(:disabled),
+.quick-select-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+/* Optimized scrollbar for all browsers */
+.control-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--bs-primary-rgb), 0.5) transparent;
+}
+
+/* Focus visible for better accessibility */
+.btn:focus-visible,
+.form-control:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .control-panel,
+  .side-panel {
+    border: 2px solid;
+  }
+
+  .btn {
+    border-width: 2px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .control-panel,
+  .side-panel,
+  .notification-container,
+  .loading-overlay,
+  .app-header,
+  #mobile-nav-drawer {
+    display: none !important;
+  }
+
+  #map {
+    position: static !important;
+    height: 100vh !important;
+  }
+}
+
+/* Performance hints */
+.layer-control {
+  contain: layout style;
+}
+
+.notification-container .alert {
+  contain: layout style paint;
+}
+
+/* Smooth skeleton loading */
+.skeleton-text {
+  height: 1em;
+  margin: 0.25em 0;
+  border-radius: 4px;
+}
+
+.skeleton-text:last-child {
+  width: 80%;
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+  .btn,
+  .form-control,
+  .quick-select-btn,
+  .layer-control input[type="checkbox"],
+  .layer-control input[type="color"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Dark mode optimizations */
+[data-bs-theme="dark"] .map-loading {
+  background-color: rgba(18, 18, 18, 0.9);
+}
+
+[data-bs-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+}
+
+/* Light mode optimizations */
+[data-bs-theme="light"] .map-loading {
+  background-color: rgba(248, 249, 250, 0.9);
+}
+
+[data-bs-theme="light"] .control-panel {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
