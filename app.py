@@ -5,7 +5,7 @@ import os
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Set
+from typing import Set, Any
 
 import geojson as geojson_module
 import gpxpy
@@ -2251,6 +2251,19 @@ async def driver_behavior_analytics():
     }
 
 
+def convert_datetimes_to_isoformat(item: Any) -> Any:
+    """Recursively convert datetime objects in a dictionary or list to ISO format strings."""
+    if isinstance(item, dict):
+        return {
+            k: convert_datetimes_to_isoformat(v) for k, v in item.items()
+        }
+    if isinstance(item, list):
+        return [convert_datetimes_to_isoformat(elem) for elem in item]
+    if isinstance(item, datetime):
+        return item.isoformat()
+    return item
+
+
 @app.websocket("/ws/trips")
 async def ws_trip_updates(websocket: WebSocket) -> None:
     """Pushes the same structure returned by /api/trip_updates via WebSocket."""
@@ -2281,21 +2294,8 @@ async def ws_trip_updates(websocket: WebSocket) -> None:
                     )
 
                     if current_sequence is not None:
-                        if "server_time" in updates and isinstance(
-                            updates["server_time"], datetime
-                        ):
-                            updates["server_time"] = updates[
-                                "server_time"
-                            ].isoformat()
-                        if (
-                            isinstance(trip_data, dict)
-                            and "timestamp" in trip_data
-                            and isinstance(trip_data["timestamp"], datetime)
-                        ):
-                            trip_data["timestamp"] = trip_data[
-                                "timestamp"
-                            ].isoformat()
-
+                        # Convert all datetime objects in updates to ISO format strings
+                        updates = convert_datetimes_to_isoformat(updates)
                         await websocket.send_json(updates)
                         last_seq = current_sequence
                     else:
