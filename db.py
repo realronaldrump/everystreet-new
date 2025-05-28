@@ -21,11 +21,19 @@ import certifi
 import pymongo
 from bson import ObjectId, json_util
 from fastapi import Request
-from motor.motor_asyncio import (AsyncIOMotorClient, AsyncIOMotorCollection,
-                                 AsyncIOMotorCursor, AsyncIOMotorDatabase,
-                                 AsyncIOMotorGridFSBucket)
-from pymongo.errors import (ConnectionFailure, DuplicateKeyError,
-                            OperationFailure, ServerSelectionTimeoutError)
+from motor.motor_asyncio import (
+    AsyncIOMotorClient,
+    AsyncIOMotorCollection,
+    AsyncIOMotorCursor,
+    AsyncIOMotorDatabase,
+    AsyncIOMotorGridFSBucket,
+)
+from pymongo.errors import (
+    ConnectionFailure,
+    DuplicateKeyError,
+    OperationFailure,
+    ServerSelectionTimeoutError,
+)
 from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
 logger = logging.getLogger(__name__)
@@ -489,12 +497,9 @@ class DatabaseManager:
                     )
                     return None
 
-            elif (
-                e.code
-                in (
-                    86,
-                    68,
-                )
+            elif e.code in (
+                86,
+                68,
             ):  # Other conflicts (IndexKeySpecsConflict, IndexNameAlreadyExists and not options conflict)
                 logger.warning(
                     "Index conflict (key specs or name already exists and options match): %s",
