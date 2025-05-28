@@ -53,9 +53,8 @@ def sort_and_filter_trip_coordinates(
 
     for point in trip_data:
         ts = parse_bouncie_timestamp(point.get("timestamp"))
-        gps = point.get("gps", {})
-        lat = gps.get("lat")
-        lon = gps.get("lon")
+        lat = point.get("lat")
+        lon = point.get("lon")
 
         if ts is None or lat is None or lon is None:
             logger.warning(
