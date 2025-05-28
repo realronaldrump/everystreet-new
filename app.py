@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import pytz
 import os
 import uuid
 from collections import defaultdict
@@ -10,6 +9,7 @@ from typing import Any
 
 import geojson as geojson_module
 import gpxpy
+import pytz
 from dateutil import parser as dateutil_parser
 from dotenv import load_dotenv
 from fastapi import (
@@ -56,18 +56,20 @@ from models import (
     NoActiveTripResponse,
     ValidateLocationModel,
 )
-
-from utils import calculate_circular_average_hour
 from osm_utils import generate_geojson_osm
 from pages import router as pages_router
 from tasks import process_webhook_event_task
 from tasks_api import router as tasks_api_router
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import calculate_distance, cleanup_session, validate_location_osm
+from utils import (
+    calculate_circular_average_hour,
+    calculate_distance,
+    cleanup_session,
+    validate_location_osm,
+)
 from visits import init_collections
 from visits import router as visits_router
-
 
 load_dotenv()
 
