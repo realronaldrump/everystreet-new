@@ -286,7 +286,10 @@
   };
 
   // Loading management (expose globally for other scripts)
-  if (!window.loadingManager || typeof window.loadingManager.addSubOperation !== "function") {
+  if (
+    !window.loadingManager ||
+    typeof window.loadingManager.addSubOperation !== "function"
+  ) {
     window.loadingManager = {
       show(message = "Loading...") {
         const overlay = state.getElement(".loading-overlay");

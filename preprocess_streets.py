@@ -11,16 +11,10 @@ import logging
 import math
 import multiprocessing
 from collections.abc import Callable
-from concurrent.futures import (
-    ProcessPoolExecutor,
-)
-from concurrent.futures import (
-    TimeoutError as FutureTimeoutError,
-)
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
-from typing import (
-    Any,
-)
+from typing import Any
 
 import aiohttp
 import pyproj
@@ -33,9 +27,9 @@ from shapely.ops import transform, unary_union
 from db import (
     coverage_metadata_collection,
     delete_many_with_retry,
+    progress_collection,
     streets_collection,
     update_one_with_retry,
-    progress_collection,
 )
 
 # Import the centralized query builder
@@ -92,9 +86,7 @@ async def _update_task_progress(
             upsert=False,  # Assume progress doc is created by caller task
         )
     except Exception as e:
-        logger.error(
-            f"Task {task_id}: Failed to update progress to stage {stage}: {e}"
-        )
+        logger.error(f"Task {task_id}: Failed to update progress to stage {stage}: {e}")
 
 
 def _get_query_target_clause_for_bbox(location: dict[str, Any]) -> str:
@@ -171,9 +163,7 @@ async def fetch_osm_data(
             ) as resp:
                 resp.raise_for_status()
                 return await resp.json()
-        except (
-            asyncio.TimeoutError
-        ) as e:  # Catch asyncio.TimeoutError specifically
+        except TimeoutError as e:  # Catch asyncio.TimeoutError specifically
             logger.error(
                 "Timeout fetching OSM data (HTTP request timeout %ds): %s",
                 timeout,
@@ -182,9 +172,7 @@ async def fetch_osm_data(
             raise
         except aiohttp.ClientResponseError as e:
             # More detailed logging for client response errors
-            error_text = (
-                await e.text() if hasattr(e, "text") else str(e.message)
-            )
+            error_text = await e.text() if hasattr(e, "text") else str(e.message)
             logger.error(
                 "HTTP error %s fetching OSM data: %s. Response: %s",
                 e.status,
@@ -204,12 +192,7 @@ def substring(line: LineString, start: float, end: float) -> LineString | None:
     """Return a sub-linestring from 'start' to 'end' along the line (UTM
     coords).
     """
-    if (
-        start < 0
-        or end > line.length
-        or start >= end
-        or abs(line.length) < 1e-6
-    ):
+    if start < 0 or end > line.length or start >= end or abs(line.length) < 1e-6:
         return None
 
     coords = list(line.coords)
@@ -282,10 +265,7 @@ def substring(line: LineString, start: float, end: float) -> LineString | None:
             break
 
         if start <= accumulated and current_end_accum <= end:
-            if (
-                not segment_coords
-                or LineString([segment_coords[-1], p1]).length > 1e-6
-            ):
+            if not segment_coords or LineString([segment_coords[-1], p1]).length > 1e-6:
                 segment_coords.append(p1)
 
         accumulated += seg_length
@@ -333,9 +313,7 @@ def segment_street(
             total_length,
         )
         seg = substring(line, start_distance, end_distance)
-        if (
-            seg is not None and seg.length > 1e-6
-        ):  # Ensure segment has some length
+        if seg is not None and seg.length > 1e-6:  # Ensure segment has some length
             segments.append(seg)
         start_distance = end_distance
 
@@ -364,9 +342,7 @@ def process_element_parallel(
         location_name = element_data["location_name"]
         proj_to_utm: Callable = element_data["project_to_utm"]
         proj_to_wgs84: Callable = element_data["project_to_wgs84"]
-        boundary_polygon: BaseGeometry | None = element_data.get(
-            "boundary_polygon"
-        )
+        boundary_polygon: BaseGeometry | None = element_data.get("boundary_polygon")
         nodes = [(node["lon"], node["lat"]) for node in geometry_nodes]
         if len(nodes) < 2:
             return []
@@ -403,9 +379,7 @@ def process_element_parallel(
                     # logger.debug("Segment %s-%d outside boundary", osm_id, i)
                     continue  # Segment is entirely outside the boundary
 
-                clipped_segment_wgs84 = segment_wgs84.intersection(
-                    boundary_polygon
-                )
+                clipped_segment_wgs84 = segment_wgs84.intersection(boundary_polygon)
 
                 if (
                     not clipped_segment_wgs84.is_valid
@@ -613,9 +587,7 @@ async def process_osm_data(
                             else:
                                 logger.warning(
                                     f"Segment {
-                                        feature.get('properties', {}).get(
-                                            'segment_id'
-                                        )
+                                        feature.get('properties', {}).get('segment_id')
                                     } missing valid length.",
                                 )
 
@@ -649,9 +621,7 @@ async def process_osm_data(
                             )
                             batch_to_insert = []
                             gc.collect()  # Explicit garbage collection after large batch
-                            await asyncio.sleep(
-                                0.05
-                            )  # Small sleep to yield control
+                            await asyncio.sleep(0.05)  # Small sleep to yield control
                         except BulkWriteError as bwe:
                             # Handle duplicate key errors gracefully if segment_id is unique
                             write_errors = bwe.details.get(
@@ -661,8 +631,7 @@ async def process_osm_data(
                             dup_keys = [
                                 e
                                 for e in write_errors
-                                if e.get("code")
-                                == 11000  # Duplicate key error code
+                                if e.get("code") == 11000  # Duplicate key error code
                             ]
                             if dup_keys:
                                 logger.warning(
@@ -673,9 +642,7 @@ async def process_osm_data(
                                     }.",
                                 )
                             other_errors = [
-                                e
-                                for e in write_errors
-                                if e.get("code") != 11000
+                                e for e in write_errors if e.get("code") != 11000
                             ]
                             if other_errors:
                                 logger.error(
@@ -748,9 +715,7 @@ async def process_osm_data(
                     )
                 except BulkWriteError as bwe:
                     write_errors = bwe.details.get("writeErrors", [])
-                    dup_keys = [
-                        e for e in write_errors if e.get("code") == 11000
-                    ]
+                    dup_keys = [e for e in write_errors if e.get("code") == 11000]
                     if dup_keys:
                         logger.warning(
                             f"Skipped {
@@ -759,9 +724,7 @@ async def process_osm_data(
                                 location_name
                             }.",
                         )
-                    other_errors = [
-                        e for e in write_errors if e.get("code") != 11000
-                    ]
+                    other_errors = [e for e in write_errors if e.get("code") != 11000]
                     if other_errors:
                         logger.error(
                             f"Non-duplicate BulkWriteError inserting final batch for {location_name}: {other_errors}",
@@ -924,10 +887,7 @@ async def preprocess_streets(
                         )
                         boundary_shape = None  # Ensure it's None if invalid
                 # Fallback for older structure or list of features (if Nominatim output changes or it's from another source)
-                elif (
-                    isinstance(geojson_boundary_data, list)
-                    and geojson_boundary_data
-                ):
+                elif isinstance(geojson_boundary_data, list) and geojson_boundary_data:
                     raw_polygons = []
                     for item in geojson_boundary_data:
                         if (
@@ -959,9 +919,7 @@ async def preprocess_streets(
                                     "Polygon",
                                     "MultiPolygon",
                                 ]:
-                                    raw_polygons.append(
-                                        shape(feature["geometry"])
-                                    )
+                                    raw_polygons.append(shape(feature["geometry"]))
 
                     if raw_polygons:
                         # Combine all valid polygons into a single geometry (MultiPolygon or Polygon)
@@ -979,8 +937,7 @@ async def preprocess_streets(
                         else:
                             # Attempt to fix invalid geometries before union
                             fixed_polygons = [
-                                p if p.is_valid else p.buffer(0)
-                                for p in valid_polygons
+                                p if p.is_valid else p.buffer(0) for p in valid_polygons
                             ]
                             # Filter again as buffer(0) might result in empty or invalid geoms for some inputs
                             final_polygons_for_union = [
@@ -989,9 +946,7 @@ async def preprocess_streets(
                                 if p.is_valid and not p.is_empty
                             ]
                             if final_polygons_for_union:
-                                boundary_shape = unary_union(
-                                    final_polygons_for_union
-                                )
+                                boundary_shape = unary_union(final_polygons_for_union)
                                 if not boundary_shape.is_valid:
                                     logger.warning(
                                         "Union of boundary polygons for %s is invalid, attempting buffer(0).",
@@ -1172,9 +1127,7 @@ async def preprocess_streets(
                 location_name,
             )
             # Use the _get_query_target_clause_for_bbox to prepare the bbox part of the query
-            query_target_clause = _get_query_target_clause_for_bbox(
-                validated_location
-            )
+            query_target_clause = _get_query_target_clause_for_bbox(validated_location)
             query_string = build_standard_osm_streets_query(
                 query_target_clause, timeout=300
             )
@@ -1185,9 +1138,7 @@ async def preprocess_streets(
                 ),  # Increased HTTP timeout
                 timeout=400,  # Overall timeout for the fetch operation
             )
-        except (
-            asyncio.TimeoutError
-        ):  # Catch asyncio.TimeoutError from wait_for
+        except TimeoutError:  # Catch asyncio.TimeoutError from wait_for
             logger.error(
                 "Timeout fetching OSM data for %s (overall fetch timeout)",
                 location_name,
@@ -1289,9 +1240,7 @@ async def preprocess_streets(
                 location_name,
             )
 
-        except (
-            asyncio.TimeoutError
-        ):  # Catch asyncio.TimeoutError from wait_for
+        except TimeoutError:  # Catch asyncio.TimeoutError from wait_for
             logger.error(
                 "Timeout processing OSM data for %s",
                 location_name,

@@ -74,7 +74,7 @@ def is_valid_geojson_object(data: Any) -> bool:
 # --- Data Processing Helper ---
 async def process_gps_data_field(
     gps_data_raw: Any, doc_id: ObjectId, field_name_logging_tag: str
-) -> Tuple[Optional[Dict[str, Any]], bool, bool]:
+) -> tuple[dict[str, Any] | None, bool, bool]:
     """
     Processes raw GPS data from a document field into a valid GeoJSON Point/LineString or None.
 

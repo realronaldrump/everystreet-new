@@ -356,8 +356,7 @@ async def check_dependencies(
                     last_updated = last_updated.astimezone(timezone.utc)
 
                 if last_updated and (
-                    datetime.now(timezone.utc) - last_updated
-                    < timedelta(hours=1)
+                    datetime.now(timezone.utc) - last_updated < timedelta(hours=1)
                 ):
                     return {
                         "can_run": False,
@@ -579,8 +578,7 @@ async def periodic_fetch_trips_async(
 
             if fetched_trips:
                 trip_ids = [
-                    trip.get("transactionId", "unknown")
-                    for trip in fetched_trips
+                    trip.get("transactionId", "unknown") for trip in fetched_trips
                 ]
                 logger.info("Fetched trip IDs: %s", trip_ids)
             else:
@@ -624,9 +622,9 @@ async def periodic_fetch_trips_async(
                 },
             )
             logger.info(
-                f"Trips with source='bouncie' since {
-                    start_date_fetch.isoformat()
-                }: {trips_recent}",
+                f"Trips with source='bouncie' since {start_date_fetch.isoformat()}: {
+                    trips_recent
+                }",
             )
         except Exception as count_err:
             logger.exception(f"Error counting trips in database: {count_err}")
@@ -770,9 +768,7 @@ async def update_coverage_for_new_trips_async(
                     logger.info(
                         f"Successfully updated coverage for '{
                             display_name
-                        }'. New coverage: {
-                            result.get('coverage_percentage', 0):.2f
-                        }%",
+                        }'. New coverage: {result.get('coverage_percentage', 0):.2f}%",
                     )
                     processed_areas += 1
                 else:
@@ -2312,9 +2308,7 @@ async def update_task_schedule(
                         if isinstance(new_val, bool):
                             old_val = current_settings.get("enabled", True)
                             if new_val != old_val:
-                                update_payload[f"tasks.{task_id}.enabled"] = (
-                                    new_val
-                                )
+                                update_payload[f"tasks.{task_id}.enabled"] = new_val
                                 changes.append(
                                     f"Task '{task_id}' enabled status: {old_val} -> {new_val}",
                                 )
@@ -2345,9 +2339,9 @@ async def update_task_schedule(
                             TASK_METADATA[task_id]["default_interval_minutes"],
                         )
                         if new_val != old_val:
-                            update_payload[
-                                f"tasks.{task_id}.interval_minutes"
-                            ] = new_val
+                            update_payload[f"tasks.{task_id}.interval_minutes"] = (
+                                new_val
+                            )
                             changes.append(
                                 f"Task '{task_id}' interval: {old_val} -> {new_val} mins",
                             )
