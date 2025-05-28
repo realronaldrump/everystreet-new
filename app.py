@@ -56,7 +56,9 @@ from models import (
     NoActiveTripResponse,
     ValidateLocationModel,
 )
-from osm_utils import generate_geojson_osm, calculate_circular_average_hour
+
+from utils import calculate_circular_average_hour
+from osm_utils import generate_geojson_osm
 from pages import router as pages_router
 from tasks import process_webhook_event_task
 from tasks_api import router as tasks_api_router
