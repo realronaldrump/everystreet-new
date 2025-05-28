@@ -374,9 +374,9 @@ async def process_trip_data(
     # new_coords is a list of dicts: [{'lon': ..., 'lat': ..., 'timestamp': ...}, ...]
     # We need to maintain a list of such dicts for calculations.
 
-    all_coords_map: dict[
-        str, dict[str, Any]
-    ] = {}  # timestamp_iso_string -> {lon, lat, timestamp}
+    all_coords_map: dict[str, dict[str, Any]] = (
+        {}
+    )  # timestamp_iso_string -> {lon, lat, timestamp}
 
     # Populate from existing trip_doc's initial point if it exists and is valid
     # This handles the case where the trip started with a point and this is the first tripData
