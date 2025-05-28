@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import pytz
 import os
 import uuid
 from collections import defaultdict
@@ -55,7 +56,7 @@ from models import (
     NoActiveTripResponse,
     ValidateLocationModel,
 )
-from osm_utils import generate_geojson_osm
+from osm_utils import generate_geojson_osm, calculate_circular_average_hour
 from pages import router as pages_router
 from tasks import process_webhook_event_task
 from tasks_api import router as tasks_api_router
@@ -2322,6 +2323,349 @@ async def list_trips(request: Request):
         props = SerializationHelper.serialize_trip(doc)
         features.append(geojson_module.Feature(geometry=doc["gps"], properties=props))
     return geojson_module.FeatureCollection(features)
+
+
+@app.get("/api/driving-insights")
+async def get_driving_insights(request: Request):
+    """Get aggregated driving insights."""
+    try:
+        query = await build_query_from_request(request)
+
+        pipeline = [
+            {"$match": query},
+            {
+                "$group": {
+                    "_id": None,
+                    "total_trips": {"$sum": 1},
+                    "total_distance": {
+                        "$sum": {
+                            "$ifNull": [
+                                "$distance",
+                                0,
+                            ],
+                        },
+                    },
+                    "total_fuel_consumed": {
+                        "$sum": {
+                            "$ifNull": [
+                                "$fuelConsumed",
+                                0,
+                            ],
+                        },
+                    },
+                    "max_speed": {
+                        "$max": {
+                            "$ifNull": [
+                                "$maxSpeed",
+                                0,
+                            ],
+                        },
+                    },
+                    "total_idle_duration": {
+                        "$sum": {
+                            "$ifNull": [
+                                "$totalIdleDuration",
+                                0,
+                            ],
+                        },
+                    },
+                    "longest_trip_distance": {
+                        "$max": {
+                            "$ifNull": [
+                                "$distance",
+                                0,
+                            ],
+                        },
+                    },
+                },
+            },
+        ]
+
+        trips_result = await aggregate_with_retry(trips_collection, pipeline)
+
+        pipeline_most_visited = [
+            {"$match": query},
+            {
+                "$group": {
+                    "_id": "$destination",
+                    "count": {"$sum": 1},
+                    "isCustomPlace": {"$first": "$isCustomPlace"},
+                },
+            },
+            {"$sort": {"count": -1}},
+            {"$limit": 1},
+        ]
+
+        trips_mv = await aggregate_with_retry(
+            trips_collection,
+            pipeline_most_visited,
+        )
+
+        combined = {
+            "total_trips": 0,
+            "total_distance": 0.0,
+            "total_fuel_consumed": 0.0,
+            "max_speed": 0.0,
+            "total_idle_duration": 0,
+            "longest_trip_distance": 0.0,
+            "most_visited": {},
+        }
+
+        if trips_result and trips_result[0]:
+            r = trips_result[0]
+            combined["total_trips"] = r.get("total_trips", 0)
+            combined["total_distance"] = r.get("total_distance", 0)
+            combined["total_fuel_consumed"] = r.get("total_fuel_consumed", 0)
+            combined["max_speed"] = r.get("max_speed", 0)
+            combined["total_idle_duration"] = r.get("total_idle_duration", 0)
+            combined["longest_trip_distance"] = r.get(
+                "longest_trip_distance",
+                0,
+            )
+
+        if trips_mv and trips_mv[0]:
+            best = trips_mv[0]
+            combined["most_visited"] = {
+                "_id": best["_id"],
+                "count": best["count"],
+                "isCustomPlace": best.get("isCustomPlace", False),
+            }
+
+        return JSONResponse(content=combined)
+    except Exception as e:
+        logger.exception(
+            "Error in get_driving_insights: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@app.get("/api/metrics")
+async def get_metrics(request: Request):
+    """Get trip metrics and statistics using database aggregation."""
+    try:
+        query = await build_query_from_request(request)
+        target_timezone_str = "America/Chicago"
+        target_tz = pytz.timezone(target_timezone_str)
+
+        pipeline = [
+            {"$match": query},
+            {
+                "$addFields": {
+                    "numericDistance": {
+                        "$ifNull": [
+                            {"$toDouble": "$distance"},
+                            0.0,
+                        ],
+                    },
+                    "numericMaxSpeed": {
+                        "$ifNull": [
+                            {"$toDouble": "$maxSpeed"},
+                            0.0,
+                        ],
+                    },
+                    "duration_seconds": {
+                        "$cond": {
+                            "if": {
+                                "$and": [
+                                    {
+                                        "$ifNull": [
+                                            "$startTime",
+                                            None,
+                                        ],
+                                    },
+                                    {
+                                        "$ifNull": [
+                                            "$endTime",
+                                            None,
+                                        ],
+                                    },
+                                    {
+                                        "$lt": [
+                                            "$startTime",
+                                            "$endTime",
+                                        ],
+                                    },
+                                ],
+                            },
+                            "then": {
+                                "$divide": [
+                                    {
+                                        "$subtract": [
+                                            "$endTime",
+                                            "$startTime",
+                                        ],
+                                    },
+                                    1000,
+                                ],
+                            },
+                            "else": 0.0,
+                        },
+                    },
+                    "startHourUTC": {
+                        "$hour": {
+                            "date": "$startTime",
+                            "timezone": "UTC",
+                        },
+                    },
+                },
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "total_trips": {"$sum": 1},
+                    "total_distance": {"$sum": "$numericDistance"},
+                    "max_speed": {"$max": "$numericMaxSpeed"},
+                    "total_duration_seconds": {"$sum": "$duration_seconds"},
+                    "start_hours_utc": {"$push": "$startHourUTC"},
+                },
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "total_trips": 1,
+                    "total_distance": {
+                        "$ifNull": [
+                            "$total_distance",
+                            0.0,
+                        ],
+                    },
+                    "max_speed": {
+                        "$ifNull": [
+                            "$max_speed",
+                            0.0,
+                        ],
+                    },
+                    "total_duration_seconds": {
+                        "$ifNull": [
+                            "$total_duration_seconds",
+                            0.0,
+                        ],
+                    },
+                    "start_hours_utc": {
+                        "$ifNull": [
+                            "$start_hours_utc",
+                            [],
+                        ],
+                    },
+                    "avg_distance": {
+                        "$cond": {
+                            "if": {
+                                "$gt": [
+                                    "$total_trips",
+                                    0,
+                                ],
+                            },
+                            "then": {
+                                "$divide": [
+                                    "$total_distance",
+                                    "$total_trips",
+                                ],
+                            },
+                            "else": 0.0,
+                        },
+                    },
+                    "avg_speed": {
+                        "$cond": {
+                            "if": {
+                                "$gt": [
+                                    "$total_duration_seconds",
+                                    0,
+                                ],
+                            },
+                            "then": {
+                                "$divide": [
+                                    "$total_distance",
+                                    {
+                                        "$divide": [
+                                            "$total_duration_seconds",
+                                            3600.0,
+                                        ],
+                                    },
+                                ],
+                            },
+                            "else": 0.0,
+                        },
+                    },
+                },
+            },
+        ]
+
+        results = await aggregate_with_retry(trips_collection, pipeline)
+
+        if not results:
+            empty_data = {
+                "total_trips": 0,
+                "total_distance": "0.00",
+                "avg_distance": "0.00",
+                "avg_start_time": "00:00 AM",
+                "avg_driving_time": "00:00",
+                "avg_speed": "0.00",
+                "max_speed": "0.00",
+            }
+            return JSONResponse(content=empty_data)
+
+        metrics = results[0]
+        total_trips = metrics.get("total_trips", 0)
+
+        start_hours_utc_list = metrics.get("start_hours_utc", [])
+        avg_start_time_str = "00:00 AM"
+        if start_hours_utc_list:
+            avg_hour_utc_float = calculate_circular_average_hour(
+                start_hours_utc_list,
+            )
+
+            base_date = datetime.now(timezone.utc).replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+            avg_utc_dt = base_date + timedelta(hours=avg_hour_utc_float)
+
+            avg_local_dt = avg_utc_dt.astimezone(target_tz)
+
+            local_hour = avg_local_dt.hour
+            local_minute = avg_local_dt.minute
+
+            am_pm = "AM" if local_hour < 12 else "PM"
+            display_hour = local_hour % 12
+            if display_hour == 0:
+                display_hour = 12
+
+            avg_start_time_str = (
+                f"{display_hour:02d}:{local_minute:02d} {am_pm}"
+            )
+
+        avg_driving_time_str = "00:00"
+        if total_trips > 0:
+            total_duration_seconds = metrics.get("total_duration_seconds", 0.0)
+            avg_duration_seconds = total_duration_seconds / total_trips
+            avg_driving_h = int(avg_duration_seconds // 3600)
+            avg_driving_m = int((avg_duration_seconds % 3600) // 60)
+            avg_driving_time_str = f"{avg_driving_h:02d}:{avg_driving_m:02d}"
+
+        response_content = {
+            "total_trips": total_trips,
+            "total_distance": f"{round(metrics.get('total_distance', 0.0), 2)}",
+            "avg_distance": f"{round(metrics.get('avg_distance', 0.0), 2)}",
+            "avg_start_time": avg_start_time_str,
+            "avg_driving_time": avg_driving_time_str,
+            "avg_speed": f"{round(metrics.get('avg_speed', 0.0), 2)}",
+            "max_speed": f"{round(metrics.get('max_speed', 0.0), 2)}",
+        }
+
+        return JSONResponse(content=response_content)
+
+    except Exception as e:
+        logger.exception("Error in get_metrics: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
 
 
 if __name__ == "__main__":
