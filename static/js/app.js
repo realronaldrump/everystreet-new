@@ -1256,35 +1256,6 @@
       if (endDateInput && !endDateInput.value) {
         endDateInput.value = dateUtils.getEndDate();
       }
-
-      // Initialize date pickers if flatpickr is available
-      if (window.flatpickr) {
-        const datePickerConfig = {
-          dateFormat: "Y-m-d",
-          onChange: (selectedDates, dateStr, instance) => {
-            const key =
-              instance.element.id === "start-date"
-                ? CONFIG.STORAGE_KEYS.startDate
-                : CONFIG.STORAGE_KEYS.endDate;
-            storage.set(key, dateStr);
-            dataManager.updateMap();
-          },
-        };
-
-        if (startDateInput) {
-          window.flatpickr(startDateInput, {
-            ...datePickerConfig,
-            defaultDate: dateUtils.getStartDate(),
-          });
-        }
-
-        if (endDateInput) {
-          window.flatpickr(endDateInput, {
-            ...datePickerConfig,
-            defaultDate: dateUtils.getEndDate(),
-          });
-        }
-      }
     },
 
     initializeLiveTracker() {
