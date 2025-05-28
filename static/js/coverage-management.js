@@ -131,6 +131,10 @@ const STATUS = window.STATUS || {
       this.dataCache = new Map();
       this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
 
+      // For beforeunload listener
+      this.boundSaveProcessingState = this.saveProcessingState.bind(this);
+      this.isBeforeUnloadListenerActive = false;
+
       this.notificationManager = window.notificationManager || {
         show: (message, type, duration = 3000) => {
           console.log(`[${type || "info"}] Notification: ${message}`);
@@ -155,6 +159,22 @@ const STATUS = window.STATUS || {
       this.initializeQuickActions();
       this.setupAccessibility();
       this.startRenderLoop();
+    }
+
+    _addBeforeUnloadListener() {
+        if (!this.isBeforeUnloadListenerActive) {
+            window.addEventListener("beforeunload", this.boundSaveProcessingState);
+            this.isBeforeUnloadListenerActive = true;
+            console.info("BeforeUnload listener added.");
+        }
+    }
+
+    _removeBeforeUnloadListener() {
+        if (this.isBeforeUnloadListenerActive) {
+            window.removeEventListener("beforeunload", this.boundSaveProcessingState);
+            this.isBeforeUnloadListenerActive = false;
+            console.info("BeforeUnload listener removed.");
+        }
     }
 
     // Enhanced initialization methods
@@ -530,9 +550,7 @@ const STATUS = window.STATUS || {
           }, 5000);
 
           // Sync any pending operations
-          // this.syncPendingOperations(); // `this` is not available in static context
           if (window.coverageManager) {
-            // Assuming coverageManager is global
             window.coverageManager.syncPendingOperations();
           }
         }
@@ -895,13 +913,16 @@ const STATUS = window.STATUS || {
       document
         .getElementById("taskProgressModal")
         ?.addEventListener("hidden.bs.modal", () => {
-          if (
-            this.currentProcessingLocation &&
-            this.currentProcessingLocation.status !== STATUS.CANCELED &&
-            this.currentProcessingLocation.status !== STATUS.ERROR
-          ) {
-            this.loadCoverageAreas();
-          }
+          // This condition was problematic and prevented context clear on error/cancel
+          // if (
+          //   this.currentProcessingLocation &&
+          //   this.currentProcessingLocation.status !== STATUS.CANCELED &&
+          //   this.currentProcessingLocation.status !== STATUS.ERROR
+          // ) {
+          //   this.loadCoverageAreas();
+          // }
+          // Always clear processing context when modal is hidden.
+          // The `loadCoverageAreas` can be called based on the final status if needed.
           this.clearProcessingContext();
         });
 
@@ -915,13 +936,6 @@ const STATUS = window.STATUS || {
             locationInput.select();
           }
         });
-
-      // Save state before unload
-      window.addEventListener("beforeunload", () => {
-        if (this.currentProcessingLocation) {
-          this.saveProcessingState();
-        }
-      });
 
       // Table event delegation with enhanced interactions
       document
@@ -1174,7 +1188,7 @@ const STATUS = window.STATUS || {
         const now = new Date();
         const savedTime = new Date(progressData.timestamp);
 
-        if (now - savedTime < 60 * 60 * 1000) {
+        if (now - savedTime < 60 * 60 * 1000) { // 1 hour threshold
           this.showInterruptedTaskNotification(progressData);
         } else {
           localStorage.removeItem("coverageProcessingState");
@@ -1251,6 +1265,7 @@ const STATUS = window.STATUS || {
 
       this.currentProcessingLocation = location;
       this.currentTaskId = taskId;
+      this._addBeforeUnloadListener(); // Add listener when resuming
 
       this.showProgressModal(
         `Checking status for ${location.display_name}...`,
@@ -1268,6 +1283,7 @@ const STATUS = window.STATUS || {
             "success",
           );
         }
+        // `_removeBeforeUnloadListener` will be called by pollCoverageProgress or clearProcessingContext
 
         await this.loadCoverageAreas();
 
@@ -1279,9 +1295,11 @@ const STATUS = window.STATUS || {
           `Failed to resume task: ${pollError.message}`,
           "danger",
         );
+        // `_removeBeforeUnloadListener` will be called by pollCoverageProgress or clearProcessingContext
         await this.loadCoverageAreas();
       } finally {
-        this.activeTaskIds.delete(taskId);
+        // activeTaskIds.delete is handled by pollCoverageProgress
+        // Listener removal handled by poll or clearProcessingContext
       }
     }
 
@@ -1306,8 +1324,6 @@ const STATUS = window.STATUS || {
           "coverageProcessingState",
           JSON.stringify(saveData),
         );
-
-        // Also save to IndexedDB for better persistence
         this.saveToIndexedDB("processingState", saveData);
       } else {
         localStorage.removeItem("coverageProcessingState");
@@ -1349,8 +1365,8 @@ const STATUS = window.STATUS || {
         this.progressTimer = null;
       }
 
+      this._removeBeforeUnloadListener(); // Centralized removal
       localStorage.removeItem("coverageProcessingState");
-      window.removeEventListener("beforeunload", this.saveProcessingState);
 
       this.currentProcessingLocation = null;
       this.processingStartTime = null;
@@ -1472,7 +1488,6 @@ const STATUS = window.STATUS || {
       const locationToAdd = { ...this.validatedLocation };
 
       try {
-        // Check if area already exists
         const currentAreasResponse = await fetch("/api/coverage_areas");
         if (!currentAreasResponse.ok) {
           throw new Error("Failed to fetch current coverage areas");
@@ -1491,22 +1506,17 @@ const STATUS = window.STATUS || {
           return;
         }
 
-        // Hide modal and show processing
         if (modal) modal.hide();
 
         this.currentProcessingLocation = locationToAdd;
         this.currentTaskId = null;
+        this._addBeforeUnloadListener();
 
         this.showProgressModal(
           `Starting processing for ${locationToAdd.display_name}...`,
           0,
         );
 
-        window.addEventListener("beforeunload", () =>
-          this.saveProcessingState(),
-        );
-
-        // Start preprocessing
         const preprocessResponse = await fetch("/api/preprocess_streets", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1531,6 +1541,7 @@ const STATUS = window.STATUS || {
           this.saveProcessingState();
 
           await this.pollCoverageProgress(taskData.task_id);
+          // `_removeBeforeUnloadListener` called by poll or clearProcessingContext
 
           this.notificationManager.show(
             `Processing for ${locationToAdd.display_name} completed.`,
@@ -1540,6 +1551,7 @@ const STATUS = window.STATUS || {
           await this.loadCoverageAreas();
         } else {
           this.hideProgressModal();
+          // `_removeBeforeUnloadListener` called by clearProcessingContext via modal hide
           this.notificationManager.show(
             "Processing started, but no task ID received.",
             "warning",
@@ -1547,15 +1559,12 @@ const STATUS = window.STATUS || {
           await this.loadCoverageAreas();
         }
 
-        // Clear form
         const locationInput = document.getElementById("location-input");
         if (locationInput) {
           locationInput.value = "";
           locationInput.classList.remove("is-valid", "is-invalid");
         }
         this.validatedLocation = null;
-
-        // Update total areas count
         this.updateTotalAreasCount();
       } catch (error) {
         console.error("Error adding coverage area:", error);
@@ -1564,6 +1573,7 @@ const STATUS = window.STATUS || {
           "danger",
         );
         this.hideProgressModal();
+        // `_removeBeforeUnloadListener` called by clearProcessingContext via modal hide
         await this.loadCoverageAreas();
       } finally {
         addButton.disabled = true;
@@ -1584,7 +1594,6 @@ const STATUS = window.STATUS || {
         return;
       }
 
-      // Check if already processing
       if (this.pendingOperations.has(`update-${locationId}`)) {
         this.notificationManager.show(
           "Update already in progress for this location.",
@@ -1596,7 +1605,6 @@ const STATUS = window.STATUS || {
       let locationData = null;
 
       try {
-        // Mark operation as pending
         this.pendingOperations.set(`update-${locationId}`, async () => {
           return this.updateCoverageForArea(locationId, mode, showNotification);
         });
@@ -1641,16 +1649,13 @@ const STATUS = window.STATUS || {
       try {
         this.currentProcessingLocation = processingLocation;
         this.currentTaskId = null;
+        this._addBeforeUnloadListener();
 
         const isUpdatingDisplayedLocation =
           this.selectedLocation?._id === locationId;
 
         this.showProgressModal(
           `Requesting ${mode} update for ${processingLocation.display_name}...`,
-        );
-
-        window.addEventListener("beforeunload", () =>
-          this.saveProcessingState(),
         );
 
         const endpoint =
@@ -1684,6 +1689,7 @@ const STATUS = window.STATUS || {
           this.saveProcessingState();
 
           await this.pollCoverageProgress(data.task_id);
+          // `_removeBeforeUnloadListener` called by poll or clearProcessingContext
 
           if (showNotification) {
             this.notificationManager.show(
@@ -1699,6 +1705,7 @@ const STATUS = window.STATUS || {
           }
         } else {
           this.hideProgressModal();
+          // `_removeBeforeUnloadListener` called by clearProcessingContext via modal hide
           this.notificationManager.show(
             "Update started, but no task ID received.",
             "warning",
@@ -1714,6 +1721,7 @@ const STATUS = window.STATUS || {
           );
         }
         this.hideProgressModal();
+        // `_removeBeforeUnloadListener` called by clearProcessingContext via modal hide
         await this.loadCoverageAreas();
         throw error;
       } finally {
@@ -1774,8 +1782,10 @@ const STATUS = window.STATUS || {
         ) {
           if (this.currentTaskId) {
             this.activeTaskIds.delete(this.currentTaskId);
+            this._removeBeforeUnloadListener(); // Remove listener on explicit cancel
           }
           this.hideProgressModal();
+          // `clearProcessingContext` will be called when modal hides, further ensuring cleanup.
         }
 
         await this.loadCoverageAreas();
@@ -1988,6 +1998,7 @@ const STATUS = window.STATUS || {
             `Polling stopped for task ${taskId.substring(0, 8)}...`,
             "info",
           );
+          this._removeBeforeUnloadListener(); // Remove listener as polling stopped
           throw new Error("Polling canceled");
         }
 
@@ -1995,6 +2006,7 @@ const STATUS = window.STATUS || {
           const response = await fetch(`/api/street_coverage/${taskId}`);
 
           if (response.status === 404) {
+            this._removeBeforeUnloadListener();
             throw new Error("Task not found (expired or invalid).");
           }
 
@@ -2005,6 +2017,7 @@ const STATUS = window.STATUS || {
             } catch (e) {
               /* ignore json parsing error */
             }
+            this._removeBeforeUnloadListener();
             throw new Error(`Failed to get task status: ${errorDetail}`);
           }
 
@@ -2020,21 +2033,21 @@ const STATUS = window.STATUS || {
                   "warning",
                 );
               }
+              this._removeBeforeUnloadListener();
               throw new Error("Invalid data format received from server.");
             }
           } catch (jsonError) {
+            this._removeBeforeUnloadListener();
             throw new Error(
               `Error processing server response: ${jsonError.message}`,
             );
           }
 
-          // Update UI with smooth transitions
           this.updateModalContent(data);
           CoverageManager.updateStepIndicators(data.stage, data.progress);
           this.lastActivityTime = new Date();
           this.saveProcessingState();
 
-          // Check for terminal states
           if (
             data.stage === STATUS.COMPLETE ||
             data.stage === STATUS.COMPLETED
@@ -2042,14 +2055,11 @@ const STATUS = window.STATUS || {
             this.updateModalContent({ ...data, progress: 100 });
             CoverageManager.updateStepIndicators(STATUS.COMPLETE, 100);
             this.activeTaskIds.delete(taskId);
-
-            // Success animation
+            this._removeBeforeUnloadListener(); // Task finished
             this.showSuccessAnimation();
-
             setTimeout(() => {
               this.hideProgressModal();
             }, 1500);
-
             return data;
           } else if (data.stage === STATUS.ERROR) {
             const errorMessage = data.error || data.message || "Unknown error";
@@ -2058,25 +2068,22 @@ const STATUS = window.STATUS || {
               "danger",
             );
             this.activeTaskIds.delete(taskId);
-
-            // Show error state
+            this._removeBeforeUnloadListener(); // Task finished with error
             this.showErrorState(errorMessage);
-
             throw new Error(
               data.error || data.message || "Coverage calculation failed",
             );
           } else if (data.stage === STATUS.CANCELED) {
             this.notificationManager.show(`Task was canceled.`, "warning");
             this.activeTaskIds.delete(taskId);
+            this._removeBeforeUnloadListener(); // Task finished due to cancel
             this.hideProgressModal();
             throw new Error("Task was canceled");
           }
 
-          // Check for stalled progress
           if (data.stage === lastStage) {
             consecutiveSameStage++;
-
-            if (consecutiveSameStage > 12) {
+            if (consecutiveSameStage > 12) { // Increased threshold for stall warning
               this.notificationManager.show(
                 `Task seems stalled at: ${CoverageManager.formatStageName(data.stage)}`,
                 "warning",
@@ -2088,17 +2095,14 @@ const STATUS = window.STATUS || {
             consecutiveSameStage = 0;
           }
 
-          // Adaptive polling interval
           const pollInterval = this.calculatePollInterval(data.stage, retries);
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
           retries++;
         } catch (error) {
           this.notificationManager.show(
             `Error polling progress: ${error.message}`,
             "danger",
           );
-
           this.updateModalContent({
             stage: STATUS.ERROR,
             progress: this.currentProcessingLocation?.progress || 0,
@@ -2106,27 +2110,21 @@ const STATUS = window.STATUS || {
             error: error.message,
             metrics: {},
           });
-
           CoverageManager.updateStepIndicators(
             STATUS.ERROR,
             this.currentProcessingLocation?.progress || 0,
           );
-
           this.activeTaskIds.delete(taskId);
-
-          // Offer retry option
+          this._removeBeforeUnloadListener(); // Task finished with polling error
           this.showRetryOption(taskId);
-
           throw error;
         }
       }
 
-      // Timeout reached
       this.notificationManager.show(
-        `Polling timed out after ${(maxRetries * 5) / 60} minutes.`,
+        `Polling timed out after ${Math.round((maxRetries * this.calculatePollInterval(STATUS.UNKNOWN, maxRetries-1))/60000)} minutes.`,
         "danger",
       );
-
       this.updateModalContent({
         stage: STATUS.ERROR,
         progress: this.currentProcessingLocation?.progress || 99,
@@ -2134,13 +2132,12 @@ const STATUS = window.STATUS || {
         error: "Polling timed out",
         metrics: {},
       });
-
       CoverageManager.updateStepIndicators(
         STATUS.ERROR,
         this.currentProcessingLocation?.progress || 99,
       );
-
       this.activeTaskIds.delete(taskId);
+      this._removeBeforeUnloadListener(); // Task timed out
       throw new Error("Coverage calculation polling timed out");
     }
 
@@ -2219,6 +2216,7 @@ const STATUS = window.STATUS || {
       retrySection.querySelector(".retry-task-btn").onclick = () => {
         retrySection.remove();
         this.activeTaskIds.add(taskId);
+        this._addBeforeUnloadListener(); // Re-add listener for retry attempt
         this.pollCoverageProgress(taskId).catch(console.error);
       };
 
@@ -2630,32 +2628,29 @@ const STATUS = window.STATUS || {
         if (steps[stepKey]) {
           steps[stepKey].classList.add("complete");
           steps[stepKey].style.transform = "scale(0.9)"; // Slight shrink to indicate done
-          // Animate icon change if needed
           const iconEl = steps[stepKey].querySelector(".step-icon i");
           if (iconEl) {
-            iconEl.className = "fas fa-check-circle"; // Change to checkmark
+            iconEl.className = "fas fa-check-circle"; 
           }
         }
       };
       const markActive = (stepKey) => {
         if (steps[stepKey]) {
           steps[stepKey].classList.add("active");
-          steps[stepKey].style.transform = "scale(1.1)"; // Slight grow for active
+          steps[stepKey].style.transform = "scale(1.1)"; 
         }
       };
       const markError = (stepKey) => {
         if (steps[stepKey]) {
           steps[stepKey].classList.add("error");
-          steps[stepKey].style.transform = "scale(1.1)"; // Slight grow for error
-          // Animate icon change if needed
+          steps[stepKey].style.transform = "scale(1.1)"; 
           const iconEl = steps[stepKey].querySelector(".step-icon i");
           if (iconEl) {
-            iconEl.className = "fas fa-exclamation-triangle"; // Change to error icon
+            iconEl.className = "fas fa-exclamation-triangle";
           }
         }
       };
 
-      // Determine current step based on stage
       if (stage === STATUS.ERROR) {
         let errorStepFound = false;
         if (progress > 75 && steps.calculating) {
@@ -2672,20 +2667,19 @@ const STATUS = window.STATUS || {
           errorStepFound = true;
         }
 
-        // Mark previous steps as complete if error occurred later
         if (errorStepFound) {
-          if (steps.calculating.classList.contains("error") && steps.indexing)
+          if (steps.calculating?.classList.contains("error") && steps.indexing)
             markComplete("indexing");
           if (
-            (steps.calculating.classList.contains("error") ||
-              steps.indexing.classList.contains("error")) &&
+            (steps.calculating?.classList.contains("error") ||
+              steps.indexing?.classList.contains("error")) &&
             steps.preprocessing
           )
             markComplete("preprocessing");
           if (
-            (steps.calculating.classList.contains("error") ||
-              steps.indexing.classList.contains("error") ||
-              steps.preprocessing.classList.contains("error")) &&
+            (steps.calculating?.classList.contains("error") ||
+              steps.indexing?.classList.contains("error") ||
+              steps.preprocessing?.classList.contains("error")) &&
             steps.initializing
           )
             markComplete("initializing");
@@ -2694,16 +2688,9 @@ const STATUS = window.STATUS || {
       }
 
       if (stage === STATUS.CANCELED) {
-        // Mark all potentially active steps as warning/canceled (simplified to error style)
-        if (steps.calculating && steps.calculating.classList.contains("active"))
-          markError("calculating");
-        else if (steps.indexing && steps.indexing.classList.contains("active"))
-          markError("indexing");
-        else if (
-          steps.preprocessing &&
-          steps.preprocessing.classList.contains("active")
-        )
-          markError("preprocessing");
+        if (steps.calculating?.classList.contains("active")) markError("calculating");
+        else if (steps.indexing?.classList.contains("active")) markError("indexing");
+        else if (steps.preprocessing?.classList.contains("active")) markError("preprocessing");
         else if (steps.initializing) markError("initializing");
         return;
       }
@@ -2720,9 +2707,7 @@ const STATUS = window.STATUS || {
         case STATUS.POST_PREPROCESSING:
           markComplete("initializing");
           markComplete("preprocessing");
-          // This state is transient, quickly followed by indexing or calculating
-          // So, we might show 'indexing' as active or just keep preprocessing as active briefly
-          markActive("indexing"); // Or mark a generic "processing" step
+          markActive("indexing"); 
           break;
         case STATUS.INDEXING:
           markComplete("initializing");
@@ -2748,7 +2733,7 @@ const STATUS = window.STATUS || {
           markComplete("calculating");
           markComplete("complete");
           break;
-        default: // Fallback for unknown stages or if progress is the only guide
+        default: 
           if (progress >= 100) {
             markComplete("initializing");
             markComplete("preprocessing");
@@ -2800,7 +2785,6 @@ const STATUS = window.STATUS || {
         "#taskProgressModal .elapsed-time",
       );
       const estimatedTimeEl = document.querySelector(
-        // For future use
         "#taskProgressModal .estimated-time",
       );
 
@@ -3175,7 +3159,6 @@ const STATUS = window.STATUS || {
       ).toFixed(1);
       const totalSegments = parseInt(coverage.total_segments || 0, 10);
 
-      // Sum covered segments, handling both key names from different API shapes
       let coveredSegments = 0;
       if (Array.isArray(coverage.street_types)) {
         coveredSegments = coverage.street_types.reduce((sum, typeStats) => {
@@ -3409,15 +3392,14 @@ const STATUS = window.STATUS || {
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
       try {
-        // const lastMapView = JSON.parse(localStorage.getItem('lastMapView')); // Removed for initial dashboard load
         const mapOptions = {
           container: "coverage-map",
-          style: "mapbox://styles/mapbox/dark-v11", // Or a user-selectable style
-          center: [0, 0], // Default to world view initially
-          zoom: 1, // Default to world view initially
-          minZoom: 0, // Allow zooming out to world view
+          style: "mapbox://styles/mapbox/dark-v11", 
+          center: [0, 0], 
+          zoom: 1, 
+          minZoom: 0, 
           maxZoom: 20,
-          preserveDrawingBuffer: true, // For export
+          preserveDrawingBuffer: true, 
           attributionControl: false,
         };
         this.coverageMap = new mapboxgl.Map(mapOptions);
@@ -3445,10 +3427,9 @@ const STATUS = window.STATUS || {
           }
           this.addCoverageSummary(coverage);
           this.fitMapToBounds();
-          this.setupMapEventHandlers(); // Re-setup if map is re-initialized
+          this.setupMapEventHandlers(); 
 
           if (this.showTripsActive) {
-            // If trip overlay was active, re-setup and load
             this.setupTripLayers();
             this.loadTripsForView();
           }
@@ -3796,9 +3777,6 @@ const STATUS = window.STATUS || {
           if (this.streetTypeChartInstance)
             this.streetTypeChartInstance.destroy();
           this.createStreetTypeChart(refreshData.coverage.street_types || []);
-
-          // Optionally, fetch fresh streets GeoJSON if it might have changed beyond just 'driven' status
-          // For now, assume the optimistic update is sufficient for visual feedback on the map
         } else {
           this.notificationManager.show(
             `Failed to refresh stats: ${refreshData.detail || "Unknown error"}`,
@@ -3836,7 +3814,6 @@ const STATUS = window.STATUS || {
     fitMapToBounds() {
       if (this.coverageMap && this.mapBounds && !this.mapBounds.isEmpty()) {
         try {
-          // Use tighter padding so the area fills more of the container
           this.coverageMap.fitBounds(this.mapBounds, {
             padding: 20,
             maxZoom: 17,
@@ -3844,15 +3821,12 @@ const STATUS = window.STATUS || {
           });
         } catch (e) {
           console.error("Error fitting map to bounds:", e);
-          // Don't set a default center here, let it stay at world view if bounds are problematic
           this.notificationManager.show(
             "Could not zoom to area bounds. Map view may be incorrect.",
             "warning",
           );
         }
       } else if (this.coverageMap) {
-        // If no bounds, it means the area is likely empty or has no geometry.
-        // The map will remain at the initial world view.
         this.notificationManager.show(
           "No geographical data to display for this area.",
           "info",

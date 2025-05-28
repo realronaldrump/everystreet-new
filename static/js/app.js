@@ -1084,7 +1084,7 @@
       `;
     },
 
-    setupPopupEventListeners(popup, feature) {
+    setupPopupEventListeners(popup) {
       const popupElement = popup.getElement();
       if (!popupElement) return;
 
