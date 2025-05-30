@@ -1,3 +1,4 @@
+
 /* global DateUtils, mapboxgl */
 
 class LiveTripTracker {
@@ -403,15 +404,8 @@ class LiveTripTracker {
     this.errorMessageElem.classList.add("d-none");
   }
 
-  setActiveTrip(trip) {
-    if (!trip) return;
-
-    // Prevent redundant redraws if nothing changed:
-    if (this.activeTrip && this.activeTrip.sequence === trip.sequence) return;
-
-    const isNewTrip =
-      !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
-
+  // Helper for trip completion logic
+  handleTripCompletion(trip) {
     if (trip.status === "completed") {
       window.handleError(
         "Trip is completed, clearing from map",
@@ -421,18 +415,18 @@ class LiveTripTracker {
       this.clearActiveTrip();
       this.updateActiveTripsCount(0);
       this.updateStatus(true, "No active trips");
-      return;
+      return true;
     }
+    return false;
+  }
 
-    this.activeTrip = trip;
-
-    // Handle coordinates - could be in coordinates array or need to be extracted from gps
+  // Extract and sort coordinates from trip data
+  extractCoordinates(trip) {
     let coordinates = [];
 
     if (Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
       coordinates = trip.coordinates;
     } else if (trip.gps) {
-      // Extract from GeoJSON if coordinates array is missing
       const gps = trip.gps;
       if (
         gps.type === "Point" &&
@@ -447,9 +441,7 @@ class LiveTripTracker {
           },
         ];
       } else if (gps.type === "LineString" && Array.isArray(gps.coordinates)) {
-        // Convert GeoJSON to coordinate objects
-        // Note: We lose timestamp precision here
-        coordinates = gps.coordinates.map((coord, index) => ({
+        coordinates = gps.coordinates.map((coord) => ({
           lon: coord[0],
           lat: coord[1],
           timestamp: trip.startTime, // This is approximate
@@ -463,10 +455,10 @@ class LiveTripTracker {
         "setActiveTrip",
         "warn",
       );
-      return;
+      return null;
     }
 
-    // Sort coordinates by timestamp if available
+    // Sort by timestamp if available
     if (coordinates[0].timestamp) {
       coordinates.sort((a, b) => {
         const timeA = new Date(a.timestamp).getTime();
@@ -475,14 +467,16 @@ class LiveTripTracker {
       });
     }
 
-    // Convert coordinates to Mapbox format [lng, lat]
+    return coordinates;
+  }
+
+  // Create GeoJSON features from coordinates
+  createGeoJSONFeatures(coordinates) {
     const mapboxCoords = coordinates.map((coord) => [coord.lon, coord.lat]);
     const lastPoint = mapboxCoords[mapboxCoords.length - 1];
-
-    // Create GeoJSON features for Mapbox
     const features = [];
 
-    // Add line feature if we have multiple points
+    // Line feature for path
     if (mapboxCoords.length > 1) {
       features.push({
         type: "Feature",
@@ -494,13 +488,13 @@ class LiveTripTracker {
       });
     }
 
-    // Add marker feature for current position
+    // Marker for current position
     if (lastPoint) {
       features.push({
         type: "Feature",
         properties: {
           type: "marker",
-          speed: trip.currentSpeed || 0,
+          speed: this.activeTrip.currentSpeed || 0,
         },
         geometry: {
           type: "Point",
@@ -509,23 +503,14 @@ class LiveTripTracker {
       });
     }
 
-    // Update the map source with new data
-    const source = this.map.getSource(this.liveSourceId);
-    if (source) {
-      source.setData({
-        type: "FeatureCollection",
-        features: features,
-      });
-    }
+    return { features, mapboxCoords, lastPoint };
+  }
 
-    // Update marker styling based on speed
-    this.updateMarkerStyle(trip.currentSpeed || 0);
-
-    // Handle map view for new trips
+  // Update map view based on trip data
+  updateMapView(mapboxCoords, lastPoint, isNewTrip) {
     if (isNewTrip && mapboxCoords.length > 0) {
       if (mapboxCoords.length > 1) {
         try {
-          // Create bounds and fit map to show entire trip
           const bounds = new mapboxgl.LngLatBounds();
           mapboxCoords.forEach((coord) => bounds.extend(coord));
           this.map.fitBounds(bounds, { padding: 50 });
@@ -540,15 +525,51 @@ class LiveTripTracker {
       lastPoint &&
       window.utils.getStorage("autoFollowVehicle") === "true"
     ) {
-      // Auto-follow vehicle if enabled
       const bounds = this.map.getBounds();
       const point = new mapboxgl.LngLat(lastPoint[0], lastPoint[1]);
       if (!bounds.contains(point)) {
         this.map.panTo(lastPoint);
       }
     }
+  }
 
-    // Store last position for animation reference
+  setActiveTrip(trip) {
+    if (!trip) return;
+
+    // Prevent redundant redraws
+    if (this.activeTrip && this.activeTrip.sequence === trip.sequence) return;
+
+    const isNewTrip =
+      !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
+
+    // Handle trip completion
+    if (this.handleTripCompletion(trip)) return;
+
+    this.activeTrip = trip;
+
+    // Extract and process coordinates
+    const coordinates = this.extractCoordinates(trip);
+    if (!coordinates) return;
+
+    // Create GeoJSON features
+    const { features, mapboxCoords, lastPoint } = this.createGeoJSONFeatures(coordinates);
+
+    // Update map source
+    const source = this.map.getSource(this.liveSourceId);
+    if (source) {
+      source.setData({
+        type: "FeatureCollection",
+        features,
+      });
+    }
+
+    // Update marker styling
+    this.updateMarkerStyle(trip.currentSpeed || 0);
+
+    // Update map view
+    this.updateMapView(mapboxCoords, lastPoint, isNewTrip);
+
+    // Store last position
     this.lastMarkerLatLng = lastPoint;
   }
 
@@ -572,7 +593,7 @@ class LiveTripTracker {
       radius = 8;
     }
 
-    // Update marker paint properties
+    // Update marker
     this.map.setPaintProperty(this.liveMarkerLayerId, "circle-color", color);
     this.map.setPaintProperty(this.liveMarkerLayerId, "circle-radius", radius);
   }
@@ -600,9 +621,8 @@ class LiveTripTracker {
     }
   }
 
-  updateTripMetrics(trip) {
-    if (!this.tripMetricsElem || !trip) return;
-
+  // Compute trip metrics from trip data
+  computeTripMetrics(trip) {
     let startTime = trip.startTime ? new Date(trip.startTime) : null;
     const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
     const endTime = trip.endTime ? new Date(trip.endTime) : null;
@@ -638,7 +658,6 @@ class LiveTripTracker {
         : 0;
 
     let startTimeFormatted = "N/A";
-
     if (trip.startTimeFormatted) {
       startTimeFormatted = trip.startTimeFormatted;
     } else if (startTime) {
@@ -663,12 +682,7 @@ class LiveTripTracker {
       }
     }
 
-    const metrics = this.formatTripMetrics({
-      trip,
-      startTime,
-      lastUpdate,
-      endTime,
-      tripStatus,
+    return {
       durationStr,
       distance,
       currentSpeed,
@@ -680,15 +694,28 @@ class LiveTripTracker {
       hardBrakingCounts,
       hardAccelerationCounts,
       startTimeFormatted,
-    });
+      lastUpdate
+    };
+  }
 
-    window.handleError(
-      `Displaying metrics:${JSON.stringify(metrics)}`,
-      "updateTripMetrics",
-      "info",
-    );
+  // Render trip metrics to DOM
+  renderTripMetrics(metrics) {
+    const formattedMetrics = {
+      "Start Time": metrics.startTimeFormatted,
+      Duration: metrics.durationStr || "0:00:00",
+      Distance: `${metrics.distance.toFixed(2)} miles`,
+      "Current Speed": `${metrics.currentSpeed.toFixed(1)} mph`,
+      "Average Speed": `${metrics.avgSpeed.toFixed(1)} mph`,
+      "Max Speed": `${metrics.maxSpeed.toFixed(1)} mph`,
+      "Points Recorded": metrics.pointsRecorded,
+      "Start Odometer": `${metrics.startOdometer}${metrics.startOdometer !== "N/A" ? " miles" : ""}`,
+      "Total Idling Time": `${DateUtils.formatSecondsToHMS(metrics.totalIdlingTime)}`,
+      "Hard Braking": metrics.hardBrakingCounts,
+      "Hard Acceleration": metrics.hardAccelerationCounts,
+      "Last Update": metrics.lastUpdate ? DateUtils.formatTimeAgo(metrics.lastUpdate) : "N/A",
+    };
 
-    this.tripMetricsElem.innerHTML = Object.entries(metrics)
+    this.tripMetricsElem.innerHTML = Object.entries(formattedMetrics)
       .map(
         ([label, value]) => `<div class="metric-row">
         <span class="metric-label">${label}:</span>
@@ -698,38 +725,11 @@ class LiveTripTracker {
       .join("");
   }
 
-  formatTripMetrics({
-    trip,
-    startTime,
-    lastUpdate,
-    endTime,
-    tripStatus,
-    durationStr,
-    distance,
-    currentSpeed,
-    avgSpeed,
-    maxSpeed,
-    pointsRecorded,
-    startOdometer,
-    totalIdlingTime,
-    hardBrakingCounts,
-    hardAccelerationCounts,
-    startTimeFormatted,
-  }) {
-    return {
-      "Start Time": startTimeFormatted,
-      Duration: durationStr || "0:00:00",
-      Distance: `${distance.toFixed(2)} miles`,
-      "Current Speed": `${currentSpeed.toFixed(1)} mph`,
-      "Average Speed": `${avgSpeed.toFixed(1)} mph`,
-      "Max Speed": `${maxSpeed.toFixed(1)} mph`,
-      "Points Recorded": pointsRecorded,
-      "Start Odometer": `${startOdometer}${startOdometer !== "N/A" ? " miles" : ""}`,
-      "Total Idling Time": `${DateUtils.formatSecondsToHMS(totalIdlingTime)}`,
-      "Hard Braking": hardBrakingCounts,
-      "Hard Acceleration": hardAccelerationCounts,
-      "Last Update": lastUpdate ? DateUtils.formatTimeAgo(lastUpdate) : "N/A",
-    };
+  updateTripMetrics(trip) {
+    if (!this.tripMetricsElem || !trip) return;
+
+    const metrics = this.computeTripMetrics(trip);
+    this.renderTripMetrics(metrics);
   }
 
   updatePolylineStyle(color, opacity) {
@@ -756,8 +756,6 @@ class LiveTripTracker {
 
   bringLiveTripToFront() {
     // In Mapbox GL JS, layer order is determined by the order they're added
-    // We could potentially re-add the layers to bring them to front, but
-    // for live tracking this is usually not necessary as they're added last
     window.handleError(
       "LiveTripTracker: Layers maintained at front (Mapbox GL JS)",
       "bringLiveTripToFront",

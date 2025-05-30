@@ -19,4 +19,4 @@ node_modules/
 eslint.config.mjs
 .vscode
 .ruff_cache
-migrate_gps_field.py
+
