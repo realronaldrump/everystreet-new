@@ -450,9 +450,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
                 entry.get("timestamp"),
             )
             if "runtime" in entry:
-                entry["runtime"] = (
-                    float(entry["runtime"]) if entry["runtime"] else None
-                )
+                entry["runtime"] = float(entry["runtime"]) if entry["runtime"] else None
             history.append(entry)
 
         return {
@@ -564,9 +562,7 @@ async def reset_task_states():
 
                 runtime = now - start_time
                 if runtime > stuck_threshold:
-                    updates[f"tasks.{task_id}.status"] = (
-                        TaskStatus.FAILED.value
-                    )
+                    updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
                     updates[f"tasks.{task_id}.last_error"] = (
                         f"Task reset: ran for > {stuck_threshold}"
                     )
@@ -599,9 +595,7 @@ async def reset_task_states():
                 },
             },
         )
-        history_reset_count = (
-            history_result.modified_count if history_result else 0
-        )
+        history_reset_count = history_result.modified_count if history_result else 0
 
         if updates:
             config_update_result = await update_one_with_retry(
@@ -609,10 +603,7 @@ async def reset_task_states():
                 {"_id": "global_background_task_config"},
                 {"$set": updates},
             )
-            if (
-                not config_update_result
-                or config_update_result.modified_count == 0
-            ):
+            if not config_update_result or config_update_result.modified_count == 0:
                 logger.warning(
                     "Attempted to reset task states in config, but no document was modified.",
                 )

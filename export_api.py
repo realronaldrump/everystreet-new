@@ -97,9 +97,7 @@ async def export_single_trip(
             )
 
         start_date = t.get("startTime")
-        date_str = (
-            start_date.strftime("%Y%m%d") if start_date else "unknown_date"
-        )
+        date_str = start_date.strftime("%Y%m%d") if start_date else "unknown_date"
         filename_base = f"trip_{trip_id}_{date_str}"
 
         return await create_export_response([t], fmt, filename_base)
@@ -416,9 +414,7 @@ async def export_coverage_route_endpoint(
     except HTTPException as http_exc:
         raise http_exc
     except ValueError as ve:
-        logger.error(
-            f"ValueError in export_coverage_route_endpoint: {str(ve)}"
-        )
+        logger.error(f"ValueError in export_coverage_route_endpoint: {str(ve)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(ve),
