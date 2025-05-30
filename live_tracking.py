@@ -10,7 +10,6 @@ from pymongo.collection import Collection
 from pymongo.results import UpdateResult
 
 from db import SerializationHelper, run_transaction
-from timestamp_utils import sort_and_filter_trip_coordinates
 from utils import haversine
 
 logger = logging.getLogger(__name__)
