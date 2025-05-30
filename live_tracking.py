@@ -95,42 +95,25 @@ async def process_trip_start(
             data,
         )
         return
-    if not vin:
-        logger.warning(
-            "Missing vin in tripStart event for %s.",
-            transaction_id,
-        )
 
     start_timestamp_str = start_data.get("timestamp")
     start_time_zone = start_data.get("timeZone")
-    if start_time_zone is None:  # Try the lowercase version if camelCase is not found
+    if start_time_zone is None:
         start_time_zone = start_data.get("timezone")
     start_odometer = start_data.get("odometer")
-    start_lat = start_data.get("lat")
-    start_lon = start_data.get("lon")
 
     if start_time_zone is None:
         logger.error(
-            "Missing 'timeZone' in tripStart payload for %s. Defaulting to UTC. Payload: %s",
+            "Missing 'timeZone' in tripStart payload for %s. Defaulting to UTC.",
             transaction_id,
-            str(start_data)[:250],  # Log a portion of the data
         )
         start_time_zone = "UTC"
-    if start_odometer is None:
-        logger.error(
-            "Missing 'odometer' in tripStart payload for %s. Storing as null. Payload: %s",
-            transaction_id,
-            str(start_data)[:250],  # Log a portion of the data
-        )
-        start_odometer = None
 
     start_time = _parse_iso_datetime(start_timestamp_str)
-
     if not start_time:
         logger.error(
-            "Failed to extract valid start time from tripStart event for %s. Timestamp string: '%s'. Using current time as fallback.",
+            "Failed to extract valid start time from tripStart event for %s. Using current time as fallback.",
             transaction_id,
-            start_timestamp_str,
         )
         start_time = datetime.now(timezone.utc)
 
@@ -141,6 +124,8 @@ async def process_trip_start(
 
     sequence = int(time.time_ns() / 1000)
 
+    # Note: tripStart doesn't include GPS coordinates according to API spec
+    # Initialize with empty coordinates, will be populated by tripData events
     new_trip = {
         "transactionId": transaction_id,
         "vin": vin,
@@ -151,19 +136,16 @@ async def process_trip_start(
         "startOdometer": start_odometer,
         "gps": {
             "type": "Point",
-            "coordinates": (
-                [start_lon, start_lat]
-                if start_lon is not None and start_lat is not None
-                else []
-            ),
-        },
+            "coordinates": [],
+        },  # Empty until we get tripData
+        "coordinates": [],  # Maintain for frontend compatibility
         "lastUpdate": start_time,
         "distance": 0.0,
         "currentSpeed": 0.0,
         "maxSpeed": 0.0,
         "avgSpeed": 0.0,
         "duration": 0.0,
-        "pointsRecorded": (1 if start_lon is not None and start_lat is not None else 0),
+        "pointsRecorded": 0,
         "sequence": sequence,
         "totalIdlingTime": 0.0,
         "hardBrakingCounts": 0,
@@ -208,6 +190,7 @@ async def process_trip_start(
         )
 
 
+# In live_tracking.py - Replace the entire process_trip_data function
 async def process_trip_data(
     data: dict[str, Any],
     live_collection: Collection,
@@ -284,21 +267,43 @@ async def process_trip_data(
         len(trip_data_points),
     )
 
-    try:
-        new_coords: list[dict[str, Any]] = sort_and_filter_trip_coordinates(
-            trip_data_points,
-        )
-    except Exception as e:
-        logger.exception(
-            "Error processing coordinates from tripData for %s: %s",
-            transaction_id,
-            e,
-        )
-        return
+    # Process and normalize the incoming data points
+    new_coords = []
+    for point in trip_data_points:
+        timestamp = None
+        lat = None
+        lon = None
+        speed = None
+
+        # Parse timestamp
+        if "timestamp" in point:
+            timestamp = _parse_iso_datetime(point["timestamp"])
+
+        # Parse GPS data - handle nested structure
+        if "gps" in point and isinstance(point["gps"], dict):
+            lat = point["gps"].get("lat")
+            lon = point["gps"].get("lon")
+
+        # Parse speed if available
+        if "speed" in point:
+            speed = point.get("speed")
+
+        # Validate we have minimum required data
+        if timestamp and lat is not None and lon is not None:
+            coord_data = {"timestamp": timestamp, "lat": lat, "lon": lon}
+            if speed is not None:
+                coord_data["speed"] = speed
+            new_coords.append(coord_data)
+        else:
+            logger.debug(
+                "Skipping invalid data point in tripData for %s: %s",
+                transaction_id,
+                point,
+            )
 
     if not new_coords:
         logger.info(
-            "No valid *new* coordinates found after processing tripData for %s.",
+            "No valid coordinates found in tripData for %s.",
             transaction_id,
         )
         sequence = max(
@@ -316,330 +321,127 @@ async def process_trip_data(
         )
         return
 
-    # GPS Data Handling - GeoJSON
-    gps_data = trip_doc.get("gps")
-    # current_gps_coords_with_timestamps = []  # Stores [lon, lat, timestamp]
+    # Sort by timestamp
+    new_coords.sort(key=lambda x: x["timestamp"])
 
-    if gps_data and isinstance(gps_data, dict):
-        gps_type = gps_data.get("type")
-        gps_coords_raw = gps_data.get("coordinates", [])
+    # Get existing coordinates from trip document
+    existing_coords = trip_doc.get("coordinates", [])
 
-        if gps_type == "Point" and gps_coords_raw:
-            # For a Point, we need to associate its timestamp.
-            # This assumes the point's timestamp is the trip's lastUpdate or startTime if no other timestamp available.
-            # This part is tricky as Point GeoJSON doesn't store timestamp.
-            # We'll rely on new_coords having timestamps.
-            # If gps_coords_raw is not empty, it's [lon, lat].
-            # We need to find its original timestamp if we are to merge it correctly.
-            # For simplicity, if new_coords arrive, the Point will likely become a LineString.
-            # We will use the new_coords directly for calculations if the existing point is just a start point.
-            # The initial point from trip_start is implicitly timestamped with startTime.
-            # We will build sorted_unique_coords_with_timestamps from scratch using new_coords
-            # and potentially the initial point if it's distinct.
-            # Extract the initial point's coordinates and timestamp (if available).
-            initial_point = {
-                "lon": gps_coords_raw[0],
-                "lat": gps_coords_raw[1],
-                "timestamp": gps_data.get("timestamp", None)
-                or trip_doc.get("startTime"),
-            }
+    # Merge with existing coordinates
+    all_coords_map = {}
 
-            # Combine the initial point with new_coords, ensuring no duplicates.
-            all_coords = [initial_point] + new_coords
-
-            # Sort and filter the combined coordinates by timestamp.
-            sorted_unique_coords = sort_and_filter_trip_coordinates(all_coords)
-
-            # Update gps_data with the merged coordinates.
-            gps_data["type"] = "LineString"
-            gps_data["coordinates"] = [
-                [c["lon"], c["lat"]] for c in sorted_unique_coords
-            ]
-        elif gps_type == "LineString" and gps_coords_raw:
-            # For LineString, we assume coordinates are [[lon, lat], [lon, lat], ...].
-            # We need to reconstruct their timestamps. This is a simplification.
-            # The current design of storing only [lon, lat] in GeoJSON means
-            # we must rely on `new_coords` (which have timestamps) for accurate metric calculations.
-            # The existing coordinates in `gps_data.coordinates` are primarily for path geometry.
-            # For metric recalculation, we should ideally use a timestamped list.
-            # The challenge: `sort_and_filter_trip_coordinates` returns dicts with 'lon', 'lat', 'timestamp'.
-            # We need to merge these with the existing GeoJSON coordinates.
-
-            # This section is simplified: assumes existing_coords_with_timestamps can be reconstructed
-            # if necessary, but for this flow, we'll focus on merging new_coords.
-            # The `all_coords_map` logic below will handle the merging based on timestamps.
-            pass  # Placeholder: logic below handles merging.
-
-    # Merge new_coords with existing coordinate data for metric calculation
-    # new_coords is a list of dicts: [{'lon': ..., 'lat': ..., 'timestamp': ...}, ...]
-    # We need to maintain a list of such dicts for calculations.
-
-    all_coords_map: dict[
-        str, dict[str, Any]
-    ] = {}  # timestamp_iso_string -> {lon, lat, timestamp}
-
-    # Populate from existing trip_doc's initial point if it exists and is valid
-    # This handles the case where the trip started with a point and this is the first tripData
-    if gps_data and gps_data.get("type") == "Point" and gps_data.get("coordinates"):
-        initial_lon, initial_lat = gps_data["coordinates"]
-        initial_ts = trip_doc.get("startTime")  # Timestamp of the initial point
-        if (
-            isinstance(initial_ts, datetime)
-            and initial_lon is not None
-            and initial_lat is not None
-        ):
-            all_coords_map[initial_ts.isoformat()] = {
-                "lon": initial_lon,
-                "lat": initial_lat,
-                "timestamp": initial_ts,
-            }
-
-    # Add new coordinates, potentially overwriting if timestamps are identical (unlikely for distinct points)
-    for c_dict in new_coords:  # c_dict is {'lon': ..., 'lat': ..., 'timestamp': ...}
-        ts = c_dict.get("timestamp")
-        if (
-            isinstance(ts, datetime)
-            and c_dict.get("lon") is not None
-            and c_dict.get("lat") is not None
-        ):
-            all_coords_map[ts.isoformat()] = c_dict
-        else:
-            logger.warning(
-                "Skipping new coordinate due to invalid data: %s for trip %s",
-                c_dict,
-                transaction_id,
+    # Add existing coordinates to map
+    for coord in existing_coords:
+        if isinstance(coord, dict) and "timestamp" in coord:
+            ts_key = (
+                coord["timestamp"].isoformat()
+                if isinstance(coord["timestamp"], datetime)
+                else str(coord["timestamp"])
             )
+            all_coords_map[ts_key] = coord
 
-    if not all_coords_map:
-        logger.warning(
-            "No valid coordinates (initial or new) to process for trip %s.",
-            transaction_id,
-        )
-        # No change to GPS, but update sequence and lastUpdate
-        sequence = max(trip_doc.get("sequence", 0) + 1, int(time.time_ns() / 1000))
-        await live_collection.update_one(
-            {"_id": trip_doc["_id"]},
-            {
-                "$set": {
-                    "sequence": sequence,
-                    "lastUpdate": datetime.now(timezone.utc),
-                }
-            },
-        )
-        return
+    # Add new coordinates, potentially overwriting duplicates
+    for coord in new_coords:
+        ts_key = coord["timestamp"].isoformat()
+        all_coords_map[ts_key] = coord
 
-    # This list contains dicts like {'lon': ..., 'lat': ..., 'timestamp': ...}
-    # sorted by timestamp. This is used for metric calculations.
-    sorted_coords_for_metrics = sorted(
-        all_coords_map.values(), key=lambda c: c["timestamp"]
+    # Sort all coordinates by timestamp
+    sorted_coords = sorted(
+        all_coords_map.values(), key=lambda x: x["timestamp"]
     )
 
-    # Now, prepare the GeoJSON `gps` field based on `sorted_coords_for_metrics`
-    # This list contains just [lon, lat] pairs for GeoJSON.
-    geojson_coordinate_list = [
-        [c["lon"], c["lat"]]
-        for c in sorted_coords_for_metrics
-        if c.get("lon") is not None and c.get("lat") is not None
-    ]
+    # Build GeoJSON representation
+    geojson_coords = []
+    for coord in sorted_coords:
+        if "lon" in coord and "lat" in coord:
+            geojson_coords.append([coord["lon"], coord["lat"]])
 
-    # Deduplicate consecutive points for GeoJSON LineString
-    if len(geojson_coordinate_list) > 1:
-        unique_geojson_coords = [geojson_coordinate_list[0]]
-        for i in range(1, len(geojson_coordinate_list)):
-            if geojson_coordinate_list[i] != geojson_coordinate_list[i - 1]:
-                unique_geojson_coords.append(geojson_coordinate_list[i])
-        geojson_coordinate_list = unique_geojson_coords
+    # Determine GeoJSON type
+    if len(geojson_coords) == 0:
+        updated_gps = {"type": "Point", "coordinates": []}
+    elif len(geojson_coords) == 1:
+        updated_gps = {"type": "Point", "coordinates": geojson_coords[0]}
+    else:
+        # Remove consecutive duplicates
+        unique_coords = [geojson_coords[0]]
+        for i in range(1, len(geojson_coords)):
+            if geojson_coords[i] != geojson_coords[i - 1]:
+                unique_coords.append(geojson_coords[i])
 
-    updated_gps_field = None
-    if not geojson_coordinate_list:
-        logger.warning(
-            "No valid [lon, lat] pairs to form GeoJSON for trip %s.",
-            transaction_id,
-        )
-        # Keep existing gps field or set to Point with empty coordinates if it was null
-        updated_gps_field = (
-            gps_data if gps_data else {"type": "Point", "coordinates": []}
-        )
-    elif len(geojson_coordinate_list) == 1:
-        updated_gps_field = {
-            "type": "Point",
-            "coordinates": geojson_coordinate_list[0],
-        }
-    else:  # >= 2 points
-        updated_gps_field = {
-            "type": "LineString",
-            "coordinates": geojson_coordinate_list,
-        }
+        if len(unique_coords) == 1:
+            updated_gps = {"type": "Point", "coordinates": unique_coords[0]}
+        else:
+            updated_gps = {"type": "LineString", "coordinates": unique_coords}
 
-    if (
-        not sorted_coords_for_metrics
-    ):  # Should be caught by all_coords_map check, but as a safeguard
-        logger.warning(
-            "No coordinates available for metric calculation after sorting/deduplication for trip %s.",
-            transaction_id,
-        )
-        return
-
+    # Calculate metrics
     start_time = trip_doc.get("startTime")
     if not isinstance(start_time, datetime):
         start_time = (
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
-            else (
-                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
-            )
+            else None
         )
-        if not isinstance(start_time, datetime):
-            logger.error(
-                "Invalid or missing startTime (%s) in existing trip document for %s. Cannot calculate duration/avgSpeed accurately. Using first coordinate time as fallback.",
-                type(trip_doc.get("startTime")).__name__,
-                transaction_id,
-            )
-            start_time = sorted_coords_for_metrics[0].get("timestamp")
 
-    last_point_time = sorted_coords_for_metrics[-1].get("timestamp")
+    last_point_time = (
+        sorted_coords[-1]["timestamp"]
+        if sorted_coords
+        else datetime.now(timezone.utc)
+    )
     duration_seconds = 0.0
-    if isinstance(start_time, datetime) and isinstance(
-        last_point_time,
-        datetime,
-    ):
+    if start_time and isinstance(last_point_time, datetime):
         duration_seconds = max(
-            0.0,
-            (last_point_time - start_time).total_seconds(),
-        )
-        if duration_seconds == 0 and last_point_time != start_time:
-            logger.warning(
-                "Calculated zero duration despite different start/end times for trip %s",
-                transaction_id,
-            )
-    else:
-        logger.warning(
-            "Cannot calculate duration for trip %s due to missing/invalid start (%s) or last point time (%s).",
-            transaction_id,
-            type(start_time).__name__,
-            type(last_point_time).__name__,
+            0.0, (last_point_time - start_time).total_seconds()
         )
 
-    max_segment_speed_mph = 0.0
-    current_speed_mph = 0.0
-    full_trip_distance_miles = 0.0
-    valid_speeds_for_avg_mph = []
+    # Calculate distance and speeds
+    total_distance = 0.0
+    max_speed = 0.0
+    current_speed = 0.0
+    speeds = []
 
-    # Use sorted_coords_for_metrics for calculations as it contains timestamps
-    if len(sorted_coords_for_metrics) >= 2:
-        for i in range(1, len(sorted_coords_for_metrics)):
-            prev = sorted_coords_for_metrics[
-                i - 1
-            ]  # This is a dict with lon, lat, timestamp
-            curr = sorted_coords_for_metrics[
-                i
-            ]  # This is a dict with lon, lat, timestamp
+    if len(sorted_coords) >= 2:
+        for i in range(1, len(sorted_coords)):
+            prev = sorted_coords[i - 1]
+            curr = sorted_coords[i]
 
-            if (
-                not all(
-                    k in prev and isinstance(prev[k], (int, float))
-                    for k in ("lon", "lat")
-                )
-                or not all(
-                    k in curr and isinstance(curr[k], (int, float))
-                    for k in ("lon", "lat")
-                )
-                or not isinstance(
-                    prev.get("timestamp"),
-                    datetime,
-                )
-                or not isinstance(
-                    curr.get("timestamp"),
-                    datetime,
-                )
+            if all(k in prev for k in ["lon", "lat"]) and all(
+                k in curr for k in ["lon", "lat"]
             ):
-                logger.warning(
-                    "Skipping recalculation for segment %d-%d in trip %s due to invalid data types or missing keys.",
-                    i - 1,
-                    i,
-                    transaction_id,
-                )
-                continue
-
-            try:
-                segment_distance_miles = haversine(
+                segment_distance = haversine(
                     prev["lon"],
                     prev["lat"],
                     curr["lon"],
                     curr["lat"],
                     unit="miles",
                 )
-                if segment_distance_miles >= 0:
-                    full_trip_distance_miles += segment_distance_miles
+                total_distance += segment_distance
 
-                time_diff_seconds = (
-                    curr["timestamp"] - prev["timestamp"]
-                ).total_seconds()
+                # Calculate speed if we have timestamps
+                if "timestamp" in prev and "timestamp" in curr:
+                    time_diff = (
+                        curr["timestamp"] - prev["timestamp"]
+                    ).total_seconds()
+                    if time_diff > 0.5:
+                        segment_speed = (segment_distance / time_diff) * 3600
+                        if 0 <= segment_speed < 200:  # Reasonable speed range
+                            speeds.append(segment_speed)
+                            max_speed = max(max_speed, segment_speed)
+                            if i == len(sorted_coords) - 1:
+                                current_speed = segment_speed
 
-                if time_diff_seconds > 0.5:
-                    segment_speed_mph = (
-                        segment_distance_miles / time_diff_seconds
-                    ) * 3600
-                    if 0 <= segment_speed_mph < 200:
-                        max_segment_speed_mph = max(
-                            max_segment_speed_mph,
-                            segment_speed_mph,
-                        )
-                        valid_speeds_for_avg_mph.append(segment_speed_mph)
-                        if (
-                            i == len(sorted_coords_for_metrics) - 1
-                        ):  # Check if it's the last segment
-                            current_speed_mph = segment_speed_mph
-                    else:
-                        logger.debug(
-                            "Ignoring unrealistic segment speed %.1f mph during recalculation for trip %s",
-                            segment_speed_mph,
-                            transaction_id,
-                        )
-                elif time_diff_seconds < 0:
-                    logger.warning(
-                        "Negative time difference (%.2fs) detected between points %d and %d during recalculation for trip %s. Skipping segment speed.",
-                        time_diff_seconds,
-                        i - 1,
-                        i,
-                        transaction_id,
-                    )
+    # Use speed from data if available and no calculated speed
+    if current_speed == 0 and sorted_coords and "speed" in sorted_coords[-1]:
+        current_speed = sorted_coords[-1]["speed"]
 
-            except (
-                TypeError,
-                ValueError,
-            ) as calc_err:
-                logger.error(
-                    "Error during segment calculation for trip %s: %s. Prev: %s, Curr: %s",
-                    transaction_id,
-                    calc_err,
-                    prev,
-                    curr,
-                )
-                continue
+    # Calculate average speed
+    avg_speed = 0.0
+    if speeds:
+        avg_speed = sum(speeds) / len(speeds)
+    elif duration_seconds > 0:
+        avg_speed = total_distance / (duration_seconds / 3600)
 
-    max_speed_mph = max(
-        trip_doc.get("maxSpeed", 0.0),
-        max_segment_speed_mph,
-    )
-
-    avg_speed_mph = 0.0
-    if duration_seconds > 0:
-        duration_hours = duration_seconds / 3600
-        avg_speed_mph = (
-            full_trip_distance_miles / duration_hours if duration_hours > 0 else 0.0
-        )
-    elif valid_speeds_for_avg_mph:
-        avg_speed_mph = sum(valid_speeds_for_avg_mph) / len(
-            valid_speeds_for_avg_mph,
-        )
-        logger.info(
-            "Calculated fallback average speed %.1f mph for trip %s based on %d segments (duration was %.1fs).",
-            avg_speed_mph,
-            transaction_id,
-            len(valid_speeds_for_avg_mph),
-            duration_seconds,
-        )
+    # Preserve maximum speed
+    max_speed = max(max_speed, trip_doc.get("maxSpeed", 0.0))
 
     sequence = max(
         trip_doc.get("sequence", 0) + 1,
@@ -647,66 +449,41 @@ async def process_trip_data(
     )
 
     update_payload = {
-        # "coordinates": sorted_unique_coords, # Old field, remove
-        "gps": updated_gps_field,
-        "lastUpdate": last_point_time or datetime.now(timezone.utc),
-        "distance": full_trip_distance_miles,
-        "currentSpeed": current_speed_mph,
-        "maxSpeed": max_speed_mph,
-        "avgSpeed": avg_speed_mph,
+        "gps": updated_gps,
+        "coordinates": sorted_coords,  # Keep for frontend compatibility
+        "lastUpdate": last_point_time,
+        "distance": total_distance,
+        "currentSpeed": current_speed,
+        "maxSpeed": max_speed,
+        "avgSpeed": avg_speed,
         "duration": duration_seconds,
         "sequence": sequence,
-        "pointsRecorded": len(geojson_coordinate_list),  # Count of points in GeoJSON
+        "pointsRecorded": len(sorted_coords),
     }
 
-    # Remove old 'coordinates' field if it exists in the document from a previous structure
-    # This is done using $unset. If it's already not there, this does nothing.
-    unset_payload = {}
-    if "coordinates" in trip_doc:  # Check if the key exists in the loaded document
-        unset_payload["coordinates"] = ""
-
     try:
-        update_ops = {"$set": update_payload}
-        if unset_payload:
-            update_ops["$unset"] = unset_payload
-
         update_result = await live_collection.find_one_and_update(
             {"_id": trip_doc["_id"], "status": "active"},
-            update_ops,
+            {"$set": update_payload},
             return_document=pymongo.ReturnDocument.AFTER,
         )
 
         if update_result:
             logger.info(
-                "Updated trip data for %s: %d new points processed, total unique GPS points: %d (seq=%d). GPS type: %s",
+                "Updated trip data for %s: %d new points processed, total points: %d (seq=%d)",
                 transaction_id,
-                len(new_coords),  # Number of points received in this batch
-                len(geojson_coordinate_list),  # Number of points in the final GeoJSON
+                len(new_coords),
+                len(sorted_coords),
                 sequence,
-                updated_gps_field.get("type", "N/A"),
             )
         else:
             logger.warning(
-                "Failed to find active trip %s (_id: %s) for update after processing data. It might have been deleted/archived concurrently.",
+                "Failed to find active trip %s for update. May have been archived.",
                 transaction_id,
-                trip_doc.get("_id"),
             )
-            archived_check = await archive_collection.find_one(
-                {"transactionId": transaction_id}
-            )
-            if archived_check:
-                logger.info(
-                    "Trip %s was found in archive after failed live data update.",
-                    transaction_id,
-                )
-            else:
-                logger.warning(
-                    "Trip %s not found in live or archive after failed data update.",
-                    transaction_id,
-                )
     except Exception as update_err:
         logger.error(
-            "Database error updating trip %s after tripData processing: %s",
+            "Database error updating trip %s: %s",
             transaction_id,
             update_err,
         )
@@ -795,7 +572,10 @@ async def process_trip_metrics(
 
         # Helper to safely update fields from metrics_data
         def _safe_update_float(key: str, metric_key: str):
-            if metric_key in metrics_data and metrics_data[metric_key] is not None:
+            if (
+                metric_key in metrics_data
+                and metrics_data[metric_key] is not None
+            ):
                 try:
                     update_fields[key] = float(metrics_data[metric_key])
                 except (ValueError, TypeError):
@@ -807,7 +587,10 @@ async def process_trip_metrics(
                     )
 
         def _safe_update_int(key: str, metric_key: str):
-            if metric_key in metrics_data and metrics_data[metric_key] is not None:
+            if (
+                metric_key in metrics_data
+                and metrics_data[metric_key] is not None
+            ):
                 try:
                     update_fields[key] = int(metrics_data[metric_key])
                 except (ValueError, TypeError):
@@ -838,7 +621,9 @@ async def process_trip_metrics(
         update_fields["sequence"] = sequence
 
         if not update_fields:
-            logger.info("No fields to update from tripMetrics for %s.", transaction_id)
+            logger.info(
+                "No fields to update from tripMetrics for %s.", transaction_id
+            )
             return
 
         trip_id_to_update = initial_trip_doc["_id"]
@@ -921,7 +706,9 @@ async def process_trip_end(
 
     end_timestamp_str = end_data.get("timestamp")
     end_time_zone = end_data.get("timeZone")
-    if end_time_zone is None:  # Try the lowercase version if camelCase is not found
+    if (
+        end_time_zone is None
+    ):  # Try the lowercase version if camelCase is not found
         end_time_zone = end_data.get("timezone")
     end_odometer = end_data.get("odometer")
     fuel_consumed_raw = end_data.get("fuelConsumed")
@@ -1023,7 +810,9 @@ async def process_trip_end(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
+                _parse_iso_datetime(start_time)
+                if isinstance(start_time, str)
+                else None
             )
         )
 
@@ -1145,7 +934,9 @@ async def process_trip_end(
                 not gps_coords
                 or not isinstance(gps_coords, list)
                 or len(gps_coords) != 2
-                or not all(isinstance(coord, (int, float)) for coord in gps_coords)
+                or not all(
+                    isinstance(coord, (int, float)) for coord in gps_coords
+                )
             ):
                 logger.warning(
                     f"Trip {transaction_id}: Invalid Point coordinates for archiving. Setting gps to null."
@@ -1159,7 +950,9 @@ async def process_trip_end(
             )
             trip_to_archive["gps"] = None
 
-    elif gps_field_to_archive is not None:  # It exists but is not a dict (unexpected)
+    elif (
+        gps_field_to_archive is not None
+    ):  # It exists but is not a dict (unexpected)
         logger.warning(
             f"Trip {transaction_id}: 'gps' field is not a dict as expected for archiving ({type(gps_field_to_archive)}). Setting to null."
         )
@@ -1249,6 +1042,7 @@ async def process_trip_end(
         )
 
 
+# In live_tracking.py - Replace the get_active_trip function
 async def get_active_trip(
     since_sequence: int | None = None,
 ) -> dict[str, Any] | None:
@@ -1260,7 +1054,7 @@ async def get_active_trip(
         since_sequence: If provided, only return trip if its sequence number is greater.
 
     Returns:
-        Dict: The raw active trip document from MongoDB, or None.
+        Dict: The active trip document with coordinates field for frontend compatibility.
 
     """
     if live_trips_collection_global is None:
@@ -1316,6 +1110,43 @@ async def get_active_trip(
         ):
             active_trip_doc["_id"] = str(active_trip_doc["_id"])
 
+        # Ensure coordinates field exists for frontend compatibility
+        if "coordinates" not in active_trip_doc:
+            active_trip_doc["coordinates"] = []
+
+            # Try to build coordinates from GPS data if available
+            gps_data = active_trip_doc.get("gps", {})
+            if gps_data.get("type") == "LineString" and gps_data.get(
+                "coordinates"
+            ):
+                # Note: We lose timestamp information here since GeoJSON doesn't store it
+                # This is a limitation of the current design
+                coords = []
+                for i, coord in enumerate(gps_data["coordinates"]):
+                    if isinstance(coord, list) and len(coord) >= 2:
+                        coords.append(
+                            {
+                                "lon": coord[0],
+                                "lat": coord[1],
+                                "timestamp": active_trip_doc.get(
+                                    "startTime"
+                                ),  # Approximate
+                            }
+                        )
+                active_trip_doc["coordinates"] = coords
+            elif gps_data.get("type") == "Point" and gps_data.get(
+                "coordinates"
+            ):
+                coord = gps_data["coordinates"]
+                if isinstance(coord, list) and len(coord) >= 2:
+                    active_trip_doc["coordinates"] = [
+                        {
+                            "lon": coord[0],
+                            "lat": coord[1],
+                            "timestamp": active_trip_doc.get("startTime"),
+                        }
+                    ]
+
         logger.debug(
             "Found active trip matching query %s: %s with sequence %s",
             query,
@@ -1323,6 +1154,7 @@ async def get_active_trip(
             trip_seq,
         )
         return active_trip_doc
+
     logger.debug(
         "No active trip found matching query: %s",
         query,
@@ -1468,7 +1300,8 @@ async def cleanup_stale_trips_logic(
                         or not isinstance(gps_coords, list)
                         or len(gps_coords) != 2
                         or not all(
-                            isinstance(coord, (int, float)) for coord in gps_coords
+                            isinstance(coord, (int, float))
+                            for coord in gps_coords
                         )
                     ):
                         logger.warning(

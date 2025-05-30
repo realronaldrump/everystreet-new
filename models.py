@@ -92,6 +92,7 @@ class CoordinatePointModel(BaseModel):
         extra = "allow"
 
 
+# In models.py - Update the TripDataModel
 class TripDataModel(BaseModel):
     """Represents the data structure of a trip document as returned from the database,
     prepared for API responses. Includes fields observed in live_tracking.py.
@@ -108,7 +109,11 @@ class TripDataModel(BaseModel):
     endTime: datetime | None = None
     endTimeZone: str | None = None
     endOdometer: float | None = None
-    coordinates: list[CoordinatePointModel] = Field(default_factory=list)
+    # Support both formats
+    gps: dict[str, Any] | None = None  # GeoJSON format
+    coordinates: list[CoordinatePointModel] = Field(
+        default_factory=list
+    )  # Frontend format
     lastUpdate: datetime | None = None
     distance: float | None = None
     currentSpeed: float | None = None

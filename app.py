@@ -12,33 +12,62 @@ import gpxpy
 import pytz
 from dateutil import parser as dateutil_parser
 from dotenv import load_dotenv
-from fastapi import (FastAPI, File, HTTPException, Query, Request, UploadFile,
-                     WebSocket, WebSocketDisconnect, status)
+from fastapi import (
+    FastAPI,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from coverage_api import router as coverage_api_router
-from db import (SerializationHelper, aggregate_with_retry,
-                build_query_from_request, db_manager, delete_many_with_retry,
-                delete_one_with_retry, find_one_with_retry, find_with_retry,
-                get_trip_by_id, init_database, parse_query_date)
+from db import (
+    SerializationHelper,
+    aggregate_with_retry,
+    build_query_from_request,
+    db_manager,
+    delete_many_with_retry,
+    delete_one_with_retry,
+    find_one_with_retry,
+    find_with_retry,
+    get_trip_by_id,
+    init_database,
+    parse_query_date,
+)
 from driving_routes import router as driving_routes_router
 from export_api import router as export_api_router
 from live_tracking import get_active_trip, get_trip_updates
 from live_tracking import initialize_db as initialize_live_tracking_db
-from models import (ActiveTripResponseUnion, ActiveTripSuccessResponse,
-                    BulkProcessModel, CollectionModel, DateRangeModel,
-                    LocationModel, NoActiveTripResponse, ValidateLocationModel)
+from models import (
+    ActiveTripResponseUnion,
+    ActiveTripSuccessResponse,
+    BulkProcessModel,
+    CollectionModel,
+    DateRangeModel,
+    LocationModel,
+    NoActiveTripResponse,
+    ValidateLocationModel,
+)
 from osm_utils import generate_geojson_osm
 from pages import router as pages_router
 from tasks import process_webhook_event_task
 from tasks_api import router as tasks_api_router
 from trip_processor import TripProcessor, TripState
 from update_geo_points import update_geo_points
-from utils import (calculate_circular_average_hour, calculate_distance,
-                   cleanup_session, validate_location_osm)
+from utils import (
+    calculate_circular_average_hour,
+    calculate_distance,
+    cleanup_session,
+    validate_location_osm,
+)
 from visits import init_collections
 from visits import router as visits_router
 
@@ -80,7 +109,9 @@ CLIENT_ID = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
 REDIRECT_URI = os.getenv("REDIRECT_URI", "")
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE", "")
-AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
+AUTHORIZED_DEVICES = [
+    d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
+]
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
@@ -96,27 +127,29 @@ archived_live_trips_collection = db_manager.db["archived_live_trips"]
 
 
 class ConnectionManager:
-    """Keeps track of all connected clients and broadcasts JSON payloads."""
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
 
-    def __init__(self) -> None:
-        self.active: set[WebSocket] = set()
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
 
-    async def connect(self, ws: WebSocket) -> None:
-        await ws.accept()
-        self.active.add(ws)
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
 
-    def disconnect(self, ws: WebSocket) -> None:
-        self.active.discard(ws)
-
-    async def broadcast_json(self, data: dict) -> None:
-        living = set()
-        for ws in self.active:
+    async def broadcast(self, message: dict):
+        """Send message to all connected clients."""
+        disconnected = []
+        for connection in self.active_connections:
             try:
-                await ws.send_json(data)
-                living.add(ws)
-            except WebSocketDisconnect:
-                pass
-        self.active = living
+                await connection.send_json(message)
+            except Exception:
+                disconnected.append(connection)
+
+        # Clean up disconnected clients
+        for conn in disconnected:
+            if conn in self.active_connections:
+                self.active_connections.remove(conn)
 
 
 manager = ConnectionManager()
@@ -186,7 +219,9 @@ async def process_geojson_trip(
                 else datetime.now(timezone.utc)
             )
             etime_parsed = (
-                dateutil_parser.isoparse(etime_str) if etime_str else stime_parsed
+                dateutil_parser.isoparse(etime_str)
+                if etime_str
+                else stime_parsed
             )
             trip_geo = {
                 "type": geom.get("type"),
@@ -243,7 +278,8 @@ async def process_single_trip(
             return {
                 "status": "success",
                 "processing_status": processing_status,
-                "is_valid": processing_status["state"] == TripState.VALIDATED.value,
+                "is_valid": processing_status["state"]
+                == TripState.VALIDATED.value,
             }
         if geocode_only:
             await processor.validate()
@@ -257,7 +293,8 @@ async def process_single_trip(
             return {
                 "status": "success",
                 "processing_status": processing_status,
-                "geocoded": processing_status["state"] == TripState.GEOCODED.value,
+                "geocoded": processing_status["state"]
+                == TripState.GEOCODED.value,
                 "saved_id": saved_id,
             }
         await processor.process(do_map_match=map_match)
@@ -267,7 +304,8 @@ async def process_single_trip(
         return {
             "status": "success",
             "processing_status": processing_status,
-            "completed": processing_status["state"] == TripState.COMPLETED.value,
+            "completed": processing_status["state"]
+            == TripState.COMPLETED.value,
             "saved_id": saved_id,
         }
 
@@ -610,7 +648,9 @@ async def get_trips(request: Request):
                     et = et.astimezone(timezone.utc)
 
                 # Calculate duration in seconds
-                duration_seconds = (et - st).total_seconds() if st and et else 0
+                duration_seconds = (
+                    (et - st).total_seconds() if st and et else 0
+                )
 
                 geom = trip.get("gps")
                 num_points = 0
@@ -724,7 +764,9 @@ async def get_matched_trips(request: Request):
             try:
                 mgps = trip["matchedGps"]
                 geometry_dict = (
-                    mgps if isinstance(mgps, dict) else geojson_module.loads(mgps)
+                    mgps
+                    if isinstance(mgps, dict)
+                    else geojson_module.loads(mgps)
                 )
                 feature = geojson_module.Feature(
                     geometry=geometry_dict,
@@ -1052,7 +1094,9 @@ async def delete_trip(trip_id: str):
                 "message": "Trip deleted successfully",
                 "deleted_trips": result.deleted_count,
                 "deleted_matched_trips": (
-                    matched_delete_result.deleted_count if matched_delete_result else 0
+                    matched_delete_result.deleted_count
+                    if matched_delete_result
+                    else 0
                 ),
             }
 
@@ -1242,7 +1286,9 @@ async def upload_files(
     try:
         count = 0
         for file in files:
-            filename = file.filename.lower() if file.filename else "unknown_file"
+            filename = (
+                file.filename.lower() if file.filename else "unknown_file"
+            )
             content_data = await file.read()
 
             if filename.endswith(".gpx"):
@@ -1438,7 +1484,9 @@ async def get_trip_analytics(request: Request):
                 if hr not in hourly_data:
                     hourly_data[hr] = 0
                 hourly_data[hr] += r["tripCount"]
-            return [{"hour": h, "count": c} for h, c in sorted(hourly_data.items())]
+            return [
+                {"hour": h, "count": c} for h, c in sorted(hourly_data.items())
+            ]
 
         daily_list = organize_daily_data(results)
         hourly_list = organize_hourly_data(results)
@@ -1996,13 +2044,17 @@ async def get_trips_in_bounds(
 
         trip_features = []
         async for trip_doc in cursor:
-            if trip_doc.get("matchedGps") and trip_doc["matchedGps"].get("coordinates"):
+            if trip_doc.get("matchedGps") and trip_doc["matchedGps"].get(
+                "coordinates"
+            ):
                 coords = trip_doc["matchedGps"]["coordinates"]
                 if isinstance(coords, list) and len(coords) >= 2:
                     feature = geojson_module.Feature(
                         geometry=geojson_module.LineString(coords),
                         properties={
-                            "transactionId": trip_doc.get("transactionId", "N/A")
+                            "transactionId": trip_doc.get(
+                                "transactionId", "N/A"
+                            )
                         },
                     )
                     trip_features.append(feature)
@@ -2083,20 +2135,26 @@ async def driver_behavior_analytics():
         for t in trips
         if t.get("avgSpeed") is not None or t.get("averageSpeed") is not None
     )
-    avg_speed = speeds_sum / num_trips_with_speed if num_trips_with_speed > 0 else 0.0
+    avg_speed = (
+        speeds_sum / num_trips_with_speed if num_trips_with_speed > 0 else 0.0
+    )
 
     max_speeds = [get_field(t, "maxSpeed", default=0.0) for t in trips]
     max_speed = max(max_speeds) if max_speeds else 0.0
 
     hard_braking = sum(
-        get_field(t, "hardBrakingCounts", "hardBrakingCount", default=0) for t in trips
+        get_field(t, "hardBrakingCounts", "hardBrakingCount", default=0)
+        for t in trips
     )
     hard_accel = sum(
-        get_field(t, "hardAccelerationCounts", "hardAccelerationCount", default=0)
+        get_field(
+            t, "hardAccelerationCounts", "hardAccelerationCount", default=0
+        )
         for t in trips
     )
     idling = sum(
-        get_field(t, "totalIdlingTime", "totalIdleDuration", default=0.0) for t in trips
+        get_field(t, "totalIdlingTime", "totalIdleDuration", default=0.0)
+        for t in trips
     )
     fuel = sum(get_field(t, "fuelConsumed", default=0.0) for t in trips)
 
@@ -2198,89 +2256,33 @@ def convert_datetimes_to_isoformat(item: Any) -> Any:
 
 
 @app.websocket("/ws/trips")
-async def ws_trip_updates(websocket: WebSocket) -> None:
-    """Pushes the same structure returned by /api/trip_updates via WebSocket."""
+async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
-    client_info = (
-        f"{websocket.client.host}:{websocket.client.port}"
-        if websocket.client
-        else "UnknownClient"
-    )
-    logger.info(f"WebSocket client {client_info} connected to /ws/trips.")
+    last_sequence = 0
 
-    last_seq = 0
     try:
         while True:
-            try:
-                updates = await get_trip_updates(last_seq)
+            # Check for updates every 2 seconds
+            active_trip = await get_active_trip(since_sequence=last_sequence)
 
-                if updates and updates.get("has_update") and updates.get("trip"):
-                    trip_data = updates.get("trip")
-                    current_sequence = (
-                        trip_data.get("sequence")
-                        if isinstance(trip_data, dict)
-                        else None
-                    )
-
-                    if current_sequence is not None:
-                        # Convert all datetime objects in updates to ISO format strings
-                        updates = convert_datetimes_to_isoformat(updates)
-                        await websocket.send_json(updates)
-                        last_seq = current_sequence
-                    else:
-                        logger.warning(
-                            f"WebSocket {client_info}: Trip update for txId "
-                            f"{trip_data.get('transactionId') if isinstance(trip_data, dict) else 'N/A'} "
-                            f"is missing sequence. Current last_seq: {last_seq}. Update: {updates}"
-                        )
-                elif updates and updates.get("status") == "error":
-                    logger.error(
-                        f"WebSocket {client_info}: get_trip_updates returned error: "
-                        f"{updates.get('message')}. Update: {updates}"
-                    )
-
-            except WebSocketDisconnect:
-                logger.info(
-                    f"WebSocket {client_info}: Client disconnected during inner loop processing (WebSocketDisconnect)."
+            if active_trip:
+                # Serialize the trip data properly
+                serialized_trip = SerializationHelper.serialize_document(
+                    active_trip
                 )
-                raise
-            except Exception as e:
-                logger.error(
-                    f"WebSocket {client_info}: Error in WebSocket /ws/trips processing loop: {e!s}",
-                    exc_info=True,
-                )
-                try:
-                    await websocket.close(
-                        code=status.WS_1011_INTERNAL_ERROR,
-                        reason="Internal server error during update processing.",
-                    )
-                except Exception:
-                    pass
-                break
+                last_sequence = active_trip.get("sequence", last_sequence)
 
-            await asyncio.sleep(0.1)
+                await websocket.send_json(
+                    {"type": "trip_update", "trip": serialized_trip}
+                )
+
+            await asyncio.sleep(2)
 
     except WebSocketDisconnect:
-        logger.info(
-            f"WebSocket {client_info}: Client disconnected (handled by outer try/except)."
-        )
-    except Exception as e:
-        logger.error(
-            f"WebSocket {client_info}: Unhandled exception in WebSocket /ws/trips handler: {e!s}",
-            exc_info=True,
-        )
-        try:
-            await websocket.close(
-                code=status.WS_1011_INTERNAL_ERROR,
-                reason="Unhandled server error in WebSocket handler.",
-            )
-        except Exception:
-            pass
-    finally:
         manager.disconnect(websocket)
-        logger.info(
-            f"WebSocket {client_info}: Connection closed and resources cleaned up for /ws/trips."
-        )
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        manager.disconnect(websocket)
 
 
 @app.get("/api/trips")
@@ -2296,7 +2298,9 @@ async def list_trips(request: Request):
     for doc in docs:
         # serialize_trip will turn your MongoDB document into JSON-safe dict
         props = SerializationHelper.serialize_trip(doc)
-        features.append(geojson_module.Feature(geometry=doc["gps"], properties=props))
+        features.append(
+            geojson_module.Feature(geometry=doc["gps"], properties=props)
+        )
     return geojson_module.FeatureCollection(features)
 
 
@@ -2611,7 +2615,9 @@ async def get_metrics(request: Request):
             if display_hour == 0:
                 display_hour = 12
 
-            avg_start_time_str = f"{display_hour:02d}:{local_minute:02d} {am_pm}"
+            avg_start_time_str = (
+                f"{display_hour:02d}:{local_minute:02d} {am_pm}"
+            )
 
         avg_driving_time_str = "00:00"
         if total_trips > 0:

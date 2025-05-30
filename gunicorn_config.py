@@ -19,7 +19,9 @@ keepalive = 5
 errorlog = "-"
 loglevel = "warning"
 accesslog = "-"
-access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
+access_log_format = (
+    '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
+)
 logconfig_dict = {
     "version": 1,
     "disable_existing_loggers": False,

@@ -162,19 +162,22 @@ const STATUS = window.STATUS || {
     }
 
     _addBeforeUnloadListener() {
-        if (!this.isBeforeUnloadListenerActive) {
-            window.addEventListener("beforeunload", this.boundSaveProcessingState);
-            this.isBeforeUnloadListenerActive = true;
-            console.info("BeforeUnload listener added.");
-        }
+      if (!this.isBeforeUnloadListenerActive) {
+        window.addEventListener("beforeunload", this.boundSaveProcessingState);
+        this.isBeforeUnloadListenerActive = true;
+        console.info("BeforeUnload listener added.");
+      }
     }
 
     _removeBeforeUnloadListener() {
-        if (this.isBeforeUnloadListenerActive) {
-            window.removeEventListener("beforeunload", this.boundSaveProcessingState);
-            this.isBeforeUnloadListenerActive = false;
-            console.info("BeforeUnload listener removed.");
-        }
+      if (this.isBeforeUnloadListenerActive) {
+        window.removeEventListener(
+          "beforeunload",
+          this.boundSaveProcessingState,
+        );
+        this.isBeforeUnloadListenerActive = false;
+        console.info("BeforeUnload listener removed.");
+      }
     }
 
     // Enhanced initialization methods
@@ -1188,7 +1191,8 @@ const STATUS = window.STATUS || {
         const now = new Date();
         const savedTime = new Date(progressData.timestamp);
 
-        if (now - savedTime < 60 * 60 * 1000) { // 1 hour threshold
+        if (now - savedTime < 60 * 60 * 1000) {
+          // 1 hour threshold
           this.showInterruptedTaskNotification(progressData);
         } else {
           localStorage.removeItem("coverageProcessingState");
@@ -2083,7 +2087,8 @@ const STATUS = window.STATUS || {
 
           if (data.stage === lastStage) {
             consecutiveSameStage++;
-            if (consecutiveSameStage > 12) { // Increased threshold for stall warning
+            if (consecutiveSameStage > 12) {
+              // Increased threshold for stall warning
               this.notificationManager.show(
                 `Task seems stalled at: ${CoverageManager.formatStageName(data.stage)}`,
                 "warning",
@@ -2122,7 +2127,7 @@ const STATUS = window.STATUS || {
       }
 
       this.notificationManager.show(
-        `Polling timed out after ${Math.round((maxRetries * this.calculatePollInterval(STATUS.UNKNOWN, maxRetries-1))/60000)} minutes.`,
+        `Polling timed out after ${Math.round((maxRetries * this.calculatePollInterval(STATUS.UNKNOWN, maxRetries - 1)) / 60000)} minutes.`,
         "danger",
       );
       this.updateModalContent({
@@ -2630,20 +2635,20 @@ const STATUS = window.STATUS || {
           steps[stepKey].style.transform = "scale(0.9)"; // Slight shrink to indicate done
           const iconEl = steps[stepKey].querySelector(".step-icon i");
           if (iconEl) {
-            iconEl.className = "fas fa-check-circle"; 
+            iconEl.className = "fas fa-check-circle";
           }
         }
       };
       const markActive = (stepKey) => {
         if (steps[stepKey]) {
           steps[stepKey].classList.add("active");
-          steps[stepKey].style.transform = "scale(1.1)"; 
+          steps[stepKey].style.transform = "scale(1.1)";
         }
       };
       const markError = (stepKey) => {
         if (steps[stepKey]) {
           steps[stepKey].classList.add("error");
-          steps[stepKey].style.transform = "scale(1.1)"; 
+          steps[stepKey].style.transform = "scale(1.1)";
           const iconEl = steps[stepKey].querySelector(".step-icon i");
           if (iconEl) {
             iconEl.className = "fas fa-exclamation-triangle";
@@ -2688,9 +2693,12 @@ const STATUS = window.STATUS || {
       }
 
       if (stage === STATUS.CANCELED) {
-        if (steps.calculating?.classList.contains("active")) markError("calculating");
-        else if (steps.indexing?.classList.contains("active")) markError("indexing");
-        else if (steps.preprocessing?.classList.contains("active")) markError("preprocessing");
+        if (steps.calculating?.classList.contains("active"))
+          markError("calculating");
+        else if (steps.indexing?.classList.contains("active"))
+          markError("indexing");
+        else if (steps.preprocessing?.classList.contains("active"))
+          markError("preprocessing");
         else if (steps.initializing) markError("initializing");
         return;
       }
@@ -2707,7 +2715,7 @@ const STATUS = window.STATUS || {
         case STATUS.POST_PREPROCESSING:
           markComplete("initializing");
           markComplete("preprocessing");
-          markActive("indexing"); 
+          markActive("indexing");
           break;
         case STATUS.INDEXING:
           markComplete("initializing");
@@ -2733,7 +2741,7 @@ const STATUS = window.STATUS || {
           markComplete("calculating");
           markComplete("complete");
           break;
-        default: 
+        default:
           if (progress >= 100) {
             markComplete("initializing");
             markComplete("preprocessing");
@@ -3394,12 +3402,12 @@ const STATUS = window.STATUS || {
       try {
         const mapOptions = {
           container: "coverage-map",
-          style: "mapbox://styles/mapbox/dark-v11", 
-          center: [0, 0], 
-          zoom: 1, 
-          minZoom: 0, 
+          style: "mapbox://styles/mapbox/dark-v11",
+          center: [0, 0],
+          zoom: 1,
+          minZoom: 0,
           maxZoom: 20,
-          preserveDrawingBuffer: true, 
+          preserveDrawingBuffer: true,
           attributionControl: false,
         };
         this.coverageMap = new mapboxgl.Map(mapOptions);
@@ -3427,7 +3435,7 @@ const STATUS = window.STATUS || {
           }
           this.addCoverageSummary(coverage);
           this.fitMapToBounds();
-          this.setupMapEventHandlers(); 
+          this.setupMapEventHandlers();
 
           if (this.showTripsActive) {
             this.setupTripLayers();

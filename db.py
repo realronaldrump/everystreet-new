@@ -21,11 +21,19 @@ import certifi
 import pymongo
 from bson import ObjectId, json_util
 from fastapi import Request
-from motor.motor_asyncio import (AsyncIOMotorClient, AsyncIOMotorCollection,
-                                 AsyncIOMotorCursor, AsyncIOMotorDatabase,
-                                 AsyncIOMotorGridFSBucket)
-from pymongo.errors import (ConnectionFailure, DuplicateKeyError,
-                            OperationFailure, ServerSelectionTimeoutError)
+from motor.motor_asyncio import (
+    AsyncIOMotorClient,
+    AsyncIOMotorCollection,
+    AsyncIOMotorCursor,
+    AsyncIOMotorDatabase,
+    AsyncIOMotorGridFSBucket,
+)
+from pymongo.errors import (
+    ConnectionFailure,
+    DuplicateKeyError,
+    OperationFailure,
+    ServerSelectionTimeoutError,
+)
 from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
 logger = logging.getLogger(__name__)
@@ -52,7 +60,9 @@ class DatabaseManager:
         if not getattr(self, "_initialized", False):
             self._client: AsyncIOMotorClient | None = None
             self._db: AsyncIOMotorDatabase | None = None
-            self._gridfs_bucket_instance: None | (AsyncIOMotorGridFSBucket) = None
+            self._gridfs_bucket_instance: None | (
+                AsyncIOMotorGridFSBucket
+            ) = None
             self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
@@ -184,7 +194,10 @@ class DatabaseManager:
             MongoDB collection
 
         """
-        if collection_name not in self._collections or not self._connection_healthy:
+        if (
+            collection_name not in self._collections
+            or not self._connection_healthy
+        ):
             self._collections[collection_name] = self.db[collection_name]
         return self._collections[collection_name]
 
@@ -698,9 +711,13 @@ class SerializationHelper:
                 if isinstance(value, ObjectId):
                     fallback_result[key] = value
                 elif isinstance(value, datetime):
-                    fallback_result[key] = SerializationHelper.serialize_datetime(value)
+                    fallback_result[key] = (
+                        SerializationHelper.serialize_datetime(value)
+                    )
                 elif isinstance(value, (dict, list)):
-                    fallback_result[key] = f"<Complex Type: {type(value).__name__}>"
+                    fallback_result[key] = (
+                        f"<Complex Type: {type(value).__name__}>"
+                    )
                 else:
                     try:
                         json.dumps(value)
@@ -1534,7 +1551,9 @@ async def run_transaction(
             )
             return False
         except Exception as e:
-            logger.error("Unexpected error during transaction: %s", e, exc_info=True)
+            logger.error(
+                "Unexpected error during transaction: %s", e, exc_info=True
+            )
             return False
 
 

@@ -426,29 +426,70 @@ class LiveTripTracker {
 
     this.activeTrip = trip;
 
-    if (!Array.isArray(trip.coordinates) || trip.coordinates.length === 0) {
-      this.clearActiveTrip();
+    // Handle coordinates - could be in coordinates array or need to be extracted from gps
+    let coordinates = [];
+
+    if (Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
+      coordinates = trip.coordinates;
+    } else if (trip.gps) {
+      // Extract from GeoJSON if coordinates array is missing
+      const gps = trip.gps;
+      if (
+        gps.type === "Point" &&
+        Array.isArray(gps.coordinates) &&
+        gps.coordinates.length === 2
+      ) {
+        coordinates = [
+          {
+            lon: gps.coordinates[0],
+            lat: gps.coordinates[1],
+            timestamp: trip.startTime,
+          },
+        ];
+      } else if (gps.type === "LineString" && Array.isArray(gps.coordinates)) {
+        // Convert GeoJSON to coordinate objects
+        // Note: We lose timestamp precision here
+        coordinates = gps.coordinates.map((coord, index) => ({
+          lon: coord[0],
+          lat: coord[1],
+          timestamp: trip.startTime, // This is approximate
+        }));
+      }
+    }
+
+    if (coordinates.length === 0) {
+      window.handleError(
+        "No valid coordinates found in trip data",
+        "setActiveTrip",
+        "warn",
+      );
       return;
     }
 
-    const sortedCoords = [...trip.coordinates];
-    sortedCoords.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    // Sort coordinates by timestamp if available
+    if (coordinates[0].timestamp) {
+      coordinates.sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime();
+        const timeB = new Date(b.timestamp).getTime();
+        return timeA - timeB;
+      });
+    }
 
     // Convert coordinates to Mapbox format [lng, lat]
-    const coordinates = sortedCoords.map((coord) => [coord.lon, coord.lat]);
-    const lastPoint = coordinates[coordinates.length - 1];
+    const mapboxCoords = coordinates.map((coord) => [coord.lon, coord.lat]);
+    const lastPoint = mapboxCoords[mapboxCoords.length - 1];
 
     // Create GeoJSON features for Mapbox
     const features = [];
 
     // Add line feature if we have multiple points
-    if (coordinates.length > 1) {
+    if (mapboxCoords.length > 1) {
       features.push({
         type: "Feature",
         properties: { type: "line" },
         geometry: {
           type: "LineString",
-          coordinates: coordinates,
+          coordinates: mapboxCoords,
         },
       });
     }
@@ -481,17 +522,16 @@ class LiveTripTracker {
     this.updateMarkerStyle(trip.currentSpeed || 0);
 
     // Handle map view for new trips
-    if (isNewTrip && coordinates.length > 0) {
-      if (coordinates.length > 1) {
+    if (isNewTrip && mapboxCoords.length > 0) {
+      if (mapboxCoords.length > 1) {
         try {
           // Create bounds and fit map to show entire trip
           const bounds = new mapboxgl.LngLatBounds();
-          coordinates.forEach((coord) => bounds.extend(coord));
+          mapboxCoords.forEach((coord) => bounds.extend(coord));
           this.map.fitBounds(bounds, { padding: 50 });
         } catch (e) {
           console.error("Error fitting bounds:", e);
           this.map.flyTo({ center: lastPoint, zoom: 15 });
-          window.handleError(`Error fitting bounds: ${e}`, "setActiveTrip");
         }
       } else {
         this.map.flyTo({ center: lastPoint, zoom: 15 });

@@ -14,8 +14,12 @@ import aiohttp
 import geopandas as gpd
 from shapely.geometry import LineString, Polygon
 
-from db import (find_one_with_retry, insert_one_with_retry,
-                osm_data_collection, update_one_with_retry)
+from db import (
+    find_one_with_retry,
+    insert_one_with_retry,
+    osm_data_collection,
+    update_one_with_retry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +32,7 @@ EXCLUDED_HIGHWAY_TYPES_REGEX = (
     "service|alley|driveway|parking_aisle"  # Enhanced
 )
 
-EXCLUDED_ACCESS_TYPES_REGEX = (
-    "private|no|customers|delivery|agricultural|forestry|destination|permit"  # Enhanced
-)
+EXCLUDED_ACCESS_TYPES_REGEX = "private|no|customers|delivery|agricultural|forestry|destination|permit"  # Enhanced
 
 EXCLUDED_SERVICE_TYPES_REGEX = "parking_aisle|driveway"
 
@@ -66,7 +68,9 @@ def build_standard_osm_streets_query(
     # If using direct bbox, the query_target_clause itself is the bbox filter
     if not area_filter_clause:
         bbox_filter_clause = query_target_clause
-        query_target_clause = ""  # Clear it as it's now part of bbox_filter_clause
+        query_target_clause = (
+            ""  # Clear it as it's now part of bbox_filter_clause
+        )
     else:
         bbox_filter_clause = ""
 
@@ -120,7 +124,9 @@ async def process_elements(
             if len(coords) >= 2:
                 properties = e.get("tags", {})
                 try:
-                    if streets_only:  # This implies it's a LineString from our query
+                    if (
+                        streets_only
+                    ):  # This implies it's a LineString from our query
                         line = LineString(coords)
                         features.append(
                             {
@@ -129,7 +135,9 @@ async def process_elements(
                                 "properties": properties,
                             },
                         )
-                    elif coords[0] == coords[-1]:  # For boundary (non-streets_only)
+                    elif (
+                        coords[0] == coords[-1]
+                    ):  # For boundary (non-streets_only)
                         poly = Polygon(coords)
                         features.append(
                             {
@@ -204,7 +212,9 @@ async def generate_geojson_osm(
             # Use the new standard query builder for streets
             # The area(...) clause is specific to Overpass for defining a search area from an OSM object
             query_target_clause = f"area({area_id_for_query})->.searchArea;"
-            query = build_standard_osm_streets_query(query_target_clause, timeout=300)
+            query = build_standard_osm_streets_query(
+                query_target_clause, timeout=300
+            )
             logger.info(
                 "Using standard Overpass query for streets.",
             )
@@ -253,7 +263,9 @@ async def generate_geojson_osm(
         gdf = gpd.GeoDataFrame.from_features(features)
         if "geometry" not in gdf.columns and features:
             gdf = gdf.set_geometry(
-                gpd.GeoSeries.from_features(features, crs="EPSG:4326")["geometry"],
+                gpd.GeoSeries.from_features(features, crs="EPSG:4326")[
+                    "geometry"
+                ],
             )
         elif "geometry" in gdf.columns:
             gdf = gdf.set_geometry("geometry")
@@ -265,7 +277,9 @@ async def generate_geojson_osm(
 
         try:
             bson_size_estimate = len(json.dumps(geojson_data).encode("utf-8"))
-            if bson_size_estimate <= 16793598:  # MongoDB BSON document limit (approx)
+            if (
+                bson_size_estimate <= 16793598
+            ):  # MongoDB BSON document limit (approx)
                 existing_data = await find_one_with_retry(
                     osm_data_collection,
                     {
@@ -329,7 +343,9 @@ async def generate_geojson_osm(
         return geojson_data, None
 
     except aiohttp.ClientResponseError as http_err:
-        error_detail = f"Overpass API error: {http_err.status} - {http_err.message}"
+        error_detail = (
+            f"Overpass API error: {http_err.status} - {http_err.message}"
+        )
         logger.error(error_detail, exc_info=True)
         try:
             error_body = await http_err.response.text()
