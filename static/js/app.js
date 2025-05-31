@@ -1698,14 +1698,46 @@
             },
             (error) => {
               console.error("Geolocation error:", error);
-              utils.showNotification("Unable to get your location", "warning");
+              utils.showNotification(`Error getting location: ${error.message}`, "danger");
               centerButton.disabled = false;
               centerButton.classList.remove('btn-loading');
             },
-            { timeout: 10000, maximumAge: 60000 }
           );
         });
       }
+
+      // Listen for map style changes to re-apply layers
+      document.addEventListener("mapStyleLoaded", async () => {
+        if (!state.map || !state.mapInitialized) return;
+
+        console.log("Map style reloaded, re-applying layers...");
+        window.loadingManager.pulse('Applying new map style...');
+
+        for (const [layerName, layerInfo] of Object.entries(state.mapLayers)) {
+          if (layerInfo.visible && layerInfo.layer) {
+            try {
+              // Ensure source and layer are correctly re-added or updated
+              // updateMapLayer will add if not present, or update data if present
+              await layerManager.updateMapLayer(layerName, layerInfo.layer);
+              
+              // Explicitly set visibility again, as updateMapLayer might only set it on creation
+              // or if the layer config is re-applied. Best to be sure.
+              const layerId = `${layerName}-layer`;
+              if (state.map.getLayer(layerId)) {
+                 state.map.setLayoutProperty(layerId, "visibility", "visible");
+              } else {
+                // If the layer somehow didn't get added by updateMapLayer, log an error
+                console.warn(`Layer ${layerId} not found after attempting to re-add.`);
+              }
+
+            } catch (error) {
+              console.error(`Error re-applying layer ${layerName} after style change:`, error);
+            }
+          }
+        }
+        window.loadingManager.hide();
+        console.log("Finished re-applying layers.");
+      });
 
       // Refresh map button
       const refreshButton = utils.getElement("refresh-map");

@@ -412,6 +412,9 @@
           setTimeout(() => {
             window.map.resize();
           }, 100);
+
+          // Dispatch an event to notify that the style has loaded and state is restored
+          document.dispatchEvent(new CustomEvent("mapStyleLoaded", { detail: { theme } }));
         };
         
         window.map.once('styledata', restoreState);
