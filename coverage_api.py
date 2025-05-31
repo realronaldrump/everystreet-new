@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import bson  # For bson.json_util
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status, Query
 from fastapi.encoders import jsonable_encoder  # <--- ADDED THIS IMPORT
 from fastapi.responses import JSONResponse, StreamingResponse
 from gridfs import errors
@@ -934,7 +934,7 @@ async def get_coverage_area_geojson_from_gridfs(
 
 
 @router.get("/api/coverage_areas/{location_id}/streets")
-async def get_coverage_area_streets(location_id: str):
+async def get_coverage_area_streets(location_id: str, undriven: bool = Query(False)):
     """Get updated street GeoJSON for a coverage area, including manual overrides."""
     try:
         obj_location_id = ObjectId(location_id)
@@ -954,8 +954,11 @@ async def get_coverage_area_streets(location_id: str):
             detail="Coverage area not found",
         )
     name = meta["location"]["display_name"]
+    query = {"properties.location": name}
+    if undriven:
+        query["properties.driven"] = False
     cursor = streets_collection.find(
-        {"properties.location": name},
+        query,
         {
             "_id": 0,
             "geometry": 1,

@@ -1041,28 +1041,15 @@
 
     async fetchUndrivenStreets() {
       const selectedLocationId = storage.get(CONFIG.STORAGE_KEYS.selectedLocation);
-      
-      if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded)
-        return null;
+
+      if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded) return null;
 
       window.loadingManager.pulse('Loading undriven streets...');
 
       try {
-        const coverageAreas = await this.fetchCoverageAreas();
-        const selectedLocation = coverageAreas.find(
-          (area) => area._id === selectedLocationId,
+        const data = await utils.fetchWithRetry(
+          `/api/coverage_areas/${selectedLocationId}/streets?undriven=true`
         );
-
-        if (!selectedLocation?.location) {
-          console.warn("Selected location not found:", selectedLocationId);
-          return null;
-        }
-
-        const data = await utils.fetchWithRetry("/api/undriven_streets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(selectedLocation.location),
-        });
 
         if (data?.type === "FeatureCollection") {
           state.mapLayers.undrivenStreets.layer = data;
@@ -1076,26 +1063,6 @@
         console.error("Error fetching undriven streets:", error);
         state.undrivenStreetsLoaded = false;
         return null;
-      }
-    },
-
-    async fetchCoverageAreas() {
-      try {
-        // Cache coverage areas as they don't change often
-        const cacheKey = 'coverage_areas';
-        const cached = storage.get(cacheKey);
-        if (cached && cached.timestamp > Date.now() - 3600000) { // 1 hour cache
-          return cached.data;
-        }
-        
-        const data = await utils.fetchWithRetry("/api/coverage_areas");
-        const areas = data?.areas || data || [];
-        
-        storage.set(cacheKey, { data: areas, timestamp: Date.now() });
-        return areas;
-      } catch (error) {
-        console.error("Error fetching coverage areas:", error);
-        return [];
       }
     },
 
@@ -1598,7 +1565,8 @@
       if (!dropdown) return;
 
       try {
-        const areas = await dataManager.fetchCoverageAreas();
+        const response = await utils.fetchWithRetry("/api/coverage_areas");
+        const areas = response.areas || [];
 
         dropdown.innerHTML = '<option value="">Select a location...</option>';
         
