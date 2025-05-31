@@ -24,6 +24,8 @@
       controlsContent: "#controls-content",
       filterIndicator: "#filter-indicator",
       toolsSection: ".tools-section",
+      customPresetsListContainer: "#custom-presets-list",
+      noCustomPresetsMessage: "#no-custom-presets-message",
     },
     classes: {
       active: "active",
@@ -752,6 +754,7 @@
       this.updateInputs(startDate, endDate);
       this.updateIndicator();
       this.loadFilterPresets();
+      this._setupPresetEventListeners();
     },
 
     updateInputs(startDate, endDate) {
@@ -950,23 +953,139 @@
     
     loadFilterPresets() {
       const presets = utils.getStorage(CONFIG.storage.filterPresets) || [];
-      // TODO: Implement custom preset UI
+      const container = state.getElement(CONFIG.selectors.customPresetsListContainer);
+      const messageEl = state.getElement(CONFIG.selectors.noCustomPresetsMessage);
+
+      if (!container || !messageEl) {
+        console.warn("Custom preset UI elements not found.");
+        return;
+      }
+
+      container.innerHTML = ""; // Clear existing items
+
+      if (presets.length === 0) {
+        messageEl.style.display = "block";
+        container.style.display = "none";
+      } else {
+        messageEl.style.display = "none";
+        container.style.display = "block";
+        
+        presets.forEach((preset, index) => {
+          if (!preset || !preset.startDate || !preset.endDate) return;
+
+          const item = document.createElement("div");
+          item.className = "list-group-item d-flex justify-content-between align-items-center custom-preset-item";
+          item.setAttribute("data-start-date", preset.startDate);
+          item.setAttribute("data-end-date", preset.endDate);
+          item.setAttribute("data-index", index);
+
+          const nameSpan = document.createElement("span");
+          const formattedStart = DateUtils.formatForDisplay(preset.startDate, { dateStyle: "medium" }) || preset.startDate;
+          const formattedEnd = DateUtils.formatForDisplay(preset.endDate, { dateStyle: "medium" }) || preset.endDate;
+          
+          nameSpan.textContent = preset.startDate === preset.endDate 
+            ? formattedStart 
+            : `${formattedStart} - ${formattedEnd}`;
+          nameSpan.title = `From ${preset.startDate} to ${preset.endDate}`;
+          
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "btn btn-sm btn-outline-danger delete-preset-btn";
+          deleteBtn.title = "Delete preset";
+          deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+          deleteBtn.setAttribute("data-index", index);
+          
+          item.appendChild(nameSpan);
+          item.appendChild(deleteBtn);
+          container.appendChild(item);
+        });
+      }
     },
     
     saveFilterPreset(startDate, endDate) {
       const presets = utils.getStorage(CONFIG.storage.filterPresets) || [];
-      const preset = {
-        startDate,
-        endDate,
-        timestamp: Date.now(),
-        name: `${startDate} to ${endDate}`
-      };
-      
+      const presetName = startDate === endDate 
+        ? startDate 
+        : `${startDate} to ${endDate}`;
+
+      // Avoid duplicate presets based on date range
+      const existingPresetIndex = presets.findIndex(p => p.startDate === startDate && p.endDate === endDate);
+      if (existingPresetIndex !== -1) {
+        // Move to top if already exists
+        const existing = presets.splice(existingPresetIndex, 1)[0];
+        existing.timestamp = Date.now(); // Update timestamp
+        presets.unshift(existing);
+      } else {
+        const newPreset = {
+          startDate,
+          endDate,
+          timestamp: Date.now(),
+          name: presetName // Original name, display formatting done in loadFilterPresets
+        };
+        presets.unshift(newPreset);
+      }
+            
       // Keep only last 5 custom presets
-      presets.unshift(preset);
-      if (presets.length > 5) presets.pop();
+      if (presets.length > 5) {
+        presets.length = 5; // More direct way to truncate
+      }
       
       utils.setStorage(CONFIG.storage.filterPresets, presets);
+      this.loadFilterPresets(); // Refresh the list
+    },
+
+    _setupPresetEventListeners() {
+      const container = state.getElement(CONFIG.selectors.customPresetsListContainer);
+      if (!container) return;
+
+      eventManager.add(container, "click", (e) => {
+        const target = e.target;
+        const presetItem = target.closest(".custom-preset-item");
+        
+        if (!presetItem) return;
+
+        const index = parseInt(presetItem.dataset.index, 10);
+
+        if (target.closest(".delete-preset-btn")) {
+          e.stopPropagation(); // Prevent item click event
+          this._deletePreset(index);
+        } else {
+          // Click on the preset item itself
+          const startDate = presetItem.dataset.startDate;
+          const endDate = presetItem.dataset.endDate;
+          
+          if (startDate && endDate) {
+            this.updateInputs(startDate, endDate);
+            utils.setStorage(CONFIG.storage.startDate, startDate);
+            utils.setStorage(CONFIG.storage.endDate, endDate);
+            this.updateIndicator();
+            
+            // Clear any "quick select" active state visually
+            state.getAllElements(".quick-select-btn")
+              .forEach((btn) => btn.classList.remove(CONFIG.classes.active));
+            
+            state.uiState.lastFilterPreset = null; // Clear programmatic preset state
+            state.saveUIState();
+
+            // Optionally, provide feedback e.g. highlight apply button
+            const applyBtn = state.getElement(CONFIG.selectors.applyFiltersBtn);
+            if(applyBtn) {
+              applyBtn.focus();
+              applyBtn.classList.add('btn-primary-pulse');
+              setTimeout(() => applyBtn.classList.remove('btn-primary-pulse'), 1000);
+            }
+          }
+        }
+      });
+    },
+
+    _deletePreset(index) {
+      let presets = utils.getStorage(CONFIG.storage.filterPresets) || [];
+      if (index >= 0 && index < presets.length) {
+        presets.splice(index, 1);
+        utils.setStorage(CONFIG.storage.filterPresets, presets);
+        this.loadFilterPresets(); // Refresh the list
+        utils.showNotification("Preset deleted", "info", 2000);
+      }
     }
   };
 
