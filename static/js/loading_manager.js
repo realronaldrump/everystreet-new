@@ -412,6 +412,19 @@ class LoadingManager {
       }, duration);
     });
   }
+
+  // Add sub-operation tracking for legacy API compatibility
+  addSubOperation(name, total = 100) {
+    // Treat sub-operations as operations for legacy compatibility
+    this.startOperation(name, total);
+    return this;
+  }
+
+  updateSubOperation(name, progress, message) {
+    // Update progress of the sub-operation (operation)
+    this.updateOperation(name, typeof progress === 'number' ? progress : 0, message);
+    return this;
+  }
 }
 
 // Create and export singleton instance
