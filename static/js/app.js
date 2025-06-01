@@ -1141,6 +1141,9 @@
         renderStage.error(error.message);
         console.error("Error updating map:", error);
         utils.showNotification("Error updating map data", "danger");
+      } finally {
+        // Ensure loading overlay is hidden after map update
+        window.loadingManager.finish();
       }
     },
   };
