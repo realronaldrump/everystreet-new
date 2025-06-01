@@ -64,34 +64,13 @@
 }
 
 /* Animated status indicator */
-.status-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: #ffc107;
-  transition: background-color 0.3s ease;
-}
 
-.status-indicator.connected {
-  background-color: #28a745;
-  animation: pulse 2s infinite;
-}
 
-.status-indicator.disconnected {
-  background-color: #dc3545;
-}
 
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
-  }
-  70% {
-    box-shadow: 0 0 0 6px rgba(40, 167, 69, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
-  }
-}
+
+
+
+
 
 /* Mapbox GL JS zoom controls */
 .mapboxgl-ctrl-zoom-in,

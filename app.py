@@ -24,7 +24,7 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -593,160 +593,73 @@ async def map_match_trips_endpoint(
 
 @app.get("/api/trips")
 async def get_trips(request: Request):
-    """Get all trips as GeoJSON."""
-    try:
-        query = await build_query_from_request(request)
+    """Stream all trips as GeoJSON to improve performance."""
+    query = await build_query_from_request(request)
+    projection = {
+        "gps": 1,
+        "startTime": 1,
+        "endTime": 1,
+        "distance": 1,
+        "maxSpeed": 1,
+        "transactionId": 1,
+        "imei": 1,
+        "startLocation": 1,
+        "destination": 1,
+        "totalIdleDuration": 1,
+        "fuelConsumed": 1,
+        "source": 1,
+        "hardBrakingCount": 1,
+        "hardAccelerationCount": 1,
+        "startOdometer": 1,
+        "endOdometer": 1,
+        "averageSpeed": 1,
+    }
+    cursor = trips_collection.find(query, projection).sort("endTime", -1).batch_size(500)
 
-        # Only fetch necessary fields for performance
-        projection = {
-            "gps": 1,
-            "startTime": 1,
-            "endTime": 1,
-            "distance": 1,
-            "maxSpeed": 1,
-            "transactionId": 1,
-            "imei": 1,
-            "startLocation": 1,
-            "destination": 1,
-            "totalIdleDuration": 1,
-            "fuelConsumed": 1,
-            "source": 1,
-            "hardBrakingCount": 1,
-            "hardAccelerationCount": 1,
-            "startOdometer": 1,
-            "endOdometer": 1,
-            "averageSpeed": 1,
-        }
-        all_trips = await find_with_retry(
-            trips_collection,
-            query,
-            projection=projection,
-            sort=[("endTime", -1)],
-        )
-        features = []
+    async def stream():
+        yield '{"type":"FeatureCollection","features":['
+        first = True
+        async for trip in cursor:
+            # Derived fields
+            st = trip.get("startTime")
+            et = trip.get("endTime")
+            duration = (et - st).total_seconds() if st and et else None
+            geom = trip.get("gps")
+            num_points = (
+                len(geom.get("coordinates", []))
+                if isinstance(geom, dict) and isinstance(geom.get("coordinates"), list)
+                else 0
+            )
+            props = {
+                "transactionId": trip.get("transactionId"),
+                "imei": trip.get("imei"),
+                "startTime": st.isoformat() if hasattr(st, "isoformat") else None,
+                "endTime": et.isoformat() if hasattr(et, "isoformat") else None,
+                "duration": duration,
+                "distance": float(trip.get("distance", 0)),
+                "maxSpeed": float(trip.get("maxSpeed", 0)),
+                "timeZone": trip.get("timeZone"),
+                "startLocation": trip.get("startLocation"),
+                "destination": trip.get("destination"),
+                "totalIdleDuration": trip.get("totalIdleDuration"),
+                "fuelConsumed": float(trip.get("fuelConsumed", 0)),
+                "source": trip.get("source"),
+                "hardBrakingCount": trip.get("hardBrakingCount"),
+                "hardAccelerationCount": trip.get("hardAccelerationCount"),
+                "startOdometer": trip.get("startOdometer"),
+                "endOdometer": trip.get("endOdometer"),
+                "averageSpeed": trip.get("averageSpeed"),
+                "pointsRecorded": num_points,
+            }
+            feature = {"type": "Feature", "geometry": geom, "properties": props}
+            chunk = json.dumps(feature, separators=(',', ':'), default=lambda o: o.isoformat() if hasattr(o, 'isoformat') else str(o))
+            if not first:
+                yield ','
+            yield chunk
+            first = False
+        yield ']}'
 
-        processor = TripProcessor()
-
-        for trip in all_trips:
-            try:
-                st = trip.get("startTime")
-                et = trip.get("endTime")
-                if not st or not et:
-                    logger.warning(
-                        "Skipping trip with missing start/end times: %s",
-                        trip.get("transactionId"),
-                    )
-                    continue
-
-                if isinstance(st, str):
-                    st = dateutil_parser.isoparse(st)
-                if isinstance(et, str):
-                    et = dateutil_parser.isoparse(et)
-                if st.tzinfo is None:
-                    st = st.astimezone(timezone.utc)
-                if et.tzinfo is None:
-                    et = et.astimezone(timezone.utc)
-
-                # Calculate duration in seconds
-                duration_seconds = (
-                    (et - st).total_seconds() if st and et else 0
-                )
-
-                geom = trip.get("gps")
-                num_points = 0
-                if isinstance(geom, str):
-                    try:
-                        geom_obj = geojson_module.loads(geom)
-                        if (
-                            geom_obj
-                            and "coordinates" in geom_obj
-                            and isinstance(geom_obj["coordinates"], list)
-                        ):
-                            num_points = len(geom_obj["coordinates"])
-                        geom = geom_obj  # Use the parsed object
-                    except Exception:
-                        logger.warning(
-                            "Could not parse geometry string for trip %s",
-                            trip.get("transactionId"),
-                            exc_info=True,
-                        )
-                        geom = None  # Set geom to None if parsing failed
-                elif (
-                    isinstance(geom, dict)
-                    and "coordinates" in geom
-                    and isinstance(geom["coordinates"], list)
-                ):
-                    num_points = len(geom["coordinates"])
-                else:
-                    # Handle cases where geom might be None or unexpected type
-                    logger.warning(
-                        "Unexpected geometry type (%s) or missing coordinates for trip %s. Cannot determine point count.",
-                        type(geom).__name__,
-                        trip.get("transactionId"),
-                    )
-
-                props = {
-                    "transactionId": trip.get("transactionId", "??"),
-                    "imei": trip.get("imei", "UPLOAD"),
-                    "startTime": st.astimezone(timezone.utc).isoformat(),
-                    "endTime": et.astimezone(timezone.utc).isoformat(),
-                    "duration": duration_seconds,  # Add duration here
-                    "distance": float(trip.get("distance", 0)),
-                    "timeZone": trip.get(
-                        "timeZone",
-                        "America/Chicago",
-                    ),
-                    "maxSpeed": float(trip.get("maxSpeed", 0)),
-                    "startLocation": trip.get("startLocation", "N/A"),
-                    "destination": trip.get("destination", "N/A"),
-                    "totalIdleDuration": trip.get("totalIdleDuration", 0),
-                    "totalIdleDurationFormatted": processor.format_idle_time(
-                        trip.get("totalIdleDuration", 0),
-                    ),
-                    "fuelConsumed": float(trip.get("fuelConsumed", 0)),
-                    "source": trip.get("source", "unknown"),
-                    "hardBrakingCount": trip.get("hardBrakingCount"),
-                    "hardAccelerationCount": trip.get("hardAccelerationCount"),
-                    "startOdometer": trip.get("startOdometer"),
-                    "endOdometer": trip.get("endOdometer"),
-                    "averageSpeed": trip.get("averageSpeed"),
-                    "pointsRecorded": num_points,  # Use calculated number of points
-                }
-
-                # Ensure geom is a valid GeoJSON geometry dict or None before passing
-                # to Feature
-                valid_geom = (
-                    geom
-                    if isinstance(geom, dict)
-                    and "type" in geom
-                    and "coordinates" in geom
-                    else None
-                )
-
-                feature = geojson_module.Feature(
-                    geometry=valid_geom,
-                    properties=props,
-                )
-                features.append(feature)
-            except Exception as e:
-                logger.exception(
-                    "Error processing trip for transactionId: %s - %s",
-                    trip.get("transactionId"),
-                    str(e),
-                )
-                continue
-
-        fc = geojson_module.FeatureCollection(features)
-        return JSONResponse(content=fc)
-    except Exception as e:
-        logger.exception(
-            "Error in /api/trips endpoint: %s",
-            str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve trips",
-        )
+    return StreamingResponse(stream(), media_type="application/geo+json")
 
 
 @app.get("/api/matched_trips")

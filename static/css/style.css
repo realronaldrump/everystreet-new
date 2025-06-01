@@ -221,10 +221,7 @@ body.light-mode .quick-select-btn {
   color: var(--light-text-primary);
 }
 
-body.light-mode .form-control:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.15);
-}
+body.light-mode 
 
 body.light-mode .form-label {
   color: var(--light-text-secondary);
@@ -372,23 +369,11 @@ body.light-mode .live-tracking-status .card-header {
   padding: var(--space-3);
 }
 
-.status-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: var(--warning);
-  display: inline-block;
-  margin-right: var(--space-2);
-  transition: background-color 0.3s ease;
-}
 
-.status-indicator.connected {
-  background-color: var(--success);
-}
 
-.status-indicator.disconnected {
-  background-color: var(--danger);
-}
+
+
+
 
 .live-trip-metrics {
   font-size: var(--font-size-sm);
@@ -1459,67 +1444,19 @@ body.light-mode .app-header.scrolled {
 }
 
 /* Loading Overlay */
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  z-index: var(--z-modal);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(4px);
-}
 
-.loading-content {
-  background-color: var(--surface-1);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  text-align: center;
-  box-shadow: var(--shadow-lg);
-  max-width: 300px;
-  width: 100%;
-}
 
-.loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-  border-top-color: var(--primary);
-  animation: spin 1s linear infinite;
-  margin: 0 auto var(--space-4);
-}
 
-.loading-text {
-  margin-bottom: var(--space-4);
-  font-weight: var(--font-weight-medium);
-}
 
-.loading-progress {
-  background-color: var(--surface-2);
-  border-radius: var(--radius-full);
-  height: 6px;
-  overflow: hidden;
-}
 
-.progress-bar {
-  height: 100%;
-  background: var(--primary-gradient);
-  width: 0;
-  transition: width 0.3s ease;
-}
 
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
+
+
+
+
+
+
+
 
 /* Map styles */
 .map-container {
@@ -1691,23 +1628,9 @@ body.light-mode .leaflet-bar a:hover {
 }
 
 /* Map loading indicator */
-.map-loading {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  border-radius: var(--radius-lg);
-}
 
-body.light-mode .map-loading {
-  background-color: rgba(255, 255, 255, 0.7);
-}
+
+
 
 /* Font color consistency fixes */
 .card-title,
@@ -3058,20 +2981,7 @@ body.light-mode #map-controls strong {
   transform: scale(1.2);
 }
 
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
+
 
 /* Prevent Leaflet Draw tooltips and their children from intercepting map clicks */
 .leaflet-draw-tooltip,

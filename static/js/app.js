@@ -37,7 +37,7 @@
       cacheTime: 30000, // 30 seconds
       retryAttempts: 3,
       retryDelay: 1000,
-      timeout: 30000,
+      timeout: 120000, // 2 minutes for large queries
       batchSize: 100, // For batched operations
     },
     LAYER_DEFAULTS: {
@@ -987,28 +987,50 @@
 
       try {
         const dateRange = dateUtils.getCachedDateRange();
-        const params = new URLSearchParams({
-          start_date: dateRange.start,
-          end_date: dateRange.end,
-        });
-
-        dataStage.update(30, `Loading trips for ${dateRange.days} days...`);
-
-        const data = await utils.fetchWithRetry(`/api/trips?${params}`);
-
-        if (data?.type === "FeatureCollection") {
-          dataStage.update(70, `Processing ${data.features.length} trips...`);
-          
-          state.mapLayers.trips.layer = data;
-          metricsManager.updateTripsTable(data);
-          await layerManager.updateMapLayer("trips", data);
-          
-          dataStage.complete();
-          return data;
+        const { startDate, endDate, start, end, days } = dateRange;
+        const MS_PER_DAY = 24 * 60 * 60 * 1000;
+        const thresholdDays = 7;
+        let fullCollection = { type: "FeatureCollection", features: [] };
+        if (days <= thresholdDays) {
+          // single fetch for small ranges
+          const params = new URLSearchParams({ start_date: start, end_date: end });
+          dataStage.update(30, `Loading ${days} days of trips...`);
+          const data = await utils.fetchWithRetry(`/api/trips?${params}`);
+          if (data?.type === "FeatureCollection") {
+            fullCollection = data;
+          } else {
+            dataStage.error('Invalid trip data received');
+            return null;
+          }
+        } else {
+          // chunked fetch for large ranges
+          const segments = Math.ceil(days / thresholdDays);
+          for (let i = 0; i < segments; i++) {
+            const segStartDate = new Date(startDate.getTime() + i * thresholdDays * MS_PER_DAY);
+            const segEndDate = new Date(
+              Math.min(segStartDate.getTime() + (thresholdDays - 1) * MS_PER_DAY, endDate.getTime())
+            );
+            const segStart = segStartDate.toISOString().split('T')[0];
+            const segEnd = segEndDate.toISOString().split('T')[0];
+            const paramsChunk = new URLSearchParams({ start_date: segStart, end_date: segEnd });
+            dataStage.update(
+              30 + Math.floor(((i+1) / segments) * 40),
+              `Loading trips ${segStart} to ${segEnd}...`
+            );
+            const chunk = await utils.fetchWithRetry(`/api/trips?${paramsChunk}`);
+            if (chunk?.type === "FeatureCollection") {
+              fullCollection.features.push(...chunk.features);
+              // incremental render
+              state.mapLayers.trips.layer = fullCollection;
+              await layerManager.updateMapLayer("trips", fullCollection);
+            }
+          }
         }
-
-        dataStage.error('Invalid trip data received');
-        return null;
+        dataStage.update(75, `Processing ${fullCollection.features.length} trips...`);
+        metricsManager.updateTripsTable(fullCollection);
+        await layerManager.updateMapLayer("trips", fullCollection);
+        dataStage.complete();
+        return fullCollection;
       } catch (error) {
         dataStage.error(error.message);
         console.error("Error fetching trips:", error);
