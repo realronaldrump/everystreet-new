@@ -198,6 +198,17 @@
   }
 }
 
+/* Skeleton text elements */
+.skeleton-text {
+  height: 1em;
+  margin: 0.25em 0;
+  border-radius: 4px;
+}
+
+.skeleton-text:last-child {
+  width: 80%;
+}
+
 /* Loading state for buttons */
 .btn-loading {
   position: relative;
@@ -226,16 +237,36 @@
   }
 }
 
-/* Map loading specific */
-
-
 /* Layer loading indicator */
-
+.layer-loading {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  border-top-color: var(--bs-primary);
+  animation: layer-spin 0.8s linear infinite;
+  margin-left: 0.5rem;
+}
 
 @keyframes layer-spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Map loading indicator */
+.map-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 1rem;
+  border-radius: 8px;
+  color: white;
+  text-align: center;
 }
 
 /* Responsive adjustments */
@@ -270,6 +301,37 @@
   }
 }
 
+/* Light mode adjustments */
+body.light-mode .loading-overlay {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+body.light-mode .loading-content {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+body.light-mode .loading-text {
+  color: #333333;
+}
+
+body.light-mode .loading-pulse {
+  background: rgba(248, 249, 250, 0.9);
+  color: #333333;
+}
+
+body.light-mode .skeleton-loader {
+  background: linear-gradient(90deg, 
+    rgba(0, 0, 0, 0.05) 25%, 
+    rgba(0, 0, 0, 0.1) 50%, 
+    rgba(0, 0, 0, 0.05) 75%
+  );
+}
+
+body.light-mode .map-loading {
+  background: rgba(248, 249, 250, 0.9);
+  color: #333333;
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .spinner-ring,
@@ -285,5 +347,9 @@
   .skeleton-loader {
     animation: none;
     background: rgba(255, 255, 255, 0.05);
+  }
+  
+  body.light-mode .skeleton-loader {
+    background: rgba(0, 0, 0, 0.05);
   }
 }

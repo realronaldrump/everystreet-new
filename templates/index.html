@@ -45,11 +45,11 @@ block content %}
                 <h3 class="h6 mb-0">Live Tracking</h3>
                 <div class="connection-status d-flex align-items-center">
                   <div
-                    class="status-indicator me-2"
+                    class="live-status-indicator me-2"
                     role="status"
                     aria-live="polite"
                   ></div>
-                  <span class="status-text small">Connecting...</span>
+                  <span class="live-status-text small">Connecting...</span>
                 </div>
               </div>
               <div class="card-body p-2">
@@ -422,6 +422,22 @@ block content %}
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 1000;
+  }
+
+  /* Styles for live-tracking status indicator */
+  .live-status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #ffc107;
+    transition: background-color 0.3s ease;
+  }
+  .live-status-indicator.connected {
+    background-color: #28a745;
+    animation: pulse 2s infinite;
+  }
+  .live-status-indicator.disconnected {
+    background-color: #dc3545;
   }
 </style>
 

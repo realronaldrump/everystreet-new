@@ -2,7 +2,7 @@
 "use strict";
 
 (() => {
-  // Configuration with performance optimizations
+  // Consolidated configuration
   const CONFIG = {
     MAP: {
       defaultCenter: [-95.7129, 37.0902],
@@ -17,7 +17,6 @@
         satellite: "mapbox://styles/mapbox/satellite-v9",
         streets: "mapbox://styles/mapbox/streets-v12",
       },
-      // Performance options
       performanceOptions: {
         trackResize: false,
         refreshExpiredTiles: false,
@@ -34,11 +33,11 @@
       layerSettings: "layerSettings",
     },
     API: {
-      cacheTime: 30000, // 30 seconds
+      cacheTime: 30000,
       retryAttempts: 3,
       retryDelay: 1000,
-      timeout: 120000, // 2 minutes for large queries
-      batchSize: 100, // For batched operations
+      timeout: 120000,
+      batchSize: 100,
     },
     LAYER_DEFAULTS: {
       trips: {
@@ -82,12 +81,12 @@
     }
   };
 
-  // Application state with better structure
+  // Application state management
   class AppState {
     constructor() {
       this.map = null;
       this.mapInitialized = false;
-      this.mapLayers = JSON.parse(JSON.stringify(CONFIG.LAYER_DEFAULTS)); // Deep clone
+      this.mapLayers = JSON.parse(JSON.stringify(CONFIG.LAYER_DEFAULTS));
       this.mapSettings = { 
         highlightRecentTrips: true,
         autoRefresh: false,
@@ -103,7 +102,6 @@
       this.pendingRequests = new Set();
       this.layerLoadPromises = new Map();
       
-      // Performance tracking
       this.metrics = {
         loadStartTime: Date.now(),
         mapLoadTime: null,
@@ -116,7 +114,6 @@
       this.cancelAllRequests();
       
       if (this.map) {
-        // Properly cleanup map resources
         this.map.off();
         this.map.remove();
         this.map = null;
@@ -158,15 +155,13 @@
 
   const state = new AppState();
 
-  // Enhanced utility functions
+  // Consolidated utility functions
   const utils = {
     getElement(selector) {
       if (state.dom.has(selector)) return state.dom.get(selector);
 
       const element = document.querySelector(
-        selector.startsWith("#") ||
-          selector.includes(" ") ||
-          selector.startsWith(".")
+        selector.startsWith("#") || selector.includes(" ") || selector.startsWith(".")
           ? selector
           : `#${selector}`,
       );
@@ -191,7 +186,6 @@
         
         clearTimeout(timeout);
         
-        // Execute immediately if enough time has passed
         if (timeSinceLastCall >= wait) {
           lastCallTime = now;
           func(...args);
@@ -297,7 +291,6 @@
       }
     },
 
-    // Batch DOM updates for better performance
     batchDOMUpdates(updates) {
       requestAnimationFrame(() => {
         updates.forEach(update => update());
@@ -305,14 +298,13 @@
     }
   };
 
-  // Enhanced storage utilities with compression
+  // Storage utilities
   const storage = {
     get(key, defaultValue = null) {
       try {
         const value = localStorage.getItem(key);
         if (value === null) return defaultValue;
         
-        // Try to parse JSON
         try {
           return JSON.parse(value);
         } catch {
@@ -333,7 +325,6 @@
         return true;
       } catch (e) {
         console.warn('Storage quota exceeded:', e);
-        // Try to clear old cache entries
         this.clearOldCache();
         try {
           localStorage.setItem(key, stringValue);
@@ -353,7 +344,6 @@
         }
       }
       
-      // Remove oldest cache entries
       cacheKeys.slice(0, Math.floor(cacheKeys.length / 2))
         .forEach(key => localStorage.removeItem(key));
     }
@@ -372,7 +362,6 @@
       return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
     },
     
-    // Cache date range to avoid repeated calculations
     getCachedDateRange() {
       const cacheKey = 'cached_date_range';
       const cached = storage.get(cacheKey);
@@ -396,7 +385,7 @@
     }
   };
 
-  // Enhanced map manager
+  // Map manager
   const mapManager = {
     async initialize() {
       try {
@@ -428,7 +417,7 @@
 
         const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
         
-        // Determine initial map view: URL params override saved view
+        // Determine initial map view
         const urlParams = new URLSearchParams(window.location.search);
         const latParam = parseFloat(urlParams.get('lat'));
         const lngParam = parseFloat(urlParams.get('lng'));
@@ -553,7 +542,6 @@
 
         const layerId = `${layerName}-layer`;
         if (state.map.getLayer(layerId)) {
-          // Batch paint property updates
           const updates = {
             "line-color": layerInfo.color,
             "line-opacity": layerInfo.opacity,
@@ -574,7 +562,6 @@
         const bounds = new mapboxgl.LngLatBounds();
         let hasFeatures = false;
 
-        // Collect all visible features
         Object.values(state.mapLayers).forEach(({ visible, layer }) => {
           if (visible && layer?.features) {
             layer.features.forEach((feature) => {
@@ -608,7 +595,6 @@
 
       const features = state.mapLayers.trips.layer.features;
       
-      // Find the most recent trip
       const lastTripFeature = features.reduce((latest, feature) => {
         const endTime = feature.properties?.endTime;
         if (!endTime) return latest;
@@ -643,7 +629,7 @@
     },
   };
 
-  // Enhanced layer manager
+  // Layer manager
   const layerManager = {
     initializeControls() {
       const container = utils.getElement("layer-toggles");
@@ -708,7 +694,6 @@
           this.updateLayerStyle(layerName, "opacity", parseFloat(input.value));
         }
         
-        // Save layer settings
         this.saveLayerSettings();
       }, 200));
     },
@@ -719,12 +704,10 @@
 
       layerInfo.visible = visible;
       
-      // Show loading indicator
       const loadingEl = document.getElementById(`${name}-loading`);
       if (loadingEl) loadingEl.classList.remove('d-none');
 
       if (visible) {
-        // Load layer data if needed
         if (name === "matchedTrips" && !layerInfo.layer) {
           await dataManager.fetchMatchedTrips();
         } else if (name === "undrivenStreets" && !state.undrivenStreetsLoaded) {
@@ -741,7 +724,6 @@
         );
       }
       
-      // Hide loading indicator
       if (loadingEl) loadingEl.classList.add('d-none');
     },
 
@@ -795,10 +777,8 @@
           </li>
         `).join("");
 
-      // Add drag and drop support
       this.setupDragAndDrop(container);
       
-      // Button click handlers
       container.addEventListener("click", (e) => {
         const button = e.target.closest("button");
         if (!button) return;
@@ -878,7 +858,6 @@
           ([, a], [, b]) => (b.order || 0) - (a.order || 0),
         );
 
-        // Reorder layers on the map
         let beforeLayer = null;
         sortedLayers.forEach(([name]) => {
           const layerId = `${name}-layer`;
@@ -902,7 +881,6 @@
       const layerInfo = state.mapLayers[layerName];
 
       try {
-        // Update or add source
         const source = state.map.getSource(sourceId);
         if (source) {
           source.setData(data);
@@ -910,14 +888,13 @@
           state.map.addSource(sourceId, { 
             type: "geojson", 
             data,
-            tolerance: 0.5, // Simplify geometry for performance
-            buffer: 128, // Tile buffer size
-            maxzoom: 14, // Don't over-zoom vector tiles
-            generateId: true // Generate feature IDs for better performance
+            tolerance: 0.5,
+            buffer: 128,
+            maxzoom: 14,
+            generateId: true
           });
         }
 
-        // Add layer if it doesn't exist
         if (!state.map.getLayer(layerId)) {
           const layerConfig = {
             id: layerId,
@@ -950,7 +927,6 @@
 
           state.map.addLayer(layerConfig);
 
-          // Add interactivity for trips
           if (layerName === "trips" || layerName === "matchedTrips") {
             state.map.on("click", layerId, (e) => {
               if (e.features?.length > 0) {
@@ -968,7 +944,6 @@
           }
         }
         
-        // Store layer data
         layerInfo.layer = data;
         
       } catch (error) {
@@ -978,7 +953,7 @@
     },
   };
 
-  // Enhanced data manager with better performance
+  // Data manager
   const dataManager = {
     async fetchTrips() {
       if (!state.mapInitialized) return null;
@@ -991,8 +966,8 @@
         const MS_PER_DAY = 24 * 60 * 60 * 1000;
         const thresholdDays = 7;
         let fullCollection = { type: "FeatureCollection", features: [] };
+        
         if (days <= thresholdDays) {
-          // single fetch for small ranges
           const params = new URLSearchParams({ start_date: start, end_date: end });
           dataStage.update(30, `Loading ${days} days of trips...`);
           const data = await utils.fetchWithRetry(`/api/trips?${params}`);
@@ -1003,7 +978,6 @@
             return null;
           }
         } else {
-          // chunked fetch for large ranges
           const segments = Math.ceil(days / thresholdDays);
           for (let i = 0; i < segments; i++) {
             const segStartDate = new Date(startDate.getTime() + i * thresholdDays * MS_PER_DAY);
@@ -1020,12 +994,12 @@
             const chunk = await utils.fetchWithRetry(`/api/trips?${paramsChunk}`);
             if (chunk?.type === "FeatureCollection") {
               fullCollection.features.push(...chunk.features);
-              // incremental render
               state.mapLayers.trips.layer = fullCollection;
               await layerManager.updateMapLayer("trips", fullCollection);
             }
           }
         }
+        
         dataStage.update(75, `Processing ${fullCollection.features.length} trips...`);
         metricsManager.updateTripsTable(fullCollection);
         await layerManager.updateMapLayer("trips", fullCollection);
@@ -1126,7 +1100,6 @@
       try {
         renderStage.update(20, 'Fetching map data...');
 
-        // Cancel any pending requests
         state.cancelAllRequests();
 
         const promises = [];
@@ -1163,7 +1136,6 @@
         console.error("Error updating map:", error);
         utils.showNotification("Error updating map data", "danger");
       } finally {
-        // Ensure loading overlay is hidden after map update
         window.loadingManager.finish();
       }
     },
@@ -1221,13 +1193,11 @@
       features.forEach((feature) => {
         const props = feature.properties || {};
 
-        // Distance
         if (props.distance && !isNaN(props.distance)) {
           metrics.totalDistance += parseFloat(props.distance);
           metrics.validDistanceCount++;
         }
 
-        // Driving time
         let drivingTime = props.duration || props.drivingTime;
         if (!drivingTime && props.startTime && props.endTime) {
           const start = new Date(props.startTime);
@@ -1242,7 +1212,6 @@
           metrics.validDrivingTimeCount++;
         }
 
-        // Start time
         if (props.startTime) {
           const startTime = new Date(props.startTime);
           if (!isNaN(startTime.getTime())) {
@@ -1251,7 +1220,6 @@
           }
         }
 
-        // Max speed
         if (props.maxSpeed && !isNaN(props.maxSpeed)) {
           metrics.maxSpeed = Math.max(metrics.maxSpeed, parseFloat(props.maxSpeed));
         }
@@ -1277,7 +1245,7 @@
     },
   };
 
-  // Trip interactions with performance improvements
+  // Trip interactions
   const tripInteractions = {
     handleTripClick(e, feature) {
       if (!feature?.properties) return;
@@ -1410,7 +1378,6 @@
         const tripId = button.dataset.tripId;
         if (!tripId) return;
 
-        // Disable button to prevent double clicks
         button.disabled = true;
         button.classList.add('btn-loading');
 
@@ -1513,31 +1480,24 @@
       try {
         window.loadingManager.show('Initializing application...');
         
-        // Initialize date inputs
         this.initializeDates();
 
-        // Check if we're on the map page
         if (utils.getElement("map") && !document.getElementById("visits-page")) {
-          // Initialize map
           const mapInitialized = await mapManager.initialize();
           if (!mapInitialized) {
             throw new Error('Failed to initialize map');
           }
 
-          // Initialize UI components
           layerManager.initializeControls();
           await this.initializeLocationDropdown();
           this.initializeLiveTracker();
           this.setupEventListeners();
 
-          // Restore layer visibility
           this.restoreLayerVisibility();
 
-          // Start loading data
           const mapStage = window.loadingManager.startStage('map', 'Loading map data...');
           
           try {
-            // Load initial data with progress tracking
             await Promise.all([
               dataManager.fetchTrips(),
               dataManager.fetchMetrics(),
@@ -1545,7 +1505,6 @@
             
             mapStage.complete();
             
-            // Zoom to last trip if available
             if (state.mapLayers.trips?.layer?.features?.length > 0) {
               requestAnimationFrame(() => mapManager.zoomToLastTrip());
             }
@@ -1559,7 +1518,6 @@
 
         document.dispatchEvent(new CustomEvent("appReady"));
         
-        // Hide loading overlay after a short delay to ensure smooth transition
         setTimeout(() => {
           window.loadingManager.finish();
         }, 300);
@@ -1633,7 +1591,6 @@
         const toggle = document.getElementById(`${layerName}-toggle`);
 
         if (layerName === "trips") {
-          // Trips layer is always visible by default
           state.mapLayers[layerName].visible = true;
           if (toggle) toggle.checked = true;
         } else if (savedVisibility[layerName] !== undefined) {
@@ -1706,7 +1663,7 @@
         });
       }
 
-      // Listen for map style changes to re-apply layers
+      // Map style changes
       document.addEventListener("mapStyleLoaded", async () => {
         if (!state.map || !state.mapInitialized) return;
 
@@ -1716,17 +1673,12 @@
         for (const [layerName, layerInfo] of Object.entries(state.mapLayers)) {
           if (layerInfo.visible && layerInfo.layer) {
             try {
-              // Ensure source and layer are correctly re-added or updated
-              // updateMapLayer will add if not present, or update data if present
               await layerManager.updateMapLayer(layerName, layerInfo.layer);
               
-              // Explicitly set visibility again, as updateMapLayer might only set it on creation
-              // or if the layer config is re-applied. Best to be sure.
               const layerId = `${layerName}-layer`;
               if (state.map.getLayer(layerId)) {
                  state.map.setLayoutProperty(layerId, "visibility", "visible");
               } else {
-                // If the layer somehow didn't get added by updateMapLayer, log an error
                 console.warn(`Layer ${layerId} not found after attempting to re-add.`);
               }
 
@@ -1747,7 +1699,6 @@
           refreshButton.classList.add('btn-loading');
           
           try {
-            // Clear cache
             state.apiCache.clear();
             await dataManager.updateMap(false);
           } finally {
@@ -1774,10 +1725,9 @@
         });
       }
 
-      // Listen for filter events
+      // Filter events
       document.addEventListener("filtersApplied", async () => {
         if (state.mapInitialized) {
-          // Clear date range cache
           storage.set('cached_date_range', null);
           await dataManager.updateMap(true);
         }
@@ -1830,10 +1780,8 @@
       // Cleanup on page visibility change
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
-          // Pause expensive operations when page is hidden
           state.mapSettings.autoRefresh = false;
         } else {
-          // Resume when visible
           if (state.hasPendingRequests()) {
             utils.showNotification('Refreshing data...', 'info', 2000);
             dataManager.updateMap(false);
@@ -1845,7 +1793,6 @@
       window.addEventListener("beforeunload", () => {
         state.cancelAllRequests();
         
-        // Save current layer visibility
         const visibility = {};
         Object.entries(state.mapLayers).forEach(([name, info]) => {
           visibility[name] = info.visible;
@@ -1869,7 +1816,6 @@
       });
     },
 
-    // Public API methods
     async mapMatchTrips() {
       try {
         const confirmed = await window.confirmationDialog.show({
@@ -1915,7 +1861,6 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => app.initialize());
   } else {
-    // Small delay to ensure all scripts are loaded
     setTimeout(() => app.initialize(), 100);
   }
 

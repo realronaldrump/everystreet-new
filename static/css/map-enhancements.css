@@ -31,9 +31,7 @@
 
 /* Enhanced trip path interactions */
 .trip-path {
-  transition:
-    stroke-width 0.15s ease-out,
-    opacity 0.15s ease-out;
+  transition: stroke-width 0.15s ease-out, opacity 0.15s ease-out;
   cursor: pointer;
 }
 
@@ -67,12 +65,68 @@
   scrollbar-color: rgba(var(--bs-primary-rgb), 0.5) transparent;
 }
 
+.control-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.control-panel::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.control-panel::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--bs-primary-rgb), 0.5);
+  border-radius: 4px;
+}
+
+.control-panel::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(var(--bs-primary-rgb), 0.7);
+}
+
 /* Focus visible for better accessibility */
 .btn:focus-visible,
 .form-control:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--bs-primary);
   outline-offset: 2px;
+}
+
+/* Performance hints */
+.layer-control {
+  contain: layout style;
+}
+
+.notification-container .alert {
+  contain: layout style paint;
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+  .btn,
+  .form-control,
+  .quick-select-btn,
+  .layer-control input[type="checkbox"],
+  .layer-control input[type="color"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .control-panel,
+  .side-panel,
+  .notification-container,
+  .loading-overlay,
+  .app-header,
+  #mobile-nav-drawer {
+    display: none !important;
+  }
+
+  #map {
+    position: static !important;
+    height: 100vh !important;
+  }
 }
 
 /* Reduce motion for accessibility */
@@ -96,71 +150,4 @@ a:focus-visible {
   .btn {
     border-width: 2px;
   }
-}
-
-/* Print styles */
-@media print {
-  .control-panel,
-  .side-panel,
-  .notification-container,
-  .loading-overlay,
-  .app-header,
-  #mobile-nav-drawer {
-    display: none !important;
-  }
-
-  #map {
-    position: static !important;
-    height: 100vh !important;
-  }
-}
-
-/* Performance hints */
-.layer-control {
-  contain: layout style;
-}
-
-.notification-container .alert {
-  contain: layout style paint;
-}
-
-/* Smooth skeleton loading */
-.skeleton-text {
-  height: 1em;
-  margin: 0.25em 0;
-  border-radius: 4px;
-}
-
-.skeleton-text:last-child {
-  width: 80%;
-}
-
-/* Touch-friendly tap targets */
-@media (pointer: coarse) {
-  .btn,
-  .form-control,
-  .quick-select-btn,
-  .layer-control input[type="checkbox"],
-  .layer-control input[type="color"] {
-    min-height: 44px;
-    min-width: 44px;
-  }
-}
-
-/* Dark mode optimizations */
-[data-bs-theme="dark"] .map-loading {
-  background-color: rgba(18, 18, 18, 0.9);
-}
-
-[data-bs-theme="dark"] .skeleton {
-  background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
-}
-
-/* Light mode optimizations */
-[data-bs-theme="light"] .map-loading {
-  background-color: rgba(248, 249, 250, 0.9);
-}
-
-[data-bs-theme="light"] .control-panel {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }

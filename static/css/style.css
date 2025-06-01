@@ -17,19 +17,11 @@
   --info: #5bc0de;
 
   /* Gradients */
-  --primary-gradient: linear-gradient(
-    135deg,
-    var(--primary),
-    var(--primary-dark)
-  );
-  --secondary-gradient: linear-gradient(
-    135deg,
-    var(--secondary),
-    var(--secondary-dark)
-  );
+  --primary-gradient: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  --secondary-gradient: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
   --success-gradient: linear-gradient(135deg, var(--success), #3da58a);
 
-  /* Neutral Colors (Dark Mode Default) */
+  /* Dark Mode Colors (Default) */
   --surface-0: #121212;
   --surface-1: #1e1e1e;
   --surface-2: #252525;
@@ -42,21 +34,8 @@
   --border-color: rgba(255, 255, 255, 0.12);
   --divider-color: rgba(255, 255, 255, 0.08);
 
-  /* Light Mode Colors */
-  --light-surface-0: #f8f9fa;
-  --light-surface-1: #ffffff;
-  --light-surface-2: #f5f5f5;
-  --light-surface-3: #eaeaea;
-  --light-surface-4: #e0e0e0;
-  --light-text-primary: rgba(0, 0, 0, 0.87);
-  --light-text-secondary: rgba(0, 0, 0, 0.6);
-  --light-text-tertiary: rgba(0, 0, 0, 0.38);
-  --light-border-color: rgba(0, 0, 0, 0.12);
-  --light-divider-color: rgba(0, 0, 0, 0.08);
-
   /* Typography */
-  --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-md: 1rem;
@@ -119,6 +98,20 @@
   --z-overlay: 1080;
 }
 
+/* === Light Mode Overrides === */
+body.light-mode {
+  --surface-0: #f8f9fa;
+  --surface-1: #ffffff;
+  --surface-2: #f5f5f5;
+  --surface-3: #eaeaea;
+  --surface-4: #e0e0e0;
+  --text-primary: rgba(0, 0, 0, 0.87);
+  --text-secondary: rgba(0, 0, 0, 0.6);
+  --text-tertiary: rgba(0, 0, 0, 0.38);
+  --border-color: rgba(0, 0, 0, 0.12);
+  --divider-color: rgba(0, 0, 0, 0.08);
+}
+
 /* === Core Reset & Base Styles === */
 *,
 *::before,
@@ -129,512 +122,47 @@
 }
 
 html {
-  height: 100%; /* Ensure html takes full height */
+  height: 100%;
 }
 
 body {
-  min-height: 100%; /* Use min-height instead of height */
-  display: flex; /* Use flexbox for layout */
-  flex-direction: column; /* Stack children vertically */
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
   background-color: var(--surface-0);
   color: var(--text-primary);
   font-family: var(--font-family);
   line-height: var(--line-height-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition:
-    background-color 0.3s ease,
-    color 0.3s ease;
-  overflow-x: hidden; /* Keep horizontal overflow hidden */
-}
-
-/* === Light Mode Styles === */
-body.light-mode {
-  background-color: var(--light-surface-0);
-  color: var(--light-text-primary);
-}
-
-/* Header in light mode */
-body.light-mode .app-header {
-  background-color: var(--light-surface-1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-/* Cards, Panels, Dropdowns in light mode */
-body.light-mode .card,
-body.light-mode .side-panel,
-body.light-mode .dropdown-menu,
-body.light-mode .modal-content,
-body.light-mode .notification,
-body.light-mode .mobile-nav-drawer {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-  border-color: var(--light-border-color);
-}
-
-/* Section headers in light mode */
-body.light-mode .card-header,
-body.light-mode .panel-header,
-body.light-mode .modal-header,
-body.light-mode .drawer-header {
-  background-color: var(--light-surface-2);
-  border-color: var(--light-border-color);
-  color: var(--light-text-primary);
-}
-
-/* Navigation in light mode */
-body.light-mode .nav-item a,
-body.light-mode .drawer-nav-list li a,
-body.light-mode .tool-btn {
-  color: var(--light-text-primary);
-}
-
-body.light-mode .drawer-nav-list li a.active {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: var(--primary);
-}
-
-body.light-mode .drawer-nav-list li a:hover {
-  background-color: rgba(0, 0, 0, 0.03);
-}
-
-body.light-mode .nav-item.active a::after {
-  /* Keep the primary gradient for active indicators in both themes */
-  background: var(--primary-gradient);
-}
-
-body.light-mode .nav-item i,
-body.light-mode .drawer-nav-list li a i {
-  color: var(--primary);
-}
-
-body.light-mode .nav-item a:hover {
-  color: var(--primary-dark);
-}
-
-/* Form elements in light mode */
-body.light-mode .form-control,
-body.light-mode .form-select,
-body.light-mode .quick-select-btn {
-  background-color: var(--light-surface-1);
-  border-color: var(--light-border-color);
-  color: var(--light-text-primary);
-}
-
-body.light-mode 
-
-body.light-mode .form-label {
-  color: var(--light-text-secondary);
-}
-
-body.light-mode .form-control::placeholder {
-  color: var(--light-text-tertiary);
-}
-
-/* Tables in light mode */
-body.light-mode .table {
-  color: var(--light-text-primary);
-  background-color: var(--light-surface-1);
-}
-
-body.light-mode .table th {
-  background-color: var(--light-surface-2);
-}
-
-body.light-mode .table td {
-  border-color: var(--light-border-color);
-  color: var(--light-text-primary);
-  background-color: var(--light-surface-1);
-}
-
-body.light-mode .table-striped tbody tr:nth-of-type(odd) {
-  background-color: var(--light-surface-2);
-}
-
-body.light-mode .table-hover tr:hover td {
-  background-color: rgba(0, 0, 0, 0.03);
-}
-
-/* Buttons in light mode */
-body.light-mode .btn-outline {
-  color: var(--light-text-primary);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode .btn-outline:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  border-color: var(--primary);
-}
-
-/* Theme toggle in light mode */
-body.light-mode .theme-toggle input:checked + .theme-slider {
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-body.light-mode .theme-slider {
-  background-color: var(--light-surface-3);
-}
-
-body.light-mode .theme-slider .fa-moon,
-body.light-mode .theme-slider .fa-sun {
-  color: var(--light-text-primary);
-}
-
-/* Utilities and controls in light mode */
-body.light-mode .menu-toggle-btn:hover,
-body.light-mode .tool-btn:hover,
-body.light-mode .panel-close-btn:hover,
-body.light-mode .drawer-close-btn:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Quick selections in light mode */
-body.light-mode .quick-select-btn:hover {
-  background-color: var(--light-surface-3);
-  border-color: var(--primary);
-}
-
-body.light-mode .quick-select-btn.active {
-  background-color: rgba(255, 107, 107, 0.1);
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-/* Map controls in light mode */
-body.light-mode .map-controls-overlay,
-body.light-mode .leaflet-control-attribution,
-body.light-mode .leaflet-control-zoom,
-body.light-mode .leaflet-control-layers {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode .leaflet-control-attribution {
-  background-color: rgba(255, 255, 255, 0.7) !important;
-}
-
-body.light-mode .leaflet-control-zoom a,
-body.light-mode .leaflet-control-layers a {
-  color: var(--light-text-primary) !important;
-  background-color: var(--light-surface-1) !important;
-}
-
-body.light-mode .leaflet-control-zoom a:hover,
-body.light-mode .leaflet-control-layers a:hover {
-  background-color: var(--light-surface-2) !important;
-}
-
-/* Live Tracking UI */
-.live-tracking-status {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
-  z-index: 1000;
-  max-width: 300px;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  background-color: var(--surface-2);
-  border: 1px solid var(--border-color);
-  opacity: 0.9;
-  transition: all var(--transition-normal);
-}
-
-.live-tracking-status:hover {
-  opacity: 1;
-  box-shadow: var(--shadow-lg);
-}
-
-body.light-mode .live-tracking-status {
-  background-color: var(--light-surface-2);
-  border-color: var(--light-border-color);
-  color: var(--light-text-primary);
-}
-
-.live-tracking-status .card-header {
-  padding: var(--space-3);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--surface-3);
-}
-
-body.light-mode .live-tracking-status .card-header {
-  background-color: var(--light-surface-3);
-  border-color: var(--light-border-color);
-}
-
-.live-tracking-status .card-body {
-  padding: var(--space-3);
-}
-
-
-
-
-
-
-
-.live-trip-metrics {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-
-body.light-mode .live-trip-metrics {
-  color: var(--light-text-secondary);
-}
-
-.live-trip-metrics .metric-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.live-trip-metrics .metric-row:last-child {
-  border-bottom: none;
-}
-
-.live-trip-metrics .metric-label {
-  color: var(--text-secondary);
-}
-
-.live-trip-metrics .metric-value {
-  font-weight: var(--font-weight-medium);
-}
-
-body.light-mode .live-trip-metrics .metric-row {
-  border-bottom-color: var(--light-border-color);
-}
-
-.connection-status {
-  font-size: 0.75rem;
-}
-
-/* Map Controls Panel - Bottom */
-#map-controls {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  background-color: rgba(33, 37, 41, 0.85);
-  color: var(--text-primary);
-  border-top-left-radius: 0.5rem;
-  border-top-right-radius: 0.5rem;
-  transition: all 0.3s ease;
-  max-height: 70vh;
-  overflow-y: auto;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
-}
-
-#map-controls {
-  touch-action: pan-y;
-  /* This allows vertical scrolling but blocks other touch actions */
-  -webkit-overflow-scrolling: touch;
-  /* Enables smooth scrolling on iOS */
-  overflow-y: auto;
-}
-
-body.light-mode #map-controls {
-  background-color: rgba(248, 249, 250, 0.85);
-  color: var(--light-text-primary);
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-}
-
-#map-controls.minimized {
-  max-height: 50px;
-  overflow: hidden;
-}
-
-#controls-toggle {
-  background-color: var(--surface-3);
-  border: none;
-  transition: all 0.2s ease;
-}
-
-body.light-mode #controls-toggle {
-  background-color: var(--light-surface-3);
-}
-
-/* Custom scrollbar for controls panel */
-#map-controls::-webkit-scrollbar {
-  width: 8px;
-}
-
-#map-controls::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-#map-controls::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-}
-
-body.light-mode #map-controls::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-body.light-mode #map-controls::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.2);
-}
-
-/* Remove status panel styles as they're now integrated into controls */
-.status-indicator {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background-color: var(--warning);
-  transition: background-color 0.3s ease;
-}
-
-.status-indicator.connected {
-  background-color: var(--success);
-}
-
-.status-indicator.disconnected {
-  background-color: var(--danger);
-}
-
-.live-trip-metrics {
-  font-size: 0.875rem;
-}
-
-body.light-mode .live-trip-metrics {
-  color: var(--light-text-secondary);
-}
-
-.live-trip-metrics .metric-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.live-trip-metrics .metric-row:last-child {
-  border-bottom: none;
-}
-
-.live-trip-metrics .metric-label {
-  color: var(--text-secondary);
-}
-
-.live-trip-metrics .metric-value {
-  font-weight: var(--font-weight-medium);
-}
-
-body.light-mode .live-trip-metrics .metric-row {
-  border-bottom-color: var(--light-border-color);
-}
-
-.connection-status {
-  font-size: 0.75rem;
-}
-
-/* Fix sidebar implementation */
-.sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: var(--sidebar-width);
-  z-index: var(--z-fixed);
-  background-color: var(--surface-1);
-  box-shadow: var(--shadow-lg);
-  transition: transform var(--transition-normal);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.sidebar-header {
-  height: var(--header-height);
-  padding: 0 var(--space-4);
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: var(--surface-2);
-}
-
-.sidebar-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-4) 0;
-}
-
-.sidebar-collapsed {
-  transform: translateX(calc(-100% + 60px));
-}
-
-body.light-mode .sidebar {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-}
-
-body.light-mode .sidebar-header {
-  background-color: var(--light-surface-2);
-  border-color: var(--light-border-color);
-}
-
-/* Ensure consistent layout with/without sidebar */
-.main-content {
-  flex-grow: 1; /* Allow main content to fill remaining space */
-  padding-top: var(--header-height); /* Add padding to offset fixed header */
-  display: flex; /* Use flex for children (like map wrapper) */
-  flex-direction: column; /* Stack children vertically */
-  position: relative; /* Ensure relative positioning for absolute children */
-  overflow: hidden; /* Prevent potential overflow issues */
-}
-
-.sidebar-active .main-content {
-  margin-left: var(--sidebar-width);
-}
-
-@media (max-width: 992px) {
-  .sidebar {
-    transform: translateX(-100%);
-  }
-
-  .sidebar.active {
-    transform: translateX(0);
-  }
-
-  .sidebar-active .main-content {
-    margin-left: 0;
-  }
+  transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
 }
 
 /* === Layout Structure === */
 .layout-wrapper {
   display: flex;
   flex-direction: column;
-  min-height: 100vh; /* Ensure wrapper takes full viewport height */
-  position: relative; /* Needed for absolute positioning of header/panels */
+  min-height: 100vh;
+  position: relative;
 }
 
 /* Header */
 .app-header {
-  position: fixed; /* Make header fixed */
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   height: var(--header-height);
   background-color: var(--surface-1);
   box-shadow: var(--shadow-sm);
-  z-index: var(--z-fixed); /* Ensure header is above other content */
+  z-index: var(--z-fixed);
   transition: background-color var(--transition-normal);
 }
 
 .app-header.scrolled {
   box-shadow: var(--shadow-lg);
   background-color: var(--surface-2);
-}
-
-body.light-mode .app-header.scrolled {
-  background-color: var(--light-surface-2);
-  box-shadow: var(--light-shadow-lg);
 }
 
 .header-container {
@@ -671,6 +199,10 @@ body.light-mode .app-header.scrolled {
 
 .menu-toggle-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+body.light-mode .menu-toggle-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .brand-logo {
@@ -747,6 +279,7 @@ body.light-mode .app-header.scrolled {
   color: var(--primary);
 }
 
+/* Dropdown Menus */
 .dropdown-menu {
   background-color: var(--surface-2);
   border: 1px solid var(--border-color);
@@ -767,6 +300,10 @@ body.light-mode .app-header.scrolled {
 .dropdown-item:hover {
   background-color: rgba(255, 255, 255, 0.05);
   color: var(--primary);
+}
+
+body.light-mode .dropdown-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .dropdown-item i {
@@ -804,6 +341,10 @@ body.light-mode .app-header.scrolled {
 
 .tool-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+body.light-mode .tool-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 /* Theme Toggle */
@@ -933,8 +474,16 @@ body.light-mode .app-header.scrolled {
   border-left: 3px solid var(--primary);
 }
 
+body.light-mode .drawer-nav-list li a.active {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
 .drawer-nav-list li a:hover {
   background-color: rgba(255, 255, 255, 0.03);
+}
+
+body.light-mode .drawer-nav-list li a:hover {
+  background-color: rgba(0, 0, 0, 0.03);
 }
 
 .drawer-nav-list li a i {
@@ -1003,12 +552,16 @@ body.light-mode .app-header.scrolled {
 
 /* Main Content */
 .main-content {
-  flex-grow: 1; /* Allow main content to fill remaining space */
-  padding-top: var(--header-height); /* Add padding to offset fixed header */
-  display: flex; /* Use flex for children (like map wrapper) */
-  flex-direction: column; /* Stack children vertically */
-  position: relative; /* Ensure relative positioning for absolute children */
-  overflow: hidden; /* Prevent potential overflow issues */
+  flex-grow: 1;
+  padding-top: var(--header-height);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-active .main-content {
+  margin-left: var(--sidebar-width);
 }
 
 /* Content Overlay */
@@ -1041,9 +594,7 @@ body.light-mode .app-header.scrolled {
   box-shadow: var(--shadow-md);
   border: 1px solid var(--border-color);
   overflow: hidden;
-  transition:
-    box-shadow var(--transition-normal),
-    transform var(--transition-normal);
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
   margin-bottom: var(--space-5);
 }
 
@@ -1104,9 +655,7 @@ body.light-mode .app-header.scrolled {
   background-position: 50%;
   transform: scale(10, 10);
   opacity: 0;
-  transition:
-    transform 0.5s,
-    opacity 1s;
+  transition: transform 0.5s, opacity 1s;
 }
 
 .btn:active::after {
@@ -1156,6 +705,10 @@ body.light-mode .app-header.scrolled {
   border-color: var(--primary);
 }
 
+body.light-mode .btn-outline:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
 .btn-block {
   display: flex;
   width: 100%;
@@ -1200,9 +753,7 @@ body.light-mode .app-header.scrolled {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .form-control:focus {
@@ -1222,14 +773,16 @@ body.light-mode .app-header.scrolled {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   appearance: none;
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
   background-repeat: no-repeat;
   background-position: right var(--space-3) center;
   background-size: 16px 12px;
+}
+
+body.light-mode .form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
 }
 
 /* Quick Selections */
@@ -1274,6 +827,7 @@ body.light-mode .app-header.scrolled {
   width: 100%;
   border-collapse: collapse;
   background-color: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .table th {
@@ -1294,60 +848,152 @@ body.light-mode .app-header.scrolled {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
+body.light-mode .table-hover tr:hover td {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
 .table-striped tbody tr:nth-of-type(odd) {
   background-color: rgba(255, 255, 255, 0.02);
 }
 
-/* Places List */
-.places-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.place-item {
-  display: flex;
-  align-items: center;
-  padding: var(--space-3);
+body.light-mode .table-striped tbody tr:nth-of-type(odd) {
   background-color: var(--surface-2);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  transition: all var(--transition-fast);
 }
 
-.place-item:hover {
+/* Map Controls */
+#map-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background-color: rgba(33, 37, 41, 0.85);
+  color: var(--text-primary);
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  transition: all 0.3s ease;
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.light-mode #map-controls {
+  background-color: rgba(248, 249, 250, 0.85);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+}
+
+#map-controls.minimized {
+  max-height: 50px;
+  overflow: hidden;
+}
+
+#controls-toggle {
   background-color: var(--surface-3);
-  transform: translateX(3px);
+  border: none;
+  transition: all 0.2s ease;
 }
 
-.place-icon {
+/* Custom scrollbar for controls panel */
+#map-controls::-webkit-scrollbar {
+  width: 8px;
+}
+
+#map-controls::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+#map-controls::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+body.light-mode #map-controls::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+body.light-mode #map-controls::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Status Indicators */
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--warning);
+  transition: background-color 0.3s ease;
+}
+
+.status-indicator.connected {
+  background-color: var(--success);
+}
+
+.status-indicator.disconnected {
+  background-color: var(--danger);
+}
+
+/* Live Tracking UI */
+.live-tracking-status {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 1000;
+  max-width: 300px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border-color);
+  opacity: 0.9;
+  transition: all var(--transition-normal);
+}
+
+.live-tracking-status:hover {
+  opacity: 1;
+  box-shadow: var(--shadow-lg);
+}
+
+.live-tracking-status .card-header {
+  padding: var(--space-3);
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background-color: var(--primary);
-  border-radius: var(--radius-full);
-  margin-right: var(--space-3);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--surface-3);
 }
 
-.place-details {
-  flex: 1;
+.live-tracking-status .card-body {
+  padding: var(--space-3);
 }
 
-.place-name {
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-1);
-}
-
-.place-stats {
-  font-size: var(--font-size-xs);
+.live-trip-metrics {
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
-.place-actions {
+.live-trip-metrics .metric-row {
   display: flex;
-  gap: var(--space-2);
+  justify-content: space-between;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.live-trip-metrics .metric-row:last-child {
+  border-bottom: none;
+}
+
+.live-trip-metrics .metric-label {
+  color: var(--text-secondary);
+}
+
+.live-trip-metrics .metric-value {
+  font-weight: var(--font-weight-medium);
+}
+
+.connection-status {
+  font-size: 0.75rem;
 }
 
 /* Notification */
@@ -1370,9 +1016,7 @@ body.light-mode .app-header.scrolled {
   box-shadow: var(--shadow-lg);
   transform: translateX(120%);
   opacity: 0;
-  transition:
-    transform 0.3s ease,
-    opacity 0.3s ease;
+  transition: transform 0.3s ease, opacity 0.3s ease;
   pointer-events: auto;
   border-left: 4px solid var(--primary);
   display: flex;
@@ -1411,6 +1055,7 @@ body.light-mode .app-header.scrolled {
   padding: var(--space-1);
 }
 
+/* Notification variants */
 .notification-success {
   border-color: var(--success);
 }
@@ -1443,22 +1088,7 @@ body.light-mode .app-header.scrolled {
   color: var(--info);
 }
 
-/* Loading Overlay */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* Map styles */
+/* Map Styles */
 .map-container {
   width: 100%;
   height: 70vh;
@@ -1472,11 +1102,6 @@ body.light-mode .app-header.scrolled {
   border: 1px solid var(--border-color);
 }
 
-body.light-mode .map-container {
-  border-color: var(--light-border-color);
-  background-color: var(--light-surface-1);
-}
-
 #map {
   height: 100vh;
   width: 100%;
@@ -1485,220 +1110,19 @@ body.light-mode .map-container {
   z-index: 1;
 }
 
-body.light-mode #map {
-  background-color: var(--light-surface-1);
-}
-
-.leaflet-container {
-  font-family: var(--font-family);
-  color: var(--text-primary);
-}
-
-body.light-mode .leaflet-container {
-  color: var(--light-text-primary);
-}
-
-.leaflet-control-attribution {
-  font-size: var(--font-size-xs);
-  background-color: rgba(255, 255, 255, 0.7) !important;
-  color: rgba(0, 0, 0, 0.7) !important;
-}
-
-.leaflet-popup-content-wrapper {
-  background: var(--card-bg);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-md);
-  padding: 5px;
-  max-width: fit-content;
-}
-
-body.light-mode .leaflet-popup-content-wrapper {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-}
-
-.leaflet-popup-tip {
-  background-color: var(--surface-1);
-}
-
-body.light-mode .leaflet-popup-tip {
-  background-color: var(--light-surface-1);
-}
-
-.trip-popup h4 {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-2);
-  color: var(--text-primary);
-}
-
-body.light-mode .trip-popup h4 {
-  color: var(--light-text-primary);
-}
-
-.trip-popup p {
-  margin-bottom: var(--space-2);
-  color: var(--text-secondary);
-}
-
-body.light-mode .trip-popup p {
-  color: var(--light-text-secondary);
-}
-
-.trip-popup p strong {
-  color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
-}
-
-body.light-mode .trip-popup p strong {
-  color: var(--light-text-primary);
-}
-
-/* New popup table styles */
-.trip-popup table.popup-data {
-  width: 100%;
-  margin-bottom: var(--space-2);
-  border-collapse: collapse;
-}
-
-.trip-popup table.popup-data th {
-  text-align: left;
-  padding: 2px var(--space-2);
-  color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
-  white-space: nowrap;
-  font-size: 0.85rem;
-}
-
-.trip-popup table.popup-data td {
-  padding: 2px var(--space-2);
-  color: var(--text-secondary);
-  word-break: break-word;
-  font-size: 0.85rem;
-  max-width: 190px;
-}
-
-body.light-mode .trip-popup table.popup-data th {
-  color: var(--light-text-primary);
-}
-
-body.light-mode .trip-popup table.popup-data td {
-  color: var(--light-text-secondary);
-}
-
-.trip-popup .trip-actions {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-/* Remove the scrolling behavior for the popup content */
-.leaflet-popup-content {
-  margin: 8px;
-  line-height: 1.3;
-  max-width: 300px;
-}
-
-.leaflet-control-layers,
-.leaflet-bar {
-  border-radius: var(--radius-md) !important;
-  box-shadow: var(--shadow-md) !important;
-  border: 1px solid var(--border-color) !important;
-  overflow: hidden;
-}
-
-.leaflet-control-layers-toggle,
-.leaflet-bar a {
-  background-color: var(--surface-1) !important;
-  color: var(--text-primary) !important;
-}
-
-body.light-mode .leaflet-control-layers-toggle,
-body.light-mode .leaflet-bar a {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-}
-
-.leaflet-bar a:hover {
-  background-color: var(--surface-2) !important;
-}
-
-body.light-mode .leaflet-bar a:hover {
-  background-color: var(--light-surface-2) !important;
-}
-
-/* Map loading indicator */
-
-
-
-
-/* Font color consistency fixes */
-.card-title,
-.panel-title,
-.modal-title,
-.drawer-title,
-.place-name,
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  color: var(--text-primary);
-}
-
-body.light-mode .card-title,
-body.light-mode .panel-title,
-body.light-mode .modal-title,
-body.light-mode .drawer-title,
-body.light-mode .place-name,
-body.light-mode h1,
-body.light-mode h2,
-body.light-mode h3,
-body.light-mode h4,
-body.light-mode h5,
-body.light-mode h6 {
-  color: var(--light-text-primary);
-}
-
-.card-text,
-.panel-text,
-p,
-.place-stats,
-.filter-date-range {
-  color: var(--text-secondary);
-}
-
-body.light-mode .card-text,
-body.light-mode .panel-text,
-body.light-mode p,
-body.light-mode .place-stats,
-body.light-mode .filter-date-range {
-  color: var(--light-text-secondary);
-}
-
-.text-muted,
-small,
-.small,
-.text-tertiary {
-  color: var(--text-tertiary) !important;
-}
-
-body.light-mode .text-muted,
-body.light-mode small,
-body.light-mode .small,
-body.light-mode .text-tertiary {
-  color: var(--light-text-tertiary) !important;
+/* Form Elements Enhancement */
+.form-check-input:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 0.15rem rgba(var(--primary-rgb), 0.25);
 }
 
 /* Media Queries */
-@media (max-width: 1200px) {
-  .main-content {
-    max-width: 100%;
-  }
-}
-
 @media (max-width: 992px) {
+  .sidebar-active .main-content {
+    margin-left: 0;
+  }
+
   .nav-item span {
     display: none;
   }
@@ -1746,95 +1170,60 @@ body.light-mode .text-tertiary {
   .card-body {
     padding: var(--space-3);
   }
+
+  .map-container {
+    height: 50vh;
+  }
+}
+
+@media (max-width: 576px) {
+  .control-panel {
+    bottom: 0.5rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    max-width: calc(100% - 1rem);
+    max-height: 40vh;
+    border-radius: 8px;
+  }
+
+  .notification-container {
+    left: var(--space-2);
+    right: var(--space-2);
+    max-width: calc(100% - 2 * var(--space-2));
+  }
 }
 
 /* Utility Classes */
-.text-primary {
-  color: var(--primary) !important;
-}
-.text-secondary {
-  color: var(--text-secondary) !important;
-}
-.text-center {
-  text-align: center !important;
-}
-.mb-1 {
-  margin-bottom: var(--space-1) !important;
-}
-.mb-2 {
-  margin-bottom: var(--space-2) !important;
-}
-.mb-3 {
-  margin-bottom: var(--space-3) !important;
-}
-.mb-4 {
-  margin-bottom: var(--space-4) !important;
-}
-.mb-5 {
-  margin-bottom: var(--space-5) !important;
-}
-.mt-1 {
-  margin-top: var(--space-1) !important;
-}
-.mt-2 {
-  margin-top: var(--space-2) !important;
-}
-.mt-3 {
-  margin-top: var(--space-3) !important;
-}
-.mt-4 {
-  margin-top: var(--space-4) !important;
-}
-.mt-5 {
-  margin-top: var(--space-5) !important;
-}
-.p-0 {
-  padding: 0 !important;
-}
-.p-1 {
-  padding: var(--space-1) !important;
-}
-.p-2 {
-  padding: var(--space-2) !important;
-}
-.p-3 {
-  padding: var(--space-3) !important;
-}
-.p-4 {
-  padding: var(--space-4) !important;
-}
-.d-flex {
-  display: flex !important;
-}
-.align-items-center {
-  align-items: center !important;
-}
-.justify-content-between {
-  justify-content: space-between !important;
-}
-.w-100 {
-  width: 100% !important;
-}
-.h-100 {
-  height: 100% !important;
-}
-.bg-primary {
-  background-color: var(--primary) !important;
-}
-.text-truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.text-primary { color: var(--primary) !important; }
+.text-secondary { color: var(--text-secondary) !important; }
+.text-center { text-align: center !important; }
+.mb-1 { margin-bottom: var(--space-1) !important; }
+.mb-2 { margin-bottom: var(--space-2) !important; }
+.mb-3 { margin-bottom: var(--space-3) !important; }
+.mb-4 { margin-bottom: var(--space-4) !important; }
+.mb-5 { margin-bottom: var(--space-5) !important; }
+.mt-1 { margin-top: var(--space-1) !important; }
+.mt-2 { margin-top: var(--space-2) !important; }
+.mt-3 { margin-top: var(--space-3) !important; }
+.mt-4 { margin-top: var(--space-4) !important; }
+.mt-5 { margin-top: var(--space-5) !important; }
+.p-0 { padding: 0 !important; }
+.p-1 { padding: var(--space-1) !important; }
+.p-2 { padding: var(--space-2) !important; }
+.p-3 { padding: var(--space-3) !important; }
+.p-4 { padding: var(--space-4) !important; }
+.d-flex { display: flex !important; }
+.align-items-center { align-items: center !important; }
+.justify-content-between { justify-content: space-between !important; }
+.w-100 { width: 100% !important; }
+.h-100 { height: 100% !important; }
+.bg-primary { background-color: var(--primary) !important; }
+.text-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Animations */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .fade-in {
@@ -1842,14 +1231,8 @@ body.light-mode .text-tertiary {
 }
 
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .slide-up {
@@ -1867,1064 +1250,20 @@ body.light-mode .text-tertiary {
   width: 1px;
 }
 
-/* Container layout and spacing fixes */
+/* Focus styles */
+.btn:focus,
+.form-control:focus,
+.form-select:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Container layout */
 .container-fluid,
 .container {
   padding: var(--space-4);
   max-width: var(--content-max-width);
   margin: 0 auto;
-}
-
-/* Card styling enhancements for consistency */
-.card {
-  margin-bottom: var(--space-5);
-}
-
-.card-header h5,
-.card-header .h5 {
-  margin-bottom: 0;
-  font-weight: var(--font-weight-semibold);
-}
-
-/* Light Mode - Place items */
-body.light-mode .place-item {
-  background-color: var(--light-surface-2);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode .place-item:hover {
-  background-color: var(--light-surface-3);
-}
-
-body.light-mode .place-name {
-  color: var(--light-text-primary);
-}
-
-body.light-mode .place-stats {
-  color: var(--light-text-secondary);
-}
-
-/* Light Mode - Loading and Notifications */
-body.light-mode .loading-content {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-}
-
-body.light-mode .loading-spinner {
-  border-color: rgba(0, 0, 0, 0.1);
-  border-top-color: var(--primary);
-}
-
-body.light-mode .loading-progress {
-  background-color: var(--light-surface-3);
-}
-
-body.light-mode .notification-message {
-  color: var(--light-text-secondary);
-}
-
-/* Light Mode - Overlays */
-body.light-mode .content-overlay {
-  background-color: rgba(255, 255, 255, 0.5);
-}
-
-/* Light Mode - Dropdowns */
-body.light-mode .dropdown-item {
-  color: var(--light-text-primary);
-}
-
-body.light-mode .dropdown-item:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: var(--primary);
-}
-
-body.light-mode .dropdown-divider {
-  border-color: var(--light-divider-color);
-}
-
-/* Light Mode - Map container fixes */
-body.light-mode .leaflet-container {
-  background: #e0e0e0;
-}
-
-/* Fix vertical rhythm and consistent spacing */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  margin-bottom: var(--space-4);
-}
-
-.table th,
-.table td {
-  vertical-align: middle;
-}
-
-.form-group,
-.mb-3 {
-  margin-bottom: var(--space-4);
-}
-
-/* Consistent focus outlines for accessibility */
-.form-control:focus,
-.form-select:focus,
-.btn:focus {
-  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.25);
-  outline: none;
-}
-
-body.light-mode .form-control:focus,
-body.light-mode .form-select:focus,
-body.light-mode .btn:focus {
-  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.15);
-}
-
-/* Ensure list items have consistent spacing */
-.list-group-item {
-  padding: var(--space-3) var(--space-4);
-}
-
-/* Fix alignment of form controls */
-.form-control,
-.form-select,
-.btn {
-  height: auto;
-  min-height: 38px;
-}
-
-/* Ensure consistent padding in cards */
-.card-body {
-  padding: var(--space-4);
-}
-
-/* Fix pagination style in light mode */
-body.light-mode .pagination .page-link {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode .pagination .page-item.active .page-link {
-  background-color: var(--primary);
-  color: var(--light-surface-1);
-  border-color: var(--primary);
-}
-
-/* Table styling improvements */
-body.light-mode .table {
-  color: var(--light-text-primary);
-  background-color: var(--light-surface-1);
-}
-
-body.light-mode .table th {
-  background-color: var(--light-surface-2);
-}
-
-body.light-mode .table td {
-  border-color: var(--light-border-color);
-  color: var(--light-text-primary);
-  background-color: var(--light-surface-1);
-}
-
-body.light-mode .table-striped tbody tr:nth-of-type(odd) {
-  background-color: var(--light-surface-2);
-}
-
-body.light-mode .table-hover tr:hover td {
-  background-color: rgba(0, 0, 0, 0.03);
-}
-
-/* Map controls improvements */
-#map-controls {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  background-color: rgba(33, 37, 41, 0.85);
-  color: var(--text-primary);
-  border-top-left-radius: 0.5rem;
-  border-top-right-radius: 0.5rem;
-  transition: all 0.3s ease;
-  max-height: 70vh;
-  overflow-y: auto;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
-}
-
-body.light-mode #map-controls {
-  background-color: rgba(248, 249, 250, 0.85);
-  color: var(--light-text-primary);
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-}
-
-#map-controls.minimized {
-  max-height: 50px;
-  overflow: hidden;
-}
-
-#controls-toggle {
-  background-color: var(--surface-3);
-  border: none;
-  transition: all 0.2s ease;
-}
-
-body.light-mode #controls-toggle {
-  background-color: var(--light-surface-3);
-}
-
-/* Custom scrollbar for controls panel */
-#map-controls::-webkit-scrollbar {
-  width: 8px;
-}
-
-#map-controls::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-#map-controls::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-}
-
-body.light-mode #map-controls::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-body.light-mode #map-controls::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.2);
-}
-
-/* Remove status panel styles as they're now integrated into controls */
-.status-indicator {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background-color: var(--warning);
-  transition: background-color 0.3s ease;
-}
-
-.status-indicator.connected {
-  background-color: var(--success);
-}
-
-.status-indicator.disconnected {
-  background-color: var(--danger);
-}
-
-.live-trip-metrics {
-  font-size: 0.875rem;
-}
-
-body.light-mode .live-trip-metrics {
-  color: var(--light-text-secondary);
-}
-
-.live-trip-metrics .metric-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.live-trip-metrics .metric-row:last-child {
-  border-bottom: none;
-}
-
-.live-trip-metrics .metric-label {
-  color: var(--text-secondary);
-}
-
-.live-trip-metrics .metric-value {
-  font-weight: var(--font-weight-medium);
-}
-
-body.light-mode .live-trip-metrics .metric-row {
-  border-bottom-color: var(--light-border-color);
-}
-
-.connection-status {
-  font-size: 0.75rem;
-}
-
-/* === Layer Controls Improvements === */
-#layer-controls {
-  margin-bottom: var(--space-4);
-}
-
-#layer-controls .card-body {
-  padding: var(--space-3);
-}
-
-#layer-controls .form-check {
-  display: flex;
-  align-items: center;
-  margin-bottom: var(--space-3);
-  padding: 0;
-}
-
-#layer-controls .form-check-input {
-  margin-right: 0;
-  position: static;
-  flex-shrink: 0;
-}
-
-#layer-controls .form-check-label {
-  display: flex;
-  align-items: center;
-  margin-left: var(--space-2);
-  margin-right: auto;
-  font-weight: var(--font-weight-medium);
-}
-
-#layer-controls .color-preview {
-  width: 16px;
-  height: 16px;
-  display: inline-block;
-  border-radius: var(--radius-sm);
-  margin-left: var(--space-2);
-  border: 1px solid var(--border-color);
-}
-
-body.light-mode #layer-controls .color-preview {
-  border-color: var(--light-border-color);
-}
-
-#layer-controls .opacity-control {
-  display: flex;
-  align-items: center;
-  margin-left: auto;
-  width: 120px;
-}
-
-#layer-controls .opacity-label {
-  margin-right: var(--space-2);
-  font-size: var(--font-size-xs);
-  white-space: nowrap;
-  color: var(--text-secondary);
-}
-
-body.light-mode #layer-controls .opacity-label {
-  color: var(--light-text-secondary);
-}
-
-#layer-controls .form-range {
-  flex: 1;
-  margin: 0;
-  padding: 0;
-  height: 10px;
-}
-
-/* Fix form range appearance */
-.form-range {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  background: transparent;
-}
-
-.form-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  border: none;
-  height: 16px;
-  width: 16px;
-  border-radius: 50%;
-  background: var(--primary);
-  cursor: pointer;
-  margin-top: -6px;
-}
-
-.form-range::-moz-range-thumb {
-  border: none;
-  height: 16px;
-  width: 16px;
-  border-radius: 50%;
-  background: var(--primary);
-  cursor: pointer;
-}
-
-.form-range::-webkit-slider-runnable-track {
-  width: 100%;
-  height: 4px;
-  cursor: pointer;
-  background: var(--surface-3);
-  border-radius: var(--radius-full);
-}
-
-body.light-mode .form-range::-webkit-slider-runnable-track {
-  background: var(--light-surface-3);
-}
-
-.form-range::-moz-range-track {
-  width: 100%;
-  height: 4px;
-  cursor: pointer;
-  background: var(--surface-3);
-  border-radius: var(--radius-full);
-}
-
-body.light-mode .form-range::-moz-range-track {
-  background: var(--light-surface-3);
-}
-
-/* Layer order section */
-.layer-order {
-  margin-top: var(--space-4);
-  border-top: 1px solid var(--border-color);
-  padding-top: var(--space-3);
-}
-
-body.light-mode .layer-order {
-  border-color: var(--light-border-color);
-}
-
-.layer-order h6 {
-  margin-bottom: var(--space-3);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
-}
-
-body.light-mode .layer-order h6 {
-  color: var(--light-text-secondary);
-}
-
-.layer-list {
-  background-color: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: var(--space-2);
-  max-height: 150px;
-  overflow-y: auto;
-}
-
-body.light-mode .layer-list {
-  background-color: var(--light-surface-2);
-  border-color: var(--light-border-color);
-}
-
-/* Specific layer controls fixes */
-.layer-controls {
-  padding: var(--space-4);
-}
-
-body.light-mode .layer-controls {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-}
-
-/* Fix for #map-display-options in light mode */
-body.light-mode #map-display-options .card-body {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-}
-
-/* Fix form toggle switches in light mode */
-body.light-mode .form-check-input {
-  background-color: var(--light-surface-3);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode .form-check-input:checked {
-  background-color: var(--primary);
-  border-color: var(--primary);
-}
-
-/* Fix metric cards in light mode */
-body.light-mode #metrics .card {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-}
-
-body.light-mode #coverage-statistics .card {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-}
-
-/* Maps container background fix in light mode */
-body.light-mode .map-container {
-  background-color: var(--light-surface-1);
-}
-
-/* Button styling fixes in light mode */
-body.light-mode .btn-primary {
-  background: var(--primary-gradient);
-  color: white;
-}
-
-body.light-mode .btn-outline-secondary {
-  color: var(--light-text-primary);
-  border-color: var(--light-border-color);
-  background-color: transparent;
-}
-
-body.light-mode .btn-outline-secondary:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: var(--primary);
-}
-
-/* Fix for map controls display */
-.map-controls-overlay {
-  background-color: var(--surface-1);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-  margin-bottom: var(--space-4);
-}
-
-body.light-mode .map-controls-overlay {
-  background-color: var(--light-surface-1);
-  border-color: var(--light-border-color);
-}
-
-/* === Comprehensive Light Mode Fixes === */
-
-/* Fix table styling consistently across all tables */
-body.light-mode table,
-body.light-mode .table,
-body.light-mode .dataTables_wrapper .dataTables_length,
-body.light-mode .dataTables_wrapper .dataTables_filter,
-body.light-mode .dataTables_wrapper .dataTables_info,
-body.light-mode .dataTables_wrapper .dataTables_processing,
-body.light-mode .dataTables_wrapper .dataTables_paginate {
-  color: var(--light-text-primary) !important;
-  background-color: var(--light-surface-1) !important;
-}
-
-body.light-mode .table-dark {
-  color: var(--light-text-primary) !important;
-  background-color: var(--light-surface-1) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode .table-dark th,
-body.light-mode .table-dark td,
-body.light-mode .table-dark thead th,
-body.light-mode .table-dark tbody + tbody {
-  border-color: var(--light-border-color) !important;
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-}
-
-body.light-mode .table-dark tbody tr:nth-of-type(odd) td {
-  background-color: var(--light-surface-2) !important;
-}
-
-body.light-mode .table-dark.table-striped tbody tr:nth-of-type(odd) {
-  background-color: var(--light-surface-2) !important;
-}
-
-body.light-mode .table-dark.table-hover tbody tr:hover {
-  background-color: rgba(0, 0, 0, 0.075) !important;
-}
-
-/* DataTables Specific Fixes */
-body.light-mode table.dataTable thead th,
-body.light-mode table.dataTable thead td {
-  background-color: var(--light-surface-2) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode table.dataTable tbody tr {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-}
-
-body.light-mode table.dataTable tbody tr.odd {
-  background-color: var(--light-surface-2) !important;
-}
-
-body.light-mode table.dataTable.stripe tbody tr.odd {
-  background-color: var(--light-surface-2) !important;
-}
-
-body.light-mode table.dataTable.hover tbody tr:hover,
-body.light-mode table.dataTable.hover tbody tr.odd:hover {
-  background-color: rgba(0, 0, 0, 0.075) !important;
-}
-
-body.light-mode .dataTables_wrapper .dataTables_paginate .paginate_button {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode
-  .dataTables_wrapper
-  .dataTables_paginate
-  .paginate_button:hover {
-  background-color: var(--light-surface-2) !important;
-  color: var(--primary) !important;
-}
-
-body.light-mode
-  .dataTables_wrapper
-  .dataTables_paginate
-  .paginate_button.current,
-body.light-mode
-  .dataTables_wrapper
-  .dataTables_paginate
-  .paginate_button.current:hover {
-  background: var(--primary-gradient) !important;
-  color: white !important;
-  border-color: var(--primary) !important;
-}
-
-/* Fix list groups specifically */
-body.light-mode .list-group-item,
-body.light-mode .list-group-item-action {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode .list-group-item.active {
-  background-color: var(--primary) !important;
-  color: white !important;
-  border-color: var(--primary) !important;
-}
-
-body.light-mode .list-group-item-action:hover {
-  background-color: var(--light-surface-2) !important;
-}
-
-/* Fix layer control lists */
-body.light-mode #layer-order-list .list-group-item {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode #layer-order-list .list-group-item:hover {
-  background-color: var(--light-surface-2) !important;
-}
-
-/* Fix dark bg-dark table-dark combinations */
-body.light-mode .bg-dark {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-}
-
-body.light-mode .text-white {
-  color: var(--light-text-primary) !important;
-}
-
-body.light-mode .border-secondary {
-  border-color: var(--light-border-color) !important;
-}
-
-/* Fix input groups and buttons */
-body.light-mode .input-group,
-body.light-mode .input-group-text {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-/* Metrics cards and text */
-body.light-mode .metrics .card {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-}
-
-body.light-mode .metric-value,
-body.light-mode .metric-label {
-  color: var(--light-text-primary) !important;
-}
-
-/* Fix progress bars */
-body.light-mode .progress {
-  background-color: var(--light-surface-3) !important;
-}
-
-body.light-mode .progress-bar-striped {
-  background-image: linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0.15) 25%,
-    transparent 25%,
-    transparent 50%,
-    rgba(255, 255, 255, 0.15) 50%,
-    rgba(255, 255, 255, 0.15) 75%,
-    transparent 75%,
-    transparent
-  ) !important;
-}
-
-/* Fix modal content */
-body.light-mode .modal-content {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-}
-
-body.light-mode .modal-header {
-  background-color: var(--light-surface-2) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode .modal-footer {
-  border-color: var(--light-border-color) !important;
-}
-
-/* Fix tabs */
-body.light-mode .nav-tabs {
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode .nav-tabs .nav-link {
-  color: var(--light-text-secondary) !important;
-  background-color: transparent !important;
-  border-color: transparent !important;
-}
-
-body.light-mode .nav-tabs .nav-link.active {
-  color: var(--light-text-primary) !important;
-  background-color: var(--light-surface-1) !important;
-  border-color: var(--light-border-color) var(--light-border-color)
-    var(--light-surface-1) !important;
-}
-
-body.light-mode .nav-tabs .nav-link:hover {
-  border-color: var(--light-surface-3) var(--light-surface-3)
-    var(--light-border-color) !important;
-}
-
-/* Fix specific UI components that might still be dark */
-body.light-mode #map-controls .card {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode #metrics .list-group-item,
-body.light-mode #layer-toggles .list-group-item,
-body.light-mode #coverage-statistics .list-group-item {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-/* Fix Flatpickr calendar in light mode */
-body.light-mode .flatpickr-calendar {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
-
-body.light-mode .flatpickr-calendar .flatpickr-month,
-body.light-mode .flatpickr-calendar .flatpickr-weekday {
-  color: var(--light-text-primary) !important;
-  fill: var(--light-text-primary) !important;
-}
-
-body.light-mode .flatpickr-day {
-  color: var(--light-text-primary) !important;
-}
-
-body.light-mode .flatpickr-day.selected {
-  background-color: var(--primary) !important;
-  color: white !important;
-}
-
-/* Fix code and pre blocks */
-body.light-mode code,
-body.light-mode pre {
-  background-color: var(--light-surface-2) !important;
-  color: var(--light-text-primary) !important;
-}
-
-/* Fix alerts and badges */
-body.light-mode .alert {
-  color: var(--light-text-primary) !important;
-  background-color: var(--light-surface-2) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode .badge {
-  color: white !important;
-}
-
-body.light-mode .badge-primary {
-  background-color: var(--primary) !important;
-}
-
-body.light-mode .badge-secondary {
-  background-color: var(--secondary) !important;
-}
-
-/* Fix alert variants but maintain good contrast */
-body.light-mode .alert-success {
-  color: #155724 !important;
-  background-color: #d4edda !important;
-  border-color: #c3e6cb !important;
-}
-
-body.light-mode .alert-danger {
-  color: #721c24 !important;
-  background-color: #f8d7da !important;
-  border-color: #f5c6cb !important;
-}
-
-body.light-mode .alert-warning {
-  color: #856404 !important;
-  background-color: #fff3cd !important;
-  border-color: #ffeeba !important;
-}
-
-body.light-mode .alert-info {
-  color: #0c5460 !important;
-  background-color: #d1ecf1 !important;
-  border-color: #bee5eb !important;
-}
-
-/* Fix tooltips */
-body.light-mode .tooltip-inner {
-  background-color: var(--light-surface-4) !important;
-  color: var(--light-text-primary) !important;
-}
-
-/* Fix specific instances of bg-dark we might have missed */
-body.light-mode [class*="bg-dark"] {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-}
-
-/* Make sure any white text is properly converted */
-body.light-mode [class*="text-white"] {
-  color: var(--light-text-primary) !important;
-}
-
-/* Fix specific metrics cards at the bottom of the map page */
-body.light-mode #total-trips,
-body.light-mode #total-distance,
-body.light-mode #avg-distance,
-body.light-mode #avg-start-time,
-body.light-mode #avg-driving-time,
-body.light-mode #avg-speed,
-body.light-mode #max-speed {
-  color: var(--light-text-primary) !important;
-}
-
-/* Fix code mirror if used */
-body.light-mode .CodeMirror {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-}
-
-/* Ensure all dark-themed cards and container elements are properly styled in light mode */
-body.light-mode .card.bg-dark,
-body.light-mode .card-header.bg-dark,
-body.light-mode .card-footer.bg-dark {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode .list-group-item.bg-dark.text-white {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-}
-
-/* Layer Controls Specific Improvements */
-#layer-toggles {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.layer-control {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
-  background-color: var(--surface-2);
-}
-
-.layer-control input[type="checkbox"] {
-  margin: 0;
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-}
-
-.layer-control label {
-  margin: 0;
-  flex: 1;
-  cursor: pointer;
-}
-
-.layer-control input[type="color"] {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: none;
-  margin-right: var(--space-2);
-}
-
-.layer-control input[type="range"] {
-  width: 100px;
-  flex-shrink: 0;
-}
-
-body.light-mode .layer-control {
-  background-color: var(--light-surface-2);
-  color: var(--light-text-primary);
-}
-
-body.light-mode .layer-control input[type="color"] {
-  border-color: var(--light-border-color);
-}
-
-body.light-mode #layer-toggles .form-check-input {
-  background-color: var(--light-surface-3);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode #layer-toggles .form-check-input:checked {
-  background-color: var(--primary);
-  border-color: var(--primary);
-}
-
-/* Improve layer order list styling */
-#layer-order-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  background-color: var(--surface-2);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-#layer-order-list li {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border-color);
-  cursor: grab;
-  display: flex;
-  align-items: center;
-}
-
-#layer-order-list li:last-child {
-  border-bottom: none;
-}
-
-#layer-order-list li::before {
-  content: "\f0b2";
-  font-family: "Font Awesome 5 Free";
-  font-weight: 900;
-  margin-right: var(--space-2);
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-#layer-order-list li.dragging {
-  background-color: var(--surface-3);
-  box-shadow: var(--shadow-md);
-}
-
-body.light-mode #layer-order-list {
-  background-color: var(--light-surface-2);
-}
-
-body.light-mode #layer-order-list li {
-  border-color: var(--light-border-color);
-  color: var(--light-text-primary);
-}
-
-body.light-mode #layer-order-list li::before {
-  color: var(--light-text-secondary);
-}
-
-body.light-mode #layer-order-list li.dragging {
-  background-color: var(--light-surface-3);
-}
-
-/* Metrics table specific fixes */
-body.light-mode #metrics .list-group-item.bg-dark,
-body.light-mode #coverage-statistics .list-group-item.bg-dark {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode #metrics .card-header.bg-dark,
-body.light-mode #coverage-statistics .card-header.bg-dark {
-  background-color: var(--light-surface-2) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode #metrics strong,
-body.light-mode #coverage-statistics strong {
-  color: var(--light-text-primary) !important;
-}
-
-/* Style for map display options in light mode */
-body.light-mode #map-display-options {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode #map-display-options .card-header {
-  background-color: var(--light-surface-2);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode #map-display-options .form-check-label {
-  color: var(--light-text-primary);
-}
-
-/* Additional card fixes for the bottom controls panel */
-body.light-mode #map-controls .card {
-  background-color: var(--light-surface-1);
-  color: var(--light-text-primary);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode #map-controls .list-group-item.bg-dark {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-/* Strong consistent styles for total values */
-body.light-mode #map-controls strong {
-  color: var(--light-text-primary) !important;
-}
-
-/* Ensure text colors in map controls match theme */
-body.light-mode #map-controls h1,
-body.light-mode #map-controls h2,
-body.light-mode #map-controls h3,
-body.light-mode #map-controls h4,
-body.light-mode #map-controls h5,
-body.light-mode #map-controls h6,
-body.light-mode #map-controls span,
-body.light-mode #map-controls p,
-body.light-mode #map-controls div,
-body.light-mode #map-controls li,
-body.light-mode #map-controls .card,
-body.light-mode #map-controls .list-group-item {
-  color: var(--light-text-primary);
-}
-
-body.light-mode #map-controls .card,
-body.light-mode #map-controls .list-group-item {
-  background-color: rgba(248, 249, 250, 0.85);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode #map-controls .text-muted,
-body.light-mode #map-controls small {
-  color: var(--light-text-secondary) !important;
-}
-
-body.light-mode #map-controls strong {
-  color: var(--light-text-primary);
 }
 
 /* Enhanced vehicle markers */
@@ -2946,357 +1285,87 @@ body.light-mode #map-controls strong {
   position: relative;
 }
 
-.vehicle-marker-inner:before {
-  content: attr(data-speed);
-  color: transparent;
-  position: absolute;
-  font-size: 8px;
-  font-weight: bold;
-}
-
-.vehicle-marker-inner:hover:before {
-  color: white;
-}
-
 /* Different styles based on speed */
 .vehicle-stopped {
   background-color: #f44336;
-  /* Red for stopped */
   animation: pulse 2s infinite;
 }
 
-.vehicle-slow {
-  background-color: #ff9800;
-  /* Orange for slow */
-}
-
-.vehicle-medium {
-  background-color: #2196f3;
-  /* Blue for medium */
-}
-
+.vehicle-slow { background-color: #ff9800; }
+.vehicle-medium { background-color: #2196f3; }
 .vehicle-fast {
   background-color: #9c27b0;
-  /* Purple for fast */
   transform: scale(1.2);
 }
 
-
-
-/* Prevent Leaflet Draw tooltips and their children from intercepting map clicks */
-.leaflet-draw-tooltip,
-.leaflet-draw-tooltip * {
-  pointer-events: none !important;
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
 }
 
-/* === Mapbox GL JS Specific Styles === */
-
-/* Mapbox popup styling to match Leaflet popup design */
-.mapboxgl-popup .mapboxgl-popup-content {
-  background: var(--surface-1);
-  border-radius: var(--card-border-radius);
-  box-shadow: var(--shadow-md);
-  padding: 12px 18px;
-  max-width: 400px;
-  font-family: var(--font-family);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+/* Loading states */
+.btn-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
 }
 
-body.light-mode .mapboxgl-popup .mapboxgl-popup-content {
-  background: var(--light-surface-1);
-  color: var(--light-text-primary);
-  border-color: var(--light-border-color);
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: btn-spin 0.6s linear infinite;
 }
 
-.mapboxgl-popup .mapboxgl-popup-tip {
-  background: var(--surface-1);
-  border-top-color: var(--surface-1);
-  border-right-color: var(--surface-1);
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
 }
 
-body.light-mode .mapboxgl-popup .mapboxgl-popup-tip {
-  background: var(--light-surface-1);
-  border-top-color: var(--light-surface-1);
-  border-right-color: var(--light-surface-1);
-}
-
-/* Coverage popup styling for Mapbox */
-.coverage-popup-content {
-  font-family: var(--font-family);
-  color: var(--text-primary);
-}
-
-.coverage-popup-content .popup-title {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--space-3);
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: var(--space-2);
-}
-
-.coverage-popup-content .popup-detail {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-2);
-  font-size: var(--font-size-sm);
-}
-
-.coverage-popup-content .popup-label {
-  color: var(--text-secondary);
-  font-weight: var(--font-weight-medium);
-  margin-right: var(--space-2);
-  min-width: 80px;
-}
-
-.coverage-popup-content .popup-detail span:last-child {
-  color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
-  text-align: right;
-}
-
-.coverage-popup-content .popup-actions {
-  margin-top: var(--space-3);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-body.light-mode .coverage-popup-content {
-  color: var(--light-text-primary);
-}
-
-body.light-mode .coverage-popup-content .popup-title {
-  color: var(--light-text-primary);
-  border-color: var(--light-border-color);
-}
-
-body.light-mode .coverage-popup-content .popup-label {
-  color: var(--light-text-secondary);
-}
-
-body.light-mode .coverage-popup-content .popup-detail span:last-child {
-  color: var(--light-text-primary);
-}
-
-body.light-mode .coverage-popup-content .popup-actions {
-  border-color: var(--light-border-color);
-}
-
-/* Mapbox GL JS Control styling to match theme */
-.mapboxgl-ctrl-group {
-  border-radius: var(--radius-md) !important;
-  box-shadow: var(--shadow-md) !important;
-  border: 1px solid var(--border-color) !important;
-  overflow: hidden;
-  background: var(--surface-1) !important;
-}
-
-.mapboxgl-ctrl-zoom-in,
-.mapboxgl-ctrl-zoom-out,
-.mapboxgl-ctrl button {
-  background-color: var(--surface-1) !important;
-  color: var(--text-primary) !important;
-  border: none !important;
-  width: 36px !important;
-  height: 36px !important;
-  line-height: 36px !important;
-  font-size: 18px !important;
-  transition: background-color 0.2s;
-  border-radius: 0 !important;
-}
-
-.mapboxgl-ctrl-zoom-in:hover,
-.mapboxgl-ctrl-zoom-out:hover,
-.mapboxgl-ctrl button:hover {
-  background-color: var(--surface-2) !important;
-  color: var(--text-primary) !important;
-}
-
-body.light-mode .mapboxgl-ctrl-group {
-  background: var(--light-surface-1) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode .mapboxgl-ctrl-zoom-in,
-body.light-mode .mapboxgl-ctrl-zoom-out,
-body.light-mode .mapboxgl-ctrl button {
-  background-color: var(--light-surface-1) !important;
-  color: var(--light-text-primary) !important;
-}
-
-body.light-mode .mapboxgl-ctrl-zoom-in:hover,
-body.light-mode .mapboxgl-ctrl-zoom-out:hover,
-body.light-mode .mapboxgl-ctrl button:hover {
-  background-color: var(--light-surface-2) !important;
-  color: var(--light-text-primary) !important;
-}
-
-/* Mapbox attribution control styling */
-.mapboxgl-ctrl-attrib,
-.mapboxgl-ctrl-attrib-inner {
-  background-color: rgba(var(--surface-1-rgb, 30, 30, 30), 0.8) !important;
-  color: var(--text-secondary) !important;
-  font-size: var(--font-size-xs) !important;
-  font-family: var(--font-family) !important;
-  border-radius: var(--radius-sm) !important;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
-body.light-mode .mapboxgl-ctrl-attrib,
-body.light-mode .mapboxgl-ctrl-attrib-inner {
-  background-color: rgba(248, 249, 250, 0.8) !important;
-  color: var(--light-text-secondary) !important;
-}
-
-.mapboxgl-ctrl-attrib a {
-  color: var(--text-secondary) !important;
-  text-decoration: none;
-}
-
-.mapboxgl-ctrl-attrib a:hover {
-  color: var(--text-primary) !important;
-  text-decoration: underline;
-}
-
-body.light-mode .mapboxgl-ctrl-attrib a {
-  color: var(--light-text-secondary) !important;
-}
-
-body.light-mode .mapboxgl-ctrl-attrib a:hover {
-  color: var(--light-text-primary) !important;
-}
-
-/* Mapbox compass and geolocate controls */
-.mapboxgl-ctrl-compass,
-.mapboxgl-ctrl-geolocate {
-  background-color: var(--surface-1) !important;
-  border: 1px solid var(--border-color) !important;
-}
-
-.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon,
-.mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
-  filter: invert(1) opacity(0.8);
-}
-
-body.light-mode .mapboxgl-ctrl-compass,
-body.light-mode .mapboxgl-ctrl-geolocate {
-  background-color: var(--light-surface-1) !important;
-  border-color: var(--light-border-color) !important;
-}
-
-body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon,
-body.light-mode .mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
-  filter: invert(0) opacity(0.8);
-}
-
-/* Mapbox canvas container customizations */
-.mapboxgl-canvas-container {
-  cursor: grab;
-}
-
-.mapboxgl-canvas-container:active {
-  cursor: grabbing;
-}
-
-/* Mapbox marker customizations */
-.mapboxgl-marker {
-  transition: transform 0.2s ease;
-}
-
-.mapboxgl-marker:hover {
-  transform: scale(1.1);
-}
-
-/* Map container compatibility for Mapbox */
-.mapbox-container {
-  font-family: var(--font-family);
-  color: var(--text-primary);
-  width: 100%;
-  height: 100%;
-}
-
-body.light-mode .mapbox-container {
-  color: var(--light-text-primary);
-}
-
-/* Enhanced trip styling for Mapbox features */
-.trip-feature-selected {
-  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.8));
-}
-
-.trip-feature-recent {
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
-}
-
-.undriven-street-feature {
-  transition: all 0.3s ease;
-}
-
-.undriven-street-feature:hover {
-  filter: drop-shadow(0 0 4px rgba(0, 191, 255, 0.7));
-}
-
-/* Mapbox loading states */
-.mapboxgl-canvas {
-  transition: opacity 0.3s ease;
-}
-
-.mapboxgl-canvas.loading {
-  opacity: 0.6;
-}
-
-/* Responsive adjustments for Mapbox controls */
-@media (max-width: 768px) {
-  .mapboxgl-ctrl-group {
-    margin: 10px !important;
-  }
-
-  .mapboxgl-ctrl-zoom-in,
-  .mapboxgl-ctrl-zoom-out,
-  .mapboxgl-ctrl button {
-    width: 32px !important;
-    height: 32px !important;
-    line-height: 32px !important;
-    font-size: 16px !important;
-  }
-
-  .mapboxgl-popup .mapboxgl-popup-content {
-    max-width: 280px;
-    padding: 10px 14px;
+/* Enhanced accessibility for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
-@media (max-width: 576px) {
-  .mapboxgl-ctrl-group {
-    margin: 8px !important;
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .control-panel,
+  .side-panel {
+    border: 2px solid;
   }
 
-  .mapboxgl-ctrl-zoom-in,
-  .mapboxgl-ctrl-zoom-out,
-  .mapboxgl-ctrl button {
-    width: 28px !important;
-    height: 28px !important;
-    line-height: 28px !important;
-    font-size: 14px !important;
+  .btn {
+    border-width: 2px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .control-panel,
+  .side-panel,
+  .notification-container,
+  .loading-overlay,
+  .app-header,
+  #mobile-nav-drawer {
+    display: none !important;
   }
 
-  .mapboxgl-popup .mapboxgl-popup-content {
-    max-width: 240px;
-    padding: 8px 12px;
-  }
-
-  .coverage-popup-content .popup-actions {
-    flex-direction: column;
-  }
-
-  .coverage-popup-content .popup-actions .btn {
-    width: 100%;
-    margin-bottom: var(--space-1);
+  #map {
+    position: static !important;
+    height: 100vh !important;
   }
 }

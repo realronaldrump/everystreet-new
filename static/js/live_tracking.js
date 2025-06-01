@@ -1,4 +1,3 @@
-
 /* global DateUtils, mapboxgl */
 
 class LiveTripTracker {
@@ -31,8 +30,8 @@ class LiveTripTracker {
     this.isPolling = false;
     this.lastMarkerLatLng = null; // For animating marker
 
-    this.statusIndicator = document.querySelector(".status-indicator");
-    this.statusText = document.querySelector(".status-text");
+    this.statusIndicator = document.querySelector(".live-status-indicator");
+    this.statusText = document.querySelector(".live-status-text");
     this.activeTripsCountElem = document.querySelector("#active-trips-count");
     this.tripMetricsElem = document.querySelector(".live-trip-metrics");
     this.errorMessageElem = document.querySelector(".error-message");

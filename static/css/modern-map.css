@@ -18,15 +18,17 @@
 /* Glass morphism for controls */
 .bg-glass {
   background: rgba(var(--bs-body-bg-rgb), 0.8) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  will-change: filter, opacity;
+  contain: paint;
 }
 
 /* Control panel styling */
 .control-panel {
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
   transform-origin: bottom left;
   bottom: 1.5rem;
   left: 1.5rem;
@@ -38,39 +40,17 @@
   z-index: 1000;
   border-radius: 8px;
   will-change: transform, max-height, opacity;
+  contain: content;
 }
 
 .control-panel.minimized {
-  max-height: 45px;
-  overflow: hidden;
-  transform: scale(0.9);
-  opacity: 0.85;
-  cursor: pointer;
+  transform: translateY(calc(100% - 45px));
 }
 
 .control-panel.minimized:hover {
   opacity: 1;
-  transform: scale(0.95);
+  transform: translateY(calc(100% - 55px)) scale(0.98);
 }
-
-/* Trip path styling enhancements */
-.mapboxgl-canvas-container canvas {
-  transition: filter 0.3s;
-}
-
-/* Mapbox GL JS interactive features */
-.mapboxgl-popup {
-  z-index: 1000;
-}
-
-/* Animated status indicator */
-
-
-
-
-
-
-
 
 /* Mapbox GL JS zoom controls */
 .mapboxgl-ctrl-zoom-in,
@@ -88,6 +68,8 @@
   overflow: hidden;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
   margin: 15px !important;
+  background: var(--surface-1) !important;
+  border: 1px solid var(--border-color) !important;
 }
 
 /* Layer styles */
@@ -160,7 +142,161 @@
   animation: fadeInUp 0.3s ease-out;
 }
 
-/* Responsive adjustments */
+/* Mapbox GL JS Control styling to match theme */
+.mapboxgl-ctrl-zoom-in,
+.mapboxgl-ctrl-zoom-out,
+.mapboxgl-ctrl button {
+  background-color: var(--surface-1) !important;
+  color: var(--text-primary) !important;
+  border: none !important;
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  font-size: 18px !important;
+  transition: background-color 0.2s;
+  border-radius: 0 !important;
+}
+
+.mapboxgl-ctrl-zoom-in:hover,
+.mapboxgl-ctrl-zoom-out:hover,
+.mapboxgl-ctrl button:hover {
+  background-color: var(--surface-2) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Mapbox attribution control styling */
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-attrib-inner {
+  background-color: rgba(var(--surface-1-rgb, 30, 30, 30), 0.8) !important;
+  color: var(--text-secondary) !important;
+  font-size: var(--font-size-xs) !important;
+  font-family: var(--font-family) !important;
+  border-radius: var(--radius-sm) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.mapboxgl-ctrl-attrib a {
+  color: var(--text-secondary) !important;
+  text-decoration: none;
+}
+
+.mapboxgl-ctrl-attrib a:hover {
+  color: var(--text-primary) !important;
+  text-decoration: underline;
+}
+
+/* Mapbox compass and geolocate controls */
+.mapboxgl-ctrl-compass,
+.mapboxgl-ctrl-geolocate {
+  background-color: var(--surface-1) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon,
+.mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
+  filter: invert(1) opacity(0.8);
+}
+
+/* Mapbox canvas container customizations */
+.mapboxgl-canvas-container {
+  cursor: grab;
+  transition: opacity 0.3s;
+}
+
+.mapboxgl-canvas-container:active {
+  cursor: grabbing;
+}
+
+/* Mapbox marker customizations */
+.mapboxgl-marker {
+  transition: transform 0.2s ease;
+}
+
+.mapboxgl-marker:hover {
+  transform: scale(1.1);
+}
+
+/* Map container compatibility for Mapbox */
+.mapbox-container {
+  font-family: var(--font-family);
+  color: var(--text-primary);
+  width: 100%;
+  height: 100%;
+}
+
+/* Enhanced trip styling for Mapbox features */
+.trip-feature-selected {
+  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.8));
+}
+
+.trip-feature-recent {
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+}
+
+.undriven-street-feature {
+  transition: all 0.3s ease;
+}
+
+.undriven-street-feature:hover {
+  filter: drop-shadow(0 0 4px rgba(0, 191, 255, 0.7));
+}
+
+/* Mapbox loading states */
+.mapboxgl-canvas {
+  transition: opacity 0.3s ease;
+}
+
+.mapboxgl-canvas.loading {
+  opacity: 0.6;
+}
+
+/* Coverage popup styling for Mapbox */
+.coverage-popup-content {
+  font-family: var(--font-family);
+  color: var(--text-primary);
+}
+
+.coverage-popup-content .popup-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-3);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--space-2);
+}
+
+.coverage-popup-content .popup-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.coverage-popup-content .popup-label {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+  margin-right: var(--space-2);
+  min-width: 80px;
+}
+
+.coverage-popup-content .popup-detail span:last-child {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  text-align: right;
+}
+
+.coverage-popup-content .popup-actions {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Responsive adjustments for Mapbox controls */
 @media (max-width: 768px) {
   .control-panel {
     top: auto;
@@ -176,10 +312,6 @@
     transform: translateY(calc(100% - 45px)) scale(0.95);
   }
 
-  .control-panel.minimized:hover {
-    transform: translateY(calc(100% - 55px)) scale(0.98);
-  }
-
   .mapboxgl-ctrl-group {
     margin: 10px !important;
   }
@@ -189,6 +321,11 @@
     width: 32px !important;
     height: 32px !important;
     line-height: 32px !important;
+  }
+
+  .mapboxgl-popup .mapboxgl-popup-content {
+    max-width: 280px;
+    padding: 10px 14px;
   }
 }
 
@@ -211,51 +348,61 @@
   .mapboxgl-ctrl-group {
     margin: 8px !important;
   }
+
+  .mapboxgl-ctrl-zoom-in,
+  .mapboxgl-ctrl-zoom-out,
+  .mapboxgl-ctrl button {
+    width: 28px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+    font-size: 14px !important;
+  }
+
+  .mapboxgl-popup .mapboxgl-popup-content {
+    max-width: 240px;
+    padding: 8px 12px;
+  }
+
+  .coverage-popup-content .popup-actions {
+    flex-direction: column;
+  }
+
+  .coverage-popup-content .popup-actions .btn {
+    width: 100%;
+    margin-bottom: var(--space-1);
+  }
 }
 
-/* Dark mode adjustments */
-[data-bs-theme="dark"] .mapboxgl-popup-content,
-[data-bs-theme="dark"] .mapboxgl-popup-tip {
-  background: rgba(33, 37, 41, 0.95);
-  color: #fff;
-}
-
-[data-bs-theme="dark"] .bg-glass {
-  background: rgba(33, 37, 41, 0.8) !important;
-}
-
-/* Light mode adjustments */
-[data-bs-theme="light"] .mapboxgl-popup-content,
-[data-bs-theme="light"] .mapboxgl-popup-tip {
+/* Light mode specific adjustments */
+body.light-mode .mapboxgl-popup-content,
+body.light-mode .mapboxgl-popup-tip {
   background: rgba(248, 249, 250, 0.95);
   color: #212529;
 }
 
-[data-bs-theme="light"] .bg-glass {
+body.light-mode .bg-glass {
   background: rgba(248, 249, 250, 0.8) !important;
 }
 
-/* === UI Optimizations (2025-05-16) === */
-
-/* Reduce expensive backdrop blur and hint compositor */
-.bg-glass {
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  will-change: filter, opacity;
-  contain: paint;
+body.light-mode .mapbox-container {
+  color: var(--text-primary);
 }
 
-/* Animate with transform only & isolate panel for better perf */
-.control-panel {
-  contain: content;
-  transition: transform 0.3s ease;
+body.light-mode .mapboxgl-ctrl-attrib,
+body.light-mode .mapboxgl-ctrl-attrib-inner {
+  background-color: rgba(248, 249, 250, 0.8) !important;
+  color: var(--text-secondary) !important;
 }
 
-.control-panel.minimized {
-  transform: translateY(calc(100% - 45px));
+body.light-mode .mapboxgl-ctrl-attrib a {
+  color: var(--text-secondary) !important;
 }
 
-/* Optimize Mapbox GL JS canvas performance */
-.mapboxgl-canvas-container {
-  transition: opacity 0.3s;
+body.light-mode .mapboxgl-ctrl-attrib a:hover {
+  color: var(--text-primary) !important;
+}
+
+body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon,
+body.light-mode .mapboxgl-ctrl-geolocate .mapboxgl-ctrl-icon {
+  filter: invert(0) opacity(0.8);
 }

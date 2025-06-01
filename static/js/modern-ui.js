@@ -1315,51 +1315,6 @@
 
     window.addEventListener("resize", handleResize);
 
-    // Connection status with retry logic
-    const statusIndicator = state.getElement(".status-indicator");
-    const statusText = state.getElement(".status-text");
-
-    if (statusIndicator && statusText) {
-      let retryCount = 0;
-      const maxRetries = 3;
-      
-      const updateStatus = () => {
-        const textContent = statusText.textContent.toLowerCase();
-        const wasConnected = statusIndicator.classList.contains(CONFIG.classes.connected);
-        const isConnected = textContent.includes("connected") && 
-                           !textContent.includes("disconnected");
-        
-        statusIndicator.classList.toggle(CONFIG.classes.connected, isConnected);
-        statusIndicator.classList.toggle(CONFIG.classes.disconnected, !isConnected);
-        
-        // Handle connection changes
-        if (!isConnected && wasConnected) {
-          retryCount = 0;
-          statusText.textContent = `Disconnected (Retry ${retryCount + 1}/${maxRetries})`;
-        } else if (!isConnected && retryCount < maxRetries) {
-          retryCount++;
-          setTimeout(() => {
-            statusText.textContent = `Reconnecting... (${retryCount}/${maxRetries})`;
-            // Trigger reconnection attempt
-            document.dispatchEvent(new CustomEvent('reconnectRequest'));
-          }, 2000 * retryCount);
-        } else if (isConnected && !wasConnected) {
-          retryCount = 0;
-          utils.showNotification('Connection restored', 'success', 3000);
-        }
-      };
-
-      // Use MutationObserver for better performance
-      const observer = new MutationObserver(updateStatus);
-      observer.observe(statusText, { 
-        childList: true, 
-        characterData: true, 
-        subtree: true 
-      });
-      
-      updateStatus();
-    }
-    
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       // Global shortcuts
