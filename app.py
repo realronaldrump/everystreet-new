@@ -2204,8 +2204,8 @@ async def list_trips(request: Request):
     List trips (as a GeoJSON FeatureCollection) optionally filtered
     by start_date/end_date query parameters.
     """
-    # build_query_from_request will look for ?start_date=…&end_date=…
-    query = await build_query_from_request(request)
+    # Filter by endTime instead of startTime so that sorting by endTime uses an index and avoids in-memory sort
+    query = await build_query_from_request(request, date_field="endTime")
     docs = await find_with_retry(trips_collection, query)
     features = []
     for doc in docs:
