@@ -110,7 +110,9 @@
   height: 100%;
   background: linear-gradient(90deg, var(--bs-primary), var(--bs-info));
   border-radius: 10px;
-  transition: width 0.3s ease, background 0.3s ease;
+  transition:
+    width 0.3s ease,
+    background 0.3s ease;
   box-shadow: 0 0 10px rgba(var(--bs-primary-rgb), 0.5);
 }
 
@@ -180,9 +182,10 @@
 .skeleton-loader {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(90deg, 
-    rgba(255, 255, 255, 0.05) 25%, 
-    rgba(255, 255, 255, 0.1) 50%, 
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
     rgba(255, 255, 255, 0.05) 75%
   );
   background-size: 200% 100%;
@@ -206,7 +209,7 @@
 }
 
 .btn-loading::after {
-  content: '';
+  content: "";
   position: absolute;
   width: 16px;
   height: 16px;
@@ -228,9 +231,7 @@
 
 /* Map loading specific */
 
-
 /* Layer loading indicator */
-
 
 @keyframes layer-spin {
   to {
@@ -243,16 +244,16 @@
   .loading-content {
     padding: 1.5rem;
   }
-  
+
   .loading-spinner {
     width: 50px;
     height: 50px;
   }
-  
+
   .loading-stages {
     font-size: 0.75rem;
   }
-  
+
   .loading-pulse {
     bottom: 1rem;
     font-size: 0.8125rem;
@@ -264,7 +265,7 @@
   .loading-overlay {
     background: rgba(0, 0, 0, 0.95);
   }
-  
+
   .loading-content {
     background: rgba(255, 255, 255, 0.03);
   }
@@ -277,11 +278,11 @@
   .layer-loading {
     animation: none;
   }
-  
+
   .loading-pulse {
     transition: opacity 0.3s ease;
   }
-  
+
   .skeleton-loader {
     animation: none;
     background: rgba(255, 255, 255, 0.05);

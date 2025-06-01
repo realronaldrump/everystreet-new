@@ -55,8 +55,9 @@
   --light-divider-color: rgba(0, 0, 0, 0.08);
 
   /* Typography */
-  --font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-family:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-md: 1rem;
@@ -221,9 +222,7 @@ body.light-mode .quick-select-btn {
   color: var(--light-text-primary);
 }
 
-body.light-mode 
-
-body.light-mode .form-label {
+body.light-mode body.light-mode .form-label {
   color: var(--light-text-secondary);
 }
 
@@ -368,12 +367,6 @@ body.light-mode .live-tracking-status .card-header {
 .live-tracking-status .card-body {
   padding: var(--space-3);
 }
-
-
-
-
-
-
 
 .live-trip-metrics {
   font-size: var(--font-size-sm);
@@ -1445,19 +1438,6 @@ body.light-mode .app-header.scrolled {
 
 /* Loading Overlay */
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* Map styles */
 .map-container {
   width: 100%;
@@ -1628,9 +1608,6 @@ body.light-mode .leaflet-bar a:hover {
 }
 
 /* Map loading indicator */
-
-
-
 
 /* Font color consistency fixes */
 .card-title,
@@ -2980,8 +2957,6 @@ body.light-mode #map-controls strong {
   /* Purple for fast */
   transform: scale(1.2);
 }
-
-
 
 /* Prevent Leaflet Draw tooltips and their children from intercepting map clicks */
 .leaflet-draw-tooltip,
