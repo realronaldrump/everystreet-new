@@ -428,10 +428,18 @@
 
         const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
         
-        // Get saved map position
+        // Determine initial map view: URL params override saved view
+        const urlParams = new URLSearchParams(window.location.search);
+        const latParam = parseFloat(urlParams.get('lat'));
+        const lngParam = parseFloat(urlParams.get('lng'));
+        const zoomParam = parseFloat(urlParams.get('zoom'));
         const savedView = storage.get('mapView');
-        const center = savedView?.center || CONFIG.MAP.defaultCenter;
-        const zoom = savedView?.zoom || CONFIG.MAP.defaultZoom;
+        const center = !isNaN(latParam) && !isNaN(lngParam)
+          ? [lngParam, latParam]
+          : (savedView?.center || CONFIG.MAP.defaultCenter);
+        const zoom = !isNaN(zoomParam)
+          ? zoomParam
+          : (savedView?.zoom || CONFIG.MAP.defaultZoom);
 
         initStage.update(60, 'Creating map instance...');
 
