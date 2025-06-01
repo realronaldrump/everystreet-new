@@ -31,7 +31,9 @@
 
 /* Enhanced trip path interactions */
 .trip-path {
-  transition: stroke-width 0.15s ease-out, opacity 0.15s ease-out;
+  transition:
+    stroke-width 0.15s ease-out,
+    opacity 0.15s ease-out;
   cursor: pointer;
 }
 
