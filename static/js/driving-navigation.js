@@ -62,7 +62,9 @@ class DrivingNavigation {
     this.currentCoverageRouteGeoJSON = null;
 
     // Add these properties to the constructor
-    this.findEfficientBtn = document.getElementById("find-efficient-street-btn");
+    this.findEfficientBtn = document.getElementById(
+      "find-efficient-street-btn",
+    );
     this.efficientStreetsLayer = L.layerGroup();
     this.suggestedStreets = [];
     this.efficientStreetMarkers = [];
@@ -1225,7 +1227,8 @@ class DrivingNavigation {
         setTimeout(() => {
           const navigateBtn = document.querySelector(".navigate-to-segment");
           if (navigateBtn) {
-            navigateBtn.addEventListener("mousedown", (evt) => { // Changed e to evt to avoid conflict
+            navigateBtn.addEventListener("mousedown", (evt) => {
+              // Changed e to evt to avoid conflict
               if (evt.button !== 0) return;
               const segmentId = navigateBtn.getAttribute("data-segment-id");
               this.highlightTargetStreet(segmentId);
@@ -1352,13 +1355,17 @@ class DrivingNavigation {
         currentLon = position.coords.longitude;
         this.lastKnownLocation = { lat: currentLat, lon: currentLon };
       } catch (error) {
-        this.setStatus("Unable to get current location. Please enable location services.", true);
+        this.setStatus(
+          "Unable to get current location. Please enable location services.",
+          true,
+        );
         return;
       }
     }
 
     this.findEfficientBtn.disabled = true;
-    this.findEfficientBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Finding...';
+    this.findEfficientBtn.innerHTML =
+      '<i class="fas fa-spinner fa-spin me-2"></i>Finding...';
     this.setStatus("Finding most efficient undriven streets...");
 
     // Clear previous suggestions
@@ -1367,7 +1374,7 @@ class DrivingNavigation {
     try {
       const response = await fetch(
         `/api/driving-navigation/suggest-next-street/${this.selectedLocation._id}?` +
-        `current_lat=${currentLat}¤t_lon=${currentLon}&top_n=3`
+          `current_lat=${currentLat}¤t_lon=${currentLon}&top_n=3`,
       );
 
       if (!response.ok) {
@@ -1385,18 +1392,24 @@ class DrivingNavigation {
         return;
       }
 
-      if (data.status === "success" && data.suggested_streets && data.suggested_streets.length > 0) {
+      if (
+        data.status === "success" &&
+        data.suggested_streets &&
+        data.suggested_streets.length > 0
+      ) {
         this.suggestedStreets = data.suggested_streets;
         this.displayEfficientStreets(data.suggested_streets);
 
         // Update status
         const topStreet = data.suggested_streets[0];
-        const distanceMiles = (topStreet.distance_from_current_m / 1609.34).toFixed(1);
+        const distanceMiles = (
+          topStreet.distance_from_current_m / 1609.34
+        ).toFixed(1);
         const lengthMiles = (topStreet.segment_length_m / 1609.34).toFixed(2);
 
         this.setStatus(
           `Found ${data.suggested_streets.length} efficient streets. ` +
-          `Top choice: ${topStreet.street_name} (${distanceMiles} mi away, ${lengthMiles} mi long)`
+            `Top choice: ${topStreet.street_name} (${distanceMiles} mi away, ${lengthMiles} mi long)`,
         );
 
         // Display info panel with suggestions
@@ -1419,11 +1432,15 @@ class DrivingNavigation {
       console.error("Error finding efficient streets:", error);
       this.setStatus(`Error: ${error.message}`, true);
       if (notificationManager) {
-        notificationManager.show(`Error finding efficient streets: ${error.message}`, "danger");
+        notificationManager.show(
+          `Error finding efficient streets: ${error.message}`,
+          "danger",
+        );
       }
     } finally {
       this.findEfficientBtn.disabled = false;
-      this.findEfficientBtn.innerHTML = '<i class="fas fa-bullseye me-2"></i>Find Most Efficient Street';
+      this.findEfficientBtn.innerHTML =
+        '<i class="fas fa-bullseye me-2"></i>Find Most Efficient Street';
     }
   }
 
@@ -1436,13 +1453,13 @@ class DrivingNavigation {
       }
 
       navigator.geolocation.getCurrentPosition(
-        position => resolve(position),
-        error => reject(error),
+        (position) => resolve(position),
+        (error) => reject(error),
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 0
-        }
+          maximumAge: 0,
+        },
       );
     });
   }
@@ -1456,25 +1473,27 @@ class DrivingNavigation {
     streets.forEach((street, index) => {
       // Add the street geometry with special styling
       const style = {
-        color: index === 0 ? '#ffd700' : (index === 1 ? '#c0c0c0' : '#cd7f32'), // Gold, Silver, Bronze
+        color: index === 0 ? "#ffd700" : index === 1 ? "#c0c0c0" : "#cd7f32", // Gold, Silver, Bronze
         weight: 6,
         opacity: 0.8,
-        dashArray: index === 0 ? null : '10, 5',
-        className: `efficient-street-${index}`
+        dashArray: index === 0 ? null : "10, 5",
+        className: `efficient-street-${index}`,
       };
 
-      const streetLayer = L.geoJSON(street.geometry, { style }).addTo(this.efficientStreetsLayer);
+      const streetLayer = L.geoJSON(street.geometry, { style }).addTo(
+        this.efficientStreetsLayer,
+      );
 
       // Create marker for the start point
       const startPoint = street.start_coords;
       const icon = L.divIcon({
-        className: 'efficient-street-marker',
+        className: "efficient-street-marker",
         html: `<div class="marker-inner" style="background-color: ${style.color}; border: 2px solid white;
                border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center;
-               justify-content: center; font-weight: bold; color: ${index === 0 ? 'black' : 'white'};">
+               justify-content: center; font-weight: bold; color: ${index === 0 ? "black" : "white"};">
                ${index + 1}</div>`,
         iconSize: [30, 30],
-        iconAnchor: [15, 15]
+        iconAnchor: [15, 15],
       });
 
       const marker = L.marker([startPoint[1], startPoint[0]], { icon })
@@ -1532,10 +1551,12 @@ class DrivingNavigation {
     `;
 
     streets.forEach((street, index) => {
-      const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(1);
+      const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(
+        1,
+      );
       const lengthMiles = (street.segment_length_m / 1609.34).toFixed(2);
       const score = street.proximity_score.toFixed(2);
-      const colors = ['#ffd700', '#c0c0c0', '#cd7f32'];
+      const colors = ["#ffd700", "#c0c0c0", "#cd7f32"];
 
       html += `
         <div class="efficient-street-item" style="border-left: 4px solid ${colors[index]};">
@@ -1569,14 +1590,16 @@ class DrivingNavigation {
     this.targetInfo.innerHTML = html;
 
     // Add event listeners to navigation buttons
-    document.querySelectorAll('.navigate-efficient-btn, .navigate-efficient-street').forEach(btn => {
-      btn.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        const segmentId = btn.dataset.segmentId;
-        this.highlightTargetStreet(segmentId);
-        this.findRouteToSegment(segmentId);
+    document
+      .querySelectorAll(".navigate-efficient-btn, .navigate-efficient-street")
+      .forEach((btn) => {
+        btn.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          const segmentId = btn.dataset.segmentId;
+          this.highlightTargetStreet(segmentId);
+          this.findRouteToSegment(segmentId);
+        });
       });
-    });
   }
 
   // Clear efficient street suggestions
@@ -1607,7 +1630,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.drivingNav = new DrivingNavigation();
 
   // Add CSS for the efficient street markers and info panel
-  const style = document.createElement('style');
+  const style = document.createElement("style");
   style.textContent = `
     .efficient-street-marker {
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);

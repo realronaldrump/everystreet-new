@@ -6,17 +6,17 @@ import uuid
 from collections import defaultdict
 from typing import Any
 
-from bson import ObjectId
 import geojson as geojson_module
 import httpx
 import numpy as np
-from fastapi import APIRouter, HTTPException, Request, status, Query
+from bson import ObjectId
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from sklearn.cluster import KMeans
 
+from coverage_api import coverage_metadata_collection
 from db import find_one_with_retry, streets_collection, trips_collection
 from live_tracking import get_active_trip
-from coverage_api import coverage_metadata_collection
 from models import LocationModel
 from utils import haversine
 
