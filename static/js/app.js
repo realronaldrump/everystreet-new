@@ -990,12 +990,11 @@
         const params = new URLSearchParams({
           start_date: dateRange.start,
           end_date: dateRange.end,
-          fmt: "geojson",
         });
 
         dataStage.update(30, `Loading trips for ${dateRange.days} days...`);
 
-        const data = await utils.fetchWithRetry(`/api/export/trips?${params}`);
+        const data = await utils.fetchWithRetry(`/api/trips?${params}`);
 
         if (data?.type === "FeatureCollection") {
           dataStage.update(70, `Processing ${data.features.length} trips...`);
