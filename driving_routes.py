@@ -6,15 +6,17 @@ import uuid
 from collections import defaultdict
 from typing import Any
 
+from bson import ObjectId
 import geojson as geojson_module
 import httpx
 import numpy as np
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, status, Query
 from fastapi.responses import JSONResponse
 from sklearn.cluster import KMeans
 
 from db import find_one_with_retry, streets_collection, trips_collection
 from live_tracking import get_active_trip
+from coverage_api import coverage_metadata_collection
 from models import LocationModel
 from utils import haversine
 
@@ -1131,4 +1133,157 @@ async def get_optimized_multi_street_route(request: Request):
         )
         raise HTTPException(
             status_code=500, detail=f"Failed to create optimized route: {e}"
+        )
+
+@router.get("/api/driving-navigation/suggest-next-street/{location_id}")
+async def suggest_next_efficient_street(
+    location_id: str,
+    current_lat: float = Query(..., description="Current latitude"),
+    current_lon: float = Query(..., description="Current longitude"),
+    top_n: int = Query(3, description="Number of top streets to return", ge=1, le=10),
+):
+    """Suggest the most efficient undriven streets based on proximity-weighted score.
+    
+    Score = Segment_Length / (Distance_From_Current_Location + Small_Constant)
+    
+    Higher score = longer segment closer to current location = more efficient
+    """
+    logger.info(
+        f"Suggesting next efficient streets for location {location_id} from ({current_lat}, {current_lon})"
+    )
+    
+    # Small constant to avoid division by zero and to not overly favor very close streets
+    DISTANCE_EPSILON = 0.05  # ~50 meters in km
+    
+    try:
+        # Validate location_id
+        try:
+            obj_location_id = ObjectId(location_id)
+        except Exception:
+            raise HTTPException(
+                status_code=400, detail="Invalid location_id format"
+            )
+        
+        # Get location metadata
+        coverage_doc = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"_id": obj_location_id},
+            {"location.display_name": 1}
+        )
+        
+        if not coverage_doc or not coverage_doc.get("location", {}).get("display_name"):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Coverage area with ID '{location_id}' not found"
+            )
+        
+        location_name = coverage_doc["location"]["display_name"]
+        
+        # Fetch all undriven, driveable streets for this location
+        undriven_streets_cursor = streets_collection.find(
+            {
+                "properties.location": location_name,
+                "properties.driven": False,
+                "properties.undriveable": {"$ne": True},
+                "geometry.coordinates": {"$exists": True, "$not": {"$size": 0}},
+            },
+            {
+                "geometry": 1,
+                "properties.segment_id": 1,
+                "properties.street_name": 1,
+                "properties.highway": 1,
+                "properties.segment_length": 1,
+                "_id": 0,
+            }
+        )
+        
+        undriven_streets = await undriven_streets_cursor.to_list(length=None)
+        
+        if not undriven_streets:
+            return JSONResponse(
+                content={
+                    "status": "no_streets",
+                    "message": f"No undriven streets found in {location_name}",
+                    "suggested_streets": []
+                }
+            )
+        
+        # Calculate proximity-weighted score for each street
+        scored_streets = []
+        current_pos = (current_lon, current_lat)
+        
+        for street in undriven_streets:
+            geometry = street.get("geometry", {})
+            props = street.get("properties", {})
+            
+            if geometry.get("type") == "LineString" and geometry.get("coordinates"):
+                coords = geometry["coordinates"]
+                if coords and len(coords) > 0 and len(coords[0]) >= 2:
+                    # Get start point of the segment
+                    start_point = (float(coords[0][0]), float(coords[0][1]))
+                    
+                    # Calculate distance from current position to start of segment
+                    distance_km = haversine(
+                        current_pos[0], current_pos[1],
+                        start_point[0], start_point[1],
+                        unit="km"
+                    )
+                    
+                    # Get segment length in meters (convert to km for consistency)
+                    segment_length_km = float(props.get("segment_length", 0)) / 1000.0
+                    
+                    # Calculate proximity-weighted score
+                    score = segment_length_km / (distance_km + DISTANCE_EPSILON)
+                    
+                    scored_streets.append({
+                        "segment_id": props.get("segment_id"),
+                        "street_name": props.get("street_name", "Unnamed Street"),
+                        "highway_type": props.get("highway", "unknown"),
+                        "segment_length_m": float(props.get("segment_length", 0)),
+                        "distance_from_current_m": distance_km * 1000,
+                        "proximity_score": score,
+                        "geometry": geometry,
+                        "start_coords": [start_point[0], start_point[1]]  # [lon, lat]
+                    })
+        
+        if not scored_streets:
+            return JSONResponse(
+                content={
+                    "status": "no_valid_streets",
+                    "message": "No valid undriven streets with coordinates found",
+                    "suggested_streets": []
+                }
+            )
+        
+        # Sort by score (descending) and take top N
+        scored_streets.sort(key=lambda x: x["proximity_score"], reverse=True)
+        top_streets = scored_streets[:top_n]
+        
+        # Log the top suggestions
+        logger.info(
+            f"Top {len(top_streets)} efficient streets for location {location_name}: "
+            f"{[f'{s['street_name']} (score: {s['proximity_score']:.2f})' for s in top_streets]}"
+        )
+        
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": f"Found {len(top_streets)} efficient undriven streets",
+                "location_name": location_name,
+                "current_position": {"lat": current_lat, "lon": current_lon},
+                "suggested_streets": top_streets,
+                "total_undriven_streets": len(undriven_streets)
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error suggesting efficient streets for location {location_id}: {e}",
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to suggest efficient streets: {str(e)}"
         )

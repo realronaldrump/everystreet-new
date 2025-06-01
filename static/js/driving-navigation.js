@@ -61,6 +61,12 @@ class DrivingNavigation {
 
     this.currentCoverageRouteGeoJSON = null;
 
+    // Add these properties to the constructor
+    this.findEfficientBtn = document.getElementById("find-efficient-street-btn");
+    this.efficientStreetsLayer = L.layerGroup();
+    this.suggestedStreets = [];
+    this.efficientStreetMarkers = [];
+
     this.initialize();
   }
 
@@ -94,6 +100,9 @@ class DrivingNavigation {
       });
       this.undrivenStreetsLayer.addTo(this.map);
       this.routeLayer.addTo(this.map);
+      // Add to initMap() after other layers
+      this.efficientStreetsLayer.addTo(this.map);
+
       this.setStatus("Map initialized. Select an area.");
       setTimeout(() => {
         if (this.map) {
@@ -281,6 +290,14 @@ class DrivingNavigation {
       });
     }
 
+    // Add to setupEventListeners()
+    if (this.findEfficientBtn) {
+      this.findEfficientBtn.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        this.findMostEfficientStreets();
+      });
+    }
+
     if (this.map) {
       this.map.on("layeradd", () => {
         setTimeout(() => this.bringLiveElementsToFront(), 50);
@@ -358,6 +375,9 @@ class DrivingNavigation {
       this.undrivenStreetsLayer.clearLayers();
       this.routeLayer.clearLayers();
       this.clearTargetStreetHighlight();
+      // Add to handleAreaChange() to clear suggestions when area changes
+      // Inside handleAreaChange() after clearing other layers:
+      this.clearEfficientStreetSuggestions();
       this.setStatus("Select an area.");
       return;
     }
@@ -373,6 +393,9 @@ class DrivingNavigation {
       this.undrivenStreetsLayer.clearLayers();
       this.routeLayer.clearLayers();
       this.clearTargetStreetHighlight();
+      // Add to handleAreaChange() to clear suggestions when area changes
+      // Inside handleAreaChange() after clearing other layers:
+      this.clearEfficientStreetSuggestions();
       this.targetInfo.innerHTML = "";
       this.routeInfo.innerHTML = "";
 
@@ -1153,7 +1176,7 @@ class DrivingNavigation {
         <h6>${streetName}</h6>
         <div class="small text-muted">Segment ID: ${segmentId}</div>
         <div class="mt-2">
-          <button class="btn btn-sm btn-primary navigate-to-segment" 
+          <button class="btn btn-sm btn-primary navigate-to-segment"
             data-segment-id="${segmentId}">
             <i class="fas fa-route me-1"></i> Navigate Here
           </button>
@@ -1202,11 +1225,11 @@ class DrivingNavigation {
         setTimeout(() => {
           const navigateBtn = document.querySelector(".navigate-to-segment");
           if (navigateBtn) {
-            navigateBtn.addEventListener("mousedown", (e) => {
-              if (e.button !== 0) return;
+            navigateBtn.addEventListener("mousedown", (evt) => { // Changed e to evt to avoid conflict
+              if (evt.button !== 0) return;
               const segmentId = navigateBtn.getAttribute("data-segment-id");
               this.highlightTargetStreet(segmentId);
-              e.layer.closePopup();
+              e.layer.closePopup(); // Use original event 'e' here for closing the popup
               this.findRouteToSegment(segmentId);
             });
           }
@@ -1307,6 +1330,261 @@ class DrivingNavigation {
       this.calcCoverageBtn.disabled = false;
     }
   }
+
+  // New method to find most efficient streets
+  async findMostEfficientStreets() {
+    if (!this.selectedLocation || !this.selectedLocation._id) {
+      this.setStatus("Please select an area first.", true);
+      return;
+    }
+
+    // Determine current position
+    let currentLat, currentLon;
+
+    if (this.lastKnownLocation) {
+      currentLat = this.lastKnownLocation.lat;
+      currentLon = this.lastKnownLocation.lon;
+    } else {
+      // Try to get current position from browser
+      try {
+        const position = await this.getCurrentPosition();
+        currentLat = position.coords.latitude;
+        currentLon = position.coords.longitude;
+        this.lastKnownLocation = { lat: currentLat, lon: currentLon };
+      } catch (error) {
+        this.setStatus("Unable to get current location. Please enable location services.", true);
+        return;
+      }
+    }
+
+    this.findEfficientBtn.disabled = true;
+    this.findEfficientBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Finding...';
+    this.setStatus("Finding most efficient undriven streets...");
+
+    // Clear previous suggestions
+    this.clearEfficientStreetSuggestions();
+
+    try {
+      const response = await fetch(
+        `/api/driving-navigation/suggest-next-street/${this.selectedLocation._id}?` +
+        `current_lat=${currentLat}¤t_lon=${currentLon}&top_n=3`
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status === "no_streets" || data.status === "no_valid_streets") {
+        this.setStatus(data.message, true);
+        if (notificationManager) {
+          notificationManager.show(data.message, "info");
+        }
+        return;
+      }
+
+      if (data.status === "success" && data.suggested_streets && data.suggested_streets.length > 0) {
+        this.suggestedStreets = data.suggested_streets;
+        this.displayEfficientStreets(data.suggested_streets);
+
+        // Update status
+        const topStreet = data.suggested_streets[0];
+        const distanceMiles = (topStreet.distance_from_current_m / 1609.34).toFixed(1);
+        const lengthMiles = (topStreet.segment_length_m / 1609.34).toFixed(2);
+
+        this.setStatus(
+          `Found ${data.suggested_streets.length} efficient streets. ` +
+          `Top choice: ${topStreet.street_name} (${distanceMiles} mi away, ${lengthMiles} mi long)`
+        );
+
+        // Display info panel with suggestions
+        this.displayEfficientStreetsInfo(data.suggested_streets);
+
+        // Auto-navigate to the top suggestion
+        if (data.suggested_streets.length > 0) {
+          const topStreetId = topStreet.segment_id;
+          this.highlightTargetStreet(topStreetId);
+
+          // Optionally auto-calculate route to top suggestion
+          setTimeout(() => {
+            if (confirm(`Navigate to ${topStreet.street_name}?`)) {
+              this.findRouteToSegment(topStreetId);
+            }
+          }, 500);
+        }
+      }
+    } catch (error) {
+      console.error("Error finding efficient streets:", error);
+      this.setStatus(`Error: ${error.message}`, true);
+      if (notificationManager) {
+        notificationManager.show(`Error finding efficient streets: ${error.message}`, "danger");
+      }
+    } finally {
+      this.findEfficientBtn.disabled = false;
+      this.findEfficientBtn.innerHTML = '<i class="fas fa-bullseye me-2"></i>Find Most Efficient Street';
+    }
+  }
+
+  // Helper method to get current position
+  getCurrentPosition() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by your browser"));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        position => resolve(position),
+        error => reject(error),
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    });
+  }
+
+  // Display efficient streets on the map
+  displayEfficientStreets(streets) {
+    this.clearEfficientStreetSuggestions();
+
+    const bounds = L.latLngBounds();
+
+    streets.forEach((street, index) => {
+      // Add the street geometry with special styling
+      const style = {
+        color: index === 0 ? '#ffd700' : (index === 1 ? '#c0c0c0' : '#cd7f32'), // Gold, Silver, Bronze
+        weight: 6,
+        opacity: 0.8,
+        dashArray: index === 0 ? null : '10, 5',
+        className: `efficient-street-${index}`
+      };
+
+      const streetLayer = L.geoJSON(street.geometry, { style }).addTo(this.efficientStreetsLayer);
+
+      // Create marker for the start point
+      const startPoint = street.start_coords;
+      const icon = L.divIcon({
+        className: 'efficient-street-marker',
+        html: `<div class="marker-inner" style="background-color: ${style.color}; border: 2px solid white;
+               border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center;
+               justify-content: center; font-weight: bold; color: ${index === 0 ? 'black' : 'white'};">
+               ${index + 1}</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+
+      const marker = L.marker([startPoint[1], startPoint[0]], { icon })
+        .bindPopup(this.createEfficientStreetPopup(street, index))
+        .addTo(this.efficientStreetsLayer);
+
+      this.efficientStreetMarkers.push(marker);
+
+      // Extend bounds
+      bounds.extend(streetLayer.getBounds());
+    });
+
+    // Include current position in bounds
+    if (this.lastKnownLocation) {
+      bounds.extend([this.lastKnownLocation.lat, this.lastKnownLocation.lon]);
+    }
+
+    // Fit map to show all suggestions
+    if (bounds.isValid()) {
+      this.map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }
+
+  // Create popup for efficient street suggestion
+  createEfficientStreetPopup(street, rank) {
+    const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(1);
+    const lengthMiles = (street.segment_length_m / 1609.34).toFixed(2);
+    const score = street.proximity_score.toFixed(2);
+
+    return `
+      <div class="efficient-street-popup">
+        <h6>#${rank + 1} Most Efficient Street</h6>
+        <div class="street-name">${street.street_name}</div>
+        <div class="efficiency-metrics">
+          <div><i class="fas fa-ruler"></i> Length: ${lengthMiles} mi</div>
+          <div><i class="fas fa-location-arrow"></i> Distance: ${distanceMiles} mi</div>
+          <div><i class="fas fa-chart-line"></i> Score: ${score}</div>
+        </div>
+        <button class="btn btn-sm btn-primary mt-2 navigate-efficient-street"
+                data-segment-id="${street.segment_id}">
+          <i class="fas fa-route me-1"></i> Navigate Here
+        </button>
+      </div>
+    `;
+  }
+
+  // Display efficient streets info panel
+  displayEfficientStreetsInfo(streets) {
+    if (!this.targetInfo) return;
+
+    let html = `
+      <div class="efficient-streets-panel">
+        <h6><i class="fas fa-bullseye me-2"></i>Most Efficient Streets</h6>
+        <div class="efficient-streets-list">
+    `;
+
+    streets.forEach((street, index) => {
+      const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(1);
+      const lengthMiles = (street.segment_length_m / 1609.34).toFixed(2);
+      const score = street.proximity_score.toFixed(2);
+      const colors = ['#ffd700', '#c0c0c0', '#cd7f32'];
+
+      html += `
+        <div class="efficient-street-item" style="border-left: 4px solid ${colors[index]};">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="street-rank">#${index + 1}</div>
+              <div class="street-name">${street.street_name}</div>
+              <div class="street-metrics">
+                <span><i class="fas fa-ruler"></i> ${lengthMiles} mi</span>
+                <span><i class="fas fa-location-arrow"></i> ${distanceMiles} mi</span>
+                <span><i class="fas fa-chart-line"></i> Score: ${score}</span>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-outline-primary navigate-efficient-btn"
+                    data-segment-id="${street.segment_id}">
+              <i class="fas fa-route"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+        <div class="mt-2 text-muted small">
+          <i class="fas fa-info-circle"></i> Higher score = longer street closer to you
+        </div>
+      </div>
+    `;
+
+    this.targetInfo.innerHTML = html;
+
+    // Add event listeners to navigation buttons
+    document.querySelectorAll('.navigate-efficient-btn, .navigate-efficient-street').forEach(btn => {
+      btn.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        const segmentId = btn.dataset.segmentId;
+        this.highlightTargetStreet(segmentId);
+        this.findRouteToSegment(segmentId);
+      });
+    });
+  }
+
+  // Clear efficient street suggestions
+  clearEfficientStreetSuggestions() {
+    this.efficientStreetsLayer.clearLayers();
+    this.efficientStreetMarkers = [];
+    this.suggestedStreets = [];
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1327,4 +1605,71 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
   window.drivingNav = new DrivingNavigation();
+
+  // Add CSS for the efficient street markers and info panel
+  const style = document.createElement('style');
+  style.textContent = `
+    .efficient-street-marker {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .efficient-street-marker:hover {
+      transform: scale(1.1);
+    }
+
+    .efficient-streets-panel {
+      background: rgba(40, 40, 40, 0.9);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .efficient-street-item {
+      background: rgba(60, 60, 60, 0.8);
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 8px;
+      transition: background 0.2s;
+    }
+
+    .efficient-street-item:hover {
+      background: rgba(80, 80, 80, 0.9);
+    }
+
+    .street-rank {
+      font-weight: bold;
+      font-size: 0.9em;
+      color: #ffd700;
+    }
+
+    .street-name {
+      font-weight: 600;
+      margin: 2px 0;
+    }
+
+    .street-metrics {
+      font-size: 0.85em;
+      color: #adb5bd;
+    }
+
+    .street-metrics span {
+      margin-right: 10px;
+    }
+
+    .efficient-street-popup {
+      min-width: 200px;
+    }
+
+    .efficiency-metrics {
+      margin: 8px 0;
+      font-size: 0.9em;
+    }
+
+    .efficiency-metrics div {
+      margin: 4px 0;
+    }
+  `;
+  document.head.appendChild(style);
 });
