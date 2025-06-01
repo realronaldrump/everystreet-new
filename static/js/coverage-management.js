@@ -4558,52 +4558,58 @@ const STATUS = window.STATUS || {
 
     // Display efficient streets on the coverage map
     displayEfficientStreets(clusters, positionSource) { // Argument changed from streets to clusters
-      if (!this.coverageMap) return;
+      if (!this.coverageMap || !this.coverageMap.isStyleLoaded()) return;
       
       // Clear previous markers and feature states
-      this.clearEfficientStreetMarkers(); 
+      this.clearEfficientStreetMarkers(false); // Pass false to not remove panel yet
       
       this.suggestedEfficientStreets = clusters; // Store the clusters
 
+      const colors = ['#ffd700', '#c0c0c0', '#cd7f32']; // Gold, Silver, Bronze for ranks
+      const defaultClusterColor = '#9467bd'; // Default for other ranks
+
       // Add markers and highlights for each suggested cluster
       clusters.forEach((cluster, index) => {
-        const colors = ['#ffd700', '#c0c0c0', '#cd7f32']; // Gold, Silver, Bronze
-        const color = colors[index] || '#9467bd'; // Default purple for ranks > 3
+        const rank = index + 1;
+        const markerColor = colors[index] || defaultClusterColor;
         
-        // Highlight the nearest segment of the cluster
-        const nearestSegmentId = cluster.nearest_segment.segment_id;
-        if (this.streetsGeoJson && this.streetsGeoJson.features) {
-          const feature = this.streetsGeoJson.features.find(
-            f => f.properties.segment_id === nearestSegmentId
-          );
-          
-          if (feature && this.coverageMap.getSource("streets")) {
-            this.coverageMap.setFeatureState(
-              { source: "streets", id: nearestSegmentId },
-              { efficientRank: index + 1 } // Store rank (1-based)
-            );
-          }
+        // Highlight ALL segments within this cluster
+        if (cluster.segments && Array.isArray(cluster.segments) && this.coverageMap.getSource("streets")) {
+          cluster.segments.forEach(segment => {
+            const segmentId = segment.segment_id || segment.properties?.segment_id;
+            if (segmentId) {
+              this.coverageMap.setFeatureState(
+                { source: "streets", id: segmentId },
+                { efficientRank: rank } // Store rank (1-based)
+              );
+            }
+          });
         }
         
         // Add marker at the start of the nearest segment in the cluster
-        const startPoint = cluster.nearest_segment.start_coords;
-        const el = document.createElement('div');
-        el.className = 'efficient-street-marker-mapbox';
-        el.innerHTML = `
-          <div style="background-color: ${color}; border: 2px solid white; 
-               border-radius: 50%; width: 30px; height: 30px; display: flex; 
-               align-items: center; justify-content: center; font-weight: bold; 
-               color: ${index === 0 ? 'black' : 'white'}; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-            ${index + 1}
-          </div>
-        `;
-        
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat(startPoint)
-          .setPopup(this.createEfficientStreetPopup(cluster, index)) // Pass cluster
-          .addTo(this.coverageMap);
-        
-        this.efficientStreetMarkers.push(marker);
+        // (or centroid if preferred, but start_coords is good for navigation start)
+        if (cluster.nearest_segment && cluster.nearest_segment.start_coords) {
+          const startPoint = cluster.nearest_segment.start_coords;
+          const el = document.createElement('div');
+          el.className = 'efficient-street-marker-mapbox'; // Ensure this class exists or style directly
+          el.innerHTML = `
+            <div style="background-color: ${markerColor}; border: 2px solid white; 
+                 border-radius: 50%; width: 30px; height: 30px; display: flex; 
+                 align-items: center; justify-content: center; font-weight: bold; 
+                 color: ${index === 0 ? 'black' : 'white'}; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+              ${rank}
+            </div>
+          `;
+          
+          const marker = new mapboxgl.Marker(el)
+            .setLngLat(startPoint)
+            .setPopup(this.createEfficientStreetPopup(cluster, index)) // Pass cluster and rank
+            .addTo(this.coverageMap);
+          
+          this.efficientStreetMarkers.push(marker);
+        } else {
+          console.warn("Cluster missing nearest_segment.start_coords, cannot place marker:", cluster);
+        }
       });
       
       // Show info panel
@@ -4612,12 +4618,7 @@ const STATUS = window.STATUS || {
       // Fit map to show all suggestions
       const bounds = new mapboxgl.LngLatBounds();
       clusters.forEach(cluster => {
-        bounds.extend(cluster.nearest_segment.start_coords);
-        // Optionally extend bounds to include the whole nearest segment or cluster geometry if available
-        // For now, just focusing on the start point of the nearest segment for fitting.
-        // If cluster.segments[...].geometry are available and detailed, could use them here.
-        // The API provides geometry for each segment in cluster.segments.
-        // Let's extend to all segments in the cluster for better visibility.
+        // Extend bounds to include all segments in the cluster for better visibility.
         if (cluster.segments && Array.isArray(cluster.segments)) {
             cluster.segments.forEach(segment => {
                 if (segment.geometry && segment.geometry.type === "LineString" && segment.geometry.coordinates) {
@@ -4626,11 +4627,14 @@ const STATUS = window.STATUS || {
                     segment.geometry.coordinates.forEach(line => line.forEach(coord => bounds.extend(coord)));
                 }
             });
+        } else if (cluster.nearest_segment && cluster.nearest_segment.start_coords) {
+          // Fallback to nearest segment start point if full segment data isn't readily available for bounds
+          bounds.extend(cluster.nearest_segment.start_coords);
         }
       });
       
       if (!bounds.isEmpty()) {
-        this.coverageMap.fitBounds(bounds, { padding: 100, maxZoom: 17 });
+        this.coverageMap.fitBounds(bounds, { padding: {top: 100, bottom:50, left: 50, right: 400}, maxZoom: 17 }); // Increased right padding if panel is on right
       }
     }
 
@@ -4768,22 +4772,28 @@ const STATUS = window.STATUS || {
       });
     }
 
-    // Clear efficient street markers
+    // Clear efficient street markers and their feature states
     clearEfficientStreetMarkers(removePanel = true) {
       this.efficientStreetMarkers.forEach(marker => marker.remove());
       this.efficientStreetMarkers = [];
       
       if (this.coverageMap && this.suggestedEfficientStreets && this.coverageMap.getSource("streets")) {
-        this.suggestedEfficientStreets.forEach(cluster => { // Iterate through stored clusters
-          // Clear feature state for the nearest segment of the cluster
-          const nearestSegmentId = cluster.nearest_segment.segment_id;
-          if (this.coverageMap.getSource("streets")) { // Double check source
-             this.coverageMap.removeFeatureState(
-               { source: "streets", id: nearestSegmentId },
-               "efficientRank"
-             );
+        this.suggestedEfficientStreets.forEach(cluster => {
+          if (cluster.segments && Array.isArray(cluster.segments)) {
+            cluster.segments.forEach(segment => {
+              const segmentId = segment.segment_id || segment.properties?.segment_id;
+              if (segmentId && this.coverageMap.getSource("streets")) { // Check source again
+                 try {
+                   this.coverageMap.removeFeatureState(
+                     { source: "streets", id: segmentId },
+                     "efficientRank"
+                   );
+                 } catch (e) {
+                   // console.warn(`Could not remove feature state for segment ${segmentId}: ${e.message}`);
+                 }
+              }
+            });
           }
-          // If all segments in the cluster were highlighted, loop through cluster.segments here
         });
       }
       

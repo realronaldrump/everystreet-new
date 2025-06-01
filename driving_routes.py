@@ -15,8 +15,8 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from sklearn.cluster import KMeans
 
-from coverage_api import coverage_metadata_collection
-from db import find_one_with_retry, streets_collection, trips_collection
+# Use db_manager directly for collections to avoid import order issues
+from db import find_one_with_retry, streets_collection, trips_collection, db_manager
 from live_tracking import get_active_trip
 from models import LocationModel
 from utils import haversine
@@ -68,7 +68,10 @@ async def _get_mapbox_optimization_route(
         "geometries": "geojson",
         "steps": "false",
         "overview": "full",
-        "source": "first",
+        "source": "first", # Start from the first coordinate
+        "destination": "last", # Can be 'any' or 'last'. 'last' makes it a round trip if only one destination.
+                               # For multiple, it tries to end at the last one in the list if possible.
+        "roundtrip": "false" # Explicitly false unless we want it to return to start
     }
 
     async with httpx.AsyncClient() as client:
@@ -105,7 +108,7 @@ async def _get_mapbox_optimization_route(
             "geometry": geometry,
             "duration": duration,
             "distance": distance,
-            "waypoints": trip.get("waypoints", []),
+            "waypoints": trip.get("waypoints", []), # waypoints are in optimized order
         }
 
 
@@ -115,7 +118,7 @@ async def get_next_driving_route(
 ):
     """Calculates the route from the user's current position to the
     start of the nearest undriven street segment in the specified area using Mapbox
-    Optimization API v1.
+    Optimization API v1 (effectively for a single destination).
     """
     try:
         data = await request.json()
@@ -125,7 +128,14 @@ async def get_next_driving_route(
                 detail="Target location data is required",
             )
 
-        location = LocationModel(**data["location"])
+        location_data_from_request = data["location"]
+        if not isinstance(location_data_from_request, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Location data must be a valid object.",
+            )
+
+        location = LocationModel(**location_data_from_request)
         location_name = location.display_name
 
         if not location_name:
@@ -134,6 +144,8 @@ async def get_next_driving_route(
                 detail="Location display name is required.",
             )
 
+        # segment_id is optional; if provided, route directly to this segment
+        target_segment_id = data.get("segment_id")
         current_position = data.get("current_position")
 
     except (ValueError, TypeError, json.JSONDecodeError) as e:
@@ -157,16 +169,12 @@ async def get_next_driving_route(
             current_lat = float(current_position["lat"])
             current_lon = float(current_position["lon"])
             location_source = "client-provided"
-            logger.info(
-                "Using client-provided location: Lat=%s, Lon=%s",
-                current_lat,
-                current_lon,
-            )
         else:
-            logger.info(
-                "No position provided in request, falling back to live tracking data",
-            )
-            active_trip_data = await get_active_trip()
+            active_trip_response = await get_active_trip()
+            active_trip_data = None
+            if hasattr(active_trip_response, 'trip') and active_trip_response.trip:
+                 active_trip_data = active_trip_response.trip
+
             if (
                 active_trip_data
                 and isinstance(active_trip_data, dict)
@@ -177,15 +185,7 @@ async def get_next_driving_route(
                 current_lat = latest_coord_point["lat"]
                 current_lon = latest_coord_point["lon"]
                 location_source = "live-tracking"
-                logger.info(
-                    "Using live tracking location: Lat=%s, Lon=%s",
-                    current_lat,
-                    current_lon,
-                )
             else:
-                logger.info(
-                    "Live tracking unavailable, falling back to last trip end location",
-                )
                 last_trip = await find_one_with_retry(
                     trips_collection, {}, sort=[("endTime", -1)]
                 )
@@ -194,125 +194,108 @@ async def get_next_driving_route(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail="Current position not provided, live location unavailable, and no previous trips found.",
                     )
-                try:
-                    gps_data = last_trip.get("gps")
-                    if isinstance(gps_data, str):
-                        gps_data = geojson_module.loads(gps_data)
-                    geom = last_trip.get("geometry") or gps_data
-                    if (
-                        geom
-                        and geom.get("type") == "LineString"
-                        and len(geom.get("coordinates", [])) > 0
-                    ):
-                        last_coord = geom["coordinates"][-1]
-                        current_lon = float(last_coord[0])
-                        current_lat = float(last_coord[1])
-                        location_source = "last-trip-end"
-                        logger.info(
-                            "Using last trip end location: Lat=%s, Lon=%s (Trip ID: %s)",
-                            current_lat,
-                            current_lon,
-                            last_trip.get("transactionId", "N/A"),
-                        )
-                    else:
-                        raise ValueError(
-                            "Invalid or empty geometry/gps in last trip"
-                        )
-                except (
-                    json.JSONDecodeError,
-                    ValueError,
-                    TypeError,
-                    IndexError,
-                ) as e:
-                    logger.error(
-                        "Failed to extract end location from last trip %s: %s",
-                        last_trip.get("transactionId", "N/A"),
-                        e,
-                    )
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="Failed to determine starting location from last trip.",
-                    )
-    except HTTPException:
-        raise
+                gps_data = last_trip.get("gps")
+                if isinstance(gps_data, str):
+                    gps_data = geojson_module.loads(gps_data)
+                geom = gps_data or last_trip.get("geometry")
+                if (
+                    geom
+                    and geom.get("type") == "LineString"
+                    and len(geom.get("coordinates", [])) > 0
+                ):
+                    last_coord = geom["coordinates"][-1]
+                    current_lon = float(last_coord[0])
+                    current_lat = float(last_coord[1])
+                    location_source = "last-trip-end"
+                elif (
+                    geom
+                    and geom.get("type") == "Point"
+                    and len(geom.get("coordinates", [])) == 2
+                ):
+                    last_coord = geom["coordinates"]
+                    current_lon = float(last_coord[0])
+                    current_lat = float(last_coord[1])
+                    location_source = "last-trip-end-point"
+                else:
+                    raise ValueError("Invalid or empty geometry/gps in last trip")
     except Exception as e:
-        logger.error(
-            "Error getting position for next-route: %s", e, exc_info=True
-        )
+        logger.error("Error getting position for next-route: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not determine current position: {e}",
         )
 
-    try:
+    target_street_for_route = None
+    if target_segment_id:
+        target_street_for_route = await streets_collection.find_one(
+            {"properties.segment_id": target_segment_id, "properties.location": location_name},
+            {
+                "geometry.coordinates": 1,
+                "properties": 1, # Fetch all properties
+                "_id": 0,
+            }
+        )
+        if not target_street_for_route:
+            raise HTTPException(status_code=404, detail=f"Target segment {target_segment_id} not found in {location_name}.")
+        
+        undriven_streets = [target_street_for_route] # Route to this specific street
+    else:
+        # Fetch all undriven streets if no specific segment_id is provided
         undriven_streets_cursor = streets_collection.find(
             {
                 "properties.location": location_name,
                 "properties.driven": False,
                 "properties.undriveable": {"$ne": True},
-                "geometry.coordinates": {
-                    "$exists": True,
-                    "$not": {"$size": 0},
-                },
+                "geometry.type": "LineString",
+                "geometry.coordinates": {"$exists": True, "$not": {"$size": 0}},
             },
             {
                 "geometry.coordinates": 1,
-                "properties.segment_id": 1,
-                "properties.street_name": 1,
+                "properties": 1, # Fetch all properties
                 "_id": 0,
-                "geometry.type": 1,
             },
         )
         undriven_streets = await undriven_streets_cursor.to_list(length=None)
 
-        if not undriven_streets:
-            return JSONResponse(
-                content={
-                    "status": "completed",
-                    "message": f"No undriven streets found in {location_name}.",
-                    "route_geometry": None,
-                    "target_street": None,
-                },
-            )
-        logger.info(
-            "Found %d undriven segments in %s. Starting optimization with Mapbox API v1.",
-            len(undriven_streets),
-            location_name,
-        )
-    except Exception as e:
-        logger.error(
-            "Error fetching undriven streets for %s (next-route): %s",
-            location_name,
-            e,
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching undriven streets: {e}",
+    if not undriven_streets:
+        return JSONResponse(
+            content={
+                "status": "completed",
+                "message": f"No undriven streets found in {location_name} matching criteria.",
+                "route_geometry": None,
+                "target_street": None,
+            },
         )
 
     try:
-        end_points_with_street_info = []
+        # Prepare points for Mapbox Optimization API (even if it's just one destination)
+        destinations_with_info = []
         for street in undriven_streets:
             geometry = street.get("geometry", {})
-            if geometry.get("type") == "LineString" and geometry.get(
-                "coordinates"
-            ):
-                start_node = geometry["coordinates"][0]
-                if (
-                    isinstance(start_node, (list, tuple))
-                    and len(start_node) >= 2
-                ):
-                    end_points_with_street_info.append(
-                        {
-                            "coord": (
-                                float(start_node[0]),
-                                float(start_node[1]),
-                            ),
-                            "street_info": street.get("properties", {}),
-                        }
-                    )
-        if not end_points_with_street_info:
+            props = street.get("properties", {})
+            
+            start_node_coords_from_prop = props.get("start_coords") # Check if pre-calculated
+            start_node_coords = None
+
+            if start_node_coords_from_prop and isinstance(start_node_coords_from_prop, (list, tuple)) and len(start_node_coords_from_prop) == 2:
+                start_node_coords = start_node_coords_from_prop
+            elif geometry.get("type") == "LineString" and geometry.get("coordinates") and len(geometry["coordinates"]) > 0:
+                start_node_coords = geometry["coordinates"][0]
+
+            if start_node_coords and isinstance(start_node_coords, (list, tuple)) and len(start_node_coords) >= 2:
+                try:
+                    lon, lat = float(start_node_coords[0]), float(start_node_coords[1])
+                    destinations_with_info.append({
+                        "coord": (lon, lat),
+                        "street_info": props  # Store all properties
+                    })
+                except (ValueError, TypeError):
+                    logger.warning(f"Skipping street due to invalid start_node_coords: {start_node_coords} for seg: {props.get('segment_id')}")
+            else:
+                 logger.warning(f"Street {props.get('segment_id')} has no valid start coordinates.")
+
+
+        if not destinations_with_info:
             return JSONResponse(
                 content={
                     "status": "completed",
@@ -322,45 +305,67 @@ async def get_next_driving_route(
                 },
             )
 
-        current_pos_tuple = (current_lon, current_lat)
-        end_points_with_street_info.sort(
-            key=lambda p: haversine(
-                current_pos_tuple[0],
-                current_pos_tuple[1],
-                p["coord"][0],
-                p["coord"][1],
+        # If not routing to a specific segment, sort by distance to find the nearest ones for optimization
+        if not target_segment_id:
+            current_pos_tuple = (current_lon, current_lat)
+            destinations_with_info.sort(
+                key=lambda p: haversine(
+                    current_pos_tuple[0], current_pos_tuple[1],
+                    p["coord"][0], p["coord"][1]
+                )
             )
-        )
-        destinations_for_api = [
-            p["coord"] for p in end_points_with_street_info[:11]
-        ]
+        
+        # Select destinations for API (max 11 for Optimization API)
+        # If target_segment_id was provided, destinations_with_info will contain only that one.
+        api_destinations = [p["coord"] for p in destinations_with_info[:11]]
+        api_street_infos = [p["street_info"] for p in destinations_with_info[:11]]
+
+        if not api_destinations: # Should not happen if destinations_with_info was populated
+             return JSONResponse(content={"status": "error", "message": "No API destinations prepared."})
+
+
         optimization_result = await _get_mapbox_optimization_route(
-            current_lon, current_lat, end_points=destinations_for_api
+            current_lon, current_lat, end_points=api_destinations
         )
+        
         route_geometry = optimization_result["geometry"]
         route_duration_seconds = optimization_result["duration"]
         route_distance_meters = optimization_result["distance"]
         optimized_waypoints = optimization_result.get("waypoints", [])
-        target_street_info = None
-        if len(optimized_waypoints) > 1:
-            first_optimized_destination_waypoint = optimized_waypoints[1]
-            original_destination_index = (
-                first_optimized_destination_waypoint.get("waypoint_index")
-            )
-            if (
-                original_destination_index is not None
-                and original_destination_index
-                < len(end_points_with_street_info)
-            ):
-                target_street_info = end_points_with_street_info[
-                    original_destination_index
-                ]["street_info"]
+        
+        final_target_street_info = None
+        final_target_street_start_coords = None
+
+        if optimized_waypoints and len(optimized_waypoints) > 1:
+            # First destination in the optimized route
+            first_dest_wp = optimized_waypoints[1] 
+            original_idx = first_dest_wp.get("waypoint_index") # Index in api_destinations
+
+            if original_idx is not None and 0 <= original_idx < len(api_street_infos):
+                final_target_street_info = api_street_infos[original_idx]
+                final_target_street_start_coords = api_destinations[original_idx]
+            else: # Fallback if waypoint_index is strange
+                logger.warning(f"Could not map optimized waypoint_index {original_idx}. Falling back to first API destination.")
+                if api_street_infos:
+                    final_target_street_info = api_street_infos[0]
+                    final_target_street_start_coords = api_destinations[0]
+        elif api_street_infos : # Only one destination was sent, or optimization failed to return waypoints
+             final_target_street_info = api_street_infos[0]
+             final_target_street_start_coords = api_destinations[0]
+
+
+        if final_target_street_info and final_target_street_start_coords:
+            # Ensure 'start_coords' is in the properties for frontend consistency
+            if "start_coords" not in final_target_street_info or not final_target_street_info.get("start_coords"):
+                final_target_street_info["start_coords"] = list(final_target_street_start_coords)
+
+
         return JSONResponse(
             content={
                 "status": "success",
-                "message": "Route calculated using Mapbox Optimization API v1.",
+                "message": "Route calculated.",
                 "route_geometry": route_geometry,
-                "target_street": target_street_info,
+                "target_street": final_target_street_info,
                 "route_duration_seconds": route_duration_seconds,
                 "route_distance_meters": route_distance_meters,
                 "location_source": location_source,
@@ -374,7 +379,6 @@ async def get_next_driving_route(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to calculate route: {e}",
         )
-
 
 async def _get_mapbox_directions_route(
     start_lon: float,
@@ -450,62 +454,74 @@ async def _get_mapbox_directions_route(
 
 async def _cluster_segments(
     segments: list[dict],
-    max_points_per_cluster: int = 11,
+    max_points_per_cluster: int = 11, # Max destinations for Mapbox Optimization API (excluding start)
 ) -> list[list[dict]]:
-    """Cluster segments into groups based on geographic proximity."""
+    """Cluster segments into groups based on geographic proximity using KMeans."""
     if not segments:
         return []
-    if len(segments) <= max_points_per_cluster:
-        return [segments]
+    
+    # Extract start_node coordinates for clustering
+    # Ensure start_node is a tuple (lon, lat)
+    segment_coords_for_clustering = []
+    valid_segments_for_output = [] # Keep track of segments that have valid start_node
 
-    coords = np.array(
-        [
-            (seg["start_node"][0], seg["start_node"][1])
-            for seg in segments
-            if seg.get("start_node")
-        ],
-    )
+    for seg in segments:
+        geom = seg.get("geometry", {})
+        if geom.get("type") == "LineString" and geom.get("coordinates") and len(geom["coordinates"]) > 0:
+            try:
+                lon, lat = float(geom["coordinates"][0][0]), float(geom["coordinates"][0][1])
+                seg["start_node"] = (lon, lat) # Add/overwrite start_node for consistency
+                segment_coords_for_clustering.append((lon, lat))
+                valid_segments_for_output.append(seg)
+            except (TypeError, ValueError, IndexError):
+                logger.warning(f"Segment {seg.get('properties',{}).get('segment_id')} has invalid start coordinates, skipping for clustering.")
+        else:
+            logger.warning(f"Segment {seg.get('properties',{}).get('segment_id')} has invalid geometry, skipping for clustering.")
 
-    if coords.shape[0] == 0:
-        return []
 
+    if not segment_coords_for_clustering:
+        logger.warning("No valid coordinates found in segments for clustering.")
+        return [] # No valid segments to cluster
+
+    coords_np = np.array(segment_coords_for_clustering)
+
+    if coords_np.shape[0] <= max_points_per_cluster:
+        # If fewer segments than max per cluster, just return them as a single cluster
+        return [valid_segments_for_output] if valid_segments_for_output else []
+
+    # Determine number of clusters
+    # Ensure n_clusters is at least 1 and not more than the number of points
     n_clusters = min(
-        max(1, coords.shape[0] // max_points_per_cluster), coords.shape[0]
+        max(1, coords_np.shape[0] // max_points_per_cluster), 
+        coords_np.shape[0]
     )
 
     try:
-        kmeans = KMeans(
-            n_clusters=n_clusters, random_state=0, n_init="auto"
-        ).fit(coords)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init='auto').fit(coords_np)
     except ValueError as e:
-        logger.warning(
-            f"KMeans clustering failed: {e}. Falling back to simpler clustering."
-        )
-        if coords.shape[0] <= max_points_per_cluster:
-            return [segments]
+        logger.warning(f"KMeans clustering failed: {e}. Falling back to chunking.")
+        # Fallback: simple chunking if KMeans fails
         return [
-            segments[i : i + max_points_per_cluster]
-            for i in range(0, len(segments), max_points_per_cluster)
+            valid_segments_for_output[i : i + max_points_per_cluster]
+            for i in range(0, len(valid_segments_for_output), max_points_per_cluster)
         ]
 
     labels = kmeans.labels_
-    clusters_dict = defaultdict(list)
-    valid_segment_idx = 0
-    for i, seg in enumerate(segments):
-        if seg.get("start_node"):
-            clusters_dict[labels[valid_segment_idx]].append(seg)
-            valid_segment_idx += 1
+    clustered_segments_dict = defaultdict(list)
+    for i, label in enumerate(labels):
+        clustered_segments_dict[label].append(valid_segments_for_output[i])
 
-    clusters = [
-        cluster_list for cluster_list in clusters_dict.values() if cluster_list
-    ]
+    # Further split large clusters if any exceed max_points_per_cluster
     final_clusters = []
-    for cluster in clusters:
-        if len(cluster) > max_points_per_cluster:
-            for i in range(0, len(cluster), max_points_per_cluster):
-                final_clusters.append(cluster[i : i + max_points_per_cluster])
-        elif cluster:
-            final_clusters.append(cluster)
+    for cluster_label, segments_in_cluster in clustered_segments_dict.items():
+        if len(segments_in_cluster) > max_points_per_cluster:
+            # Sort by distance to cluster centroid before splitting? Or just chunk?
+            # For simplicity, just chunking for now.
+            for i in range(0, len(segments_in_cluster), max_points_per_cluster):
+                final_clusters.append(segments_in_cluster[i : i + max_points_per_cluster])
+        elif segments_in_cluster: # Ensure not empty
+            final_clusters.append(segments_in_cluster)
+            
     return final_clusters
 
 
@@ -528,87 +544,79 @@ async def _optimize_route_for_clusters(
         if not cluster_segments:
             continue
 
+        # Destinations for this cluster are the start_nodes of its segments
         cluster_destinations = [
-            seg["start_node"]
-            for seg in cluster_segments
-            if seg.get("start_node")
+            seg["start_node"] for seg in cluster_segments if seg.get("start_node")
         ]
         if not cluster_destinations:
-            logger.warning(f"Cluster {i} has no valid destinations, skipping.")
+            logger.warning(f"Cluster {i} has no valid destinations (start_nodes), skipping.")
             continue
 
         try:
+            # Optimize within the cluster, starting from current_lon, current_lat
             cluster_opt_result = await _get_mapbox_optimization_route(
                 current_lon, current_lat, end_points=cluster_destinations
             )
+            
             if cluster_opt_result and cluster_opt_result.get("geometry"):
                 all_geometries.append(cluster_opt_result["geometry"])
                 total_duration += cluster_opt_result.get("duration", 0)
                 total_distance += cluster_opt_result.get("distance", 0)
-                if cluster_opt_result["geometry"].get("coordinates"):
-                    last_coord_in_cluster_route = cluster_opt_result[
-                        "geometry"
-                    ]["coordinates"][-1]
-                    current_lon, current_lat = (
-                        last_coord_in_cluster_route[0],
-                        last_coord_in_cluster_route[1],
-                    )
-                else:
-                    optimized_waypoints = cluster_opt_result.get(
-                        "waypoints", []
-                    )
-                    if optimized_waypoints:
-                        last_waypoint_in_cluster = optimized_waypoints[-1]
-                        current_lon, current_lat = (
-                            last_waypoint_in_cluster.get(
-                                "location", [current_lon, current_lat]
-                            )
-                        )
+                
+                # Update current_lon, current_lat to the end of this optimized cluster trip
+                optimized_waypoints = cluster_opt_result.get("waypoints", [])
+                if optimized_waypoints:
+                    # The last waypoint in the optimized trip for *this cluster*
+                    # Mapbox waypoints are [lon, lat]
+                    last_waypoint_coords = optimized_waypoints[-1].get("location")
+                    if last_waypoint_coords and len(last_waypoint_coords) == 2:
+                         current_lon, current_lat = last_waypoint_coords[0], last_waypoint_coords[1]
+                    else: # Fallback if location is missing in waypoint
+                        logger.warning(f"Waypoint for cluster {i} missing location, using geometry end.")
+                        if cluster_opt_result["geometry"].get("coordinates"):
+                            last_coord_in_cluster_route = cluster_opt_result["geometry"]["coordinates"][-1]
+                            current_lon, current_lat = last_coord_in_cluster_route[0], last_coord_in_cluster_route[1]
+                elif cluster_opt_result["geometry"].get("coordinates"): # Fallback if no waypoints
+                    last_coord_in_cluster_route = cluster_opt_result["geometry"]["coordinates"][-1]
+                    current_lon, current_lat = last_coord_in_cluster_route[0], last_coord_in_cluster_route[1]
+
+            # If not the last cluster, get directions to the start of the *next* cluster
             if i < len(clusters) - 1:
                 next_cluster_segments = clusters[i + 1]
-                if next_cluster_segments and next_cluster_segments[0].get(
-                    "start_node"
-                ):
-                    next_cluster_start_lon, next_cluster_start_lat = (
-                        next_cluster_segments[0]["start_node"]
-                    )
+                if next_cluster_segments and next_cluster_segments[0].get("start_node"):
+                    next_cluster_start_lon, next_cluster_start_lat = next_cluster_segments[0]["start_node"]
                     try:
+                        # Get directions from the *end* of the current cluster's route 
+                        # to the *start* of the next cluster's first segment
                         connection_result = await _get_mapbox_directions_route(
-                            current_lon,
-                            current_lat,
-                            next_cluster_start_lon,
-                            next_cluster_start_lat,
+                            current_lon, current_lat, 
+                            next_cluster_start_lon, next_cluster_start_lat
                         )
-                        if connection_result and connection_result.get(
-                            "geometry"
-                        ):
-                            all_geometries.append(
-                                connection_result["geometry"]
-                            )
-                            total_duration += connection_result.get(
-                                "duration", 0
-                            )
-                            total_distance += connection_result.get(
-                                "distance", 0
-                            )
-                            current_lon, current_lat = (
-                                next_cluster_start_lon,
-                                next_cluster_start_lat,
-                            )
+                        if connection_result and connection_result.get("geometry"):
+                            all_geometries.append(connection_result["geometry"])
+                            total_duration += connection_result.get("duration", 0)
+                            total_distance += connection_result.get("distance", 0)
+                            
+                            # Update current_lon, current_lat to the start of the next cluster
+                            # This will be the starting point for the next _get_mapbox_optimization_route call
+                            current_lon, current_lat = next_cluster_start_lon, next_cluster_start_lat
+                            
                     except HTTPException as e_dir:
-                        logger.warning(
-                            f"Could not get directions between cluster {i} and {i + 1}: {e_dir.detail}"
-                        )
-            await asyncio.sleep(0.2)
+                        logger.warning(f"Could not get directions between cluster {i} and {i + 1}: {e_dir.detail}")
+            
+            await asyncio.sleep(0.2) # Rate limiting for Mapbox APIs
+
         except HTTPException as e_opt:
-            logger.warning(
-                f"Optimization for cluster {i} failed: {e_opt.detail}. Skipping cluster."
-            )
+            logger.warning(f"Optimization for cluster {i} failed: {e_opt.detail}. Skipping cluster.")
             continue
+        except Exception as e_gen:
+            logger.error(f"General error processing cluster {i}: {e_gen}", exc_info=True)
+            continue
+
 
     combined_geometry = {
         "type": "GeometryCollection",
-        "geometries": all_geometries,
+        "geometries": [g for g in all_geometries if g], # Filter out any None geometries
     }
     return {
         "geometry": combined_geometry,
@@ -629,8 +637,16 @@ async def get_coverage_driving_route(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Target location data is required",
             )
-        location = LocationModel(**data["location"])
+        
+        location_data_from_request = data["location"]
+        if not isinstance(location_data_from_request, dict):
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Location data must be a valid object.",
+            )
+        location = LocationModel(**location_data_from_request)
         location_name = location.display_name
+
         if not location_name:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -660,7 +676,11 @@ async def get_coverage_driving_route(
             current_lon = float(current_position_data["lon"])
             location_source = "client-provided"
         else:
-            active_trip_data = await get_active_trip()
+            active_trip_response = await get_active_trip()
+            active_trip_data = None
+            if hasattr(active_trip_response, 'trip') and active_trip_response.trip:
+                 active_trip_data = active_trip_response.trip
+
             if (
                 active_trip_data
                 and isinstance(active_trip_data, dict)
@@ -685,7 +705,7 @@ async def get_coverage_driving_route(
                 gps_data = last_trip.get("gps")
                 if isinstance(gps_data, str):
                     gps_data = geojson_module.loads(gps_data)
-                geom = last_trip.get("geometry") or gps_data
+                geom = gps_data or last_trip.get("geometry")
                 if (
                     geom
                     and geom.get("type") == "LineString"
@@ -697,6 +717,17 @@ async def get_coverage_driving_route(
                         float(last_coord_pair[1]),
                     )
                     location_source = "last-trip-end"
+                elif (
+                    geom
+                    and geom.get("type") == "Point"
+                    and len(geom.get("coordinates", [])) == 2
+                ):
+                    last_coord_pair = geom["coordinates"]
+                    current_lon, current_lat = (
+                        float(last_coord_pair[0]),
+                        float(last_coord_pair[1]),
+                    )
+                    location_source = "last-trip-end-point"
                 else:
                     raise ValueError(
                         "Invalid geometry in last trip for start point."
@@ -722,95 +753,42 @@ async def get_coverage_driving_route(
                 "properties.location": location_name,
                 "properties.driven": False,
                 "properties.undriveable": {"$ne": True},
-                "geometry.coordinates": {
-                    "$exists": True,
-                    "$not": {"$size": 0},
-                },
+                "geometry.type": "LineString", # Ensure only LineStrings
+                "geometry.coordinates": { "$exists": True, "$not": {"$size": 0} },
             },
-            {
+            { # Projection
                 "geometry": 1,
                 "properties.segment_id": 1,
                 "properties.street_name": 1,
                 "_id": 0,
             },
         )
-        undriven_streets_list = await undriven_streets_cursor.to_list(
-            length=None
-        )
+        undriven_streets_list = await undriven_streets_cursor.to_list(length=None)
+        
         if not undriven_streets_list:
             return JSONResponse(
-                content={
-                    "status": "completed",
-                    "message": f"No undriven streets in {location_name}.",
-                }
+                content={ "status": "completed", "message": f"No undriven streets in {location_name}." }
             )
-        valid_segments = []
-        for street_doc in undriven_streets_list:
-            geom = street_doc.get("geometry")
-            props = street_doc.get("properties", {})
-            if (
-                geom
-                and geom.get("type") == "LineString"
-                and len(geom.get("coordinates", [])) >= 1
-            ):
-                coords = geom["coordinates"]
-                try:
-                    start_node_lonlat = (
-                        float(coords[0][0]),
-                        float(coords[0][1]),
-                    )
-                    valid_segments.append(
-                        {
-                            "id": props.get("segment_id", str(uuid.uuid4())),
-                            "name": props.get("street_name"),
-                            "geometry": geom,
-                            "start_node": start_node_lonlat,
-                        }
-                    )
-                except (TypeError, ValueError, IndexError) as e_coord:
-                    logger.warning(
-                        f"Skipping segment {props.get('segment_id')} due to coordinate error: {e_coord}"
-                    )
-        if not valid_segments:
-            return JSONResponse(
-                content={
-                    "status": "error",
-                    "message": f"No processable undriven streets in {location_name}.",
-                }
-            )
-        logger.info(
-            f"Coverage Route: Processing {len(valid_segments)} valid undriven segments for {location_name}."
-        )
-    except Exception as e:
-        logger.error(
-            f"Coverage Route: Error fetching/processing streets for {location_name}: {e}",
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500, detail=f"Error preparing segments: {e}"
-        )
 
-    try:
-        clusters = await _cluster_segments(
-            valid_segments, max_points_per_cluster=11
-        )
+        # The _cluster_segments function will pre-process and add 'start_node'
+        clusters = await _cluster_segments(undriven_streets_list, max_points_per_cluster=11)
+        
         if not clusters:
             return JSONResponse(
-                content={
-                    "status": "error",
-                    "message": "Failed to cluster segments.",
-                }
+                content={ "status": "error", "message": "Failed to cluster segments or no valid segments found." }
             )
+            
         logger.info(
-            f"Coverage Route: Clustered {len(valid_segments)} segments into {len(clusters)} clusters."
+            f"Coverage Route: Clustered {len(undriven_streets_list)} segments into {len(clusters)} clusters for {location_name}."
         )
-        optimization_result = await _optimize_route_for_clusters(
-            start_point, clusters
-        )
-        segments_covered = sum(len(c) for c in clusters)
-        message = f"Coverage route for {segments_covered} segments in {len(clusters)} clusters."
+        
+        optimization_result = await _optimize_route_for_clusters(start_point, clusters)
+        
+        segments_covered_in_route = sum(len(c) for c in clusters) # Count segments actually included in optimization
+        message = f"Coverage route for {segments_covered_in_route} segments in {len(clusters)} clusters."
+        
         logger.info(
-            f"Coverage Route: Generated route for {location_name}. Segments: {segments_covered}, Duration: {optimization_result['duration']:.1f}s, Distance: {optimization_result['distance']:.1f}m"
+            f"Coverage Route: Generated route for {location_name}. Segments: {segments_covered_in_route}, Duration: {optimization_result['duration']:.1f}s, Distance: {optimization_result['distance']:.1f}m"
         )
         return JSONResponse(
             content={
@@ -820,6 +798,8 @@ async def get_coverage_driving_route(
                 "total_duration_seconds": optimization_result["duration"],
                 "total_distance_meters": optimization_result["distance"],
                 "location_source": location_source,
+                "clusters_count": len(clusters), # Add cluster count for frontend
+                "segments_in_route_count": segments_covered_in_route, # Add segment count for frontend
             }
         )
     except HTTPException as http_exc:
@@ -874,8 +854,16 @@ async def get_simple_driving_route(request: Request):
             raise HTTPException(
                 status_code=400, detail="Target location data is required"
             )
-        location_model = LocationModel(**data["location"])
+        
+        location_data_from_request = data["location"]
+        if not isinstance(location_data_from_request, dict):
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Location data must be a valid object.",
+            )
+        location_model = LocationModel(**location_data_from_request)
         location_name = location_model.display_name
+
         if not location_name:
             raise HTTPException(
                 status_code=400, detail="Location display name is required."
@@ -905,10 +893,8 @@ async def get_simple_driving_route(request: Request):
                 "properties.location": location_name,
                 "properties.driven": False,
                 "properties.undriveable": {"$ne": True},
-                "geometry.coordinates": {
-                    "$exists": True,
-                    "$not": {"$size": 0},
-                },
+                "geometry.type": "LineString",
+                "geometry.coordinates": { "$exists": True, "$not": {"$size": 0} },
             },
             {"geometry": 1, "properties": 1, "_id": 0},
         )
@@ -926,7 +912,7 @@ async def get_simple_driving_route(request: Request):
             geom = street_doc.get("geometry", {})
             if geom.get("type") == "LineString" and geom.get("coordinates"):
                 coords = geom["coordinates"]
-                if coords and len(coords[0]) >= 2:
+                if coords and len(coords) > 0 and len(coords[0]) >= 2: 
                     street_start_lon, street_start_lat = (
                         float(coords[0][0]),
                         float(coords[0][1]),
@@ -940,15 +926,10 @@ async def get_simple_driving_route(request: Request):
                     )
                     streets_with_distance.append(
                         {
-                            "street_properties": street_doc.get(
-                                "properties", {}
-                            ),
+                            "street_properties": street_doc.get("properties", {}),
                             "street_geometry": geom,
                             "distance_to_start_miles": distance,
-                            "start_coords_lonlat": (
-                                street_start_lon,
-                                street_start_lat,
-                            ),
+                            "start_coords_lonlat": (street_start_lon, street_start_lat),
                         }
                     )
         streets_with_distance.sort(key=lambda x: x["distance_to_start_miles"])
@@ -961,9 +942,7 @@ async def get_simple_driving_route(request: Request):
                     {
                         "properties": s_data["street_properties"],
                         "geometry": s_data["street_geometry"],
-                        "distance_to_start_miles": round(
-                            s_data["distance_to_start_miles"], 2
-                        ),
+                        "distance_to_start_miles": round(s_data["distance_to_start_miles"], 2),
                         "start_coords_lonlat": s_data["start_coords_lonlat"],
                     }
                     for s_data in nearby_streets_data
@@ -972,9 +951,7 @@ async def get_simple_driving_route(request: Request):
             }
         )
     except Exception as e:
-        logger.error(
-            "Error finding nearby streets (simple-route): %s", e, exc_info=True
-        )
+        logger.error("Error finding nearby streets (simple-route): %s", e, exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to find nearby streets: {e}"
         )
@@ -989,8 +966,16 @@ async def get_optimized_multi_street_route(request: Request):
             raise HTTPException(
                 status_code=400, detail="Target location data is required"
             )
-        location_model = LocationModel(**data["location"])
+        
+        location_data_from_request = data["location"]
+        if not isinstance(location_data_from_request, dict):
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Location data must be a valid object.",
+            )
+        location_model = LocationModel(**location_data_from_request)
         location_name = location_model.display_name
+
         if not location_name:
             raise HTTPException(
                 status_code=400, detail="Location display name is required."
@@ -1008,7 +993,7 @@ async def get_optimized_multi_street_route(request: Request):
             float(user_loc_data["lat"]),
             float(user_loc_data["lon"]),
         )
-        max_streets_to_optimize = min(int(data.get("max_streets", 5)), 11)
+        max_streets_to_optimize = min(int(data.get("max_streets", 5)), 11) 
         max_distance_miles = float(data.get("max_distance_miles", 2.0))
     except (ValueError, TypeError, json.JSONDecodeError) as e:
         raise HTTPException(
@@ -1021,99 +1006,63 @@ async def get_optimized_multi_street_route(request: Request):
                 "properties.location": location_name,
                 "properties.driven": False,
                 "properties.undriveable": {"$ne": True},
-                "geometry.coordinates": {
-                    "$exists": True,
-                    "$not": {"$size": 0},
-                },
+                "geometry.type": "LineString",
+                "geometry.coordinates": { "$exists": True, "$not": {"$size": 0} },
             },
             {"geometry": 1, "properties": 1, "_id": 0},
         )
-        all_undriven_streets = await undriven_streets_cursor.to_list(
-            length=None
-        )
+        all_undriven_streets = await undriven_streets_cursor.to_list(length=None)
+        
         if not all_undriven_streets:
             return JSONResponse(
-                content={
-                    "status": "no_streets",
-                    "message": f"No undriven streets in {location_name}.",
-                }
+                content={ "status": "no_streets", "message": f"No undriven streets in {location_name}." }
             )
+            
         streets_in_radius = []
         for street_doc in all_undriven_streets:
             geom = street_doc.get("geometry", {})
             if geom.get("type") == "LineString" and geom.get("coordinates"):
                 coords = geom["coordinates"]
-                if coords and len(coords[0]) >= 2:
-                    street_start_lon, street_start_lat = (
-                        float(coords[0][0]),
-                        float(coords[0][1]),
-                    )
-                    distance = haversine(
-                        user_lon,
-                        user_lat,
-                        street_start_lon,
-                        street_start_lat,
-                        unit="miles",
-                    )
+                if coords and len(coords) > 0 and len(coords[0]) >= 2:
+                    street_start_lon, street_start_lat = float(coords[0][0]), float(coords[0][1])
+                    distance = haversine(user_lon, user_lat, street_start_lon, street_start_lat, unit="miles")
                     if distance <= max_distance_miles:
-                        streets_in_radius.append(
-                            {
-                                "properties": street_doc.get("properties", {}),
-                                "geometry": geom,
-                                "distance_to_start_miles": distance,
-                                "start_coords_lonlat": (
-                                    street_start_lon,
-                                    street_start_lat,
-                                ),
-                            }
-                        )
+                        streets_in_radius.append({
+                            "properties": street_doc.get("properties", {}),
+                            "geometry": geom,
+                            "distance_to_start_miles": distance,
+                            "start_coords_lonlat": (street_start_lon, street_start_lat),
+                        })
+                        
         if not streets_in_radius:
             return JSONResponse(
-                content={
-                    "status": "no_streets_in_radius",
-                    "message": f"No undriven streets within {max_distance_miles} miles.",
-                }
+                content={ "status": "no_streets_in_radius", "message": f"No undriven streets within {max_distance_miles} miles." }
             )
+            
         streets_in_radius.sort(key=lambda x: x["distance_to_start_miles"])
-        selected_streets_for_route = streets_in_radius[
-            :max_streets_to_optimize
-        ]
-        destination_points = [
-            s_data["start_coords_lonlat"]
-            for s_data in selected_streets_for_route
-        ]
+        selected_streets_for_route = streets_in_radius[:max_streets_to_optimize]
+        destination_points = [s_data["start_coords_lonlat"] for s_data in selected_streets_for_route]
+        
         if not destination_points:
-            return JSONResponse(
-                content={
-                    "status": "error",
-                    "message": "No destination points from selected streets.",
-                }
-            )
-        optimized_route_data = await _get_mapbox_optimization_route(
-            user_lon, user_lat, end_points=destination_points
-        )
+            return JSONResponse(content={ "status": "error", "message": "No destination points from selected streets."})
+            
+        optimized_route_data = await _get_mapbox_optimization_route(user_lon, user_lat, end_points=destination_points)
+        
         ordered_streets_info = []
         if "waypoints" in optimized_route_data:
-            for wp in optimized_route_data["waypoints"]:
-                if wp.get("waypoint_index") is not None and wp[
-                    "waypoint_index"
-                ] < len(selected_streets_for_route):
-                    original_street_data = selected_streets_for_route[
-                        wp["waypoint_index"]
-                    ]
-                    ordered_streets_info.append(
-                        {
-                            "properties": original_street_data["properties"],
-                            "geometry": original_street_data["geometry"],
-                            "distance_to_start_miles": round(
-                                original_street_data[
-                                    "distance_to_start_miles"
-                                ],
-                                2,
-                            ),
-                            "optimized_order_location": wp.get("location"),
-                        }
-                    )
+            # Mapbox waypoints: first is origin, subsequent are destinations in optimized order.
+            # waypoint_index refers to the index in the *input* destination_points list.
+            # We skip the first waypoint as it's the origin.
+            for wp in optimized_route_data["waypoints"][1:]: # Start from the first destination
+                if wp.get("waypoint_index") is not None and wp["waypoint_index"] < len(selected_streets_for_route):
+                    original_street_data = selected_streets_for_route[wp["waypoint_index"]]
+                    ordered_streets_info.append({
+                        "properties": original_street_data["properties"],
+                        "geometry": original_street_data["geometry"],
+                        "distance_to_start_miles": round(original_street_data["distance_to_start_miles"], 2),
+                        "optimized_order_location": wp.get("location"), # [lon, lat]
+                    })
+        
         return JSONResponse(
             content={
                 "status": "success",
@@ -1128,12 +1077,8 @@ async def get_optimized_multi_street_route(request: Request):
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(
-            "Error creating optimized multi-street route: %s", e, exc_info=True
-        )
-        raise HTTPException(
-            status_code=500, detail=f"Failed to create optimized route: {e}"
-        )
+        logger.error("Error creating optimized multi-street route: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create optimized route: {e}")
 
 
 async def find_connected_undriven_clusters(
@@ -1147,100 +1092,114 @@ async def find_connected_undriven_clusters(
     if not streets:
         return []
     
-    # Build adjacency graph
     adjacency = defaultdict(set)
-    segment_data = {}
+    segment_data_map = {} # Store full street data by segment_id
     
+    valid_segments_for_graph = []
     for i, street in enumerate(streets):
-        segment_id = street.get("properties", {}).get("segment_id", f"seg_{i}")
-        segment_data[segment_id] = street
-        
+        props = street.get("properties", {})
+        segment_id = props.get("segment_id")
+        if not segment_id: # Generate a temp ID if missing, though segment_id should exist
+            segment_id = f"temp_id_{i}_{uuid.uuid4().hex[:6]}"
+            props["segment_id"] = segment_id # Add it back for consistency
+            street["properties"] = props
+
+
         geom = street.get("geometry", {})
+        
         if geom.get("type") == "LineString" and geom.get("coordinates"):
             coords = geom["coordinates"]
             if len(coords) >= 2:
-                # Get start and end points
-                start_point = coords[0]
-                end_point = coords[-1]
-                
-                # Check connectivity with other segments
-                for j, other_street in enumerate(streets):
-                    if i == j:
-                        continue
-                    
-                    other_id = other_street.get("properties", {}).get("segment_id", f"seg_{j}")
-                    other_geom = other_street.get("geometry", {})
-                    
-                    if other_geom.get("type") == "LineString" and other_geom.get("coordinates"):
-                        other_coords = other_geom["coordinates"]
-                        if len(other_coords) >= 2:
-                            other_start = other_coords[0]
-                            other_end = other_coords[-1]
-                            
-                            # Check if endpoints connect
-                            distances = [
-                                haversine(start_point[0], start_point[1], other_start[0], other_start[1], unit="km"),
-                                haversine(start_point[0], start_point[1], other_end[0], other_end[1], unit="km"),
-                                haversine(end_point[0], end_point[1], other_start[0], other_start[1], unit="km"),
-                                haversine(end_point[0], end_point[1], other_end[0], other_end[1], unit="km"),
-                            ]
-                            
-                            if min(distances) <= max_distance_between_segments:
-                                adjacency[segment_id].add(other_id)
-                                adjacency[other_id].add(segment_id)
+                try:
+                    start_point = tuple(map(float,coords[0]))
+                    end_point = tuple(map(float,coords[-1]))
+                    segment_data_map[segment_id] = {
+                        "original_doc": street,
+                        "start_point": start_point,
+                        "end_point": end_point
+                    }
+                    valid_segments_for_graph.append(segment_id)
+                except (TypeError, ValueError, IndexError) as coord_err:
+                    logger.debug(f"Segment {segment_id} has invalid coordinate format {coords[0]} or {coords[-1]}: {coord_err}, skipping for graph.")
+            else:
+                logger.debug(f"Segment {segment_id} has insufficient coordinates ({len(coords)}), skipping for graph.")
+        else:
+            logger.debug(f"Segment {segment_id} has invalid geometry type '{geom.get('type')}' or no coordinates, skipping for graph.")
+
+    for i, seg_id1 in enumerate(valid_segments_for_graph):
+        data1 = segment_data_map[seg_id1]
+        for j in range(i + 1, len(valid_segments_for_graph)):
+            seg_id2 = valid_segments_for_graph[j]
+            data2 = segment_data_map[seg_id2]
+            
+            distances = [
+                haversine(data1["start_point"][0], data1["start_point"][1], data2["start_point"][0], data2["start_point"][1], unit="km"),
+                haversine(data1["start_point"][0], data1["start_point"][1], data2["end_point"][0], data2["end_point"][1], unit="km"),
+                haversine(data1["end_point"][0], data1["end_point"][1], data2["start_point"][0], data2["start_point"][1], unit="km"),
+                haversine(data1["end_point"][0], data1["end_point"][1], data2["end_point"][0], data2["end_point"][1], unit="km"),
+            ]
+            
+            if min(distances) <= max_distance_between_segments:
+                adjacency[seg_id1].add(seg_id2)
+                adjacency[seg_id2].add(seg_id1)
     
-    # Find connected components using BFS
-    visited = set()
+    visited_bfs = set()
     clusters = []
     
-    for segment_id in segment_data:
-        if segment_id not in visited:
-            # BFS to find all connected segments
-            cluster_segments = []
-            queue = deque([segment_id])
-            visited.add(segment_id)
+    for seg_id_start_node in valid_segments_for_graph:
+        if seg_id_start_node not in visited_bfs:
+            cluster_segment_ids_bfs = []
+            queue = deque([seg_id_start_node])
+            visited_bfs.add(seg_id_start_node)
+            
+            current_cluster_all_coords_bfs = []
             
             while queue:
-                current = queue.popleft()
-                cluster_segments.append(current)
+                current_seg_id_bfs = queue.popleft()
+                cluster_segment_ids_bfs.append(current_seg_id_bfs)
                 
-                for neighbor in adjacency[current]:
-                    if neighbor not in visited:
-                        visited.add(neighbor)
-                        queue.append(neighbor)
+                geom_bfs = segment_data_map[current_seg_id_bfs]["original_doc"].get("geometry", {})
+                if geom_bfs.get("coordinates"):
+                    current_cluster_all_coords_bfs.extend(geom_bfs["coordinates"])
+
+                for neighbor_seg_id_bfs in adjacency[current_seg_id_bfs]:
+                    if neighbor_seg_id_bfs not in visited_bfs:
+                        visited_bfs.add(neighbor_seg_id_bfs)
+                        queue.append(neighbor_seg_id_bfs)
             
-            # Calculate cluster properties
-            total_length = sum(
-                segment_data[sid].get("properties", {}).get("segment_length", 0)
-                for sid in cluster_segments
+            if not cluster_segment_ids_bfs:
+                continue
+
+            total_length_bfs = sum(
+                segment_data_map[sid]["original_doc"].get("properties", {}).get("segment_length", 0)
+                for sid in cluster_segment_ids_bfs
             )
             
-            # Find cluster centroid
-            all_coords = []
-            for sid in cluster_segments:
-                geom = segment_data[sid].get("geometry", {})
-                if geom.get("coordinates"):
-                    all_coords.extend(geom["coordinates"])
+            centroid_lon_bfs, centroid_lat_bfs = 0.0, 0.0
+            compactness_bfs = 0.1 # Default low compactness
+
+            if current_cluster_all_coords_bfs:
+                num_coords = len(current_cluster_all_coords_bfs)
+                if num_coords > 0:
+                    centroid_lon_bfs = sum(c[0] for c in current_cluster_all_coords_bfs) / num_coords
+                    centroid_lat_bfs = sum(c[1] for c in current_cluster_all_coords_bfs) / num_coords
+                    
+                    distances_from_centroid_bfs = [
+                        haversine(centroid_lon_bfs, centroid_lat_bfs, c[0], c[1], unit="km")
+                        for c in current_cluster_all_coords_bfs
+                    ]
+                    if distances_from_centroid_bfs:
+                        avg_distance_from_centroid_bfs = sum(distances_from_centroid_bfs) / len(distances_from_centroid_bfs)
+                        compactness_bfs = 1.0 / (1.0 + avg_distance_from_centroid_bfs) if avg_distance_from_centroid_bfs >= 0 else 0.1
             
-            if all_coords:
-                centroid_lon = sum(c[0] for c in all_coords) / len(all_coords)
-                centroid_lat = sum(c[1] for c in all_coords) / len(all_coords)
-                
-                # Calculate cluster compactness (average distance from centroid)
-                distances_from_centroid = [
-                    haversine(centroid_lon, centroid_lat, c[0], c[1], unit="km")
-                    for c in all_coords
-                ]
-                avg_distance_from_centroid = sum(distances_from_centroid) / len(distances_from_centroid)
-                
-                clusters.append({
-                    "segment_ids": cluster_segments,
-                    "segments": [segment_data[sid] for sid in cluster_segments],
-                    "total_length": total_length,
-                    "segment_count": len(cluster_segments),
-                    "centroid": [centroid_lon, centroid_lat],
-                    "compactness": 1.0 / (1.0 + avg_distance_from_centroid),  # Higher = more compact
-                })
+            clusters.append({
+                "segment_ids": cluster_segment_ids_bfs,
+                "segments": [segment_data_map[sid]["original_doc"] for sid in cluster_segment_ids_bfs],
+                "total_length": total_length_bfs,
+                "segment_count": len(cluster_segment_ids_bfs),
+                "centroid": [centroid_lon_bfs, centroid_lat_bfs],
+                "compactness": compactness_bfs,
+            })
     
     return clusters
 
@@ -1251,184 +1210,167 @@ async def suggest_next_efficient_street(
     current_lat: float = Query(..., description="Current latitude"),
     current_lon: float = Query(..., description="Current longitude"),
     top_n: int = Query(3, description="Number of top clusters to return", ge=1, le=10),
-    min_cluster_size: int = Query(2, description="Minimum segments in a cluster", ge=1),
+    min_cluster_size: int = Query(1, description="Minimum segments in a cluster", ge=1),
 ):
-    """Suggest the most efficient undriven street clusters based on:
-    - Total length of connected undriven segments
-    - Distance from current location
-    - Compactness of the cluster
-    
-    Score = (Total_Cluster_Length * Segment_Count * Compactness) / (Distance_To_Cluster + 0.1)
-    """
+    """Suggest the most efficient undriven street clusters."""
     logger.info(
         f"Finding efficient undriven clusters for location {location_id} from ({current_lat}, {current_lon})"
     )
     
     try:
-        # Validate location_id
-        try:
-            obj_location_id = ObjectId(location_id)
-        except Exception:
-            raise HTTPException(
-                status_code=400, detail="Invalid location_id format"
-            )
-        
-        # Get location metadata
-        coverage_doc = await find_one_with_retry(
-            coverage_metadata_collection,
-            {"_id": obj_location_id},
-            {"location.display_name": 1}
-        )
-        
-        if not coverage_doc or not coverage_doc.get("location", {}).get("display_name"):
-            raise HTTPException(
-                status_code=404,
-                detail=f"Coverage area with ID '{location_id}' not found"
-            )
-        
-        location_name = coverage_doc["location"]["display_name"]
-        
-        # Fetch all undriven, driveable streets for this location
-        undriven_streets_cursor = streets_collection.find(
-            {
-                "properties.location": location_name,
-                "properties.driven": False,
-                "properties.undriveable": {"$ne": True},
-                "geometry.coordinates": {"$exists": True, "$not": {"$size": 0}},
+        obj_location_id = ObjectId(location_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid location_id format")
+    
+    coverage_doc = await find_one_with_retry(
+        db_manager.db["coverage_metadata"],
+        {"_id": obj_location_id},
+        {"location.display_name": 1}
+    )
+    
+    if not coverage_doc or not coverage_doc.get("location", {}).get("display_name"):
+        raise HTTPException(status_code=404, detail=f"Coverage area with ID '{location_id}' not found")
+    
+    location_name = coverage_doc["location"]["display_name"]
+    
+    undriven_streets_cursor = streets_collection.find(
+        {
+            "properties.location": location_name,
+            "properties.driven": False,
+            "properties.undriveable": {"$ne": True},
+            "geometry.type": "LineString",
+            "geometry.coordinates": {"$exists": True, "$not": {"$size": 0}},
+        },
+        {
+            "properties.segment_id": 1,
+            "properties.street_name": 1,
+            "properties.segment_length": 1,
+            "geometry": 1, 
+            "_id": 0
+        }
+    )
+    undriven_streets = await undriven_streets_cursor.to_list(length=None)
+    
+    if not undriven_streets:
+        return JSONResponse(
+            content={
+                "status": "no_streets",
+                "message": f"No undriven streets found in {location_name}",
+                "suggested_clusters": []
             }
         )
-        
-        undriven_streets = await undriven_streets_cursor.to_list(length=None)
-        
-        if not undriven_streets:
-            return JSONResponse(
-                content={
-                    "status": "no_streets",
-                    "message": f"No undriven streets found in {location_name}",
-                    "suggested_clusters": []
-                }
-            )
-        
-        # Find connected clusters
-        clusters = await find_connected_undriven_clusters(undriven_streets)
-        
-        # Filter clusters by minimum size
-        viable_clusters = [c for c in clusters if c["segment_count"] >= min_cluster_size]
-        
-        if not viable_clusters:
-            # Fall back to individual segments if no clusters found
-            viable_clusters = [
-                {
+    
+    clusters = await find_connected_undriven_clusters(undriven_streets)
+    viable_clusters = [c for c in clusters if c["segment_count"] >= min_cluster_size]
+    
+    if not viable_clusters: # Fallback if no clusters meet min_cluster_size (especially if min_cluster_size > 1)
+        logger.info(f"No clusters of size >= {min_cluster_size} found. Considering individual segments as clusters.")
+        viable_clusters = []
+        for street in undriven_streets: # Create "clusters" of size 1
+            geom = street.get("geometry", {})
+            props = street.get("properties", {})
+            seg_id = props.get("segment_id")
+            if geom.get("type") == "LineString" and geom.get("coordinates") and len(geom["coordinates"]) > 0 and seg_id:
+                viable_clusters.append({
                     "segments": [street],
-                    "segment_ids": [street.get("properties", {}).get("segment_id")],
-                    "total_length": street.get("properties", {}).get("segment_length", 0),
+                    "segment_ids": [seg_id],
+                    "total_length": props.get("segment_length", 0),
                     "segment_count": 1,
-                    "centroid": street.get("geometry", {}).get("coordinates", [[0, 0]])[0],
-                    "compactness": 1.0
-                }
-                for street in undriven_streets[:top_n * 2]  # Get more individual segments
-            ]
+                    "centroid": geom["coordinates"][0],
+                    "compactness": 1.0 
+                })
+
+    scored_clusters = []
+    current_pos = (current_lon, current_lat)
+    
+    for cluster in viable_clusters:
+        if not cluster.get("centroid") or not isinstance(cluster["centroid"], list) or len(cluster["centroid"]) != 2:
+            logger.warning(f"Cluster missing valid centroid, skipping: {cluster.get('segment_ids')}")
+            continue
+
+        distance_km = haversine(
+            current_pos[0], current_pos[1],
+            cluster["centroid"][0], cluster["centroid"][1],
+            unit="km"
+        )
         
-        # Score each cluster
-        scored_clusters = []
-        current_pos = (current_lon, current_lat)
+        score = (
+            (cluster.get("total_length", 0) / 1000.0) * 
+            math.log(cluster.get("segment_count", 0) + 1) * 
+            cluster.get("compactness", 0.1) # Use default if missing
+        ) / (distance_km + 0.1) 
         
-        for cluster in viable_clusters:
-            # Distance from current position to cluster centroid
-            distance_km = haversine(
-                current_pos[0], current_pos[1],
-                cluster["centroid"][0], cluster["centroid"][1],
-                unit="km"
-            )
-            
-            # Calculate score
-            # Favor clusters with more segments, longer total length, and higher compactness
-            score = (
-                (cluster["total_length"] / 1000.0) *  # Convert to km
-                math.log(cluster["segment_count"] + 1) *  # Logarithmic scaling for segment count
-                cluster["compactness"]
-            ) / (distance_km + 0.1)  # Add small constant to avoid division issues
-            
-            # Get the nearest segment in the cluster to start from
-            nearest_segment = None
-            nearest_distance = float('inf')
-            
-            for segment in cluster["segments"]:
-                geom = segment.get("geometry", {})
-                if geom.get("coordinates"):
-                    start_point = geom["coordinates"][0]
+        nearest_segment_in_cluster = None
+        min_dist_to_segment_start = float('inf')
+        
+        for segment in cluster.get("segments", []):
+            geom = segment.get("geometry", {})
+            if geom.get("type") == "LineString" and geom.get("coordinates") and len(geom["coordinates"]) > 0:
+                start_point = geom["coordinates"][0]
+                if isinstance(start_point, list) and len(start_point) == 2:
                     dist = haversine(
                         current_pos[0], current_pos[1],
                         start_point[0], start_point[1],
                         unit="km"
                     )
-                    if dist < nearest_distance:
-                        nearest_distance = dist
-                        nearest_segment = segment
-            
-            if nearest_segment:
-                scored_clusters.append({
-                    "cluster_id": str(uuid.uuid4()),
-                    "segment_count": cluster["segment_count"],
-                    "total_length_m": cluster["total_length"],
-                    "distance_to_cluster_m": distance_km * 1000,
-                    "compactness": cluster["compactness"],
-                    "efficiency_score": score,
-                    "centroid": cluster["centroid"],
-                    "nearest_segment": {
-                        "segment_id": nearest_segment.get("properties", {}).get("segment_id"),
-                        "street_name": nearest_segment.get("properties", {}).get("street_name", "Unnamed Street"),
-                        "start_coords": nearest_segment.get("geometry", {}).get("coordinates", [[0, 0]])[0]
-                    },
-                    "segments": [
-                        {
-                            "segment_id": seg.get("properties", {}).get("segment_id"),
-                            "street_name": seg.get("properties", {}).get("street_name", "Unnamed"),
-                            "geometry": seg.get("geometry")
-                        }
-                        for seg in cluster["segments"]
-                    ]
-                })
+                    if dist < min_dist_to_segment_start:
+                        min_dist_to_segment_start = dist
+                        nearest_segment_in_cluster = segment
         
-        if not scored_clusters:
-            return JSONResponse(
-                content={
-                    "status": "no_clusters",
-                    "message": "No viable street clusters found",
-                    "suggested_clusters": []
-                }
-            )
-        
-        # Sort by score and take top N
-        scored_clusters.sort(key=lambda x: x["efficiency_score"], reverse=True)
-        top_clusters = scored_clusters[:top_n]
-        
-        # Log the results
-        logger.info(
-            f"Top {len(top_clusters)} efficient clusters for {location_name}: "
-            f"{[(c['segment_count'], round(c['efficiency_score'], 2)) for c in top_clusters]}"
-        )
-        
+        if nearest_segment_in_cluster:
+            nearest_props = nearest_segment_in_cluster.get("properties", {})
+            nearest_geom = nearest_segment_in_cluster.get("geometry", {})
+            start_coords = nearest_geom.get("coordinates", [[0,0]])[0] if nearest_geom.get("coordinates") else [0,0]
+
+            scored_clusters.append({
+                "cluster_id": str(uuid.uuid4()),
+                "segment_count": cluster["segment_count"],
+                "total_length_m": cluster["total_length"],
+                "distance_to_cluster_m": distance_km * 1000,
+                "compactness": cluster["compactness"],
+                "efficiency_score": score,
+                "centroid": cluster["centroid"],
+                "nearest_segment": {
+                    "segment_id": nearest_props.get("segment_id"),
+                    "street_name": nearest_props.get("street_name", "Unnamed Street"),
+                    "start_coords": start_coords
+                },
+                "segments": [
+                    {
+                        "segment_id": seg.get("properties", {}).get("segment_id"),
+                        "street_name": seg.get("properties", {}).get("street_name", "Unnamed"),
+                        "geometry": seg.get("geometry"),
+                        "segment_length": seg.get("properties", {}).get("segment_length", 0)
+                    }
+                    for seg in cluster.get("segments", [])
+                ]
+            })
+    
+    if not scored_clusters:
         return JSONResponse(
             content={
-                "status": "success",
-                "message": f"Found {len(top_clusters)} efficient street clusters",
-                "location_name": location_name,
-                "current_position": {"lat": current_lat, "lon": current_lon},
-                "suggested_clusters": top_clusters,
-                "total_undriven_streets": len(undriven_streets),
-                "total_clusters_found": len(clusters)
+                "status": "no_clusters",
+                "message": "No viable street clusters found after scoring.",
+                "suggested_clusters": []
             }
         )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(
-            f"Error finding efficient street clusters for location {location_id}: {e}",
-            exc_info=True
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to find efficient street clusters: {str(e)}"
-        )
+    
+    scored_clusters.sort(key=lambda x: x["efficiency_score"], reverse=True)
+    top_clusters = scored_clusters[:top_n]
+    
+    logger.info(
+        f"Top {len(top_clusters)} efficient clusters for {location_name}: "
+        f"{[(c['segment_count'], round(c['efficiency_score'], 2)) for c in top_clusters]}"
+    )
+    
+    return JSONResponse(
+        content={
+            "status": "success",
+            "message": f"Found {len(top_clusters)} efficient street clusters",
+            "location_name": location_name,
+            "current_position": {"lat": current_lat, "lon": current_lon},
+            "suggested_clusters": top_clusters,
+            "total_undriven_streets": len(undriven_streets),
+            "total_clusters_found": len(clusters)
+        }
+    )
