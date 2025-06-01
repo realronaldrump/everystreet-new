@@ -1,16 +1,59 @@
 {% extends "base.html" %} {% block title %}Every Street - Visits{% endblock %}
+{% block head_content %}
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
+/>
+<!-- Removed inline styles for tables, tabs, etc. They are now in style.css -->
+<style>
+  /* Page-specific styles that are not part of the global system can remain or be moved to a page-specific CSS file */
+  .map-container { /* This is a common class, but height is often page-specific */
+    height: 500px; /* Default height for this page */
+    width: 100%;
+    border-radius: var(--radius-md);
+    background-color: var(--surface-2); /* Match theme */
+  }
+
+  #trip-map-container { /* Specific map container in modal */
+    height: 400px;
+  }
+
+  .place-popup .btn { /* Specific to popups on this page's map */
+    margin-top: var(--space-2);
+  }
+  .trip-marker { /* Leaflet specific marker styling */
+    color: var(--info);
+    text-align: center;
+    line-height: 20px;
+    font-size: 20px;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+  }
+  .start-marker { color: var(--success); }
+  .end-marker { color: var(--danger); }
+
+  /* Ensure Leaflet Draw tooltips are interactive if needed, or style them */
+  .leaflet-draw-tooltip {
+    background-color: var(--surface-glass) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-sm) !important;
+    box-shadow: var(--shadow-md) !important;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid px-4 py-3">
-  <div id="visits-page"></div>
+  <div id="visits-page"></div> <!-- This div seems unused, can be removed if not needed by JS -->
   <div class="row">
     <!-- Places Management Column -->
-    <div class="col-md-4">
-      <div class="card bg-dark border-secondary mb-4">
-        <div class="card-header border-secondary">
-          <h3 class="h5 mb-0">Places Management</h3>
+    <div class="col-lg-4 col-md-12 mb-4"> <!-- Adjusted col for better responsiveness -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="h5 mb-0 card-title">Places Management</h3>
         </div>
         <div class="card-body">
-          <div class="mb-3">
+          <div class="form-group"> <!-- Changed to form-group for consistency -->
             <label for="place-name" class="form-label">Place Name</label>
             <input
               type="text"
@@ -19,8 +62,7 @@
               placeholder="Enter place name"
             />
           </div>
-          <!-- Toggle Custom Places Checkbox (Now Functional) -->
-          <div class="form-check mb-3">
+          <div class="form-check form-switch mb-3">
             <input
               type="checkbox"
               class="form-check-input"
@@ -28,69 +70,67 @@
               checked
             />
             <label class="form-check-label" for="toggle-custom-places">
-              Show Custom Places
+              Show Custom Places on Map
             </label>
           </div>
-          <div class="d-grid gap-2">
+          <div class="d-grid gap-2 mb-3">
             <button id="start-drawing" class="btn btn-primary">
-              <i class="fas fa-draw-polygon me-1"></i> Draw Place
+              <i class="fas fa-draw-polygon me-2"></i> Draw Place
             </button>
             <button id="save-place" class="btn btn-success" disabled>
-              <i class="fas fa-save me-1"></i> Save Place
+              <i class="fas fa-save me-2"></i> Save Place
             </button>
           </div>
-          <hr />
-          <button id="manage-places" class="btn btn-secondary mb-3">
-            <i class="fas fa-cog me-1"></i> Manage Places
+          <hr class="my-3"/>
+          <button id="manage-places" class="btn btn-outline-secondary w-100">
+            <i class="fas fa-cog me-2"></i> Manage All Places
           </button>
-          <!-- Removed unused #places-list div -->
         </div>
       </div>
     </div>
     <!-- Map Column -->
-    <div class="col-md-8">
-      <div class="card bg-dark border-secondary mb-4">
+    <div class="col-lg-8 col-md-12 mb-4"> <!-- Adjusted col for better responsiveness -->
+      <div class="card">
         <div
-          class="card-header border-secondary d-flex justify-content-between align-items-center"
+          class="card-header d-flex justify-content-between align-items-center"
         >
-          <h3 class="h5 mb-0">Places Map</h3>
+          <h3 class="h5 mb-0 card-title">Places Map</h3>
           <div class="map-controls">
             <div class="btn-group btn-group-sm" role="group">
-              <!-- Zoom to Fit Button (Now Functional) -->
               <button
                 type="button"
                 class="btn btn-outline-secondary"
                 id="zoom-to-fit"
                 title="Zoom to fit all custom places"
+                data-bs-toggle="tooltip"
               >
                 <i class="fas fa-expand-arrows-alt"></i>
               </button>
-              <!-- Clear Drawing Button (Now Functional) -->
               <button
                 type="button"
                 class="btn btn-outline-secondary"
                 id="clear-drawing"
                 title="Clear current drawing"
+                data-bs-toggle="tooltip"
               >
                 <i class="fas fa-trash-alt"></i>
               </button>
             </div>
           </div>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0"> <!-- Remove padding if map should fill -->
           <div id="map" class="map-container"></div>
         </div>
       </div>
     </div>
     <!-- Visit Statistics -->
     <div class="col-12" id="visits-table-container">
-      <div class="card bg-dark border-secondary">
-        <div class="card-header border-secondary">
-          <h3 class="h5 mb-0">Visit Statistics</h3>
-          <!-- Removed non-functional #toggle-view-btn -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="h5 mb-0 card-title">Visit Statistics</h3>
         </div>
         <div class="card-body">
-          <ul class="nav nav-tabs" id="visitsTab" role="tablist">
+          <ul class="nav nav-tabs mb-3" id="visitsTab" role="tablist">
             <li class="nav-item" role="presentation">
               <button
                 class="nav-link active"
@@ -116,7 +156,7 @@
                 aria-controls="non-custom-places-content"
                 aria-selected="false"
               >
-                Non-Custom Places
+                Other Visited Locations
               </button>
             </li>
           </ul>
@@ -128,23 +168,23 @@
               aria-labelledby="custom-places-tab"
             >
               <div class="row">
-                <div class="col-md-6">
-                  <canvas id="visitsChart"></canvas>
+                <div class="col-lg-5 mb-4 mb-lg-0"> <!-- Adjusted col for chart -->
+                  <canvas id="visitsChart" style="max-height: 400px;"></canvas>
                 </div>
-                <div class="col-md-6">
+                <div class="col-lg-7"> <!-- Adjusted col for table -->
                   <div class="table-responsive-lg">
                     <table
                       id="visits-table"
-                      class="table table-dark table-striped"
+                      class="table table-hover"
                       style="width: 100%"
                     >
                       <thead>
                         <tr>
                           <th>Place</th>
-                          <th>Total Visits</th>
+                          <th class="text-end">Total Visits</th>
                           <th>First Visit</th>
                           <th>Last Visit</th>
-                          <th>Avg Time Spent</th>
+                          <th class="text-end">Avg Time Spent</th>
                         </tr>
                       </thead>
                       <tbody></tbody>
@@ -162,13 +202,13 @@
               <div class="table-responsive-lg">
                 <table
                   id="non-custom-visits-table"
-                  class="table table-dark table-striped"
+                  class="table table-hover"
                   style="width: 100%"
                 >
                   <thead>
                     <tr>
                       <th>Place</th>
-                      <th>Total Visits</th>
+                      <th class="text-end">Total Visits</th>
                       <th>First Visit</th>
                       <th>Last Visit</th>
                     </tr>
@@ -182,13 +222,13 @@
       </div>
     </div>
     <!-- Trips for Selected Place -->
-    <div class="col-12" id="trips-for-place-container" style="display: none">
-      <div class="card bg-dark border-secondary">
+    <div class="col-12 mt-4" id="trips-for-place-container" style="display: none">
+      <div class="card">
         <div
-          class="card-header border-secondary d-flex justify-content-between align-items-center"
+          class="card-header d-flex justify-content-between align-items-center"
         >
-          <h3 class="h5 mb-0">
-            Trips for <span id="selected-place-name">Selected Place</span>
+          <h3 class="h5 mb-0 card-title">
+            Trips for <span id="selected-place-name" class="text-primary">Selected Place</span>
           </h3>
           <button
             id="back-to-places-btn"
@@ -201,18 +241,18 @@
           <div class="table-responsive-lg">
             <table
               id="trips-for-place-table"
-              class="table table-dark table-striped"
+              class="table table-hover"
               style="width: 100%"
             >
               <thead>
                 <tr>
                   <th>Transaction ID</th>
                   <th>Arrival Date</th>
-                  <th>Arrival Time</th>
-                  <th>Departure Time</th>
-                  <th>Duration of Stay</th>
-                  <th>Time Since Last Visit</th>
-                  <th>Actions</th>
+                  <th class="text-end">Arrival Time</th>
+                  <th class="text-end">Departure Time</th>
+                  <th class="text-end">Duration of Stay</th>
+                  <th class="text-end">Time Since Last Visit</th>
+                  <th class="text-center">Actions</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -225,11 +265,11 @@
 </div>
 
 <!-- Manage Places Modal -->
-<div class="modal fade" id="manage-places-modal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content bg-dark text-light">
-      <div class="modal-header border-secondary">
-        <h5 class="modal-title">Manage Places</h5>
+<div class="modal fade" id="manage-places-modal" tabindex="-1" aria-labelledby="managePlacesModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="managePlacesModalLabel">Manage Places</h5>
         <button
           type="button"
           class="btn-close btn-close-white"
@@ -241,13 +281,13 @@
         <div class="table-responsive-lg">
           <table
             id="manage-places-table"
-            class="table table-dark table-striped"
+            class="table table-hover"
             style="width: 100%"
           >
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Actions</th>
+                <th class="text-center">Actions</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -259,11 +299,11 @@
 </div>
 
 <!-- Edit Place Modal -->
-<div class="modal fade" id="edit-place-modal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content bg-dark text-light">
-      <div class="modal-header border-secondary">
-        <h5 class="modal-title">Edit Place</h5>
+<div class="modal fade" id="edit-place-modal" tabindex="-1" aria-labelledby="editPlaceModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editPlaceModalLabel">Edit Place</h5>
         <button
           type="button"
           class="btn-close btn-close-white"
@@ -274,7 +314,7 @@
       <div class="modal-body">
         <form id="edit-place-form">
           <input type="hidden" id="edit-place-id" />
-          <div class="mb-3">
+          <div class="form-group">
             <label for="edit-place-name" class="form-label">Place Name</label>
             <input
               type="text"
@@ -283,16 +323,16 @@
               required
             />
           </div>
-          <div class="d-flex justify-content-between">
+          <div class="d-flex justify-content-between mt-4">
             <button
               type="button"
-              class="btn btn-primary"
+              class="btn btn-outline-primary"
               id="edit-place-boundary"
             >
-              <i class="fas fa-draw-polygon me-1"></i> Edit Boundary
+              <i class="fas fa-draw-polygon me-2"></i> Edit Boundary
             </button>
             <button type="submit" class="btn btn-success">
-              <i class="fas fa-save me-1"></i> Save Changes
+              <i class="fas fa-save me-2"></i> Save Changes
             </button>
           </div>
         </form>
@@ -302,11 +342,11 @@
 </div>
 
 <!-- View Trip Modal -->
-<div class="modal fade" id="view-trip-modal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content bg-dark text-light">
-      <div class="modal-header border-secondary">
-        <h5 class="modal-title">Trip Details</h5>
+<div class="modal fade" id="view-trip-modal" tabindex="-1" aria-labelledby="viewTripModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered"> <!-- Made modal larger -->
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="viewTripModalLabel">Trip Details</h5>
         <button
           type="button"
           class="btn-close btn-close-white"
@@ -315,330 +355,21 @@
         ></button>
       </div>
       <div class="modal-body">
-        <div id="trip-info" class="mb-3"></div>
+        <div id="trip-info" class="mb-3">
+            <!-- Trip info will be populated here -->
+        </div>
         <div
           id="trip-map-container"
           class="map-container"
-          style="height: 400px"
+          style="height: 450px" 
         ></div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %} {% block extra_css %}
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
-/>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link
-  href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-  rel="stylesheet"
-/>
-<style>
-  .place-popup .btn {
-    margin-top: 10px;
-  }
-  .map-controls {
-    z-index: 1000;
-  }
-  .trip-marker {
-    color: #bb86fc;
-    text-align: center;
-    line-height: 20px;
-    font-size: 20px;
-    text-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
-  }
-  .start-marker {
-    color: #03dac5;
-  }
-  .end-marker {
-    color: #cf6679;
-  }
-  .map-container {
-    height: 500px;
-    width: 100%;
-    border-radius: 4px;
-    background-color: #333;
-  }
+{% endblock %}
 
-  #trip-map-container {
-    height: 400px;
-  }
-
-  #custom-places-content.hidden,
-  #non-custom-places-content.hidden {
-    display: none;
-  }
-
-  .table {
-    width: 100%;
-    margin-bottom: 1rem;
-    color: #dee2e6;
-  }
-
-  /* Typography improvements */
-  body {
-    font-family:
-      "Inter",
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      Roboto,
-      Oxygen,
-      Ubuntu,
-      Cantarell,
-      "Open Sans",
-      "Helvetica Neue",
-      sans-serif;
-  }
-
-  .table-dark {
-    border-radius: 8px;
-    overflow: hidden;
-    border-collapse: separate;
-    border-spacing: 0;
-    width: 100%;
-    margin-bottom: 1rem;
-    background-color: #1e1e1e;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    color: rgba(255, 255, 255, 0.87);
-    font-weight: 400;
-  }
-
-  .table-dark thead th {
-    background-color: rgba(187, 134, 252, 0.15);
-    border-bottom: 2px solid #bb86fc;
-    padding: 14px 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.85rem;
-    letter-spacing: 0.5px;
-    position: relative;
-    color: #e0e0e0;
-  }
-
-  .table-dark thead th:after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(
-      90deg,
-      rgba(187, 134, 252, 0.8) 0%,
-      rgba(187, 134, 252, 0.4) 100%
-    );
-    transform: scaleX(0.98);
-  }
-
-  .table-dark tbody tr {
-    transition: all 0.2s ease;
-  }
-
-  .table-dark tbody tr:hover {
-    background-color: rgba(187, 134, 252, 0.1);
-    transform: translateY(-1px);
-  }
-
-  .table-dark tbody td {
-    padding: 12px 10px;
-    vertical-align: middle;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-    font-size: 0.95rem;
-    font-weight: 400;
-    color: rgba(255, 255, 255, 0.87);
-  }
-
-  /* Explicitly style table cells that are not links */
-  .table-dark td:not(:has(a)) {
-    color: rgba(255, 255, 255, 0.87);
-    text-decoration: none;
-  }
-
-  .table-dark tbody tr:last-child td {
-    border-bottom: none;
-  }
-
-  .table-responsive-lg {
-    border-radius: 8px;
-    margin-top: 15px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    padding: 0;
-    overflow: hidden;
-  }
-
-  /* Explicit styling for links vs. regular text */
-  .place-link,
-  .trip-id-link {
-    color: #bb86fc !important;
-    text-decoration: none;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    position: relative;
-    padding-bottom: 2px;
-    display: inline-block;
-  }
-
-  .place-link:hover,
-  .trip-id-link:hover {
-    color: #d8b8ff !important;
-    text-decoration: none;
-  }
-
-  .place-link:after,
-  .trip-id-link:after {
-    content: "";
-    position: absolute;
-    width: 100%;
-    height: 1px;
-    bottom: 0;
-    left: 0;
-    background-color: #d8b8ff;
-    transform: scaleX(0);
-    transform-origin: bottom left;
-    transition: transform 0.3s ease;
-  }
-
-  .place-link:hover:after,
-  .trip-id-link:hover:after {
-    transform: scaleX(1);
-  }
-
-  /* Better cell formatting for different data types */
-  .table-dark .numeric-cell {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  .table-dark .date-cell {
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-    color: rgba(255, 255, 255, 0.85);
-  }
-  .table-dark .action-cell {
-    text-align: center;
-    white-space: nowrap;
-  }
-
-  /* Chart typography improvements */
-  #visitsChart {
-    font-family:
-      "Inter",
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      Roboto,
-      sans-serif;
-    max-width: 100%;
-    height: auto !important;
-  }
-
-  /* Tabs styling */
-  .nav-tabs {
-    border-bottom: 1px solid rgba(187, 134, 252, 0.3);
-  }
-
-  .nav-tabs .nav-link {
-    color: rgba(255, 255, 255, 0.7);
-    border: none;
-    font-weight: 500;
-    padding: 0.75rem 1.25rem;
-    transition: all 0.2s ease;
-    border-bottom: 2px solid transparent;
-  }
-
-  .nav-tabs .nav-link:hover {
-    color: rgba(255, 255, 255, 0.9);
-    border-color: transparent;
-    background-color: rgba(187, 134, 252, 0.05);
-  }
-
-  .nav-tabs .nav-link.active {
-    color: #bb86fc;
-    border-color: transparent;
-    background-color: transparent;
-    border-bottom: 2px solid #bb86fc;
-  }
-
-  .dataTables_wrapper .dataTables_info,
-  .dataTables_wrapper .dataTables_paginate {
-    margin-top: 15px;
-    padding: 12px 0;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.9rem;
-  }
-
-  .dataTables_wrapper .dataTables_paginate .paginate_button {
-    border-radius: 4px;
-    margin: 0 3px;
-    background-color: #2c2c2c !important;
-    border: 1px solid #444 !important;
-    color: rgba(255, 255, 255, 0.8) !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s ease;
-    padding: 0.4em 0.8em; /* Adjust padding */
-  }
-
-  .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-    background-color: #3c3c3c !important;
-    color: white !important;
-    border-color: #555 !important;
-  }
-
-  .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-    background: linear-gradient(
-      45deg,
-      rgba(187, 134, 252, 0.2),
-      rgba(187, 134, 252, 0.5)
-    ) !important;
-    border-color: #bb86fc !important;
-    color: white !important;
-    font-weight: bold;
-  }
-
-  .dataTables_wrapper .dataTables_length,
-  .dataTables_wrapper .dataTables_filter {
-    margin-bottom: 15px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-
-  .dataTables_wrapper .dataTables_filter input {
-    background-color: #333;
-    color: white;
-    border: 1px solid #444;
-    border-radius: 4px;
-    padding: 5px 10px;
-    margin-left: 8px;
-  }
-
-  .dataTables_wrapper .dataTables_length select {
-    background-color: #333;
-    color: white;
-    border: 1px solid #444;
-    border-radius: 4px;
-    padding: 5px 8px;
-    margin: 0 5px;
-  }
-
-  /* Add a subtle loading animation */
-  .dataTables_processing {
-    background: rgba(30, 30, 30, 0.8) !important;
-    color: #bb86fc !important;
-    border-radius: 4px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-  }
-
-  /* Prevent Leaflet Draw tooltips from intercepting map clicks */
-  .leaflet-draw-tooltip {
-    pointer-events: auto;
-  }
-</style>
-{% endblock %} {% block extra_js %}
+{% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', path='js/visits.js') | replace('http://', '//') }}"></script>
