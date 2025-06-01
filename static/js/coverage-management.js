@@ -84,7 +84,7 @@ const STATUS = window.STATUS || {
   }
 
   // Add CSS for the efficient streets panel
-  const efficientStreetsStyle = document.createElement('style');
+  const efficientStreetsStyle = document.createElement("style");
   efficientStreetsStyle.textContent = `
     .efficient-streets-panel-overlay {
       position: absolute;
@@ -3553,11 +3553,15 @@ const STATUS = window.STATUS || {
           ["boolean", ["feature-state", "hover"], false],
           "#ffff00", // Yellow hover
           ["!=", ["feature-state", "efficientRank"], null], // Check if efficientRank state exists
-          ["case", // If efficientRank exists, apply rank-based colors
-            ["==", ["feature-state", "efficientRank"], 1], "#ffd700", // Gold for rank 1
-            ["==", ["feature-state", "efficientRank"], 2], "#c0c0c0", // Silver for rank 2
-            ["==", ["feature-state", "efficientRank"], 3], "#cd7f32", // Bronze for rank 3
-            "#9467bd" // Purple for other ranks (if any)
+          [
+            "case", // If efficientRank exists, apply rank-based colors
+            ["==", ["feature-state", "efficientRank"], 1],
+            "#ffd700", // Gold for rank 1
+            ["==", ["feature-state", "efficientRank"], 2],
+            "#c0c0c0", // Silver for rank 2
+            ["==", ["feature-state", "efficientRank"], 3],
+            "#cd7f32", // Bronze for rank 3
+            "#9467bd", // Purple for other ranks (if any)
           ],
           // Fallback to original logic if not an efficient street
           ["boolean", ["get", "undriveable"], false],
@@ -4409,7 +4413,7 @@ const STATUS = window.STATUS || {
       if (!this.selectedLocation || !this.selectedLocation._id) {
         this.notificationManager.show(
           "Please select a coverage area first.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -4430,9 +4434,15 @@ const STATUS = window.STATUS || {
           const activeTripResponse = await fetch("/api/trip/active");
           if (activeTripResponse.ok) {
             const activeTripData = await activeTripResponse.json();
-            if (activeTripData.trip && activeTripData.trip.coordinates && 
-                activeTripData.trip.coordinates.length > 0) {
-              const lastCoord = activeTripData.trip.coordinates[activeTripData.trip.coordinates.length - 1];
+            if (
+              activeTripData.trip &&
+              activeTripData.trip.coordinates &&
+              activeTripData.trip.coordinates.length > 0
+            ) {
+              const lastCoord =
+                activeTripData.trip.coordinates[
+                  activeTripData.trip.coordinates.length - 1
+                ];
               currentLat = lastCoord.lat;
               currentLon = lastCoord.lon;
               positionSource = "active-trip";
@@ -4446,7 +4456,10 @@ const STATUS = window.STATUS || {
               const tripsData = await lastTripResponse.json();
               if (tripsData.trips && tripsData.trips.length > 0) {
                 const lastTrip = tripsData.trips[0];
-                if (lastTrip.destinationGeoPoint && lastTrip.destinationGeoPoint.coordinates) {
+                if (
+                  lastTrip.destinationGeoPoint &&
+                  lastTrip.destinationGeoPoint.coordinates
+                ) {
                   currentLon = lastTrip.destinationGeoPoint.coordinates[0];
                   currentLat = lastTrip.destinationGeoPoint.coordinates[1];
                   positionSource = "last-trip";
@@ -4456,21 +4469,20 @@ const STATUS = window.STATUS || {
           } catch (lastTripError) {
             this.notificationManager.show(
               "Unable to determine current position. Please enable location services or start a trip.",
-              "warning"
+              "warning",
             );
             return;
           }
         }
       }
-      
+
       if (currentLat === undefined || currentLon === undefined) {
         this.notificationManager.show(
           "Unable to determine current position. Please enable location services or start/complete a trip.",
-          "warning"
+          "warning",
         );
         return;
       }
-
 
       // Show loading state
       const btn = document.getElementById("find-efficient-street-btn");
@@ -4482,7 +4494,7 @@ const STATUS = window.STATUS || {
       try {
         const response = await fetch(
           `/api/driving-navigation/suggest-next-street/${this.selectedLocation._id}?` +
-          `current_lat=${currentLat}&current_lon=${currentLon}&top_n=3`
+            `current_lat=${currentLat}&current_lon=${currentLon}&top_n=3`,
         );
 
         if (!response.ok) {
@@ -4492,39 +4504,55 @@ const STATUS = window.STATUS || {
 
         const data = await response.json();
 
-        if (data.status === "no_streets" || data.status === "no_valid_streets") {
+        if (
+          data.status === "no_streets" ||
+          data.status === "no_valid_streets"
+        ) {
           this.notificationManager.show(data.message, "info");
           return;
         }
 
-        if (data.status === "success" && data.suggested_streets && data.suggested_streets.length > 0) {
+        if (
+          data.status === "success" &&
+          data.suggested_streets &&
+          data.suggested_streets.length > 0
+        ) {
           this.suggestedEfficientStreets = data.suggested_streets;
           this.displayEfficientStreets(data.suggested_streets, positionSource);
-          
+
           // Show notification
           const topStreet = data.suggested_streets[0];
-          const distanceMiles = (topStreet.distance_from_current_m / 1609.34).toFixed(1);
+          const distanceMiles = (
+            topStreet.distance_from_current_m / 1609.34
+          ).toFixed(1);
           const lengthMiles = (topStreet.segment_length_m / 1609.34).toFixed(2);
-          
+
           this.notificationManager.show(
             `Found ${data.suggested_streets.length} efficient streets. ` +
-            `Top choice: ${topStreet.street_name} (${distanceMiles} mi away, ${lengthMiles} mi long)`,
+              `Top choice: ${topStreet.street_name} (${distanceMiles} mi away, ${lengthMiles} mi long)`,
             "success",
-            5000
+            5000,
           );
-        } else if (data.suggested_streets && data.suggested_streets.length === 0) {
-            this.notificationManager.show("No efficient streets found matching criteria.", "info");
+        } else if (
+          data.suggested_streets &&
+          data.suggested_streets.length === 0
+        ) {
+          this.notificationManager.show(
+            "No efficient streets found matching criteria.",
+            "info",
+          );
         }
       } catch (error) {
         console.error("Error finding efficient streets:", error);
         this.notificationManager.show(
           `Error finding efficient streets: ${error.message}`,
-          "danger"
+          "danger",
         );
       } finally {
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-bullseye me-2"></i>Find Most Efficient Streets';
+          btn.innerHTML =
+            '<i class="fas fa-bullseye me-2"></i>Find Most Efficient Streets';
         }
       }
     }
@@ -4536,15 +4564,15 @@ const STATUS = window.STATUS || {
           reject(new Error("Geolocation is not supported"));
           return;
         }
-        
+
         navigator.geolocation.getCurrentPosition(
-          position => resolve(position),
-          error => reject(error),
+          (position) => resolve(position),
+          (error) => reject(error),
           {
             enableHighAccuracy: true,
             timeout: 10000,
-            maximumAge: 0
-          }
+            maximumAge: 0,
+          },
         );
       });
     }
@@ -4552,64 +4580,68 @@ const STATUS = window.STATUS || {
     // Display efficient streets on the coverage map
     displayEfficientStreets(streets, positionSource) {
       if (!this.coverageMap) return;
-      
+
       // Clear previous markers
       this.clearEfficientStreetMarkers();
-      
+
       // Add markers and highlights for each suggested street
       streets.forEach((street, index) => {
-        const colors = ['#ffd700', '#c0c0c0', '#cd7f32']; // Gold, Silver, Bronze
-        const color = colors[index] || '#9467bd'; // Default purple for ranks > 3
-        
+        const colors = ["#ffd700", "#c0c0c0", "#cd7f32"]; // Gold, Silver, Bronze
+        const color = colors[index] || "#9467bd"; // Default purple for ranks > 3
+
         // Highlight the street segment
         if (this.streetsGeoJson && this.streetsGeoJson.features) {
           const feature = this.streetsGeoJson.features.find(
-            f => f.properties.segment_id === street.segment_id
+            (f) => f.properties.segment_id === street.segment_id,
           );
-          
+
           if (feature && this.coverageMap.getSource("streets")) {
             // Update the feature state to highlight it
             this.coverageMap.setFeatureState(
               { source: "streets", id: street.segment_id },
-              { efficientRank: index + 1 } // Store rank (1-based)
+              { efficientRank: index + 1 }, // Store rank (1-based)
             );
           }
         }
-        
+
         // Add marker at the start of the street
         const startPoint = street.start_coords;
-        const el = document.createElement('div');
-        el.className = 'efficient-street-marker-mapbox';
+        const el = document.createElement("div");
+        el.className = "efficient-street-marker-mapbox";
         el.innerHTML = `
           <div style="background-color: ${color}; border: 2px solid white; 
                border-radius: 50%; width: 30px; height: 30px; display: flex; 
                align-items: center; justify-content: center; font-weight: bold; 
-               color: ${index === 0 ? 'black' : 'white'}; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+               color: ${index === 0 ? "black" : "white"}; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
             ${index + 1}
           </div>
         `;
-        
+
         const marker = new mapboxgl.Marker(el)
           .setLngLat(startPoint)
           .setPopup(this.createEfficientStreetPopup(street, index))
           .addTo(this.coverageMap);
-        
+
         this.efficientStreetMarkers.push(marker);
       });
-      
+
       // Show info panel
       this.showEfficientStreetsPanel(streets, positionSource);
-      
+
       // Fit map to show all suggestions
       const bounds = new mapboxgl.LngLatBounds();
-      streets.forEach(street => {
+      streets.forEach((street) => {
         bounds.extend(street.start_coords);
         // If segment geometry is available, extend bounds to include the whole segment
-        if (street.geometry && street.geometry.type === "LineString" && street.geometry.coordinates) {
-            street.geometry.coordinates.forEach(coord => bounds.extend(coord));
+        if (
+          street.geometry &&
+          street.geometry.type === "LineString" &&
+          street.geometry.coordinates
+        ) {
+          street.geometry.coordinates.forEach((coord) => bounds.extend(coord));
         }
       });
-      
+
       if (!bounds.isEmpty()) {
         this.coverageMap.fitBounds(bounds, { padding: 100, maxZoom: 17 });
       }
@@ -4617,16 +4649,18 @@ const STATUS = window.STATUS || {
 
     // Create popup for efficient street
     createEfficientStreetPopup(street, rank) {
-      const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(1);
+      const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(
+        1,
+      );
       const lengthMiles = (street.segment_length_m / 1609.34).toFixed(2);
       const score = street.proximity_score.toFixed(2);
-      
+
       const popup = new mapboxgl.Popup({
         closeButton: true,
         closeOnClick: true, // Keep true, but handle copy button separately
-        maxWidth: '300px'
+        maxWidth: "300px",
       });
-      
+
       const content = `
         <div class="efficient-street-popup">
           <h6 class="mb-2">#${rank + 1} Most Efficient Street</h6>
@@ -4645,39 +4679,46 @@ const STATUS = window.STATUS || {
           </div>
         </div>
       `;
-      
+
       popup.setHTML(content);
-      
+
       // Add event listener after popup is displayed and content is set
-      popup.on('open', () => {
-        const copyButton = popup.getElement().querySelector('.copy-segment-id-btn');
+      popup.on("open", () => {
+        const copyButton = popup
+          .getElement()
+          .querySelector(".copy-segment-id-btn");
         if (copyButton) {
-          copyButton.addEventListener('click', (e) => {
+          copyButton.addEventListener("click", (e) => {
             e.stopPropagation(); // Prevent popup from closing if closeOnClick is true
             const segmentId = e.target.dataset.segmentId;
             navigator.clipboard.writeText(segmentId).then(() => {
-              this.notificationManager.show('Segment ID copied to clipboard', 'success', 2000);
+              this.notificationManager.show(
+                "Segment ID copied to clipboard",
+                "success",
+                2000,
+              );
             });
           });
         }
       });
-      
+
       return popup;
     }
 
     // Show efficient streets panel
     showEfficientStreetsPanel(streets, positionSource) {
       // Create or update a panel showing the efficient streets
-      let panel = document.getElementById('efficient-streets-panel');
+      let panel = document.getElementById("efficient-streets-panel");
       if (!panel) {
-        panel = document.createElement('div');
-        panel.id = 'efficient-streets-panel';
-        panel.className = 'efficient-streets-panel-overlay'; // CSS class for styling
+        panel = document.createElement("div");
+        panel.id = "efficient-streets-panel";
+        panel.className = "efficient-streets-panel-overlay"; // CSS class for styling
         // Ensure coverage-dashboard exists, or append to body as fallback
-        const dashboard = document.getElementById('coverage-dashboard') || document.body;
+        const dashboard =
+          document.getElementById("coverage-dashboard") || document.body;
         dashboard.appendChild(panel);
       }
-      
+
       let html = `
         <div class="card bg-dark text-white">
           <div class="card-header">
@@ -4691,14 +4732,16 @@ const STATUS = window.STATUS || {
           </div>
           <div class="card-body" style="max-height: 300px; overflow-y: auto;">
       `;
-      
+
       streets.forEach((street, index) => {
-        const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(1);
+        const distanceMiles = (
+          street.distance_from_current_m / 1609.34
+        ).toFixed(1);
         const lengthMiles = (street.segment_length_m / 1609.34).toFixed(2);
         const score = street.proximity_score.toFixed(2);
-        const colors = ['#ffd700', '#c0c0c0', '#cd7f32']; // Gold, Silver, Bronze
-        const borderColor = colors[index] || '#9467bd';
-        
+        const colors = ["#ffd700", "#c0c0c0", "#cd7f32"]; // Gold, Silver, Bronze
+        const borderColor = colors[index] || "#9467bd";
+
         html += `
           <div class="efficient-street-item mb-2 p-2" style="border-left: 4px solid ${borderColor};">
             <div class="d-flex justify-content-between align-items-start">
@@ -4715,14 +4758,14 @@ const STATUS = window.STATUS || {
               </div>
               <button class="btn btn-sm btn-outline-light focus-street-btn" 
                       data-segment-id="${street.segment_id}"
-                      data-coords="${street.start_coords.join(',')}">
+                      data-coords="${street.start_coords.join(",")}">
                 <i class="fas fa-crosshairs"></i>
               </button>
             </div>
           </div>
         `;
       });
-      
+
       html += `
             <div class="mt-3 text-muted small">
               <i class="fas fa-info-circle"></i> Higher score = longer street closer to you
@@ -4730,13 +4773,13 @@ const STATUS = window.STATUS || {
           </div>
         </div>
       `;
-      
+
       panel.innerHTML = html;
-      
+
       // Add event listeners for focus buttons
-      panel.querySelectorAll('.focus-street-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const coords = btn.dataset.coords.split(',').map(Number);
+      panel.querySelectorAll(".focus-street-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const coords = btn.dataset.coords.split(",").map(Number);
           this.coverageMap.flyTo({ center: coords, zoom: 17 });
         });
       });
@@ -4744,30 +4787,33 @@ const STATUS = window.STATUS || {
 
     // Clear efficient street markers
     clearEfficientStreetMarkers(removePanel = true) {
-      this.efficientStreetMarkers.forEach(marker => marker.remove());
+      this.efficientStreetMarkers.forEach((marker) => marker.remove());
       this.efficientStreetMarkers = [];
-      
+
       // Clear feature states for previously suggested streets
-      if (this.coverageMap && this.streetsGeoJson && this.coverageMap.getSource("streets")) {
-        this.suggestedEfficientStreets.forEach(street => {
+      if (
+        this.coverageMap &&
+        this.streetsGeoJson &&
+        this.coverageMap.getSource("streets")
+      ) {
+        this.suggestedEfficientStreets.forEach((street) => {
           // Check if source exists before removing feature state
           if (this.coverageMap.getSource("streets")) {
             this.coverageMap.removeFeatureState(
               { source: "streets", id: street.segment_id },
-              "efficientRank" // Specify the key to remove
+              "efficientRank", // Specify the key to remove
             );
           }
         });
       }
-      
+
       this.suggestedEfficientStreets = [];
-      
+
       if (removePanel) {
-        const panel = document.getElementById('efficient-streets-panel');
+        const panel = document.getElementById("efficient-streets-panel");
         if (panel) panel.remove();
       }
     }
-
   } // End of CoverageManager class
 
   document.addEventListener("DOMContentLoaded", () => {
