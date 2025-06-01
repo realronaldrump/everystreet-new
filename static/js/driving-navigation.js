@@ -63,9 +63,10 @@ class DrivingNavigation {
 
     // Add these properties to the constructor
     this.findEfficientBtn = document.getElementById("find-efficient-street-btn");
-    this.efficientStreetsLayer = L.layerGroup();
-    this.suggestedStreets = [];
-    this.efficientStreetMarkers = [];
+    this.efficientClustersLayer = L.layerGroup();
+    this.suggestedClusters = [];
+    this.clusterMarkers = [];
+    this.clusterHighlights = [];
 
     this.initialize();
   }
@@ -101,7 +102,7 @@ class DrivingNavigation {
       this.undrivenStreetsLayer.addTo(this.map);
       this.routeLayer.addTo(this.map);
       // Add to initMap() after other layers
-      this.efficientStreetsLayer.addTo(this.map);
+      this.efficientClustersLayer.addTo(this.map);
 
       this.setStatus("Map initialized. Select an area.");
       setTimeout(() => {
@@ -294,7 +295,7 @@ class DrivingNavigation {
     if (this.findEfficientBtn) {
       this.findEfficientBtn.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
-        this.findMostEfficientStreets();
+        this.findEfficientStreetClusters();
       });
     }
 
@@ -377,7 +378,7 @@ class DrivingNavigation {
       this.clearTargetStreetHighlight();
       // Add to handleAreaChange() to clear suggestions when area changes
       // Inside handleAreaChange() after clearing other layers:
-      this.clearEfficientStreetSuggestions();
+      this.clearEfficientClusters();
       this.setStatus("Select an area.");
       return;
     }
@@ -395,7 +396,7 @@ class DrivingNavigation {
       this.clearTargetStreetHighlight();
       // Add to handleAreaChange() to clear suggestions when area changes
       // Inside handleAreaChange() after clearing other layers:
-      this.clearEfficientStreetSuggestions();
+      this.clearEfficientClusters();
       this.targetInfo.innerHTML = "";
       this.routeInfo.innerHTML = "";
 
@@ -798,7 +799,7 @@ class DrivingNavigation {
         requestPayload,
       );
 
-      this.updateProgress(20, "Clustering street segments...");
+      this.updateProgress(20, "Clustering street segments into clusters...");
 
       const response = await fetch("/api/driving-navigation/coverage-route", {
         method: "POST",
@@ -1331,8 +1332,8 @@ class DrivingNavigation {
     }
   }
 
-  // New method to find most efficient streets
-  async findMostEfficientStreets() {
+  // New method to find efficient street clusters
+  async findEfficientStreetClusters() {
     if (!this.selectedLocation || !this.selectedLocation._id) {
       this.setStatus("Please select an area first.", true);
       return;
@@ -1352,22 +1353,26 @@ class DrivingNavigation {
         currentLon = position.coords.longitude;
         this.lastKnownLocation = { lat: currentLat, lon: currentLon };
       } catch (error) {
-        this.setStatus("Unable to get current location. Please enable location services.", true);
+        this.setStatus(
+          "Unable to get current location. Please enable location services.",
+          true,
+        );
         return;
       }
     }
 
     this.findEfficientBtn.disabled = true;
-    this.findEfficientBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Finding...';
-    this.setStatus("Finding most efficient undriven streets...");
+    this.findEfficientBtn.innerHTML =
+      '<i class="fas fa-spinner fa-spin me-2"></i>Finding...';
+    this.setStatus("Finding efficient street clusters...");
 
     // Clear previous suggestions
-    this.clearEfficientStreetSuggestions();
+    this.clearEfficientClusters();
 
     try {
       const response = await fetch(
         `/api/driving-navigation/suggest-next-street/${this.selectedLocation._id}?` +
-        `current_lat=${currentLat}¤t_lon=${currentLon}&top_n=3`
+          `current_lat=${currentLat}&current_lon=${currentLon}&top_n=3&min_cluster_size=2`,
       );
 
       if (!response.ok) {
@@ -1377,7 +1382,7 @@ class DrivingNavigation {
 
       const data = await response.json();
 
-      if (data.status === "no_streets" || data.status === "no_valid_streets") {
+      if (data.status === "no_streets" || data.status === "no_clusters") {
         this.setStatus(data.message, true);
         if (notificationManager) {
           notificationManager.show(data.message, "info");
@@ -1385,46 +1390,263 @@ class DrivingNavigation {
         return;
       }
 
-      if (data.status === "success" && data.suggested_streets && data.suggested_streets.length > 0) {
-        this.suggestedStreets = data.suggested_streets;
-        this.displayEfficientStreets(data.suggested_streets);
+      if (
+        data.status === "success" &&
+        data.suggested_clusters &&
+        data.suggested_clusters.length > 0
+      ) {
+        this.suggestedClusters = data.suggested_clusters;
+        this.displayEfficientClusters(data.suggested_clusters);
 
         // Update status
-        const topStreet = data.suggested_streets[0];
-        const distanceMiles = (topStreet.distance_from_current_m / 1609.34).toFixed(1);
-        const lengthMiles = (topStreet.segment_length_m / 1609.34).toFixed(2);
+        const topCluster = data.suggested_clusters[0];
+        const distanceMiles = (
+          topCluster.distance_to_cluster_m / 1609.34
+        ).toFixed(1);
+        const lengthMiles = (topCluster.total_length_m / 1609.34).toFixed(2);
 
         this.setStatus(
-          `Found ${data.suggested_streets.length} efficient streets. ` +
-          `Top choice: ${topStreet.street_name} (${distanceMiles} mi away, ${lengthMiles} mi long)`
+          `Found ${data.suggested_clusters.length} efficient clusters. ` +
+            `Top cluster: ${topCluster.segment_count} connected streets, ` +
+            `${distanceMiles} mi away, ${lengthMiles} mi total`,
         );
 
-        // Display info panel with suggestions
-        this.displayEfficientStreetsInfo(data.suggested_streets);
+        // Display info panel with clusters
+        this.displayEfficientClustersInfo(data.suggested_clusters);
 
-        // Auto-navigate to the top suggestion
-        if (data.suggested_streets.length > 0) {
-          const topStreetId = topStreet.segment_id;
-          this.highlightTargetStreet(topStreetId);
+        // Auto-navigate to the nearest segment of the top cluster
+        if (data.suggested_clusters.length > 0) {
+          const topCluster = data.suggested_clusters[0];
+          const nearestSegment = topCluster.nearest_segment;
 
-          // Optionally auto-calculate route to top suggestion
           setTimeout(() => {
-            if (confirm(`Navigate to ${topStreet.street_name}?`)) {
-              this.findRouteToSegment(topStreetId);
+            if (
+              confirm(`Navigate to cluster with ${topCluster.segment_count} streets?`)
+            ) {
+              this.highlightTargetStreet(nearestSegment.segment_id);
+              this.findRouteToSegment(nearestSegment.segment_id);
             }
           }, 500);
         }
       }
     } catch (error) {
-      console.error("Error finding efficient streets:", error);
+      console.error("Error finding efficient clusters:", error);
       this.setStatus(`Error: ${error.message}`, true);
       if (notificationManager) {
-        notificationManager.show(`Error finding efficient streets: ${error.message}`, "danger");
+        notificationManager.show(
+          `Error finding efficient clusters: ${error.message}`,
+          "danger",
+        );
       }
     } finally {
       this.findEfficientBtn.disabled = false;
-      this.findEfficientBtn.innerHTML = '<i class="fas fa-bullseye me-2"></i>Find Most Efficient Street';
+      this.findEfficientBtn.innerHTML =
+        '<i class="fas fa-layer-group me-2"></i>Find Efficient Clusters';
     }
+  }
+
+  // Display efficient clusters on the map
+  displayEfficientClusters(clusters) {
+    this.clearEfficientClusters();
+
+    const bounds = L.latLngBounds();
+    const clusterColors = [
+      "#ff6b6b",
+      "#4ecdc4",
+      "#45b7d1",
+      "#f9ca24",
+      "#6c5ce7",
+    ];
+
+    clusters.forEach((cluster, index) => {
+      const color = clusterColors[index % clusterColors.length];
+
+      // Add all segments in the cluster with the same color
+      cluster.segments.forEach((segment) => {
+        if (segment.geometry && segment.geometry.type === "LineString") {
+          const segmentLayer = L.geoJSON(segment.geometry, {
+            style: {
+              color: color,
+              weight: 5,
+              opacity: 0.7,
+              className: `efficient-cluster-${index}`,
+            },
+          }).addTo(this.efficientClustersLayer);
+
+          this.clusterHighlights.push(segmentLayer);
+          bounds.extend(segmentLayer.getBounds());
+        }
+      });
+
+      // Add cluster marker at centroid
+      const icon = L.divIcon({
+        className: "efficient-cluster-marker",
+        html: `
+          <div class="cluster-marker-wrapper">
+            <div class="cluster-marker-inner" style="background-color: ${color};">
+              <div class="cluster-number">${index + 1}</div>
+              <div class="cluster-count">${cluster.segment_count}</div>
+            </div>
+          </div>
+        `,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+
+      const marker = L.marker([cluster.centroid[1], cluster.centroid[0]], {
+        icon,
+      })
+        .bindPopup(this.createClusterPopup(cluster, index))
+        .addTo(this.efficientClustersLayer);
+
+      this.clusterMarkers.push(marker);
+
+      // Add marker for nearest segment start point
+      if (cluster.nearest_segment) {
+        const startIcon = L.divIcon({
+          className: "cluster-start-marker",
+          html: `<div style="background-color: ${color}; border: 2px solid white; 
+                 border-radius: 50%; width: 16px; height: 16px; 
+                 box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+        });
+
+        L.marker(
+          [
+            cluster.nearest_segment.start_coords[1],
+            cluster.nearest_segment.start_coords[0],
+          ],
+          { icon: startIcon },
+        )
+          .bindTooltip("Start here", { direction: "top", offset: [0, -10] })
+          .addTo(this.efficientClustersLayer);
+      }
+    });
+
+    // Include current position in bounds
+    if (this.lastKnownLocation) {
+      bounds.extend([this.lastKnownLocation.lat, this.lastKnownLocation.lon]);
+    }
+
+    // Fit map to show all clusters
+    if (bounds.isValid()) {
+      this.map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }
+
+  // Create popup for cluster
+  createClusterPopup(cluster, rank) {
+    const distanceMiles = (
+      cluster.distance_to_cluster_m / 1609.34
+    ).toFixed(1);
+    const lengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
+    const score = cluster.efficiency_score.toFixed(2);
+
+    return `
+      <div class="efficient-cluster-popup">
+        <h6>Cluster #${rank + 1}</h6>
+        <div class="cluster-stats">
+          <div><i class="fas fa-road"></i> ${cluster.segment_count} connected streets</div>
+          <div><i class="fas fa-ruler"></i> Total: ${lengthMiles} mi</div>
+          <div><i class="fas fa-location-arrow"></i> Distance: ${distanceMiles} mi</div>
+          <div><i class="fas fa-chart-line"></i> Score: ${score}</div>
+        </div>
+        <div class="cluster-streets mt-2">
+          <strong>Streets:</strong>
+          <ul class="small mb-0">
+            ${cluster.segments
+              .slice(0, 3)
+              .map((s) => `<li>${s.street_name}</li>`)
+              .join("")}
+            ${cluster.segments.length > 3 ? `<li>...and ${cluster.segments.length - 3} more</li>` : ""}
+          </ul>
+        </div>
+        <button class="btn btn-sm btn-primary mt-2 navigate-to-cluster" 
+                data-segment-id="${cluster.nearest_segment.segment_id}">
+          <i class="fas fa-route me-1"></i> Navigate to Cluster
+        </button>
+      </div>
+    `;
+  }
+
+  // Display clusters info panel
+  displayEfficientClustersInfo(clusters) {
+    if (!this.targetInfo) return;
+
+    let html = `
+      <div class="efficient-clusters-panel">
+        <h6><i class="fas fa-layer-group me-2"></i>Efficient Street Clusters</h6>
+        <div class="clusters-explanation small text-muted mb-2">
+          Clusters of connected undriven streets for maximum efficiency
+        </div>
+        <div class="efficient-clusters-list">
+    `;
+
+    const colors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#f9ca24", "#6c5ce7"];
+    clusters.forEach((cluster, index) => {
+      const distanceMiles = (
+        cluster.distance_to_cluster_m / 1609.34
+      ).toFixed(1);
+      const lengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
+      const score = cluster.efficiency_score.toFixed(2);
+      const color = colors[index % colors.length];
+
+      html += `
+        <div class="efficient-cluster-item" style="border-left: 4px solid ${color};">
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+              <div class="cluster-header">
+                <span class="cluster-rank">#${index + 1}</span>
+                <span class="cluster-size">${cluster.segment_count} streets</span>
+              </div>
+              <div class="cluster-name">${cluster.nearest_segment.street_name} area</div>
+              <div class="cluster-metrics">
+                <span><i class="fas fa-ruler"></i> ${lengthMiles} mi total</span>
+                <span><i class="fas fa-location-arrow"></i> ${distanceMiles} mi away</span>
+                <span><i class="fas fa-chart-line"></i> Score: ${score}</span>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-outline-primary navigate-cluster-btn" 
+                    data-segment-id="${cluster.nearest_segment.segment_id}"
+                    title="Navigate to this cluster">
+              <i class="fas fa-route"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+        <div class="mt-2 text-muted small">
+          <i class="fas fa-info-circle"></i> Clusters show connected streets you can cover efficiently
+        </div>
+      </div>
+    `;
+
+    this.targetInfo.innerHTML = html;
+
+    // Add event listeners to navigation buttons
+    document
+      .querySelectorAll(".navigate-cluster-btn, .navigate-to-cluster")
+      .forEach((btn) => {
+        btn.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          e.stopPropagation();
+          const segmentId = btn.dataset.segmentId;
+          this.highlightTargetStreet(segmentId);
+          this.findRouteToSegment(segmentId);
+        });
+      });
+  }
+
+  // Clear efficient clusters
+  clearEfficientClusters() {
+    this.efficientClustersLayer.clearLayers();
+    this.clusterMarkers = [];
+    this.clusterHighlights = [];
+    this.suggestedClusters = [];
   }
 
   // Helper method to get current position
@@ -1445,145 +1667,6 @@ class DrivingNavigation {
         }
       );
     });
-  }
-
-  // Display efficient streets on the map
-  displayEfficientStreets(streets) {
-    this.clearEfficientStreetSuggestions();
-
-    const bounds = L.latLngBounds();
-
-    streets.forEach((street, index) => {
-      // Add the street geometry with special styling
-      const style = {
-        color: index === 0 ? '#ffd700' : (index === 1 ? '#c0c0c0' : '#cd7f32'), // Gold, Silver, Bronze
-        weight: 6,
-        opacity: 0.8,
-        dashArray: index === 0 ? null : '10, 5',
-        className: `efficient-street-${index}`
-      };
-
-      const streetLayer = L.geoJSON(street.geometry, { style }).addTo(this.efficientStreetsLayer);
-
-      // Create marker for the start point
-      const startPoint = street.start_coords;
-      const icon = L.divIcon({
-        className: 'efficient-street-marker',
-        html: `<div class="marker-inner" style="background-color: ${style.color}; border: 2px solid white;
-               border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center;
-               justify-content: center; font-weight: bold; color: ${index === 0 ? 'black' : 'white'};">
-               ${index + 1}</div>`,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      });
-
-      const marker = L.marker([startPoint[1], startPoint[0]], { icon })
-        .bindPopup(this.createEfficientStreetPopup(street, index))
-        .addTo(this.efficientStreetsLayer);
-
-      this.efficientStreetMarkers.push(marker);
-
-      // Extend bounds
-      bounds.extend(streetLayer.getBounds());
-    });
-
-    // Include current position in bounds
-    if (this.lastKnownLocation) {
-      bounds.extend([this.lastKnownLocation.lat, this.lastKnownLocation.lon]);
-    }
-
-    // Fit map to show all suggestions
-    if (bounds.isValid()) {
-      this.map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }
-
-  // Create popup for efficient street suggestion
-  createEfficientStreetPopup(street, rank) {
-    const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(1);
-    const lengthMiles = (street.segment_length_m / 1609.34).toFixed(2);
-    const score = street.proximity_score.toFixed(2);
-
-    return `
-      <div class="efficient-street-popup">
-        <h6>#${rank + 1} Most Efficient Street</h6>
-        <div class="street-name">${street.street_name}</div>
-        <div class="efficiency-metrics">
-          <div><i class="fas fa-ruler"></i> Length: ${lengthMiles} mi</div>
-          <div><i class="fas fa-location-arrow"></i> Distance: ${distanceMiles} mi</div>
-          <div><i class="fas fa-chart-line"></i> Score: ${score}</div>
-        </div>
-        <button class="btn btn-sm btn-primary mt-2 navigate-efficient-street"
-                data-segment-id="${street.segment_id}">
-          <i class="fas fa-route me-1"></i> Navigate Here
-        </button>
-      </div>
-    `;
-  }
-
-  // Display efficient streets info panel
-  displayEfficientStreetsInfo(streets) {
-    if (!this.targetInfo) return;
-
-    let html = `
-      <div class="efficient-streets-panel">
-        <h6><i class="fas fa-bullseye me-2"></i>Most Efficient Streets</h6>
-        <div class="efficient-streets-list">
-    `;
-
-    streets.forEach((street, index) => {
-      const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(1);
-      const lengthMiles = (street.segment_length_m / 1609.34).toFixed(2);
-      const score = street.proximity_score.toFixed(2);
-      const colors = ['#ffd700', '#c0c0c0', '#cd7f32'];
-
-      html += `
-        <div class="efficient-street-item" style="border-left: 4px solid ${colors[index]};">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <div class="street-rank">#${index + 1}</div>
-              <div class="street-name">${street.street_name}</div>
-              <div class="street-metrics">
-                <span><i class="fas fa-ruler"></i> ${lengthMiles} mi</span>
-                <span><i class="fas fa-location-arrow"></i> ${distanceMiles} mi</span>
-                <span><i class="fas fa-chart-line"></i> Score: ${score}</span>
-              </div>
-            </div>
-            <button class="btn btn-sm btn-outline-primary navigate-efficient-btn"
-                    data-segment-id="${street.segment_id}">
-              <i class="fas fa-route"></i>
-            </button>
-          </div>
-        </div>
-      `;
-    });
-
-    html += `
-        </div>
-        <div class="mt-2 text-muted small">
-          <i class="fas fa-info-circle"></i> Higher score = longer street closer to you
-        </div>
-      </div>
-    `;
-
-    this.targetInfo.innerHTML = html;
-
-    // Add event listeners to navigation buttons
-    document.querySelectorAll('.navigate-efficient-btn, .navigate-efficient-street').forEach(btn => {
-      btn.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        const segmentId = btn.dataset.segmentId;
-        this.highlightTargetStreet(segmentId);
-        this.findRouteToSegment(segmentId);
-      });
-    });
-  }
-
-  // Clear efficient street suggestions
-  clearEfficientStreetSuggestions() {
-    this.efficientStreetsLayer.clearLayers();
-    this.efficientStreetMarkers = [];
-    this.suggestedStreets = [];
   }
 }
 
@@ -1606,70 +1689,134 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   window.drivingNav = new DrivingNavigation();
 
-  // Add CSS for the efficient street markers and info panel
-  const style = document.createElement('style');
-  style.textContent = `
-    .efficient-street-marker {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-
-    .efficient-street-marker:hover {
-      transform: scale(1.1);
-    }
-
-    .efficient-streets-panel {
-      background: rgba(40, 40, 40, 0.9);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-
-    .efficient-street-item {
-      background: rgba(60, 60, 60, 0.8);
-      border-radius: 4px;
-      padding: 8px;
-      margin-bottom: 8px;
-      transition: background 0.2s;
-    }
-
-    .efficient-street-item:hover {
-      background: rgba(80, 80, 80, 0.9);
-    }
-
-    .street-rank {
-      font-weight: bold;
-      font-size: 0.9em;
-      color: #ffd700;
-    }
-
-    .street-name {
-      font-weight: 600;
-      margin: 2px 0;
-    }
-
-    .street-metrics {
-      font-size: 0.85em;
-      color: #adb5bd;
-    }
-
-    .street-metrics span {
-      margin-right: 10px;
-    }
-
-    .efficient-street-popup {
-      min-width: 200px;
-    }
-
-    .efficiency-metrics {
-      margin: 8px 0;
-      font-size: 0.9em;
-    }
-
-    .efficiency-metrics div {
-      margin: 4px 0;
-    }
+  // Add CSS for the cluster markers and info panel
+  const styleClusters = document.createElement('style');
+  styleClusters.textContent = `
+  .efficient-cluster-marker {
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  
+  .cluster-marker-wrapper {
+    position: relative;
+    width: 40px;
+    height: 40px;
+  }
+  
+  .cluster-marker-inner {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+  }
+  
+  .cluster-number {
+    font-size: 16px;
+    line-height: 1;
+  }
+  
+  .cluster-count {
+    font-size: 10px;
+    line-height: 1;
+    opacity: 0.9;
+  }
+  
+  .efficient-cluster-marker:hover {
+    transform: scale(1.1);
+    z-index: 1000 !important;
+  }
+  
+  .efficient-clusters-panel {
+    background: rgba(40, 40, 40, 0.9);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .efficient-cluster-item {
+    background: rgba(60, 60, 60, 0.8);
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+    transition: background 0.2s;
+  }
+  
+  .efficient-cluster-item:hover {
+    background: rgba(80, 80, 80, 0.9);
+  }
+  
+  .cluster-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  
+  .cluster-rank {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #ffd700;
+  }
+  
+  .cluster-size {
+    background: rgba(100, 100, 100, 0.8);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.85em;
+  }
+  
+  .cluster-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  
+  .cluster-metrics {
+    font-size: 0.85em;
+    color: #adb5bd;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .efficient-cluster-popup {
+    min-width: 250px;
+  }
+  
+  .cluster-stats {
+    margin: 10px 0;
+    font-size: 0.9em;
+  }
+  
+  .cluster-stats div {
+    margin: 4px 0;
+  }
+  
+  .cluster-streets {
+    border-top: 1px solid #dee2e6;
+    padding-top: 8px;
+  }
+  
+  .cluster-streets ul {
+    margin-left: -10px;
+  }
+  
+  .cluster-start-marker {
+    animation: pulse 2s infinite;
+  }
+  
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+  }
   `;
-  document.head.appendChild(style);
+  document.head.appendChild(styleClusters);
 });

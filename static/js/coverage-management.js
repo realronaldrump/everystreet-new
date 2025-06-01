@@ -4492,28 +4492,34 @@ const STATUS = window.STATUS || {
 
         const data = await response.json();
 
-        if (data.status === "no_streets" || data.status === "no_valid_streets") {
+        if (data.status === "no_streets" || data.status === "no_valid_streets" || data.status === "no_clusters") {
           this.notificationManager.show(data.message, "info");
+          this.clearEfficientStreetMarkers(); // Clear any previous suggestions
           return;
         }
 
-        if (data.status === "success" && data.suggested_streets && data.suggested_streets.length > 0) {
-          this.suggestedEfficientStreets = data.suggested_streets;
-          this.displayEfficientStreets(data.suggested_streets, positionSource);
+        if (data.status === "success" && data.suggested_clusters && data.suggested_clusters.length > 0) {
+          this.suggestedEfficientStreets = data.suggested_clusters; // Changed from suggested_streets
+          this.displayEfficientStreets(data.suggested_clusters, positionSource); // Changed from suggested_streets
           
           // Show notification
-          const topStreet = data.suggested_streets[0];
-          const distanceMiles = (topStreet.distance_from_current_m / 1609.34).toFixed(1);
-          const lengthMiles = (topStreet.segment_length_m / 1609.34).toFixed(2);
+          const topCluster = data.suggested_clusters[0];
+          const distanceMiles = (topCluster.distance_to_cluster_m / 1609.34).toFixed(1);
+          const lengthMiles = (topCluster.total_length_m / 1609.34).toFixed(2);
+          const startingStreetName = topCluster.nearest_segment.street_name;
           
           this.notificationManager.show(
-            `Found ${data.suggested_streets.length} efficient streets. ` +
-            `Top choice: ${topStreet.street_name} (${distanceMiles} mi away, ${lengthMiles} mi long)`,
+            `Found ${data.suggested_clusters.length} efficient street clusters. ` +
+            `Top cluster (starts with ${startingStreetName}): ${distanceMiles} mi away, ${lengthMiles} mi total length.`,
             "success",
-            5000
+            7000 // Increased duration for longer message
           );
-        } else if (data.suggested_streets && data.suggested_streets.length === 0) {
-            this.notificationManager.show("No efficient streets found matching criteria.", "info");
+        } else if (data.suggested_clusters && data.suggested_clusters.length === 0) {
+            this.notificationManager.show("No efficient street clusters found matching criteria.", "info");
+            this.clearEfficientStreetMarkers();
+        } else {
+          this.notificationManager.show(data.message || "Could not retrieve suggestions.", "warning");
+          this.clearEfficientStreetMarkers();
         }
       } catch (error) {
         console.error("Error finding efficient streets:", error);
@@ -4521,6 +4527,7 @@ const STATUS = window.STATUS || {
           `Error finding efficient streets: ${error.message}`,
           "danger"
         );
+        this.clearEfficientStreetMarkers();
       } finally {
         if (btn) {
           btn.disabled = false;
@@ -4550,34 +4557,36 @@ const STATUS = window.STATUS || {
     }
 
     // Display efficient streets on the coverage map
-    displayEfficientStreets(streets, positionSource) {
+    displayEfficientStreets(clusters, positionSource) { // Argument changed from streets to clusters
       if (!this.coverageMap) return;
       
-      // Clear previous markers
-      this.clearEfficientStreetMarkers();
+      // Clear previous markers and feature states
+      this.clearEfficientStreetMarkers(); 
       
-      // Add markers and highlights for each suggested street
-      streets.forEach((street, index) => {
+      this.suggestedEfficientStreets = clusters; // Store the clusters
+
+      // Add markers and highlights for each suggested cluster
+      clusters.forEach((cluster, index) => {
         const colors = ['#ffd700', '#c0c0c0', '#cd7f32']; // Gold, Silver, Bronze
         const color = colors[index] || '#9467bd'; // Default purple for ranks > 3
         
-        // Highlight the street segment
+        // Highlight the nearest segment of the cluster
+        const nearestSegmentId = cluster.nearest_segment.segment_id;
         if (this.streetsGeoJson && this.streetsGeoJson.features) {
           const feature = this.streetsGeoJson.features.find(
-            f => f.properties.segment_id === street.segment_id
+            f => f.properties.segment_id === nearestSegmentId
           );
           
           if (feature && this.coverageMap.getSource("streets")) {
-            // Update the feature state to highlight it
             this.coverageMap.setFeatureState(
-              { source: "streets", id: street.segment_id },
+              { source: "streets", id: nearestSegmentId },
               { efficientRank: index + 1 } // Store rank (1-based)
             );
           }
         }
         
-        // Add marker at the start of the street
-        const startPoint = street.start_coords;
+        // Add marker at the start of the nearest segment in the cluster
+        const startPoint = cluster.nearest_segment.start_coords;
         const el = document.createElement('div');
         el.className = 'efficient-street-marker-mapbox';
         el.innerHTML = `
@@ -4591,22 +4600,32 @@ const STATUS = window.STATUS || {
         
         const marker = new mapboxgl.Marker(el)
           .setLngLat(startPoint)
-          .setPopup(this.createEfficientStreetPopup(street, index))
+          .setPopup(this.createEfficientStreetPopup(cluster, index)) // Pass cluster
           .addTo(this.coverageMap);
         
         this.efficientStreetMarkers.push(marker);
       });
       
       // Show info panel
-      this.showEfficientStreetsPanel(streets, positionSource);
+      this.showEfficientStreetsPanel(clusters, positionSource);
       
       // Fit map to show all suggestions
       const bounds = new mapboxgl.LngLatBounds();
-      streets.forEach(street => {
-        bounds.extend(street.start_coords);
-        // If segment geometry is available, extend bounds to include the whole segment
-        if (street.geometry && street.geometry.type === "LineString" && street.geometry.coordinates) {
-            street.geometry.coordinates.forEach(coord => bounds.extend(coord));
+      clusters.forEach(cluster => {
+        bounds.extend(cluster.nearest_segment.start_coords);
+        // Optionally extend bounds to include the whole nearest segment or cluster geometry if available
+        // For now, just focusing on the start point of the nearest segment for fitting.
+        // If cluster.segments[...].geometry are available and detailed, could use them here.
+        // The API provides geometry for each segment in cluster.segments.
+        // Let's extend to all segments in the cluster for better visibility.
+        if (cluster.segments && Array.isArray(cluster.segments)) {
+            cluster.segments.forEach(segment => {
+                if (segment.geometry && segment.geometry.type === "LineString" && segment.geometry.coordinates) {
+                    segment.geometry.coordinates.forEach(coord => bounds.extend(coord));
+                } else if (segment.geometry && segment.geometry.type === "MultiLineString" && segment.geometry.coordinates) {
+                    segment.geometry.coordinates.forEach(line => line.forEach(coord => bounds.extend(coord)));
+                }
+            });
         }
       });
       
@@ -4616,31 +4635,38 @@ const STATUS = window.STATUS || {
     }
 
     // Create popup for efficient street
-    createEfficientStreetPopup(street, rank) {
-      const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(1);
-      const lengthMiles = (street.segment_length_m / 1609.34).toFixed(2);
-      const score = street.proximity_score.toFixed(2);
+    createEfficientStreetPopup(cluster, rank) { // Argument changed to cluster
+      const nearestSegment = cluster.nearest_segment;
+      const streetName = nearestSegment.street_name || "Unnamed Street";
+      
+      const totalLengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
+      const distanceToClusterMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(1);
+      const efficiencyScore = cluster.efficiency_score.toFixed(2);
+      const segmentCount = cluster.segment_count;
       
       const popup = new mapboxgl.Popup({
         closeButton: true,
-        closeOnClick: true, // Keep true, but handle copy button separately
-        maxWidth: '300px'
+        closeOnClick: true, 
+        maxWidth: '320px' // Adjusted max width
       });
       
       const content = `
-        <div class="efficient-street-popup">
-          <h6 class="mb-2">#${rank + 1} Most Efficient Street</h6>
-          <div class="fw-bold">${street.street_name}</div>
-          <div class="small text-muted mb-2">Type: ${CoverageManager.formatStreetType(street.highway_type)}</div>
-          <div class="efficiency-metrics">
-            <div><i class="fas fa-ruler text-info"></i> Length: ${lengthMiles} mi</div>
-            <div><i class="fas fa-location-arrow text-warning"></i> Distance: ${distanceMiles} mi</div>
-            <div><i class="fas fa-chart-line text-success"></i> Efficiency Score: ${score}</div>
+        <div class="efficient-street-popup p-3">
+          <h6 class="mb-2 fw-bold text-primary">#${rank + 1} Efficient Cluster</h6>
+          <div class="mb-1"><strong>Starts with:</strong> ${streetName}</div>
+          <div class="small text-muted mb-2">Cluster ID: ${cluster.cluster_id.substring(0,8)}...</div>
+          
+          <div class="efficiency-metrics small">
+            <div><i class="fas fa-ruler text-info me-1"></i> Total Length: ${totalLengthMiles} mi</div>
+            <div><i class="fas fa-road text-info me-1"></i> Segments: ${segmentCount}</div>
+            <div><i class="fas fa-location-arrow text-warning me-1"></i> Approx. Distance: ${distanceToClusterMiles} mi</div>
+            <div><i class="fas fa-chart-line text-success me-1"></i> Efficiency Score: ${efficiencyScore}</div>
           </div>
+          
           <hr class="my-2">
           <div class="text-center">
-            <button class="btn btn-sm btn-primary copy-segment-id-btn" data-segment-id="${street.segment_id}">
-              <i class="fas fa-copy me-1"></i> Copy Segment ID
+            <button class="btn btn-sm btn-outline-light copy-segment-id-btn" data-segment-id="${nearestSegment.segment_id}" title="Copy ID of starting segment">
+              <i class="fas fa-copy me-1"></i> Copy Start Segment ID
             </button>
           </div>
         </div>
@@ -4648,12 +4674,11 @@ const STATUS = window.STATUS || {
       
       popup.setHTML(content);
       
-      // Add event listener after popup is displayed and content is set
       popup.on('open', () => {
         const copyButton = popup.getElement().querySelector('.copy-segment-id-btn');
         if (copyButton) {
           copyButton.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent popup from closing if closeOnClick is true
+            e.stopPropagation(); 
             const segmentId = e.target.dataset.segmentId;
             navigator.clipboard.writeText(segmentId).then(() => {
               this.notificationManager.show('Segment ID copied to clipboard', 'success', 2000);
@@ -4666,37 +4691,36 @@ const STATUS = window.STATUS || {
     }
 
     // Show efficient streets panel
-    showEfficientStreetsPanel(streets, positionSource) {
-      // Create or update a panel showing the efficient streets
+    showEfficientStreetsPanel(clusters, positionSource) { // Argument changed to clusters
       let panel = document.getElementById('efficient-streets-panel');
       if (!panel) {
         panel = document.createElement('div');
         panel.id = 'efficient-streets-panel';
-        panel.className = 'efficient-streets-panel-overlay'; // CSS class for styling
-        // Ensure coverage-dashboard exists, or append to body as fallback
+        panel.className = 'efficient-streets-panel-overlay';
         const dashboard = document.getElementById('coverage-dashboard') || document.body;
         dashboard.appendChild(panel);
       }
       
       let html = `
         <div class="card bg-dark text-white">
-          <div class="card-header">
+          <div class="card-header d-flex justify-content-between align-items-center">
             <h6 class="mb-0">
-              <i class="fas fa-bullseye me-2"></i>Most Efficient Streets
-              <button type="button" class="btn-close btn-close-white float-end" 
-                      onclick="document.getElementById('efficient-streets-panel').remove(); window.coverageManager.clearEfficientStreetMarkers(false);">
-              </button>
+              <i class="fas fa-bullseye me-2"></i>Most Efficient Street Clusters
             </h6>
-            <small class="text-muted">Position source: ${positionSource}</small>
+            <button type="button" class="btn-close btn-close-white" 
+                    onclick="document.getElementById('efficient-streets-panel').remove(); window.coverageManager.clearEfficientStreetMarkers(false);">
+            </button>
           </div>
           <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+            <small class="text-muted d-block mb-2">Position source: ${positionSource}</small>
       `;
       
-      streets.forEach((street, index) => {
-        const distanceMiles = (street.distance_from_current_m / 1609.34).toFixed(1);
-        const lengthMiles = (street.segment_length_m / 1609.34).toFixed(2);
-        const score = street.proximity_score.toFixed(2);
-        const colors = ['#ffd700', '#c0c0c0', '#cd7f32']; // Gold, Silver, Bronze
+      clusters.forEach((cluster, index) => {
+        const nearestSegment = cluster.nearest_segment;
+        const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(1);
+        const totalLengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
+        const score = cluster.efficiency_score.toFixed(2);
+        const colors = ['#ffd700', '#c0c0c0', '#cd7f32'];
         const borderColor = colors[index] || '#9467bd';
         
         html += `
@@ -4705,17 +4729,18 @@ const STATUS = window.STATUS || {
               <div class="flex-grow-1">
                 <div class="d-flex align-items-center mb-1">
                   <span class="badge bg-secondary me-2">#${index + 1}</span>
-                  <strong>${street.street_name}</strong>
+                  <strong>Starts with: ${nearestSegment.street_name}</strong>
                 </div>
                 <div class="small">
-                  <span class="me-3"><i class="fas fa-ruler"></i> ${lengthMiles} mi</span>
-                  <span class="me-3"><i class="fas fa-location-arrow"></i> ${distanceMiles} mi</span>
-                  <span><i class="fas fa-chart-line"></i> Score: ${score}</span>
+                  <span class="me-3" title="Total length of segments in cluster"><i class="fas fa-ruler"></i> ${totalLengthMiles} mi (${cluster.segment_count} segs)</span>
+                  <span class="me-3" title="Approx. distance to cluster centroid"><i class="fas fa-location-arrow"></i> ${distanceMiles} mi</span>
+                  <span title="Efficiency score"><i class="fas fa-chart-line"></i> Score: ${score}</span>
                 </div>
               </div>
               <button class="btn btn-sm btn-outline-light focus-street-btn" 
-                      data-segment-id="${street.segment_id}"
-                      data-coords="${street.start_coords.join(',')}">
+                      title="Focus map on start of this cluster"
+                      data-coords="${nearestSegment.start_coords.join(',')}"
+                      data-segment-id="${nearestSegment.segment_id}">
                 <i class="fas fa-crosshairs"></i>
               </button>
             </div>
@@ -4725,7 +4750,7 @@ const STATUS = window.STATUS || {
       
       html += `
             <div class="mt-3 text-muted small">
-              <i class="fas fa-info-circle"></i> Higher score = longer street closer to you
+              <i class="fas fa-info-circle"></i> Higher score = longer, more compact cluster, closer to you.
             </div>
           </div>
         </div>
@@ -4733,11 +4758,12 @@ const STATUS = window.STATUS || {
       
       panel.innerHTML = html;
       
-      // Add event listeners for focus buttons
       panel.querySelectorAll('.focus-street-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const coords = btn.dataset.coords.split(',').map(Number);
-          this.coverageMap.flyTo({ center: coords, zoom: 17 });
+          if (this.coverageMap) {
+            this.coverageMap.flyTo({ center: coords, zoom: 17 });
+          }
         });
       });
     }
@@ -4747,20 +4773,21 @@ const STATUS = window.STATUS || {
       this.efficientStreetMarkers.forEach(marker => marker.remove());
       this.efficientStreetMarkers = [];
       
-      // Clear feature states for previously suggested streets
-      if (this.coverageMap && this.streetsGeoJson && this.coverageMap.getSource("streets")) {
-        this.suggestedEfficientStreets.forEach(street => {
-          // Check if source exists before removing feature state
-          if (this.coverageMap.getSource("streets")) {
-            this.coverageMap.removeFeatureState(
-              { source: "streets", id: street.segment_id },
-              "efficientRank" // Specify the key to remove
-            );
+      if (this.coverageMap && this.suggestedEfficientStreets && this.coverageMap.getSource("streets")) {
+        this.suggestedEfficientStreets.forEach(cluster => { // Iterate through stored clusters
+          // Clear feature state for the nearest segment of the cluster
+          const nearestSegmentId = cluster.nearest_segment.segment_id;
+          if (this.coverageMap.getSource("streets")) { // Double check source
+             this.coverageMap.removeFeatureState(
+               { source: "streets", id: nearestSegmentId },
+               "efficientRank"
+             );
           }
+          // If all segments in the cluster were highlighted, loop through cluster.segments here
         });
       }
       
-      this.suggestedEfficientStreets = [];
+      this.suggestedEfficientStreets = []; // Clear the stored suggestions
       
       if (removePanel) {
         const panel = document.getElementById('efficient-streets-panel');

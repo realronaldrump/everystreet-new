@@ -1,28 +1,28 @@
 import asyncio
 import json
 import logging
+import math
 import os
 import uuid
-from collections import defaultdict
-from typing import Any
+from collections import defaultdict, deque
+from typing import Any, Dict, List
 
-from bson import ObjectId
 import geojson as geojson_module
 import httpx
 import numpy as np
-from fastapi import APIRouter, HTTPException, Request, status, Query
+from bson import ObjectId
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from sklearn.cluster import KMeans
 
+from coverage_api import coverage_metadata_collection
 from db import find_one_with_retry, streets_collection, trips_collection
 from live_tracking import get_active_trip
-from coverage_api import coverage_metadata_collection
 from models import LocationModel
 from utils import haversine
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 
@@ -1135,25 +1135,134 @@ async def get_optimized_multi_street_route(request: Request):
             status_code=500, detail=f"Failed to create optimized route: {e}"
         )
 
+
+async def find_connected_undriven_clusters(
+    streets: List[Dict[str, Any]], 
+    max_distance_between_segments: float = 0.05  # 50 meters in km
+) -> List[Dict[str, Any]]:
+    """Find clusters of connected undriven street segments.
+    
+    Two segments are considered connected if their endpoints are within max_distance_between_segments.
+    """
+    if not streets:
+        return []
+    
+    # Build adjacency graph
+    adjacency = defaultdict(set)
+    segment_data = {}
+    
+    for i, street in enumerate(streets):
+        segment_id = street.get("properties", {}).get("segment_id", f"seg_{i}")
+        segment_data[segment_id] = street
+        
+        geom = street.get("geometry", {})
+        if geom.get("type") == "LineString" and geom.get("coordinates"):
+            coords = geom["coordinates"]
+            if len(coords) >= 2:
+                # Get start and end points
+                start_point = coords[0]
+                end_point = coords[-1]
+                
+                # Check connectivity with other segments
+                for j, other_street in enumerate(streets):
+                    if i == j:
+                        continue
+                    
+                    other_id = other_street.get("properties", {}).get("segment_id", f"seg_{j}")
+                    other_geom = other_street.get("geometry", {})
+                    
+                    if other_geom.get("type") == "LineString" and other_geom.get("coordinates"):
+                        other_coords = other_geom["coordinates"]
+                        if len(other_coords) >= 2:
+                            other_start = other_coords[0]
+                            other_end = other_coords[-1]
+                            
+                            # Check if endpoints connect
+                            distances = [
+                                haversine(start_point[0], start_point[1], other_start[0], other_start[1], unit="km"),
+                                haversine(start_point[0], start_point[1], other_end[0], other_end[1], unit="km"),
+                                haversine(end_point[0], end_point[1], other_start[0], other_start[1], unit="km"),
+                                haversine(end_point[0], end_point[1], other_end[0], other_end[1], unit="km"),
+                            ]
+                            
+                            if min(distances) <= max_distance_between_segments:
+                                adjacency[segment_id].add(other_id)
+                                adjacency[other_id].add(segment_id)
+    
+    # Find connected components using BFS
+    visited = set()
+    clusters = []
+    
+    for segment_id in segment_data:
+        if segment_id not in visited:
+            # BFS to find all connected segments
+            cluster_segments = []
+            queue = deque([segment_id])
+            visited.add(segment_id)
+            
+            while queue:
+                current = queue.popleft()
+                cluster_segments.append(current)
+                
+                for neighbor in adjacency[current]:
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append(neighbor)
+            
+            # Calculate cluster properties
+            total_length = sum(
+                segment_data[sid].get("properties", {}).get("segment_length", 0)
+                for sid in cluster_segments
+            )
+            
+            # Find cluster centroid
+            all_coords = []
+            for sid in cluster_segments:
+                geom = segment_data[sid].get("geometry", {})
+                if geom.get("coordinates"):
+                    all_coords.extend(geom["coordinates"])
+            
+            if all_coords:
+                centroid_lon = sum(c[0] for c in all_coords) / len(all_coords)
+                centroid_lat = sum(c[1] for c in all_coords) / len(all_coords)
+                
+                # Calculate cluster compactness (average distance from centroid)
+                distances_from_centroid = [
+                    haversine(centroid_lon, centroid_lat, c[0], c[1], unit="km")
+                    for c in all_coords
+                ]
+                avg_distance_from_centroid = sum(distances_from_centroid) / len(distances_from_centroid)
+                
+                clusters.append({
+                    "segment_ids": cluster_segments,
+                    "segments": [segment_data[sid] for sid in cluster_segments],
+                    "total_length": total_length,
+                    "segment_count": len(cluster_segments),
+                    "centroid": [centroid_lon, centroid_lat],
+                    "compactness": 1.0 / (1.0 + avg_distance_from_centroid),  # Higher = more compact
+                })
+    
+    return clusters
+
+
 @router.get("/api/driving-navigation/suggest-next-street/{location_id}")
 async def suggest_next_efficient_street(
     location_id: str,
     current_lat: float = Query(..., description="Current latitude"),
     current_lon: float = Query(..., description="Current longitude"),
-    top_n: int = Query(3, description="Number of top streets to return", ge=1, le=10),
+    top_n: int = Query(3, description="Number of top clusters to return", ge=1, le=10),
+    min_cluster_size: int = Query(2, description="Minimum segments in a cluster", ge=1),
 ):
-    """Suggest the most efficient undriven streets based on proximity-weighted score.
+    """Suggest the most efficient undriven street clusters based on:
+    - Total length of connected undriven segments
+    - Distance from current location
+    - Compactness of the cluster
     
-    Score = Segment_Length / (Distance_From_Current_Location + Small_Constant)
-    
-    Higher score = longer segment closer to current location = more efficient
+    Score = (Total_Cluster_Length * Segment_Count * Compactness) / (Distance_To_Cluster + 0.1)
     """
     logger.info(
-        f"Suggesting next efficient streets for location {location_id} from ({current_lat}, {current_lon})"
+        f"Finding efficient undriven clusters for location {location_id} from ({current_lat}, {current_lon})"
     )
-    
-    # Small constant to avoid division by zero and to not overly favor very close streets
-    DISTANCE_EPSILON = 0.05  # ~50 meters in km
     
     try:
         # Validate location_id
@@ -1186,14 +1295,6 @@ async def suggest_next_efficient_street(
                 "properties.driven": False,
                 "properties.undriveable": {"$ne": True},
                 "geometry.coordinates": {"$exists": True, "$not": {"$size": 0}},
-            },
-            {
-                "geometry": 1,
-                "properties.segment_id": 1,
-                "properties.street_name": 1,
-                "properties.highway": 1,
-                "properties.segment_length": 1,
-                "_id": 0,
             }
         )
         
@@ -1204,75 +1305,119 @@ async def suggest_next_efficient_street(
                 content={
                     "status": "no_streets",
                     "message": f"No undriven streets found in {location_name}",
-                    "suggested_streets": []
+                    "suggested_clusters": []
                 }
             )
         
-        # Calculate proximity-weighted score for each street
-        scored_streets = []
+        # Find connected clusters
+        clusters = await find_connected_undriven_clusters(undriven_streets)
+        
+        # Filter clusters by minimum size
+        viable_clusters = [c for c in clusters if c["segment_count"] >= min_cluster_size]
+        
+        if not viable_clusters:
+            # Fall back to individual segments if no clusters found
+            viable_clusters = [
+                {
+                    "segments": [street],
+                    "segment_ids": [street.get("properties", {}).get("segment_id")],
+                    "total_length": street.get("properties", {}).get("segment_length", 0),
+                    "segment_count": 1,
+                    "centroid": street.get("geometry", {}).get("coordinates", [[0, 0]])[0],
+                    "compactness": 1.0
+                }
+                for street in undriven_streets[:top_n * 2]  # Get more individual segments
+            ]
+        
+        # Score each cluster
+        scored_clusters = []
         current_pos = (current_lon, current_lat)
         
-        for street in undriven_streets:
-            geometry = street.get("geometry", {})
-            props = street.get("properties", {})
+        for cluster in viable_clusters:
+            # Distance from current position to cluster centroid
+            distance_km = haversine(
+                current_pos[0], current_pos[1],
+                cluster["centroid"][0], cluster["centroid"][1],
+                unit="km"
+            )
             
-            if geometry.get("type") == "LineString" and geometry.get("coordinates"):
-                coords = geometry["coordinates"]
-                if coords and len(coords) > 0 and len(coords[0]) >= 2:
-                    # Get start point of the segment
-                    start_point = (float(coords[0][0]), float(coords[0][1]))
-                    
-                    # Calculate distance from current position to start of segment
-                    distance_km = haversine(
+            # Calculate score
+            # Favor clusters with more segments, longer total length, and higher compactness
+            score = (
+                (cluster["total_length"] / 1000.0) *  # Convert to km
+                math.log(cluster["segment_count"] + 1) *  # Logarithmic scaling for segment count
+                cluster["compactness"]
+            ) / (distance_km + 0.1)  # Add small constant to avoid division issues
+            
+            # Get the nearest segment in the cluster to start from
+            nearest_segment = None
+            nearest_distance = float('inf')
+            
+            for segment in cluster["segments"]:
+                geom = segment.get("geometry", {})
+                if geom.get("coordinates"):
+                    start_point = geom["coordinates"][0]
+                    dist = haversine(
                         current_pos[0], current_pos[1],
                         start_point[0], start_point[1],
                         unit="km"
                     )
-                    
-                    # Get segment length in meters (convert to km for consistency)
-                    segment_length_km = float(props.get("segment_length", 0)) / 1000.0
-                    
-                    # Calculate proximity-weighted score
-                    score = segment_length_km / (distance_km + DISTANCE_EPSILON)
-                    
-                    scored_streets.append({
-                        "segment_id": props.get("segment_id"),
-                        "street_name": props.get("street_name", "Unnamed Street"),
-                        "highway_type": props.get("highway", "unknown"),
-                        "segment_length_m": float(props.get("segment_length", 0)),
-                        "distance_from_current_m": distance_km * 1000,
-                        "proximity_score": score,
-                        "geometry": geometry,
-                        "start_coords": [start_point[0], start_point[1]]  # [lon, lat]
-                    })
+                    if dist < nearest_distance:
+                        nearest_distance = dist
+                        nearest_segment = segment
+            
+            if nearest_segment:
+                scored_clusters.append({
+                    "cluster_id": str(uuid.uuid4()),
+                    "segment_count": cluster["segment_count"],
+                    "total_length_m": cluster["total_length"],
+                    "distance_to_cluster_m": distance_km * 1000,
+                    "compactness": cluster["compactness"],
+                    "efficiency_score": score,
+                    "centroid": cluster["centroid"],
+                    "nearest_segment": {
+                        "segment_id": nearest_segment.get("properties", {}).get("segment_id"),
+                        "street_name": nearest_segment.get("properties", {}).get("street_name", "Unnamed Street"),
+                        "start_coords": nearest_segment.get("geometry", {}).get("coordinates", [[0, 0]])[0]
+                    },
+                    "segments": [
+                        {
+                            "segment_id": seg.get("properties", {}).get("segment_id"),
+                            "street_name": seg.get("properties", {}).get("street_name", "Unnamed"),
+                            "geometry": seg.get("geometry")
+                        }
+                        for seg in cluster["segments"]
+                    ]
+                })
         
-        if not scored_streets:
+        if not scored_clusters:
             return JSONResponse(
                 content={
-                    "status": "no_valid_streets",
-                    "message": "No valid undriven streets with coordinates found",
-                    "suggested_streets": []
+                    "status": "no_clusters",
+                    "message": "No viable street clusters found",
+                    "suggested_clusters": []
                 }
             )
         
-        # Sort by score (descending) and take top N
-        scored_streets.sort(key=lambda x: x["proximity_score"], reverse=True)
-        top_streets = scored_streets[:top_n]
+        # Sort by score and take top N
+        scored_clusters.sort(key=lambda x: x["efficiency_score"], reverse=True)
+        top_clusters = scored_clusters[:top_n]
         
-        # Log the top suggestions
+        # Log the results
         logger.info(
-            f"Top {len(top_streets)} efficient streets for location {location_name}: "
-            f"{[f'{s['street_name']} (score: {s['proximity_score']:.2f})' for s in top_streets]}"
+            f"Top {len(top_clusters)} efficient clusters for {location_name}: "
+            f"{[(c['segment_count'], round(c['efficiency_score'], 2)) for c in top_clusters]}"
         )
         
         return JSONResponse(
             content={
                 "status": "success",
-                "message": f"Found {len(top_streets)} efficient undriven streets",
+                "message": f"Found {len(top_clusters)} efficient street clusters",
                 "location_name": location_name,
                 "current_position": {"lat": current_lat, "lon": current_lon},
-                "suggested_streets": top_streets,
-                "total_undriven_streets": len(undriven_streets)
+                "suggested_clusters": top_clusters,
+                "total_undriven_streets": len(undriven_streets),
+                "total_clusters_found": len(clusters)
             }
         )
         
@@ -1280,10 +1425,10 @@ async def suggest_next_efficient_street(
         raise
     except Exception as e:
         logger.error(
-            f"Error suggesting efficient streets for location {location_id}: {e}",
+            f"Error finding efficient street clusters for location {location_id}: {e}",
             exc_info=True
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to suggest efficient streets: {str(e)}"
+            detail=f"Failed to find efficient street clusters: {str(e)}"
         )
