@@ -48,7 +48,9 @@
     initializeMap() {
       return new Promise((resolve) => {
         // Skip map initialization - will be handled by emergency script
-        console.log("VisitsManager: Skipping normal map initialization, will be handled by emergency fix");
+        console.log(
+          "VisitsManager: Skipping normal map initialization, will be handled by emergency fix",
+        );
         this.customPlacesLayer = L.featureGroup(); // Create but don't add to map yet
         resolve();
       });
@@ -422,7 +424,7 @@
         this.map.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
       } else {
         console.warn(
-          "VisitsManager: map not initialized, skipping Draw.Event.CREATED binding"
+          "VisitsManager: map not initialized, skipping Draw.Event.CREATED binding",
         );
       }
       document
@@ -1526,8 +1528,10 @@
       if (typeof $ === "undefined") missingLibraries.push("jQuery");
       if (typeof bootstrap === "undefined") missingLibraries.push("Bootstrap");
       if (typeof DateUtils === "undefined") missingLibraries.push("DateUtils");
-      if (typeof window.mapBase === "undefined") missingLibraries.push("mapBase (window.mapBase)");
-      else if (typeof window.mapBase.createMap !== "function") missingLibraries.push("mapBase.createMap (function missing)");
+      if (typeof window.mapBase === "undefined")
+        missingLibraries.push("mapBase (window.mapBase)");
+      else if (typeof window.mapBase.createMap !== "function")
+        missingLibraries.push("mapBase.createMap (function missing)");
 
       const errorMessage = `One or more critical libraries not loaded or improperly configured: ${missingLibraries.join(", ")}. Visits page cannot initialize.`;
       console.error(errorMessage);
