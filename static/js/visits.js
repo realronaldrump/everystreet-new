@@ -47,20 +47,9 @@
 
     initializeMap() {
       return new Promise((resolve) => {
-        // Use shared map factory
-        this.map = window.mapBase.createMap("map", {
-          library: "leaflet",
-          center: [37.0902, -95.7129],
-          zoom: 4,
-          zoomControl: true,
-          tileLayer:
-            "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-          tileOptions: { maxZoom: 19 },
-        });
-        this.customPlacesLayer = L.featureGroup().addTo(this.map);
-        document.addEventListener("themeChanged", (e) =>
-          this.updateMapTheme(e.detail.theme),
-        );
+        // Skip map initialization - will be handled by emergency script
+        console.log("VisitsManager: Skipping normal map initialization, will be handled by emergency fix");
+        this.customPlacesLayer = L.featureGroup(); // Create but don't add to map yet
         resolve();
       });
     }
@@ -429,7 +418,13 @@
           this.clearCurrentDrawing();
         });
 
-      this.map.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
+      if (this.map && typeof this.map.on === "function") {
+        this.map.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
+      } else {
+        console.warn(
+          "VisitsManager: map not initialized, skipping Draw.Event.CREATED binding"
+        );
+      }
       document
         .getElementById("zoom-to-fit")
         ?.addEventListener("mousedown", (e) => {
@@ -1519,17 +1514,27 @@
       typeof Chart !== "undefined" &&
       typeof $ !== "undefined" &&
       typeof bootstrap !== "undefined" &&
-      typeof DateUtils !== "undefined"
+      typeof DateUtils !== "undefined" &&
+      typeof window.mapBase !== "undefined" &&
+      typeof window.mapBase.createMap === "function"
     ) {
       window.visitsManager = new VisitsManager();
     } else {
-      console.error(
-        "One or more critical libraries (Leaflet, Chart.js, jQuery, Bootstrap, DateUtils) not loaded. Visits page cannot initialize.",
-      );
+      let missingLibraries = [];
+      if (typeof L === "undefined") missingLibraries.push("Leaflet");
+      if (typeof Chart === "undefined") missingLibraries.push("Chart.js");
+      if (typeof $ === "undefined") missingLibraries.push("jQuery");
+      if (typeof bootstrap === "undefined") missingLibraries.push("Bootstrap");
+      if (typeof DateUtils === "undefined") missingLibraries.push("DateUtils");
+      if (typeof window.mapBase === "undefined") missingLibraries.push("mapBase (window.mapBase)");
+      else if (typeof window.mapBase.createMap !== "function") missingLibraries.push("mapBase.createMap (function missing)");
+
+      const errorMessage = `One or more critical libraries not loaded or improperly configured: ${missingLibraries.join(", ")}. Visits page cannot initialize.`;
+      console.error(errorMessage);
       const errorDiv = document.createElement("div");
       errorDiv.className = "alert alert-danger m-4";
       errorDiv.textContent =
-        "Error: Could not load necessary components for the Visits page. Please try refreshing the page or contact support.";
+        "Error: Could not load necessary components for the Visits page. Please check the console for details, try refreshing the page, or contact support.";
       document.body.prepend(errorDiv);
     }
   });
