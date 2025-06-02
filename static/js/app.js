@@ -369,7 +369,12 @@
       const currentEnd = this.getEndDate();
       
       if (cached && cached.start === currentStart && cached.end === currentEnd) {
-        return cached;
+        // Ensure startDate and endDate are Date objects when retrieved from cache
+        return {
+          ...cached,
+          startDate: new Date(cached.start),
+          endDate: new Date(cached.end)
+        };
       }
       
       const range = {
@@ -380,7 +385,7 @@
         days: Math.ceil((new Date(currentEnd) - new Date(currentStart)) / (1000 * 60 * 60 * 24)) + 1
       };
       
-      storage.set(cacheKey, range);
+      storage.set(cacheKey, range); // range.startDate and range.endDate are already Date objects here
       return range;
     }
   };
