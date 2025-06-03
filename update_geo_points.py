@@ -126,9 +126,7 @@ async def update_geo_points(
                                 }
 
                             if update_fields:
-                                update_fields["geoPointsUpdatedAt"] = (
-                                    datetime.utcnow()
-                                )
+                                update_fields["geoPointsUpdatedAt"] = datetime.utcnow()
                                 batch_updates.append(
                                     UpdateOne(
                                         {"_id": doc["_id"]},
@@ -222,11 +220,7 @@ async def update_geo_points(
                             "Progress: Updated %d/%d documents (%.1f%%)",
                             updated_count,
                             total_docs,
-                            (
-                                (updated_count / total_docs * 100)
-                                if total_docs
-                                else 0
-                            ),
+                            ((updated_count / total_docs * 100) if total_docs else 0),
                         )
 
             if current_batch:

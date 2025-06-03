@@ -103,9 +103,9 @@
       href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}"
     />
     <link
-    rel="stylesheet"
-    href="{{ url_for('static', path='css/loading-styles.css') | replace('http://', '//') }}"
-  />
+      rel="stylesheet"
+      href="{{ url_for('static', path='css/loading-styles.css') | replace('http://', '//') }}"
+    />
 
     <!-- Non-critical CSS loaded asynchronously -->
     <link
@@ -182,8 +182,8 @@
                   title="Map"
                   {%
                   if
-                  request.url.path ==
-                  "/"
+                  request.url.path=""
+                  ="/"
                   %}aria-current="page"
                   {%
                   endif
@@ -200,8 +200,8 @@
                   title="Trips"
                   {%
                   if
-                  request.url.path ==
-                  "/trips"
+                  request.url.path=""
+                  ="/trips"
                   %}aria-current="page"
                   {%
                   endif
@@ -219,8 +219,8 @@
                   title="Insights"
                   {%
                   if
-                  request.url.path ==
-                  "/driving-insights"
+                  request.url.path=""
+                  ="/driving-insights"
                   %}aria-current="page"
                   {%
                   endif
@@ -238,8 +238,8 @@
                   title="Driver Behavior"
                   {%
                   if
-                  request.url.path ==
-                  "/driver-behavior"
+                  request.url.path=""
+                  ="/driver-behavior"
                   %}aria-current="page"
                   {%
                   endif
@@ -257,8 +257,8 @@
                   title="Driving Navigation"
                   {%
                   if
-                  request.url.path ==
-                  "/driving-navigation"
+                  request.url.path=""
+                  ="/driving-navigation"
                   %}aria-current="page"
                   {%
                   endif
@@ -289,8 +289,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/edit_trips"
+                      request.url.path=""
+                      ="/edit_trips"
                       %}aria-current="page"
                       {%
                       endif
@@ -307,8 +307,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/visits"
+                      request.url.path=""
+                      ="/visits"
                       %}aria-current="page"
                       {%
                       endif
@@ -328,8 +328,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/coverage-management"
+                      request.url.path=""
+                      ="/coverage-management"
                       %}aria-current="page"
                       {%
                       endif
@@ -349,8 +349,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/export"
+                      request.url.path=""
+                      ="/export"
                       %}aria-current="page"
                       {%
                       endif
@@ -367,8 +367,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/upload"
+                      request.url.path=""
+                      ="/upload"
                       %}aria-current="page"
                       {%
                       endif
@@ -386,8 +386,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/database-management"
+                      request.url.path=""
+                      ="/database-management"
                       %}aria-current="page"
                       {%
                       endif
@@ -404,8 +404,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/settings"
+                      request.url.path=""
+                      ="/settings"
                       %}aria-current="page"
                       {%
                       endif
@@ -422,8 +422,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/app-settings"
+                      request.url.path=""
+                      ="/app-settings"
                       %}aria-current="page"
                       {%
                       endif
@@ -487,8 +487,8 @@
                 class="{% if request.url.path == '/' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/"
+                request.url.path=""
+                ="/"
                 %}aria-current="page"
                 {%
                 endif
@@ -503,8 +503,8 @@
                 class="{% if request.url.path == '/trips' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/trips"
+                request.url.path=""
+                ="/trips"
                 %}aria-current="page"
                 {%
                 endif
@@ -519,8 +519,8 @@
                 class="{% if request.url.path == '/driving-navigation' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/driving-navigation"
+                request.url.path=""
+                ="/driving-navigation"
                 %}aria-current="page"
                 {%
                 endif
@@ -536,8 +536,8 @@
                 class="{% if request.url.path == '/edit_trips' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/edit_trips"
+                request.url.path=""
+                ="/edit_trips"
                 %}aria-current="page"
                 {%
                 endif
@@ -552,8 +552,8 @@
                 class="{% if request.url.path == '/driving-insights' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/driving-insights"
+                request.url.path=""
+                ="/driving-insights"
                 %}aria-current="page"
                 {%
                 endif
@@ -569,8 +569,8 @@
                 class="{% if request.url.path == '/driver-behavior' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/driver-behavior"
+                request.url.path=""
+                ="/driver-behavior"
                 %}aria-current="page"
                 {%
                 endif
@@ -586,8 +586,8 @@
                 class="{% if request.url.path == '/export' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/export"
+                request.url.path=""
+                ="/export"
                 %}aria-current="page"
                 {%
                 endif
@@ -603,8 +603,8 @@
                 class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/coverage-management"
+                request.url.path=""
+                ="/coverage-management"
                 %}aria-current="page"
                 {%
                 endif
@@ -620,8 +620,8 @@
                 class="{% if request.url.path == '/upload' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/upload"
+                request.url.path=""
+                ="/upload"
                 %}aria-current="page"
                 {%
                 endif
@@ -636,8 +636,8 @@
                 class="{% if request.url.path == '/visits' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/visits"
+                request.url.path=""
+                ="/visits"
                 %}aria-current="page"
                 {%
                 endif
@@ -653,8 +653,8 @@
                 class="{% if request.url.path == '/database-management' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/database-management"
+                request.url.path=""
+                ="/database-management"
                 %}aria-current="page"
                 {%
                 endif
@@ -669,8 +669,8 @@
                 class="{% if request.url.path == '/settings' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/settings"
+                request.url.path=""
+                ="/settings"
                 %}aria-current="page"
                 {%
                 endif
@@ -685,8 +685,8 @@
                 class="{% if request.url.path == '/app-settings' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/app-settings"
+                request.url.path=""
+                ="/app-settings"
                 %}aria-current="page"
                 {%
                 endif
@@ -799,11 +799,20 @@
             <!-- Custom Presets Section -->
             <div class="form-group mt-4">
               <h6 class="mb-2 text-muted">Saved Presets</h6>
-              <div id="custom-presets-list" class="list-group list-group-flush mb-2" style="max-height: 150px; overflow-y: auto;">
+              <div
+                id="custom-presets-list"
+                class="list-group list-group-flush mb-2"
+                style="max-height: 150px; overflow-y: auto"
+              >
                 <!-- Preset items will be dynamically inserted here -->
               </div>
-              <p id="no-custom-presets-message" class="form-text text-muted" style="display: none;">
-                No custom presets saved yet. Apply a filter to save it as a preset.
+              <p
+                id="no-custom-presets-message"
+                class="form-text text-muted"
+                style="display: none"
+              >
+                No custom presets saved yet. Apply a filter to save it as a
+                preset.
               </p>
             </div>
           </form>

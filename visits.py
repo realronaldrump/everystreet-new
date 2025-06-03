@@ -362,19 +362,14 @@ async def get_place_statistics(place_id: str):
                         break
 
                 time_since_last = None
-                if (
-                    last_visit_end is not None
-                    and current_visit_start is not None
-                ):
+                if last_visit_end is not None and current_visit_start is not None:
                     time_since_last = (
                         current_visit_start - last_visit_end
                     ).total_seconds()
 
                 duration = None
                 if visit_end is not None and current_visit_start is not None:
-                    duration = (
-                        visit_end - current_visit_start
-                    ).total_seconds()
+                    duration = (visit_end - current_visit_start).total_seconds()
 
                 visits.append(
                     {
@@ -389,13 +384,9 @@ async def get_place_statistics(place_id: str):
                 last_visit_end = event["time"]
 
         total_visits = len(visits)
-        durations = [
-            v["duration"] for v in visits if v["duration"] is not None
-        ]
+        durations = [v["duration"] for v in visits if v["duration"] is not None]
         time_between_visits = [
-            v["time_since_last"]
-            for v in visits
-            if v["time_since_last"] is not None
+            v["time_since_last"] for v in visits if v["time_since_last"] is not None
         ]
 
         avg_duration = sum(durations) / len(durations) if durations else 0
@@ -485,8 +476,7 @@ async def get_trips_for_place(place_id: str):
         )
 
         trips_by_id = {
-            str(t["_id"]): t
-            for t in trips_ending_at_place + trips_starting_from_place
+            str(t["_id"]): t for t in trips_ending_at_place + trips_starting_from_place
         }
 
         timeline = []
@@ -550,19 +540,14 @@ async def get_trips_for_place(place_id: str):
                         break
 
                 time_since_last = None
-                if (
-                    last_visit_end is not None
-                    and current_visit_start is not None
-                ):
+                if last_visit_end is not None and current_visit_start is not None:
                     time_since_last = (
                         current_visit_start - last_visit_end
                     ).total_seconds()
 
                 duration = None
                 if visit_end is not None and current_visit_start is not None:
-                    duration = (
-                        visit_end - current_visit_start
-                    ).total_seconds()
+                    duration = (visit_end - current_visit_start).total_seconds()
 
                 visits.append(
                     {
@@ -792,21 +777,13 @@ async def get_all_places_statistics():
                             visit_end = timeline[j]["time"]
                             break
                     time_since_last = None
-                    if (
-                        last_visit_end is not None
-                        and current_visit_start is not None
-                    ):
+                    if last_visit_end is not None and current_visit_start is not None:
                         time_since_last = (
                             current_visit_start - last_visit_end
                         ).total_seconds()
                     duration = None
-                    if (
-                        visit_end is not None
-                        and current_visit_start is not None
-                    ):
-                        duration = (
-                            visit_end - current_visit_start
-                        ).total_seconds()
+                    if visit_end is not None and current_visit_start is not None:
+                        duration = (visit_end - current_visit_start).total_seconds()
                     visits.append(
                         {
                             "start": current_visit_start,
@@ -818,13 +795,9 @@ async def get_all_places_statistics():
                 if event["type"] == "start" and event["is_at_place"]:
                     last_visit_end = event["time"]
             total_visits = len(visits)
-            durations = [
-                v["duration"] for v in visits if v["duration"] is not None
-            ]
+            durations = [v["duration"] for v in visits if v["duration"] is not None]
             time_between_visits = [
-                v["time_since_last"]
-                for v in visits
-                if v["time_since_last"] is not None
+                v["time_since_last"] for v in visits if v["time_since_last"] is not None
             ]
             avg_duration = sum(durations) / len(durations) if durations else 0
             avg_time_between = (

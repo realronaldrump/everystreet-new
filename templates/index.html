@@ -1,336 +1,373 @@
 {% extends "base.html" %} {% block title %}Every Street - Map{% endblock %} {%
-  block content %}
-  <div class="map-wrapper d-flex flex-column flex-grow-1">
-    <!-- Map Container -->
-    <div
-      id="map"
-      class="flex-grow-1 position-relative"
-      role="application"
-      aria-label="Interactive map"
-    >
-      <!-- Loading indicator -->
-      <div id="map-loading-indicator" class="map-loading d-none"> <!-- Changed ID to avoid conflict with loading-styles.css if it has a generic #map-loading -->
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading map...</span>
-        </div>
-        <span class="map-loading-text ms-2">Loading map...</span>
+block content %}
+<div class="map-wrapper d-flex flex-column flex-grow-1">
+  <!-- Map Container -->
+  <div
+    id="map"
+    class="flex-grow-1 position-relative"
+    role="application"
+    aria-label="Interactive map"
+  >
+    <!-- Loading indicator -->
+    <div id="map-loading-indicator" class="map-loading d-none">
+      <!-- Changed ID to avoid conflict with loading-styles.css if it has a generic #map-loading -->
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading map...</span>
       </div>
-  
-      <!-- Modern floating control panel -->
-      <div
-        id="map-controls"
-        class="control-panel shadow-lg position-absolute"
-        role="region"
-        aria-label="Map controls"
-      >
-        <div class="p-3 d-flex justify-content-between align-items-center">
-          <h2 class="h5 mb-0 card-title">Map Controls</h2>
-          <button
-            id="controls-toggle"
-            class="btn btn-sm btn-icon btn-outline-secondary"
-            aria-label="Toggle Controls"
-            aria-expanded="true"
-            aria-controls="controls-content"
-          >
-            <i class="fas fa-chevron-up" aria-hidden="true"></i>
-          </button>
-        </div>
-        <div id="controls-content" class="collapse show px-3 pb-3">
-          <div class="row g-3">
-            <!-- Live Tracking Status Panel -->
-            <div class="col-12">
-              <div class="card border-0 bg-transparent p-0"> <!-- Removed card for tighter integration -->
-                <div
-                  class="d-flex justify-content-between align-items-center mb-2"
-                >
-                  <h3 class="h6 mb-0">Live Tracking</h3>
-                  <div class="connection-status d-flex align-items-center">
-                    <div
-                      class="status-indicator me-2"
-                      role="status"
-                      aria-live="polite"
-                    ></div>
-                    <span class="live-status-text small text-secondary">Connecting...</span>
-                  </div>
+      <span class="map-loading-text ms-2">Loading map...</span>
+    </div>
+
+    <!-- Modern floating control panel -->
+    <div
+      id="map-controls"
+      class="control-panel shadow-lg position-absolute"
+      role="region"
+      aria-label="Map controls"
+    >
+      <div class="p-3 d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0 card-title">Map Controls</h2>
+        <button
+          id="controls-toggle"
+          class="btn btn-sm btn-icon btn-outline-secondary"
+          aria-label="Toggle Controls"
+          aria-expanded="true"
+          aria-controls="controls-content"
+        >
+          <i class="fas fa-chevron-up" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div id="controls-content" class="collapse show px-3 pb-3">
+        <div class="row g-3">
+          <!-- Live Tracking Status Panel -->
+          <div class="col-12">
+            <div class="card border-0 bg-transparent p-0">
+              <!-- Removed card for tighter integration -->
+              <div
+                class="d-flex justify-content-between align-items-center mb-2"
+              >
+                <h3 class="h6 mb-0">Live Tracking</h3>
+                <div class="connection-status d-flex align-items-center">
+                  <div
+                    class="status-indicator me-2"
+                    role="status"
+                    aria-live="polite"
+                  ></div>
+                  <span class="live-status-text small text-secondary"
+                    >Connecting...</span
+                  >
                 </div>
-                <div class="p-2" style="background-color: rgba(var(--surface-rgb, 255,255,255), 0.05); border-radius: var(--radius-sm);">
-                  <div
-                    class="d-flex align-items-center justify-content-between mb-1"
+              </div>
+              <div
+                class="p-2"
+                style="
+                  background-color: rgba(
+                    var(--surface-rgb, 255, 255, 255),
+                    0.05
+                  );
+                  border-radius: var(--radius-sm);
+                "
+              >
+                <div
+                  class="d-flex align-items-center justify-content-between mb-1"
+                >
+                  <span class="small text-secondary">Active Trips:</span>
+                  <span
+                    id="active-trips-count"
+                    class="badge bg-primary rounded-pill"
+                    aria-live="polite"
+                    >0</span
                   >
-                    <span class="small text-secondary">Active Trips:</span>
-                    <span
-                      id="active-trips-count"
-                      class="badge bg-primary rounded-pill"
-                      aria-live="polite"
-                      >0</span
-                    >
-                  </div>
-                  <div class="live-trip-metrics small">
-                    <!-- Trip metrics will be inserted here dynamically -->
-                  </div>
-                  <div
-                    class="error-message alert alert-danger d-none mt-2 p-2 small"
-                    role="alert"
-                    aria-live="assertive"
-                  >
-                    <!-- Error messages will be shown here -->
-                  </div>
+                </div>
+                <div class="live-trip-metrics small">
+                  <!-- Trip metrics will be inserted here dynamically -->
+                </div>
+                <div
+                  class="error-message alert alert-danger d-none mt-2 p-2 small"
+                  role="alert"
+                  aria-live="assertive"
+                >
+                  <!-- Error messages will be shown here -->
                 </div>
               </div>
             </div>
-  
-            <!-- Map Display Options -->
-            <div class="col-12">
-               <div class="card border-0 bg-transparent p-0">
+          </div>
+
+          <!-- Map Display Options -->
+          <div class="col-12">
+            <div class="card border-0 bg-transparent p-0">
+              <div
+                class="d-flex justify-content-between align-items-center mb-2"
+              >
+                <h3 class="h6 mb-0">Map Display</h3>
                 <div
-                  class="d-flex justify-content-between align-items-center mb-2"
+                  class="btn-group btn-group-sm"
+                  role="group"
+                  aria-label="Map Actions"
                 >
-                  <h3 class="h6 mb-0">Map Display</h3>
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    id="center-on-location"
+                    title="Center on Current Location"
+                    aria-label="Center map on current location"
+                  >
+                    <i class="fas fa-location-arrow" aria-hidden="true"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    id="fit-bounds"
+                    title="Fit all trips in view"
+                    aria-label="Fit all trips in view"
+                  >
+                    <i class="fas fa-expand-arrows-alt" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
+              <div
+                class="p-2"
+                style="
+                  background-color: rgba(
+                    var(--surface-rgb, 255, 255, 255),
+                    0.05
+                  );
+                  border-radius: var(--radius-sm);
+                "
+              >
+                <!-- Layer Controls Section -->
+                <fieldset>
+                  <legend class="visually-hidden">
+                    Layer visibility controls
+                  </legend>
                   <div
-                    class="btn-group btn-group-sm"
+                    id="layer-toggles"
+                    class="mb-2 small"
                     role="group"
-                    aria-label="Map Actions"
+                    aria-label="Layer toggles"
                   >
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary"
-                      id="center-on-location"
-                      title="Center on Current Location"
-                      aria-label="Center map on current location"
-                    >
-                      <i class="fas fa-location-arrow" aria-hidden="true"></i>
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary"
-                      id="fit-bounds"
-                      title="Fit all trips in view"
-                      aria-label="Fit all trips in view"
-                    >
-                      <i class="fas fa-expand-arrows-alt" aria-hidden="true"></i>
-                    </button>
+                    <!-- Layer toggles inserted by JavaScript -->
+                  </div>
+                </fieldset>
+
+                <div id="layer-order" class="small">
+                  <h4 class="h6 mb-1 small text-secondary text-uppercase">
+                    Layer Order
+                  </h4>
+                  <ul
+                    id="layer-order-list"
+                    class="list-group"
+                    role="list"
+                    aria-label="Layer order"
+                  >
+                    <!-- Layer items inserted by JavaScript -->
+                  </ul>
+                </div>
+
+                <!-- Location selector for undriven streets -->
+                <div id="location-selector-container" class="mt-2 mb-1 small">
+                  <label
+                    for="undriven-streets-location"
+                    class="form-label small text-secondary text-uppercase d-block mb-1"
+                  >
+                    Undriven Streets
+                  </label>
+                  <select
+                    id="undriven-streets-location"
+                    class="form-select form-select-sm"
+                    aria-describedby="location-help"
+                  >
+                    <option value="">Select a location...</option>
+                    <!-- Coverage areas will be loaded here -->
+                  </select>
+                  <div id="location-help" class="form-text text-tertiary mt-1">
+                    Select a coverage area to show undriven streets.
                   </div>
                 </div>
-                <div class="p-2" style="background-color: rgba(var(--surface-rgb, 255,255,255), 0.05); border-radius: var(--radius-sm);">
-                  <!-- Layer Controls Section -->
-                  <fieldset>
-                    <legend class="visually-hidden">
-                      Layer visibility controls
-                    </legend>
-                    <div
-                      id="layer-toggles"
-                      class="mb-2 small"
-                      role="group"
-                      aria-label="Layer toggles"
-                    >
-                      <!-- Layer toggles inserted by JavaScript -->
-                    </div>
-                  </fieldset>
-  
-                  <div id="layer-order" class="small">
-                    <h4 class="h6 mb-1 small text-secondary text-uppercase">Layer Order</h4>
-                    <ul
-                      id="layer-order-list"
-                      class="list-group"
-                      role="list"
-                      aria-label="Layer order"
-                    >
-                      <!-- Layer items inserted by JavaScript -->
-                    </ul>
-                  </div>
-  
-                  <!-- Location selector for undriven streets -->
-                  <div id="location-selector-container" class="mt-2 mb-1 small">
-                    <label for="undriven-streets-location" class="form-label small text-secondary text-uppercase d-block mb-1">
-                      Undriven Streets
-                    </label>
-                    <select
-                      id="undriven-streets-location"
-                      class="form-select form-select-sm"
-                      aria-describedby="location-help"
-                    >
-                      <option value="">Select a location...</option>
-                      <!-- Coverage areas will be loaded here -->
-                    </select>
-                    <div id="location-help" class="form-text text-tertiary mt-1">
-                      Select a coverage area to show undriven streets.
-                    </div>
-                  </div>
-  
-                  <div class="form-check form-switch mt-2">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      role="switch"
-                      id="highlight-recent-trips"
-                      checked
-                      aria-describedby="highlight-help"
-                    />
-                    <label
-                      class="form-check-label small"
-                      for="highlight-recent-trips"
-                    >
-                      Highlight Recent Trips
-                    </label>
-                    <div id="highlight-help" class="form-text text-tertiary mt-1">
-                      Trips from the last 6 hours will be highlighted.
-                    </div>
+
+                <div class="form-check form-switch mt-2">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    role="switch"
+                    id="highlight-recent-trips"
+                    checked
+                    aria-describedby="highlight-help"
+                  />
+                  <label
+                    class="form-check-label small"
+                    for="highlight-recent-trips"
+                  >
+                    Highlight Recent Trips
+                  </label>
+                  <div id="highlight-help" class="form-text text-tertiary mt-1">
+                    Trips from the last 6 hours will be highlighted.
                   </div>
                 </div>
               </div>
             </div>
-  
-            <!-- Metrics Section (collapsed by default) -->
-            <div class="col-12">
-              <div class="card border-0 bg-transparent p-0">
-                <button
-                  class="d-flex justify-content-between align-items-center text-start w-100 bg-transparent border-0 p-0 mb-2"
-                  type="button"
-                  data-bs-toggle="collapse"
-                  data-bs-target="#metrics-content"
-                  aria-expanded="false"
-                  aria-controls="metrics-content"
+          </div>
+
+          <!-- Metrics Section (collapsed by default) -->
+          <div class="col-12">
+            <div class="card border-0 bg-transparent p-0">
+              <button
+                class="d-flex justify-content-between align-items-center text-start w-100 bg-transparent border-0 p-0 mb-2"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#metrics-content"
+                aria-expanded="false"
+                aria-controls="metrics-content"
+              >
+                <h3 class="h6 mb-0">Trip Metrics</h3>
+                <i
+                  class="fas fa-chevron-down small text-secondary"
+                  aria-hidden="true"
+                  style="transition: transform 0.3s ease"
+                ></i>
+              </button>
+              <div id="metrics-content" class="collapse">
+                <div
+                  class="p-2"
+                  style="
+                    background-color: rgba(
+                      var(--surface-rgb, 255, 255, 255),
+                      0.05
+                    );
+                    border-radius: var(--radius-sm);
+                  "
                 >
-                  <h3 class="h6 mb-0">Trip Metrics</h3>
-                  <i
-                    class="fas fa-chevron-down small text-secondary"
-                    aria-hidden="true"
-                    style="transition: transform 0.3s ease;"
-                  ></i>
-                </button>
-                <div id="metrics-content" class="collapse">
-                  <div class="p-2" style="background-color: rgba(var(--surface-rgb, 255,255,255), 0.05); border-radius: var(--radius-sm);">
-                    <dl class="row small mb-0">
-                      <dt class="col-7 text-secondary">Total Trips:</dt>
-                      <dd class="col-5 text-end mb-1">
-                        <strong id="total-trips" aria-live="polite">0</strong>
-                      </dd>
-  
-                      <dt class="col-7 text-secondary">Total Distance:</dt>
-                      <dd class="col-5 text-end mb-1">
-                        <strong aria-live="polite">
-                          <span id="total-distance">0</span> miles
-                        </strong>
-                      </dd>
-  
-                      <dt class="col-7 text-secondary">Avg Distance:</dt>
-                      <dd class="col-5 text-end mb-1">
-                        <strong aria-live="polite">
-                          <span id="avg-distance">0</span> miles
-                        </strong>
-                      </dd>
-  
-                      <dt class="col-7 text-secondary">Avg Start Time:</dt>
-                      <dd class="col-5 text-end mb-1">
-                        <strong id="avg-start-time" aria-live="polite"
-                          >--:--</strong
-                        >
-                      </dd>
-  
-                      <dt class="col-7 text-secondary">Avg Driving Time:</dt>
-                      <dd class="col-5 text-end mb-1">
-                        <strong id="avg-driving-time" aria-live="polite"
-                          >--:--</strong
-                        >
-                      </dd>
-  
-                      <dt class="col-7 text-secondary">Avg Speed:</dt>
-                      <dd class="col-5 text-end mb-1">
-                        <strong aria-live="polite">
-                          <span id="avg-speed">0</span> mph
-                        </strong>
-                      </dd>
-  
-                      <dt class="col-7 text-secondary">Max Speed:</dt>
-                      <dd class="col-5 text-end">
-                        <strong aria-live="polite">
-                          <span id="max-speed">0</span> mph
-                        </strong>
-                      </dd>
-                    </dl>
-                  </div>
+                  <dl class="row small mb-0">
+                    <dt class="col-7 text-secondary">Total Trips:</dt>
+                    <dd class="col-5 text-end mb-1">
+                      <strong id="total-trips" aria-live="polite">0</strong>
+                    </dd>
+
+                    <dt class="col-7 text-secondary">Total Distance:</dt>
+                    <dd class="col-5 text-end mb-1">
+                      <strong aria-live="polite">
+                        <span id="total-distance">0</span> miles
+                      </strong>
+                    </dd>
+
+                    <dt class="col-7 text-secondary">Avg Distance:</dt>
+                    <dd class="col-5 text-end mb-1">
+                      <strong aria-live="polite">
+                        <span id="avg-distance">0</span> miles
+                      </strong>
+                    </dd>
+
+                    <dt class="col-7 text-secondary">Avg Start Time:</dt>
+                    <dd class="col-5 text-end mb-1">
+                      <strong id="avg-start-time" aria-live="polite"
+                        >--:--</strong
+                      >
+                    </dd>
+
+                    <dt class="col-7 text-secondary">Avg Driving Time:</dt>
+                    <dd class="col-5 text-end mb-1">
+                      <strong id="avg-driving-time" aria-live="polite"
+                        >--:--</strong
+                      >
+                    </dd>
+
+                    <dt class="col-7 text-secondary">Avg Speed:</dt>
+                    <dd class="col-5 text-end mb-1">
+                      <strong aria-live="polite">
+                        <span id="avg-speed">0</span> mph
+                      </strong>
+                    </dd>
+
+                    <dt class="col-7 text-secondary">Max Speed:</dt>
+                    <dd class="col-5 text-end">
+                      <strong aria-live="polite">
+                        <span id="max-speed">0</span> mph
+                      </strong>
+                    </dd>
+                  </dl>
                 </div>
               </div>
             </div>
-  
-            <!-- Quick Actions -->
-            <div class="col-12 mt-2">
-              <div class="d-grid gap-2">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-primary"
-                  id="refresh-map"
-                  aria-label="Refresh map data"
-                >
-                  <i class="fas fa-sync-alt me-1" aria-hidden="true"></i>
-                  Refresh Map
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary"
-                  id="download-view"
-                  aria-label="Download current map view"
-                >
-                  <i class="fas fa-download me-1" aria-hidden="true"></i>
-                  Download View
-                </button>
-              </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="col-12 mt-2">
+            <div class="d-grid gap-2">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                id="refresh-map"
+                aria-label="Refresh map data"
+              >
+                <i class="fas fa-sync-alt me-1" aria-hidden="true"></i>
+                Refresh Map
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                id="download-view"
+                aria-label="Download current map view"
+              >
+                <i class="fas fa-download me-1" aria-hidden="true"></i>
+                Download View
+              </button>
             </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-  
-  <!-- Accessibility announcements -->
-  <div
-    class="visually-hidden"
-    aria-live="polite"
-    aria-atomic="true"
-    id="map-announcements"
-  ></div>
-  {% endblock %}
-  
-  {% block head_content %}
-  <!-- Removed map-enhancements.css link from here as it's in base.html -->
-  <!-- Removed inline styles as they are now in external CSS files -->
-  {% endblock %}
-  
-  {% block extra_js %}
-  <script>
-    // Make Mapbox access token available globally
-    window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  
-    // Performance monitoring
-    if ("PerformanceObserver" in window) {
-      const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          if (entry.entryType === "largest-contentful-paint") {
-            console.log("LCP:", entry.startTime);
-          }
-        }
-      });
-      observer.observe({ entryTypes: ["largest-contentful-paint"] });
-    }
-  
-    // Script for toggling chevron in metrics collapse
-    document.addEventListener('DOMContentLoaded', function () {
-      const metricsButton = document.querySelector('[data-bs-target="#metrics-content"]');
-      if (metricsButton) {
-        const chevron = metricsButton.querySelector('.fa-chevron-down');
-        metricsButton.addEventListener('click', function () {
-          const isExpanded = metricsButton.getAttribute('aria-expanded') === 'true';
-          if (chevron) {
-              chevron.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
-          }
-        });
-        // Initial state check for chevron if panel is collapsed by default
-        if (metricsButton.getAttribute('aria-expanded') === 'false' && chevron) {
-            chevron.style.transform = 'rotate(0deg)';
-        } else if (chevron) {
-            chevron.style.transform = 'rotate(180deg)';
+</div>
+
+<!-- Accessibility announcements -->
+<div
+  class="visually-hidden"
+  aria-live="polite"
+  aria-atomic="true"
+  id="map-announcements"
+></div>
+{% endblock %} {% block head_content %}
+<!-- Removed map-enhancements.css link from here as it's in base.html -->
+<!-- Removed inline styles as they are now in external CSS files -->
+{% endblock %} {% block extra_js %}
+<script>
+  // Make Mapbox access token available globally
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+
+  // Performance monitoring
+  if ("PerformanceObserver" in window) {
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.entryType === "largest-contentful-paint") {
+          console.log("LCP:", entry.startTime);
         }
       }
     });
-  </script>
-  {% endblock %}
+    observer.observe({ entryTypes: ["largest-contentful-paint"] });
+  }
+
+  // Script for toggling chevron in metrics collapse
+  document.addEventListener("DOMContentLoaded", function () {
+    const metricsButton = document.querySelector(
+      '[data-bs-target="#metrics-content"]',
+    );
+    if (metricsButton) {
+      const chevron = metricsButton.querySelector(".fa-chevron-down");
+      metricsButton.addEventListener("click", function () {
+        const isExpanded =
+          metricsButton.getAttribute("aria-expanded") === "true";
+        if (chevron) {
+          chevron.style.transform = isExpanded
+            ? "rotate(0deg)"
+            : "rotate(180deg)";
+        }
+      });
+      // Initial state check for chevron if panel is collapsed by default
+      if (metricsButton.getAttribute("aria-expanded") === "false" && chevron) {
+        chevron.style.transform = "rotate(0deg)";
+      } else if (chevron) {
+        chevron.style.transform = "rotate(180deg)";
+      }
+    }
+  });
+</script>
+{% endblock %}

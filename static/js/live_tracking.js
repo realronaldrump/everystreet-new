@@ -551,7 +551,8 @@ class LiveTripTracker {
     if (!coordinates) return;
 
     // Create GeoJSON features
-    const { features, mapboxCoords, lastPoint } = this.createGeoJSONFeatures(coordinates);
+    const { features, mapboxCoords, lastPoint } =
+      this.createGeoJSONFeatures(coordinates);
 
     // Update map source
     const source = this.map.getSource(this.liveSourceId);
@@ -693,7 +694,7 @@ class LiveTripTracker {
       hardBrakingCounts,
       hardAccelerationCounts,
       startTimeFormatted,
-      lastUpdate
+      lastUpdate,
     };
   }
 
@@ -711,7 +712,9 @@ class LiveTripTracker {
       "Total Idling Time": `${DateUtils.formatSecondsToHMS(metrics.totalIdlingTime)}`,
       "Hard Braking": metrics.hardBrakingCounts,
       "Hard Acceleration": metrics.hardAccelerationCounts,
-      "Last Update": metrics.lastUpdate ? DateUtils.formatTimeAgo(metrics.lastUpdate) : "N/A",
+      "Last Update": metrics.lastUpdate
+        ? DateUtils.formatTimeAgo(metrics.lastUpdate)
+        : "N/A",
     };
 
     this.tripMetricsElem.innerHTML = Object.entries(formattedMetrics)
