@@ -604,11 +604,7 @@ async def process_osm_data(
                                 total_length += length
                             else:
                                 logger.warning(
-                                    f"Segment {
-                                        feature.get('properties', {}).get(
-                                            'segment_id'
-                                        )
-                                    } missing valid length.",
+                                    f"Segment {feature.get('properties', {}).get('segment_id')} missing valid length."
                                 )
 
                     if len(batch_to_insert) >= BATCH_SIZE:
@@ -658,11 +654,7 @@ async def process_osm_data(
                             ]
                             if dup_keys:
                                 logger.warning(
-                                    f"Skipped {
-                                        len(dup_keys)
-                                    } duplicate segments during batch insert for {
-                                        location_name
-                                    }.",
+                                    f"Skipped {len(dup_keys)} duplicate segments during batch insert for {location_name}."
                                 )
                             other_errors = [
                                 e
@@ -745,11 +737,7 @@ async def process_osm_data(
                     ]
                     if dup_keys:
                         logger.warning(
-                            f"Skipped {
-                                len(dup_keys)
-                            } duplicate segments during final batch insert for {
-                                location_name
-                            }.",
+                            f"Skipped {len(dup_keys)} duplicate segments during final batch insert for {location_name}."
                         )
                     other_errors = [
                         e for e in write_errors if e.get("code") != 11000

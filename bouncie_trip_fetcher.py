@@ -256,11 +256,9 @@ async def fetch_bouncie_trips_in_range(
         ):
             progress_tracker["fetch_and_store_trips"]["status"] = "completed"
             progress_tracker["fetch_and_store_trips"]["progress"] = 100
-            progress_tracker["fetch_and_store_trips"][
-                "message"
-            ] = f"Completed fetch and processing. Found {
-                len(all_new_trips)
-            } new/updated trips."
+            progress_tracker["fetch_and_store_trips"]["message"] = (
+                f"Completed fetch and processing. Found {len(all_new_trips)} new/updated trips."
+            )
     logger.info(
         f"fetch_bouncie_trips_in_range finished, returning {len(all_new_trips)} trips.",
     )

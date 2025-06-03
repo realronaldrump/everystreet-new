@@ -175,9 +175,9 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid GPS JSON for trip {
-                    trip.get('transactionId', 'unknown')
-                }",
+                detail=(
+                    f"Invalid GPS JSON for trip {trip.get('transactionId', 'unknown')}"
+                ),
             ) from e
 
     processor = TripProcessor(

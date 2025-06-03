@@ -1391,15 +1391,11 @@ class TripProcessor:
                                 if 400 <= response.status < 500:
                                     error_text = await response.text()
                                     logger.warning(
-                                        f"Mapbox API client error: {
-                                            response.status
-                                        } - {error_text}",
+                                        f"Mapbox API client error: {response.status} - {error_text}"
                                     )
                                     return {
                                         "code": "Error",
-                                        "message": f"Mapbox API error: {
-                                            response.status
-                                        }",
+                                        "message": f"Mapbox API error: {response.status}",
                                         "details": error_text,
                                     }
 
@@ -1418,9 +1414,7 @@ class TripProcessor:
                                     error_text = await response.text()
                                     return {
                                         "code": "Error",
-                                        "message": f"Mapbox server error: {
-                                            response.status
-                                        }",
+                                        "message": f"Mapbox server error: {response.status}",
                                         "details": error_text,
                                     }
 
@@ -1449,9 +1443,7 @@ class TripProcessor:
                             )
                             return {
                                 "code": "Error",
-                                "message": f"Mapbox API error after {
-                                    max_attempts_for_429
-                                } retries: {e!s}",
+                                "message": f"Mapbox API error after {max_attempts_for_429} retries: {e!s}",
                             }
 
                     return {
