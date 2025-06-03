@@ -4,24 +4,24 @@ const API_PATTERN = /\/api\//;
 const TILE_PATTERN = /basemaps\.cartocdn\.com/;
 
 const PAGE_URLS = [
-  '/',
-  '/trips',
-  '/edit_trips',
-  '/settings',
-  '/driving-insights',
-  '/driver-behavior',
-  '/driving-navigation',
-  '/coverage-management',
-  '/export',
-  '/upload',
-  '/database-management',
-  '/visits',
-  '/app-settings'
+  "/",
+  "/trips",
+  "/edit_trips",
+  "/settings",
+  "/driving-insights",
+  "/driver-behavior",
+  "/driving-navigation",
+  "/coverage-management",
+  "/export",
+  "/upload",
+  "/database-management",
+  "/visits",
+  "/app-settings",
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(PAGE_CACHE).then((cache) => cache.addAll(PAGE_URLS))
+    caches.open(PAGE_CACHE).then((cache) => cache.addAll(PAGE_URLS)),
   );
   self.skipWaiting();
 });
