@@ -177,36 +177,14 @@
               <li
                 class="nav-item {% if request.url.path == '/' %}active{% endif %}"
               >
-                <a
-                  href="/"
-                  title="Map"
-                  {%
-                  if
-                  request.url.path ==
-                  "/"
-                  %}aria-current="page"
-                  {%
-                  endif
-                  %}
-                >
+                <a href="/" title="Map" {% if request.url.path == '/' %}aria-current="page"{% endif %}>
                   <i class="fas fa-map" aria-hidden="true"></i> <span>Map</span>
                 </a>
               </li>
               <li
                 class="nav-item {% if request.url.path == '/trips' %}active{% endif %}"
               >
-                <a
-                  href="/trips"
-                  title="Trips"
-                  {%
-                  if
-                  request.url.path ==
-                  "/trips"
-                  %}aria-current="page"
-                  {%
-                  endif
-                  %}
-                >
+                <a href="/trips" title="Trips" {% if request.url.path == '/trips' %}aria-current="page"{% endif %}>
                   <i class="fas fa-road" aria-hidden="true"></i>
                   <span>Trips</span>
                 </a>
@@ -214,18 +192,7 @@
               <li
                 class="nav-item {% if request.url.path == '/driving-insights' %}active{% endif %}"
               >
-                <a
-                  href="/driving-insights"
-                  title="Insights"
-                  {%
-                  if
-                  request.url.path ==
-                  "/driving-insights"
-                  %}aria-current="page"
-                  {%
-                  endif
-                  %}
-                >
+                <a href="/driving-insights" title="Insights" {% if request.url.path == '/driving-insights' %}aria-current="page"{% endif %}>
                   <i class="fas fa-chart-line" aria-hidden="true"></i>
                   <span>Insights</span>
                 </a>
@@ -233,18 +200,7 @@
               <li
                 class="nav-item {% if request.url.path == '/driver-behavior' %}active{% endif %}"
               >
-                <a
-                  href="/driver-behavior"
-                  title="Driver Behavior"
-                  {%
-                  if
-                  request.url.path ==
-                  "/driver-behavior"
-                  %}aria-current="page"
-                  {%
-                  endif
-                  %}
-                >
+                <a href="/driver-behavior" title="Driver Behavior" {% if request.url.path == '/driver-behavior' %}aria-current="page"{% endif %}>
                   <i class="fas fa-bar-chart" aria-hidden="true"></i>
                   <span>Driver Behavior</span>
                 </a>
@@ -252,18 +208,7 @@
               <li
                 class="nav-item {% if request.url.path == '/driving-navigation' %}active{% endif %}"
               >
-                <a
-                  href="/driving-navigation"
-                  title="Driving Navigation"
-                  {%
-                  if
-                  request.url.path ==
-                  "/driving-navigation"
-                  %}aria-current="page"
-                  {%
-                  endif
-                  %}
-                >
+                <a href="/driving-navigation" title="Driving Navigation" {% if request.url.path == '/driving-navigation' %}aria-current="page"{% endif %}>
                   <i class="fas fa-car" aria-hidden="true"></i>
                   <span>Driving Navigation</span>
                 </a>
@@ -283,37 +228,17 @@
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" role="menu">
                   <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/edit_trips' %}active{% endif %}"
-                      href="/edit_trips"
-                      role="menuitem"
-                      {%
-                      if
-                      request.url.path ==
-                      "/edit_trips"
-                      %}aria-current="page"
-                      {%
-                      endif
-                      %}
-                    >
+                    <a class="dropdown-item {% if request.url.path == '/edit_trips' %}active{% endif %}"
+                      href="/edit_trips" role="menuitem"
+                      {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}>
                       <i class="fas fa-edit me-2" aria-hidden="true"></i> Edit
                       Trips
                     </a>
                   </li>
                   <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/visits' %}active{% endif %}"
-                      href="/visits"
-                      role="menuitem"
-                      {%
-                      if
-                      request.url.path ==
-                      "/visits"
-                      %}aria-current="page"
-                      {%
-                      endif
-                      %}
-                    >
+                    <a class="dropdown-item {% if request.url.path == '/visits' %}active{% endif %}"
+                      href="/visits" role="menuitem"
+                      {% if request.url.path == '/visits' %}aria-current="page"{% endif %}>
                       <i
                         class="fas fa-map-marker-alt me-2"
                         aria-hidden="true"
@@ -322,19 +247,9 @@
                     </a>
                   </li>
                   <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
-                      href="/coverage-management"
-                      role="menuitem"
-                      {%
-                      if
-                      request.url.path ==
-                      "/coverage-management"
-                      %}aria-current="page"
-                      {%
-                      endif
-                      %}
-                    >
+                    <a class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
+                      href="/coverage-management" role="menuitem"
+                      {% if request.url.path == '/coverage-management' %}aria-current="page"{% endif %}>
                       <i
                         class="fas fa-map-marked-alt me-2"
                         aria-hidden="true"
@@ -343,92 +258,42 @@
                     </a>
                   </li>
                   <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
-                      href="/export"
-                      role="menuitem"
-                      {%
-                      if
-                      request.url.path ==
-                      "/export"
-                      %}aria-current="page"
-                      {%
-                      endif
-                      %}
-                    >
+                    <a class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
+                      href="/export" role="menuitem"
+                      {% if request.url.path == '/export' %}aria-current="page"{% endif %}>
                       <i class="fas fa-file-export me-2" aria-hidden="true"></i>
                       Export Data
                     </a>
                   </li>
                   <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/upload' %}active{% endif %}"
-                      href="/upload"
-                      role="menuitem"
-                      {%
-                      if
-                      request.url.path ==
-                      "/upload"
-                      %}aria-current="page"
-                      {%
-                      endif
-                      %}
-                    >
+                    <a class="dropdown-item {% if request.url.path == '/upload' %}active{% endif %}"
+                      href="/upload" role="menuitem"
+                      {% if request.url.path == '/upload' %}aria-current="page"{% endif %}>
                       <i class="fas fa-upload me-2" aria-hidden="true"></i>
                       Upload GPX
                     </a>
                   </li>
                   <li role="separator"><hr class="dropdown-divider" /></li>
                   <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/database-management' %}active{% endif %}"
-                      href="/database-management"
-                      role="menuitem"
-                      {%
-                      if
-                      request.url.path ==
-                      "/database-management"
-                      %}aria-current="page"
-                      {%
-                      endif
-                      %}
-                    >
+                    <a class="dropdown-item {% if request.url.path == '/database-management' %}active{% endif %}"
+                      href="/database-management" role="menuitem"
+                      {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}>
                       <i class="fas fa-database me-2" aria-hidden="true"></i>
                       Database
                     </a>
                   </li>
                   <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
-                      href="/settings"
-                      role="menuitem"
-                      {%
-                      if
-                      request.url.path ==
-                      "/settings"
-                      %}aria-current="page"
-                      {%
-                      endif
-                      %}
-                    >
+                    <a class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
+                      href="/settings" role="menuitem"
+                      {% if request.url.path == '/settings' %}aria-current="page"{% endif %}>
                       <i class="fas fa-cog me-2" aria-hidden="true"></i>
                       Settings
                     </a>
                   </li>
                   <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/app-settings' %}active{% endif %}"
-                      href="/app-settings"
-                      role="menuitem"
-                      {%
-                      if
-                      request.url.path ==
-                      "/app-settings"
-                      %}aria-current="page"
-                      {%
-                      endif
-                      %}
-                    >
+                    <a class="dropdown-item {% if request.url.path == '/app-settings' %}active{% endif %}"
+                      href="/app-settings" role="menuitem"
+                      {% if request.url.path == '/app-settings' %}aria-current="page"{% endif %}>
                       <i class="fas fa-sliders-h me-2" aria-hidden="true"></i>
                       App Settings
                     </a>
@@ -482,216 +347,73 @@
         <div class="drawer-nav">
           <ul class="drawer-nav-list" role="list">
             <li role="none">
-              <a
-                href="/"
-                class="{% if request.url.path == '/' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/" class="{% if request.url.path == '/' %}active{% endif %}" {% if request.url.path == '/' %}aria-current="page"{% endif %}>
                 <i class="fas fa-map me-2" aria-hidden="true"></i> Map
               </a>
             </li>
             <li role="none">
-              <a
-                href="/trips"
-                class="{% if request.url.path == '/trips' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/trips"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/trips" class="{% if request.url.path == '/trips' %}active{% endif %}" {% if request.url.path == '/trips' %}aria-current="page"{% endif %}>
                 <i class="fas fa-road me-2" aria-hidden="true"></i> Trips
               </a>
             </li>
             <li role="none">
-              <a
-                href="/driving-navigation"
-                class="{% if request.url.path == '/driving-navigation' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/driving-navigation"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/driving-navigation" class="{% if request.url.path == '/driving-navigation' %}active{% endif %}" {% if request.url.path == '/driving-navigation' %}aria-current="page"{% endif %}>
                 <i class="fas fa-car me-2" aria-hidden="true"></i> Driving
                 Navigation
               </a>
             </li>
             <li role="none">
-              <a
-                href="/edit_trips"
-                class="{% if request.url.path == '/edit_trips' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/edit_trips"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/edit_trips" class="{% if request.url.path == '/edit_trips' %}active{% endif %}" {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}>
                 <i class="fas fa-edit me-2" aria-hidden="true"></i> Edit Trips
               </a>
             </li>
             <li role="none">
-              <a
-                href="/driving-insights"
-                class="{% if request.url.path == '/driving-insights' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/driving-insights"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/driving-insights" class="{% if request.url.path == '/driving-insights' %}active{% endif %}" {% if request.url.path == '/driving-insights' %}aria-current="page"{% endif %}>
                 <i class="fas fa-chart-line me-2" aria-hidden="true"></i>
                 Driving Insights
               </a>
             </li>
             <li role="none">
-              <a
-                href="/driver-behavior"
-                class="{% if request.url.path == '/driver-behavior' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/driver-behavior"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/driver-behavior" class="{% if request.url.path == '/driver-behavior' %}active{% endif %}" {% if request.url.path == '/driver-behavior' %}aria-current="page"{% endif %}>
                 <i class="fas fa-bar-chart me-2" aria-hidden="true"></i> Driver
                 Behavior
               </a>
             </li>
             <li role="none">
-              <a
-                href="/export"
-                class="{% if request.url.path == '/export' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/export"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/export" class="{% if request.url.path == '/export' %}active{% endif %}" {% if request.url.path == '/export' %}aria-current="page"{% endif %}>
                 <i class="fas fa-file-export me-2" aria-hidden="true"></i>
                 Export Data
               </a>
             </li>
             <li role="none">
-              <a
-                href="/coverage-management"
-                class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/coverage-management"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/coverage-management" class="{% if request.url.path == '/coverage-management' %}active{% endif %}" {% if request.url.path == '/coverage-management' %}aria-current="page"{% endif %}>
                 <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
                 Coverage Areas
               </a>
             </li>
             <li role="none">
-              <a
-                href="/upload"
-                class="{% if request.url.path == '/upload' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/upload"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/upload" class="{% if request.url.path == '/upload' %}active{% endif %}" {% if request.url.path == '/upload' %}aria-current="page"{% endif %}>
                 <i class="fas fa-upload me-2" aria-hidden="true"></i> Upload GPX
               </a>
             </li>
             <li role="none">
-              <a
-                href="/visits"
-                class="{% if request.url.path == '/visits' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/visits"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/visits" class="{% if request.url.path == '/visits' %}active{% endif %}" {% if request.url.path == '/visits' %}aria-current="page"{% endif %}>
                 <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
                 Visits
               </a>
             </li>
             <li role="none">
-              <a
-                href="/database-management"
-                class="{% if request.url.path == '/database-management' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/database-management"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/database-management" class="{% if request.url.path == '/database-management' %}active{% endif %}" {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}>
                 <i class="fas fa-database me-2" aria-hidden="true"></i> Database
               </a>
             </li>
             <li role="none">
-              <a
-                href="/settings"
-                class="{% if request.url.path == '/settings' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/settings"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/settings" class="{% if request.url.path == '/settings' %}active{% endif %}" {% if request.url.path == '/settings' %}aria-current="page"{% endif %}>
                 <i class="fas fa-cog me-2" aria-hidden="true"></i> Settings
               </a>
             </li>
             <li role="none">
-              <a
-                href="/app-settings"
-                class="{% if request.url.path == '/app-settings' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/app-settings"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
+              <a href="/app-settings" class="{% if request.url.path == '/app-settings' %}active{% endif %}" {% if request.url.path == '/app-settings' %}aria-current="page"{% endif %}>
                 <i class="fas fa-sliders-h me-2" aria-hidden="true"></i> App
                 Settings
               </a>
@@ -923,6 +645,10 @@
     <script
       defer
       src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"
+    ></script>
+    <script
+      defer
+      src="{{ url_for('static', path='js/navigation.js') | replace('http://', '//') }}"
     ></script>
     <script
       defer
