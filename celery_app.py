@@ -37,9 +37,7 @@ if not REDIS_URL:
     redis_user = os.getenv("REDISUSER", "default")
 
     if redis_host and redis_password:
-        REDIS_URL = (
-            f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
-        )
+        REDIS_URL = f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
     else:
         raise ValueError(
             "REDIS_URL environment variable is not set and cannot be constructed! "
