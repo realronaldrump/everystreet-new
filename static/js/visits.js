@@ -212,6 +212,14 @@
       const el = document.getElementById("visits-table");
       if (!el || !window.$) return;
 
+      const headers = [
+        "Place",
+        "Total Visits",
+        "First Visit",
+        "Last Visit",
+        "Avg Time Spent",
+      ];
+
       this.visitsTable = $(el).DataTable({
         responsive: true,
         order: [[3, "desc"]],
@@ -222,11 +230,17 @@
               type === "display"
                 ? `<a href="#" class="place-link" data-place-id="${row._id}">${data}</a>`
                 : data,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
           {
             data: "totalVisits",
-            className: "numeric-cell text-center",
+            className: "numeric-cell text-end",
             render: (data) => data || 0,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
           {
             data: "firstVisit",
@@ -237,6 +251,9 @@
                   ? DateUtils.formatForDisplay(data, { dateStyle: "medium" })
                   : "N/A"
                 : data,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
           {
             data: "lastVisit",
@@ -247,12 +264,18 @@
                   ? DateUtils.formatForDisplay(data, { dateStyle: "medium" })
                   : "N/A"
                 : data,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
           {
             data: "avgTimeSpent",
-            className: "numeric-cell",
+            className: "numeric-cell text-end",
             type: "duration",
             render: (data) => data || "N/A",
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
         ],
         language: {
@@ -273,12 +296,30 @@
       const el = document.getElementById("non-custom-visits-table");
       if (!el || !window.$) return;
 
+      const headers = [
+        "Place",
+        "Total Visits",
+        "First Visit",
+        "Last Visit",
+      ];
+
       this.nonCustomVisitsTable = $(el).DataTable({
         responsive: true,
         order: [[3, "desc"]],
         columns: [
-          { data: "name" },
-          { data: "totalVisits", className: "numeric-cell text-center" },
+          {
+            data: "name",
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
+          },
+          {
+            data: "totalVisits",
+            className: "numeric-cell text-end",
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
+          },
           {
             data: "firstVisit",
             className: "date-cell",
@@ -288,6 +329,9 @@
                   ? DateUtils.formatForDisplay(data, { dateStyle: "medium" })
                   : "N/A"
                 : data,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
           {
             data: "lastVisit",
@@ -298,6 +342,9 @@
                   ? DateUtils.formatForDisplay(data, { dateStyle: "medium" })
                   : "N/A"
                 : data,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
         ],
         language: {
@@ -317,6 +364,16 @@
       const el = document.getElementById("trips-for-place-table");
       if (!el || !window.$) return;
 
+      const headers = [
+        "Trip ID",
+        "Date",
+        "Time",
+        "Departure Time",
+        "Time Spent",
+        "Time Since Last Visit",
+        "Actions",
+      ];
+
       this.tripsTable = $(el).DataTable({
         responsive: true,
         order: [[1, "desc"]],
@@ -327,6 +384,9 @@
               type === "display"
                 ? `<a href="#" class="trip-id-link" data-trip-id="${row.id}">${data}</a>`
                 : data,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
           {
             data: "endTime",
@@ -335,14 +395,20 @@
               type === "display" || type === "filter"
                 ? DateUtils.formatForDisplay(data, { dateStyle: "medium" })
                 : data,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
           {
-            data: "endTime",
+            data: "endTime", // Intentionally duplicated for time part
             className: "date-cell",
             render: (data, type) =>
               type === "display" || type === "filter"
                 ? DateUtils.formatForDisplay(data, { timeStyle: "short" })
                 : data,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
           {
             data: "departureTime",
@@ -353,12 +419,25 @@
                   ? DateUtils.formatForDisplay(data, { timeStyle: "short" })
                   : "Unknown"
                 : data,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
-          { data: "timeSpent", className: "numeric-cell", type: "duration" },
+          {
+            data: "timeSpent",
+            className: "numeric-cell text-end",
+            type: "duration",
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
+          },
           {
             data: "timeSinceLastVisit",
-            className: "numeric-cell",
+            className: "numeric-cell text-end",
             type: "duration",
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
           {
             data: null,
@@ -368,6 +447,9 @@
               type === "display"
                 ? `<button class="btn btn-sm btn-primary view-trip-btn" data-trip-id="${row.id}"><i class="fas fa-map-marker-alt me-1"></i> View</button>`
                 : "",
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
           },
         ],
         language: {
