@@ -22,7 +22,7 @@
         refreshExpiredTiles: false,
         fadeDuration: 300,
         antialias: false,
-      }
+      },
     },
     STORAGE_KEYS: {
       startDate: "startDate",
@@ -78,7 +78,7 @@
       enableWorkers: true,
       workerCount: navigator.hardwareConcurrency || 4,
       maxParallelRequests: 6,
-    }
+    },
   };
 
   // Application state management
@@ -87,7 +87,7 @@
       this.map = null;
       this.mapInitialized = false;
       this.mapLayers = JSON.parse(JSON.stringify(CONFIG.LAYER_DEFAULTS));
-      this.mapSettings = { 
+      this.mapSettings = {
         highlightRecentTrips: true,
         autoRefresh: false,
         clusterTrips: false,
@@ -101,7 +101,7 @@
       this.loadingStates = new Map();
       this.pendingRequests = new Set();
       this.layerLoadPromises = new Map();
-      
+
       this.metrics = {
         loadStartTime: Date.now(),
         mapLoadTime: null,
@@ -112,13 +112,13 @@
 
     reset() {
       this.cancelAllRequests();
-      
+
       if (this.map) {
         this.map.off();
         this.map.remove();
         this.map = null;
       }
-      
+
       this.mapInitialized = false;
       this.selectedTripId = null;
       this.dom.clear();
@@ -133,7 +133,7 @@
         try {
           controller.abort();
         } catch (e) {
-          console.warn('Error aborting request:', e);
+          console.warn("Error aborting request:", e);
         }
       });
       this.abortControllers.clear();
@@ -161,7 +161,9 @@
       if (state.dom.has(selector)) return state.dom.get(selector);
 
       const element = document.querySelector(
-        selector.startsWith("#") || selector.includes(" ") || selector.startsWith(".")
+        selector.startsWith("#") ||
+          selector.includes(" ") ||
+          selector.startsWith(".")
           ? selector
           : `#${selector}`,
       );
@@ -173,19 +175,19 @@
     debounce(func, wait) {
       let timeout;
       let lastCallTime = 0;
-      
+
       return function executedFunction(...args) {
         const now = Date.now();
         const timeSinceLastCall = now - lastCallTime;
-        
+
         const later = () => {
           clearTimeout(timeout);
           lastCallTime = Date.now();
           func(...args);
         };
-        
+
         clearTimeout(timeout);
-        
+
         if (timeSinceLastCall >= wait) {
           lastCallTime = now;
           func(...args);
@@ -198,7 +200,7 @@
     throttle(func, limit) {
       let inThrottle;
       let lastResult;
-      
+
       return function (...args) {
         if (!inThrottle) {
           lastResult = func.apply(this, args);
@@ -209,7 +211,11 @@
       };
     },
 
-    async fetchWithRetry(url, options = {}, retries = CONFIG.API.retryAttempts) {
+    async fetchWithRetry(
+      url,
+      options = {},
+      retries = CONFIG.API.retryAttempts,
+    ) {
       const key = `${url}_${JSON.stringify(options)}`;
 
       // Check cache first
@@ -220,8 +226,11 @@
 
       // Create abort controller
       const abortController = new AbortController();
-      const timeoutId = setTimeout(() => abortController.abort(), CONFIG.API.timeout);
-      
+      const timeoutId = setTimeout(
+        () => abortController.abort(),
+        CONFIG.API.timeout,
+      );
+
       state.abortControllers.set(key, abortController);
       state.trackRequest(url);
 
@@ -236,7 +245,11 @@
         if (!response.ok) {
           if (retries > 0 && response.status >= 500) {
             await new Promise((resolve) =>
-              setTimeout(resolve, CONFIG.API.retryDelay * (CONFIG.API.retryAttempts - retries + 1)),
+              setTimeout(
+                resolve,
+                CONFIG.API.retryDelay *
+                  (CONFIG.API.retryAttempts - retries + 1),
+              ),
             );
             return utils.fetchWithRetry(url, options, retries - 1);
           }
@@ -244,15 +257,15 @@
         }
 
         const data = await response.json();
-        
+
         // Cache successful response
         state.apiCache.set(key, { data, timestamp: Date.now() });
-        
+
         return data;
       } catch (error) {
         if (error.name === "AbortError") {
           console.log("Request aborted or timed out:", url);
-          throw new Error('Request timeout');
+          throw new Error("Request timeout");
         }
         throw error;
       } finally {
@@ -286,16 +299,19 @@
         return result;
       } catch (error) {
         const duration = performance.now() - startTime;
-        console.error(`Performance: ${name} failed after ${duration.toFixed(2)}ms`, error);
+        console.error(
+          `Performance: ${name} failed after ${duration.toFixed(2)}ms`,
+          error,
+        );
         throw error;
       }
     },
 
     batchDOMUpdates(updates) {
       requestAnimationFrame(() => {
-        updates.forEach(update => update());
+        updates.forEach((update) => update());
       });
-    }
+    },
   };
 
   // Storage utilities
@@ -304,7 +320,7 @@
       try {
         const value = localStorage.getItem(key);
         if (value === null) return defaultValue;
-        
+
         try {
           return JSON.parse(value);
         } catch {
@@ -317,14 +333,13 @@
 
     set(key, value) {
       try {
-        const stringValue = typeof value === 'object' 
-          ? JSON.stringify(value) 
-          : String(value);
-          
+        const stringValue =
+          typeof value === "object" ? JSON.stringify(value) : String(value);
+
         localStorage.setItem(key, stringValue);
         return true;
       } catch (e) {
-        console.warn('Storage quota exceeded:', e);
+        console.warn("Storage quota exceeded:", e);
         this.clearOldCache();
         try {
           localStorage.setItem(key, stringValue);
@@ -339,14 +354,15 @@
       const cacheKeys = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith('cache_')) {
+        if (key && key.startsWith("cache_")) {
           cacheKeys.push(key);
         }
       }
-      
-      cacheKeys.slice(0, Math.floor(cacheKeys.length / 2))
-        .forEach(key => localStorage.removeItem(key));
-    }
+
+      cacheKeys
+        .slice(0, Math.floor(cacheKeys.length / 2))
+        .forEach((key) => localStorage.removeItem(key));
+    },
   };
 
   // Date utilities
@@ -361,41 +377,52 @@
       const m = Math.round((hours - h) * 60);
       return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
     },
-    
+
     getCachedDateRange() {
-      const cacheKey = 'cached_date_range';
+      const cacheKey = "cached_date_range";
       const cached = storage.get(cacheKey);
       const currentStart = this.getStartDate();
       const currentEnd = this.getEndDate();
-      
-      if (cached && cached.start === currentStart && cached.end === currentEnd) {
+
+      if (
+        cached &&
+        cached.start === currentStart &&
+        cached.end === currentEnd
+      ) {
         // Ensure startDate and endDate are Date objects when retrieved from cache
         return {
           ...cached,
           startDate: new Date(cached.start),
-          endDate: new Date(cached.end)
+          endDate: new Date(cached.end),
         };
       }
-      
+
       const range = {
         start: currentStart,
         end: currentEnd,
         startDate: new Date(currentStart),
         endDate: new Date(currentEnd),
-        days: Math.ceil((new Date(currentEnd) - new Date(currentStart)) / (1000 * 60 * 60 * 24)) + 1
+        days:
+          Math.ceil(
+            (new Date(currentEnd) - new Date(currentStart)) /
+              (1000 * 60 * 60 * 24),
+          ) + 1,
       };
-      
+
       storage.set(cacheKey, range); // range.startDate and range.endDate are already Date objects here
       return range;
-    }
+    },
   };
 
   // Map manager
   const mapManager = {
     async initialize() {
       try {
-        const initStage = window.loadingManager.startStage('init', 'Initializing map...');
-        
+        const initStage = window.loadingManager.startStage(
+          "init",
+          "Initializing map...",
+        );
+
         const mapElement = utils.getElement("map");
         if (!mapElement || state.map) {
           initStage.complete();
@@ -414,28 +441,30 @@
           throw new Error("WebGL not supported");
         }
 
-        initStage.update(30, 'Configuring map...');
+        initStage.update(30, "Configuring map...");
 
         // Disable telemetry for performance
         mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
         mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
 
-        const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-        
+        const theme =
+          document.documentElement.getAttribute("data-bs-theme") || "dark";
+
         // Determine initial map view
         const urlParams = new URLSearchParams(window.location.search);
-        const latParam = parseFloat(urlParams.get('lat'));
-        const lngParam = parseFloat(urlParams.get('lng'));
-        const zoomParam = parseFloat(urlParams.get('zoom'));
-        const savedView = storage.get('mapView');
-        const center = !isNaN(latParam) && !isNaN(lngParam)
-          ? [lngParam, latParam]
-          : (savedView?.center || CONFIG.MAP.defaultCenter);
+        const latParam = parseFloat(urlParams.get("lat"));
+        const lngParam = parseFloat(urlParams.get("lng"));
+        const zoomParam = parseFloat(urlParams.get("zoom"));
+        const savedView = storage.get("mapView");
+        const center =
+          !isNaN(latParam) && !isNaN(lngParam)
+            ? [lngParam, latParam]
+            : savedView?.center || CONFIG.MAP.defaultCenter;
         const zoom = !isNaN(zoomParam)
           ? zoomParam
-          : (savedView?.zoom || CONFIG.MAP.defaultZoom);
+          : savedView?.zoom || CONFIG.MAP.defaultZoom;
 
-        initStage.update(60, 'Creating map instance...');
+        initStage.update(60, "Creating map instance...");
 
         state.map = new mapboxgl.Map({
           container: "map",
@@ -456,7 +485,7 @@
 
         window.map = state.map;
 
-        initStage.update(80, 'Adding controls...');
+        initStage.update(80, "Adding controls...");
 
         // Add controls
         state.map.addControl(new mapboxgl.NavigationControl(), "top-right");
@@ -470,16 +499,16 @@
           if (!state.map) return;
           const center = state.map.getCenter();
           const zoom = state.map.getZoom();
-          storage.set('mapView', { center: [center.lng, center.lat], zoom });
+          storage.set("mapView", { center: [center.lng, center.lat], zoom });
           this.updateUrlState();
         }, CONFIG.MAP.debounceDelay);
 
-        state.map.on('moveend', saveViewState);
-        state.map.on('click', this.handleMapClick.bind(this));
+        state.map.on("moveend", saveViewState);
+        state.map.on("click", this.handleMapClick.bind(this));
 
         // Wait for map to load
         await new Promise((resolve) => {
-          state.map.on('load', () => {
+          state.map.on("load", () => {
             initStage.complete();
             resolve();
           });
@@ -487,13 +516,13 @@
 
         state.mapInitialized = true;
         state.metrics.mapLoadTime = Date.now() - state.metrics.loadStartTime;
-        
+
         document.dispatchEvent(new CustomEvent("mapInitialized"));
 
         return true;
       } catch (error) {
         console.error("Map initialization error:", error);
-        window.loadingManager.stageError('init', error.message);
+        window.loadingManager.stageError("init", error.message);
         utils.showNotification(
           `Map initialization failed: ${error.message}`,
           "danger",
@@ -522,7 +551,7 @@
 
     handleMapClick(e) {
       const features = state.map.queryRenderedFeatures(e.point, {
-        layers: ['trips-layer', 'matchedTrips-layer']
+        layers: ["trips-layer", "matchedTrips-layer"],
       });
 
       if (features.length === 0) {
@@ -538,7 +567,7 @@
       }
     },
 
-    refreshTripStyles: utils.throttle(function() {
+    refreshTripStyles: utils.throttle(function () {
       if (!state.map || !state.mapInitialized) return;
 
       ["trips", "matchedTrips"].forEach((layerName) => {
@@ -563,7 +592,7 @@
     async fitBounds(animate = true) {
       if (!state.map || !state.mapInitialized) return;
 
-      await utils.measurePerformance('fitBounds', async () => {
+      await utils.measurePerformance("fitBounds", async () => {
         const bounds = new mapboxgl.LngLatBounds();
         let hasFeatures = false;
 
@@ -599,16 +628,16 @@
       if (!state.map || !state.mapLayers.trips?.layer?.features) return;
 
       const features = state.mapLayers.trips.layer.features;
-      
+
       const lastTripFeature = features.reduce((latest, feature) => {
         const endTime = feature.properties?.endTime;
         if (!endTime) return latest;
-        
+
         const time = new Date(endTime).getTime();
-        const latestTime = latest?.properties?.endTime 
-          ? new Date(latest.properties.endTime).getTime() 
+        const latestTime = latest?.properties?.endTime
+          ? new Date(latest.properties.endTime).getTime()
           : 0;
-          
+
         return time > latestTime ? feature : latest;
       }, null);
 
@@ -623,7 +652,11 @@
         lastCoord = coordinates;
       }
 
-      if (lastCoord?.length === 2 && !isNaN(lastCoord[0]) && !isNaN(lastCoord[1])) {
+      if (
+        lastCoord?.length === 2 &&
+        !isNaN(lastCoord[0]) &&
+        !isNaN(lastCoord[1])
+      ) {
         state.map.flyTo({
           center: lastCoord,
           zoom: targetZoom,
@@ -638,13 +671,14 @@
   const layerManager = {
     // Add cleanup tracking
     _layerCleanupMap: new WeakMap(),
-    
+
     initializeControls() {
       const container = utils.getElement("layer-toggles");
       if (!container) return;
 
       // Load saved layer settings
-      const savedSettings = storage.get(CONFIG.STORAGE_KEYS.layerSettings) || {};
+      const savedSettings =
+        storage.get(CONFIG.STORAGE_KEYS.layerSettings) || {};
       Object.entries(savedSettings).forEach(([name, settings]) => {
         if (state.mapLayers[name]) {
           Object.assign(state.mapLayers[name], settings);
@@ -656,7 +690,8 @@
 
       Object.entries(state.mapLayers).forEach(([name, info]) => {
         const div = document.createElement("div");
-        div.className = "layer-control d-flex align-items-center mb-2 p-2 rounded";
+        div.className =
+          "layer-control d-flex align-items-center mb-2 p-2 rounded";
         div.dataset.layerName = name;
 
         const checkboxId = `${name}-toggle`;
@@ -669,7 +704,9 @@
               <span class="layer-loading d-none" id="${name}-loading"></span>
             </label>
           </div>
-          ${name !== "customPlaces" ? `
+          ${
+            name !== "customPlaces"
+              ? `
             <input type="color" id="${name}-color" value="${info.color}" 
                    class="form-control form-control-color me-2" 
                    style="width: 30px; height: 30px; padding: 2px;" 
@@ -677,7 +714,9 @@
             <input type="range" id="${name}-opacity" min="0" max="1" step="0.1" 
                    value="${info.opacity}" class="form-range" style="width: 80px;" 
                    title="Layer opacity">
-          ` : ""}
+          `
+              : ""
+          }
         `;
 
         fragment.appendChild(div);
@@ -689,21 +728,28 @@
     },
 
     setupEventListeners(container) {
-      container.addEventListener("change", utils.debounce((e) => {
-        const input = e.target;
-        const layerName = input.closest(".layer-control")?.dataset.layerName;
-        if (!layerName) return;
+      container.addEventListener(
+        "change",
+        utils.debounce((e) => {
+          const input = e.target;
+          const layerName = input.closest(".layer-control")?.dataset.layerName;
+          if (!layerName) return;
 
-        if (input.type === "checkbox") {
-          this.toggleLayer(layerName, input.checked);
-        } else if (input.type === "color") {
-          this.updateLayerStyle(layerName, "color", input.value);
-        } else if (input.type === "range") {
-          this.updateLayerStyle(layerName, "opacity", parseFloat(input.value));
-        }
-        
-        this.saveLayerSettings();
-      }, 200));
+          if (input.type === "checkbox") {
+            this.toggleLayer(layerName, input.checked);
+          } else if (input.type === "color") {
+            this.updateLayerStyle(layerName, "color", input.value);
+          } else if (input.type === "range") {
+            this.updateLayerStyle(
+              layerName,
+              "opacity",
+              parseFloat(input.value),
+            );
+          }
+
+          this.saveLayerSettings();
+        }, 200),
+      );
     },
 
     async toggleLayer(name, visible) {
@@ -711,9 +757,9 @@
       if (!layerInfo) return;
 
       layerInfo.visible = visible;
-      
+
       const loadingEl = document.getElementById(`${name}-loading`);
-      if (loadingEl) loadingEl.classList.remove('d-none');
+      if (loadingEl) loadingEl.classList.remove("d-none");
 
       if (visible) {
         if (name === "matchedTrips" && !layerInfo.layer) {
@@ -731,8 +777,8 @@
           visible ? "visible" : "none",
         );
       }
-      
-      if (loadingEl) loadingEl.classList.add('d-none');
+
+      if (loadingEl) loadingEl.classList.add("d-none");
     },
 
     updateLayerStyle(name, property, value) {
@@ -743,11 +789,12 @@
 
       const layerId = `${name}-layer`;
       if (state.map?.getLayer(layerId)) {
-        const paintProperty = property === "color" ? "line-color" : "line-opacity";
+        const paintProperty =
+          property === "color" ? "line-color" : "line-opacity";
         state.map.setPaintProperty(layerId, paintProperty, value);
       }
     },
-    
+
     saveLayerSettings() {
       const settings = {};
       Object.entries(state.mapLayers).forEach(([name, info]) => {
@@ -755,7 +802,7 @@
           visible: info.visible,
           color: info.color,
           opacity: info.opacity,
-          order: info.order
+          order: info.order,
         };
       });
       storage.set(CONFIG.STORAGE_KEYS.layerSettings, settings);
@@ -770,7 +817,8 @@
       );
 
       container.innerHTML = sortedLayers
-        .map(([name, info]) => `
+        .map(
+          ([name, info]) => `
           <li class="list-group-item d-flex justify-content-between align-items-center" 
               data-layer-name="${name}" draggable="true">
             <span>${info.name || name}</span>
@@ -783,10 +831,12 @@
               </button>
             </div>
           </li>
-        `).join("");
+        `,
+        )
+        .join("");
 
       this.setupDragAndDrop(container);
-      
+
       container.addEventListener("click", (e) => {
         const button = e.target.closest("button");
         if (!button) return;
@@ -797,34 +847,37 @@
 
         if (button.classList.contains("move-up") && li.previousElementSibling) {
           container.insertBefore(li, li.previousElementSibling);
-        } else if (button.classList.contains("move-down") && li.nextElementSibling) {
+        } else if (
+          button.classList.contains("move-down") &&
+          li.nextElementSibling
+        ) {
           container.insertBefore(li.nextElementSibling, li);
         }
 
         this.reorderLayers();
       });
     },
-    
+
     setupDragAndDrop(container) {
       let draggedElement = null;
-      
-      container.addEventListener('dragstart', (e) => {
-        draggedElement = e.target.closest('li');
+
+      container.addEventListener("dragstart", (e) => {
+        draggedElement = e.target.closest("li");
         if (draggedElement) {
-          draggedElement.classList.add('dragging');
-          e.dataTransfer.effectAllowed = 'move';
+          draggedElement.classList.add("dragging");
+          e.dataTransfer.effectAllowed = "move";
         }
       });
-      
-      container.addEventListener('dragend', (e) => {
+
+      container.addEventListener("dragend", (e) => {
         if (draggedElement) {
-          draggedElement.classList.remove('dragging');
+          draggedElement.classList.remove("dragging");
           draggedElement = null;
           this.reorderLayers();
         }
       });
-      
-      container.addEventListener('dragover', (e) => {
+
+      container.addEventListener("dragover", (e) => {
         e.preventDefault();
         const afterElement = this.getDragAfterElement(container, e.clientY);
         if (afterElement == null) {
@@ -834,20 +887,25 @@
         }
       });
     },
-    
+
     getDragAfterElement(container, y) {
-      const draggableElements = [...container.querySelectorAll('li:not(.dragging)')];
-      
-      return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-        
-        if (offset < 0 && offset > closest.offset) {
-          return { offset: offset, element: child };
-        } else {
-          return closest;
-        }
-      }, { offset: Number.NEGATIVE_INFINITY }).element;
+      const draggableElements = [
+        ...container.querySelectorAll("li:not(.dragging)"),
+      ];
+
+      return draggableElements.reduce(
+        (closest, child) => {
+          const box = child.getBoundingClientRect();
+          const offset = y - box.top - box.height / 2;
+
+          if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+          } else {
+            return closest;
+          }
+        },
+        { offset: Number.NEGATIVE_INFINITY },
+      ).element;
     },
 
     reorderLayers() {
@@ -877,7 +935,7 @@
           }
         });
       }
-      
+
       this.saveLayerSettings();
     },
 
@@ -892,28 +950,28 @@
         // Clean up existing layer and source completely
         if (state.map.getLayer(layerId)) {
           // Remove all event listeners first
-          const events = ['click', 'mouseenter', 'mouseleave'];
-          events.forEach(event => {
+          const events = ["click", "mouseenter", "mouseleave"];
+          events.forEach((event) => {
             state.map.off(event, layerId);
           });
           state.map.removeLayer(layerId);
         }
-        
+
         if (state.map.getSource(sourceId)) {
           state.map.removeSource(sourceId);
         }
-        
+
         // Wait for next frame to ensure cleanup
-        await new Promise(resolve => requestAnimationFrame(resolve));
-        
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+
         // Add new source
-        state.map.addSource(sourceId, { 
-          type: "geojson", 
+        state.map.addSource(sourceId, {
+          type: "geojson",
           data,
           tolerance: 0.5,
           buffer: 128,
           maxzoom: 14,
-          generateId: true
+          generateId: true,
         });
 
         // Add new layer
@@ -935,9 +993,12 @@
               "interpolate",
               ["linear"],
               ["zoom"],
-              10, layerInfo.weight * 0.5,
-              15, layerInfo.weight,
-              20, layerInfo.weight * 2
+              10,
+              layerInfo.weight * 0.5,
+              15,
+              layerInfo.weight,
+              20,
+              layerInfo.weight * 2,
             ],
           },
         };
@@ -955,32 +1016,34 @@
               tripInteractions.handleTripClick(e, e.features[0]);
             }
           };
-          
+
           const mouseEnterHandler = () => {
             state.map.getCanvas().style.cursor = "pointer";
           };
-          
+
           const mouseLeaveHandler = () => {
             state.map.getCanvas().style.cursor = "";
           };
-          
+
           state.map.on("click", layerId, clickHandler);
           state.map.on("mouseenter", layerId, mouseEnterHandler);
           state.map.on("mouseleave", layerId, mouseLeaveHandler);
-          
+
           // Store handlers for cleanup
           this._layerCleanupMap.set(layerId, {
             click: clickHandler,
             mouseenter: mouseEnterHandler,
-            mouseleave: mouseLeaveHandler
+            mouseleave: mouseLeaveHandler,
           });
         }
-        
+
         layerInfo.layer = data;
-        
       } catch (error) {
         console.error(`Error updating ${layerName} layer:`, error);
-        utils.showNotification(`Failed to update ${layerName} layer`, "warning");
+        utils.showNotification(
+          `Failed to update ${layerName} layer`,
+          "warning",
+        );
       }
     },
 
@@ -997,15 +1060,15 @@
           });
           state.map.removeLayer(layerId);
         }
-        
-        const sourceId = layerId.replace('-layer', '-source');
+
+        const sourceId = layerId.replace("-layer", "-source");
         if (state.map.getSource(sourceId)) {
           state.map.removeSource(sourceId);
         }
       }
-      
+
       this._layerCleanupMap = new WeakMap();
-    }
+    },
   };
 
   // Data manager
@@ -1013,7 +1076,10 @@
     async fetchTrips() {
       if (!state.mapInitialized) return null;
 
-      const dataStage = window.loadingManager.startStage('data', 'Loading trips...');
+      const dataStage = window.loadingManager.startStage(
+        "data",
+        "Loading trips...",
+      );
 
       try {
         const dateRange = dateUtils.getCachedDateRange();
@@ -1021,32 +1087,45 @@
         const MS_PER_DAY = 24 * 60 * 60 * 1000;
         const thresholdDays = 7;
         let fullCollection = { type: "FeatureCollection", features: [] };
-        
+
         if (days <= thresholdDays) {
-          const params = new URLSearchParams({ start_date: start, end_date: end });
+          const params = new URLSearchParams({
+            start_date: start,
+            end_date: end,
+          });
           dataStage.update(30, `Loading ${days} days of trips...`);
           const data = await utils.fetchWithRetry(`/api/trips?${params}`);
           if (data?.type === "FeatureCollection") {
             fullCollection = data;
           } else {
-            dataStage.error('Invalid trip data received');
+            dataStage.error("Invalid trip data received");
             return null;
           }
         } else {
           const segments = Math.ceil(days / thresholdDays);
           for (let i = 0; i < segments; i++) {
-            const segStartDate = new Date(startDate.getTime() + i * thresholdDays * MS_PER_DAY);
+            const segStartDate = new Date(
+              startDate.getTime() + i * thresholdDays * MS_PER_DAY,
+            );
             const segEndDate = new Date(
-              Math.min(segStartDate.getTime() + (thresholdDays - 1) * MS_PER_DAY, endDate.getTime())
+              Math.min(
+                segStartDate.getTime() + (thresholdDays - 1) * MS_PER_DAY,
+                endDate.getTime(),
+              ),
             );
-            const segStart = segStartDate.toISOString().split('T')[0];
-            const segEnd = segEndDate.toISOString().split('T')[0];
-            const paramsChunk = new URLSearchParams({ start_date: segStart, end_date: segEnd });
+            const segStart = segStartDate.toISOString().split("T")[0];
+            const segEnd = segEndDate.toISOString().split("T")[0];
+            const paramsChunk = new URLSearchParams({
+              start_date: segStart,
+              end_date: segEnd,
+            });
             dataStage.update(
-              30 + Math.floor(((i+1) / segments) * 40),
-              `Loading trips ${segStart} to ${segEnd}...`
+              30 + Math.floor(((i + 1) / segments) * 40),
+              `Loading trips ${segStart} to ${segEnd}...`,
             );
-            const chunk = await utils.fetchWithRetry(`/api/trips?${paramsChunk}`);
+            const chunk = await utils.fetchWithRetry(
+              `/api/trips?${paramsChunk}`,
+            );
             if (chunk?.type === "FeatureCollection") {
               fullCollection.features.push(...chunk.features);
               state.mapLayers.trips.layer = fullCollection;
@@ -1054,8 +1133,11 @@
             }
           }
         }
-        
-        dataStage.update(75, `Processing ${fullCollection.features.length} trips...`);
+
+        dataStage.update(
+          75,
+          `Processing ${fullCollection.features.length} trips...`,
+        );
         metricsManager.updateTripsTable(fullCollection);
         await layerManager.updateMapLayer("trips", fullCollection);
         dataStage.complete();
@@ -1072,7 +1154,7 @@
       if (!state.mapInitialized || !state.mapLayers.matchedTrips.visible)
         return null;
 
-      window.loadingManager.pulse('Loading matched trips...');
+      window.loadingManager.pulse("Loading matched trips...");
 
       try {
         const dateRange = dateUtils.getCachedDateRange();
@@ -1098,15 +1180,22 @@
     },
 
     async fetchUndrivenStreets() {
-      const selectedLocationId = storage.get(CONFIG.STORAGE_KEYS.selectedLocation);
+      const selectedLocationId = storage.get(
+        CONFIG.STORAGE_KEYS.selectedLocation,
+      );
 
-      if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded) return null;
+      if (
+        !selectedLocationId ||
+        !state.mapInitialized ||
+        state.undrivenStreetsLoaded
+      )
+        return null;
 
-      window.loadingManager.pulse('Loading undriven streets...');
+      window.loadingManager.pulse("Loading undriven streets...");
 
       try {
         const data = await utils.fetchWithRetry(
-          `/api/coverage_areas/${selectedLocationId}/streets?undriven=true`
+          `/api/coverage_areas/${selectedLocationId}/streets?undriven=true`,
         );
 
         if (data?.type === "FeatureCollection") {
@@ -1132,7 +1221,9 @@
           end_date: dateRange.end,
         });
 
-        const data = await utils.fetchWithRetry(`/api/trip-analytics?${params}`);
+        const data = await utils.fetchWithRetry(
+          `/api/trip-analytics?${params}`,
+        );
 
         if (data) {
           document.dispatchEvent(
@@ -1150,10 +1241,13 @@
     async updateMap(fitBounds = false) {
       if (!state.mapInitialized) return;
 
-      const renderStage = window.loadingManager.startStage('render', 'Updating map...');
+      const renderStage = window.loadingManager.startStage(
+        "render",
+        "Updating map...",
+      );
 
       try {
-        renderStage.update(20, 'Fetching map data...');
+        renderStage.update(20, "Fetching map data...");
 
         state.cancelAllRequests();
 
@@ -1167,25 +1261,27 @@
           promises.push(this.fetchMatchedTrips());
         }
 
-        if (state.mapLayers.undrivenStreets.visible && !state.undrivenStreetsLoaded) {
+        if (
+          state.mapLayers.undrivenStreets.visible &&
+          !state.undrivenStreetsLoaded
+        ) {
           promises.push(this.fetchUndrivenStreets());
         }
 
-        renderStage.update(50, 'Loading layer data...');
+        renderStage.update(50, "Loading layer data...");
 
         await Promise.allSettled(promises);
 
-        renderStage.update(80, 'Rendering layers...');
+        renderStage.update(80, "Rendering layers...");
 
         if (fitBounds) {
           await mapManager.fitBounds();
         }
-        
+
         renderStage.complete();
-        
+
         state.metrics.renderTime = Date.now() - state.metrics.loadStartTime;
-        console.log('Render metrics:', state.metrics);
-        
+        console.log("Render metrics:", state.metrics);
       } catch (error) {
         renderStage.error(error.message);
         console.error("Error updating map:", error);
@@ -1211,9 +1307,10 @@
 
       if (!geojson?.features) {
         utils.batchDOMUpdates([
-          () => Object.values(elements).forEach((el) => {
-            if (el) el.textContent = el.id.includes("time") ? "--:--" : "0";
-          })
+          () =>
+            Object.values(elements).forEach((el) => {
+              if (el) el.textContent = el.id.includes("time") ? "--:--" : "0";
+            }),
         ]);
         return;
       }
@@ -1222,14 +1319,22 @@
 
       utils.batchDOMUpdates([
         () => {
-          if (elements.totalTrips) elements.totalTrips.textContent = metrics.totalTrips;
-          if (elements.totalDistance) elements.totalDistance.textContent = metrics.totalDistance.toFixed(1);
-          if (elements.avgDistance) elements.avgDistance.textContent = metrics.avgDistance.toFixed(1);
-          if (elements.avgStartTime) elements.avgStartTime.textContent = metrics.avgStartTime;
-          if (elements.avgDrivingTime) elements.avgDrivingTime.textContent = metrics.avgDrivingTime;
-          if (elements.avgSpeed) elements.avgSpeed.textContent = metrics.avgSpeed.toFixed(1);
-          if (elements.maxSpeed) elements.maxSpeed.textContent = metrics.maxSpeed.toFixed(0);
-        }
+          if (elements.totalTrips)
+            elements.totalTrips.textContent = metrics.totalTrips;
+          if (elements.totalDistance)
+            elements.totalDistance.textContent =
+              metrics.totalDistance.toFixed(1);
+          if (elements.avgDistance)
+            elements.avgDistance.textContent = metrics.avgDistance.toFixed(1);
+          if (elements.avgStartTime)
+            elements.avgStartTime.textContent = metrics.avgStartTime;
+          if (elements.avgDrivingTime)
+            elements.avgDrivingTime.textContent = metrics.avgDrivingTime;
+          if (elements.avgSpeed)
+            elements.avgSpeed.textContent = metrics.avgSpeed.toFixed(1);
+          if (elements.maxSpeed)
+            elements.maxSpeed.textContent = metrics.maxSpeed.toFixed(0);
+        },
       ]);
     },
 
@@ -1270,31 +1375,43 @@
         if (props.startTime) {
           const startTime = new Date(props.startTime);
           if (!isNaN(startTime.getTime())) {
-            metrics.totalStartHours += startTime.getHours() + startTime.getMinutes() / 60;
+            metrics.totalStartHours +=
+              startTime.getHours() + startTime.getMinutes() / 60;
             metrics.validStartTimeCount++;
           }
         }
 
         if (props.maxSpeed && !isNaN(props.maxSpeed)) {
-          metrics.maxSpeed = Math.max(metrics.maxSpeed, parseFloat(props.maxSpeed));
+          metrics.maxSpeed = Math.max(
+            metrics.maxSpeed,
+            parseFloat(props.maxSpeed),
+          );
         }
       });
 
       return {
         totalTrips: metrics.totalTrips,
         totalDistance: metrics.totalDistance,
-        avgDistance: metrics.validDistanceCount > 0 
-          ? metrics.totalDistance / metrics.validDistanceCount 
-          : 0,
-        avgStartTime: metrics.validStartTimeCount > 0
-          ? dateUtils.formatTimeFromHours(metrics.totalStartHours / metrics.validStartTimeCount)
-          : "--:--",
-        avgDrivingTime: metrics.validDrivingTimeCount > 0
-          ? utils.formatDuration(metrics.totalDrivingTime / metrics.validDrivingTimeCount)
-          : "--:--",
-        avgSpeed: metrics.totalDrivingTime > 0
-          ? (metrics.totalDistance / metrics.totalDrivingTime) * 3600
-          : 0,
+        avgDistance:
+          metrics.validDistanceCount > 0
+            ? metrics.totalDistance / metrics.validDistanceCount
+            : 0,
+        avgStartTime:
+          metrics.validStartTimeCount > 0
+            ? dateUtils.formatTimeFromHours(
+                metrics.totalStartHours / metrics.validStartTimeCount,
+              )
+            : "--:--",
+        avgDrivingTime:
+          metrics.validDrivingTimeCount > 0
+            ? utils.formatDuration(
+                metrics.totalDrivingTime / metrics.validDrivingTimeCount,
+              )
+            : "--:--",
+        avgSpeed:
+          metrics.totalDrivingTime > 0
+            ? (metrics.totalDistance / metrics.totalDrivingTime) * 3600
+            : 0,
         maxSpeed: metrics.maxSpeed,
       };
     },
@@ -1306,11 +1423,12 @@
       if (!feature?.properties) return;
 
       e.originalEvent?.stopPropagation?.();
-      
-      const tripId = feature.properties.transactionId || 
-                    feature.properties.id || 
-                    feature.properties.tripId;
-                    
+
+      const tripId =
+        feature.properties.transactionId ||
+        feature.properties.id ||
+        feature.properties.tripId;
+
       if (tripId) {
         state.selectedTripId = tripId;
         mapManager.refreshTripStyles();
@@ -1320,7 +1438,7 @@
         closeButton: true,
         closeOnClick: true,
         maxWidth: "400px",
-        anchor: 'bottom',
+        anchor: "bottom",
       })
         .setLngLat(e.lngLat)
         .setHTML(this.createPopupContent(feature))
@@ -1391,9 +1509,10 @@
 
     createActionButtons(feature) {
       const props = feature.properties || {};
-      const isMatched = props.source === "matched" || 
-                       props.mapMatchingStatus === "success" ||
-                       feature.source?.includes('matched');
+      const isMatched =
+        props.source === "matched" ||
+        props.mapMatchingStatus === "success" ||
+        feature.source?.includes("matched");
       const tripId = props.transactionId || props.id || props.tripId;
 
       if (!tripId) return "";
@@ -1403,21 +1522,25 @@
           <button class="btn btn-sm btn-primary view-trip-btn" data-trip-id="${tripId}">
             <i class="fas fa-eye"></i> View
           </button>
-          ${isMatched ? `
+          ${
+            isMatched
+              ? `
             <button class="btn btn-sm btn-warning rematch-trip-btn" data-trip-id="${tripId}">
               <i class="fas fa-redo"></i> Rematch
             </button>
             <button class="btn btn-sm btn-danger delete-matched-trip-btn" data-trip-id="${tripId}">
               <i class="fas fa-trash"></i> Delete Matched
             </button>
-          ` : `
+          `
+              : `
             <button class="btn btn-sm btn-info map-match-btn" data-trip-id="${tripId}">
               <i class="fas fa-route"></i> Map Match
             </button>
             <button class="btn btn-sm btn-danger delete-trip-btn" data-trip-id="${tripId}">
               <i class="fas fa-trash"></i> Delete
             </button>
-          `}
+          `
+          }
         </div>
       `;
     },
@@ -1434,7 +1557,7 @@
         if (!tripId) return;
 
         button.disabled = true;
-        button.classList.add('btn-loading');
+        button.classList.add("btn-loading");
 
         try {
           if (button.classList.contains("view-trip-btn")) {
@@ -1454,27 +1577,36 @@
           utils.showNotification("Error performing action", "danger");
         } finally {
           button.disabled = false;
-          button.classList.remove('btn-loading');
+          button.classList.remove("btn-loading");
         }
       });
     },
 
     async deleteMatchedTrip(tripId, popup) {
-      if (!await window.confirmationDialog.show({
-        title: 'Delete Matched Trip',
-        message: 'Are you sure you want to delete this matched trip?',
-        confirmText: 'Delete',
-        confirmButtonClass: 'btn-danger'
-      })) return;
+      if (
+        !(await window.confirmationDialog.show({
+          title: "Delete Matched Trip",
+          message: "Are you sure you want to delete this matched trip?",
+          confirmText: "Delete",
+          confirmButtonClass: "btn-danger",
+        }))
+      )
+        return;
 
       try {
-        const response = await utils.fetchWithRetry(`/api/matched_trips/${tripId}`, {
-          method: "DELETE",
-        });
+        const response = await utils.fetchWithRetry(
+          `/api/matched_trips/${tripId}`,
+          {
+            method: "DELETE",
+          },
+        );
 
         if (response) {
           popup.remove();
-          utils.showNotification("Matched trip deleted successfully", "success");
+          utils.showNotification(
+            "Matched trip deleted successfully",
+            "success",
+          );
           await dataManager.updateMap();
         }
       } catch (error) {
@@ -1484,12 +1616,16 @@
     },
 
     async deleteTrip(tripId, popup) {
-      if (!await window.confirmationDialog.show({
-        title: 'Delete Trip',
-        message: 'Are you sure you want to delete this trip? This action cannot be undone.',
-        confirmText: 'Delete',
-        confirmButtonClass: 'btn-danger'
-      })) return;
+      if (
+        !(await window.confirmationDialog.show({
+          title: "Delete Trip",
+          message:
+            "Are you sure you want to delete this trip? This action cannot be undone.",
+          confirmText: "Delete",
+          confirmButtonClass: "btn-danger",
+        }))
+      )
+        return;
 
       try {
         const response = await utils.fetchWithRetry(`/api/trips/${tripId}`, {
@@ -1511,11 +1647,14 @@
       try {
         utils.showNotification("Starting map matching...", "info");
 
-        const response = await utils.fetchWithRetry(`/api/process_trip/${tripId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ map_match: true }),
-        });
+        const response = await utils.fetchWithRetry(
+          `/api/process_trip/${tripId}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ map_match: true }),
+          },
+        );
 
         if (response) {
           popup.remove();
@@ -1533,14 +1672,17 @@
   const app = {
     async initialize() {
       try {
-        window.loadingManager.show('Initializing application...');
-        
+        window.loadingManager.show("Initializing application...");
+
         this.initializeDates();
 
-        if (utils.getElement("map") && !document.getElementById("visits-page")) {
+        if (
+          utils.getElement("map") &&
+          !document.getElementById("visits-page")
+        ) {
           const mapInitialized = await mapManager.initialize();
           if (!mapInitialized) {
-            throw new Error('Failed to initialize map');
+            throw new Error("Failed to initialize map");
           }
 
           layerManager.initializeControls();
@@ -1550,16 +1692,19 @@
 
           this.restoreLayerVisibility();
 
-          const mapStage = window.loadingManager.startStage('map', 'Loading map data...');
-          
+          const mapStage = window.loadingManager.startStage(
+            "map",
+            "Loading map data...",
+          );
+
           try {
             await Promise.all([
               dataManager.fetchTrips(),
               dataManager.fetchMetrics(),
             ]);
-            
+
             mapStage.complete();
-            
+
             if (state.mapLayers.trips?.layer?.features?.length > 0) {
               requestAnimationFrame(() => mapManager.zoomToLastTrip());
             }
@@ -1572,11 +1717,10 @@
         }
 
         document.dispatchEvent(new CustomEvent("appReady"));
-        
+
         setTimeout(() => {
           window.loadingManager.finish();
         }, 300);
-        
       } catch (error) {
         console.error("Application initialization error:", error);
         window.loadingManager.error(`Initialization failed: ${error.message}`);
@@ -1614,22 +1758,25 @@
         const areas = response.areas || [];
 
         dropdown.innerHTML = '<option value="">Select a location...</option>';
-        
+
         const fragment = document.createDocumentFragment();
         areas.forEach((area) => {
           const option = document.createElement("option");
           option.value = area._id || area.id;
-          option.textContent = area.location?.display_name ||
-                              area.location?.city ||
-                              area.name ||
-                              area.city ||
-                              "Unknown Location";
+          option.textContent =
+            area.location?.display_name ||
+            area.location?.city ||
+            area.name ||
+            area.city ||
+            "Unknown Location";
           fragment.appendChild(option);
         });
-        
+
         dropdown.appendChild(fragment);
 
-        const savedLocationId = storage.get(CONFIG.STORAGE_KEYS.selectedLocation);
+        const savedLocationId = storage.get(
+          CONFIG.STORAGE_KEYS.selectedLocation,
+        );
         if (savedLocationId) {
           dropdown.value = savedLocationId;
         }
@@ -1640,8 +1787,9 @@
     },
 
     restoreLayerVisibility() {
-      const savedVisibility = storage.get(CONFIG.STORAGE_KEYS.layerVisibility) || {};
-      
+      const savedVisibility =
+        storage.get(CONFIG.STORAGE_KEYS.layerVisibility) || {};
+
       Object.keys(state.mapLayers).forEach((layerName) => {
         const toggle = document.getElementById(`${layerName}-toggle`);
 
@@ -1663,12 +1811,16 @@
           const content = utils.getElement("controls-content");
           const icon = controlsToggle.querySelector("i");
           if (content && icon) {
-            content.addEventListener('transitionend', () => {
-              const isCollapsed = !content.classList.contains("show");
-              icon.className = isCollapsed
-                ? "fas fa-chevron-down"
-                : "fas fa-chevron-up";
-            }, { once: true });
+            content.addEventListener(
+              "transitionend",
+              () => {
+                const isCollapsed = !content.classList.contains("show");
+                icon.className = isCollapsed
+                  ? "fas fa-chevron-down"
+                  : "fas fa-chevron-up";
+              },
+              { once: true },
+            );
           }
         });
       }
@@ -1693,10 +1845,10 @@
             utils.showNotification("Geolocation is not supported", "warning");
             return;
           }
-          
+
           centerButton.disabled = true;
-          centerButton.classList.add('btn-loading');
-          
+          centerButton.classList.add("btn-loading");
+
           navigator.geolocation.getCurrentPosition(
             (position) => {
               const { latitude, longitude } = position.coords;
@@ -1706,13 +1858,16 @@
                 duration: 1000,
               });
               centerButton.disabled = false;
-              centerButton.classList.remove('btn-loading');
+              centerButton.classList.remove("btn-loading");
             },
             (error) => {
               console.error("Geolocation error:", error);
-              utils.showNotification(`Error getting location: ${error.message}`, "danger");
+              utils.showNotification(
+                `Error getting location: ${error.message}`,
+                "danger",
+              );
               centerButton.disabled = false;
-              centerButton.classList.remove('btn-loading');
+              centerButton.classList.remove("btn-loading");
             },
           );
         });
@@ -1723,22 +1878,26 @@
         if (!state.map || !state.mapInitialized) return;
 
         console.log("Map style reloaded, re-applying layers...");
-        window.loadingManager.pulse('Applying new map style...');
+        window.loadingManager.pulse("Applying new map style...");
 
         for (const [layerName, layerInfo] of Object.entries(state.mapLayers)) {
           if (layerInfo.visible && layerInfo.layer) {
             try {
               await layerManager.updateMapLayer(layerName, layerInfo.layer);
-              
+
               const layerId = `${layerName}-layer`;
               if (state.map.getLayer(layerId)) {
-                 state.map.setLayoutProperty(layerId, "visibility", "visible");
+                state.map.setLayoutProperty(layerId, "visibility", "visible");
               } else {
-                console.warn(`Layer ${layerId} not found after attempting to re-add.`);
+                console.warn(
+                  `Layer ${layerId} not found after attempting to re-add.`,
+                );
               }
-
             } catch (error) {
-              console.error(`Error re-applying layer ${layerName} after style change:`, error);
+              console.error(
+                `Error re-applying layer ${layerName} after style change:`,
+                error,
+              );
             }
           }
         }
@@ -1751,14 +1910,14 @@
       if (refreshButton) {
         refreshButton.addEventListener("click", async () => {
           refreshButton.disabled = true;
-          refreshButton.classList.add('btn-loading');
-          
+          refreshButton.classList.add("btn-loading");
+
           try {
             state.apiCache.clear();
             await dataManager.updateMap(false);
           } finally {
             refreshButton.disabled = false;
-            refreshButton.classList.remove('btn-loading');
+            refreshButton.classList.remove("btn-loading");
           }
         });
       }
@@ -1783,31 +1942,38 @@
       // Filter events
       document.addEventListener("filtersApplied", async () => {
         if (state.mapInitialized) {
-          storage.set('cached_date_range', null);
+          storage.set("cached_date_range", null);
           await dataManager.updateMap(true);
         }
       });
 
       // Keyboard shortcuts
       window.addEventListener("keydown", (e) => {
-        if (!state.map || document.activeElement.matches("input, textarea, select"))
+        if (
+          !state.map ||
+          document.activeElement.matches("input, textarea, select")
+        )
           return;
 
         const keyActions = {
           "+": () => state.map.zoomIn(),
           "=": () => state.map.zoomIn(),
           "-": () => state.map.zoomOut(),
-          "_": () => state.map.zoomOut(),
-          "f": () => mapManager.fitBounds(),
-          "r": () => document.getElementById('refresh-map')?.click(),
-          "l": () => document.getElementById('center-on-location')?.click(),
+          _: () => state.map.zoomOut(),
+          f: () => mapManager.fitBounds(),
+          r: () => document.getElementById("refresh-map")?.click(),
+          l: () => document.getElementById("center-on-location")?.click(),
         };
 
         if (keyActions[e.key]) {
           keyActions[e.key]();
           e.preventDefault();
-        } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || 
-                   e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        } else if (
+          e.key === "ArrowUp" ||
+          e.key === "ArrowDown" ||
+          e.key === "ArrowLeft" ||
+          e.key === "ArrowRight"
+        ) {
           const panDistance = e.shiftKey ? 200 : 100;
           const panMap = {
             ArrowUp: [0, -panDistance],
@@ -1821,15 +1987,17 @@
       });
 
       // Performance monitoring
-      if ('PerformanceObserver' in window) {
+      if ("PerformanceObserver" in window) {
         const observer = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
-            if (entry.entryType === 'measure') {
-              console.log(`Performance: ${entry.name} - ${entry.duration.toFixed(2)}ms`);
+            if (entry.entryType === "measure") {
+              console.log(
+                `Performance: ${entry.name} - ${entry.duration.toFixed(2)}ms`,
+              );
             }
           }
         });
-        observer.observe({ entryTypes: ['measure'] });
+        observer.observe({ entryTypes: ["measure"] });
       }
 
       // Cleanup on page visibility change
@@ -1838,7 +2006,7 @@
           state.mapSettings.autoRefresh = false;
         } else {
           if (state.hasPendingRequests()) {
-            utils.showNotification('Refreshing data...', 'info', 2000);
+            utils.showNotification("Refreshing data...", "info", 2000);
             dataManager.updateMap(false);
           }
         }
@@ -1847,7 +2015,7 @@
       // Cleanup on page unload
       window.addEventListener("beforeunload", () => {
         state.cancelAllRequests();
-        
+
         const visibility = {};
         Object.entries(state.mapLayers).forEach(([name, info]) => {
           visibility[name] = info.visible;
@@ -1857,17 +2025,23 @@
       });
 
       // Error boundary
-      window.addEventListener('error', (e) => {
-        console.error('Global error:', e.error);
-        if (e.error?.message?.includes('WebGL')) {
-          utils.showNotification('WebGL error detected. Map may not render correctly.', 'danger');
+      window.addEventListener("error", (e) => {
+        console.error("Global error:", e.error);
+        if (e.error?.message?.includes("WebGL")) {
+          utils.showNotification(
+            "WebGL error detected. Map may not render correctly.",
+            "danger",
+          );
         }
       });
 
-      window.addEventListener('unhandledrejection', (e) => {
-        console.error('Unhandled promise rejection:', e.reason);
-        if (e.reason?.message?.includes('fetch')) {
-          utils.showNotification('Network error. Please check your connection.', 'warning');
+      window.addEventListener("unhandledrejection", (e) => {
+        console.error("Unhandled promise rejection:", e.reason);
+        if (e.reason?.message?.includes("fetch")) {
+          utils.showNotification(
+            "Network error. Please check your connection.",
+            "warning",
+          );
         }
       });
     },
@@ -1875,15 +2049,16 @@
     async mapMatchTrips() {
       try {
         const confirmed = await window.confirmationDialog.show({
-          title: 'Map Match Trips',
-          message: 'This will process all trips in the selected date range. This may take several minutes for large date ranges. Continue?',
-          confirmText: 'Start Map Matching',
-          confirmButtonClass: 'btn-primary'
+          title: "Map Match Trips",
+          message:
+            "This will process all trips in the selected date range. This may take several minutes for large date ranges. Continue?",
+          confirmText: "Start Map Matching",
+          confirmButtonClass: "btn-primary",
         });
-        
+
         if (!confirmed) return;
 
-        window.loadingManager.show('Starting map matching process...');
+        window.loadingManager.show("Starting map matching process...");
 
         const response = await utils.fetchWithRetry("/api/map_match_trips", {
           method: "POST",

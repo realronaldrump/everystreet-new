@@ -1,13 +1,13 @@
-{% extends "base.html" %}
-{% block title %}Trip Details{% endblock %}
-{% block content %}
+{% extends "base.html" %} {% block title %}Trip Details{% endblock %} {% block
+content %}
 <div class="container-fluid px-4 py-3">
   <h1 class="mb-4">Trip {{ trip_id }}</h1>
-  <div id="trip-map" style="height: 500px;"></div>
+  <div id="trip-map" style="height: 500px"></div>
   <div id="trip-info" class="mt-3"></div>
 </div>
-{% endblock %}
-{% block extra_js %}
-<script>window.TRIP_ID = "{{ trip_id }}";</script>
+{% endblock %} {% block extra_js %}
+<script>
+  window.TRIP_ID = "{{ trip_id }}";
+</script>
 <script src="{{ url_for('static', path='js/trip_view.js') | replace('http://', '//') }}"></script>
 {% endblock %}
