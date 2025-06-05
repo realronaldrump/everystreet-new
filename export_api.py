@@ -33,6 +33,77 @@ trips_collection = db_manager.db["trips"]
 matched_trips_collection = db_manager.db["matched_trips"]
 
 
+@router.post("/api/export/coverage-route")
+async def export_coverage_route_endpoint(
+    payload: dict = Body(...),
+):
+    """
+    Export the provided coverage route GeoJSON data in the specified format.
+    This endpoint now robustly handles both GeometryCollection and single LineString geometries.
+    """
+    try:
+        route_geometry = payload.get("route_geometry")
+        fmt = payload.get("format", "geojson").lower()
+        location_display_name = payload.get("location_name", "coverage_route")
+
+        if not route_geometry or not isinstance(route_geometry, dict):
+            raise HTTPException(status_code=400, detail="Invalid or missing route_geometry.")
+
+        geom_type = route_geometry.get("type")
+        data_to_export: Any
+        filename_base = f"{location_display_name.replace(' ', '_').lower()}_route"
+
+        if geom_type == "GeometryCollection":
+            # Handle complex coverage route
+            if fmt == "gpx":
+                trips_for_gpx = []
+                for i, geom in enumerate(route_geometry.get("geometries", [])):
+                    if isinstance(geom, dict) and geom.get("type") == "LineString" and geom.get("coordinates"):
+                        trips_for_gpx.append({
+                            "transactionId": f"segment_{i + 1}",
+                            "gps": geom, "source": "coverage_route_segment",
+                            "startTime": datetime.now(timezone.utc), "endTime": datetime.now(timezone.utc)
+                        })
+                data_to_export = trips_for_gpx
+            elif fmt == "shapefile":
+                features = [geojson_module.Feature(geometry=geom, properties={"segment_idx": i + 1}) for i, geom in enumerate(route_geometry.get("geometries", [])) if isinstance(geom, dict)]
+                data_to_export = geojson_module.FeatureCollection(features)
+            else: # geojson, json
+                data_to_export = route_geometry
+
+        elif geom_type == "LineString":
+            # Handle simple A-to-B route
+            filename_base = f"{location_display_name.replace(' ', '_').lower()}_single_route"
+            if fmt == "gpx":
+                data_to_export = [{
+                    "transactionId": "single_route", "gps": route_geometry, "source": "single_route",
+                    "startTime": datetime.now(timezone.utc), "endTime": datetime.now(timezone.utc)
+                }]
+            elif fmt == "shapefile":
+                feature = geojson_module.Feature(geometry=route_geometry, properties={"name": "single_route"})
+                data_to_export = geojson_module.FeatureCollection([feature])
+            else: # geojson, json
+                data_to_export = route_geometry
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported route geometry type: {geom_type}. Must be GeometryCollection or LineString.")
+
+        if not data_to_export:
+             raise HTTPException(status_code=400, detail="No valid geometries found in the route to export.")
+
+        return await create_export_response(data_to_export, fmt, filename_base)
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except ValueError as ve:
+        logger.error(f"ValueError in export_coverage_route_endpoint: {str(ve)}")
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.exception(f"Error exporting coverage route: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to export coverage route: {str(e)}")
+
+
+# --- Other existing export endpoints remain unchanged ---
+
 @router.get("/export/geojson")
 async def export_geojson(request: Request):
     """Export trips as GeoJSON."""
@@ -324,110 +395,6 @@ async def export_boundary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
-        )
-
-
-@router.post("/api/export/coverage-route")
-async def export_coverage_route_endpoint(
-    payload: dict = Body(...),
-):
-    """
-    Export the provided coverage route GeoJSON data in the specified format.
-    The payload should contain:
-    - route_geometry: The GeoJSON GeometryCollection representing the route.
-    - format: The desired export format (e.g., "geojson", "gpx", "shapefile").
-    - location_name: (Optional) A name for the location for filename generation.
-    """
-    try:
-        route_geometry = payload.get("route_geometry")
-        fmt = payload.get("format", "geojson").lower()
-        location_display_name = payload.get("location_name", "coverage_route")
-
-        if (
-            not route_geometry
-            or not isinstance(route_geometry, dict)
-            or route_geometry.get("type") != "GeometryCollection"
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or missing route_geometry (must be a GeoJSON GeometryCollection).",
-            )
-
-        data_to_export: Any
-        filename_base = (
-            f"{location_display_name.replace(' ', '_').lower()}_coverage_route"
-        )
-
-        if fmt == "gpx":
-            trips_for_gpx = []
-            for i, geom in enumerate(route_geometry.get("geometries", [])):
-                if (
-                    isinstance(geom, dict)
-                    and geom.get("type") == "LineString"
-                    and geom.get("coordinates")
-                ):
-                    trips_for_gpx.append(
-                        {
-                            "transactionId": f"segment_{i + 1}",
-                            "gps": geom,
-                            "source": "coverage_route_segment",
-                            "startTime": datetime.now(timezone.utc),
-                            "endTime": datetime.now(timezone.utc)
-                            + timedelta(minutes=i + 1),
-                        }
-                    )
-            data_to_export = trips_for_gpx
-            if not data_to_export:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No valid LineString geometries found in the route to export as GPX.",
-                )
-        elif fmt == "shapefile":
-            features = []
-            for i, geom in enumerate(route_geometry.get("geometries", [])):
-                if isinstance(geom, dict):
-                    features.append(
-                        geojson_module.Feature(
-                            geometry=geom,
-                            properties={
-                                "segment_idx": i + 1,
-                                "route_name": location_display_name,
-                            },
-                        )
-                    )
-            if not features:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No valid geometries found in the route to export as Shapefile.",
-                )
-            data_to_export = geojson_module.FeatureCollection(features)
-        elif fmt == "geojson":
-            data_to_export = route_geometry
-        elif fmt == "json":
-            data_to_export = route_geometry
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported export format: {fmt}. Supported formats: geojson, gpx, shapefile, json.",
-            )
-
-        return await create_export_response(data_to_export, fmt, filename_base)
-
-    except HTTPException as http_exc:
-        raise http_exc
-    except ValueError as ve:
-        logger.error(
-            f"ValueError in export_coverage_route_endpoint: {str(ve)}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(ve),
-        )
-    except Exception as e:
-        logger.exception(f"Error exporting coverage route: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to export coverage route: {str(e)}",
         )
 
 

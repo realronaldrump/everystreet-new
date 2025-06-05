@@ -39,6 +39,7 @@ async def _get_mapbox_optimization_route(
     if not MAPBOX_ACCESS_TOKEN:
         raise HTTPException(status_code=500, detail="Mapbox API token not configured.")
     if not end_points:
+        # Optimization API needs at least one destination
         raise HTTPException(
             status_code=400, detail="No end points provided for optimization."
         )
@@ -354,7 +355,10 @@ async def _cluster_segments(
 async def _optimize_route_for_clusters(
     start_point: tuple[float, float], clusters: list[list[dict]]
 ) -> dict[str, Any]:
-    """Optimize route for multiple clusters, connecting them with directions."""
+    """
+    Optimizes a route through multiple clusters of street segments.
+    This version correctly handles clusters of size 1.
+    """
     if not clusters:
         raise HTTPException(
             status_code=400, detail="No clusters for route optimization."
@@ -364,6 +368,7 @@ async def _optimize_route_for_clusters(
     all_geometries = []
     current_lon, current_lat = start_point
 
+    # Sort clusters by distance from the start point to determine the first cluster
     clusters.sort(
         key=lambda c: haversine(
             start_point[0], start_point[1], c[0]["start_node"][0], c[0]["start_node"][1]
@@ -374,39 +379,52 @@ async def _optimize_route_for_clusters(
         if not cluster_segments:
             continue
 
-        # Route from current position to the start of the first segment in this cluster
-        first_seg_node = cluster_segments[0]["start_node"]
+        # Find the nearest point in the current cluster to the current position
+        nearest_point_in_cluster = min(
+            [seg["start_node"] for seg in cluster_segments],
+            key=lambda p: haversine(current_lon, current_lat, p[0], p[1]),
+        )
+
+        # 1. Get a simple route to the nearest point of the cluster
         connection_result = await _get_mapbox_directions_route(
-            current_lon, current_lat, first_seg_node[0], first_seg_node[1]
+            current_lon,
+            current_lat,
+            nearest_point_in_cluster[0],
+            nearest_point_in_cluster[1],
         )
         all_geometries.append(connection_result["geometry"])
         total_duration += connection_result["duration"]
         total_distance += connection_result["distance"]
 
-        # Optimize within the cluster, starting from the entry point of the cluster
+        # 2. Optimize the route *within* the cluster
         cluster_destinations = [seg["start_node"] for seg in cluster_segments]
-        # The start point for optimization is the first segment's start node
-        cluster_start_lon, cluster_start_lat = first_seg_node
-        # The destinations should not include the start point itself
-        cluster_destinations_for_api = [
-            dest for dest in cluster_destinations if dest != first_seg_node
-        ]
 
-        if cluster_destinations_for_api:
+        # If there's more than one point, optimize. Otherwise, we're already at the single point.
+        if len(cluster_destinations) > 1:
+            # The start for the optimization is the point we just routed to
+            optimization_start_lon, optimization_start_lat = nearest_point_in_cluster
+            # The destinations for optimization are all other points in the cluster
+            optimization_end_points = [
+                p for p in cluster_destinations if p != nearest_point_in_cluster
+            ]
+
             cluster_opt_result = await _get_mapbox_optimization_route(
-                cluster_start_lon,
-                cluster_start_lat,
-                end_points=cluster_destinations_for_api,
+                optimization_start_lon,
+                optimization_start_lat,
+                end_points=optimization_end_points,
             )
             all_geometries.append(cluster_opt_result["geometry"])
             total_duration += cluster_opt_result["duration"]
             total_distance += cluster_opt_result["distance"]
+
+            # Update current position to the end of this cluster's optimized route
             last_waypoint_coords = cluster_opt_result["waypoints"][-1]["location"]
             current_lon, current_lat = last_waypoint_coords[0], last_waypoint_coords[1]
-        else:  # Cluster has only one point, just use the connection route's end
-            current_lon, current_lat = first_seg_node
+        else:
+            # If the cluster has only one point, our new position is that point
+            current_lon, current_lat = nearest_point_in_cluster
 
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.2)  # Rate limiting
 
     return {
         "geometry": {"type": "GeometryCollection", "geometries": all_geometries},
