@@ -1091,8 +1091,15 @@ class DrivingNavigation {
         this.setStatus(`Found ${data.suggested_clusters.length} efficient clusters. Top cluster: ${topCluster.segment_count} streets, ${distanceMiles} mi away.`);
         this.displayEfficientClustersInfo(data.suggested_clusters);
 
-        setTimeout(() => {
-          if (confirm(`Navigate to the top cluster with ${topCluster.segment_count} streets?`)) {
+        setTimeout(async () => {
+          const confirmed = await window.confirmationDialog.show({
+            title: "Navigate to Cluster",
+            message: `Navigate to the top cluster with ${topCluster.segment_count} streets?`,
+            confirmText: "Navigate",
+            confirmButtonClass: "btn-primary"
+          });
+          
+          if (confirmed) {
             this.highlightTargetStreet(topCluster.nearest_segment.segment_id);
             this.findRouteToSegment(topCluster.nearest_segment.segment_id);
           }
