@@ -550,8 +550,16 @@
     },
 
     handleMapClick(e) {
+      // Only query layers that are currently visible
+      const visibleLayers = ["trips-layer", "matchedTrips-layer"].filter(layerId => {
+        const layerName = layerId.replace("-layer", "");
+        return state.mapLayers[layerName]?.visible;
+      });
+
+      if (visibleLayers.length === 0) return;
+
       const features = state.map.queryRenderedFeatures(e.point, {
-        layers: ["trips-layer", "matchedTrips-layer"],
+        layers: visibleLayers,
       });
 
       if (features.length === 0) {
@@ -670,7 +678,7 @@
   // Layer manager
   const layerManager = {
     // Add cleanup tracking
-    _layerCleanupMap: new WeakMap(),
+    _layerCleanupMap: new Map(),
 
     initializeControls() {
       const container = utils.getElement("layer-toggles");
@@ -1029,7 +1037,10 @@
           state.map.on("mouseenter", layerId, mouseEnterHandler);
           state.map.on("mouseleave", layerId, mouseLeaveHandler);
 
-          // Store handlers for cleanup
+          // Store handlers for cleanup using a regular Map instead of WeakMap
+          if (!this._layerCleanupMap) {
+            this._layerCleanupMap = new Map();
+          }
           this._layerCleanupMap.set(layerId, {
             click: clickHandler,
             mouseenter: mouseEnterHandler,
@@ -1047,27 +1058,29 @@
       }
     },
 
-    // Add cleanup method
+    // Update cleanup method to use regular Map
     cleanup() {
       if (!state.map) return;
 
       // Clean up all tracked layers
-      for (const [layerId, handlers] of this._layerCleanupMap) {
-        if (state.map.getLayer(layerId)) {
-          // Remove event listeners
-          Object.entries(handlers).forEach(([event, handler]) => {
-            state.map.off(event, layerId, handler);
-          });
-          state.map.removeLayer(layerId);
+      if (this._layerCleanupMap) {
+        for (const [layerId, handlers] of this._layerCleanupMap) {
+          if (state.map.getLayer(layerId)) {
+            // Remove event listeners
+            Object.entries(handlers).forEach(([event, handler]) => {
+              state.map.off(event, layerId, handler);
+            });
+            state.map.removeLayer(layerId);
+          }
+
+          const sourceId = layerId.replace("-layer", "-source");
+          if (state.map.getSource(sourceId)) {
+            state.map.removeSource(sourceId);
+          }
         }
 
-        const sourceId = layerId.replace("-layer", "-source");
-        if (state.map.getSource(sourceId)) {
-          state.map.removeSource(sourceId);
-        }
+        this._layerCleanupMap.clear();
       }
-
-      this._layerCleanupMap = new WeakMap();
     },
   };
 
@@ -1515,7 +1528,12 @@
         feature.source?.includes("matched");
       const tripId = props.transactionId || props.id || props.tripId;
 
-      if (!tripId) return "";
+      if (!tripId) {
+        console.warn("No trip ID found in feature:", feature);
+        return "";
+      }
+
+      console.log("Creating action buttons for trip:", tripId, "Is matched:", isMatched); // Debug log
 
       return `
         <div class="popup-actions mt-3 d-flex gap-2 flex-wrap">
@@ -1549,27 +1567,37 @@
       const popupElement = popup.getElement();
       if (!popupElement) return;
 
+      // Add event listener to the popup element
       popupElement.addEventListener("click", async (e) => {
         const button = e.target.closest("button");
         if (!button) return;
 
         const tripId = button.dataset.tripId;
-        if (!tripId) return;
+        if (!tripId) {
+          console.warn("No trip ID found on button:", button);
+          return;
+        }
+
+        console.log("Button clicked:", button.className, "Trip ID:", tripId); // Debug log
 
         button.disabled = true;
         button.classList.add("btn-loading");
 
         try {
           if (button.classList.contains("view-trip-btn")) {
+            console.log("Opening trip view for:", tripId); // Debug log
             window.open(`/trips/${tripId}`, "_blank");
           } else if (button.classList.contains("delete-matched-trip-btn")) {
+            console.log("Deleting matched trip:", tripId); // Debug log
             await this.deleteMatchedTrip(tripId, popup);
           } else if (button.classList.contains("delete-trip-btn")) {
+            console.log("Deleting trip:", tripId); // Debug log
             await this.deleteTrip(tripId, popup);
           } else if (
             button.classList.contains("rematch-trip-btn") ||
             button.classList.contains("map-match-btn")
           ) {
+            console.log("Rematching trip:", tripId); // Debug log
             await this.rematchTrip(tripId, popup);
           }
         } catch (error) {

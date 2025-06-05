@@ -27,6 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 from coverage_api import router as coverage_api_router
 from db import (
@@ -155,6 +156,12 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+class ProcessTripOptions(BaseModel):
+    map_match: bool = True
+    validate_only: bool = False
+    geocode_only: bool = False
+
+
 async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
     """Process and store a trip using TripProcessor.
 
@@ -248,9 +255,7 @@ async def process_geojson_trip(
 @app.post("/api/process_trip/{trip_id}")
 async def process_single_trip(
     trip_id: str,
-    validate_only: bool = False,
-    geocode_only: bool = False,
-    map_match: bool = True,
+    options: ProcessTripOptions,
 ):
     """Process a single trip with options to validate, geocode, and map
     match.
@@ -272,7 +277,7 @@ async def process_single_trip(
         )
         processor.set_trip_data(trip)
 
-        if validate_only:
+        if options.validate_only:
             await processor.validate()
             processing_status = processor.get_processing_status()
             return {
@@ -281,7 +286,7 @@ async def process_single_trip(
                 "is_valid": processing_status["state"]
                 == TripState.VALIDATED.value,
             }
-        if geocode_only:
+        if options.geocode_only:
             await processor.validate()
             if processor.state == TripState.VALIDATED:
                 await processor.process_basic()
@@ -297,8 +302,8 @@ async def process_single_trip(
                 == TripState.GEOCODED.value,
                 "saved_id": saved_id,
             }
-        await processor.process(do_map_match=map_match)
-        saved_id = await processor.save(map_match_result=map_match)
+        await processor.process(do_map_match=options.map_match)
+        saved_id = await processor.save(map_match_result=options.map_match)
         processing_status = processor.get_processing_status()
 
         return {
@@ -1010,17 +1015,22 @@ async def delete_trip(trip_id: str):
                 detail="Trip not found",
             )
 
+        # Use the _id from the found trip to ensure the correct document is deleted.
         result = await delete_one_with_retry(
             trips_collection,
-            {"transactionId": trip_id},
+            {"_id": trip["_id"]},
         )
 
-        matched_delete_result = await delete_one_with_retry(
-            matched_trips_collection,
-            {"transactionId": trip_id},
-        )
+        # Use the transactionId from the found trip to delete the corresponding matched trip.
+        actual_transaction_id = trip.get("transactionId")
+        matched_delete_result = None
+        if actual_transaction_id:
+            matched_delete_result = await delete_one_with_retry(
+                matched_trips_collection,
+                {"transactionId": actual_transaction_id},
+            )
 
-        if result.deleted_count == 1:
+        if result.deleted_count >= 1:
             return {
                 "status": "success",
                 "message": "Trip deleted successfully",
@@ -1032,13 +1042,16 @@ async def delete_trip(trip_id: str):
                 ),
             }
 
+        # This case indicates the trip was found but could not be deleted, which is a server error.
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete trip from primary collection",
+            detail="Failed to delete trip from primary collection after finding it.",
         )
 
     except Exception as e:
         logger.exception("Error deleting trip: %s", str(e))
+        if isinstance(e, HTTPException):
+            raise
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
