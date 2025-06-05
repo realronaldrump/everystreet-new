@@ -522,7 +522,7 @@
         }
       });
 
-      let currentDateIter = DateUtils.parseDate(startDateString);
+      const currentDateIter = DateUtils.parseDate(startDateString);
       const finalDate = DateUtils.parseDate(endDateString);
 
       while (currentDateIter <= finalDate) {
@@ -620,7 +620,7 @@
         }
       });
 
-      let currentDateIter = DateUtils.parseDate(startDateString);
+      const currentDateIter = DateUtils.parseDate(startDateString);
       const finalDate = DateUtils.parseDate(endDateString);
 
       while (currentDateIter <= finalDate) {
@@ -733,7 +733,8 @@
     }
 
     try {
-      let { _id, count, isCustomPlace } = mostVisitedData;
+      let { _id } = mostVisitedData;
+      const { count, isCustomPlace } = mostVisitedData;
       _id = parseMostVisitedId(_id); // Parse if it's a JSON string
       const placeName = getMostVisitedPlaceName(_id); // Get display name
 

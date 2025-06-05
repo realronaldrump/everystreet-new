@@ -412,7 +412,7 @@ function createEditableCell(data, type, field, inputType = "text") {
           [25, 50, 100, "All"],
         ],
         order: [[0, "desc"]], // Sort by start time descending
-        drawCallback: function (settings) {
+        drawCallback() {
           // Cleanup previous event listeners
           $(this)
             .find(".edit-trip-btn, .cancel-edit-btn, .save-changes-btn")

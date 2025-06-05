@@ -550,29 +550,26 @@
     },
 
     handleMapClick(e) {
-      // Only query layers that are currently visible
-      const visibleLayers = ["trips-layer", "matchedTrips-layer"].filter(layerId => {
-        const layerName = layerId.replace("-layer", "");
-        return state.mapLayers[layerName]?.visible;
-      });
+      // This is a general click handler for the entire map.
+      // Its primary job is to clear selections when clicking on an empty area.
+      // The layer-specific click handlers are responsible for opening popups on features.
 
-      if (visibleLayers.length === 0) return;
-
+      // Query for features at the click point from our interactive layers.
       const features = state.map.queryRenderedFeatures(e.point, {
-        layers: visibleLayers,
+        layers: ['trips-layer', 'matchedTrips-layer']
       });
 
+      // If no features are found under the click point, it means the user clicked on the map background.
+      // In this case, we deselect any currently selected trip.
       if (features.length === 0) {
         if (state.selectedTripId) {
           state.selectedTripId = null;
           this.refreshTripStyles();
         }
-      } else {
-        const tripFeature = features[0];
-        if (tripFeature) {
-          tripInteractions.handleTripClick(e, tripFeature);
-        }
       }
+      // If features *are* found, we do nothing. The click is on a feature, and the
+      // layer's own click handler will manage it. This prevents this general handler
+      // from interfering and causing a loop.
     },
 
     refreshTripStyles: utils.throttle(function () {
@@ -1020,6 +1017,11 @@
         // Add event listeners with cleanup tracking
         if (layerName === "trips" || layerName === "matchedTrips") {
           const clickHandler = (e) => {
+            // Stop the event from bubbling up to the map's general click handler.
+            // This is a robust way to ensure that clicking on a feature
+            // doesn't also trigger actions meant for clicking on the map background.
+            e.originalEvent.stopPropagation();
+
             if (e.features?.length > 0) {
               tripInteractions.handleTripClick(e, e.features[0]);
             }
@@ -1435,8 +1437,6 @@
     handleTripClick(e, feature) {
       if (!feature?.properties) return;
 
-      e.originalEvent?.stopPropagation?.();
-
       const tripId =
         feature.properties.transactionId ||
         feature.properties.id ||
@@ -1533,8 +1533,6 @@
         return "";
       }
 
-      console.log("Creating action buttons for trip:", tripId, "Is matched:", isMatched); // Debug log
-
       return `
         <div class="popup-actions mt-3 d-flex gap-2 flex-wrap">
           <button class="btn btn-sm btn-primary view-trip-btn" data-trip-id="${tripId}">
@@ -1578,26 +1576,20 @@
           return;
         }
 
-        console.log("Button clicked:", button.className, "Trip ID:", tripId); // Debug log
-
         button.disabled = true;
         button.classList.add("btn-loading");
 
         try {
           if (button.classList.contains("view-trip-btn")) {
-            console.log("Opening trip view for:", tripId); // Debug log
             window.open(`/trips/${tripId}`, "_blank");
           } else if (button.classList.contains("delete-matched-trip-btn")) {
-            console.log("Deleting matched trip:", tripId); // Debug log
             await this.deleteMatchedTrip(tripId, popup);
           } else if (button.classList.contains("delete-trip-btn")) {
-            console.log("Deleting trip:", tripId); // Debug log
             await this.deleteTrip(tripId, popup);
           } else if (
             button.classList.contains("rematch-trip-btn") ||
             button.classList.contains("map-match-btn")
           ) {
-            console.log("Rematching trip:", tripId); // Debug log
             await this.rematchTrip(tripId, popup);
           }
         } catch (error) {
