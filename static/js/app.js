@@ -556,7 +556,7 @@
 
       // Query for features at the click point from our interactive layers.
       const features = state.map.queryRenderedFeatures(e.point, {
-        layers: ['trips-layer', 'matchedTrips-layer']
+        layers: ["trips-layer", "matchedTrips-layer"],
       });
 
       // If no features are found under the click point, it means the user clicked on the map background.
