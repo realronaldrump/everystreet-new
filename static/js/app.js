@@ -636,6 +636,9 @@
 
   // Layer manager
   const layerManager = {
+    // Add cleanup tracking
+    _layerCleanupMap: new WeakMap(),
+    
     initializeControls() {
       const container = utils.getElement("layer-toggles");
       if (!container) return;
@@ -886,67 +889,91 @@
       const layerInfo = state.mapLayers[layerName];
 
       try {
-        const source = state.map.getSource(sourceId);
-        if (source) {
-          source.setData(data);
-        } else {
-          state.map.addSource(sourceId, { 
-            type: "geojson", 
-            data,
-            tolerance: 0.5,
-            buffer: 128,
-            maxzoom: 14,
-            generateId: true
+        // Clean up existing layer and source completely
+        if (state.map.getLayer(layerId)) {
+          // Remove all event listeners first
+          const events = ['click', 'mouseenter', 'mouseleave'];
+          events.forEach(event => {
+            state.map.off(event, layerId);
           });
+          state.map.removeLayer(layerId);
+        }
+        
+        if (state.map.getSource(sourceId)) {
+          state.map.removeSource(sourceId);
+        }
+        
+        // Wait for next frame to ensure cleanup
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        
+        // Add new source
+        state.map.addSource(sourceId, { 
+          type: "geojson", 
+          data,
+          tolerance: 0.5,
+          buffer: 128,
+          maxzoom: 14,
+          generateId: true
+        });
+
+        // Add new layer
+        const layerConfig = {
+          id: layerId,
+          type: "line",
+          source: sourceId,
+          minzoom: layerInfo.minzoom || 0,
+          maxzoom: layerInfo.maxzoom || 22,
+          layout: {
+            visibility: layerInfo.visible ? "visible" : "none",
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: {
+            "line-color": layerInfo.color,
+            "line-opacity": layerInfo.opacity,
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              10, layerInfo.weight * 0.5,
+              15, layerInfo.weight,
+              20, layerInfo.weight * 2
+            ],
+          },
+        };
+
+        if (layerName === "undrivenStreets") {
+          layerConfig.paint["line-dasharray"] = [2, 2];
         }
 
-        if (!state.map.getLayer(layerId)) {
-          const layerConfig = {
-            id: layerId,
-            type: "line",
-            source: sourceId,
-            minzoom: layerInfo.minzoom || 0,
-            maxzoom: layerInfo.maxzoom || 22,
-            layout: {
-              visibility: layerInfo.visible ? "visible" : "none",
-              "line-join": "round",
-              "line-cap": "round",
-            },
-            paint: {
-              "line-color": layerInfo.color,
-              "line-opacity": layerInfo.opacity,
-              "line-width": [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
-                10, layerInfo.weight * 0.5,
-                15, layerInfo.weight,
-                20, layerInfo.weight * 2
-              ],
-            },
+        state.map.addLayer(layerConfig);
+
+        // Add event listeners with cleanup tracking
+        if (layerName === "trips" || layerName === "matchedTrips") {
+          const clickHandler = (e) => {
+            if (e.features?.length > 0) {
+              tripInteractions.handleTripClick(e, e.features[0]);
+            }
           };
-
-          if (layerName === "undrivenStreets") {
-            layerConfig.paint["line-dasharray"] = [2, 2];
-          }
-
-          state.map.addLayer(layerConfig);
-
-          if (layerName === "trips" || layerName === "matchedTrips") {
-            state.map.on("click", layerId, (e) => {
-              if (e.features?.length > 0) {
-                tripInteractions.handleTripClick(e, e.features[0]);
-              }
-            });
-
-            state.map.on("mouseenter", layerId, () => {
-              state.map.getCanvas().style.cursor = "pointer";
-            });
-
-            state.map.on("mouseleave", layerId, () => {
-              state.map.getCanvas().style.cursor = "";
-            });
-          }
+          
+          const mouseEnterHandler = () => {
+            state.map.getCanvas().style.cursor = "pointer";
+          };
+          
+          const mouseLeaveHandler = () => {
+            state.map.getCanvas().style.cursor = "";
+          };
+          
+          state.map.on("click", layerId, clickHandler);
+          state.map.on("mouseenter", layerId, mouseEnterHandler);
+          state.map.on("mouseleave", layerId, mouseLeaveHandler);
+          
+          // Store handlers for cleanup
+          this._layerCleanupMap.set(layerId, {
+            click: clickHandler,
+            mouseenter: mouseEnterHandler,
+            mouseleave: mouseLeaveHandler
+          });
         }
         
         layerInfo.layer = data;
@@ -956,6 +983,29 @@
         utils.showNotification(`Failed to update ${layerName} layer`, "warning");
       }
     },
+
+    // Add cleanup method
+    cleanup() {
+      if (!state.map) return;
+
+      // Clean up all tracked layers
+      for (const [layerId, handlers] of this._layerCleanupMap) {
+        if (state.map.getLayer(layerId)) {
+          // Remove event listeners
+          Object.entries(handlers).forEach(([event, handler]) => {
+            state.map.off(event, layerId, handler);
+          });
+          state.map.removeLayer(layerId);
+        }
+        
+        const sourceId = layerId.replace('-layer', '-source');
+        if (state.map.getSource(sourceId)) {
+          state.map.removeSource(sourceId);
+        }
+      }
+      
+      this._layerCleanupMap = new WeakMap();
+    }
   };
 
   // Data manager
@@ -1803,6 +1853,7 @@
           visibility[name] = info.visible;
         });
         storage.set(CONFIG.STORAGE_KEYS.layerVisibility, visibility);
+        layerManager.cleanup();
       });
 
       // Error boundary

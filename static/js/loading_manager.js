@@ -9,10 +9,16 @@ class LoadingManager {
 
     this.operations = new Map();
     this.isVisible = false;
-    this.minimumShowTime = 500; // Minimum time to show overlay
+    this.minimumShowTime = 300; // Minimum time to show overlay
     this.showStartTime = null;
     this.pendingHide = false;
     this.initialized = false;
+    this.operationCounter = 0;
+    this.activeOperations = new Map();
+    this.operationQueue = [];
+    this.isProcessingQueue = false;
+    this.showTimeout = null;
+    this.hideTimeout = null;
     
     // Track different loading stages
     this.stages = {
@@ -51,31 +57,85 @@ class LoadingManager {
   createOverlay() {
     const overlay = document.createElement('div');
     overlay.className = 'loading-overlay';
-    overlay.setAttribute('role', 'status');
-    overlay.setAttribute('aria-live', 'polite');
-    overlay.innerHTML = `
-      <div class="loading-content">
-        <div class="loading-spinner" aria-hidden="true">
-          <div class="spinner-ring"></div>
-          <div class="spinner-ring"></div>
-          <div class="spinner-ring"></div>
-        </div>
-        <div class="loading-text">Initializing...</div>
-        <div class="loading-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <div class="progress-bar" id="loading-progress-bar"></div>
-        </div>
-        <div class="loading-details"></div>
-      </div>
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
     `;
-    
+
+    const content = document.createElement('div');
+    content.className = 'loading-content';
+    content.style.cssText = `
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      min-width: 200px;
+    `;
+
+    const spinner = document.createElement('div');
+    spinner.className = 'loading-spinner';
+    spinner.style.cssText = `
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 10px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    `;
+
+    const text = document.createElement('div');
+    text.className = 'loading-text';
+    text.style.cssText = `
+      margin-top: 10px;
+      color: #333;
+    `;
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'loading-progress';
+    progressBar.style.cssText = `
+      width: 100%;
+      height: 4px;
+      background: #f3f3f3;
+      margin-top: 10px;
+      border-radius: 2px;
+      overflow: hidden;
+    `;
+
+    const progress = document.createElement('div');
+    progress.className = 'progress-bar';
+    progress.style.cssText = `
+      width: 0%;
+      height: 100%;
+      background: #3498db;
+      transition: width 0.3s ease-in-out;
+    `;
+
+    progressBar.appendChild(progress);
+    content.appendChild(spinner);
+    content.appendChild(text);
+    content.appendChild(progressBar);
+    overlay.appendChild(content);
     document.body.appendChild(overlay);
-    
-    // Update element references
-    this.elements.overlay = overlay;
-    this.elements.text = overlay.querySelector('.loading-text');
-    this.elements.bar = overlay.querySelector('.progress-bar');
-    this.elements.spinner = overlay.querySelector('.loading-spinner');
-    this.elements.details = overlay.querySelector('.loading-details');
+
+    this.elements = {
+      overlay,
+      content,
+      spinner,
+      text,
+      progressBar,
+      progress
+    };
   }
 
   // Start a loading stage
@@ -183,73 +243,142 @@ class LoadingManager {
     }
   }
 
-  // Legacy method support
   startOperation(name, total = 100) {
-    if (!name) {
-      console.warn('Operation name is required');
-      return this;
-    }
-
-    this.operations.set(name, {
+    const operationId = ++this.operationCounter;
+    
+    const operation = {
+      id: operationId,
+      name,
       total,
       progress: 0,
       startTime: Date.now(),
-      message: `Loading ${name}...`,
-    });
-
-    this._showOverlay(`Loading ${name}...`);
-    return this;
+      subOperations: new Map(),
+      completed: false
+    };
+    
+    this.activeOperations.set(operationId, operation);
+    
+    // Debounce overlay show to prevent flicker
+    clearTimeout(this.showTimeout);
+    this.showTimeout = setTimeout(() => {
+      if (this.activeOperations.size > 0) {
+        this._showOverlay(`Loading ${name}...`);
+      }
+    }, 100);
+    
+    return {
+      id: operationId,
+      update: (progress, message) => this.updateOperation(operationId, progress, message),
+      finish: () => this.finishOperation(operationId),
+      error: (message) => this.errorOperation(operationId, message),
+      addSubOperation: (subName, subTotal) => this.addSubOperation(operationId, subName, subTotal)
+    };
   }
 
-  updateOperation(name, progress, message) {
-    const operation = this.operations.get(name);
-    if (!operation) return this;
-
+  updateOperation(operationId, progress, message) {
+    const operation = this.activeOperations.get(operationId);
+    if (!operation || operation.completed) return;
+    
     operation.progress = Math.min(Math.max(0, progress), operation.total);
     if (message) operation.message = message;
-
-    const overallProgress = this._calculateOverallProgress();
-    this._updateOverlayProgress(overallProgress, message || operation.message);
     
-    return this;
+    this.updateOverlay();
   }
 
-  _calculateOverallProgress() {
-    if (this.operations.size === 0) return 0;
+  finishOperation(operationId) {
+    const operation = this.activeOperations.get(operationId);
+    if (!operation) return;
     
-    const operations = Array.from(this.operations.values());
-    const totalWeight = operations.reduce((sum, op) => sum + op.total, 0);
-    const weightedProgress = operations.reduce(
-      (sum, op) => sum + (op.progress / op.total) * op.total,
-      0
-    );
+    operation.completed = true;
+    operation.progress = operation.total;
     
-    return Math.round((weightedProgress / totalWeight) * 100);
+    // Delay removal to ensure minimum show time
+    const elapsed = Date.now() - operation.startTime;
+    const delay = Math.max(0, this.minimumShowTime - elapsed);
+    
+    setTimeout(() => {
+      this.activeOperations.delete(operationId);
+      
+      if (this.activeOperations.size === 0) {
+        clearTimeout(this.showTimeout);
+        this._hideOverlay();
+      } else {
+        this.updateOverlay();
+      }
+    }, delay);
+  }
+
+  errorOperation(operationId, message) {
+    const operation = this.activeOperations.get(operationId);
+    if (!operation) return;
+    
+    operation.error = message;
+    operation.completed = true;
+    
+    // Show error briefly then remove
+    this._showOverlay(`Error: ${message}`, true);
+    
+    setTimeout(() => {
+      this.activeOperations.delete(operationId);
+      
+      if (this.activeOperations.size === 0) {
+        this._hideOverlay();
+      } else {
+        this.updateOverlay();
+      }
+    }, 2000);
+  }
+
+  updateOverlay() {
+    if (this.activeOperations.size === 0) return;
+    
+    // Calculate overall progress
+    let totalProgress = 0;
+    let totalWeight = 0;
+    let currentMessage = '';
+    
+    for (const operation of this.activeOperations.values()) {
+      if (!operation.completed) {
+        const weight = operation.total;
+        totalProgress += (operation.progress / operation.total) * weight;
+        totalWeight += weight;
+        currentMessage = operation.message || `Loading ${operation.name}...`;
+      }
+    }
+    
+    const overallProgress = totalWeight > 0 ? (totalProgress / totalWeight) * 100 : 0;
+    this._updateOverlayProgress(Math.round(overallProgress), currentMessage);
   }
 
   show(message = 'Loading...', immediate = false) {
-    this._showOverlay(message, immediate);
+    const operation = this.startOperation('Manual', 100);
+    operation.update(50, message);
     return this;
   }
 
   hide() {
-    this.finish();
+    // Complete all active operations
+    for (const [id, operation] of this.activeOperations) {
+      if (!operation.completed) {
+        this.finishOperation(id);
+      }
+    }
     return this;
   }
 
   finish(name) {
     if (name) {
-      this.operations.delete(name);
-      if (this.operations.size > 0) {
-        const progress = this._calculateOverallProgress();
-        this._updateOverlayProgress(progress);
-        return this;
+      // Find and finish operation by name
+      for (const [id, operation] of this.activeOperations) {
+        if (operation.name === name && !operation.completed) {
+          this.finishOperation(id);
+          break;
+        }
       }
     } else {
-      this.operations.clear();
+      // Finish all operations
+      this.hide();
     }
-
-    this._completeOverlay();
     return this;
   }
 
@@ -279,12 +408,14 @@ class LoadingManager {
   _showOverlay(message, immediate = false) {
     if (!this.initialized) this.init();
     
-    const { overlay, text, bar, spinner } = this.elements;
-    if (!overlay) return;
-
-    // Clear any pending hide
+    // Cancel any pending hide
+    clearTimeout(this.hideTimeout);
     this.pendingHide = false;
     
+    const { overlay, text, bar, spinner } = this.elements;
+    if (!overlay) return;
+    
+    // Ensure overlay is visible
     if (!this.isVisible) {
       this.showStartTime = Date.now();
       overlay.style.display = 'flex';
@@ -293,25 +424,23 @@ class LoadingManager {
       // Force reflow
       overlay.offsetHeight;
       
-      // Fade in
-      overlay.style.transition = immediate ? 'none' : 'opacity 0.3s ease-in-out';
+      // Fade in with shorter duration
+      overlay.style.transition = immediate ? 'none' : 'opacity 0.2s ease-in-out';
       overlay.style.opacity = '1';
       
       this.isVisible = true;
     }
-
+    
     if (text) {
       text.textContent = message;
       text.classList.remove('text-danger');
     }
-
+    
     if (bar) {
-      bar.style.width = '0%';
-      bar.setAttribute('aria-valuenow', '0');
       bar.classList.remove('bg-danger', 'bg-success');
       bar.classList.add('bg-primary');
     }
-
+    
     if (spinner) {
       spinner.classList.add('active');
     }
@@ -362,38 +491,35 @@ class LoadingManager {
   _hideOverlay() {
     if (!this.initialized || !this.isVisible) return;
     
+    // Cancel any pending show
+    clearTimeout(this.showTimeout);
+    
     const { overlay, spinner } = this.elements;
     if (!overlay) return;
-
-    overlay.style.opacity = '0';
     
-    setTimeout(() => {
-      if (overlay.style.opacity === '0') {
-        overlay.style.display = 'none';
-        this.isVisible = false;
-        this.showStartTime = null;
-        
-        // Reset stages for next load
-        Object.keys(this.stages).forEach(stage => {
-          this.stages[stage].status = 'pending';
-          this.stages[stage].progress = 0;
-        });
-        
-        if (spinner) {
-          spinner.classList.remove('active');
+    // Ensure minimum show time
+    const elapsed = this.showStartTime ? Date.now() - this.showStartTime : Infinity;
+    const remainingTime = Math.max(0, this.minimumShowTime - elapsed);
+    
+    this.hideTimeout = setTimeout(() => {
+      overlay.style.opacity = '0';
+      
+      setTimeout(() => {
+        if (overlay.style.opacity === '0' && this.activeOperations.size === 0) {
+          overlay.style.display = 'none';
+          this.isVisible = false;
+          this.showStartTime = null;
+          
+          if (spinner) {
+            spinner.classList.remove('active');
+          }
+          
+          // Reset state
+          this.operations.clear();
+          this.activeOperations.clear();
         }
-        
-        // Reset text colors
-        if (this.elements.text) {
-          this.elements.text.classList.remove('text-danger', 'text-success');
-        }
-        
-        if (this.elements.bar) {
-          this.elements.bar.classList.remove('bg-danger', 'bg-success');
-          this.elements.bar.classList.add('bg-primary');
-        }
-      }
-    }, 300);
+      }, 200);
+    }, remainingTime);
   }
 
   // New method for quick status updates
@@ -414,16 +540,91 @@ class LoadingManager {
   }
 
   // Add sub-operation tracking for legacy API compatibility
-  addSubOperation(name, total = 100) {
-    // Treat sub-operations as operations for legacy compatibility
-    this.startOperation(name, total);
-    return this;
+  addSubOperation(operationId, subName, subTotal = 100) {
+    const operation = this.activeOperations.get(operationId);
+    if (!operation) return;
+    
+    const subOperationId = ++this.operationCounter;
+    
+    const subOperation = {
+      id: subOperationId,
+      name: subName,
+      total: subTotal,
+      progress: 0,
+      startTime: Date.now(),
+      completed: false
+    };
+    
+    operation.subOperations.set(subOperationId, subOperation);
+    
+    return {
+      id: subOperationId,
+      update: (progress, message) => this.updateSubOperation(operationId, subOperationId, progress, message),
+      finish: () => this.finishSubOperation(operationId, subOperationId),
+      error: (message) => this.errorSubOperation(operationId, subOperationId, message)
+    };
   }
 
-  updateSubOperation(name, progress, message) {
-    // Update progress of the sub-operation (operation)
-    this.updateOperation(name, typeof progress === 'number' ? progress : 0, message);
-    return this;
+  updateSubOperation(operationId, subOperationId, progress, message) {
+    const operation = this.activeOperations.get(operationId);
+    if (!operation) return;
+    
+    const subOperation = operation.subOperations.get(subOperationId);
+    if (!subOperation) return;
+    
+    subOperation.progress = Math.min(Math.max(0, progress), subOperation.total);
+    if (message) subOperation.message = message;
+    
+    this.updateOverlay();
+  }
+
+  finishSubOperation(operationId, subOperationId) {
+    const operation = this.activeOperations.get(operationId);
+    if (!operation) return;
+    
+    const subOperation = operation.subOperations.get(subOperationId);
+    if (!subOperation) return;
+    
+    subOperation.completed = true;
+    subOperation.progress = subOperation.total;
+    
+    // Delay removal to ensure minimum show time
+    const elapsed = Date.now() - subOperation.startTime;
+    const delay = Math.max(0, this.minimumShowTime - elapsed);
+    
+    setTimeout(() => {
+      operation.subOperations.delete(subOperationId);
+      
+      if (operation.subOperations.size === 0) {
+        this.finishOperation(operationId);
+      } else {
+        this.updateOverlay();
+      }
+    }, delay);
+  }
+
+  errorSubOperation(operationId, subOperationId, message) {
+    const operation = this.activeOperations.get(operationId);
+    if (!operation) return;
+    
+    const subOperation = operation.subOperations.get(subOperationId);
+    if (!subOperation) return;
+    
+    subOperation.error = message;
+    subOperation.completed = true;
+    
+    // Show error briefly then remove
+    this._showOverlay(`Error: ${message}`, true);
+    
+    setTimeout(() => {
+      operation.subOperations.delete(subOperationId);
+      
+      if (operation.subOperations.size === 0) {
+        this.finishOperation(operationId);
+      } else {
+        this.updateOverlay();
+      }
+    }, 2000);
   }
 }
 

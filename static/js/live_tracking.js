@@ -1,7 +1,15 @@
 /* global DateUtils, mapboxgl */
 
 class LiveTripTracker {
+  static instance = null; // Singleton pattern
+  
   constructor(map) {
+    // Enforce singleton
+    if (LiveTripTracker.instance) {
+      LiveTripTracker.instance.destroy();
+    }
+    LiveTripTracker.instance = this;
+    
     if (!map) {
       window.handleError(
         "LiveTripTracker: Map is required",
@@ -16,6 +24,7 @@ class LiveTripTracker {
     this.liveSourceId = "live-trip-source";
     this.liveLineLayerId = "live-trip-line";
     this.liveMarkerLayerId = "live-trip-marker";
+    this.animationFrameId = null;
 
     // Initialize empty GeoJSON data
     this.initializeMapboxLayers();
@@ -764,7 +773,17 @@ class LiveTripTracker {
 
   destroy() {
     this.stopPolling();
-
+    
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    
     // Remove Mapbox layers and sources
     if (this.map) {
       try {
@@ -794,6 +813,10 @@ class LiveTripTracker {
       this.handleVisibilityChange,
     );
 
+    if (LiveTripTracker.instance === this) {
+      LiveTripTracker.instance = null;
+    }
+
     window.handleError("LiveTripTracker instance destroyed", "destroy", "info");
   }
 
@@ -802,18 +825,30 @@ class LiveTripTracker {
    * Falls back to polling when socket closes or errors.
    */
   initWebSocket() {
+    // Clean up any existing connection
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    
     if (!("WebSocket" in window)) {
       return this.startPolling();
     }
+    
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const url = `${proto}://${location.host}/ws/trips`;
+    
     try {
       this.ws = new WebSocket(url);
-
-      // Batch updates & run all changes in the animation frame loop for ultra-smoothness:
+      
+      // Prevent multiple animation loops
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+      }
+      
       let needsUpdate = false;
       let latestTrip = null;
-
+      
       this.ws.addEventListener("message", (e) => {
         try {
           const data = JSON.parse(e.data);
@@ -825,31 +860,38 @@ class LiveTripTracker {
           console.warn("LiveTripTracker WebSocket parse error:", err);
         }
       });
-
+      
       const updateLoop = () => {
         if (needsUpdate && latestTrip) {
           this.setActiveTrip(latestTrip);
           this.updateTripMetrics(latestTrip);
           needsUpdate = false;
         }
-        requestAnimationFrame(updateLoop);
+        this.animationFrameId = requestAnimationFrame(updateLoop);
       };
       updateLoop();
-
+      
       this.ws.addEventListener("open", () => {
         console.info("LiveTripTracker: WebSocket connected – stopping poller");
-        this.stopPolling?.();
+        this.stopPolling();
       });
+      
       this.ws.addEventListener("close", (event) => {
         console.warn("WebSocket closed – resuming polling", {
           code: event.code,
           reason: event.reason,
           wasClean: event.wasClean,
         });
+        this.ws = null; // Clear reference
         this.startPolling();
       });
+      
       this.ws.addEventListener("error", (event) => {
         console.warn("WebSocket error – resuming polling", event);
+        if (this.ws) {
+          this.ws.close();
+          this.ws = null;
+        }
         this.startPolling();
       });
     } catch (e) {

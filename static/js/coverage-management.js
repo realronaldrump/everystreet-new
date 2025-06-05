@@ -206,6 +206,162 @@ const STATUS = window.STATUS || {
       this.initializeQuickActions();
       this.setupAccessibility();
       this.startRenderLoop();
+
+      // Add cleanup tracking
+      this._activeIntervals = new Set();
+      this._activeTimeouts = new Set();
+      this._activeEventSources = new Set();
+      this.sseReconnectAttempts = 0;
+    }
+
+    // Override setTimeout and setInterval to track them
+    _setTimeout(fn, delay) {
+      const timeoutId = setTimeout(() => {
+        fn();
+        this._activeTimeouts.delete(timeoutId);
+      }, delay);
+      this._activeTimeouts.add(timeoutId);
+      return timeoutId;
+    }
+
+    _setInterval(fn, delay) {
+      const intervalId = setInterval(fn, delay);
+      this._activeIntervals.add(intervalId);
+      return intervalId;
+    }
+
+    setupEventSource() {
+      // Clean up any existing connection
+      if (this.eventSource) {
+        this.eventSource.close();
+        this._activeEventSources.delete(this.eventSource);
+        this.eventSource = null;
+      }
+
+      try {
+        this.eventSource = new EventSource("/api/background_tasks/sse");
+        this._activeEventSources.add(this.eventSource);
+
+        // Add connection timeout
+        const connectionTimeout = this._setTimeout(() => {
+          if (this.eventSource && this.eventSource.readyState !== EventSource.OPEN) {
+            console.warn("EventSource connection timeout, falling back to polling");
+            this.eventSource.close();
+            this._activeEventSources.delete(this.eventSource);
+            this.eventSource = null;
+            this.setupPolling();
+          }
+        }, 5000);
+
+        this.eventSource.onopen = () => {
+          clearTimeout(connectionTimeout);
+          this._activeTimeouts.delete(connectionTimeout);
+        };
+
+        this.eventSource.onmessage = (event) => {
+          try {
+            const updates = JSON.parse(event.data);
+            this.processEventSourceUpdate(updates);
+          } catch (error) {
+            console.error("Error processing SSE update:", error);
+          }
+        };
+
+        this.eventSource.onerror = (error) => {
+          console.error("SSE connection error:", error);
+          clearTimeout(connectionTimeout);
+          this._activeTimeouts.delete(connectionTimeout);
+          
+          if (this.eventSource) {
+            this.eventSource.close();
+            this._activeEventSources.delete(this.eventSource);
+            this.eventSource = null;
+          }
+          
+          // Use exponential backoff for reconnection
+          const backoffDelay = Math.min(5000 * Math.pow(2, this.sseReconnectAttempts || 0), 30000);
+          this.sseReconnectAttempts = (this.sseReconnectAttempts || 0) + 1;
+          
+          this._setTimeout(() => {
+            this.setupEventSource();
+          }, backoffDelay);
+        };
+      } catch (error) {
+        console.error("Error setting up EventSource:", error);
+        this.setupPolling();
+      }
+    }
+
+    setupPolling() {
+      // Clean up existing polling
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this._activeIntervals.delete(this.pollingInterval);
+        this.pollingInterval = null;
+      }
+
+      const pollInterval = 15000; // Fixed 15 second interval
+
+      this.pollingInterval = this._setInterval(() => {
+        // Only poll if we're actually visible
+        if (document.visibilityState === 'visible') {
+          this.loadTaskConfig();
+          this.updateTaskHistory();
+        }
+      }, pollInterval);
+    }
+
+    // Add cleanup method
+    cleanup() {
+      // Clear all timeouts
+      this._activeTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+      this._activeTimeouts.clear();
+      
+      // Clear all intervals
+      this._activeIntervals.forEach(intervalId => clearInterval(intervalId));
+      this._activeIntervals.clear();
+      
+      // Close all event sources
+      this._activeEventSources.forEach(eventSource => eventSource.close());
+      this._activeEventSources.clear();
+      
+      // Clean up main references
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+      }
+      
+      if (this.configRefreshTimeout) {
+        clearTimeout(this.configRefreshTimeout);
+        this.configRefreshTimeout = null;
+      }
+      
+      if (this.eventSource) {
+        this.eventSource.close();
+        this.eventSource = null;
+      }
+      
+      // Cancel animation frame
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
+    }
+
+    // Ensure cleanup on page unload
+    _setupCleanupListener() {
+      if (!this.isBeforeUnloadListenerActive) {
+        this.boundCleanup = () => this.cleanup();
+        window.addEventListener("beforeunload", this.boundCleanup);
+        this.isBeforeUnloadListenerActive = true;
+      }
+    }
+
+    _removeCleanupListener() {
+      if (this.isBeforeUnloadListenerActive && this.boundCleanup) {
+        window.removeEventListener("beforeunload", this.boundCleanup);
+        this.isBeforeUnloadListenerActive = false;
+      }
     }
 
     _addBeforeUnloadListener() {
