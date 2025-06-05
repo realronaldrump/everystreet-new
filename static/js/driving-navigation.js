@@ -17,6 +17,8 @@ class DrivingNavigation {
     this.targetInfo = document.getElementById("target-info");
     this.routeInfo = document.getElementById("route-info");
     this.autoFollowToggle = document.getElementById("auto-follow-toggle");
+    this.openGoogleMapsBtn = document.getElementById("open-google-maps-btn");
+    this.openAppleMapsBtn = document.getElementById("open-apple-maps-btn");
 
     this.exportCoverageRouteBtn = document.getElementById(
       "export-coverage-route-btn",
@@ -59,6 +61,7 @@ class DrivingNavigation {
     this.suggestedClusters = [];
     this.clusterMarkers = [];
     this.clusterHighlights = [];
+    this.currentRoute = null;
 
     this.initialize();
   }
@@ -236,6 +239,12 @@ class DrivingNavigation {
       }
     });
     this.exportCoverageRouteBtn?.addEventListener("click", () => this.handleExportCoverageRoute());
+    if (this.openGoogleMapsBtn) {
+      this.openGoogleMapsBtn.addEventListener("click", () => this.openInGoogleMaps());
+    }
+    if (this.openAppleMapsBtn) {
+      this.openAppleMapsBtn.addEventListener("click", () => this.openInAppleMaps());
+    }
 
     this.map?.on("layeradd", () => setTimeout(() => this.bringLiveElementsToFront(), 50));
     this.map?.on("zoomend", () => this.bringLiveElementsToFront());
@@ -304,6 +313,13 @@ class DrivingNavigation {
       this.clearTargetStreetHighlight();
       this.clearEfficientClusters();
       this.setStatus("Select an area.");
+      // Clear only the route details content
+      const routeDetailsContent = document.getElementById('route-details-content');
+      if (routeDetailsContent) routeDetailsContent.innerHTML = "";
+      // Disable external map buttons
+      if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
+      if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
+      this.currentRoute = null;
       return;
     }
 
@@ -317,7 +333,13 @@ class DrivingNavigation {
       this.clearTargetStreetHighlight();
       this.clearEfficientClusters();
       if (this.targetInfo) this.targetInfo.innerHTML = "";
-      if (this.routeInfo) this.routeInfo.innerHTML = "";
+      // Clear only the route details content
+      const routeDetailsContent = document.getElementById('route-details-content');
+      if (routeDetailsContent) routeDetailsContent.innerHTML = "";
+      // Disable external map buttons
+      if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
+      if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
+      this.currentRoute = null;
 
       await this.fetchAndDisplayUndrivenStreets();
     } catch (error) {
@@ -329,11 +351,23 @@ class DrivingNavigation {
   }
 
   async fetchAndDisplayUndrivenStreets() {
-    if (!this.selectedArea?.location) return;
+    if (!this.selectedArea) return this.setStatus("Please select an area first.", true);
 
-    this.setStatus(`Fetching undriven streets for ${this.selectedArea.location.display_name}...`);
-    this.undrivenStreetsLayer.clearLayers();
+    this.showProgressContainer();
+    this.updateProgress(0, "Loading undriven streets...");
+    this.routeLayer.clearLayers();
+    this.clearTargetStreetHighlight();
+    this.targetInfo.innerHTML = "";
+    // Clear only the route details content
+    const routeDetailsContent = document.getElementById('route-details-content');
+    if (routeDetailsContent) routeDetailsContent.innerHTML = "";
     this.hideRouteDetails();
+    this.currentCoverageRouteGeoJSON = null;
+    if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
+    // Disable external map buttons
+    if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
+    if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
+    this.currentRoute = null;
 
     try {
       this.showProgressContainer();
@@ -444,10 +478,16 @@ class DrivingNavigation {
     this.routeLayer.clearLayers();
     this.clearTargetStreetHighlight();
     this.targetInfo.innerHTML = "";
-    this.routeInfo.innerHTML = "";
+    // Clear only the route details content
+    const routeDetailsContent = document.getElementById('route-details-content');
+    if (routeDetailsContent) routeDetailsContent.innerHTML = "";
     this.hideRouteDetails();
     this.currentCoverageRouteGeoJSON = null;
     if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
+    // Disable external map buttons
+    if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
+    if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
+    this.currentRoute = null;
 
     this.showProgressContainer();
     this.setActiveStep("clustering");
@@ -515,15 +555,33 @@ class DrivingNavigation {
     const distanceMiles = (data.route_distance_meters * 0.000621371).toFixed(1);
     const locationSource = data.location_source || "unknown";
 
-    this.routeInfo.innerHTML = `
-      <div class="card bg-dark p-2 mt-2">
-        <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Route Information</h6>
+    // Store the current route for external map navigation
+    if (data.route_geometry?.coordinates) {
+      const coordinates = data.route_geometry.coordinates;
+      this.currentRoute = {
+        start: { lat: coordinates[0][1], lng: coordinates[0][0] },
+        end: { lat: coordinates[coordinates.length - 1][1], lng: coordinates[coordinates.length - 1][0] }
+      };
+      
+      // Enable the external map buttons
+      if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = false;
+      if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = false;
+    } else {
+      this.currentRoute = null;
+      if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
+      if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
+    }
+
+    // Update only the route details content, preserving the buttons
+    const routeDetailsContent = document.getElementById('route-details-content');
+    if (routeDetailsContent) {
+      routeDetailsContent.innerHTML = `
         <div class="route-info-detail">
           <div><i class="fas fa-clock"></i> ${durationMinutes} min</div>
           <div><i class="fas fa-road"></i> ${distanceMiles} mi</div>
           <div class="w-100 text-muted small">(Using ${this.formatLocationSource(locationSource)} position)</div>
-        </div>
-      </div>`;
+        </div>`;
+    }
 
     this.showRouteDetails({
       clusters: 1, segments: 1,
@@ -614,10 +672,16 @@ class DrivingNavigation {
     this.routeLayer.clearLayers();
     this.clearTargetStreetHighlight();
     this.targetInfo.innerHTML = "";
-    this.routeInfo.innerHTML = "";
+    // Clear only the route details content
+    const routeDetailsContent = document.getElementById('route-details-content');
+    if (routeDetailsContent) routeDetailsContent.innerHTML = "";
     this.hideRouteDetails();
     this.currentCoverageRouteGeoJSON = null;
     if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
+    // Disable external map buttons
+    if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
+    if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
+    this.currentRoute = null;
 
     this.showProgressContainer();
     this.setActiveStep("clustering");
@@ -1150,6 +1214,22 @@ class DrivingNavigation {
         enableHighAccuracy: true, timeout: 10000, maximumAge: 0,
       });
     });
+  }
+
+  openInGoogleMaps() {
+    if (!this.currentRoute) return;
+    
+    const { start, end } = this.currentRoute;
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}&travelmode=driving`;
+    window.open(url, '_blank');
+  }
+
+  openInAppleMaps() {
+    if (!this.currentRoute) return;
+    
+    const { start, end } = this.currentRoute;
+    const url = `maps://maps.apple.com/?daddr=${end.lat},${end.lng}&saddr=${start.lat},${start.lng}`;
+    window.open(url, '_blank');
   }
 }
 

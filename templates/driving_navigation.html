@@ -237,6 +237,23 @@
       <i class="fas fa-info-circle"></i> Please select an area to begin.
     </div>
 
+    <div id="target-info"></div>
+
+    <div id="route-info" class="control-section">
+      <h6 class="mb-2"><i class="fas fa-route me-2"></i>Route Information</h6>
+      <div id="route-details-content"></div>
+      <div class="mt-3">
+        <div class="btn-group w-100">
+          <button id="open-google-maps-btn" class="btn btn-outline-light" disabled>
+            <i class="fab fa-google me-2"></i>Open in Google Maps
+          </button>
+          <button id="open-apple-maps-btn" class="btn btn-outline-light" disabled>
+            <i class="fab fa-apple me-2"></i>Open in Apple Maps
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div id="route-progress-container">
       <div class="progress-steps">
         <div id="step-clustering" class="step">Clustering</div>
@@ -248,9 +265,6 @@
       </div>
       <div id="processing-status" class="text-muted">Preparing...</div>
     </div>
-
-    <div id="target-info"></div>
-    <div id="route-info"></div>
 
     <div id="route-details">
       <h5 class="h6">Route Details</h5>
