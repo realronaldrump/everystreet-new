@@ -16,10 +16,10 @@ from fastapi.responses import JSONResponse
 from sklearn.cluster import KMeans
 
 from db import (
+    db_manager,
     find_one_with_retry,
     streets_collection,
     trips_collection,
-    db_manager,
 )
 from live_tracking import get_active_trip
 from models import LocationModel

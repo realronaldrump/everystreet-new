@@ -51,8 +51,16 @@ class DrivingNavigation {
     this.clearTripTimeout = null;
     this.currentStep = null;
     this.clusterColors = [
-      "#ff6b6b", "#48dbfb", "#1dd1a1", "#feca57", "#ff9ff3",
-      "#54a0ff", "#5f27cd", "#ff9f43", "#00d2d3", "#c8d6e5",
+      "#ff6b6b",
+      "#48dbfb",
+      "#1dd1a1",
+      "#feca57",
+      "#ff9ff3",
+      "#54a0ff",
+      "#5f27cd",
+      "#ff9f43",
+      "#00d2d3",
+      "#c8d6e5",
     ];
 
     this.currentCoverageRouteGeoJSON = null;
@@ -90,9 +98,10 @@ class DrivingNavigation {
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         {
-          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+          attribution:
+            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
           maxZoom: 19,
-        }
+        },
       ).addTo(this.map);
 
       this.undrivenStreetsLayer.addTo(this.map);
@@ -133,11 +142,11 @@ class DrivingNavigation {
     };
 
     if (window.handleError) {
-        window.handleError(
-          "Live tracking initialized for navigation.",
-          "initLiveTracking",
-          "info",
-        );
+      window.handleError(
+        "Live tracking initialized for navigation.",
+        "initLiveTracking",
+        "info",
+      );
     }
   }
 
@@ -152,7 +161,9 @@ class DrivingNavigation {
       return;
     }
 
-    const sortedCoords = [...trip.coordinates].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const sortedCoords = [...trip.coordinates].sort(
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
+    );
     const latLngs = sortedCoords.map((coord) => [coord.lat, coord.lon]);
     const latestCoord = sortedCoords[sortedCoords.length - 1];
     const latLng = [latestCoord.lat, latestCoord.lon];
@@ -200,14 +211,24 @@ class DrivingNavigation {
       }
     }
 
-    this.setStatus(`Live tracking active. Speed: ${Math.round(trip.currentSpeed ?? 0)} mph`);
+    this.setStatus(
+      `Live tracking active. Speed: ${Math.round(trip.currentSpeed ?? 0)} mph`,
+    );
 
-    const buttonsToEnable = [this.findBtn, this.calcCoverageBtn, this.findEfficientBtn];
-    buttonsToEnable.forEach(btn => {
-        if (btn?.disabled && btn.dataset.disabledReason === "no-location" && this.selectedArea) {
-            btn.disabled = false;
-            delete btn.dataset.disabledReason;
-        }
+    const buttonsToEnable = [
+      this.findBtn,
+      this.calcCoverageBtn,
+      this.findEfficientBtn,
+    ];
+    buttonsToEnable.forEach((btn) => {
+      if (
+        btn?.disabled &&
+        btn.dataset.disabledReason === "no-location" &&
+        this.selectedArea
+      ) {
+        btn.disabled = false;
+        delete btn.dataset.disabledReason;
+      }
     });
   }
 
@@ -220,32 +241,49 @@ class DrivingNavigation {
       if (this.liveTracker?.marker) this.liveTracker.marker.setOpacity(0);
       if (this.liveTracker?.polyline) this.liveTracker.polyline.setLatLngs([]);
       this.clearTripTimeout = null;
-      this.setStatus("Live tracking signal lost. Using last known trip end for routing.", true);
+      this.setStatus(
+        "Live tracking signal lost. Using last known trip end for routing.",
+        true,
+      );
     }, CLEAR_DELAY_MS);
   }
 
   setupEventListeners() {
     this.areaSelect?.addEventListener("change", () => this.handleAreaChange());
     this.findBtn?.addEventListener("click", () => this.findAndDisplayRoute());
-    this.calcCoverageBtn?.addEventListener("click", () => this.calculateAndDisplayCoverageRoute());
-    this.findEfficientBtn?.addEventListener("click", () => this.findEfficientStreetClusters());
+    this.calcCoverageBtn?.addEventListener("click", () =>
+      this.calculateAndDisplayCoverageRoute(),
+    );
+    this.findEfficientBtn?.addEventListener("click", () =>
+      this.findEfficientStreetClusters(),
+    );
     this.autoFollowToggle?.addEventListener("change", (e) => {
       this.saveAutoFollowState(e.target.checked);
       if (e.target.checked && this.lastKnownLocation) {
-        this.map?.panTo([this.lastKnownLocation.lat, this.lastKnownLocation.lon]);
+        this.map?.panTo([
+          this.lastKnownLocation.lat,
+          this.lastKnownLocation.lon,
+        ]);
       }
     });
-    this.exportCoverageRouteBtn?.addEventListener("click", () => this.handleExportCoverageRoute());
+    this.exportCoverageRouteBtn?.addEventListener("click", () =>
+      this.handleExportCoverageRoute(),
+    );
 
-    this.map?.on("layeradd", () => setTimeout(() => this.bringLiveElementsToFront(), 50));
+    this.map?.on("layeradd", () =>
+      setTimeout(() => this.bringLiveElementsToFront(), 50),
+    );
     this.map?.on("zoomend", () => this.bringLiveElementsToFront());
     this.map?.on("moveend", () => this.bringLiveElementsToFront());
-    document.addEventListener("mapUpdated", () => this.bringLiveElementsToFront());
+    document.addEventListener("mapUpdated", () =>
+      this.bringLiveElementsToFront(),
+    );
   }
 
   loadAutoFollowState() {
     if (!this.autoFollowToggle) return;
-    const savedState = window.localStorage.getItem("drivingNavAutoFollow") === "true";
+    const savedState =
+      window.localStorage.getItem("drivingNavAutoFollow") === "true";
     this.autoFollowToggle.checked = savedState;
   }
 
@@ -260,7 +298,8 @@ class DrivingNavigation {
   async loadCoverageAreas() {
     try {
       const response = await fetch("/api/coverage_areas");
-      if (!response.ok) throw new Error(`Failed to fetch areas: ${response.statusText}`);
+      if (!response.ok)
+        throw new Error(`Failed to fetch areas: ${response.statusText}`);
       const data = await response.json();
 
       if (data.success && data.areas) {
@@ -272,7 +311,9 @@ class DrivingNavigation {
     } catch (error) {
       console.error("Error loading coverage areas:", error);
       this.setStatus(`Error loading areas: ${error.message}`, true);
-      if (this.areaSelect) this.areaSelect.innerHTML = '<option value="">Error loading areas</option>';
+      if (this.areaSelect)
+        this.areaSelect.innerHTML =
+          '<option value="">Error loading areas</option>';
     }
   }
 
@@ -292,13 +333,16 @@ class DrivingNavigation {
   async handleAreaChange() {
     const selectedValue = this.areaSelect.value;
     this.currentCoverageRouteGeoJSON = null;
-    if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
+    if (this.exportCoverageRouteBtn)
+      this.exportCoverageRouteBtn.disabled = true;
 
     const buttons = [this.findBtn, this.calcCoverageBtn, this.findEfficientBtn];
 
     if (!selectedValue) {
       this.selectedArea = null;
-      buttons.forEach(btn => { if(btn) btn.disabled = true; });
+      buttons.forEach((btn) => {
+        if (btn) btn.disabled = true;
+      });
       this.undrivenStreetsLayer.clearLayers();
       this.routeLayer.clearLayers();
       this.clearTargetStreetHighlight();
@@ -309,8 +353,12 @@ class DrivingNavigation {
 
     try {
       this.selectedArea = JSON.parse(selectedValue);
-      this.setStatus(`Area selected: ${this.selectedArea.location.display_name}. Loading streets...`);
-      buttons.forEach(btn => { if(btn) btn.disabled = false; });
+      this.setStatus(
+        `Area selected: ${this.selectedArea.location.display_name}. Loading streets...`,
+      );
+      buttons.forEach((btn) => {
+        if (btn) btn.disabled = false;
+      });
 
       this.undrivenStreetsLayer.clearLayers();
       this.routeLayer.clearLayers();
@@ -323,7 +371,9 @@ class DrivingNavigation {
     } catch (error) {
       console.error("Error parsing selected area:", error);
       this.selectedArea = null;
-      buttons.forEach(btn => { if(btn) btn.disabled = true; });
+      buttons.forEach((btn) => {
+        if (btn) btn.disabled = true;
+      });
       this.setStatus("Invalid area selected.", true);
     }
   }
@@ -331,7 +381,9 @@ class DrivingNavigation {
   async fetchAndDisplayUndrivenStreets() {
     if (!this.selectedArea?.location) return;
 
-    this.setStatus(`Fetching undriven streets for ${this.selectedArea.location.display_name}...`);
+    this.setStatus(
+      `Fetching undriven streets for ${this.selectedArea.location.display_name}...`,
+    );
     this.undrivenStreetsLayer.clearLayers();
     this.hideRouteDetails();
 
@@ -358,8 +410,11 @@ class DrivingNavigation {
       if (geojson?.features && geojson.features.length > 0) {
         const geoJsonLayer = L.geoJSON(geojson, {
           style: {
-            color: "#00BFFF", weight: 3, opacity: 0.6,
-            dashArray: "4, 4", className: "undriven-street-nav",
+            color: "#00BFFF",
+            weight: 3,
+            opacity: 0.6,
+            dashArray: "4, 4",
+            className: "undriven-street-nav",
           },
         });
 
@@ -368,15 +423,23 @@ class DrivingNavigation {
         if (bounds.isValid()) this.map.fitBounds(bounds, { padding: [50, 50] });
         this.updateProgress(100, "Loaded undriven streets!");
         setTimeout(() => this.hideProgressContainer(), 1000);
-        this.setStatus(`Loaded ${geojson.features.length} undriven streets in ${this.selectedArea.location.display_name}.`);
+        this.setStatus(
+          `Loaded ${geojson.features.length} undriven streets in ${this.selectedArea.location.display_name}.`,
+        );
       } else {
         this.hideProgressContainer();
-        this.setStatus(`No undriven streets found in ${this.selectedArea.location.display_name}.`);
+        this.setStatus(
+          `No undriven streets found in ${this.selectedArea.location.display_name}.`,
+        );
         if (this.selectedArea.location.boundingbox) {
           try {
             const bbox = this.selectedArea.location.boundingbox.map(parseFloat);
-            const bounds = L.latLngBounds([[bbox[0], bbox[2]], [bbox[1], bbox[3]]]);
-            if (bounds.isValid()) this.map.fitBounds(bounds, { padding: [50, 50] });
+            const bounds = L.latLngBounds([
+              [bbox[0], bbox[2]],
+              [bbox[1], bbox[3]],
+            ]);
+            if (bounds.isValid())
+              this.map.fitBounds(bounds, { padding: [50, 50] });
           } catch (e) {
             console.warn("Could not parse bounding box for fallback zoom.");
           }
@@ -390,51 +453,57 @@ class DrivingNavigation {
   }
 
   async _fetchWithUI(button, fetchFunction) {
-      if (!button) return;
-      const originalHtml = button.innerHTML;
-      button.disabled = true;
-      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Working...';
-      
-      try {
-          await fetchFunction();
-      } catch (error) {
-          console.error(`Error during fetch operation for ${button.id}:`, error);
-          const errorMessage = await this._parseError(error);
-          this.setStatus(`Error: ${errorMessage}`, true);
-          if (notificationManager) notificationManager.show(`Error: ${errorMessage}`, "danger");
-      } finally {
-          button.disabled = false;
-          button.innerHTML = originalHtml;
-      }
+    if (!button) return;
+    const originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Working...';
+
+    try {
+      await fetchFunction();
+    } catch (error) {
+      console.error(`Error during fetch operation for ${button.id}:`, error);
+      const errorMessage = await this._parseError(error);
+      this.setStatus(`Error: ${errorMessage}`, true);
+      if (notificationManager)
+        notificationManager.show(`Error: ${errorMessage}`, "danger");
+    } finally {
+      button.disabled = false;
+      button.innerHTML = originalHtml;
+    }
   }
 
   async _parseError(error) {
-      if (error instanceof Error) {
-          return error.message;
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (error instanceof Response) {
+      try {
+        const errorData = await error.json();
+        if (Array.isArray(errorData.detail)) {
+          // FastAPI validation error
+          return errorData.detail
+            .map((err) => `${err.loc.join(".")} - ${err.msg}`)
+            .join("; ");
+        }
+        return errorData.detail || JSON.stringify(errorData);
+      } catch (e) {
+        return error.statusText || "An unknown HTTP error occurred.";
       }
-      if (error instanceof Response) {
-          try {
-              const errorData = await error.json();
-              if (Array.isArray(errorData.detail)) { // FastAPI validation error
-                  return errorData.detail.map(err => `${err.loc.join('.')} - ${err.msg}`).join('; ');
-              }
-              return errorData.detail || JSON.stringify(errorData);
-          } catch (e) {
-              return error.statusText || 'An unknown HTTP error occurred.';
-          }
-      }
-      return 'An unknown error occurred.';
+    }
+    return "An unknown error occurred.";
   }
 
   async findAndDisplayRoute() {
-    if (!this.selectedArea) return this.setStatus("Please select an area first.", true);
+    if (!this.selectedArea)
+      return this.setStatus("Please select an area first.", true);
     if (this.isFetchingRoute || this.isFetchingCoverageRoute) return;
 
     this.isFetchingRoute = true;
     const originalHtml = this.findBtn.innerHTML;
     this.findBtn.disabled = true;
-    this.findBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finding Route...';
-    
+    this.findBtn.innerHTML =
+      '<i class="fas fa-spinner fa-spin"></i> Finding Route...';
+
     this.setStatus("Calculating route to nearest undriven street...");
     this.routeLayer.clearLayers();
     this.clearTargetStreetHighlight();
@@ -442,7 +511,8 @@ class DrivingNavigation {
     this.routeInfo.innerHTML = "";
     this.hideRouteDetails();
     this.currentCoverageRouteGeoJSON = null;
-    if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
+    if (this.exportCoverageRouteBtn)
+      this.exportCoverageRouteBtn.disabled = true;
 
     this.showProgressContainer();
     this.setActiveStep("clustering");
@@ -450,7 +520,9 @@ class DrivingNavigation {
     try {
       const requestPayload = {
         location: this.selectedArea.location,
-        ...(this.lastKnownLocation && { current_position: this.lastKnownLocation }),
+        ...(this.lastKnownLocation && {
+          current_position: this.lastKnownLocation,
+        }),
       };
 
       this.updateProgress(30, "Finding the nearest undriven street...");
@@ -468,21 +540,29 @@ class DrivingNavigation {
       if (data.status === "completed") {
         this.hideProgressContainer();
         this.setStatus(data.message);
-        if (notificationManager) notificationManager.show(data.message, "success");
-      } else if (data.status === "success" && data.route_geometry && data.target_street) {
+        if (notificationManager)
+          notificationManager.show(data.message, "success");
+      } else if (
+        data.status === "success" &&
+        data.route_geometry &&
+        data.target_street
+      ) {
         this.setActiveStep("rendering");
         this.displayRoute(data);
         this.updateProgress(100, "Route calculation complete!");
         setTimeout(() => this.hideProgressContainer(), 1000);
       } else {
-        throw new Error(data.message || "Received unexpected success response.");
+        throw new Error(
+          data.message || "Received unexpected success response.",
+        );
       }
     } catch (error) {
-        const errorMessage = await this._parseError(error);
-        console.error("Error finding/displaying route:", errorMessage);
-        this.hideProgressContainer();
-        this.setStatus(`Error: ${errorMessage}`, true);
-        if (notificationManager) notificationManager.show(`Routing Error: ${errorMessage}`, "danger");
+      const errorMessage = await this._parseError(error);
+      console.error("Error finding/displaying route:", errorMessage);
+      this.hideProgressContainer();
+      this.setStatus(`Error: ${errorMessage}`, true);
+      if (notificationManager)
+        notificationManager.show(`Routing Error: ${errorMessage}`, "danger");
     } finally {
       this.findBtn.disabled = false;
       this.findBtn.innerHTML = originalHtml;
@@ -493,7 +573,12 @@ class DrivingNavigation {
   displayRoute(data) {
     this.routeLayer.clearLayers();
     const routeLayer = L.geoJSON(data.route_geometry, {
-      style: { color: "#76ff03", weight: 5, opacity: 0.8, className: "calculated-route" },
+      style: {
+        color: "#76ff03",
+        weight: 5,
+        opacity: 0.8,
+        className: "calculated-route",
+      },
     }).addTo(this.routeLayer);
 
     this.highlightTargetStreet(data.target_street.segment_id);
@@ -521,7 +606,8 @@ class DrivingNavigation {
       </div>`;
 
     this.showRouteDetails({
-      clusters: 1, segments: 1,
+      clusters: 1,
+      segments: 1,
       duration: data.route_duration_seconds,
       distance: data.route_distance_meters,
     });
@@ -530,18 +616,24 @@ class DrivingNavigation {
 
     let boundsToFit;
     if (this.lastKnownLocation && data.target_street.start_coords) {
-        const routeStart = [this.lastKnownLocation.lat, this.lastKnownLocation.lon];
-        const targetStart = [data.target_street.start_coords[1], data.target_street.start_coords[0]];
-        boundsToFit = L.latLngBounds([routeStart, targetStart]);
-        if (this.liveTracker?.marker?.getLatLng()) {
-            boundsToFit.extend(this.liveTracker.marker.getLatLng());
-        }
+      const routeStart = [
+        this.lastKnownLocation.lat,
+        this.lastKnownLocation.lon,
+      ];
+      const targetStart = [
+        data.target_street.start_coords[1],
+        data.target_street.start_coords[0],
+      ];
+      boundsToFit = L.latLngBounds([routeStart, targetStart]);
+      if (this.liveTracker?.marker?.getLatLng()) {
+        boundsToFit.extend(this.liveTracker.marker.getLatLng());
+      }
     } else if (routeLayer?.getBounds) {
-        boundsToFit = routeLayer.getBounds();
+      boundsToFit = routeLayer.getBounds();
     }
 
     if (boundsToFit?.isValid()) {
-        this.map.fitBounds(boundsToFit, { padding: [70, 70] });
+      this.map.fitBounds(boundsToFit, { padding: [70, 70] });
     }
   }
 
@@ -551,8 +643,11 @@ class DrivingNavigation {
       if (layer.feature?.properties?.segment_id === segmentId) {
         this.targetStreetLayer = layer;
         layer.setStyle({
-          color: "#ffab00", weight: 6, opacity: 1,
-          dashArray: null, className: "target-street-segment",
+          color: "#ffab00",
+          weight: 6,
+          opacity: 1,
+          dashArray: null,
+          className: "target-street-segment",
         });
 
         if (!document.getElementById("pulsing-target-style")) {
@@ -573,8 +668,11 @@ class DrivingNavigation {
   clearTargetStreetHighlight() {
     if (this.targetStreetLayer) {
       this.targetStreetLayer.setStyle({
-        color: "#00BFFF", weight: 3, opacity: 0.6,
-        dashArray: "4, 4", className: "undriven-street-nav",
+        color: "#00BFFF",
+        weight: 3,
+        opacity: 0.6,
+        dashArray: "4, 4",
+        className: "undriven-street-nav",
       });
       this.targetStreetLayer = null;
     }
@@ -587,15 +685,19 @@ class DrivingNavigation {
 
   setStatus(message, isError = false) {
     if (!this.statusMsg) return;
-    const icon = isError ? '<i class="fas fa-exclamation-triangle text-warning me-2"></i>' : '<i class="fas fa-info-circle me-2"></i>';
+    const icon = isError
+      ? '<i class="fas fa-exclamation-triangle text-warning me-2"></i>'
+      : '<i class="fas fa-info-circle me-2"></i>';
     this.statusMsg.innerHTML = `${icon}${message}`;
     this.statusMsg.classList.toggle("text-danger", isError);
     this.statusMsg.classList.toggle("text-info", !isError);
-    if (isError && notificationManager) notificationManager.show(message, "danger");
+    if (isError && notificationManager)
+      notificationManager.show(message, "danger");
   }
 
   async calculateAndDisplayCoverageRoute() {
-    if (!this.selectedArea) return this.setStatus("Please select an area first.", true);
+    if (!this.selectedArea)
+      return this.setStatus("Please select an area first.", true);
     if (this.isFetchingRoute || this.isFetchingCoverageRoute) return;
 
     this.isFetchingCoverageRoute = true;
@@ -603,8 +705,9 @@ class DrivingNavigation {
     this.calcCoverageBtn.disabled = true;
     this.findBtn.disabled = true;
     this.findEfficientBtn.disabled = true;
-    this.calcCoverageBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating...';
-    
+    this.calcCoverageBtn.innerHTML =
+      '<i class="fas fa-spinner fa-spin"></i> Calculating...';
+
     this.setStatus("Calculating full coverage route...");
     this.routeLayer.clearLayers();
     this.clearTargetStreetHighlight();
@@ -612,7 +715,8 @@ class DrivingNavigation {
     this.routeInfo.innerHTML = "";
     this.hideRouteDetails();
     this.currentCoverageRouteGeoJSON = null;
-    if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
+    if (this.exportCoverageRouteBtn)
+      this.exportCoverageRouteBtn.disabled = true;
 
     this.showProgressContainer();
     this.setActiveStep("clustering");
@@ -620,7 +724,9 @@ class DrivingNavigation {
     try {
       const requestPayload = {
         location: this.selectedArea.location,
-        ...(this.lastKnownLocation && { current_position: this.lastKnownLocation }),
+        ...(this.lastKnownLocation && {
+          current_position: this.lastKnownLocation,
+        }),
       };
 
       this.updateProgress(20, "Clustering street segments...");
@@ -641,12 +747,18 @@ class DrivingNavigation {
         if (notificationManager) notificationManager.show(data.message, "info");
       } else if (data.status === "success" && data.route_geometry) {
         this.currentCoverageRouteGeoJSON = data.route_geometry;
-        if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = false;
+        if (this.exportCoverageRouteBtn)
+          this.exportCoverageRouteBtn.disabled = false;
         this.setActiveStep("rendering");
 
         const fullRouteLayer = L.layerGroup().addTo(this.routeLayer);
         const routeBounds = L.latLngBounds();
-        const connectingRouteStyle = { color: "#76ff03", weight: 5, opacity: 0.8, className: "calculated-route" };
+        const connectingRouteStyle = {
+          color: "#76ff03",
+          weight: 5,
+          opacity: 0.8,
+          className: "calculated-route",
+        };
 
         const segmentCount = data.segments_in_route_count || 0;
         const clusterCount = data.clusters_count || 0;
@@ -662,8 +774,11 @@ class DrivingNavigation {
               style = connectingRouteStyle;
             } else {
               style = {
-                color: this.clusterColors[clusterIndex % this.clusterColors.length],
-                weight: 6, opacity: 0.9, className: `coverage-cluster-${clusterIndex}`,
+                color:
+                  this.clusterColors[clusterIndex % this.clusterColors.length],
+                weight: 6,
+                opacity: 0.9,
+                className: `coverage-cluster-${clusterIndex}`,
               };
               clusterIndex++;
             }
@@ -674,22 +789,29 @@ class DrivingNavigation {
             routeBounds.extend(layer.getBounds());
           });
         } else {
-          const layer = L.geoJSON(data.route_geometry, { style: connectingRouteStyle });
+          const layer = L.geoJSON(data.route_geometry, {
+            style: connectingRouteStyle,
+          });
           fullRouteLayer.addLayer(layer);
           routeBounds.extend(layer.getBounds());
         }
 
-        if (routeBounds.isValid()) this.map.fitBounds(routeBounds, { padding: [50, 50] });
+        if (routeBounds.isValid())
+          this.map.fitBounds(routeBounds, { padding: [50, 50] });
 
         const durationMinutes = Math.round(data.total_duration_seconds / 60);
         const durationHours = Math.floor(durationMinutes / 60);
         const remainingMinutes = durationMinutes % 60;
-        const distanceMiles = (data.total_distance_meters * 0.000621371).toFixed(1);
+        const distanceMiles = (
+          data.total_distance_meters * 0.000621371
+        ).toFixed(1);
 
         this.updateProgress(100, "Route calculation complete!");
         setTimeout(() => this.hideProgressContainer(), 1000);
 
-        this.setStatus(`Full coverage route calculated for ${segmentCount} segments across ${clusterCount} clusters.`);
+        this.setStatus(
+          `Full coverage route calculated for ${segmentCount} segments across ${clusterCount} clusters.`,
+        );
         const locationSource = data.location_source || "unknown";
         this.routeInfo.innerHTML = `
           <div class="card bg-dark p-2 mt-2">
@@ -703,19 +825,31 @@ class DrivingNavigation {
           </div>`;
 
         this.showRouteDetails({
-          clusters: clusterCount, segments: segmentCount,
-          duration: data.total_duration_seconds, distance: data.total_distance_meters,
+          clusters: clusterCount,
+          segments: segmentCount,
+          duration: data.total_duration_seconds,
+          distance: data.total_distance_meters,
         });
         this.bringLiveElementsToFront();
       } else {
-        throw new Error(data.message || "Received unexpected success response from coverage route.");
+        throw new Error(
+          data.message ||
+            "Received unexpected success response from coverage route.",
+        );
       }
     } catch (error) {
-        const errorMessage = await this._parseError(error);
-        console.error("Error calculating/displaying coverage route:", errorMessage);
-        this.hideProgressContainer();
-        this.setStatus(`Error: ${errorMessage}`, true);
-        if (notificationManager) notificationManager.show(`Coverage Routing Error: ${errorMessage}`, "danger");
+      const errorMessage = await this._parseError(error);
+      console.error(
+        "Error calculating/displaying coverage route:",
+        errorMessage,
+      );
+      this.hideProgressContainer();
+      this.setStatus(`Error: ${errorMessage}`, true);
+      if (notificationManager)
+        notificationManager.show(
+          `Coverage Routing Error: ${errorMessage}`,
+          "danger",
+        );
     } finally {
       this.calcCoverageBtn.disabled = false;
       this.calcCoverageBtn.innerHTML = originalHtml;
@@ -727,7 +861,10 @@ class DrivingNavigation {
 
   async handleExportCoverageRoute() {
     if (!this.currentCoverageRouteGeoJSON) {
-      notificationManager.show("No coverage route available to export.", "warning");
+      notificationManager.show(
+        "No coverage route available to export.",
+        "warning",
+      );
       return;
     }
     if (!this.coverageRouteFormatSelect || !this.exportCoverageRouteBtn) return;
@@ -744,7 +881,8 @@ class DrivingNavigation {
         body: JSON.stringify({
           route_geometry: this.currentCoverageRouteGeoJSON,
           format: format,
-          location_name: this.selectedArea?.location?.display_name || "coverage_route",
+          location_name:
+            this.selectedArea?.location?.display_name || "coverage_route",
         }),
       });
 
@@ -755,19 +893,30 @@ class DrivingNavigation {
       let filename = "coverage-route";
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
-        if (filenameMatch && filenameMatch.length === 2) filename = filenameMatch[1];
+        if (filenameMatch && filenameMatch.length === 2)
+          filename = filenameMatch[1];
       }
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.style.display = "none"; a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click();
-      window.URL.revokeObjectURL(url); document.body.removeChild(a);
-      notificationManager.show("Coverage route exported successfully.", "success");
+      a.style.display = "none";
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      notificationManager.show(
+        "Coverage route exported successfully.",
+        "success",
+      );
     } catch (error) {
       const errorMessage = await this._parseError(error);
       console.error("Error exporting coverage route:", errorMessage);
-      notificationManager.show(`Error exporting route: ${errorMessage}`, "danger");
+      notificationManager.show(
+        `Error exporting route: ${errorMessage}`,
+        "danger",
+      );
     } finally {
       this.exportCoverageRouteBtn.disabled = false;
       this.exportCoverageRouteBtn.innerHTML = originalBtnText;
@@ -776,12 +925,18 @@ class DrivingNavigation {
 
   formatLocationSource(source) {
     const sourceMap = {
-      "client-provided": '<span class="badge bg-info">current live position</span>',
-      "live-tracking": '<span class="badge bg-info">current live position</span>',
-      "last-trip-end": '<span class="badge bg-warning">last trip end position</span>',
-      "last-trip-end-point": '<span class="badge bg-warning">last trip end position</span>',
+      "client-provided":
+        '<span class="badge bg-info">current live position</span>',
+      "live-tracking":
+        '<span class="badge bg-info">current live position</span>',
+      "last-trip-end":
+        '<span class="badge bg-warning">last trip end position</span>',
+      "last-trip-end-point":
+        '<span class="badge bg-warning">last trip end position</span>',
     };
-    return sourceMap[source] || `<span class="badge bg-secondary">${source}</span>`;
+    return (
+      sourceMap[source] || `<span class="badge bg-secondary">${source}</span>`
+    );
   }
 
   showProgressContainer() {
@@ -817,15 +972,37 @@ class DrivingNavigation {
     this.resetSteps();
     this.currentStep = step;
     const steps = {
-      clustering: { el: this.stepClustering, progress: 15, text: "Grouping street segments..." },
-      optimizing: { el: this.stepOptimizing, progress: 45, text: "Optimizing routes..." },
-      rendering: { el: this.stepRendering, progress: 85, text: "Rendering route on map..." },
+      clustering: {
+        el: this.stepClustering,
+        progress: 15,
+        text: "Grouping street segments...",
+      },
+      optimizing: {
+        el: this.stepOptimizing,
+        progress: 45,
+        text: "Optimizing routes...",
+      },
+      rendering: {
+        el: this.stepRendering,
+        progress: 85,
+        text: "Rendering route on map...",
+      },
     };
 
     if (steps[step]) {
-      if (steps.clustering.el) steps.clustering.className = step === "clustering" ? "step active" : "step completed";
-      if (steps.optimizing.el) steps.optimizing.className = step === "optimizing" ? "step active" : (step === "rendering" ? "step completed" : "step");
-      if (steps.rendering.el) steps.rendering.className = step === "rendering" ? "step active" : "step";
+      if (steps.clustering.el)
+        steps.clustering.className =
+          step === "clustering" ? "step active" : "step completed";
+      if (steps.optimizing.el)
+        steps.optimizing.className =
+          step === "optimizing"
+            ? "step active"
+            : step === "rendering"
+              ? "step completed"
+              : "step";
+      if (steps.rendering.el)
+        steps.rendering.className =
+          step === "rendering" ? "step active" : "step";
       this.updateProgress(steps[step].progress, steps[step].text);
     }
   }
@@ -852,7 +1029,11 @@ class DrivingNavigation {
         <div class="legend-item"><span class="legend-color" style="background-color: #0dcaf0;"></span><span>Current Position</span></div>`;
 
       if (routeData.clusters > 1) {
-        for (let i = 0; i < Math.min(routeData.clusters, this.clusterColors.length); i++) {
+        for (
+          let i = 0;
+          i < Math.min(routeData.clusters, this.clusterColors.length);
+          i++
+        ) {
           this.routeLegend.innerHTML += `<div class="legend-item"><span class="legend-color" style="background-color: ${this.clusterColors[i]};"></span><span>Cluster ${i + 1}</span></div>`;
         }
       }
@@ -878,14 +1059,18 @@ class DrivingNavigation {
           </button>
         </div>
       </div>`;
-    return L.popup({ className: "segment-info-popup", maxWidth: 200 }).setContent(popupContent);
+    return L.popup({
+      className: "segment-info-popup",
+      maxWidth: 200,
+    }).setContent(popupContent);
   }
 
   setupMapInteractivity() {
     this.undrivenStreetsLayer.on("mouseover", (e) => {
       if (e.layer.feature && e.layer !== this.targetStreetLayer) {
         e.layer.setStyle({ weight: 4, color: "#4dabf7", opacity: 0.8 });
-        if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) e.layer.bringToFront();
+        if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge)
+          e.layer.bringToFront();
       }
     });
 
@@ -901,18 +1086,18 @@ class DrivingNavigation {
       if (popup) e.layer.bindPopup(popup).openPopup();
     });
 
-    this.map.on('popupopen', (e) => {
-        const popupNode = e.popup.getElement();
-        const navigateBtn = popupNode.querySelector('.navigate-to-segment');
-        if (navigateBtn) {
-            navigateBtn.onclick = (evt) => {
-                if (evt.button !== 0) return;
-                const segmentId = navigateBtn.dataset.segmentId;
-                this.map.closePopup();
-                this.highlightTargetStreet(segmentId);
-                this.findRouteToSegment(segmentId);
-            };
-        }
+    this.map.on("popupopen", (e) => {
+      const popupNode = e.popup.getElement();
+      const navigateBtn = popupNode.querySelector(".navigate-to-segment");
+      if (navigateBtn) {
+        navigateBtn.onclick = (evt) => {
+          if (evt.button !== 0) return;
+          const segmentId = navigateBtn.dataset.segmentId;
+          this.map.closePopup();
+          this.highlightTargetStreet(segmentId);
+          this.findRouteToSegment(segmentId);
+        };
+      }
     });
   }
 
@@ -926,13 +1111,16 @@ class DrivingNavigation {
     this.showProgressContainer();
     this.setActiveStep("optimizing");
     this.currentCoverageRouteGeoJSON = null;
-    if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
+    if (this.exportCoverageRouteBtn)
+      this.exportCoverageRouteBtn.disabled = true;
 
     try {
       const requestPayload = {
         location: this.selectedArea.location,
         segment_id: segmentId,
-        ...(this.lastKnownLocation && { current_position: this.lastKnownLocation }),
+        ...(this.lastKnownLocation && {
+          current_position: this.lastKnownLocation,
+        }),
       };
 
       const response = await fetch("/api/driving-navigation/next-route", {
@@ -946,7 +1134,8 @@ class DrivingNavigation {
       const data = await response.json();
       if (data.status === "success" && data.route_geometry) {
         this.currentCoverageRouteGeoJSON = data.route_geometry;
-        if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = false;
+        if (this.exportCoverageRouteBtn)
+          this.exportCoverageRouteBtn.disabled = false;
         this.setActiveStep("rendering");
         this.displayRoute(data);
         this.updateProgress(100, "Route calculation complete!");
@@ -983,26 +1172,30 @@ class DrivingNavigation {
         currentLon = position.coords.longitude;
         this.lastKnownLocation = { lat: currentLat, lon: currentLon };
       } catch (error) {
-        this.setStatus("Unable to get current location. Please enable location services.", true);
+        this.setStatus(
+          "Unable to get current location. Please enable location services.",
+          true,
+        );
         return;
       }
     }
 
     const originalHtml = this.findEfficientBtn.innerHTML;
     this.findEfficientBtn.disabled = true;
-    this.findEfficientBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finding...';
+    this.findEfficientBtn.innerHTML =
+      '<i class="fas fa-spinner fa-spin"></i> Finding...';
     this.setStatus("Finding efficient street clusters...");
     this.clearEfficientClusters();
 
     try {
       const params = new URLSearchParams({
-          current_lat: currentLat,
-          current_lon: currentLon,
-          top_n: 3,
-          min_cluster_size: 2
+        current_lat: currentLat,
+        current_lon: currentLon,
+        top_n: 3,
+        min_cluster_size: 2,
       });
       const url = `/api/driving-navigation/suggest-next-street/${this.selectedArea._id}?${params.toString()}`;
-      
+
       const response = await fetch(url);
       if (!response.ok) throw response;
 
@@ -1018,12 +1211,20 @@ class DrivingNavigation {
         this.displayEfficientClusters(data.suggested_clusters);
 
         const topCluster = data.suggested_clusters[0];
-        const distanceMiles = (topCluster.distance_to_cluster_m / 1609.34).toFixed(1);
-        this.setStatus(`Found ${data.suggested_clusters.length} efficient clusters. Top cluster: ${topCluster.segment_count} streets, ${distanceMiles} mi away.`);
+        const distanceMiles = (
+          topCluster.distance_to_cluster_m / 1609.34
+        ).toFixed(1);
+        this.setStatus(
+          `Found ${data.suggested_clusters.length} efficient clusters. Top cluster: ${topCluster.segment_count} streets, ${distanceMiles} mi away.`,
+        );
         this.displayEfficientClustersInfo(data.suggested_clusters);
 
         setTimeout(() => {
-          if (confirm(`Navigate to the top cluster with ${topCluster.segment_count} streets?`)) {
+          if (
+            confirm(
+              `Navigate to the top cluster with ${topCluster.segment_count} streets?`,
+            )
+          ) {
             this.highlightTargetStreet(topCluster.nearest_segment.segment_id);
             this.findRouteToSegment(topCluster.nearest_segment.segment_id);
           }
@@ -1033,7 +1234,11 @@ class DrivingNavigation {
       const errorMessage = await this._parseError(error);
       console.error("Error finding efficient clusters:", errorMessage);
       this.setStatus(`Error: ${errorMessage}`, true);
-      if (notificationManager) notificationManager.show(`Error finding efficient clusters: ${errorMessage}`, "danger");
+      if (notificationManager)
+        notificationManager.show(
+          `Error finding efficient clusters: ${errorMessage}`,
+          "danger",
+        );
     } finally {
       this.findEfficientBtn.disabled = false;
       this.findEfficientBtn.innerHTML = originalHtml;
@@ -1043,14 +1248,25 @@ class DrivingNavigation {
   displayEfficientClusters(clusters) {
     this.clearEfficientClusters();
     const bounds = L.latLngBounds();
-    const clusterColors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#f9ca24", "#6c5ce7"];
+    const clusterColors = [
+      "#ff6b6b",
+      "#4ecdc4",
+      "#45b7d1",
+      "#f9ca24",
+      "#6c5ce7",
+    ];
 
     clusters.forEach((cluster, index) => {
       const color = clusterColors[index % clusterColors.length];
       cluster.segments.forEach((segment) => {
         if (segment.geometry?.type === "LineString") {
           const segmentLayer = L.geoJSON(segment.geometry, {
-            style: { color, weight: 5, opacity: 0.7, className: `efficient-cluster-${index}` },
+            style: {
+              color,
+              weight: 5,
+              opacity: 0.7,
+              className: `efficient-cluster-${index}`,
+            },
           }).addTo(this.efficientClustersLayer);
           this.clusterHighlights.push(segmentLayer);
           bounds.extend(segmentLayer.getBounds());
@@ -1060,15 +1276,19 @@ class DrivingNavigation {
       const icon = L.divIcon({
         className: "efficient-cluster-marker",
         html: `<div class="cluster-marker-wrapper"><div class="cluster-marker-inner" style="background-color: ${color};"><div class="cluster-number">${index + 1}</div><div class="cluster-count">${cluster.segment_count}</div></div></div>`,
-        iconSize: [40, 40], iconAnchor: [20, 20],
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
       });
-      const marker = L.marker([cluster.centroid[1], cluster.centroid[0]], { icon })
+      const marker = L.marker([cluster.centroid[1], cluster.centroid[0]], {
+        icon,
+      })
         .bindPopup(this.createClusterPopup(cluster, index))
         .addTo(this.efficientClustersLayer);
       this.clusterMarkers.push(marker);
     });
 
-    if (this.lastKnownLocation) bounds.extend([this.lastKnownLocation.lat, this.lastKnownLocation.lon]);
+    if (this.lastKnownLocation)
+      bounds.extend([this.lastKnownLocation.lat, this.lastKnownLocation.lon]);
     if (bounds.isValid()) this.map.fitBounds(bounds, { padding: [50, 50] });
   }
 
@@ -1100,7 +1320,9 @@ class DrivingNavigation {
         <div class="efficient-clusters-list">`;
 
     clusters.forEach((cluster, index) => {
-      const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(1);
+      const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(
+        1,
+      );
       const lengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
       const color = colors[index % colors.length];
       html += `
@@ -1118,14 +1340,16 @@ class DrivingNavigation {
     html += `</div></div>`;
     this.targetInfo.innerHTML = html;
 
-    document.querySelectorAll(".navigate-cluster-btn, .navigate-to-cluster").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const segmentId = btn.dataset.segmentId;
-        this.highlightTargetStreet(segmentId);
-        this.findRouteToSegment(segmentId);
+    document
+      .querySelectorAll(".navigate-cluster-btn, .navigate-to-cluster")
+      .forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const segmentId = btn.dataset.segmentId;
+          this.highlightTargetStreet(segmentId);
+          this.findRouteToSegment(segmentId);
+        });
       });
-    });
   }
 
   clearEfficientClusters() {
@@ -1142,7 +1366,9 @@ class DrivingNavigation {
         return;
       }
       navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true, timeout: 10000, maximumAge: 0,
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
       });
     });
   }
@@ -1150,9 +1376,13 @@ class DrivingNavigation {
 
 document.addEventListener("DOMContentLoaded", () => {
   if (typeof L === "undefined") {
-    console.error("Leaflet library not found. Driving Navigation cannot initialize.");
+    console.error(
+      "Leaflet library not found. Driving Navigation cannot initialize.",
+    );
     const mapDiv = document.getElementById("driving-map");
-    if (mapDiv) mapDiv.innerHTML = '<div class="alert alert-danger m-3">Error: Mapping library failed to load.</div>';
+    if (mapDiv)
+      mapDiv.innerHTML =
+        '<div class="alert alert-danger m-3">Error: Mapping library failed to load.</div>';
     return;
   }
   window.drivingNav = new DrivingNavigation();
