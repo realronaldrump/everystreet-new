@@ -21,9 +21,7 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL = "https://api.bouncie.dev/v1"
-AUTHORIZED_DEVICES = [
-    d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
-]
+AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
 
 progress_data = {
@@ -128,15 +126,11 @@ async def fetch_bouncie_trips_in_range(
 ) -> list:
     all_new_trips = []
     total_devices = len(AUTHORIZED_DEVICES)
-    progress_tracker = (
-        task_progress if task_progress is not None else progress_data
-    )
+    progress_tracker = task_progress if task_progress is not None else progress_data
     if progress_tracker is not None:
         progress_tracker["fetch_and_store_trips"]["status"] = "running"
         progress_tracker["fetch_and_store_trips"]["progress"] = 0
-        progress_tracker["fetch_and_store_trips"]["message"] = (
-            "Starting trip fetch"
-        )
+        progress_tracker["fetch_and_store_trips"]["message"] = "Starting trip fetch"
     try:
         session = await get_session()
         token = await get_access_token(session)
@@ -144,18 +138,18 @@ async def fetch_bouncie_trips_in_range(
             logger.error("Failed to obtain access token; aborting fetch")
             if progress_tracker is not None:
                 progress_tracker["fetch_and_store_trips"]["status"] = "failed"
-                progress_tracker["fetch_and_store_trips"]["message"] = (
-                    "Failed to obtain access token"
-                )
+                progress_tracker["fetch_and_store_trips"][
+                    "message"
+                ] = "Failed to obtain access token"
             return all_new_trips
 
         mapbox_token = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
         for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
             if progress_tracker is not None:
-                progress_tracker["fetch_and_store_trips"]["message"] = (
-                    f"Fetching trips for device {device_index} of {total_devices}"
-                )
+                progress_tracker["fetch_and_store_trips"][
+                    "message"
+                ] = f"Fetching trips for device {device_index} of {total_devices}"
 
             raw_fetched_trips_for_device = []
             current_start = start_dt
@@ -246,9 +240,7 @@ async def fetch_bouncie_trips_in_range(
         )
         if progress_tracker is not None:
             progress_tracker["fetch_and_store_trips"]["status"] = "failed"
-            progress_tracker["fetch_and_store_trips"]["message"] = (
-                f"Error: {e}"
-            )
+            progress_tracker["fetch_and_store_trips"]["message"] = f"Error: {e}"
     finally:
         if (
             progress_tracker is not None
@@ -256,9 +248,9 @@ async def fetch_bouncie_trips_in_range(
         ):
             progress_tracker["fetch_and_store_trips"]["status"] = "completed"
             progress_tracker["fetch_and_store_trips"]["progress"] = 100
-            progress_tracker["fetch_and_store_trips"]["message"] = (
-                f"Completed fetch and processing. Found {len(all_new_trips)} new/updated trips."
-            )
+            progress_tracker["fetch_and_store_trips"][
+                "message"
+            ] = f"Completed fetch and processing. Found {len(all_new_trips)} new/updated trips."
     logger.info(
         f"fetch_bouncie_trips_in_range finished, returning {len(all_new_trips)} trips.",
     )
