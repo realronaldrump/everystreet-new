@@ -62,7 +62,9 @@ class DrivingNavigation {
     this.currentCoverageRouteGeoJSON = null;
 
     // Add these properties to the constructor
-    this.findEfficientBtn = document.getElementById("find-efficient-street-btn");
+    this.findEfficientBtn = document.getElementById(
+      "find-efficient-street-btn",
+    );
     this.efficientClustersLayer = L.layerGroup();
     this.suggestedClusters = [];
     this.clusterMarkers = [];
@@ -1226,7 +1228,8 @@ class DrivingNavigation {
         setTimeout(() => {
           const navigateBtn = document.querySelector(".navigate-to-segment");
           if (navigateBtn) {
-            navigateBtn.addEventListener("mousedown", (evt) => { // Changed e to evt to avoid conflict
+            navigateBtn.addEventListener("mousedown", (evt) => {
+              // Changed e to evt to avoid conflict
               if (evt.button !== 0) return;
               const segmentId = navigateBtn.getAttribute("data-segment-id");
               this.highlightTargetStreet(segmentId);
@@ -1421,7 +1424,9 @@ class DrivingNavigation {
 
           setTimeout(() => {
             if (
-              confirm(`Navigate to cluster with ${topCluster.segment_count} streets?`)
+              confirm(
+                `Navigate to cluster with ${topCluster.segment_count} streets?`,
+              )
             ) {
               this.highlightTargetStreet(nearestSegment.segment_id);
               this.findRouteToSegment(nearestSegment.segment_id);
@@ -1537,9 +1542,7 @@ class DrivingNavigation {
 
   // Create popup for cluster
   createClusterPopup(cluster, rank) {
-    const distanceMiles = (
-      cluster.distance_to_cluster_m / 1609.34
-    ).toFixed(1);
+    const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(1);
     const lengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
     const score = cluster.efficiency_score.toFixed(2);
 
@@ -1585,9 +1588,9 @@ class DrivingNavigation {
 
     const colors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#f9ca24", "#6c5ce7"];
     clusters.forEach((cluster, index) => {
-      const distanceMiles = (
-        cluster.distance_to_cluster_m / 1609.34
-      ).toFixed(1);
+      const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(
+        1,
+      );
       const lengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
       const score = cluster.efficiency_score.toFixed(2);
       const color = colors[index % colors.length];
@@ -1658,13 +1661,13 @@ class DrivingNavigation {
       }
 
       navigator.geolocation.getCurrentPosition(
-        position => resolve(position),
-        error => reject(error),
+        (position) => resolve(position),
+        (error) => reject(error),
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 0
-        }
+          maximumAge: 0,
+        },
       );
     });
   }
@@ -1690,7 +1693,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.drivingNav = new DrivingNavigation();
 
   // Add CSS for the cluster markers and info panel
-  const styleClusters = document.createElement('style');
+  const styleClusters = document.createElement("style");
   styleClusters.textContent = `
   .efficient-cluster-marker {
     cursor: pointer;

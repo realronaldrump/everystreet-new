@@ -352,7 +352,10 @@ async def process_area(location: dict[str, Any], task_id: str) -> None:
             task_id,
         )
 
-        if calculation_result is None or calculation_result.get("status") == "error":
+        if (
+            calculation_result is None
+            or calculation_result.get("status") == "error"
+        ):
             overall_status = "error"
             final_error = (
                 calculation_result.get(

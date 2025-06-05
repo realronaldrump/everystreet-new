@@ -287,18 +287,21 @@ function createEditableCell(data, type, field, inputType = "text") {
           type: "POST",
           data: (d) => {
             // Add date filters
-            d.start_date = window.utils.getStorage("startDate") || DateUtils.getCurrentDate();
-            d.end_date = window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
+            d.start_date =
+              window.utils.getStorage("startDate") ||
+              DateUtils.getCurrentDate();
+            d.end_date =
+              window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
             return d;
           },
           dataSrc: (json) => {
             // Cache the data for quick access
             this.tripsCache.clear();
-            json.data.forEach(trip => {
+            json.data.forEach((trip) => {
               this.tripsCache.set(trip.transactionId, trip);
             });
             return json.data;
-          }
+          },
         },
         columns: [
           {
@@ -321,12 +324,14 @@ function createEditableCell(data, type, field, inputType = "text") {
           {
             data: "startTime",
             title: "Start Time",
-            render: (data) => this.renderDateTime(data, "datetime", null, "startTime"),
+            render: (data) =>
+              this.renderDateTime(data, "datetime", null, "startTime"),
           },
           {
             data: "endTime",
             title: "End Time",
-            render: (data) => this.renderDateTime(data, "datetime", null, "endTime"),
+            render: (data) =>
+              this.renderDateTime(data, "datetime", null, "endTime"),
           },
           {
             data: "duration",
@@ -392,7 +397,8 @@ function createEditableCell(data, type, field, inputType = "text") {
           },
         ],
         language: {
-          processing: '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>',
+          processing:
+            '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>',
           emptyTable: "No trips found",
           zeroRecords: "No matching trips found",
           loadingRecords: "Loading trips...",
@@ -401,24 +407,31 @@ function createEditableCell(data, type, field, inputType = "text") {
           infoFiltered: "(filtered from _MAX_ total trips)",
         },
         pageLength: 50, // Show 50 rows at a time
-        lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "All"]],
+        lengthMenu: [
+          [25, 50, 100, -1],
+          [25, 50, 100, "All"],
+        ],
         order: [[0, "desc"]], // Sort by start time descending
-        drawCallback: function(settings) {
+        drawCallback: function (settings) {
           // Cleanup previous event listeners
-          $(this).find('.edit-trip-btn, .cancel-edit-btn, .save-changes-btn').off('mousedown');
-          
+          $(this)
+            .find(".edit-trip-btn, .cancel-edit-btn, .save-changes-btn")
+            .off("mousedown");
+
           // Re-attach event listeners only for visible rows
-          $(this).find('.edit-trip-btn:visible').on('mousedown', function(e) {
-            if (e.button !== 0) return;
-            e.preventDefault();
-            const row = $(this).closest('tr');
-            window.EveryStreet.Trips.tripsManager.setRowEditMode(row, true);
-          });
-        }
+          $(this)
+            .find(".edit-trip-btn:visible")
+            .on("mousedown", function (e) {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              const row = $(this).closest("tr");
+              window.EveryStreet.Trips.tripsManager.setRowEditMode(row, true);
+            });
+        },
       });
 
       // Replace fetchTrips with just a table reload
-      this.fetchTrips = function() {
+      this.fetchTrips = function () {
         if (this.tripsTable) {
           this.tripsTable.ajax.reload(null, false); // Don't reset pagination
         }

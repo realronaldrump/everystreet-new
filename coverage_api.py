@@ -934,7 +934,9 @@ async def get_coverage_area_geojson_from_gridfs(
 
 
 @router.get("/api/coverage_areas/{location_id}/streets")
-async def get_coverage_area_streets(location_id: str, undriven: bool = Query(False)):
+async def get_coverage_area_streets(
+    location_id: str, undriven: bool = Query(False)
+):
     """Get updated street GeoJSON for a coverage area, including manual overrides."""
     try:
         obj_location_id = ObjectId(location_id)
