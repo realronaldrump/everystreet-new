@@ -1,4 +1,4 @@
-/* global L, notificationManager, LiveTripTracker, window */
+/* global L, notificationManager, LiveTripTracker */
 
 "use strict";
 
