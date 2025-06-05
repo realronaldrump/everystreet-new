@@ -356,7 +356,12 @@ class DrivingNavigation {
       this.updateProgress(80, "Rendering streets on map...");
 
       if (geojson?.features && geojson.features.length > 0) {
-        const geoJsonLayer = L.geoJSON(geojson, {
+        // Filter out undriveable streets
+        const driveableFeatures = geojson.features.filter(
+          feature => !feature.properties.undriveable
+        );
+        
+        const geoJsonLayer = L.geoJSON(driveableFeatures, {
           style: {
             color: "#00BFFF", weight: 3, opacity: 0.6,
             dashArray: "4, 4", className: "undriven-street-nav",
@@ -368,7 +373,7 @@ class DrivingNavigation {
         if (bounds.isValid()) this.map.fitBounds(bounds, { padding: [50, 50] });
         this.updateProgress(100, "Loaded undriven streets!");
         setTimeout(() => this.hideProgressContainer(), 1000);
-        this.setStatus(`Loaded ${geojson.features.length} undriven streets in ${this.selectedArea.location.display_name}.`);
+        this.setStatus(`Loaded ${driveableFeatures.length} undriven streets in ${this.selectedArea.location.display_name}.`);
       } else {
         this.hideProgressContainer();
         this.setStatus(`No undriven streets found in ${this.selectedArea.location.display_name}.`);

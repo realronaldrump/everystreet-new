@@ -658,6 +658,8 @@ async def suggest_next_efficient_street(
             "properties.location": location_name,
             "properties.driven": False,
             "properties.undriveable": {"$ne": True},
+            "geometry.type": "LineString",
+            "geometry.coordinates": {"$exists": True, "$not": {"$size": 0}},
         }
     )
     undriven_streets = await undriven_streets_cursor.to_list(length=None)

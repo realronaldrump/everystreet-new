@@ -959,6 +959,7 @@ async def get_coverage_area_streets(
     query = {"properties.location": name}
     if undriven:
         query["properties.driven"] = False
+        query["properties.undriveable"] = {"$ne": True}  # Don't show undriveable streets
     cursor = streets_collection.find(
         query,
         {
