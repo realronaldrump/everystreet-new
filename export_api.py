@@ -47,7 +47,9 @@ async def export_coverage_route_endpoint(
         location_display_name = payload.get("location_name", "coverage_route")
 
         if not route_geometry or not isinstance(route_geometry, dict):
-            raise HTTPException(status_code=400, detail="Invalid or missing route_geometry.")
+            raise HTTPException(
+                status_code=400, detail="Invalid or missing route_geometry."
+            )
 
         geom_type = route_geometry.get("type")
         data_to_export: Any
@@ -58,37 +60,66 @@ async def export_coverage_route_endpoint(
             if fmt == "gpx":
                 trips_for_gpx = []
                 for i, geom in enumerate(route_geometry.get("geometries", [])):
-                    if isinstance(geom, dict) and geom.get("type") == "LineString" and geom.get("coordinates"):
-                        trips_for_gpx.append({
-                            "transactionId": f"segment_{i + 1}",
-                            "gps": geom, "source": "coverage_route_segment",
-                            "startTime": datetime.now(timezone.utc), "endTime": datetime.now(timezone.utc)
-                        })
+                    if (
+                        isinstance(geom, dict)
+                        and geom.get("type") == "LineString"
+                        and geom.get("coordinates")
+                    ):
+                        trips_for_gpx.append(
+                            {
+                                "transactionId": f"segment_{i + 1}",
+                                "gps": geom,
+                                "source": "coverage_route_segment",
+                                "startTime": datetime.now(timezone.utc),
+                                "endTime": datetime.now(timezone.utc),
+                            }
+                        )
                 data_to_export = trips_for_gpx
             elif fmt == "shapefile":
-                features = [geojson_module.Feature(geometry=geom, properties={"segment_idx": i + 1}) for i, geom in enumerate(route_geometry.get("geometries", [])) if isinstance(geom, dict)]
+                features = [
+                    geojson_module.Feature(
+                        geometry=geom, properties={"segment_idx": i + 1}
+                    )
+                    for i, geom in enumerate(route_geometry.get("geometries", []))
+                    if isinstance(geom, dict)
+                ]
                 data_to_export = geojson_module.FeatureCollection(features)
-            else: # geojson, json
+            else:  # geojson, json
                 data_to_export = route_geometry
 
         elif geom_type == "LineString":
             # Handle simple A-to-B route
-            filename_base = f"{location_display_name.replace(' ', '_').lower()}_single_route"
+            filename_base = (
+                f"{location_display_name.replace(' ', '_').lower()}_single_route"
+            )
             if fmt == "gpx":
-                data_to_export = [{
-                    "transactionId": "single_route", "gps": route_geometry, "source": "single_route",
-                    "startTime": datetime.now(timezone.utc), "endTime": datetime.now(timezone.utc)
-                }]
+                data_to_export = [
+                    {
+                        "transactionId": "single_route",
+                        "gps": route_geometry,
+                        "source": "single_route",
+                        "startTime": datetime.now(timezone.utc),
+                        "endTime": datetime.now(timezone.utc),
+                    }
+                ]
             elif fmt == "shapefile":
-                feature = geojson_module.Feature(geometry=route_geometry, properties={"name": "single_route"})
+                feature = geojson_module.Feature(
+                    geometry=route_geometry, properties={"name": "single_route"}
+                )
                 data_to_export = geojson_module.FeatureCollection([feature])
-            else: # geojson, json
+            else:  # geojson, json
                 data_to_export = route_geometry
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported route geometry type: {geom_type}. Must be GeometryCollection or LineString.")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported route geometry type: {geom_type}. Must be GeometryCollection or LineString.",
+            )
 
         if not data_to_export:
-             raise HTTPException(status_code=400, detail="No valid geometries found in the route to export.")
+            raise HTTPException(
+                status_code=400,
+                detail="No valid geometries found in the route to export.",
+            )
 
         return await create_export_response(data_to_export, fmt, filename_base)
 
@@ -99,10 +130,13 @@ async def export_coverage_route_endpoint(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception(f"Error exporting coverage route: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to export coverage route: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to export coverage route: {str(e)}"
+        )
 
 
 # --- Other existing export endpoints remain unchanged ---
+
 
 @router.get("/export/geojson")
 async def export_geojson(request: Request):
@@ -168,9 +202,7 @@ async def export_single_trip(
             )
 
         start_date = t.get("startTime")
-        date_str = (
-            start_date.strftime("%Y%m%d") if start_date else "unknown_date"
-        )
+        date_str = start_date.strftime("%Y%m%d") if start_date else "unknown_date"
         filename_base = f"trip_{trip_id}_{date_str}"
 
         return await create_export_response([t], fmt, filename_base)
