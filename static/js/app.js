@@ -551,10 +551,12 @@
 
     handleMapClick(e) {
       // Only query layers that are currently visible
-      const visibleLayers = ["trips-layer", "matchedTrips-layer"].filter(layerId => {
-        const layerName = layerId.replace("-layer", "");
-        return state.mapLayers[layerName]?.visible;
-      });
+      const visibleLayers = ["trips-layer", "matchedTrips-layer"].filter(
+        (layerId) => {
+          const layerName = layerId.replace("-layer", "");
+          return state.mapLayers[layerName]?.visible;
+        },
+      );
 
       if (visibleLayers.length === 0) return;
 
@@ -1533,7 +1535,12 @@
         return "";
       }
 
-      console.log("Creating action buttons for trip:", tripId, "Is matched:", isMatched); // Debug log
+      console.log(
+        "Creating action buttons for trip:",
+        tripId,
+        "Is matched:",
+        isMatched,
+      ); // Debug log
 
       return `
         <div class="popup-actions mt-3 d-flex gap-2 flex-wrap">
