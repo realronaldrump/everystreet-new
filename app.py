@@ -109,9 +109,7 @@ CLIENT_ID = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
 REDIRECT_URI = os.getenv("REDIRECT_URI", "")
 AUTH_CODE = os.getenv("AUTHORIZATION_CODE", "")
-AUTHORIZED_DEVICES = [
-    d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
-]
+AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 AUTH_URL = "https://auth.bouncie.com/oauth/token"
@@ -219,9 +217,7 @@ async def process_geojson_trip(
                 else datetime.now(timezone.utc)
             )
             etime_parsed = (
-                dateutil_parser.isoparse(etime_str)
-                if etime_str
-                else stime_parsed
+                dateutil_parser.isoparse(etime_str) if etime_str else stime_parsed
             )
             trip_geo = {
                 "type": geom.get("type"),
@@ -278,8 +274,7 @@ async def process_single_trip(
             return {
                 "status": "success",
                 "processing_status": processing_status,
-                "is_valid": processing_status["state"]
-                == TripState.VALIDATED.value,
+                "is_valid": processing_status["state"] == TripState.VALIDATED.value,
             }
         if geocode_only:
             await processor.validate()
@@ -293,8 +288,7 @@ async def process_single_trip(
             return {
                 "status": "success",
                 "processing_status": processing_status,
-                "geocoded": processing_status["state"]
-                == TripState.GEOCODED.value,
+                "geocoded": processing_status["state"] == TripState.GEOCODED.value,
                 "saved_id": saved_id,
             }
         await processor.process(do_map_match=map_match)
@@ -304,8 +298,7 @@ async def process_single_trip(
         return {
             "status": "success",
             "processing_status": processing_status,
-            "completed": processing_status["state"]
-            == TripState.COMPLETED.value,
+            "completed": processing_status["state"] == TripState.COMPLETED.value,
             "saved_id": saved_id,
         }
 
@@ -615,9 +608,7 @@ async def get_trips(request: Request):
         "averageSpeed": 1,
     }
     cursor = (
-        trips_collection.find(query, projection)
-        .sort("endTime", -1)
-        .batch_size(500)
+        trips_collection.find(query, projection).sort("endTime", -1).batch_size(500)
     )
 
     async def stream():
@@ -631,19 +622,14 @@ async def get_trips(request: Request):
             geom = trip.get("gps")
             num_points = (
                 len(geom.get("coordinates", []))
-                if isinstance(geom, dict)
-                and isinstance(geom.get("coordinates"), list)
+                if isinstance(geom, dict) and isinstance(geom.get("coordinates"), list)
                 else 0
             )
             props = {
                 "transactionId": trip.get("transactionId"),
                 "imei": trip.get("imei"),
-                "startTime": st.isoformat()
-                if hasattr(st, "isoformat")
-                else None,
-                "endTime": et.isoformat()
-                if hasattr(et, "isoformat")
-                else None,
+                "startTime": st.isoformat() if hasattr(st, "isoformat") else None,
+                "endTime": et.isoformat() if hasattr(et, "isoformat") else None,
                 "duration": duration,
                 "distance": float(trip.get("distance", 0)),
                 "maxSpeed": float(trip.get("maxSpeed", 0)),
@@ -668,9 +654,7 @@ async def get_trips(request: Request):
             chunk = json.dumps(
                 feature,
                 separators=(",", ":"),
-                default=lambda o: o.isoformat()
-                if hasattr(o, "isoformat")
-                else str(o),
+                default=lambda o: o.isoformat() if hasattr(o, "isoformat") else str(o),
             )
             if not first:
                 yield ","
@@ -696,9 +680,7 @@ async def get_matched_trips(request: Request):
             try:
                 mgps = trip["matchedGps"]
                 geometry_dict = (
-                    mgps
-                    if isinstance(mgps, dict)
-                    else geojson_module.loads(mgps)
+                    mgps if isinstance(mgps, dict) else geojson_module.loads(mgps)
                 )
                 feature = geojson_module.Feature(
                     geometry=geometry_dict,
@@ -1026,9 +1008,7 @@ async def delete_trip(trip_id: str):
                 "message": "Trip deleted successfully",
                 "deleted_trips": result.deleted_count,
                 "deleted_matched_trips": (
-                    matched_delete_result.deleted_count
-                    if matched_delete_result
-                    else 0
+                    matched_delete_result.deleted_count if matched_delete_result else 0
                 ),
             }
 
@@ -1218,9 +1198,7 @@ async def upload_files(
     try:
         count = 0
         for file in files:
-            filename = (
-                file.filename.lower() if file.filename else "unknown_file"
-            )
+            filename = file.filename.lower() if file.filename else "unknown_file"
             content_data = await file.read()
 
             if filename.endswith(".gpx"):
@@ -1416,9 +1394,7 @@ async def get_trip_analytics(request: Request):
                 if hr not in hourly_data:
                     hourly_data[hr] = 0
                 hourly_data[hr] += r["tripCount"]
-            return [
-                {"hour": h, "count": c} for h, c in sorted(hourly_data.items())
-            ]
+            return [{"hour": h, "count": c} for h, c in sorted(hourly_data.items())]
 
         daily_list = organize_daily_data(results)
         hourly_list = organize_hourly_data(results)
@@ -1976,17 +1952,13 @@ async def get_trips_in_bounds(
 
         trip_features = []
         async for trip_doc in cursor:
-            if trip_doc.get("matchedGps") and trip_doc["matchedGps"].get(
-                "coordinates"
-            ):
+            if trip_doc.get("matchedGps") and trip_doc["matchedGps"].get("coordinates"):
                 coords = trip_doc["matchedGps"]["coordinates"]
                 if isinstance(coords, list) and len(coords) >= 2:
                     feature = geojson_module.Feature(
                         geometry=geojson_module.LineString(coords),
                         properties={
-                            "transactionId": trip_doc.get(
-                                "transactionId", "N/A"
-                            )
+                            "transactionId": trip_doc.get("transactionId", "N/A")
                         },
                     )
                     trip_features.append(feature)
@@ -2067,26 +2039,20 @@ async def driver_behavior_analytics():
         for t in trips
         if t.get("avgSpeed") is not None or t.get("averageSpeed") is not None
     )
-    avg_speed = (
-        speeds_sum / num_trips_with_speed if num_trips_with_speed > 0 else 0.0
-    )
+    avg_speed = speeds_sum / num_trips_with_speed if num_trips_with_speed > 0 else 0.0
 
     max_speeds = [get_field(t, "maxSpeed", default=0.0) for t in trips]
     max_speed = max(max_speeds) if max_speeds else 0.0
 
     hard_braking = sum(
-        get_field(t, "hardBrakingCounts", "hardBrakingCount", default=0)
-        for t in trips
+        get_field(t, "hardBrakingCounts", "hardBrakingCount", default=0) for t in trips
     )
     hard_accel = sum(
-        get_field(
-            t, "hardAccelerationCounts", "hardAccelerationCount", default=0
-        )
+        get_field(t, "hardAccelerationCounts", "hardAccelerationCount", default=0)
         for t in trips
     )
     idling = sum(
-        get_field(t, "totalIdlingTime", "totalIdleDuration", default=0.0)
-        for t in trips
+        get_field(t, "totalIdlingTime", "totalIdleDuration", default=0.0) for t in trips
     )
     fuel = sum(get_field(t, "fuelConsumed", default=0.0) for t in trips)
 
@@ -2199,9 +2165,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
             if active_trip:
                 # Serialize the trip data properly
-                serialized_trip = SerializationHelper.serialize_document(
-                    active_trip
-                )
+                serialized_trip = SerializationHelper.serialize_document(active_trip)
                 last_sequence = active_trip.get("sequence", last_sequence)
 
                 await websocket.send_json(
@@ -2230,9 +2194,7 @@ async def list_trips(request: Request):
     for doc in docs:
         # serialize_trip will turn your MongoDB document into JSON-safe dict
         props = SerializationHelper.serialize_trip(doc)
-        features.append(
-            geojson_module.Feature(geometry=doc["gps"], properties=props)
-        )
+        features.append(geojson_module.Feature(geometry=doc["gps"], properties=props))
     return geojson_module.FeatureCollection(features)
 
 
@@ -2547,9 +2509,7 @@ async def get_metrics(request: Request):
             if display_hour == 0:
                 display_hour = 12
 
-            avg_start_time_str = (
-                f"{display_hour:02d}:{local_minute:02d} {am_pm}"
-            )
+            avg_start_time_str = f"{display_hour:02d}:{local_minute:02d} {am_pm}"
 
         avg_driving_time_str = "00:00"
         if total_trips > 0:
