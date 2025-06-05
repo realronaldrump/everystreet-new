@@ -283,9 +283,7 @@ def calculate_distance(
 
     """
     total_distance_meters = 0.0
-    coords: list[list[float]] = (
-        coordinates if isinstance(coordinates, list) else []
-    )
+    coords: list[list[float]] = coordinates if isinstance(coordinates, list) else []
 
     if not coords or not isinstance(coords[0], list):
         logger.warning("Invalid coordinates format for distance calculation.")

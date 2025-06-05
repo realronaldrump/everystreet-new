@@ -19,18 +19,18 @@ class LoadingManager {
     this.isProcessingQueue = false;
     this.showTimeout = null;
     this.hideTimeout = null;
-    
+
     // Track different loading stages
     this.stages = {
-      init: { weight: 10, status: 'pending' },
-      map: { weight: 30, status: 'pending' },
-      data: { weight: 40, status: 'pending' },
-      render: { weight: 20, status: 'pending' }
+      init: { weight: 10, status: "pending" },
+      map: { weight: 30, status: "pending" },
+      data: { weight: 40, status: "pending" },
+      render: { weight: 20, status: "pending" },
     };
 
     // Initialize on DOM ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => this.init());
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => this.init());
     } else {
       this.init();
     }
@@ -38,16 +38,18 @@ class LoadingManager {
 
   init() {
     if (this.initialized) return;
-    
-    this.elements.overlay = document.querySelector('.loading-overlay');
-    this.elements.text = document.getElementById('loading-text') || 
-                         document.querySelector('.loading-text');
-    this.elements.bar = document.getElementById('loading-progress-bar') || 
-                        document.querySelector('.progress-bar');
-    this.elements.spinner = document.querySelector('.loading-spinner');
-    
+
+    this.elements.overlay = document.querySelector(".loading-overlay");
+    this.elements.text =
+      document.getElementById("loading-text") ||
+      document.querySelector(".loading-text");
+    this.elements.bar =
+      document.getElementById("loading-progress-bar") ||
+      document.querySelector(".progress-bar");
+    this.elements.spinner = document.querySelector(".loading-spinner");
+
     this.initialized = true;
-    
+
     // Create overlay if it doesn't exist
     if (!this.elements.overlay) {
       this.createOverlay();
@@ -55,8 +57,8 @@ class LoadingManager {
   }
 
   createOverlay() {
-    const overlay = document.createElement('div');
-    overlay.className = 'loading-overlay';
+    const overlay = document.createElement("div");
+    overlay.className = "loading-overlay";
     overlay.style.cssText = `
       position: fixed;
       top: 0;
@@ -72,8 +74,8 @@ class LoadingManager {
       transition: opacity 0.2s ease-in-out;
     `;
 
-    const content = document.createElement('div');
-    content.className = 'loading-content';
+    const content = document.createElement("div");
+    content.className = "loading-content";
     content.style.cssText = `
       background: white;
       padding: 20px;
@@ -82,8 +84,8 @@ class LoadingManager {
       min-width: 200px;
     `;
 
-    const spinner = document.createElement('div');
-    spinner.className = 'loading-spinner';
+    const spinner = document.createElement("div");
+    spinner.className = "loading-spinner";
     spinner.style.cssText = `
       width: 40px;
       height: 40px;
@@ -94,15 +96,15 @@ class LoadingManager {
       animation: spin 1s linear infinite;
     `;
 
-    const text = document.createElement('div');
-    text.className = 'loading-text';
+    const text = document.createElement("div");
+    text.className = "loading-text";
     text.style.cssText = `
       margin-top: 10px;
       color: #333;
     `;
 
-    const progressBar = document.createElement('div');
-    progressBar.className = 'loading-progress';
+    const progressBar = document.createElement("div");
+    progressBar.className = "loading-progress";
     progressBar.style.cssText = `
       width: 100%;
       height: 4px;
@@ -112,8 +114,8 @@ class LoadingManager {
       overflow: hidden;
     `;
 
-    const progress = document.createElement('div');
-    progress.className = 'progress-bar';
+    const progress = document.createElement("div");
+    progress.className = "progress-bar";
     progress.style.cssText = `
       width: 0%;
       height: 100%;
@@ -134,53 +136,53 @@ class LoadingManager {
       spinner,
       text,
       progressBar,
-      progress
+      progress,
     };
   }
 
   // Start a loading stage
   startStage(stageName, message) {
     if (!this.stages[stageName]) {
-      this.stages[stageName] = { weight: 10, status: 'pending' };
+      this.stages[stageName] = { weight: 10, status: "pending" };
     }
-    
-    this.stages[stageName].status = 'loading';
+
+    this.stages[stageName].status = "loading";
     this.stages[stageName].message = message;
-    
+
     this._showOverlay(message || `Loading ${stageName}...`);
     this.updateProgress();
-    
+
     return {
       update: (progress, msg) => this.updateStage(stageName, progress, msg),
       complete: () => this.completeStage(stageName),
-      error: (msg) => this.stageError(stageName, msg)
+      error: (msg) => this.stageError(stageName, msg),
     };
   }
 
   updateStage(stageName, progress, message) {
     if (!this.stages[stageName]) return;
-    
+
     this.stages[stageName].progress = Math.min(100, Math.max(0, progress));
     if (message) {
       this.stages[stageName].message = message;
     }
-    
+
     this.updateProgress();
   }
 
   completeStage(stageName) {
     if (!this.stages[stageName]) return;
-    
-    this.stages[stageName].status = 'complete';
+
+    this.stages[stageName].status = "complete";
     this.stages[stageName].progress = 100;
-    
+
     this.updateProgress();
-    
+
     // Check if all stages are complete
     const allComplete = Object.values(this.stages).every(
-      stage => stage.status === 'complete' || stage.status === 'skipped'
+      (stage) => stage.status === "complete" || stage.status === "skipped",
     );
-    
+
     if (allComplete) {
       this._completeOverlay();
     }
@@ -188,56 +190,75 @@ class LoadingManager {
 
   stageError(stageName, message) {
     if (!this.stages[stageName]) return;
-    
-    this.stages[stageName].status = 'error';
+
+    this.stages[stageName].status = "error";
     this.stages[stageName].error = message;
-    
+
     this.error(message, stageName);
   }
 
   updateProgress() {
     const stages = Object.entries(this.stages);
-    const totalWeight = stages.reduce((sum, [_, stage]) => sum + stage.weight, 0);
-    
+    const totalWeight = stages.reduce(
+      (sum, [_, stage]) => sum + stage.weight,
+      0,
+    );
+
     let weightedProgress = 0;
     let currentStage = null;
     let detailsHtml = '<div class="loading-stages">';
-    
+
     stages.forEach(([name, stage]) => {
       const progress = stage.progress || 0;
-      const stageProgress = stage.status === 'complete' ? 100 : 
-                           stage.status === 'error' ? 0 : progress;
-      
+      const stageProgress =
+        stage.status === "complete"
+          ? 100
+          : stage.status === "error"
+            ? 0
+            : progress;
+
       weightedProgress += (stageProgress / 100) * stage.weight;
-      
+
       // Build details HTML
-      const statusIcon = stage.status === 'complete' ? '✓' : 
-                        stage.status === 'error' ? '✗' : 
-                        stage.status === 'loading' ? '⟳' : '○';
-      
-      const statusClass = stage.status === 'complete' ? 'text-success' : 
-                         stage.status === 'error' ? 'text-danger' : 
-                         stage.status === 'loading' ? 'text-primary' : 'text-muted';
-      
+      const statusIcon =
+        stage.status === "complete"
+          ? "✓"
+          : stage.status === "error"
+            ? "✗"
+            : stage.status === "loading"
+              ? "⟳"
+              : "○";
+
+      const statusClass =
+        stage.status === "complete"
+          ? "text-success"
+          : stage.status === "error"
+            ? "text-danger"
+            : stage.status === "loading"
+              ? "text-primary"
+              : "text-muted";
+
       detailsHtml += `
         <div class="loading-stage ${statusClass} small">
           <span class="stage-icon">${statusIcon}</span>
           <span class="stage-name">${name}</span>
         </div>
       `;
-      
-      if (stage.status === 'loading' && !currentStage) {
+
+      if (stage.status === "loading" && !currentStage) {
         currentStage = stage;
       }
     });
-    
-    detailsHtml += '</div>';
-    
-    const overallPercentage = Math.round((weightedProgress / totalWeight) * 100);
-    const message = currentStage?.message || 'Loading...';
-    
+
+    detailsHtml += "</div>";
+
+    const overallPercentage = Math.round(
+      (weightedProgress / totalWeight) * 100,
+    );
+    const message = currentStage?.message || "Loading...";
+
     this._updateOverlayProgress(overallPercentage, message);
-    
+
     if (this.elements.details) {
       this.elements.details.innerHTML = detailsHtml;
     }
@@ -245,7 +266,7 @@ class LoadingManager {
 
   startOperation(name, total = 100) {
     const operationId = ++this.operationCounter;
-    
+
     const operation = {
       id: operationId,
       name,
@@ -253,11 +274,11 @@ class LoadingManager {
       progress: 0,
       startTime: Date.now(),
       subOperations: new Map(),
-      completed: false
+      completed: false,
     };
-    
+
     this.activeOperations.set(operationId, operation);
-    
+
     // Debounce overlay show to prevent flicker
     clearTimeout(this.showTimeout);
     this.showTimeout = setTimeout(() => {
@@ -265,40 +286,42 @@ class LoadingManager {
         this._showOverlay(`Loading ${name}...`);
       }
     }, 100);
-    
+
     return {
       id: operationId,
-      update: (progress, message) => this.updateOperation(operationId, progress, message),
+      update: (progress, message) =>
+        this.updateOperation(operationId, progress, message),
       finish: () => this.finishOperation(operationId),
       error: (message) => this.errorOperation(operationId, message),
-      addSubOperation: (subName, subTotal) => this.addSubOperation(operationId, subName, subTotal)
+      addSubOperation: (subName, subTotal) =>
+        this.addSubOperation(operationId, subName, subTotal),
     };
   }
 
   updateOperation(operationId, progress, message) {
     const operation = this.activeOperations.get(operationId);
     if (!operation || operation.completed) return;
-    
+
     operation.progress = Math.min(Math.max(0, progress), operation.total);
     if (message) operation.message = message;
-    
+
     this.updateOverlay();
   }
 
   finishOperation(operationId) {
     const operation = this.activeOperations.get(operationId);
     if (!operation) return;
-    
+
     operation.completed = true;
     operation.progress = operation.total;
-    
+
     // Delay removal to ensure minimum show time
     const elapsed = Date.now() - operation.startTime;
     const delay = Math.max(0, this.minimumShowTime - elapsed);
-    
+
     setTimeout(() => {
       this.activeOperations.delete(operationId);
-      
+
       if (this.activeOperations.size === 0) {
         clearTimeout(this.showTimeout);
         this._hideOverlay();
@@ -311,16 +334,16 @@ class LoadingManager {
   errorOperation(operationId, message) {
     const operation = this.activeOperations.get(operationId);
     if (!operation) return;
-    
+
     operation.error = message;
     operation.completed = true;
-    
+
     // Show error briefly then remove
     this._showOverlay(`Error: ${message}`, true);
-    
+
     setTimeout(() => {
       this.activeOperations.delete(operationId);
-      
+
       if (this.activeOperations.size === 0) {
         this._hideOverlay();
       } else {
@@ -331,12 +354,12 @@ class LoadingManager {
 
   updateOverlay() {
     if (this.activeOperations.size === 0) return;
-    
+
     // Calculate overall progress
     let totalProgress = 0;
     let totalWeight = 0;
-    let currentMessage = '';
-    
+    let currentMessage = "";
+
     for (const operation of this.activeOperations.values()) {
       if (!operation.completed) {
         const weight = operation.total;
@@ -345,13 +368,14 @@ class LoadingManager {
         currentMessage = operation.message || `Loading ${operation.name}...`;
       }
     }
-    
-    const overallProgress = totalWeight > 0 ? (totalProgress / totalWeight) * 100 : 0;
+
+    const overallProgress =
+      totalWeight > 0 ? (totalProgress / totalWeight) * 100 : 0;
     this._updateOverlayProgress(Math.round(overallProgress), currentMessage);
   }
 
-  show(message = 'Loading...', immediate = false) {
-    const operation = this.startOperation('Manual', 100);
+  show(message = "Loading...", immediate = false) {
+    const operation = this.startOperation("Manual", 100);
     operation.update(50, message);
     return this;
   }
@@ -384,18 +408,20 @@ class LoadingManager {
 
   error(message, context = null, autoHide = true) {
     if (!this.initialized) this.init();
-    
-    console.error(`Loading Error: ${message}${context ? ` in ${context}` : ''}`);
+
+    console.error(
+      `Loading Error: ${message}${context ? ` in ${context}` : ""}`,
+    );
 
     this._showOverlay(`Error: ${message}`, true);
-    
+
     if (this.elements.text) {
-      this.elements.text.classList.add('text-danger');
+      this.elements.text.classList.add("text-danger");
     }
 
     if (this.elements.bar) {
-      this.elements.bar.classList.remove('bg-primary', 'bg-success');
-      this.elements.bar.classList.add('bg-danger');
+      this.elements.bar.classList.remove("bg-primary", "bg-success");
+      this.elements.bar.classList.add("bg-danger");
     }
 
     if (autoHide) {
@@ -407,63 +433,65 @@ class LoadingManager {
 
   _showOverlay(message, immediate = false) {
     if (!this.initialized) this.init();
-    
+
     // Cancel any pending hide
     clearTimeout(this.hideTimeout);
     this.pendingHide = false;
-    
+
     const { overlay, text, bar, spinner } = this.elements;
     if (!overlay) return;
-    
+
     // Ensure overlay is visible
     if (!this.isVisible) {
       this.showStartTime = Date.now();
-      overlay.style.display = 'flex';
-      overlay.style.opacity = '0';
-      
+      overlay.style.display = "flex";
+      overlay.style.opacity = "0";
+
       // Force reflow
       overlay.offsetHeight;
-      
+
       // Fade in with shorter duration
-      overlay.style.transition = immediate ? 'none' : 'opacity 0.2s ease-in-out';
-      overlay.style.opacity = '1';
-      
+      overlay.style.transition = immediate
+        ? "none"
+        : "opacity 0.2s ease-in-out";
+      overlay.style.opacity = "1";
+
       this.isVisible = true;
     }
-    
+
     if (text) {
       text.textContent = message;
-      text.classList.remove('text-danger');
+      text.classList.remove("text-danger");
     }
-    
+
     if (bar) {
-      bar.classList.remove('bg-danger', 'bg-success');
-      bar.classList.add('bg-primary');
+      bar.classList.remove("bg-danger", "bg-success");
+      bar.classList.add("bg-primary");
     }
-    
+
     if (spinner) {
-      spinner.classList.add('active');
+      spinner.classList.add("active");
     }
   }
 
   _updateOverlayProgress(percentage, message) {
     if (!this.initialized) return;
-    
+
     const { text, bar } = this.elements;
     if (!text || !bar) return;
 
     const pct = Math.min(Math.round(percentage), 100);
-    
+
     if (message) {
       text.textContent = message;
     }
-    
+
     bar.style.width = `${pct}%`;
-    bar.setAttribute('aria-valuenow', pct);
+    bar.setAttribute("aria-valuenow", pct);
 
     if (pct >= 100) {
-      bar.classList.remove('bg-primary');
-      bar.classList.add('bg-success');
+      bar.classList.remove("bg-primary");
+      bar.classList.add("bg-success");
     }
   }
 
@@ -471,49 +499,53 @@ class LoadingManager {
     const { bar, text } = this.elements;
 
     if (bar) {
-      bar.style.width = '100%';
-      bar.setAttribute('aria-valuenow', '100');
-      bar.classList.remove('bg-primary');
-      bar.classList.add('bg-success');
+      bar.style.width = "100%";
+      bar.setAttribute("aria-valuenow", "100");
+      bar.classList.remove("bg-primary");
+      bar.classList.add("bg-success");
     }
 
     if (text) {
-      text.textContent = 'Complete!';
+      text.textContent = "Complete!";
     }
 
     // Ensure minimum show time
-    const elapsed = this.showStartTime ? Date.now() - this.showStartTime : Infinity;
+    const elapsed = this.showStartTime
+      ? Date.now() - this.showStartTime
+      : Infinity;
     const remainingTime = Math.max(0, this.minimumShowTime - elapsed);
-    
+
     setTimeout(() => this._hideOverlay(), remainingTime + 300);
   }
 
   _hideOverlay() {
     if (!this.initialized || !this.isVisible) return;
-    
+
     // Cancel any pending show
     clearTimeout(this.showTimeout);
-    
+
     const { overlay, spinner } = this.elements;
     if (!overlay) return;
-    
+
     // Ensure minimum show time
-    const elapsed = this.showStartTime ? Date.now() - this.showStartTime : Infinity;
+    const elapsed = this.showStartTime
+      ? Date.now() - this.showStartTime
+      : Infinity;
     const remainingTime = Math.max(0, this.minimumShowTime - elapsed);
-    
+
     this.hideTimeout = setTimeout(() => {
-      overlay.style.opacity = '0';
-      
+      overlay.style.opacity = "0";
+
       setTimeout(() => {
-        if (overlay.style.opacity === '0' && this.activeOperations.size === 0) {
-          overlay.style.display = 'none';
+        if (overlay.style.opacity === "0" && this.activeOperations.size === 0) {
+          overlay.style.display = "none";
           this.isVisible = false;
           this.showStartTime = null;
-          
+
           if (spinner) {
-            spinner.classList.remove('active');
+            spinner.classList.remove("active");
           }
-          
+
           // Reset state
           this.operations.clear();
           this.activeOperations.clear();
@@ -524,16 +556,16 @@ class LoadingManager {
 
   // New method for quick status updates
   pulse(message, duration = 2000) {
-    const pulseEl = document.createElement('div');
-    pulseEl.className = 'loading-pulse';
+    const pulseEl = document.createElement("div");
+    pulseEl.className = "loading-pulse";
     pulseEl.textContent = message;
     document.body.appendChild(pulseEl);
-    
+
     // Trigger animation
     requestAnimationFrame(() => {
-      pulseEl.classList.add('show');
+      pulseEl.classList.add("show");
       setTimeout(() => {
-        pulseEl.classList.remove('show');
+        pulseEl.classList.remove("show");
         setTimeout(() => pulseEl.remove(), 300);
       }, duration);
     });
@@ -543,58 +575,60 @@ class LoadingManager {
   addSubOperation(operationId, subName, subTotal = 100) {
     const operation = this.activeOperations.get(operationId);
     if (!operation) return;
-    
+
     const subOperationId = ++this.operationCounter;
-    
+
     const subOperation = {
       id: subOperationId,
       name: subName,
       total: subTotal,
       progress: 0,
       startTime: Date.now(),
-      completed: false
+      completed: false,
     };
-    
+
     operation.subOperations.set(subOperationId, subOperation);
-    
+
     return {
       id: subOperationId,
-      update: (progress, message) => this.updateSubOperation(operationId, subOperationId, progress, message),
+      update: (progress, message) =>
+        this.updateSubOperation(operationId, subOperationId, progress, message),
       finish: () => this.finishSubOperation(operationId, subOperationId),
-      error: (message) => this.errorSubOperation(operationId, subOperationId, message)
+      error: (message) =>
+        this.errorSubOperation(operationId, subOperationId, message),
     };
   }
 
   updateSubOperation(operationId, subOperationId, progress, message) {
     const operation = this.activeOperations.get(operationId);
     if (!operation) return;
-    
+
     const subOperation = operation.subOperations.get(subOperationId);
     if (!subOperation) return;
-    
+
     subOperation.progress = Math.min(Math.max(0, progress), subOperation.total);
     if (message) subOperation.message = message;
-    
+
     this.updateOverlay();
   }
 
   finishSubOperation(operationId, subOperationId) {
     const operation = this.activeOperations.get(operationId);
     if (!operation) return;
-    
+
     const subOperation = operation.subOperations.get(subOperationId);
     if (!subOperation) return;
-    
+
     subOperation.completed = true;
     subOperation.progress = subOperation.total;
-    
+
     // Delay removal to ensure minimum show time
     const elapsed = Date.now() - subOperation.startTime;
     const delay = Math.max(0, this.minimumShowTime - elapsed);
-    
+
     setTimeout(() => {
       operation.subOperations.delete(subOperationId);
-      
+
       if (operation.subOperations.size === 0) {
         this.finishOperation(operationId);
       } else {
@@ -606,19 +640,19 @@ class LoadingManager {
   errorSubOperation(operationId, subOperationId, message) {
     const operation = this.activeOperations.get(operationId);
     if (!operation) return;
-    
+
     const subOperation = operation.subOperations.get(subOperationId);
     if (!subOperation) return;
-    
+
     subOperation.error = message;
     subOperation.completed = true;
-    
+
     // Show error briefly then remove
     this._showOverlay(`Error: ${message}`, true);
-    
+
     setTimeout(() => {
       operation.subOperations.delete(subOperationId);
-      
+
       if (operation.subOperations.size === 0) {
         this.finishOperation(operationId);
       } else {
@@ -629,7 +663,10 @@ class LoadingManager {
 }
 
 // Create and export singleton instance
-if (!window.loadingManager || typeof window.loadingManager.startStage !== 'function') {
+if (
+  !window.loadingManager ||
+  typeof window.loadingManager.startStage !== "function"
+) {
   window.loadingManager = new LoadingManager();
 }
 
