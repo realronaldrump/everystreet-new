@@ -31,6 +31,15 @@ async def trips_page(request: Request):
     return templates.TemplateResponse("trips.html", {"request": request})
 
 
+@router.get("/trip/{trip_id}", response_class=HTMLResponse)
+async def trip_view_page(request: Request, trip_id: str):
+    """Render single trip view page."""
+    return templates.TemplateResponse(
+        "trip_view.html",
+        {"request": request, "trip_id": trip_id},
+    )
+
+
 @router.get("/edit_trips", response_class=HTMLResponse)
 async def edit_trips_page(request: Request):
     """Render trip editing page."""

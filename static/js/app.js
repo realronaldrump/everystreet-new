@@ -1438,7 +1438,7 @@
 
         try {
           if (button.classList.contains("view-trip-btn")) {
-            window.open(`/trips/${tripId}`, "_blank");
+            window.open(`/trip/${tripId}`, "_blank");
           } else if (button.classList.contains("delete-matched-trip-btn")) {
             await this.deleteMatchedTrip(tripId, popup);
           } else if (button.classList.contains("delete-trip-btn")) {
