@@ -2,14 +2,14 @@
 
 class LiveTripTracker {
   static instance = null; // Singleton pattern
-  
+
   constructor(map) {
     // Enforce singleton
     if (LiveTripTracker.instance) {
       LiveTripTracker.instance.destroy();
     }
     LiveTripTracker.instance = this;
-    
+
     if (!map) {
       window.handleError(
         "LiveTripTracker: Map is required",
@@ -560,7 +560,8 @@ class LiveTripTracker {
     if (!coordinates) return;
 
     // Create GeoJSON features
-    const { features, mapboxCoords, lastPoint } = this.createGeoJSONFeatures(coordinates);
+    const { features, mapboxCoords, lastPoint } =
+      this.createGeoJSONFeatures(coordinates);
 
     // Update map source
     const source = this.map.getSource(this.liveSourceId);
@@ -702,7 +703,7 @@ class LiveTripTracker {
       hardBrakingCounts,
       hardAccelerationCounts,
       startTimeFormatted,
-      lastUpdate
+      lastUpdate,
     };
   }
 
@@ -720,7 +721,9 @@ class LiveTripTracker {
       "Total Idling Time": `${DateUtils.formatSecondsToHMS(metrics.totalIdlingTime)}`,
       "Hard Braking": metrics.hardBrakingCounts,
       "Hard Acceleration": metrics.hardAccelerationCounts,
-      "Last Update": metrics.lastUpdate ? DateUtils.formatTimeAgo(metrics.lastUpdate) : "N/A",
+      "Last Update": metrics.lastUpdate
+        ? DateUtils.formatTimeAgo(metrics.lastUpdate)
+        : "N/A",
     };
 
     this.tripMetricsElem.innerHTML = Object.entries(formattedMetrics)
@@ -773,17 +776,17 @@ class LiveTripTracker {
 
   destroy() {
     this.stopPolling();
-    
+
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
-    
+
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
-    
+
     // Remove Mapbox layers and sources
     if (this.map) {
       try {
@@ -830,25 +833,25 @@ class LiveTripTracker {
       this.ws.close();
       this.ws = null;
     }
-    
+
     if (!("WebSocket" in window)) {
       return this.startPolling();
     }
-    
+
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const url = `${proto}://${location.host}/ws/trips`;
-    
+
     try {
       this.ws = new WebSocket(url);
-      
+
       // Prevent multiple animation loops
       if (this.animationFrameId) {
         cancelAnimationFrame(this.animationFrameId);
       }
-      
+
       let needsUpdate = false;
       let latestTrip = null;
-      
+
       this.ws.addEventListener("message", (e) => {
         try {
           const data = JSON.parse(e.data);
@@ -860,7 +863,7 @@ class LiveTripTracker {
           console.warn("LiveTripTracker WebSocket parse error:", err);
         }
       });
-      
+
       const updateLoop = () => {
         if (needsUpdate && latestTrip) {
           this.setActiveTrip(latestTrip);
@@ -870,12 +873,12 @@ class LiveTripTracker {
         this.animationFrameId = requestAnimationFrame(updateLoop);
       };
       updateLoop();
-      
+
       this.ws.addEventListener("open", () => {
         console.info("LiveTripTracker: WebSocket connected – stopping poller");
         this.stopPolling();
       });
-      
+
       this.ws.addEventListener("close", (event) => {
         console.warn("WebSocket closed – resuming polling", {
           code: event.code,
@@ -885,7 +888,7 @@ class LiveTripTracker {
         this.ws = null; // Clear reference
         this.startPolling();
       });
-      
+
       this.ws.addEventListener("error", (event) => {
         console.warn("WebSocket error – resuming polling", event);
         if (this.ws) {
