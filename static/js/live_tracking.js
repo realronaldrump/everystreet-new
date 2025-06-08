@@ -547,7 +547,7 @@ class LiveTripTracker {
     // FIXED: Remove overly aggressive sequence check that was preventing real-time updates
     // The previous check was: if (this.activeTrip && this.activeTrip.sequence === trip.sequence) return;
     // This was preventing updates when GPS data, speed, or other metrics changed but sequence didn't increment properly
-    
+
     const isNewTrip =
       !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
