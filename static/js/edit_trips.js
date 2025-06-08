@@ -114,11 +114,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const startDate =
         startInput?.value ||
         window.utils.getStorage("startDate") ||
-        DateUtils.getYesterday();
+        window.DateUtils.getYesterday();
       const endDate =
         endInput?.value ||
         window.utils.getStorage("endDate") ||
-        DateUtils.getYesterday();
+        window.DateUtils.getYesterday();
+
+      // Validate date range
+      if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
+        throw new Error("Invalid date range. Start date must be before or equal to end date.");
+      }
 
       window.utils.setStorage("startDate", startDate);
       window.utils.setStorage("endDate", endDate);
