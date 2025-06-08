@@ -7,8 +7,8 @@ creating, retrieving, and analyzing visit data.
 import logging
 from datetime import datetime, timezone
 from typing import Any
-import pymongo
 
+import pymongo
 from bson import ObjectId
 from dateutil import parser as dateutil_parser
 from fastapi import APIRouter, HTTPException, status
