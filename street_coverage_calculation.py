@@ -40,7 +40,6 @@ from db import (
     update_many_with_retry,
     update_one_with_retry,
 )
-
 from osm_utils import generate_geojson_osm
 
 load_dotenv()
