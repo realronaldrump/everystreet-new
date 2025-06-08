@@ -975,10 +975,40 @@
 
   // Map controls manager with improvements
   const mapControlsManager = {
+    toggle() {
+      const controls = state.getElement(CONFIG.selectors.mapControls);
+      if (!controls) return;
+
+      const toggle = state.getElement(CONFIG.selectors.controlsToggle);
+      const isMinimizing = !controls.classList.contains(
+        CONFIG.classes.minimized,
+      );
+
+      controls.classList.toggle(CONFIG.classes.minimized);
+      state.uiState.controlsMinimized = isMinimizing;
+      state.saveUIState();
+
+      const content = state.getElement(CONFIG.selectors.controlsContent);
+      if (content && window.bootstrap?.Collapse) {
+        const collapse = window.bootstrap.Collapse.getOrCreateInstance(content);
+        isMinimizing ? collapse.hide() : collapse.show();
+      }
+
+      if (toggle) {
+        const icon = toggle.querySelector("i");
+        if (icon) {
+          icon.style.transition = "transform 0.3s ease";
+          icon.style.transform = isMinimizing
+            ? "rotate(180deg)"
+            : "rotate(0deg)";
+        }
+      }
+
+      requestAnimationFrame(() => this.updateOpacity());
+    },
+
     init() {
       const controls = state.getElement(CONFIG.selectors.mapControls);
-      const toggle = state.getElement(CONFIG.selectors.controlsToggle);
-
       if (!controls) return;
 
       // Performance optimizations for mobile
@@ -998,34 +1028,9 @@
       }
 
       // Toggle functionality with smooth animation
+      const toggle = state.getElement(CONFIG.selectors.controlsToggle);
       if (toggle) {
-        eventManager.add(toggle, "click", () => {
-          const isMinimizing = !controls.classList.contains(
-            CONFIG.classes.minimized,
-          );
-          controls.classList.toggle(CONFIG.classes.minimized);
-
-          state.uiState.controlsMinimized = isMinimizing;
-          state.saveUIState();
-
-          const content = state.getElement(CONFIG.selectors.controlsContent);
-          if (content && window.bootstrap?.Collapse) {
-            const collapse =
-              window.bootstrap.Collapse.getOrCreateInstance(content);
-            isMinimizing ? collapse.hide() : collapse.show();
-          }
-
-          const icon = toggle.querySelector("i");
-          if (icon) {
-            // Smooth icon rotation
-            icon.style.transition = "transform 0.3s ease";
-            icon.style.transform = isMinimizing
-              ? "rotate(180deg)"
-              : "rotate(0deg)";
-          }
-
-          requestAnimationFrame(() => this.updateOpacity());
-        });
+        eventManager.add(toggle, "click", () => this.toggle());
       }
 
       // Optimize touch handling for mobile
@@ -1228,6 +1233,10 @@
           case "/":
             e.preventDefault();
             panelManager.toggle("filters");
+            break;
+          case "b":
+            e.preventDefault();
+            mapControlsManager.toggle();
             break;
           case "m":
             e.preventDefault();

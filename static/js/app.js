@@ -155,232 +155,20 @@
 
   const state = new AppState();
 
-  // Consolidated utility functions
-  const utils = {
-    getElement(selector) {
-      if (state.dom.has(selector)) return state.dom.get(selector);
-
-      const element = document.querySelector(
-        selector.startsWith("#") ||
-          selector.includes(" ") ||
-          selector.startsWith(".")
-          ? selector
-          : `#${selector}`,
-      );
-
-      if (element) state.dom.set(selector, element);
-      return element;
-    },
-
-    debounce(func, wait) {
-      let timeout;
-      let lastCallTime = 0;
-
-      return function executedFunction(...args) {
-        const now = Date.now();
-        const timeSinceLastCall = now - lastCallTime;
-
-        const later = () => {
-          clearTimeout(timeout);
-          lastCallTime = Date.now();
-          func(...args);
-        };
-
-        clearTimeout(timeout);
-
-        if (timeSinceLastCall >= wait) {
-          lastCallTime = now;
-          func(...args);
-        } else {
-          timeout = setTimeout(later, wait);
-        }
-      };
-    },
-
-    throttle(func, limit) {
-      let inThrottle;
-      let lastResult;
-
-      return function (...args) {
-        if (!inThrottle) {
-          lastResult = func.apply(this, args);
-          inThrottle = true;
-          setTimeout(() => (inThrottle = false), limit);
-        }
-        return lastResult;
-      };
-    },
-
-    async fetchWithRetry(
-      url,
-      options = {},
-      retries = CONFIG.API.retryAttempts,
-    ) {
-      const key = `${url}_${JSON.stringify(options)}`;
-
-      // Check cache first
-      const cached = state.apiCache.get(key);
-      if (cached && Date.now() - cached.timestamp < CONFIG.API.cacheTime) {
-        return cached.data;
-      }
-
-      // Create abort controller
-      const abortController = new AbortController();
-      const timeoutId = setTimeout(
-        () => abortController.abort(),
-        CONFIG.API.timeout,
-      );
-
-      state.abortControllers.set(key, abortController);
-      state.trackRequest(url);
-
-      try {
-        const response = await fetch(url, {
-          ...options,
-          signal: abortController.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          if (retries > 0 && response.status >= 500) {
-            await new Promise((resolve) =>
-              setTimeout(
-                resolve,
-                CONFIG.API.retryDelay *
-                  (CONFIG.API.retryAttempts - retries + 1),
-              ),
-            );
-            return utils.fetchWithRetry(url, options, retries - 1);
-          }
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        // Cache successful response
-        state.apiCache.set(key, { data, timestamp: Date.now() });
-
-        return data;
-      } catch (error) {
-        if (error.name === "AbortError") {
-          console.log("Request aborted or timed out:", url);
-          throw new Error("Request timeout");
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeoutId);
-        state.abortControllers.delete(key);
-        state.completeRequest(url);
-      }
-    },
-
-    showNotification(message, type = "info", duration = 5000) {
-      window.notificationManager?.show?.(message, type, duration) ||
-        console.log(`[${type.toUpperCase()}] ${message}`);
-    },
-
-    formatDuration(seconds) {
-      if (!seconds || isNaN(seconds)) return "--:--";
-      const hours = Math.floor(seconds / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      const secs = Math.floor(seconds % 60);
-      return hours > 0
-        ? `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-        : `${minutes}:${secs.toString().padStart(2, "0")}`;
-    },
-
-    async measurePerformance(name, fn) {
-      const startTime = performance.now();
-      try {
-        const result = await fn();
-        const duration = performance.now() - startTime;
-        console.log(`Performance: ${name} took ${duration.toFixed(2)}ms`);
-        return result;
-      } catch (error) {
-        const duration = performance.now() - startTime;
-        console.error(
-          `Performance: ${name} failed after ${duration.toFixed(2)}ms`,
-          error,
-        );
-        throw error;
-      }
-    },
-
-    batchDOMUpdates(updates) {
-      requestAnimationFrame(() => {
-        updates.forEach((update) => update());
-      });
-    },
-  };
-
-  // Storage utilities
-  const storage = {
-    get(key, defaultValue = null) {
-      try {
-        const value = localStorage.getItem(key);
-        if (value === null) return defaultValue;
-
-        try {
-          return JSON.parse(value);
-        } catch {
-          return value;
-        }
-      } catch {
-        return defaultValue;
-      }
-    },
-
-    set(key, value) {
-      try {
-        const stringValue =
-          typeof value === "object" ? JSON.stringify(value) : String(value);
-
-        localStorage.setItem(key, stringValue);
-        return true;
-      } catch (e) {
-        console.warn("Storage quota exceeded:", e);
-        this.clearOldCache();
-        try {
-          localStorage.setItem(key, stringValue);
-          return true;
-        } catch {
-          return false;
-        }
-      }
-    },
-
-    clearOldCache() {
-      const cacheKeys = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith("cache_")) {
-          cacheKeys.push(key);
-        }
-      }
-
-      cacheKeys
-        .slice(0, Math.floor(cacheKeys.length / 2))
-        .forEach((key) => localStorage.removeItem(key));
-    },
-  };
-
-  // Date utilities
+  // Date utilities using global DateUtils
   const dateUtils = {
     getStartDate: () =>
-      storage.get(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate(),
+      window.utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate(),
     getEndDate: () =>
-      storage.get(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate(),
+      window.utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate(),
 
     formatTimeFromHours(hours) {
-      const h = Math.floor(hours);
-      const m = Math.round((hours - h) * 60);
-      return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+      return DateUtils.formatTimeFromHours(hours);
     },
 
     getCachedDateRange() {
       const cacheKey = "cached_date_range";
-      const cached = storage.get(cacheKey);
+      const cached = window.utils.getStorage(cacheKey);
       const currentStart = this.getStartDate();
       const currentEnd = this.getEndDate();
 
@@ -409,7 +197,7 @@
           ) + 1,
       };
 
-      storage.set(cacheKey, range); // range.startDate and range.endDate are already Date objects here
+      window.utils.setStorage(cacheKey, range);
       return range;
     },
   };
@@ -423,7 +211,7 @@
           "Initializing map...",
         );
 
-        const mapElement = utils.getElement("map");
+        const mapElement = window.utils.getElement("map");
         if (!mapElement || state.map) {
           initStage.complete();
           return state.mapInitialized;
@@ -455,7 +243,7 @@
         const latParam = parseFloat(urlParams.get("lat"));
         const lngParam = parseFloat(urlParams.get("lng"));
         const zoomParam = parseFloat(urlParams.get("zoom"));
-        const savedView = storage.get("mapView");
+        const savedView = window.utils.getStorage("mapView");
         const center =
           !isNaN(latParam) && !isNaN(lngParam)
             ? [lngParam, latParam]
@@ -495,11 +283,11 @@
         );
 
         // Setup event handlers
-        const saveViewState = utils.debounce(() => {
+        const saveViewState = window.utils.debounce(() => {
           if (!state.map) return;
           const center = state.map.getCenter();
           const zoom = state.map.getZoom();
-          storage.set("mapView", { center: [center.lng, center.lat], zoom });
+          window.utils.setStorage("mapView", { center: [center.lng, center.lat], zoom });
           this.updateUrlState();
         }, CONFIG.MAP.debounceDelay);
 
@@ -523,7 +311,7 @@
       } catch (error) {
         console.error("Map initialization error:", error);
         window.loadingManager.stageError("init", error.message);
-        utils.showNotification(
+        window.notificationManager.show(
           `Map initialization failed: ${error.message}`,
           "danger",
         );
@@ -572,7 +360,7 @@
       // from interfering and causing a loop.
     },
 
-    refreshTripStyles: utils.throttle(function () {
+    refreshTripStyles: window.utils.throttle(function () {
       if (!state.map || !state.mapInitialized) return;
 
       ["trips", "matchedTrips"].forEach((layerName) => {
@@ -597,7 +385,7 @@
     async fitBounds(animate = true) {
       if (!state.map || !state.mapInitialized) return;
 
-      await utils.measurePerformance("fitBounds", async () => {
+      await window.utils.measurePerformance("fitBounds", async () => {
         const bounds = new mapboxgl.LngLatBounds();
         let hasFeatures = false;
 
@@ -678,12 +466,12 @@
     _layerCleanupMap: new Map(),
 
     initializeControls() {
-      const container = utils.getElement("layer-toggles");
+      const container = window.utils.getElement("layer-toggles");
       if (!container) return;
 
       // Load saved layer settings
       const savedSettings =
-        storage.get(CONFIG.STORAGE_KEYS.layerSettings) || {};
+        window.utils.getStorage(CONFIG.STORAGE_KEYS.layerSettings) || {};
       Object.entries(savedSettings).forEach(([name, settings]) => {
         if (state.mapLayers[name]) {
           Object.assign(state.mapLayers[name], settings);
@@ -735,7 +523,7 @@
     setupEventListeners(container) {
       container.addEventListener(
         "change",
-        utils.debounce((e) => {
+        window.utils.debounce((e) => {
           const input = e.target;
           const layerName = input.closest(".layer-control")?.dataset.layerName;
           if (!layerName) return;
@@ -810,11 +598,11 @@
           order: info.order,
         };
       });
-      storage.set(CONFIG.STORAGE_KEYS.layerSettings, settings);
+      window.utils.setStorage(CONFIG.STORAGE_KEYS.layerSettings, settings);
     },
 
     updateLayerOrder() {
-      const container = utils.getElement("layer-order-list");
+      const container = window.utils.getElement("layer-order-list");
       if (!container) return;
 
       const sortedLayers = Object.entries(state.mapLayers).sort(
@@ -914,7 +702,7 @@
     },
 
     reorderLayers() {
-      const container = utils.getElement("layer-order-list");
+      const container = window.utils.getElement("layer-order-list");
       if (!container) return;
 
       Array.from(container.children).forEach((item, index) => {
@@ -1053,7 +841,7 @@
         layerInfo.layer = data;
       } catch (error) {
         console.error(`Error updating ${layerName} layer:`, error);
-        utils.showNotification(
+        window.notificationManager.show(
           `Failed to update ${layerName} layer`,
           "warning",
         );
@@ -1109,7 +897,7 @@
             end_date: end,
           });
           dataStage.update(30, `Loading ${days} days of trips...`);
-          const data = await utils.fetchWithRetry(`/api/trips?${params}`);
+          const data = await window.utils.fetchWithRetry(`/api/trips?${params}`);
           if (data?.type === "FeatureCollection") {
             fullCollection = data;
           } else {
@@ -1138,7 +926,7 @@
               30 + Math.floor(((i + 1) / segments) * 40),
               `Loading trips ${segStart} to ${segEnd}...`,
             );
-            const chunk = await utils.fetchWithRetry(
+            const chunk = await window.utils.fetchWithRetry(
               `/api/trips?${paramsChunk}`,
             );
             if (chunk?.type === "FeatureCollection") {
@@ -1160,7 +948,7 @@
       } catch (error) {
         dataStage.error(error.message);
         console.error("Error fetching trips:", error);
-        utils.showNotification("Failed to load trips", "danger");
+        window.notificationManager.show("Failed to load trips", "danger");
         return null;
       }
     },
@@ -1179,7 +967,7 @@
           format: "geojson",
         });
 
-        const data = await utils.fetchWithRetry(`/api/matched_trips?${params}`);
+        const data = await window.utils.fetchWithRetry(`/api/matched_trips?${params}`);
 
         if (data?.type === "FeatureCollection") {
           state.mapLayers.matchedTrips.layer = data;
@@ -1195,7 +983,7 @@
     },
 
     async fetchUndrivenStreets() {
-      const selectedLocationId = storage.get(
+      const selectedLocationId = window.utils.getStorage(
         CONFIG.STORAGE_KEYS.selectedLocation,
       );
 
@@ -1209,7 +997,7 @@
       window.loadingManager.pulse("Loading undriven streets...");
 
       try {
-        const data = await utils.fetchWithRetry(
+        const data = await window.utils.fetchWithRetry(
           `/api/coverage_areas/${selectedLocationId}/streets?undriven=true`,
         );
 
@@ -1236,7 +1024,7 @@
           end_date: dateRange.end,
         });
 
-        const data = await utils.fetchWithRetry(
+        const data = await window.utils.fetchWithRetry(
           `/api/trip-analytics?${params}`,
         );
 
@@ -1300,7 +1088,7 @@
       } catch (error) {
         renderStage.error(error.message);
         console.error("Error updating map:", error);
-        utils.showNotification("Error updating map data", "danger");
+        window.notificationManager.show("Error updating map data", "danger");
       } finally {
         window.loadingManager.finish();
       }
@@ -1311,17 +1099,17 @@
   const metricsManager = {
     updateTripsTable(geojson) {
       const elements = {
-        totalTrips: utils.getElement("total-trips"),
-        totalDistance: utils.getElement("total-distance"),
-        avgDistance: utils.getElement("avg-distance"),
-        avgStartTime: utils.getElement("avg-start-time"),
-        avgDrivingTime: utils.getElement("avg-driving-time"),
-        avgSpeed: utils.getElement("avg-speed"),
-        maxSpeed: utils.getElement("max-speed"),
+        totalTrips: window.utils.getElement("total-trips"),
+        totalDistance: window.utils.getElement("total-distance"),
+        avgDistance: window.utils.getElement("avg-distance"),
+        avgStartTime: window.utils.getElement("avg-start-time"),
+        avgDrivingTime: window.utils.getElement("avg-driving-time"),
+        avgSpeed: window.utils.getElement("avg-speed"),
+        maxSpeed: window.utils.getElement("max-speed"),
       };
 
       if (!geojson?.features) {
-        utils.batchDOMUpdates([
+        window.utils.batchDOMUpdates([
           () =>
             Object.values(elements).forEach((el) => {
               if (el) el.textContent = el.id.includes("time") ? "--:--" : "0";
@@ -1332,7 +1120,7 @@
 
       const metrics = this.calculateMetrics(geojson.features);
 
-      utils.batchDOMUpdates([
+      window.utils.batchDOMUpdates([
         () => {
           if (elements.totalTrips)
             elements.totalTrips.textContent = metrics.totalTrips;
@@ -1419,7 +1207,7 @@
             : "--:--",
         avgDrivingTime:
           metrics.validDrivingTimeCount > 0
-            ? utils.formatDuration(
+            ? this.formatDuration(
                 metrics.totalDrivingTime / metrics.validDrivingTimeCount,
               )
             : "--:--",
@@ -1429,6 +1217,16 @@
             : 0,
         maxSpeed: metrics.maxSpeed,
       };
+    },
+
+    formatDuration(seconds) {
+      if (!seconds || isNaN(seconds)) return "--:--";
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = Math.floor(seconds % 60);
+      return hours > 0
+        ? `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+        : `${minutes}:${secs.toString().padStart(2, "0")}`;
     },
   };
 
@@ -1505,7 +1303,7 @@
           </div>
           <div class="popup-detail">
             <span class="popup-label">Duration:</span>
-            <span>${utils.formatDuration(duration)}</span>
+            <span>${metricsManager.formatDuration(duration)}</span>
           </div>
           <div class="popup-detail">
             <span class="popup-label">Avg Speed:</span>
@@ -1594,7 +1392,7 @@
           }
         } catch (error) {
           console.error("Error handling popup action:", error);
-          utils.showNotification("Error performing action", "danger");
+          window.notificationManager.show("Error performing action", "danger");
         } finally {
           button.disabled = false;
           button.classList.remove("btn-loading");
@@ -1614,7 +1412,7 @@
         return;
 
       try {
-        const response = await utils.fetchWithRetry(
+        const response = await window.utils.fetchWithRetry(
           `/api/matched_trips/${tripId}`,
           {
             method: "DELETE",
@@ -1623,7 +1421,7 @@
 
         if (response) {
           popup.remove();
-          utils.showNotification(
+          window.notificationManager.show(
             "Matched trip deleted successfully",
             "success",
           );
@@ -1631,7 +1429,7 @@
         }
       } catch (error) {
         console.error("Error deleting matched trip:", error);
-        utils.showNotification(error.message, "danger");
+        window.notificationManager.show(error.message, "danger");
       }
     },
 
@@ -1648,26 +1446,26 @@
         return;
 
       try {
-        const response = await utils.fetchWithRetry(`/api/trips/${tripId}`, {
+        const response = await window.utils.fetchWithRetry(`/api/trips/${tripId}`, {
           method: "DELETE",
         });
 
         if (response) {
           popup.remove();
-          utils.showNotification("Trip deleted successfully", "success");
+          window.notificationManager.show("Trip deleted successfully", "success");
           await dataManager.updateMap();
         }
       } catch (error) {
         console.error("Error deleting trip:", error);
-        utils.showNotification(error.message, "danger");
+        window.notificationManager.show(error.message, "danger");
       }
     },
 
     async rematchTrip(tripId, popup) {
       try {
-        utils.showNotification("Starting map matching...", "info");
+        window.notificationManager.show("Starting map matching...", "info");
 
-        const response = await utils.fetchWithRetry(
+        const response = await window.utils.fetchWithRetry(
           `/api/process_trip/${tripId}`,
           {
             method: "POST",
@@ -1678,12 +1476,12 @@
 
         if (response) {
           popup.remove();
-          utils.showNotification("Trip map matching completed", "success");
+          window.notificationManager.show("Trip map matching completed", "success");
           await dataManager.updateMap();
         }
       } catch (error) {
         console.error("Error remapping trip:", error);
-        utils.showNotification(error.message, "danger");
+        window.notificationManager.show(error.message, "danger");
       }
     },
   };
@@ -1697,7 +1495,7 @@
         this.initializeDates();
 
         if (
-          utils.getElement("map") &&
+          window.utils.getElement("map") &&
           !document.getElementById("visits-page")
         ) {
           const mapInitialized = await mapManager.initialize();
@@ -1748,8 +1546,8 @@
     },
 
     initializeDates() {
-      const startDateInput = utils.getElement("start-date");
-      const endDateInput = utils.getElement("end-date");
+      const startDateInput = window.utils.getElement("start-date");
+      const endDateInput = window.utils.getElement("end-date");
 
       if (startDateInput && !startDateInput.value) {
         startDateInput.value = dateUtils.getStartDate();
@@ -1770,11 +1568,11 @@
     },
 
     async initializeLocationDropdown() {
-      const dropdown = utils.getElement("undriven-streets-location");
+      const dropdown = window.utils.getElement("undriven-streets-location");
       if (!dropdown) return;
 
       try {
-        const response = await utils.fetchWithRetry("/api/coverage_areas");
+        const response = await window.utils.fetchWithRetry("/api/coverage_areas");
         const areas = response.areas || [];
 
         dropdown.innerHTML = '<option value="">Select a location...</option>';
@@ -1794,7 +1592,7 @@
 
         dropdown.appendChild(fragment);
 
-        const savedLocationId = storage.get(
+        const savedLocationId = window.utils.getStorage(
           CONFIG.STORAGE_KEYS.selectedLocation,
         );
         if (savedLocationId) {
@@ -1802,13 +1600,13 @@
         }
       } catch (error) {
         console.error("Error populating location dropdown:", error);
-        utils.showNotification("Failed to load coverage areas", "warning");
+        window.notificationManager.show("Failed to load coverage areas", "warning");
       }
     },
 
     restoreLayerVisibility() {
       const savedVisibility =
-        storage.get(CONFIG.STORAGE_KEYS.layerVisibility) || {};
+        window.utils.getStorage(CONFIG.STORAGE_KEYS.layerVisibility) || {};
 
       Object.keys(state.mapLayers).forEach((layerName) => {
         const toggle = document.getElementById(`${layerName}-toggle`);
@@ -1825,10 +1623,10 @@
 
     setupEventListeners() {
       // Controls toggle
-      const controlsToggle = utils.getElement("controls-toggle");
+      const controlsToggle = window.utils.getElement("controls-toggle");
       if (controlsToggle) {
         controlsToggle.addEventListener("click", () => {
-          const content = utils.getElement("controls-content");
+          const content = window.utils.getElement("controls-content");
           const icon = controlsToggle.querySelector("i");
           if (content && icon) {
             content.addEventListener(
@@ -1846,10 +1644,10 @@
       }
 
       // Location dropdown
-      const locationDropdown = utils.getElement("undriven-streets-location");
+      const locationDropdown = window.utils.getElement("undriven-streets-location");
       if (locationDropdown) {
         locationDropdown.addEventListener("change", async (e) => {
-          storage.set(CONFIG.STORAGE_KEYS.selectedLocation, e.target.value);
+          window.utils.setStorage(CONFIG.STORAGE_KEYS.selectedLocation, e.target.value);
           if (e.target.value && state.mapLayers.undrivenStreets.visible) {
             state.undrivenStreetsLoaded = false;
             await dataManager.fetchUndrivenStreets();
@@ -1858,11 +1656,11 @@
       }
 
       // Center on location button
-      const centerButton = utils.getElement("center-on-location");
+      const centerButton = window.utils.getElement("center-on-location");
       if (centerButton) {
         centerButton.addEventListener("click", () => {
           if (!navigator.geolocation) {
-            utils.showNotification("Geolocation is not supported", "warning");
+            window.notificationManager.show("Geolocation is not supported", "warning");
             return;
           }
 
@@ -1882,7 +1680,7 @@
             },
             (error) => {
               console.error("Geolocation error:", error);
-              utils.showNotification(
+              window.notificationManager.show(
                 `Error getting location: ${error.message}`,
                 "danger",
               );
@@ -1926,7 +1724,7 @@
       });
 
       // Refresh map button
-      const refreshButton = utils.getElement("refresh-map");
+      const refreshButton = window.utils.getElement("refresh-map");
       if (refreshButton) {
         refreshButton.addEventListener("click", async () => {
           refreshButton.disabled = true;
@@ -1943,7 +1741,7 @@
       }
 
       // Fit bounds button
-      const fitBoundsButton = utils.getElement("fit-bounds");
+      const fitBoundsButton = window.utils.getElement("fit-bounds");
       if (fitBoundsButton) {
         fitBoundsButton.addEventListener("click", () => {
           mapManager.fitBounds();
@@ -1951,7 +1749,7 @@
       }
 
       // Highlight recent trips toggle
-      const highlightToggle = utils.getElement("highlight-recent-trips");
+      const highlightToggle = window.utils.getElement("highlight-recent-trips");
       if (highlightToggle) {
         highlightToggle.addEventListener("change", (e) => {
           state.mapSettings.highlightRecentTrips = e.target.checked;
@@ -1962,7 +1760,7 @@
       // Filter events
       document.addEventListener("filtersApplied", async () => {
         if (state.mapInitialized) {
-          storage.set("cached_date_range", null);
+          window.utils.setStorage("cached_date_range", null);
           await dataManager.updateMap(true);
         }
       });
