@@ -680,11 +680,11 @@ async def get_trips_datatable(request: Request):
         start = body.get("start", 0)
         length = body.get("length", 10)
         search_value = body.get("search", {}).get("value", "")
-        
+
         # Get sorting parameters
         order = body.get("order", [])
         columns = body.get("columns", [])
-        
+
         # Get date filters
         start_date = body.get("start_date")
         end_date = body.get("end_date")
@@ -738,12 +738,14 @@ async def get_trips_datatable(request: Request):
                             "destination": "destination",
                             "maxSpeed": "maxSpeed",
                             "totalIdleDuration": "totalIdleDuration",
-                            "fuelConsumed": "fuelConsumed"
+                            "fuelConsumed": "fuelConsumed",
                         }
                         db_field = field_mapping.get(column_name)
                         if db_field:
-                            sort_params.append((db_field, -1 if column_dir == "desc" else 1))
-        
+                            sort_params.append(
+                                (db_field, -1 if column_dir == "desc" else 1)
+                            )
+
         # Default sort by startTime if no sort specified
         if not sort_params:
             sort_params = [("startTime", -1)]
