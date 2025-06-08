@@ -1,4 +1,4 @@
-/* global showNotification */
+/* global   */
 
 "use strict";
 (() => {
@@ -312,7 +312,7 @@
     const config = EXPORT_CONFIG[formType];
     if (!config) return;
     if (activeExports[formType]) {
-      showNotification(
+      window.notificationManager.show(
         `Already exporting ${config.name}. Please wait...`,
         "info",
       );
@@ -331,7 +331,7 @@
     }
     try {
       activeExports[formType] = true;
-      showNotification(`Starting ${config.name} export...`, "info");
+      window.notificationManager.show(`Starting ${config.name} export...`, "info");
       let url = buildExportUrl(formType, config);
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -342,13 +342,13 @@
       }, 120000);
       try {
         await downloadFile(url, config.name, abortController.signal);
-        showNotification(`${config.name} export completed`, "success");
+        window.notificationManager.show(`${config.name} export completed`, "success");
       } finally {
         clearTimeout(timeoutId);
       }
     } catch (error) {
       console.error("Export error:", error);
-      showNotification(
+      window.notificationManager.show(
         `Export failed: ${error.message || "Unknown error"}`,
         "error",
       );
@@ -590,18 +590,18 @@
 
   function validateLocationInput(locationInput) {
     if (!locationInput) {
-      showNotification("Location input not found", "warning");
+      window.notificationManager.show("Location input not found", "warning");
       return false;
     }
 
     if (!locationInput.value.trim()) {
-      showNotification("Please enter a location", "warning");
+      window.notificationManager.show("Please enter a location", "warning");
       return false;
     }
 
     const locationData = locationInput.getAttribute("data-location");
     if (!locationData) {
-      showNotification("Please validate the location first", "warning");
+      window.notificationManager.show("Please validate the location first", "warning");
       return false;
     }
 
@@ -612,7 +612,7 @@
     const locationInput = document.getElementById(inputId);
 
     if (!locationInput || !locationInput.value.trim()) {
-      showNotification("Please enter a location", "warning");
+      window.notificationManager.show("Please enter a location", "warning");
       return;
     }
 
@@ -630,7 +630,7 @@
     }
 
     try {
-      showNotification(
+      window.notificationManager.show(
         `Validating location: "${locationInput.value}"...`,
         "info",
       );
@@ -669,7 +669,7 @@
           submitButton.disabled = false;
         }
 
-        showNotification(
+        window.notificationManager.show(
           `Location validated: "${
             data.display_name || data.name || locationInput.value
           }"`,
@@ -678,7 +678,7 @@
       } else {
         locationInput.classList.add("is-invalid");
         locationInput.classList.remove("is-valid");
-        showNotification(
+        window.notificationManager.show(
           "Location not found. Please try a different search term",
           "warning",
         );
@@ -688,7 +688,7 @@
         window.handleError(error, "validating location");
       } else {
         console.error("Error validating location:", error);
-        showNotification(`Validation failed: ${error.message}`, "danger");
+        window.notificationManager.show(`Validation failed: ${error.message}`, "danger");
       }
 
       locationInput.classList.add("is-invalid");
@@ -704,9 +704,9 @@
   async function downloadFile(url, exportName, signal) {
     const urlWithTimestamp = `${url}${url.includes("?") ? "&" : "?"}timestamp=${new Date().getTime()}`;
     try {
-      showNotification(`Requesting ${exportName} data...`, "info");
+      window.notificationManager.show(`Requesting ${exportName} data...`, "info");
       console.info(`Requesting export from: ${urlWithTimestamp}`);
-      showLoading(exportName);
+      window.loadingManager.show(exportName);
       const fetchOptions = { signal };
       console.info(`Starting fetch for ${exportName} export...`);
       const response = await fetch(urlWithTimestamp, fetchOptions);
@@ -754,7 +754,7 @@
         exportName,
         format,
       );
-      showNotification(`Downloading ${filename}...`, "info");
+      window.notificationManager.show(`Downloading ${filename}...`, "info");
       console.info(`Starting download of ${filename}...`);
       await processDownloadStream(response, filename, format, totalSize);
     } catch (error) {
@@ -765,54 +765,14 @@
         );
       }
       const errorMsg = `Export failed: ${error.message || "Unknown error"}`;
-      showNotification(errorMsg, "error");
+      window.notificationManager.show(errorMsg, "error");
       throw error;
     } finally {
-      hideLoading();
-    }
-  }
-
-  function showLoading(exportName) {
-    if (
-      window.loadingManager &&
-      typeof window.loadingManager.show === "function"
-    ) {
-      window.loadingManager.show(`Exporting ${exportName}...`);
-    } else if (
-      window.LoadingManager &&
-      typeof window.LoadingManager.show === "function"
-    ) {
-      window.LoadingManager.show(`Exporting ${exportName}...`);
-    } else {
-      const loadingOverlay = document.querySelector(".loading-overlay");
-      if (loadingOverlay) {
-        loadingOverlay.style.display = "flex";
-        const loadingText = loadingOverlay.querySelector(".loading-text");
-        if (loadingText) {
-          loadingText.textContent = `Exporting ${exportName}...`;
-        }
-      }
-    }
-  }
-
-  function hideLoading() {
-    if (
-      window.loadingManager &&
-      typeof window.loadingManager.hide === "function"
-    ) {
       window.loadingManager.hide();
-    } else if (
-      window.LoadingManager &&
-      typeof window.LoadingManager.hide === "function"
-    ) {
-      window.LoadingManager.hide();
-    } else {
-      const loadingOverlay = document.querySelector(".loading-overlay");
-      if (loadingOverlay) {
-        loadingOverlay.style.display = "none";
-      }
     }
   }
+
+
 
   function getFilenameFromHeaders(contentDisposition, exportName, format) {
     let filename = null;
