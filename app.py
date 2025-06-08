@@ -680,7 +680,11 @@ async def get_trips_datatable(request: Request):
         start = body.get("start", 0)
         length = body.get("length", 10)
         search_value = body.get("search", {}).get("value", "")
-
+        
+        # Get sorting parameters
+        order = body.get("order", [])
+        columns = body.get("columns", [])
+        
         # Get date filters
         start_date = body.get("start_date")
         end_date = body.get("end_date")
@@ -713,10 +717,42 @@ async def get_trips_datatable(request: Request):
         total_count = await trips_collection.count_documents({})
         filtered_count = await trips_collection.count_documents(query)
 
-        # Get paginated data
-        cursor = (
-            trips_collection.find(query).sort("startTime", -1).skip(start).limit(length)
-        )
+        # Build sort parameters
+        sort_params = []
+        if order and columns:
+            for order_item in order:
+                column_index = order_item.get("column")
+                column_dir = order_item.get("dir", "asc")
+                if column_index is not None and column_index < len(columns):
+                    column_name = columns[column_index].get("data")
+                    if column_name:
+                        # Map column names to database field names
+                        field_mapping = {
+                            "transactionId": "transactionId",
+                            "imei": "imei",
+                            "startTime": "startTime",
+                            "endTime": "endTime",
+                            "duration": "duration",
+                            "distance": "distance",
+                            "startLocation": "startLocation",
+                            "destination": "destination",
+                            "maxSpeed": "maxSpeed",
+                            "totalIdleDuration": "totalIdleDuration",
+                            "fuelConsumed": "fuelConsumed"
+                        }
+                        db_field = field_mapping.get(column_name)
+                        if db_field:
+                            sort_params.append((db_field, -1 if column_dir == "desc" else 1))
+        
+        # Default sort by startTime if no sort specified
+        if not sort_params:
+            sort_params = [("startTime", -1)]
+
+        # Get paginated data with sorting
+        cursor = trips_collection.find(query)
+        for field, direction in sort_params:
+            cursor = cursor.sort(field, direction)
+        cursor = cursor.skip(start).limit(length)
         trips_list = await cursor.to_list(length=length)
 
         # Format data for DataTables
