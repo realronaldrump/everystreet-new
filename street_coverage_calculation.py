@@ -41,7 +41,6 @@ from db import (
     update_one_with_retry,
 )
 
-# Moved import to top level to avoid local import issues if not strictly necessary for circular deps
 from osm_utils import generate_geojson_osm
 
 load_dotenv()
@@ -772,7 +771,6 @@ class CoverageCalculator:
                 if (current_progress_pct - last_progress_update_pct >= 5) or (
                     processed_count == total_streets_count
                 ):
-                    # Removed kilometer calculations and references
                     await self.update_progress(
                         "indexing",
                         current_progress_pct,
@@ -2354,7 +2352,6 @@ async def compute_coverage_for_location(
                 task_id,
                 location_name,
             )
-            # from osm_utils import generate_geojson_osm # Local import removed
             # We need the raw GeoJSON polygon data from the location object if it was pre-fetched,
             # or fetch it if not. The location dict passed to compute_coverage_for_location
             # should ideally already contain the 'geojson' field from validate_location_osm.
@@ -2526,7 +2523,6 @@ async def compute_incremental_coverage(
                 task_id,
                 location_name,
             )
-            # from osm_utils import generate_geojson_osm # Local import removed
             if "geojson" in location and location["geojson"]:
                 boundary_data_for_calc = location["geojson"]
                 logger.info(

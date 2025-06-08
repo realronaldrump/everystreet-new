@@ -702,7 +702,6 @@ class LiveTripTracker {
       hardAccelerationCounts,
       startTimeFormatted,
       lastUpdate,
-      // Removed: startOdometer, fuelConsumed (only meaningful after trip completion)
       isLive: tripStatus === "active", // Flag to help with conditional rendering
     };
   }

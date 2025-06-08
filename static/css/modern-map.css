@@ -243,7 +243,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   transform: scale(1.1);
 }
 
-/* Enhanced vehicle markers (from style.css, moved here as it's map-specific) */
+/* Enhanced vehicle markers */
 .vehicle-marker {
   border-radius: 50%;
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
@@ -254,7 +254,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   height: 16px;
 }
 .vehicle-marker-inner {
-  /* If you have an inner element for icon/text */
   width: 100%;
   height: 100%;
   border-radius: 50%;
