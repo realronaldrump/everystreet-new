@@ -82,7 +82,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Street Coverage Tracker")
+app = FastAPI(title="Every Street")
 app.mount(
     "/static",
     StaticFiles(directory="static"),
