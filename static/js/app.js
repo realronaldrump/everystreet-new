@@ -158,9 +158,11 @@
   // Date utilities using global DateUtils
   const dateUtils = {
     getStartDate: () =>
-      window.utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || DateUtils.getCurrentDate(),
+      window.utils.getStorage(CONFIG.STORAGE_KEYS.startDate) ||
+      DateUtils.getCurrentDate(),
     getEndDate: () =>
-      window.utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || DateUtils.getCurrentDate(),
+      window.utils.getStorage(CONFIG.STORAGE_KEYS.endDate) ||
+      DateUtils.getCurrentDate(),
 
     formatTimeFromHours(hours) {
       return DateUtils.formatTimeFromHours(hours);
@@ -287,7 +289,10 @@
           if (!state.map) return;
           const center = state.map.getCenter();
           const zoom = state.map.getZoom();
-          window.utils.setStorage("mapView", { center: [center.lng, center.lat], zoom });
+          window.utils.setStorage("mapView", {
+            center: [center.lng, center.lat],
+            zoom,
+          });
           this.updateUrlState();
         }, CONFIG.MAP.debounceDelay);
 
@@ -344,7 +349,7 @@
 
       // Query for features at the click point from our interactive layers.
       const features = state.map.queryRenderedFeatures(e.point, {
-        layers: ['trips-layer', 'matchedTrips-layer']
+        layers: ["trips-layer", "matchedTrips-layer"],
       });
 
       // If no features are found under the click point, it means the user clicked on the map background.
@@ -897,7 +902,9 @@
             end_date: end,
           });
           dataStage.update(30, `Loading ${days} days of trips...`);
-          const data = await window.utils.fetchWithRetry(`/api/trips?${params}`);
+          const data = await window.utils.fetchWithRetry(
+            `/api/trips?${params}`,
+          );
           if (data?.type === "FeatureCollection") {
             fullCollection = data;
           } else {
@@ -967,7 +974,9 @@
           format: "geojson",
         });
 
-        const data = await window.utils.fetchWithRetry(`/api/matched_trips?${params}`);
+        const data = await window.utils.fetchWithRetry(
+          `/api/matched_trips?${params}`,
+        );
 
         if (data?.type === "FeatureCollection") {
           state.mapLayers.matchedTrips.layer = data;
@@ -1446,13 +1455,19 @@
         return;
 
       try {
-        const response = await window.utils.fetchWithRetry(`/api/trips/${tripId}`, {
-          method: "DELETE",
-        });
+        const response = await window.utils.fetchWithRetry(
+          `/api/trips/${tripId}`,
+          {
+            method: "DELETE",
+          },
+        );
 
         if (response) {
           popup.remove();
-          window.notificationManager.show("Trip deleted successfully", "success");
+          window.notificationManager.show(
+            "Trip deleted successfully",
+            "success",
+          );
           await dataManager.updateMap();
         }
       } catch (error) {
@@ -1476,7 +1491,10 @@
 
         if (response) {
           popup.remove();
-          window.notificationManager.show("Trip map matching completed", "success");
+          window.notificationManager.show(
+            "Trip map matching completed",
+            "success",
+          );
           await dataManager.updateMap();
         }
       } catch (error) {
@@ -1572,7 +1590,9 @@
       if (!dropdown) return;
 
       try {
-        const response = await window.utils.fetchWithRetry("/api/coverage_areas");
+        const response = await window.utils.fetchWithRetry(
+          "/api/coverage_areas",
+        );
         const areas = response.areas || [];
 
         dropdown.innerHTML = '<option value="">Select a location...</option>';
@@ -1600,7 +1620,10 @@
         }
       } catch (error) {
         console.error("Error populating location dropdown:", error);
-        window.notificationManager.show("Failed to load coverage areas", "warning");
+        window.notificationManager.show(
+          "Failed to load coverage areas",
+          "warning",
+        );
       }
     },
 
@@ -1644,10 +1667,15 @@
       }
 
       // Location dropdown
-      const locationDropdown = window.utils.getElement("undriven-streets-location");
+      const locationDropdown = window.utils.getElement(
+        "undriven-streets-location",
+      );
       if (locationDropdown) {
         locationDropdown.addEventListener("change", async (e) => {
-          window.utils.setStorage(CONFIG.STORAGE_KEYS.selectedLocation, e.target.value);
+          window.utils.setStorage(
+            CONFIG.STORAGE_KEYS.selectedLocation,
+            e.target.value,
+          );
           if (e.target.value && state.mapLayers.undrivenStreets.visible) {
             state.undrivenStreetsLoaded = false;
             await dataManager.fetchUndrivenStreets();
@@ -1660,7 +1688,10 @@
       if (centerButton) {
         centerButton.addEventListener("click", () => {
           if (!navigator.geolocation) {
-            window.notificationManager.show("Geolocation is not supported", "warning");
+            window.notificationManager.show(
+              "Geolocation is not supported",
+              "warning",
+            );
             return;
           }
 
