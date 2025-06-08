@@ -25,12 +25,6 @@ async def index(request: Request):
     )
 
 
-@router.get("/trips", response_class=HTMLResponse)
-async def trips_page(request: Request):
-    """Render trips page."""
-    return templates.TemplateResponse("trips.html", {"request": request})
-
-
 @router.get("/edit_trips", response_class=HTMLResponse)
 async def edit_trips_page(request: Request):
     """Render trip editing page."""
