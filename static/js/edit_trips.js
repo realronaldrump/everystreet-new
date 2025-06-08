@@ -122,7 +122,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Validate date range
       if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
-        throw new Error("Invalid date range. Start date must be before or equal to end date.");
+        throw new Error(
+          "Invalid date range. Start date must be before or equal to end date.",
+        );
       }
 
       window.utils.setStorage("startDate", startDate);
