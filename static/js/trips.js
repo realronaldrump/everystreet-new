@@ -99,61 +99,13 @@ class TripsManager {
   }
 
   initializeEventListeners() {
-    // React to global filtersApplied event instead of direct button click
+    // React to global filtersApplied event
     document.addEventListener("filtersApplied", () => {
       this.fetchTrips();
     });
 
-    this.initializeDatePresetButtons();
     this.initializeBulkActionButtons();
     this.initializeTableEditHandlers();
-  }
-
-  initializeDatePresetButtons() {
-    document.querySelectorAll(".date-preset").forEach((button) => {
-      button.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
-        this.handleDatePresetClick(e);
-      });
-    });
-  }
-
-  handleDatePresetClick(e) {
-    const range = e.currentTarget.dataset.range;
-    this.setDateRange(range);
-  }
-
-  async setDateRange(preset) {
-    if (!preset) return;
-
-    try {
-      const { startDate, endDate } = await DateUtils.getDateRangePreset(preset);
-      const startDateInput = document.getElementById("start-date");
-      const endDateInput = document.getElementById("end-date");
-
-      if (startDateInput && endDateInput) {
-        if (startDateInput._flatpickr) {
-          startDateInput._flatpickr.setDate(startDate);
-        } else {
-          startDateInput.value = startDate;
-        }
-
-        if (endDateInput._flatpickr) {
-          endDateInput._flatpickr.setDate(endDate);
-        } else {
-          endDateInput.value = endDate;
-        }
-      }
-
-      await window.utils.setStorage("startDate", startDate);
-      await window.utils.setStorage("endDate", endDate);
-
-      this.fetchTrips();
-    } catch (error) {
-      if (typeof handleError === 'function') {
-        handleError(error, "Error setting date range", "error");
-      }
-    }
   }
 
   initializeBulkActionButtons() {

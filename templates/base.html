@@ -107,6 +107,16 @@
     href="{{ url_for('static', path='css/loading-styles.css') | replace('http://', '//') }}"
   />
 
+    <!-- DataTables CSS - Load early for critical rendering -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"
+    />
+
     <!-- Non-critical CSS loaded asynchronously -->
     <link
       rel="preload"
@@ -114,30 +124,10 @@
       as="style"
       onload="this.onload=null;this.rel='stylesheet'"
     />
-    <link
-      rel="preload"
-      href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
-      as="style"
-      onload="this.onload=null;this.rel='stylesheet'"
-    />
-    <link
-      rel="preload"
-      href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"
-      as="style"
-      onload="this.onload=null;this.rel='stylesheet'"
-    />
     <noscript>
       <link
         rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
-      />
-      <link
-        rel="stylesheet"
-        href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
-      />
-      <link
-        rel="stylesheet"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"
       />
     </noscript>
 
@@ -860,7 +850,7 @@
 
     <div id="modals-container"></div>
 
-    <!-- Core JS - Load in order of dependency -->
+    <!-- Core JS - Load in specific order -->
     <script
       src="https://code.jquery.com/jquery-3.7.1.min.js"
       integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
@@ -871,67 +861,37 @@
       integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
       crossorigin="anonymous"
     ></script>
+
+    <!-- Load utilities first -->
     <script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
-    <!-- Mapbox GL JS -->
+
+    <!-- Critical libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+    
+    <!-- DataTables - Load before page-specific scripts -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
+
+    <!-- Map libraries -->
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
-    <!-- Keep Leaflet for backwards compatibility -->
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script
-      defer
-      src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"
-    ></script>
+    <script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
+    <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
 
-    <!-- Bundle non-critical scripts with defer -->
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"
-    ></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"
-    ></script>
-    <script
-      defer
-      src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"
-    ></script>
-    <script
-      defer
-      src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"
-    ></script>
-    <script
-      defer
-      src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"
-    ></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
-    ></script>
-    <script
-      defer
-      src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"
-    ></script>
+    <!-- Other libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-    <!-- App scripts -->
-    <script
-      defer
-      src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"
-    ></script>
-    <script
-      defer
-      src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"
-    ></script>
-    <script
-      defer
-      src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"
-    ></script>
-    <script
-      defer
-      src="{{ url_for('static', path='js/modern-ui.js') | replace('http://', '//') }}"
-    ></script>
+    <!-- App scripts - Load in dependency order -->
+    <script src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"></script>
+    <script src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
+    <script src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"></script>
+    <script src="{{ url_for('static', path='js/modern-ui.js') | replace('http://', '//') }}"></script>
 
     {% block extra_js %}{% endblock %}
 
@@ -940,7 +900,7 @@
       if ("serviceWorker" in navigator && location.protocol === "https:") {
         window.addEventListener("load", () => {
           navigator.serviceWorker
-            .register("/static/js/sw.js") // Consider using url_for if static paths might change
+            .register("/static/js/sw.js")
             .then((reg) => console.log("SW registered:", reg.scope))
             .catch((err) => console.error("SW registration failed:", err));
         });
