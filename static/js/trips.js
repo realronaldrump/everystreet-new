@@ -39,10 +39,10 @@ function waitForDependencies() {
   return new Promise((resolve) => {
     const checkDependencies = () => {
       if (
-        typeof $ !== 'undefined' && 
-        $.fn.DataTable && 
-        typeof DateUtils !== 'undefined' &&
-        typeof window.utils !== 'undefined'
+        typeof $ !== "undefined" &&
+        $.fn.DataTable &&
+        typeof DateUtils !== "undefined" &&
+        typeof window.utils !== "undefined"
       ) {
         resolve();
       } else {
@@ -79,20 +79,20 @@ class TripsManager {
 
   async init() {
     if (this.isInitialized) return;
-    
+
     try {
       // Wait for dependencies to load
       await waitForDependencies();
-      
+
       this.initializeTripsTable();
       this.initializeEventListeners();
       this.isInitialized = true;
-      
+
       // Initial load
       this.fetchTrips();
     } catch (error) {
       console.error("Error initializing TripsManager:", error);
-      if (typeof handleError === 'function') {
+      if (typeof handleError === "function") {
         handleError(error, "Error initializing trips manager", "error");
       }
     }
@@ -117,7 +117,9 @@ class TripsManager {
       });
     }
 
-    const refreshGeocodingBtn = document.getElementById("refresh-geocoding-btn");
+    const refreshGeocodingBtn = document.getElementById(
+      "refresh-geocoding-btn",
+    );
     if (refreshGeocodingBtn) {
       refreshGeocodingBtn.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
@@ -224,12 +226,12 @@ class TripsManager {
 
       this.tripsTable.row(row).data(updatedData).draw();
       this.setRowEditMode(row, false);
-      
+
       if (window.notificationManager) {
         window.notificationManager.show("Trip updated successfully", "success");
       }
     } catch (error) {
-      if (typeof handleError === 'function') {
+      if (typeof handleError === "function") {
         handleError(error, "Error updating trip", "error");
       }
     }
@@ -269,8 +271,11 @@ class TripsManager {
           contentType: "application/json",
           data: (d) => {
             // Add date filters
-            d.start_date = window.utils.getStorage("startDate") || DateUtils.getCurrentDate();
-            d.end_date = window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
+            d.start_date =
+              window.utils.getStorage("startDate") ||
+              DateUtils.getCurrentDate();
+            d.end_date =
+              window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
             return JSON.stringify(d);
           },
           dataSrc: (json) => {
@@ -285,10 +290,10 @@ class TripsManager {
           },
           error: (xhr, error, thrown) => {
             console.error("DataTables error:", { xhr, error, thrown });
-            if (typeof handleError === 'function') {
+            if (typeof handleError === "function") {
               handleError(
                 new Error(`Error fetching trips: ${thrown || error}`),
-                "Trips data loading"
+                "Trips data loading",
               );
             }
           },
@@ -304,7 +309,8 @@ class TripsManager {
           {
             data: "transactionId",
             title: "Transaction ID",
-            render: (data, type) => createEditableCell(data, type, "transactionId"),
+            render: (data, type) =>
+              createEditableCell(data, type, "transactionId"),
           },
           {
             data: "imei",
@@ -314,12 +320,14 @@ class TripsManager {
           {
             data: "startTime",
             title: "Start Time",
-            render: (data, type) => this.renderDateTime(data, type, null, "startTime"),
+            render: (data, type) =>
+              this.renderDateTime(data, type, null, "startTime"),
           },
           {
             data: "endTime",
             title: "End Time",
-            render: (data, type) => this.renderDateTime(data, type, null, "endTime"),
+            render: (data, type) =>
+              this.renderDateTime(data, type, null, "endTime"),
           },
           {
             data: "duration",
@@ -369,7 +377,12 @@ class TripsManager {
             title: "Idle Duration (min)",
             render: (data, type) => {
               const value = data != null ? (data / 60).toFixed(2) : "N/A";
-              return createEditableCell(value, type, "totalIdleDuration", "number");
+              return createEditableCell(
+                value,
+                type,
+                "totalIdleDuration",
+                "number",
+              );
             },
           },
           {
@@ -389,7 +402,8 @@ class TripsManager {
           },
         ],
         language: {
-          processing: '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>',
+          processing:
+            '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>',
           emptyTable: "No trips found",
           zeroRecords: "No matching trips found",
           loadingRecords: "Loading trips...",
@@ -422,10 +436,9 @@ class TripsManager {
       $(tableEl).on("change", ".trip-checkbox", () => {
         this.updateBulkDeleteButton();
       });
-
     } catch (error) {
       console.error("Error initializing DataTable:", error);
-      if (typeof handleError === 'function') {
+      if (typeof handleError === "function") {
         handleError(error, "Error initializing trips table", "error");
       }
     }
@@ -448,7 +461,7 @@ class TripsManager {
   }
 
   renderActionButtons(row) {
-    const transactionId = row.transactionId || '';
+    const transactionId = row.transactionId || "";
     return `
       <div class="btn-group">
         <button class="btn btn-sm btn-outline-primary edit-trip-btn">Edit</button>
@@ -479,10 +492,15 @@ class TripsManager {
   }
 
   async bulkDeleteTrips() {
-    const checkedCheckboxes = document.querySelectorAll(".trip-checkbox:checked");
+    const checkedCheckboxes = document.querySelectorAll(
+      ".trip-checkbox:checked",
+    );
     if (checkedCheckboxes.length === 0) {
       if (window.notificationManager) {
-        window.notificationManager.show("Please select trips to delete.", "info");
+        window.notificationManager.show(
+          "Please select trips to delete.",
+          "info",
+        );
       }
       return;
     }
@@ -493,7 +511,7 @@ class TripsManager {
       return rowData.transactionId;
     });
 
-    if (typeof window.ConfirmationDialog === 'function') {
+    if (typeof window.ConfirmationDialog === "function") {
       const dialog = new window.ConfirmationDialog();
       dialog.show({
         title: "Confirm Bulk Deletion",
@@ -505,7 +523,11 @@ class TripsManager {
         },
       });
     } else {
-      if (confirm(`Are you sure you want to delete ${tripIds.length} selected trip(s)?`)) {
+      if (
+        confirm(
+          `Are you sure you want to delete ${tripIds.length} selected trip(s)?`,
+        )
+      ) {
         await this.performBulkDelete(tripIds);
       }
     }
@@ -525,21 +547,23 @@ class TripsManager {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete one or more trips");
+        throw new Error(
+          errorData.error || "Failed to delete one or more trips",
+        );
       }
 
       const result = await response.json();
-      
+
       if (window.notificationManager) {
         window.notificationManager.show(
           result.message || "Trips deleted successfully",
-          "success"
+          "success",
         );
       }
-      
+
       this.fetchTrips();
     } catch (error) {
-      if (typeof handleError === 'function') {
+      if (typeof handleError === "function") {
         handleError(error, "Error deleting trips");
       }
     }
@@ -549,7 +573,7 @@ class TripsManager {
     if (window.notificationManager) {
       window.notificationManager.show("Refreshing geocoding...", "info");
     }
-    
+
     try {
       const response = await fetch("/api/regeocode_all_trips", {
         method: "POST",
@@ -563,11 +587,11 @@ class TripsManager {
       if (window.notificationManager) {
         window.notificationManager.show(
           "Geocoding refresh started successfully. It may take some time to see the changes.",
-          "success"
+          "success",
         );
       }
     } catch (error) {
-      if (typeof handleError === 'function') {
+      if (typeof handleError === "function") {
         handleError(error, "Error refreshing geocoding");
       }
     }
@@ -582,14 +606,17 @@ class TripsManager {
   async deleteTrip(tripId) {
     if (!tripId) {
       if (window.notificationManager) {
-        window.notificationManager.show("Cannot delete trip: ID is missing", "warning");
+        window.notificationManager.show(
+          "Cannot delete trip: ID is missing",
+          "warning",
+        );
       }
       return;
     }
 
     const confirmDelete = () => {
       return new Promise((resolve) => {
-        if (typeof window.ConfirmationDialog === 'function') {
+        if (typeof window.ConfirmationDialog === "function") {
           const dialog = new window.ConfirmationDialog();
           dialog.show({
             title: "Confirm Deletion",
@@ -617,12 +644,15 @@ class TripsManager {
         }
 
         if (window.notificationManager) {
-          window.notificationManager.show("Trip deleted successfully", "success");
+          window.notificationManager.show(
+            "Trip deleted successfully",
+            "success",
+          );
         }
-        
+
         this.fetchTrips();
       } catch (error) {
-        if (typeof handleError === 'function') {
+        if (typeof handleError === "function") {
           handleError(error, `Error deleting trip ${tripId}`);
         }
       }
@@ -632,13 +662,19 @@ class TripsManager {
   exportTrip(tripId, format) {
     if (!tripId) {
       if (window.notificationManager) {
-        window.notificationManager.show("Cannot export trip: ID is missing", "warning");
+        window.notificationManager.show(
+          "Cannot export trip: ID is missing",
+          "warning",
+        );
       }
       return;
     }
 
     if (window.notificationManager) {
-      window.notificationManager.show(`Exporting trip ${tripId} as ${format}...`, "info");
+      window.notificationManager.show(
+        `Exporting trip ${tripId} as ${format}...`,
+        "info",
+      );
     }
 
     fetch(`/api/export/${format}?transaction_id=${tripId}`)
@@ -659,13 +695,16 @@ class TripsManager {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
-        
+
         if (window.notificationManager) {
-          window.notificationManager.show(`Trip ${tripId} exported successfully`, "success");
+          window.notificationManager.show(
+            `Trip ${tripId} exported successfully`,
+            "success",
+          );
         }
       })
       .catch((error) => {
-        if (typeof handleError === 'function') {
+        if (typeof handleError === "function") {
           handleError(error, `Error exporting trip ${tripId}`);
         }
       });
@@ -675,15 +714,15 @@ class TripsManager {
     if (seconds === null || seconds === undefined || isNaN(seconds)) {
       return "N/A";
     }
-    
+
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
-    
+
     if (h > 0) {
-      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
     } else {
-      return `${m}:${s.toString().padStart(2, '0')}`;
+      return `${m}:${s.toString().padStart(2, "0")}`;
     }
   }
 }
@@ -693,18 +732,18 @@ class TripsManager {
   try {
     // Wait for dependencies
     await waitForDependencies();
-    
+
     // Create and initialize the trips manager
     const tripsManager = new TripsManager();
     await tripsManager.init();
-    
+
     // Expose to global scope
     window.EveryStreet = window.EveryStreet || {};
     window.EveryStreet.Trips = {
       manager: tripsManager,
       tripsManager: tripsManager, // Keep for backward compatibility
     };
-    
+
     console.log("TripsManager initialized successfully");
   } catch (error) {
     console.error("Failed to initialize TripsManager:", error);
