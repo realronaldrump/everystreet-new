@@ -686,6 +686,146 @@ async def get_trips(request: Request):
     return StreamingResponse(stream(), media_type="application/geo+json")
 
 
+@app.post("/api/trips/datatable")
+async def get_trips_datatable(request: Request):
+    """Get trips data formatted for DataTables server-side processing."""
+    try:
+        # Parse DataTables parameters
+        body = await request.json()
+        draw = body.get('draw', 1)
+        start = body.get('start', 0)
+        length = body.get('length', 10)
+        search_value = body.get('search', {}).get('value', '')
+        
+        # Get date filters
+        start_date = body.get('start_date')
+        end_date = body.get('end_date')
+        
+        # Build query
+        query = {}
+        if start_date and end_date:
+            try:
+                parsed_start = parse_query_date(start_date)
+                parsed_end = parse_query_date(end_date, end_of_day=True)
+                if parsed_start and parsed_end:
+                    query["startTime"] = {
+                        "$gte": parsed_start,
+                        "$lte": parsed_end,
+                    }
+            except Exception as e:
+                logger.warning(f"Error parsing dates: {e}")
+        
+        # Add search filter
+        if search_value:
+            search_regex = {"$regex": search_value, "$options": "i"}
+            query["$or"] = [
+                {"transactionId": search_regex},
+                {"imei": search_regex},
+                {"startLocation": search_regex},
+                {"destination": search_regex},
+            ]
+        
+        # Get total count
+        total_count = await trips_collection.count_documents({})
+        filtered_count = await trips_collection.count_documents(query)
+        
+        # Get paginated data
+        cursor = trips_collection.find(query).sort("startTime", -1).skip(start).limit(length)
+        trips_list = await cursor.to_list(length=length)
+        
+        # Format data for DataTables
+        formatted_data = []
+        for trip in trips_list:
+            # Calculate duration
+            start_time = trip.get("startTime")
+            end_time = trip.get("endTime")
+            duration = None
+            if start_time and end_time:
+                duration = (end_time - start_time).total_seconds()
+            
+            # Format locations
+            start_location = trip.get("startLocation", "Unknown")
+            if isinstance(start_location, dict):
+                start_location = start_location.get("formatted_address", "Unknown")
+            
+            destination = trip.get("destination", "Unknown")
+            if isinstance(destination, dict):
+                destination = destination.get("formatted_address", "Unknown")
+            
+            formatted_trip = {
+                "transactionId": trip.get("transactionId", ""),
+                "imei": trip.get("imei", ""),
+                "startTime": SerializationHelper.serialize_datetime(start_time),
+                "endTime": SerializationHelper.serialize_datetime(end_time),
+                "duration": duration,
+                "distance": float(trip.get("distance", 0)),
+                "startLocation": start_location,
+                "destination": destination,
+                "maxSpeed": float(trip.get("maxSpeed", 0)),
+                "totalIdleDuration": trip.get("totalIdleDuration", 0),
+                "fuelConsumed": float(trip.get("fuelConsumed", 0)),
+                "averageSpeed": trip.get("averageSpeed"),
+                "hardBrakingCount": trip.get("hardBrakingCount", 0),
+                "hardAccelerationCount": trip.get("hardAccelerationCount", 0),
+                "source": trip.get("source", "unknown"),
+            }
+            formatted_data.append(formatted_trip)
+        
+        return {
+            "draw": draw,
+            "recordsTotal": total_count,
+            "recordsFiltered": filtered_count,
+            "data": formatted_data
+        }
+        
+    except Exception as e:
+        logger.exception(f"Error in get_trips_datatable: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@app.post("/api/trips/bulk_delete")
+async def bulk_delete_trips(request: Request):
+    """Bulk delete trips by IDs."""
+    try:
+        body = await request.json()
+        trip_ids = body.get('trip_ids', [])
+        
+        if not trip_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No trip IDs provided"
+            )
+        
+        # Delete trips
+        result = await delete_many_with_retry(
+            trips_collection,
+            {"transactionId": {"$in": trip_ids}}
+        )
+        
+        # Delete corresponding matched trips
+        matched_result = await delete_many_with_retry(
+            matched_trips_collection,
+            {"transactionId": {"$in": trip_ids}}
+        )
+        
+        return {
+            "status": "success",
+            "deleted_trips": result.deleted_count,
+            "deleted_matched_trips": matched_result.deleted_count,
+            "message": f"Deleted {result.deleted_count} trips and {matched_result.deleted_count} matched trips"
+        }
+        
+    except Exception as e:
+        logger.exception(f"Error in bulk_delete_trips: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
 @app.get("/api/matched_trips")
 async def get_matched_trips(request: Request):
     """Get map-matched trips as GeoJSON."""
@@ -2228,25 +2368,6 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
-
-
-@app.get("/api/trips")
-async def list_trips(request: Request):
-    """
-    List trips (as a GeoJSON FeatureCollection) optionally filtered
-    by start_date/end_date query parameters.
-    """
-    # Filter by endTime instead of startTime so that sorting by endTime uses an index and avoids in-memory sort
-    query = await build_query_from_request(request, date_field="endTime")
-    docs = await find_with_retry(trips_collection, query)
-    features = []
-    for doc in docs:
-        # serialize_trip will turn your MongoDB document into JSON-safe dict
-        props = SerializationHelper.serialize_trip(doc)
-        features.append(
-            geojson_module.Feature(geometry=doc["gps"], properties=props)
-        )
-    return geojson_module.FeatureCollection(features)
 
 
 @app.get("/api/driving-insights")

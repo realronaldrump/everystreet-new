@@ -345,9 +345,7 @@ async def process_trip_data(
         all_coords_map[ts_key] = coord
 
     # Sort all coordinates by timestamp
-    sorted_coords = sorted(
-        all_coords_map.values(), key=lambda x: x["timestamp"]
-    )
+    sorted_coords = sorted(all_coords_map.values(), key=lambda x: x["timestamp"])
 
     # Build GeoJSON representation
     geojson_coords = []
@@ -376,21 +374,15 @@ async def process_trip_data(
     start_time = trip_doc.get("startTime")
     if not isinstance(start_time, datetime):
         start_time = (
-            _parse_mongo_date_dict(start_time)
-            if isinstance(start_time, dict)
-            else None
+            _parse_mongo_date_dict(start_time) if isinstance(start_time, dict) else None
         )
 
     last_point_time = (
-        sorted_coords[-1]["timestamp"]
-        if sorted_coords
-        else datetime.now(timezone.utc)
+        sorted_coords[-1]["timestamp"] if sorted_coords else datetime.now(timezone.utc)
     )
     duration_seconds = 0.0
     if start_time and isinstance(last_point_time, datetime):
-        duration_seconds = max(
-            0.0, (last_point_time - start_time).total_seconds()
-        )
+        duration_seconds = max(0.0, (last_point_time - start_time).total_seconds())
 
     # Calculate distance and speeds
     total_distance = 0.0
@@ -417,9 +409,7 @@ async def process_trip_data(
 
                 # Calculate speed if we have timestamps
                 if "timestamp" in prev and "timestamp" in curr:
-                    time_diff = (
-                        curr["timestamp"] - prev["timestamp"]
-                    ).total_seconds()
+                    time_diff = (curr["timestamp"] - prev["timestamp"]).total_seconds()
                     if time_diff > 0.5:
                         segment_speed = (segment_distance / time_diff) * 3600
                         if 0 <= segment_speed < 200:  # Reasonable speed range
@@ -571,10 +561,7 @@ async def process_trip_metrics(
 
         # Helper to safely update fields from metrics_data
         def _safe_update_float(key: str, metric_key: str):
-            if (
-                metric_key in metrics_data
-                and metrics_data[metric_key] is not None
-            ):
+            if metric_key in metrics_data and metrics_data[metric_key] is not None:
                 try:
                     update_fields[key] = float(metrics_data[metric_key])
                 except (ValueError, TypeError):
@@ -586,10 +573,7 @@ async def process_trip_metrics(
                     )
 
         def _safe_update_int(key: str, metric_key: str):
-            if (
-                metric_key in metrics_data
-                and metrics_data[metric_key] is not None
-            ):
+            if metric_key in metrics_data and metrics_data[metric_key] is not None:
                 try:
                     update_fields[key] = int(metrics_data[metric_key])
                 except (ValueError, TypeError):
@@ -620,9 +604,7 @@ async def process_trip_metrics(
         update_fields["sequence"] = sequence
 
         if not update_fields:
-            logger.info(
-                "No fields to update from tripMetrics for %s.", transaction_id
-            )
+            logger.info("No fields to update from tripMetrics for %s.", transaction_id)
             return
 
         trip_id_to_update = initial_trip_doc["_id"]
@@ -705,9 +687,7 @@ async def process_trip_end(
 
     end_timestamp_str = end_data.get("timestamp")
     end_time_zone = end_data.get("timeZone")
-    if (
-        end_time_zone is None
-    ):  # Try the lowercase version if camelCase is not found
+    if end_time_zone is None:  # Try the lowercase version if camelCase is not found
         end_time_zone = end_data.get("timezone")
     end_odometer = end_data.get("odometer")
     fuel_consumed_raw = end_data.get("fuelConsumed")
@@ -809,9 +789,7 @@ async def process_trip_end(
             _parse_mongo_date_dict(start_time)
             if isinstance(start_time, dict)
             else (
-                _parse_iso_datetime(start_time)
-                if isinstance(start_time, str)
-                else None
+                _parse_iso_datetime(start_time) if isinstance(start_time, str) else None
             )
         )
 
@@ -933,9 +911,7 @@ async def process_trip_end(
                 not gps_coords
                 or not isinstance(gps_coords, list)
                 or len(gps_coords) != 2
-                or not all(
-                    isinstance(coord, (int, float)) for coord in gps_coords
-                )
+                or not all(isinstance(coord, (int, float)) for coord in gps_coords)
             ):
                 logger.warning(
                     f"Trip {transaction_id}: Invalid Point coordinates for archiving. Setting gps to null."
@@ -949,9 +925,7 @@ async def process_trip_end(
             )
             trip_to_archive["gps"] = None
 
-    elif (
-        gps_field_to_archive is not None
-    ):  # It exists but is not a dict (unexpected)
+    elif gps_field_to_archive is not None:  # It exists but is not a dict (unexpected)
         logger.warning(
             f"Trip {transaction_id}: 'gps' field is not a dict as expected for archiving ({type(gps_field_to_archive)}). Setting to null."
         )
@@ -1115,9 +1089,7 @@ async def get_active_trip(
 
             # Try to build coordinates from GPS data if available
             gps_data = active_trip_doc.get("gps", {})
-            if gps_data.get("type") == "LineString" and gps_data.get(
-                "coordinates"
-            ):
+            if gps_data.get("type") == "LineString" and gps_data.get("coordinates"):
                 # Note: We lose timestamp information here since GeoJSON doesn't store it
                 # This is a limitation of the current design
                 coords = []
@@ -1133,9 +1105,7 @@ async def get_active_trip(
                             }
                         )
                 active_trip_doc["coordinates"] = coords
-            elif gps_data.get("type") == "Point" and gps_data.get(
-                "coordinates"
-            ):
+            elif gps_data.get("type") == "Point" and gps_data.get("coordinates"):
                 coord = gps_data["coordinates"]
                 if isinstance(coord, list) and len(coord) >= 2:
                     active_trip_doc["coordinates"] = [
@@ -1299,8 +1269,7 @@ async def cleanup_stale_trips_logic(
                         or not isinstance(gps_coords, list)
                         or len(gps_coords) != 2
                         or not all(
-                            isinstance(coord, (int, float))
-                            for coord in gps_coords
+                            isinstance(coord, (int, float)) for coord in gps_coords
                         )
                     ):
                         logger.warning(
