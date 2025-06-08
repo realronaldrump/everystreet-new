@@ -531,7 +531,7 @@ class LiveTripTracker {
       }
     } else if (
       lastPoint &&
-      window.utils.getStorage("autoFollowVehicle") === "true"
+      window.utils?.getStorage?.("autoFollowVehicle") === "true"
     ) {
       const bounds = this.map.getBounds();
       const point = new mapboxgl.LngLat(lastPoint[0], lastPoint[1]);
@@ -632,7 +632,7 @@ class LiveTripTracker {
     }
   }
 
-  // Compute trip metrics from trip data
+  // CLEANED UP: Compute trip metrics from trip data - only show meaningful metrics during live tracking
   computeTripMetrics(trip) {
     let startTime = trip.startTime ? new Date(trip.startTime) : null;
     const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
@@ -655,10 +655,6 @@ class LiveTripTracker {
     const avgSpeed = typeof trip.avgSpeed === "number" ? trip.avgSpeed : 0;
     const maxSpeed = typeof trip.maxSpeed === "number" ? trip.maxSpeed : 0;
     const pointsRecorded = trip.pointsRecorded || trip.coordinates?.length || 0;
-    const startOdometer =
-      trip.startOdometer !== undefined && trip.startOdometer !== null
-        ? trip.startOdometer
-        : "N/A";
     const totalIdlingTime =
       typeof trip.totalIdlingTime === "number" ? trip.totalIdlingTime : 0;
     const hardBrakingCounts =
@@ -693,6 +689,7 @@ class LiveTripTracker {
       }
     }
 
+    // CLEANED UP: Only include metrics that are meaningful during live tracking
     return {
       durationStr,
       distance,
@@ -700,42 +697,95 @@ class LiveTripTracker {
       avgSpeed,
       maxSpeed,
       pointsRecorded,
-      startOdometer,
       totalIdlingTime,
       hardBrakingCounts,
       hardAccelerationCounts,
       startTimeFormatted,
       lastUpdate,
+      // Removed: startOdometer, fuelConsumed (only meaningful after trip completion)
+      isLive: tripStatus === "active", // Flag to help with conditional rendering
     };
   }
 
-  // Render trip metrics to DOM
+  // CLEANED UP: Render trip metrics to DOM - only show metrics that update during live tracking
   renderTripMetrics(metrics) {
-    const formattedMetrics = {
+    if (!this.tripMetricsElem) return;
+
+    // Base metrics always shown for live trips
+    const baseMetrics = {
       "Start Time": metrics.startTimeFormatted,
       Duration: metrics.durationStr || "0:00:00",
       Distance: `${metrics.distance.toFixed(2)} miles`,
       "Current Speed": `${metrics.currentSpeed.toFixed(1)} mph`,
-      "Average Speed": `${metrics.avgSpeed.toFixed(1)} mph`,
-      "Max Speed": `${metrics.maxSpeed.toFixed(1)} mph`,
       "Points Recorded": metrics.pointsRecorded,
-      "Start Odometer": `${metrics.startOdometer}${metrics.startOdometer !== "N/A" ? " miles" : ""}`,
-      "Total Idling Time": `${DateUtils.formatSecondsToHMS(metrics.totalIdlingTime)}`,
-      "Hard Braking": metrics.hardBrakingCounts,
-      "Hard Acceleration": metrics.hardAccelerationCounts,
       "Last Update": metrics.lastUpdate
         ? DateUtils.formatTimeAgo(metrics.lastUpdate)
         : "N/A",
     };
 
-    this.tripMetricsElem.innerHTML = Object.entries(formattedMetrics)
+    // Advanced metrics (only show if they have meaningful values during live tracking)
+    const advancedMetrics = {};
+
+    // Only show average speed if we have a reasonable value (> 0)
+    if (metrics.avgSpeed > 0) {
+      advancedMetrics["Average Speed"] = `${metrics.avgSpeed.toFixed(1)} mph`;
+    }
+
+    // Only show max speed if we have a meaningful value (> current speed or > 5 mph)
+    if (metrics.maxSpeed > Math.max(metrics.currentSpeed, 5)) {
+      advancedMetrics["Max Speed"] = `${metrics.maxSpeed.toFixed(1)} mph`;
+    }
+
+    // Only show idling time if there's been some idling
+    if (metrics.totalIdlingTime > 0) {
+      advancedMetrics["Total Idling"] = DateUtils.formatSecondsToHMS(metrics.totalIdlingTime);
+    }
+
+    // Only show driving behavior metrics if they exist
+    if (metrics.hardBrakingCounts > 0) {
+      advancedMetrics["Hard Braking"] = metrics.hardBrakingCounts;
+    }
+
+    if (metrics.hardAccelerationCounts > 0) {
+      advancedMetrics["Hard Acceleration"] = metrics.hardAccelerationCounts;
+    }
+
+    // Create a cleaner layout with conditional sections
+    const baseSection = Object.entries(baseMetrics)
       .map(
-        ([label, value]) => `<div class="metric-row">
-        <span class="metric-label">${label}:</span>
-        <span class="metric-value">${value}</span>
-      </div>`,
+        ([label, value]) => `
+          <div class="metric-row metric-base">
+            <span class="metric-label">${label}:</span>
+            <span class="metric-value">${value}</span>
+          </div>
+        `
       )
       .join("");
+
+    const advancedSection = Object.keys(advancedMetrics).length > 0 
+      ? `
+        <div class="metric-section-divider"></div>
+        <div class="metric-section-title">Trip Behavior</div>
+        ${Object.entries(advancedMetrics)
+          .map(
+            ([label, value]) => `
+              <div class="metric-row metric-advanced">
+                <span class="metric-label">${label}:</span>
+                <span class="metric-value">${value}</span>
+              </div>
+            `
+          )
+          .join("")}
+      `
+      : '';
+
+    this.tripMetricsElem.innerHTML = `
+      <div class="metric-section">
+        <div class="metric-section-title">Live Trip</div>
+        ${baseSection}
+      </div>
+      ${advancedSection}
+    `;
   }
 
   updateTripMetrics(trip) {

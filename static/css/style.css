@@ -1334,7 +1334,7 @@ body.light-mode .table-striped tbody tr:nth-of-type(odd) {
   }
 }
 
-/* Live Tracking UI (Minimal, assuming it's a small panel) */
+/* === Enhanced Live Trip Metrics Styling === */
 .live-tracking-status {
   /* Can be a card or a custom component */
   position: absolute; /* Example positioning */
@@ -1361,22 +1361,143 @@ body.light-mode .table-striped tbody tr:nth-of-type(odd) {
 .live-tracking-status .card-body {
   padding: var(--space-3);
 }
+
+/* Enhanced Live Trip Metrics Styling */
+.live-trip-metrics {
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.metric-section {
+  margin-bottom: 1rem;
+}
+
+.metric-section-title {
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.metric-section-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 0.75rem 0;
+  opacity: 0.5;
+}
+
 .live-trip-metrics .metric-row {
   display: flex;
   justify-content: space-between;
-  padding: var(--space-1) 0;
+  align-items: center;
+  padding: 0.25rem 0;
+  transition: background-color 0.2s ease;
   border-bottom: 1px solid var(--divider-color);
   font-size: var(--font-size-xs);
 }
+
 .live-trip-metrics .metric-row:last-child {
   border-bottom: none;
 }
-.live-trip-metrics .metric-label {
-  color: var(--text-secondary);
+
+.live-trip-metrics .metric-row:hover {
+  background-color: var(--surface-3);
+  margin: 0 -0.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  border-radius: 0.25rem;
 }
+
+.live-trip-metrics .metric-label {
+  font-weight: 500;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
 .live-trip-metrics .metric-value {
-  font-weight: var(--font-weight-medium);
+  font-weight: 600;
   color: var(--text-primary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Specific styling for base metrics (always shown) */
+.metric-base .metric-value {
+  color: var(--success);
+}
+
+/* Specific styling for advanced metrics (conditionally shown) */
+.metric-advanced .metric-value {
+  color: var(--info);
+}
+
+/* Special highlighting for current speed */
+.metric-row:has(.metric-label:contains("Current Speed")) .metric-value {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: var(--warning);
+}
+
+/* Dark theme adjustments */
+[data-bs-theme="dark"] .live-trip-metrics .metric-row:hover {
+  background-color: var(--surface-4);
+}
+
+[data-bs-theme="dark"] .metric-section-title {
+  color: var(--text-primary);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 576px) {
+  .live-trip-metrics .metric-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+  }
+  
+  .live-trip-metrics .metric-value {
+    text-align: left;
+    font-size: 0.95em;
+  }
+  
+  .metric-section-title {
+    font-size: 0.75rem;
+  }
+}
+
+/* Animation for new metrics appearing */
+.live-trip-metrics .metric-row {
+  animation: fadeInMetric 0.3s ease-in-out;
+}
+
+@keyframes fadeInMetric {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Status indicators for different metric types */
+.metric-base::before {
+  content: "●";
+  color: var(--success);
+  margin-right: 0.5rem;
+  font-size: 0.6rem;
+}
+
+.metric-advanced::before {
+  content: "▶";
+  color: var(--info);
+  margin-right: 0.5rem;
+  font-size: 0.6rem;
 }
 
 /* Notifications */
