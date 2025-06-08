@@ -331,7 +331,10 @@
     }
     try {
       activeExports[formType] = true;
-      window.notificationManager.show(`Starting ${config.name} export...`, "info");
+      window.notificationManager.show(
+        `Starting ${config.name} export...`,
+        "info",
+      );
       let url = buildExportUrl(formType, config);
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -342,7 +345,10 @@
       }, 120000);
       try {
         await downloadFile(url, config.name, abortController.signal);
-        window.notificationManager.show(`${config.name} export completed`, "success");
+        window.notificationManager.show(
+          `${config.name} export completed`,
+          "success",
+        );
       } finally {
         clearTimeout(timeoutId);
       }
@@ -601,7 +607,10 @@
 
     const locationData = locationInput.getAttribute("data-location");
     if (!locationData) {
-      window.notificationManager.show("Please validate the location first", "warning");
+      window.notificationManager.show(
+        "Please validate the location first",
+        "warning",
+      );
       return false;
     }
 
@@ -688,7 +697,10 @@
         window.handleError(error, "validating location");
       } else {
         console.error("Error validating location:", error);
-        window.notificationManager.show(`Validation failed: ${error.message}`, "danger");
+        window.notificationManager.show(
+          `Validation failed: ${error.message}`,
+          "danger",
+        );
       }
 
       locationInput.classList.add("is-invalid");
@@ -704,7 +716,10 @@
   async function downloadFile(url, exportName, signal) {
     const urlWithTimestamp = `${url}${url.includes("?") ? "&" : "?"}timestamp=${new Date().getTime()}`;
     try {
-      window.notificationManager.show(`Requesting ${exportName} data...`, "info");
+      window.notificationManager.show(
+        `Requesting ${exportName} data...`,
+        "info",
+      );
       console.info(`Requesting export from: ${urlWithTimestamp}`);
       window.loadingManager.show(exportName);
       const fetchOptions = { signal };
@@ -771,8 +786,6 @@
       window.loadingManager.hide();
     }
   }
-
-
 
   function getFilenameFromHeaders(contentDisposition, exportName, format) {
     let filename = null;
