@@ -26,7 +26,6 @@
     // Delay initialization slightly to ensure other scripts might load
     setTimeout(() => {
       initializeCharts();
-      initializeDatepickers();
       fetchDrivingInsights();
     }, 100);
   });
@@ -180,131 +179,11 @@
     }
   }
 
-  function initializeDatepickers() {
-    const startDateEl = document.getElementById("start-date");
-    const endDateEl = document.getElementById("end-date");
-
-    if (startDateEl && endDateEl) {
-      const dateUtils = window.DateUtils;
-      if (!dateUtils) {
-        console.error(
-          "DateUtils not available for date initialization. Date pickers may not work.",
-        );
-        return;
-      }
-
-      try {
-        let savedStartDate = window.utils.getStorage("startDate");
-        let savedEndDate = window.utils.getStorage("endDate");
-
-        // Default to last 30 days if no dates are saved
-        if (!savedStartDate) {
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          savedStartDate = dateUtils.formatDate(thirtyDaysAgo); // Assumes YYYY-MM-DD
-        }
-
-        if (!savedEndDate) {
-          savedEndDate = dateUtils.formatDate(new Date()); // Assumes YYYY-MM-DD
-        }
-
-        // Set values in localStorage if they were just defaulted
-        window.utils.setStorage("startDate", savedStartDate);
-        window.utils.setStorage("endDate", savedEndDate);
-
-        // Initialize flatpickr instances if they exist, otherwise set input values
-        if (startDateEl._flatpickr && endDateEl._flatpickr) {
-          startDateEl._flatpickr.setDate(savedStartDate);
-          endDateEl._flatpickr.setDate(savedEndDate);
-        } else {
-          // Fallback or for non-flatpickr setups if DateUtils.initDatePicker handles it
-          dateUtils.initDatePicker(startDateEl, {
-            defaultDate: savedStartDate,
-          });
-          dateUtils.initDatePicker(endDateEl, { defaultDate: savedEndDate });
-        }
-      } catch (error) {
-        console.error("Error initializing datepickers:", error);
-      }
-    } else {
-      console.warn(
-        "Start or end date input elements not found for datepickers.",
-      );
-    }
-  }
-
   function initializeEventListeners() {
-    document
-      .getElementById("apply-filters")
-      ?.addEventListener("click", fetchDrivingInsights);
-
-    document
-      .getElementById("filter-7days")
-      ?.addEventListener("click", () => setDateRangeAndFetch(7));
-    document
-      .getElementById("filter-30days")
-      ?.addEventListener("click", () => setDateRangeAndFetch(30));
-    document
-      .getElementById("filter-90days")
-      ?.addEventListener("click", () => setDateRangeAndFetch(90));
-
-    // Listen for a custom event if other parts of the app apply filters
+    // Only respond to the global shared filter panel
     document.addEventListener("filtersApplied", () => {
       fetchDrivingInsights();
     });
-  }
-
-  function setDateRangeAndFetch(days) {
-    setDateRange(days); // This function now just updates inputs and localStorage
-    fetchDrivingInsights(); // Explicitly call fetch after setting range
-  }
-
-  function setDateRange(days) {
-    try {
-      const startDateInput = document.getElementById("start-date");
-      const endDateInput = document.getElementById("end-date");
-      const dateUtils = window.DateUtils;
-
-      if (!startDateInput || !endDateInput || !dateUtils) {
-        console.error(
-          "Missing required elements or DateUtils for setDateRange",
-        );
-        return;
-      }
-
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(endDate.getDate() - (days - 1)); // e.g., 7 days includes today
-
-      const formattedStartDate = dateUtils.formatDate(startDate);
-      const formattedEndDate = dateUtils.formatDate(endDate);
-
-      updateDateInputs(
-        startDateInput,
-        endDateInput,
-        formattedStartDate,
-        formattedEndDate,
-      );
-    } catch (error) {
-      console.warn("Error in setDateRange: ", error);
-    }
-  }
-
-  function updateDateInputs(startInput, endInput, startDateStr, endDateStr) {
-    if (startInput._flatpickr) {
-      startInput._flatpickr.setDate(startDateStr, false); // `false` to not trigger onChange yet
-    } else {
-      startInput.value = startDateStr;
-    }
-
-    if (endInput._flatpickr) {
-      endInput._flatpickr.setDate(endDateStr, false);
-    } else {
-      endInput.value = endDateStr;
-    }
-
-    window.utils.setStorage("startDate", startDateStr);
-    window.utils.setStorage("endDate", endDateStr);
   }
 
   function getFilterParams() {
