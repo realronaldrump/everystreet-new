@@ -1330,8 +1330,13 @@
             }
           };
 
-          battery.addEventListener("levelchange", updateAnimations);
-          battery.addEventListener("chargingchange", updateAnimations);
+          if (typeof battery.addEventListener === "function") {
+            battery.addEventListener("levelchange", updateAnimations);
+            battery.addEventListener("chargingchange", updateAnimations);
+          } else {
+            battery.onlevelchange = updateAnimations;
+            battery.onchargingchange = updateAnimations;
+          }
           updateAnimations();
         });
       }
