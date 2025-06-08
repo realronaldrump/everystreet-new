@@ -288,7 +288,7 @@ function createEditableCell(data, type, field, inputType = "text") {
             // Tell DataTables that we've handled the error
             // and there's no data to display
             if (this.tripsTable) {
-                this.tripsTable.clear().draw();
+              this.tripsTable.clear().draw();
             }
           },
         },
@@ -600,7 +600,10 @@ function createEditableCell(data, type, field, inputType = "text") {
               throw new Error(errorData.error || "Failed to delete trip");
             }
 
-            this.tripsTable.row($(`#${tripId}`)).remove().draw();
+            this.tripsTable
+              .row($(`#${tripId}`))
+              .remove()
+              .draw();
             window.notificationManager.show(
               "Trip deleted successfully",
               "success",
