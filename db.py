@@ -1273,53 +1273,37 @@ async def init_task_history_collection() -> None:
 
 
 async def ensure_street_coverage_indexes() -> None:
-    """Ensure necessary indexes exist for street coverage collections."""
-    logger.debug("Ensuring street coverage indexes exist...")
+    """
+    Ensure all necessary indexes exist for the entire application, including
+    street coverage, trips, and places functionality.
+    """
+    logger.debug("Ensuring all application indexes exist...")
 
     try:
+        # --- Indexes for Street Coverage Functionality ---
+        logger.debug("Ensuring indexes for 'coverage_metadata' and 'streets' collections...")
         await db_manager.safe_create_index(
             "coverage_metadata",
-            [
-                (
-                    "location.display_name",
-                    pymongo.ASCENDING,
-                ),
-            ],
+            [("location.display_name", pymongo.ASCENDING)],
             name="coverage_metadata_display_name_idx",
             unique=True,
             background=True,
         )
         await db_manager.safe_create_index(
             "coverage_metadata",
-            [
-                ("status", pymongo.ASCENDING),
-                (
-                    "last_updated",
-                    pymongo.ASCENDING,
-                ),
-            ],
+            [("status", pymongo.ASCENDING), ("last_updated", pymongo.ASCENDING)],
             name="coverage_metadata_status_updated_idx",
             background=True,
         )
-
         await db_manager.safe_create_index(
             "streets",
-            [
-                (
-                    "properties.location",
-                    pymongo.ASCENDING,
-                ),
-            ],
+            [("properties.location", pymongo.ASCENDING)],
             name="streets_properties_location_idx",
             background=True,
         )
-        # Create a unique compound index on location + segment_id to enforce per-location uniqueness
         await db_manager.safe_create_index(
             "streets",
-            [
-                ("properties.location", pymongo.ASCENDING),
-                ("properties.segment_id", pymongo.ASCENDING),
-            ],
+            [("properties.location", pymongo.ASCENDING), ("properties.segment_id", pymongo.ASCENDING)],
             name="streets_location_segment_id_unique_idx",
             unique=True,
             background=True,
@@ -1332,22 +1316,41 @@ async def ensure_street_coverage_indexes() -> None:
         )
         await db_manager.safe_create_index(
             "streets",
-            [
-                ("properties.location", 1),
-                ("properties.driven", 1),
-                ("properties.highway", 1),
-                ("properties.segment_length", 1),
-            ],
+            [("properties.location", 1), ("properties.driven", 1), ("properties.highway", 1), ("properties.segment_length", 1)],
             name="streets_coverage_aggregation_idx",
             background=True,
         )
 
+        # --- Indexes for Trips and Places Functionality ---
+        logger.debug("Ensuring indexes for 'trips' and 'places' functionality...")
+
+        # CRITICAL: Index for finding the next chronological trip. The core of the new logic.
         await db_manager.safe_create_index(
             "trips",
             [("startTime", pymongo.ASCENDING)],
-            name="trips_startTime_idx",
+            name="trips_startTime_asc_idx",
             background=True,
         )
+
+        # Index for quickly finding arrivals at custom places by their ID.
+        await db_manager.safe_create_index(
+            "trips",
+            [("destinationPlaceId", pymongo.ASCENDING)],
+            name="trips_destinationPlaceId_idx",
+            background=True,
+            sparse=True,  # Efficient for fields that may not always exist.
+        )
+        
+        # Index for aggregating visits to non-custom places by name.
+        await db_manager.safe_create_index(
+            "trips",
+            [("destinationPlaceName", pymongo.ASCENDING)],
+            name="trips_destinationPlaceName_idx",
+            background=True,
+            sparse=True,
+        )
+
+        # Geospatial indexes for finding arrivals within geofenced areas.
         await db_manager.safe_create_index(
             "trips",
             [("startGeoPoint", "2dsphere")],
@@ -1360,25 +1363,21 @@ async def ensure_street_coverage_indexes() -> None:
             name="trips_destinationGeoPoint_2dsphere_idx",
             background=True,
         )
+        
+        # Compound geospatial index for specific coverage queries.
         await db_manager.safe_create_index(
             "trips",
-            [
-                ("startGeoPoint", "2dsphere"),
-                (
-                    "destinationGeoPoint",
-                    "2dsphere",
-                ),
-                ("_id", 1),
-            ],
+            [("startGeoPoint", "2dsphere"), ("destinationGeoPoint", "2dsphere"), ("_id", 1)],
             name="trips_coverage_query_idx",
             background=True,
         )
 
-        # CRITICAL PERFORMANCE INDEXES - Adding missing indexes for frequent lookups and sorts
+        # General purpose indexes for common lookups and sorting.
         await db_manager.safe_create_index(
             "trips",
             [("transactionId", pymongo.ASCENDING)],
             name="trips_transactionId_idx",
+            unique=True, # Assuming transactionId is unique
             background=True,
         )
         await db_manager.safe_create_index(
@@ -1387,36 +1386,27 @@ async def ensure_street_coverage_indexes() -> None:
             name="trips_endTime_desc_idx",
             background=True,
         )
-        # Add index on startTime for efficient date-range filtering
-        await db_manager.safe_create_index(
-            "trips",
-            [("startTime", pymongo.ASCENDING)],
-            name="trips_startTime_idx",
-            background=True,
-        )
+
+        # --- Indexes for Matched Trips ---
+        logger.debug("Ensuring indexes for 'matched_trips' collection...")
         await db_manager.safe_create_index(
             "matched_trips",
             [("transactionId", pymongo.ASCENDING)],
             name="matched_trips_transactionId_idx",
-            background=True,
-        )
-        await db_manager.safe_create_index(
-            "matched_trips",
-            [("transactionId", pymongo.ASCENDING)],
-            name="matched_trips_transactionId_idx",
+            unique=True, # Assuming transactionId is unique
             background=True,
         )
         await db_manager.safe_create_index(
             "matched_trips",
             [("startTime", pymongo.ASCENDING)],
-            name="matched_trips_startTime_idx",
+            name="matched_trips_startTime_asc_idx",
             background=True,
         )
 
-        logger.info("Street coverage indexes ensured/created successfully")
+        logger.info("All application indexes have been ensured/created successfully.")
     except Exception as e:
         logger.error(
-            "Error creating street coverage indexes: %s",
+            "A critical error occurred while creating application indexes: %s",
             str(e),
         )
         raise
