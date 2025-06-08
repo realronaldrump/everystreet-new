@@ -1,0 +1,240 @@
+.activity-indicator.pulsing {
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.detailed-stage-info {
+  font-style: italic;
+  color: #adb5bd;
+  font-size: 0.9em;
+  margin-top: 5px;
+}
+.stats-info {
+  font-size: 0.9em;
+}
+.stats-info small {
+  color: #ced4da;
+}
+.stats-info .text-info {
+  color: #3db9d5 !important;
+}
+.stats-info .text-success {
+  color: #4caf50 !important;
+}
+.stats-info .text-primary {
+  color: #59a6ff !important;
+}
+
+.map-info-panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: rgba(40, 40, 40, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  max-width: 250px;
+  border-left: 3px solid #007bff;
+  display: none;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+}
+.map-info-panel strong {
+  color: #fff;
+}
+.map-info-panel .text-success {
+  color: #4caf50 !important;
+}
+.map-info-panel .text-danger {
+  color: #ff5252 !important;
+}
+.map-info-panel .text-info {
+  color: #17a2b8 !important;
+}
+.map-info-panel .text-warning {
+  color: #ffc107 !important;
+}
+.map-info-panel .text-muted {
+  color: #adb5bd !important;
+}
+.map-info-panel hr.panel-divider {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  margin: 5px 0;
+}
+
+.coverage-summary-control {
+  background: rgba(40, 40, 40, 0.9);
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  min-width: 150px;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+}
+.summary-title {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #ccc;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.summary-percentage {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #fff;
+  transition: all 0.3s ease;
+}
+.summary-progress {
+  margin-bottom: 8px;
+}
+.summary-details {
+  font-size: 11px;
+  color: #ccc;
+  text-align: right;
+}
+
+/* Enhanced animations */
+.fade-in-up {
+  animation: fadeInUp 0.3s ease forwards;
+  opacity: 0;
+}
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.shake-animation {
+  animation: shake 0.3s ease;
+}
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+/* Enhanced hover states */
+.location-name-link {
+  transition: all 0.2s ease;
+}
+.location-name-link:hover {
+  transform: translateX(2px);
+}
+
+/* Smooth transitions for all interactive elements */
+.btn,
+.form-control,
+.form-select,
+.progress-bar {
+  transition: all 0.2s ease;
+}
+
+/* Enhanced focus states */
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible {
+  outline: 2px solid #59a6ff;
+  outline-offset: 2px;
+}
+
+/* Loading pulse animation */
+.loading-pulse {
+  animation: loadingPulse 1.5s ease-in-out infinite;
+}
+@keyframes loadingPulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Skeleton loading enhancement */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* CSS for the efficient streets panel */
+.efficient-streets-panel-overlay {
+  position: absolute;
+  top: 80px;
+  right: 10px;
+  width: 350px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.efficient-street-item {
+  background: rgba(60, 60, 60, 0.8);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.efficient-street-item:hover {
+  background: rgba(80, 80, 80, 0.9);
+}
+
+.efficient-street-marker-mapbox {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.efficient-street-marker-mapbox:hover {
+  transform: scale(1.1);
+}
+
+.efficiency-metrics {
+  margin: 8px 0;
+}
+
+.efficiency-metrics div {
+  margin: 4px 0;
+}

@@ -5,7 +5,10 @@ block head_content %}
   href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css"
   rel="stylesheet"
 />
-<!-- No inline styles needed here anymore -->
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/coverage-management.css') }}"
+/>
 {% endblock %} {% block content %}
 <div class="container-fluid">
   <div class="row">
