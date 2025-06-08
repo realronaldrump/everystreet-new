@@ -1,9 +1,13 @@
-{% extends "base.html" %}
-{% block title %}Driving Navigation{% endblock %}
-
-{% block head_content %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+{% extends "base.html" %} {% block title %}Driving Navigation{% endblock %} {%
+block head_content %}
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+/>
 <style>
   /* General Layout */
   .main-container {
@@ -56,7 +60,8 @@
   #status-message.text-danger {
     border-left-color: #dc3545;
   }
-  #target-info, #route-info {
+  #target-info,
+  #route-info {
     margin-top: 1rem;
   }
   .route-info-detail {
@@ -90,7 +95,7 @@
     position: relative;
   }
   .step:not(:last-child)::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     right: -50%;
@@ -145,7 +150,8 @@
   }
 
   /* Leaflet Customizations */
-  .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip {
     background: #343a40;
     color: #f8f9fa;
     border: 1px solid #495057;
@@ -160,17 +166,25 @@
     box-shadow: 0 0 8px rgba(13, 202, 240, 0.7);
     transition: background-color 0.3s;
   }
-  .vehicle-stopped { background-color: #dc3545; }
-  .vehicle-slow { background-color: #ffc107; }
-  .vehicle-medium { background-color: #0d6efd; }
-  .vehicle-fast { background-color: #198754; }
+  .vehicle-stopped {
+    background-color: #dc3545;
+  }
+  .vehicle-slow {
+    background-color: #ffc107;
+  }
+  .vehicle-medium {
+    background-color: #0d6efd;
+  }
+  .vehicle-fast {
+    background-color: #198754;
+  }
   .vehicle-marker-inner::after {
     content: attr(data-speed);
     position: absolute;
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0,0,0,0.7);
+    background: rgba(0, 0, 0, 0.7);
     color: white;
     padding: 2px 4px;
     border-radius: 3px;
@@ -183,16 +197,17 @@
     opacity: 1;
   }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="main-container">
   <div class="control-panel">
     <h4 class="mb-3"><i class="fas fa-route"></i> Driving Navigation</h4>
 
     <div class="control-section">
       <label for="area-select" class="form-label">Coverage Area</label>
-      <select id="area-select" class="form-select bg-dark text-white border-secondary">
+      <select
+        id="area-select"
+        class="form-select bg-dark text-white border-secondary"
+      >
         <option value="">Select an area...</option>
       </select>
     </div>
@@ -203,7 +218,11 @@
         <button id="find-next-street-btn" class="btn btn-primary" disabled>
           <i class="fas fa-route"></i> Find Nearest Undriven Street
         </button>
-        <button id="calculate-coverage-route-btn" class="btn btn-success" disabled>
+        <button
+          id="calculate-coverage-route-btn"
+          class="btn btn-success"
+          disabled
+        >
           <i class="fas fa-road-spikes"></i> Calculate Full Coverage Route
         </button>
         <button id="find-efficient-street-btn" class="btn btn-info" disabled>
@@ -215,12 +234,19 @@
     <div class="control-section">
       <h5 class="h6">Export Coverage Route</h5>
       <div class="input-group">
-        <select id="coverage-route-format-select" class="form-select bg-dark text-white border-secondary">
+        <select
+          id="coverage-route-format-select"
+          class="form-select bg-dark text-white border-secondary"
+        >
           <option value="geojson">GeoJSON</option>
           <option value="gpx">GPX</option>
           <option value="shapefile">Shapefile (Zip)</option>
         </select>
-        <button id="export-coverage-route-btn" class="btn btn-outline-secondary" disabled>
+        <button
+          id="export-coverage-route-btn"
+          class="btn btn-outline-secondary"
+          disabled
+        >
           <i class="fas fa-download"></i> Export
         </button>
       </div>
@@ -228,8 +254,15 @@
 
     <div class="control-section mt-auto">
       <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" role="switch" id="auto-follow-toggle">
-        <label class="form-check-label" for="auto-follow-toggle">Auto-Follow Current Location</label>
+        <input
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          id="auto-follow-toggle"
+        />
+        <label class="form-check-label" for="auto-follow-toggle"
+          >Auto-Follow Current Location</label
+        >
       </div>
     </div>
 
@@ -244,10 +277,18 @@
       <div id="route-details-content"></div>
       <div class="mt-3">
         <div class="btn-group w-100">
-          <button id="open-google-maps-btn" class="btn btn-outline-light" disabled>
+          <button
+            id="open-google-maps-btn"
+            class="btn btn-outline-light"
+            disabled
+          >
             <i class="fab fa-google me-2"></i>Open in Google Maps
           </button>
-          <button id="open-apple-maps-btn" class="btn btn-outline-light" disabled>
+          <button
+            id="open-apple-maps-btn"
+            class="btn btn-outline-light"
+            disabled
+          >
             <i class="fab fa-apple me-2"></i>Open in Apple Maps
           </button>
         </div>
@@ -261,7 +302,12 @@
         <div id="step-rendering" class="step">Rendering</div>
       </div>
       <div class="progress">
-        <div id="route-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;"></div>
+        <div
+          id="route-progress-bar"
+          class="progress-bar progress-bar-striped progress-bar-animated"
+          role="progressbar"
+          style="width: 0%"
+        ></div>
       </div>
       <div id="processing-status" class="text-muted">Preparing...</div>
     </div>
@@ -278,9 +324,7 @@
     <div id="driving-map"></div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- The main JS file for this page -->
 <script src="{{ url_for('static', path='js/driving-navigation.js') | replace('http://', '//') }}"></script>
