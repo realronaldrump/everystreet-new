@@ -7,8 +7,8 @@ creating, retrieving, and analyzing visit data.
 import logging
 from datetime import datetime, timezone
 from typing import Any
-import pymongo
 
+import pymongo
 from bson import ObjectId
 from dateutil import parser as dateutil_parser
 from fastapi import APIRouter, HTTPException, status
@@ -247,13 +247,15 @@ def parse_time(time_value):
     return time_value
 
 
-async def _calculate_visits_for_place(place: dict, all_trips_for_bulk: list | None = None) -> list[dict]:
+async def _calculate_visits_for_place(
+    place: dict, all_trips_for_bulk: list | None = None
+) -> list[dict]:
     """
     Core logic to calculate visit details for a single place.
     This is the robust version that correctly handles departures.
     """
     place_id = str(place["_id"])
-    
+
     # Define the query to find trips that ended at the place (arrivals).
     ended_at_place_query = {
         "$or": [
@@ -270,9 +272,17 @@ async def _calculate_visits_for_place(place: dict, all_trips_for_bulk: list | No
     # Fetch arrival trips. If a pre-fetched list is provided, filter it.
     if all_trips_for_bulk:
         arrival_trips = [
-            t for t in all_trips_for_bulk 
-            if (t.get("destinationPlaceId") == place_id or 
-                (t.get("destinationGeoPoint") and shape(place["geometry"]).contains(shape(t["destinationGeoPoint"]))))
+            t
+            for t in all_trips_for_bulk
+            if (
+                t.get("destinationPlaceId") == place_id
+                or (
+                    t.get("destinationGeoPoint")
+                    and shape(place["geometry"]).contains(
+                        shape(t["destinationGeoPoint"])
+                    )
+                )
+            )
         ]
         arrival_trips.sort(key=lambda x: x.get("endTime"))
     else:
@@ -295,7 +305,16 @@ async def _calculate_visits_for_place(place: dict, all_trips_for_bulk: list | No
         # This is the key change: we no longer care WHERE it started.
         if all_trips_for_bulk:
             # Find in the pre-fetched list for efficiency
-            departure_trip = next((t for t in sorted(all_trips_for_bulk, key=lambda x: x.get("startTime")) if parse_time(t.get("startTime")) > arrival_time), None)
+            departure_trip = next(
+                (
+                    t
+                    for t in sorted(
+                        all_trips_for_bulk, key=lambda x: x.get("startTime")
+                    )
+                    if parse_time(t.get("startTime")) > arrival_time
+                ),
+                None,
+            )
         else:
             departure_trip = await find_one_with_retry(
                 Collections.trips,
@@ -312,9 +331,7 @@ async def _calculate_visits_for_place(place: dict, all_trips_for_bulk: list | No
 
         time_since_last = None
         if last_visit_departure_time:
-            time_since_last = (
-                arrival_time - last_visit_departure_time
-            ).total_seconds()
+            time_since_last = (arrival_time - last_visit_departure_time).total_seconds()
 
         visits.append(
             {
@@ -328,7 +345,7 @@ async def _calculate_visits_for_place(place: dict, all_trips_for_bulk: list | No
 
         if departure_time:
             last_visit_departure_time = departure_time
-            
+
     return visits
 
 
@@ -349,9 +366,15 @@ async def get_place_statistics(place_id: str):
         visits = await _calculate_visits_for_place(place)
 
         total_visits = len(visits)
-        durations = [v["duration"] for v in visits if v.get("duration") is not None and v["duration"] >= 0]
+        durations = [
+            v["duration"]
+            for v in visits
+            if v.get("duration") is not None and v["duration"] >= 0
+        ]
         time_between_visits = [
-            v["time_since_last"] for v in visits if v.get("time_since_last") is not None and v["time_since_last"] >= 0
+            v["time_since_last"]
+            for v in visits
+            if v.get("time_since_last") is not None and v["time_since_last"] >= 0
         ]
 
         avg_duration = sum(durations) / len(durations) if durations else 0
@@ -450,7 +473,7 @@ async def get_non_custom_places_visits():
             {
                 "$match": {
                     "destinationPlaceName": {"$exists": True, "$ne": None},
-                    "destinationPlaceId": {"$exists": False} # Exclude custom places
+                    "destinationPlaceId": {"$exists": False},  # Exclude custom places
                 },
             },
             {
@@ -466,7 +489,7 @@ async def get_non_custom_places_visits():
         ]
 
         results = await aggregate_with_retry(Collections.trips, pipeline)
-        
+
         places_data = [
             {
                 "name": doc["_id"],
@@ -495,17 +518,25 @@ async def get_all_places_statistics():
             return []
 
         # Pre-fetch all trips once for efficiency. This is a broad query.
-        all_trips = await find_with_retry(Collections.trips, {"startTime": {"$ne": None}, "endTime": {"$ne": None}})
-        
+        all_trips = await find_with_retry(
+            Collections.trips, {"startTime": {"$ne": None}, "endTime": {"$ne": None}}
+        )
+
         results = []
         for place in places:
-            visits = await _calculate_visits_for_place(place, all_trips_for_bulk=all_trips)
-            
+            visits = await _calculate_visits_for_place(
+                place, all_trips_for_bulk=all_trips
+            )
+
             total_visits = len(visits)
-            durations = [v["duration"] for v in visits if v.get("duration") is not None and v["duration"] >= 0]
-            
+            durations = [
+                v["duration"]
+                for v in visits
+                if v.get("duration") is not None and v["duration"] >= 0
+            ]
+
             avg_duration = sum(durations) / len(durations) if durations else 0
-            
+
             first_visit = min((v["arrival_time"] for v in visits), default=None)
             last_visit = max((v["arrival_time"] for v in visits), default=None)
 
