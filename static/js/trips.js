@@ -1,4 +1,4 @@
-/* global DateUtils, confirmationDialog, $ */
+/* global DateUtils, confirmationDialog, $, handleError */
 
 "use strict";
 
@@ -93,37 +93,36 @@ function createEditableCell(data, type, field, inputType = "text") {
       this.setDateRange(range);
     }
 
-    setDateRange(preset) {
+    async setDateRange(preset) {
       if (!preset) return;
 
-      DateUtils.getDateRangePreset(preset)
-        .then(({ startDate, endDate }) => {
-          const startDateInput = document.getElementById("start-date");
-          const endDateInput = document.getElementById("end-date");
+      try {
+        const { startDate, endDate } =
+          await DateUtils.getDateRangePreset(preset);
+        const startDateInput = document.getElementById("start-date");
+        const endDateInput = document.getElementById("end-date");
 
-          if (startDateInput && endDateInput) {
-            if (startDateInput._flatpickr) {
-              startDateInput._flatpickr.setDate(startDate);
-            } else {
-              startDateInput.value = startDate;
-            }
-
-            if (endDateInput._flatpickr) {
-              endDateInput._flatpickr.setDate(endDate);
-            } else {
-              endDateInput.value = endDate;
-            }
+        if (startDateInput && endDateInput) {
+          if (startDateInput._flatpickr) {
+            startDateInput._flatpickr.setDate(startDate);
+          } else {
+            startDateInput.value = startDate;
           }
 
-          window.utils.setStorage("startDate", startDate);
-          window.utils.setStorage("endDate", endDate);
+          if (endDateInput._flatpickr) {
+            endDateInput._flatpickr.setDate(endDate);
+          } else {
+            endDateInput.value = endDate;
+          }
+        }
 
-          this.fetchTrips();
-        })
-        .catch((error) => {
-          console.error("Error setting date range:", error);
-          window.notificationManager.show("Error setting date range", "danger");
-        });
+        await window.utils.setStorage("startDate", startDate);
+        await window.utils.setStorage("endDate", endDate);
+
+        this.fetchTrips();
+      } catch (error) {
+        handleError(error, "Error setting date range", "error");
+      }
     }
 
     initializeBulkActionButtons() {
@@ -231,11 +230,7 @@ function createEditableCell(data, type, field, inputType = "text") {
         this.setRowEditMode(row, false);
         window.notificationManager.show("Trip updated successfully", "success");
       } catch (error) {
-        console.error("Error updating trip:", error);
-        window.notificationManager.show(
-          `Error updating trip: ${error.message}`,
-          "danger",
-        );
+        handleError(error, "Error updating trip", "error");
       }
     }
 
@@ -247,23 +242,6 @@ function createEditableCell(data, type, field, inputType = "text") {
         return rowData.transactionId;
       }
       return null;
-    }
-
-    handleApplyFilters() {
-      const startDate = document.getElementById("start-date").value;
-      const endDate = document.getElementById("end-date").value;
-      this.storeDates(startDate, endDate);
-      this.fetchTrips();
-    }
-
-    storeDates(startDate, endDate) {
-      this.tripsCache;
-      try {
-        window.utils.setStorage("startDate", startDate);
-        window.utils.setStorage("endDate", endDate);
-      } catch (error) {
-        console.warn("Failed to store dates via utils:", error);
-      }
     }
 
     initializeTripsTable() {
@@ -301,6 +279,17 @@ function createEditableCell(data, type, field, inputType = "text") {
               this.tripsCache.set(trip.transactionId, trip);
             });
             return json.data;
+          },
+          error: (xhr, error, thrown) => {
+            handleError(
+              new Error(`Error fetching trips: ${thrown}`),
+              "Trips data loading",
+            );
+            // Tell DataTables that we've handled the error
+            // and there's no data to display
+            if (this.tripsTable) {
+                this.tripsTable.clear().draw();
+            }
           },
         },
         columns: [
@@ -466,314 +455,222 @@ function createEditableCell(data, type, field, inputType = "text") {
       this.tripsCache;
       return `
         <div class="btn-group">
-          <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-            Actions
-          </button>
-          <ul class="dropdown-menu dropdown-menu-dark">
-            <li><a class="dropdown-item" href="#" onclick="EveryStreet.Trips.exportTrip('${row.transactionId}', 'geojson')">Export GeoJSON</a></li>
-            <li><a class="dropdown-item" href="#" onclick="EveryStreet.Trips.exportTrip('${row.transactionId}', 'gpx')">Export GPX</a></li>
-            <li><a class="dropdown-item edit-trip-btn" href="#" data-trip-id="${row.transactionId}">Edit</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item text-danger" href="#" onclick="EveryStreet.Trips.deleteTrip('${row.transactionId}')">Delete</a></li>
-          </ul>
+          <button class="btn btn-sm btn-outline-primary edit-trip-btn">Edit</button>
+          <button class="btn btn-sm btn-outline-danger delete-trip-btn" data-id="${row.transactionId}">Delete</button>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Export
+            </button>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item export-trip-btn" href="#" data-format="gpx" data-id="${row.transactionId}">GPX</a></li>
+              <li><a class="dropdown-item export-trip-btn" href="#" data-format="geojson" data-id="${row.transactionId}">GeoJSON</a></li>
+            </ul>
+          </div>
         </div>
         <div class="edit-actions d-none">
           <button class="btn btn-sm btn-success save-changes-btn">Save</button>
-          <button class="btn btn-sm btn-danger cancel-edit-btn">Cancel</button>
+          <button class="btn btn-sm btn-warning cancel-edit-btn">Cancel</button>
         </div>
       `;
     }
 
     updateBulkDeleteButton() {
-      this.tripsCache;
-      const checkedCount = $(".trip-checkbox:checked").length;
-      $("#bulk-delete-trips-btn").prop("disabled", checkedCount === 0);
+      const anyChecked = $(".trip-checkbox:checked").length > 0;
+      $("#bulk-delete-trips-btn").prop("disabled", !anyChecked);
     }
 
     async bulkDeleteTrips() {
-      try {
-        const selectedTrips = this.tripsTable
-          .rows({ selected: true })
-          .data()
-          .map((row) => this.getTripId(row))
-          .toArray();
+      const checkedCheckboxes = document.querySelectorAll(
+        ".trip-checkbox:checked",
+      );
+      if (checkedCheckboxes.length === 0) {
+        window.notificationManager.show(
+          "Please select trips to delete.",
+          "info",
+        );
+        return;
+      }
 
-        if (selectedTrips.length === 0) {
-          window.notificationManager.show(
-            "Please select at least one trip to delete",
-            "warning",
-          );
-          return;
-        }
+      const tripIds = Array.from(checkedCheckboxes).map((checkbox) => {
+        const row = checkbox.closest("tr");
+        const rowData = this.tripsTable.row(row).data();
+        return rowData.transactionId;
+      });
 
-        const confirmed = await confirmationDialog.show({
-          title: "Delete Selected Trips",
-          message: `Are you sure you want to delete ${selectedTrips.length} selected trip(s)? This action cannot be undone.`,
-          confirmText: "Delete",
-          confirmButtonClass: "btn-danger",
-        });
+      const dialog = new window.ConfirmationDialog();
+      dialog.show({
+        title: "Confirm Bulk Deletion",
+        message: `Are you sure you want to delete ${tripIds.length} selected trip(s)? This action cannot be undone.`,
+        confirmText: "Delete",
+        confirmButtonClass: "btn-danger",
+        onConfirm: async () => {
+          window.notificationManager.show("Deleting selected trips...", "info");
 
-        if (confirmed) {
-          const response = await fetch("/api/trips/bulk_delete", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ trip_ids: selectedTrips }),
-          });
+          try {
+            const response = await fetch("/api/trips/bulk_delete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ trip_ids: tripIds }),
+            });
 
-          if (!response.ok) {
-            throw new Error("Network response was not ok");
-          }
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(
+                errorData.error || "Failed to delete one or more trips",
+              );
+            }
 
-          const data = await response.json();
-
-          if (data.status === "success") {
             window.notificationManager.show(
-              `Successfully deleted ${data.deleted_trips} trip(s) and ${data.deleted_matched_trips} matched trip(s)`,
+              "Trips deleted successfully",
               "success",
             );
             this.fetchTrips();
-          } else {
-            window.notificationManager.show(
-              `Error deleting trip(s): ${data.message}`,
-              "danger",
-            );
+          } catch (error) {
+            handleError(error, "bulkDeleteTrips");
           }
-        }
-      } catch (error) {
-        window.notificationManager.show(
-          `Error deleting trips: ${error.message}`,
-          "danger",
-        );
-      }
+        },
+      });
     }
 
     async refreshGeocoding() {
-      const selectedTrips = [];
+      window.notificationManager.show("Refreshing geocoding...", "info");
+      try {
+        const response = await fetch("/api/refresh_geocoding", {
+          method: "POST",
+        });
 
-      $(".trip-checkbox:checked").each((_, el) => {
-        const rowData = this.tripsTable.row($(el).closest("tr")).data();
-        selectedTrips.push(rowData.transactionId);
-      });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to refresh geocoding");
+        }
 
-      if (selectedTrips.length === 0) {
         window.notificationManager.show(
-          "No trips selected to refresh.",
+          "Geocoding refresh started successfully. It may take some time to see the changes.",
+          "success",
+        );
+      } catch (error) {
+        handleError(error, "refreshGeocoding");
+      }
+    }
+
+    getFilterParams() {
+      const startDate =
+        window.utils.getStorage("startDate") || DateUtils.getCurrentDate();
+      const endDate =
+        window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
+
+      return `?start_date=${startDate}&end_date=${endDate}`;
+    }
+
+    async fetchTrips() {
+      if (this.tripsTable) {
+        this.tripsTable.ajax.reload();
+      }
+    }
+
+    formatTripData(trip) {
+      // This is now primarily handled by DataTables render functions.
+      // Can be used for any pre-processing if needed in the future.
+      return trip;
+    }
+
+    async deleteTrip(tripId) {
+      if (!tripId) {
+        window.notificationManager.show(
+          "Cannot delete trip: ID is missing",
           "warning",
         );
         return;
       }
 
-      try {
-        const confirmed = await confirmationDialog.show({
-          title: "Refresh Geocoding",
-          message: `Are you sure you want to refresh geocoding for ${selectedTrips.length} trip(s)?`,
-          confirmText: "Refresh",
-          confirmButtonClass: "btn-primary",
-        });
+      const dialog = new window.ConfirmationDialog();
+      dialog.show({
+        title: "Confirm Deletion",
+        message: `Are you sure you want to delete trip ${tripId}?`,
+        confirmText: "Delete",
+        confirmButtonClass: "btn-danger",
+        onConfirm: async () => {
+          try {
+            const response = await fetch(`/api/trips/${tripId}`, {
+              method: "DELETE",
+            });
 
-        if (confirmed) {
-          const response = await fetch("/api/trips/refresh_geocoding", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ trip_ids: selectedTrips }),
-          });
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || "Failed to delete trip");
+            }
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || "Failed to refresh geocoding");
-          }
-
-          window.notificationManager.show(
-            `Successfully refreshed ${selectedTrips.length} trip(s)`,
-            "success",
-          );
-          this.fetchTrips();
-        }
-      } catch (error) {
-        console.error("Error refreshing trips:", error);
-        window.notificationManager.show(
-          `Error refreshing trips: ${error.message}`,
-          "danger",
-        );
-      }
-    }
-
-    getFilterParams() {
-      this.tripsCache;
-      const params = new URLSearchParams();
-
-      let startDate = window.utils.getStorage("startDate");
-      let endDate = window.utils.getStorage("endDate");
-
-      const startInput = document.getElementById("start-date");
-      const endInput = document.getElementById("end-date");
-
-      if (!startDate && startInput) startDate = startInput.value;
-      if (!endDate && endInput) endDate = endInput.value;
-
-      params.append("start_date", startDate);
-      params.append("end_date", endDate);
-
-      return params;
-    }
-
-    async fetchTrips() {
-      try {
-        if (window.loadingManager) {
-          window.loadingManager.startOperation("Fetching Trips");
-        }
-
-        const params = this.getFilterParams();
-        const url = `/api/trips?${params.toString()}`;
-
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (!data.features || !Array.isArray(data.features)) {
-          console.warn("No trips data received or invalid format");
-          this.tripsTable.clear().draw();
-          return;
-        }
-
-        const formattedTrips = data.features.map((trip) =>
-          this.formatTripData(trip),
-        );
-
-        this.tripsTable.clear().rows.add(formattedTrips).draw();
-
-        if (window.loadingManager) {
-          window.loadingManager.finish();
-        }
-      } catch (error) {
-        console.error("Error fetching trips:", error);
-        window.notificationManager.show(
-          "Error loading trips. Please try again.",
-          "danger",
-        );
-
-        if (window.loadingManager) {
-          window.loadingManager.error(`Error loading trips: ${error.message}`);
-        }
-      }
-    }
-
-    formatTripData(trip) {
-      this.tripsCache;
-      let startLocation = trip.properties.startLocation;
-      let destination = trip.properties.destination;
-
-      if (startLocation && typeof startLocation === "object") {
-        startLocation = startLocation.formatted_address || "Unknown location";
-      }
-
-      if (destination && typeof destination === "object") {
-        destination = destination.formatted_address || "Unknown destination";
-      }
-
-      return {
-        ...trip.properties,
-        gps: trip.geometry,
-        startLocation,
-        destination: destination || "N/A",
-        isCustomPlace: trip.properties.isCustomPlace || false,
-        distance: parseFloat(trip.properties.distance).toFixed(2),
-        maxSpeed:
-          trip.properties.maxSpeed ||
-          trip.properties.endLocation?.obdMaxSpeed ||
-          0,
-        totalIdleDuration: trip.properties.totalIdleDuration,
-        fuelConsumed: trip.properties.fuelConsumed || 0,
-      };
-    }
-
-    async deleteTrip(tripId) {
-      try {
-        const confirmed = await confirmationDialog.show({
-          title: "Delete Trip",
-          message: "Are you sure you want to delete this trip?",
-          confirmText: "Delete",
-          confirmButtonClass: "btn-danger",
-        });
-
-        if (confirmed) {
-          const response = await fetch(`/api/trips/${tripId}`, {
-            method: "DELETE",
-          });
-
-          if (!response.ok) {
-            throw new Error("Network response was not ok");
-          }
-
-          const data = await response.json();
-          if (data.status === "success") {
+            this.tripsTable.row($(`#${tripId}`)).remove().draw();
             window.notificationManager.show(
-              `Trip deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`,
+              "Trip deleted successfully",
               "success",
             );
-            this.fetchTrips();
-          } else {
-            window.notificationManager.show(`Error: ${data.message}`, "danger");
+          } catch (error) {
+            handleError(error, `deleteTrip ${tripId}`);
           }
-        }
-      } catch (error) {
-        window.notificationManager.show(
-          `Error deleting trip: ${error.message}`,
-          "danger",
-        );
-      }
+        },
+      });
     }
 
     exportTrip(tripId, format) {
-      this.tripsCache;
-      const url = `/api/export/trip/${tripId}?format=${format}`;
+      if (!tripId) {
+        window.notificationManager.show(
+          "Cannot export trip: ID is missing",
+          "warning",
+        );
+        return;
+      }
 
-      fetch(url)
+      window.notificationManager.show(
+        `Exporting trip ${tripId} as ${format}...`,
+        "info",
+      );
+
+      fetch(`/api/export/${format}?transaction_id=${tripId}`)
         .then((response) => {
           if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            return response.json().then((err) => {
+              throw new Error(err.error || `Export failed for trip ${tripId}`);
+            });
           }
           return response.blob();
         })
         .then((blob) => {
-          const blobUrl = window.URL.createObjectURL(blob);
-          const downloadLink = document.createElement("a");
-          downloadLink.style.display = "none";
-          downloadLink.href = blobUrl;
-          downloadLink.download = `trip_${tripId}.${format}`;
-          document.body.appendChild(downloadLink);
-          downloadLink.click();
-          window.URL.revokeObjectURL(blobUrl);
-          document.body.removeChild(downloadLink);
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${tripId}.${format}`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          window.notificationManager.show(
+            `Trip ${tripId} exported successfully`,
+            "success",
+          );
         })
         .catch((error) => {
-          console.error("Error exporting trip:", error);
-          window.notificationManager.show(
-            "Error exporting trip. Please try again.",
-            "danger",
-          );
+          handleError(error, `exportTrip ${tripId}`);
         });
     }
 
     static formatDuration(seconds) {
-      seconds = Math.floor(seconds);
+      if (seconds === null || seconds === undefined) {
+        return "N/A";
+      }
       const h = Math.floor(seconds / 3600);
       const m = Math.floor((seconds % 3600) / 60);
-      const s = seconds % 60;
-      return [h, m, s].map((v) => v.toString().padStart(2, "0")).join(":");
+      const s = Math.floor(seconds % 60);
+      return [h, m, s]
+        .map((v) => (v < 10 ? "0" + v : v))
+        .filter((v, i) => v !== "00" || i > 0)
+        .join(":");
     }
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    const tripsManager = new TripsManager();
-
-    window.EveryStreet = window.EveryStreet || {};
-    window.EveryStreet.Trips = {
-      fetchTrips: () => tripsManager.fetchTrips(),
-      deleteTrip: (tripId) => tripsManager.deleteTrip(tripId),
-      exportTrip: (tripId, format) => tripsManager.exportTrip(tripId, format),
-    };
-  });
+  // Expose to global scope
+  window.EveryStreet = window.EveryStreet || {};
+  window.EveryStreet.Trips = {
+    manager: new TripsManager(),
+  };
 })();
