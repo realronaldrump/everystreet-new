@@ -1824,7 +1824,7 @@
           state.mapSettings.autoRefresh = false;
         } else {
           if (state.hasPendingRequests()) {
-            utils.showNotification("Refreshing data...", "info", 2000);
+            window.notificationManager.show("Refreshing data...", "info", 2000);
             dataManager.updateMap(false);
           }
         }
@@ -1838,7 +1838,7 @@
         Object.entries(state.mapLayers).forEach(([name, info]) => {
           visibility[name] = info.visible;
         });
-        storage.set(CONFIG.STORAGE_KEYS.layerVisibility, visibility);
+        window.utils.setStorage(CONFIG.STORAGE_KEYS.layerVisibility, visibility);
         layerManager.cleanup();
       });
 
@@ -1846,7 +1846,7 @@
       window.addEventListener("error", (e) => {
         console.error("Global error:", e.error);
         if (e.error?.message?.includes("WebGL")) {
-          utils.showNotification(
+          window.notificationManager.show(
             "WebGL error detected. Map may not render correctly.",
             "danger",
           );
@@ -1856,7 +1856,7 @@
       window.addEventListener("unhandledrejection", (e) => {
         console.error("Unhandled promise rejection:", e.reason);
         if (e.reason?.message?.includes("fetch")) {
-          utils.showNotification(
+          window.notificationManager.show(
             "Network error. Please check your connection.",
             "warning",
           );
@@ -1878,7 +1878,7 @@
 
         window.loadingManager.show("Starting map matching process...");
 
-        const response = await utils.fetchWithRetry("/api/map_match_trips", {
+        const response = await window.utils.fetchWithRetry("/api/map_match_trips", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1888,7 +1888,7 @@
         });
 
         if (response) {
-          utils.showNotification(
+          window.notificationManager.show(
             `Map matching completed: ${response.message}`,
             "success",
           );
@@ -1896,7 +1896,7 @@
         }
       } catch (error) {
         console.error("Map matching error:", error);
-        utils.showNotification(
+        window.notificationManager.show(
           `Map matching error: ${error.message}`,
           "danger",
         );
@@ -1931,6 +1931,6 @@
     mapMatchTrips: app.mapMatchTrips.bind(app),
     AppState: state,
     CONFIG,
-    utils,
+    utils: window.utils,
   };
 })();
