@@ -547,7 +547,7 @@ class LiveTripTracker {
     // FIXED: Remove overly aggressive sequence check that was preventing real-time updates
     // The previous check was: if (this.activeTrip && this.activeTrip.sequence === trip.sequence) return;
     // This was preventing updates when GPS data, speed, or other metrics changed but sequence didn't increment properly
-    
+
     const isNewTrip =
       !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
@@ -737,7 +737,9 @@ class LiveTripTracker {
 
     // Only show idling time if there's been some idling
     if (metrics.totalIdlingTime > 0) {
-      advancedMetrics["Total Idling"] = DateUtils.formatSecondsToHMS(metrics.totalIdlingTime);
+      advancedMetrics["Total Idling"] = DateUtils.formatSecondsToHMS(
+        metrics.totalIdlingTime,
+      );
     }
 
     // Only show driving behavior metrics if they exist
@@ -757,12 +759,13 @@ class LiveTripTracker {
             <span class="metric-label">${label}:</span>
             <span class="metric-value">${value}</span>
           </div>
-        `
+        `,
       )
       .join("");
 
-    const advancedSection = Object.keys(advancedMetrics).length > 0 
-      ? `
+    const advancedSection =
+      Object.keys(advancedMetrics).length > 0
+        ? `
         <div class="metric-section-divider"></div>
         <div class="metric-section-title">Trip Behavior</div>
         ${Object.entries(advancedMetrics)
@@ -772,11 +775,11 @@ class LiveTripTracker {
                 <span class="metric-label">${label}:</span>
                 <span class="metric-value">${value}</span>
               </div>
-            `
+            `,
           )
           .join("")}
       `
-      : '';
+        : "";
 
     this.tripMetricsElem.innerHTML = `
       <div class="metric-section">
