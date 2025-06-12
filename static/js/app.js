@@ -886,63 +886,35 @@
 
       try {
         const dateRange = dateUtils.getCachedDateRange();
-        const { startDate, endDate, start, end, days } = dateRange;
-        const MS_PER_DAY = 24 * 60 * 60 * 1000;
-        const thresholdDays = 7;
-        let fullCollection = { type: "FeatureCollection", features: [] };
+        const { start, end } = dateRange;
 
-        if (days <= thresholdDays) {
-          const params = new URLSearchParams({
-            start_date: start,
-            end_date: end,
-          });
-          dataStage.update(30, `Loading ${days} days of trips...`);
-          const data = await window.utils.fetchWithRetry(`/api/trips?${params}`);
-          if (data?.type === "FeatureCollection") {
-            fullCollection = data;
-          } else {
-            dataStage.error("Invalid trip data received");
-            return null;
-          }
-        } else {
-          const segments = Math.ceil(days / thresholdDays);
-          for (let i = 0; i < segments; i++) {
-            const segStartDate = new Date(
-              startDate.getTime() + i * thresholdDays * MS_PER_DAY,
-            );
-            const segEndDate = new Date(
-              Math.min(
-                segStartDate.getTime() + (thresholdDays - 1) * MS_PER_DAY,
-                endDate.getTime(),
-              ),
-            );
-            const segStart = segStartDate.toISOString().split("T")[0];
-            const segEnd = segEndDate.toISOString().split("T")[0];
-            const paramsChunk = new URLSearchParams({
-              start_date: segStart,
-              end_date: segEnd,
-            });
-            dataStage.update(
-              30 + Math.floor(((i + 1) / segments) * 40),
-              `Loading trips ${segStart} to ${segEnd}...`,
-            );
-            const chunk = await window.utils.fetchWithRetry(
-              `/api/trips?${paramsChunk}`,
-            );
-            if (chunk?.type === "FeatureCollection") {
-              fullCollection.features.push(...chunk.features);
-              state.mapLayers.trips.layer = fullCollection;
-              await layerManager.updateMapLayer("trips", fullCollection);
-            }
-          }
+        // Always fetch the full date range in a single request.
+        // The backend streams the response, which is efficient.
+        const params = new URLSearchParams({
+          start_date: start,
+          end_date: end,
+        });
+        
+        dataStage.update(30, `Loading trips from ${start} to ${end}...`);
+
+        const fullCollection = await window.utils.fetchWithRetry(`/api/trips?${params}`);
+
+        if (fullCollection?.type !== "FeatureCollection") {
+          dataStage.error("Invalid trip data received from server.");
+          console.error("Received non-GeoJSON response:", fullCollection);
+          window.notificationManager.show("Failed to load valid trip data", "danger");
+          return null;
         }
 
         dataStage.update(
           75,
           `Processing ${fullCollection.features.length} trips...`,
         );
+
+        // Update metrics and the map layer once with the full dataset.
         metricsManager.updateTripsTable(fullCollection);
         await layerManager.updateMapLayer("trips", fullCollection);
+        
         dataStage.complete();
         return fullCollection;
       } catch (error) {
