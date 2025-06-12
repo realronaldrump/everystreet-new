@@ -39,6 +39,10 @@ class LiveTripTracker {
     this.isPolling = false;
     this.lastMarkerLatLng = null; // For animating marker
 
+    // Store current line coordinates for animation reference
+    this.currentLineCoords = [];
+    this.markerAnimationId = null;
+
     this.statusIndicator = document.querySelector(".live-status-indicator");
     this.statusText = document.querySelector(".live-status-text");
     this.activeTripsCountElem = document.querySelector("#active-trips-count");
@@ -565,22 +569,39 @@ class LiveTripTracker {
     const { features, mapboxCoords, lastPoint } =
       this.createGeoJSONFeatures(coordinates);
 
-    // Update map source
+    // Persist latest path for animations
+    this.currentLineCoords = mapboxCoords;
+
+    // Prepare starting marker position (previous known or current)
+    const startPoint = this.lastMarkerLatLng || lastPoint;
+
+    // Build initial feature collection: full line + marker at startPoint
+    const lineFeature = features.find((f) => f.properties.type === "line");
+    const markerFeature = {
+      type: "Feature",
+      properties: { type: "marker", speed: trip.currentSpeed || 0 },
+      geometry: { type: "Point", coordinates: startPoint },
+    };
+
+    // Update map source with initial positions only once
     const source = this.map.getSource(this.liveSourceId);
     if (source) {
-      source.setData({
-        type: "FeatureCollection",
-        features,
-      });
+      const initialFeatures = lineFeature ? [lineFeature, markerFeature] : [markerFeature];
+      source.setData({ type: "FeatureCollection", features: initialFeatures });
     }
 
-    // Update marker styling
+    // Animate marker smoothly to latest position
+    if (startPoint && lastPoint) {
+      this.animateMarkerMovement(startPoint, lastPoint, trip);
+    }
+
+    // Update marker styling (color/size) based on current speed
     this.updateMarkerStyle(trip.currentSpeed || 0);
 
-    // Update map view
+    // Update map view (camera follow, etc.)
     this.updateMapView(mapboxCoords, lastPoint, isNewTrip);
 
-    // Store last position
+    // Store last position (will be true final point after animation)
     this.lastMarkerLatLng = lastPoint;
   }
 
@@ -952,6 +973,55 @@ class LiveTripTracker {
       console.warn("Failed to establish WebSocket:", e);
       this.startPolling();
     }
+  }
+
+  /**
+   * Smoothly animates the marker from start -> end over the given duration.
+   * During animation we only update the marker feature to minimise cost.
+   */
+  animateMarkerMovement(start, end, trip, duration = 300) {
+    if (this.markerAnimationId) {
+      cancelAnimationFrame(this.markerAnimationId);
+    }
+
+    const source = this.map.getSource(this.liveSourceId);
+    if (!source) return;
+
+    const lineCoords = this.currentLineCoords || [];
+    const lineFeature = {
+      type: "Feature",
+      properties: { type: "line" },
+      geometry: { type: "LineString", coordinates: lineCoords },
+    };
+
+    const startLng = start[0], startLat = start[1];
+    const deltaLng = end[0] - start[0];
+    const deltaLat = end[1] - start[1];
+
+    const startTime = performance.now();
+    const step = (now) => {
+      const t = Math.min((now - startTime) / duration, 1);
+      const currLng = startLng + deltaLng * t;
+      const currLat = startLat + deltaLat * t;
+
+      // Marker style may change based on speed – interpolate radius/color quickly
+      const markerFeature = {
+        type: "Feature",
+        properties: { type: "marker", speed: trip.currentSpeed || 0 },
+        geometry: { type: "Point", coordinates: [currLng, currLat] },
+      };
+
+      source.setData({
+        type: "FeatureCollection",
+        features: lineCoords.length > 1 ? [lineFeature, markerFeature] : [markerFeature],
+      });
+
+      if (t < 1) {
+        this.markerAnimationId = requestAnimationFrame(step);
+      }
+    };
+
+    this.markerAnimationId = requestAnimationFrame(step);
   }
 }
 
