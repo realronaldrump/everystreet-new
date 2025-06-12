@@ -1979,7 +1979,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            # Check for updates every 2 seconds
+            # Check for updates ~4× per second for near-real-time push
             active_trip = await get_active_trip(since_sequence=last_sequence)
 
             if active_trip:
@@ -1991,7 +1991,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     {"type": "trip_update", "trip": serialized_trip}
                 )
 
-            await asyncio.sleep(2)
+            await asyncio.sleep(0.25)
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
