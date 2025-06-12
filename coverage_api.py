@@ -5,6 +5,7 @@ import time  # Added for timing
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
+from typing import Any
 
 import bson  # For bson.json_util
 from bson import ObjectId
@@ -30,7 +31,8 @@ from db import (
     find_with_retry,
     update_one_with_retry,
 )
-from models import DeleteCoverageAreaModel, LocationModel
+from models import DeleteCoverageAreaModel, LocationModel, ValidateCustomBoundaryModel, CustomBoundaryModel
+from shapely.geometry import shape
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -1405,3 +1407,131 @@ async def _regenerate_streets_geojson(location_id: ObjectId):
         {"$set": {"streets_geojson_gridfs_id": new_id}},
     )
     logger.info(f"Regenerated GridFS geojson {new_id} for {location_name}")
+
+
+# Helper function to compute bounding box (south, north, west, east)
+
+def _bbox_from_geometry(geom: dict) -> list[float]:
+    """Return bounding box [min_lat, max_lat, min_lon, max_lon] from GeoJSON geometry."""
+    try:
+        geom_shape = shape(geom)
+        minx, miny, maxx, maxy = geom_shape.bounds  # (min_lon, min_lat, max_lon, max_lat)
+        return [miny, maxy, minx, maxx]
+    except Exception as e:
+        logger.error("Failed to compute bbox from geometry: %s", e)
+        raise HTTPException(status_code=400, detail="Invalid geometry for bounding box computation")
+
+
+@router.post("/api/validate_custom_boundary")
+async def validate_custom_boundary(data: ValidateCustomBoundaryModel):
+    """Validate a custom drawn boundary polygon sent from the frontend.
+
+    The endpoint ensures the geometry is a valid Polygon/MultiPolygon and
+    returns basic statistics so the frontend can provide feedback.
+    """
+    area_name = data.area_name.strip()
+    if not area_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="area_name must not be empty")
+
+    geometry = data.geometry
+    try:
+        geom_shape = shape(geometry)
+        if geom_shape.geom_type not in ("Polygon", "MultiPolygon"):
+            raise ValueError("Geometry must be Polygon or MultiPolygon")
+        if geom_shape.is_empty:
+            raise ValueError("Geometry is empty")
+        # Attempt to fix invalid geometries
+        if not geom_shape.is_valid:
+            geom_shape = geom_shape.buffer(0)
+        if geom_shape.is_empty or not geom_shape.is_valid:
+            raise ValueError("Invalid geometry (self-intersection or zero area)")
+
+        # Stats
+        if geom_shape.geom_type == "Polygon":
+            total_points = len(geom_shape.exterior.coords)
+            rings = 1 + len(geom_shape.interiors)
+        else:  # MultiPolygon
+            total_points = sum(len(poly.exterior.coords) for poly in geom_shape.geoms)
+            rings = sum(1 + len(poly.interiors) for poly in geom_shape.geoms)
+
+        display_name = area_name  # For custom areas we use the given name directly
+
+        return {
+            "valid": True,
+            "display_name": display_name,
+            "area_name": area_name,
+            "geometry": geometry,
+            "stats": {
+                "total_points": total_points,
+                "rings": rings,
+            },
+        }
+    except Exception as e:
+        logger.error("Custom boundary validation failed: %s", e)
+        return JSONResponse(status_code=400, content={"valid": False, "detail": str(e)})
+
+
+@router.post("/api/preprocess_custom_boundary")
+async def preprocess_custom_boundary(data: CustomBoundaryModel):
+    """Kick off preprocessing for a custom drawn boundary.
+
+    This creates/updates a coverage area record and schedules a background task
+    that fetches streets inside the provided geometry and calculates coverage.
+    """
+    display_name = data.display_name or data.area_name
+    if not display_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="display_name (or area_name) required")
+
+    # Build location-like dict compatible with existing preprocessing pipeline
+    geom_dict = data.geometry
+    try:
+        bbox = _bbox_from_geometry(geom_dict)
+    except HTTPException as e:
+        raise e
+
+    location_dict: dict[str, Any] = {
+        "display_name": display_name,
+        "osm_id": 0,  # 0 indicates custom
+        "osm_type": "custom",
+        "boundingbox": bbox,  # [min_lat, max_lat, min_lon, max_lon]
+        "lat": shape(geom_dict).centroid.y,
+        "lon": shape(geom_dict).centroid.x,
+        "geojson": geom_dict,
+        "boundary_type": "custom",
+    }
+
+    # Check if already being processed
+    existing = await find_one_with_retry(
+        coverage_metadata_collection,
+        {"location.display_name": display_name},
+    )
+    if existing and existing.get("status") == "processing":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This area is already being processed")
+
+    # Upsert metadata placeholder
+    await update_one_with_retry(
+        coverage_metadata_collection,
+        {"location.display_name": display_name},
+        {
+            "$set": {
+                "location": location_dict,
+                "status": "processing",
+                "last_error": None,
+                "last_updated": datetime.now(timezone.utc),
+                "total_length": 0,
+                "driven_length": 0,
+                "coverage_percentage": 0,
+                "total_segments": 0,
+            },
+        },
+        upsert=True,
+    )
+
+    # Kick off async processing task
+    task_id = str(uuid.uuid4())
+    asyncio.create_task(process_area(location_dict, task_id))
+
+    return {
+        "status": "success",
+        "task_id": task_id,
+    }

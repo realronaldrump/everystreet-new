@@ -78,6 +78,12 @@ const STATUS = window.STATUS || {
       this.efficientStreetMarkers = [];
       this.suggestedEfficientStreets = [];
 
+      // Drawing interface properties
+      this.drawingMap = null;
+      this.drawingMapDraw = null;
+      this.validatedCustomBoundary = null;
+      this.currentAreaDefinitionType = 'location';
+
       this.notificationManager = window.notificationManager || {
         show: (message, type, duration = 3000) => {
           console.log(`[${type || "info"}] Notification: ${message}`);
@@ -1014,6 +1020,26 @@ const STATUS = window.STATUS || {
         });
       }
 
+      // Area definition type selection
+      const areaTypeRadios = document.querySelectorAll('input[name="area-definition-type"]');
+      areaTypeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          this.handleAreaDefinitionTypeChange(e.target.value);
+        });
+      });
+
+      // Custom area name input validation
+      const customAreaNameInput = document.getElementById("custom-area-name");
+      if (customAreaNameInput) {
+        customAreaNameInput.addEventListener("input", (e) => {
+          const value = e.target.value.trim();
+          const addButton = document.getElementById("add-custom-area");
+          if (addButton) {
+            addButton.disabled = !value || !this.validatedCustomBoundary;
+          }
+        });
+      }
+
       // Validate location button
       document
         .getElementById("validate-location")
@@ -1022,12 +1048,36 @@ const STATUS = window.STATUS || {
           this.validateLocation();
         });
 
+      // Validate drawing button
+      document
+        .getElementById("validate-drawing")
+        ?.addEventListener("click", (e) => {
+          e.preventDefault();
+          this.validateCustomBoundary();
+        });
+
+      // Clear drawing button
+      document
+        .getElementById("clear-drawing")
+        ?.addEventListener("click", (e) => {
+          e.preventDefault();
+          this.clearDrawing();
+        });
+
       // Add coverage area button
       document
         .getElementById("add-coverage-area")
         ?.addEventListener("click", (e) => {
           e.preventDefault();
           this.addCoverageArea();
+        });
+
+      // Add custom area button
+      document
+        .getElementById("add-custom-area")
+        ?.addEventListener("click", (e) => {
+          e.preventDefault();
+          this.addCustomCoverageArea();
         });
 
       // Cancel processing button
@@ -1042,16 +1092,7 @@ const STATUS = window.STATUS || {
       document
         .getElementById("taskProgressModal")
         ?.addEventListener("hidden.bs.modal", () => {
-          // This condition was problematic and prevented context clear on error/cancel
-          // if (
-          //   this.currentProcessingLocation &&
-          //   this.currentProcessingLocation.status !== STATUS.CANCELED &&
-          //   this.currentProcessingLocation.status !== STATUS.ERROR
-          // ) {
-          //   this.loadCoverageAreas();
-          // }
           // Always clear processing context when modal is hidden.
-          // The `loadCoverageAreas` can be called based on the final status if needed.
           this.clearProcessingContext();
         });
 
@@ -1059,11 +1100,25 @@ const STATUS = window.STATUS || {
       document
         .getElementById("addAreaModal")
         ?.addEventListener("shown.bs.modal", () => {
+          // Initialize drawing map when modal is shown
+          if (this.currentAreaDefinitionType === 'draw') {
+            this.initializeDrawingMap();
+          }
+          
           const locationInput = document.getElementById("location-input");
-          if (locationInput) {
+          if (locationInput && this.currentAreaDefinitionType === 'location') {
             locationInput.focus();
             locationInput.select();
           }
+        });
+
+      // Add area modal hidden event
+      document
+        .getElementById("addAreaModal")
+        ?.addEventListener("hidden.bs.modal", () => {
+          // Clean up drawing map when modal is hidden
+          this.cleanupDrawingMap();
+          this.resetModalState();
         });
 
       // Table event delegation with enhanced interactions
@@ -5096,6 +5151,536 @@ const STATUS = window.STATUS || {
       if (removePanel) {
         const panel = document.getElementById("efficient-streets-panel");
         if (panel) panel.remove();
+      }
+    }
+
+    // Drawing Interface Methods
+    handleAreaDefinitionTypeChange(type) {
+      this.currentAreaDefinitionType = type;
+      
+      const locationSearchForm = document.getElementById("location-search-form");
+      const drawingInterface = document.getElementById("drawing-interface");
+      const locationSearchButtons = document.getElementById("location-search-buttons");
+      const drawingButtons = document.getElementById("drawing-buttons");
+      
+      if (type === 'location') {
+        locationSearchForm?.classList.remove('d-none');
+        drawingInterface?.classList.add('d-none');
+        locationSearchButtons?.classList.remove('d-none');
+        drawingButtons?.classList.add('d-none');
+        
+        // Clean up drawing map if it exists
+        this.cleanupDrawingMap();
+      } else if (type === 'draw') {
+        locationSearchForm?.classList.add('d-none');
+        drawingInterface?.classList.remove('d-none');
+        locationSearchButtons?.classList.add('d-none');
+        drawingButtons?.classList.remove('d-none');
+        
+        // Initialize drawing map
+        this.initializeDrawingMap();
+      }
+      
+      // Reset validation states
+      this.resetModalValidationState();
+    }
+
+    initializeDrawingMap() {
+      if (this.drawingMap) {
+        this.cleanupDrawingMap();
+      }
+
+      if (!window.MAPBOX_ACCESS_TOKEN) {
+        this.showDrawingError("Mapbox token not configured. Cannot initialize drawing map.");
+        return;
+      }
+
+      try {
+        mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+
+        this.drawingMap = new mapboxgl.Map({
+          container: 'drawing-map',
+          style: 'mapbox://styles/mapbox/dark-v11',
+          center: [-97.1467, 31.5494], // Default to Waco, TX
+          zoom: 10,
+          attributionControl: false
+        });
+
+        // Add draw control
+        if (window.MapboxDraw) {
+          this.drawingMapDraw = new MapboxDraw({
+            displayControlsDefault: false,
+            controls: {
+              polygon: true,
+              trash: true
+            },
+            defaultMode: 'draw_polygon',
+            styles: [
+              // Polygon fill
+              {
+                'id': 'gl-draw-polygon-fill-inactive',
+                'type': 'fill',
+                'filter': ['all',
+                  ['==', 'active', 'false'],
+                  ['==', '$type', 'Polygon'],
+                  ['!=', 'mode', 'static']
+                ],
+                'paint': {
+                  'fill-color': '#3bb2d0',
+                  'fill-outline-color': '#3bb2d0',
+                  'fill-opacity': 0.1
+                }
+              },
+              // Polygon outline
+              {
+                'id': 'gl-draw-polygon-stroke-inactive',
+                'type': 'line',
+                'filter': ['all',
+                  ['==', 'active', 'false'],
+                  ['==', '$type', 'Polygon'],
+                  ['!=', 'mode', 'static']
+                ],
+                'layout': {
+                  'line-cap': 'round',
+                  'line-join': 'round'
+                },
+                'paint': {
+                  'line-color': '#3bb2d0',
+                  'line-width': 2
+                }
+              },
+              // Active polygon fill
+              {
+                'id': 'gl-draw-polygon-fill-active',
+                'type': 'fill',
+                'filter': ['all', ['==', 'active', 'true'], ['==', '$type', 'Polygon']],
+                'paint': {
+                  'fill-color': '#fbb03b',
+                  'fill-outline-color': '#fbb03b',
+                  'fill-opacity': 0.1
+                }
+              },
+              // Active polygon outline
+              {
+                'id': 'gl-draw-polygon-stroke-active',
+                'type': 'line',
+                'filter': ['all', ['==', 'active', 'true'], ['==', '$type', 'Polygon']],
+                'layout': {
+                  'line-cap': 'round',
+                  'line-join': 'round'
+                },
+                'paint': {
+                  'line-color': '#fbb03b',
+                  'line-width': 2
+                }
+              },
+              // Vertex points
+              {
+                'id': 'gl-draw-polygon-midpoint',
+                'type': 'circle',
+                'filter': ['all',
+                  ['==', '$type', 'Point'],
+                  ['==', 'meta', 'midpoint']
+                ],
+                'paint': {
+                  'circle-radius': 3,
+                  'circle-color': '#fbb03b'
+                }
+              },
+              // Active vertex points
+              {
+                'id': 'gl-draw-polygon-vertex-active',
+                'type': 'circle',
+                'filter': ['all',
+                  ['==', '$type', 'Point'],
+                  ['==', 'meta', 'vertex'],
+                  ['==', 'active', 'true']
+                ],
+                'paint': {
+                  'circle-radius': 5,
+                  'circle-color': '#fbb03b'
+                }
+              },
+              // Inactive vertex points
+              {
+                'id': 'gl-draw-polygon-vertex-inactive',
+                'type': 'circle',
+                'filter': ['all',
+                  ['==', '$type', 'Point'],
+                  ['==', 'meta', 'vertex'],
+                  ['==', 'active', 'false']
+                ],
+                'paint': {
+                  'circle-radius': 3,
+                  'circle-color': '#3bb2d0'
+                }
+              }
+            ]
+          });
+
+          this.drawingMap.addControl(this.drawingMapDraw);
+
+          // Add event listeners
+          this.drawingMap.on('draw.create', (e) => {
+            this.handleDrawingCreate(e);
+          });
+
+          this.drawingMap.on('draw.update', (e) => {
+            this.handleDrawingUpdate(e);
+          });
+
+          this.drawingMap.on('draw.delete', (e) => {
+            this.handleDrawingDelete(e);
+          });
+        } else {
+          this.showDrawingError("MapboxDraw library not loaded. Cannot enable drawing functionality.");
+        }
+
+        // Add navigation controls
+        this.drawingMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      } catch (error) {
+        console.error('Error initializing drawing map:', error);
+        this.showDrawingError(`Failed to initialize drawing map: ${error.message}`);
+      }
+    }
+
+    handleDrawingCreate(e) {
+      if (e.features && e.features.length > 0) {
+        const feature = e.features[0];
+        this.updateDrawingValidationState(feature);
+      }
+    }
+
+    handleDrawingUpdate(e) {
+      if (e.features && e.features.length > 0) {
+        const feature = e.features[0];
+        this.updateDrawingValidationState(feature);
+      }
+    }
+
+    handleDrawingDelete(e) {
+      this.clearDrawingValidationState();
+    }
+
+    updateDrawingValidationState(feature) {
+      const validateButton = document.getElementById("validate-drawing");
+      const addButton = document.getElementById("add-custom-area");
+      
+      if (validateButton) validateButton.disabled = false;
+      if (addButton) addButton.disabled = true;
+      
+      this.validatedCustomBoundary = null;
+      this.hideDrawingValidationResult();
+    }
+
+    clearDrawingValidationState() {
+      const validateButton = document.getElementById("validate-drawing");
+      const addButton = document.getElementById("add-custom-area");
+      
+      if (validateButton) validateButton.disabled = true;
+      if (addButton) addButton.disabled = true;
+      
+      this.validatedCustomBoundary = null;
+      this.hideDrawingValidationResult();
+    }
+
+    clearDrawing() {
+      if (this.drawingMapDraw) {
+        this.drawingMapDraw.deleteAll();
+        this.clearDrawingValidationState();
+      }
+    }
+
+    cleanupDrawingMap() {
+      if (this.drawingMap) {
+        try {
+          this.drawingMap.remove();
+        } catch (e) {
+          console.warn('Error removing drawing map:', e);
+        }
+        this.drawingMap = null;
+        this.drawingMapDraw = null;
+      }
+    }
+
+    resetModalState() {
+      // Reset to location search mode
+      const locationRadio = document.getElementById("area-type-location");
+      if (locationRadio) {
+        locationRadio.checked = true;
+        this.handleAreaDefinitionTypeChange('location');
+      }
+      
+      // Clear form inputs
+      const locationInput = document.getElementById("location-input");
+      const customAreaName = document.getElementById("custom-area-name");
+      
+      if (locationInput) {
+        locationInput.value = "";
+        locationInput.classList.remove("is-valid", "is-invalid");
+      }
+      
+      if (customAreaName) {
+        customAreaName.value = "";
+      }
+      
+      // Reset validation states
+      this.resetModalValidationState();
+    }
+
+    resetModalValidationState() {
+      this.validatedLocation = null;
+      this.validatedCustomBoundary = null;
+      
+      // Hide validation results
+      const validationResult = document.getElementById("validation-result");
+      const drawingValidationResult = document.getElementById("drawing-validation-result");
+      
+      if (validationResult) validationResult.classList.add("d-none");
+      if (drawingValidationResult) drawingValidationResult.classList.add("d-none");
+      
+      // Disable add buttons
+      const addLocationButton = document.getElementById("add-coverage-area");
+      const addCustomButton = document.getElementById("add-custom-area");
+      
+      if (addLocationButton) addLocationButton.disabled = true;
+      if (addCustomButton) addCustomButton.disabled = true;
+    }
+
+    showDrawingError(message) {
+      const mapContainer = document.getElementById("drawing-map");
+      if (mapContainer) {
+        mapContainer.innerHTML = `
+          <div class="alert alert-danger m-3">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <strong>Drawing Error:</strong> ${message}
+          </div>
+        `;
+      }
+    }
+
+    showDrawingValidationResult(data) {
+      const resultDiv = document.getElementById("drawing-validation-result");
+      const messageSpan = resultDiv?.querySelector(".drawing-validation-message");
+      
+      if (resultDiv && messageSpan) {
+        messageSpan.textContent = `Custom area "${data.display_name}" validated successfully! (${data.stats.total_points} points, ${data.stats.rings} ring${data.stats.rings > 1 ? 's' : ''})`;
+        resultDiv.classList.remove("d-none");
+      }
+    }
+
+    hideDrawingValidationResult() {
+      const resultDiv = document.getElementById("drawing-validation-result");
+      if (resultDiv) {
+        resultDiv.classList.add("d-none");
+      }
+    }
+
+    async validateCustomBoundary() {
+      const customAreaNameInput = document.getElementById("custom-area-name");
+      const validateButton = document.getElementById("validate-drawing");
+      const addButton = document.getElementById("add-custom-area");
+      
+      if (!customAreaNameInput || !validateButton) {
+        console.error("Required form elements not found.");
+        return;
+      }
+
+      const areaName = customAreaNameInput.value.trim();
+      if (!areaName) {
+        customAreaNameInput.classList.add("is-invalid", "shake-animation");
+        this.notificationManager.show("Please enter an area name.", "warning");
+        return;
+      }
+
+      if (!this.drawingMapDraw) {
+        this.notificationManager.show("Drawing functionality not initialized.", "danger");
+        return;
+      }
+
+      const drawnFeatures = this.drawingMapDraw.getAll();
+      if (!drawnFeatures.features || drawnFeatures.features.length === 0) {
+        this.notificationManager.show("Please draw a polygon boundary first.", "warning");
+        return;
+      }
+
+      const polygon = drawnFeatures.features[0];
+      if (polygon.geometry.type !== 'Polygon') {
+        this.notificationManager.show("Please draw a polygon boundary.", "warning");
+        return;
+      }
+
+      // Reset validation state
+      customAreaNameInput.classList.remove("is-invalid", "is-valid");
+      if (addButton) addButton.disabled = true;
+      this.validatedCustomBoundary = null;
+      this.hideDrawingValidationResult();
+
+      const originalButtonContent = validateButton.innerHTML;
+      validateButton.disabled = true;
+      validateButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validating...';
+
+      try {
+        const response = await fetch("/api/validate_custom_boundary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            area_name: areaName,
+            geometry: polygon.geometry,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || `Validation failed`);
+        }
+
+        if (!data || !data.valid) {
+          customAreaNameInput.classList.add("is-invalid");
+          this.notificationManager.show(
+            "Custom boundary validation failed. Please check your drawing.",
+            "warning"
+          );
+        } else {
+          customAreaNameInput.classList.add("is-valid");
+          this.validatedCustomBoundary = data;
+          if (addButton) addButton.disabled = false;
+
+          // Show validation result
+          this.showDrawingValidationResult(data);
+
+          this.notificationManager.show(
+            `Custom boundary "${data.display_name}" validated successfully!`,
+            "success"
+          );
+
+          // Focus add button
+          if (addButton) addButton.focus();
+        }
+      } catch (error) {
+        console.error("Error validating custom boundary:", error);
+        customAreaNameInput.classList.add("is-invalid");
+        this.notificationManager.show(
+          `Validation failed: ${error.message}`,
+          "danger"
+        );
+      } finally {
+        validateButton.disabled = false;
+        validateButton.innerHTML = originalButtonContent;
+      }
+    }
+
+    async addCustomCoverageArea() {
+      if (!this.validatedCustomBoundary || !this.validatedCustomBoundary.display_name) {
+        this.notificationManager.show(
+          "Please validate your custom boundary first.",
+          "warning"
+        );
+        return;
+      }
+
+      const addButton = document.getElementById("add-custom-area");
+      const modal = bootstrap.Modal.getInstance(
+        document.getElementById("addAreaModal")
+      );
+
+      if (!addButton) return;
+
+      const originalButtonContent = addButton.innerHTML;
+      addButton.disabled = true;
+      addButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+
+      const customAreaToAdd = { ...this.validatedCustomBoundary };
+
+      try {
+        const currentAreasResponse = await fetch("/api/coverage_areas");
+        if (!currentAreasResponse.ok) {
+          throw new Error("Failed to fetch current coverage areas");
+        }
+
+        const { areas } = await currentAreasResponse.json();
+        const exists = areas.some(
+          (area) => area.location?.display_name === customAreaToAdd.display_name
+        );
+
+        if (exists) {
+          this.notificationManager.show(
+            "This area name is already being tracked.",
+            "warning"
+          );
+          return;
+        }
+
+        if (modal) modal.hide();
+
+        this.currentProcessingLocation = customAreaToAdd;
+        this.currentTaskId = null;
+        this._addBeforeUnloadListener();
+
+        this.showProgressModal(
+          `Starting processing for ${customAreaToAdd.display_name}...`,
+          0
+        );
+
+        const preprocessResponse = await fetch("/api/preprocess_custom_boundary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(customAreaToAdd),
+        });
+
+        const taskData = await preprocessResponse.json();
+
+        if (!preprocessResponse.ok) {
+          this.hideProgressModal();
+          throw new Error(taskData.detail || "Failed to start processing");
+        }
+
+        this.notificationManager.show(
+          "Custom coverage area processing started.",
+          "info"
+        );
+
+        if (taskData?.task_id) {
+          this.currentTaskId = taskData.task_id;
+          this.activeTaskIds.add(taskData.task_id);
+          this.saveProcessingState();
+
+          await this.pollCoverageProgress(taskData.task_id);
+
+          this.notificationManager.show(
+            `Processing for ${customAreaToAdd.display_name} completed.`,
+            "success"
+          );
+
+          await this.loadCoverageAreas();
+        } else {
+          this.hideProgressModal();
+          this.notificationManager.show(
+            "Processing started, but no task ID received.",
+            "warning"
+          );
+          await this.loadCoverageAreas();
+        }
+
+        const customAreaName = document.getElementById("custom-area-name");
+        if (customAreaName) {
+          customAreaName.value = "";
+        }
+        this.validatedCustomBoundary = null;
+        this.updateTotalAreasCount();
+      } catch (error) {
+        console.error("Error adding custom coverage area:", error);
+        this.notificationManager.show(
+          `Failed to add custom coverage area: ${error.message}`,
+          "danger"
+        );
+        this.hideProgressModal();
+        await this.loadCoverageAreas();
+      } finally {
+        addButton.disabled = true;
+        addButton.innerHTML = originalButtonContent;
       }
     }
   } // End of CoverageManager class

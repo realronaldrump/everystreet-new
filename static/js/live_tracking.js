@@ -30,9 +30,9 @@ class LiveTripTracker {
     this.initializeMapboxLayers();
 
     this.lastSequence = 0;
-    this.pollingInterval = 2000;
-    this.maxPollingInterval = 10000;
-    this.minPollingInterval = 500;
+    this.pollingInterval = 500;
+    this.maxPollingInterval = 1000;
+    this.minPollingInterval = 10;
     this.pollingTimerId = null;
     this.consecutiveErrors = 0;
     this.maxConsecutiveErrors = 5;

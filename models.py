@@ -24,6 +24,18 @@ class LocationModel(BaseModel):
         extra = "allow"
 
 
+class CustomBoundaryModel(BaseModel):
+    """Model for custom drawn boundary data."""
+    
+    display_name: str
+    boundary_type: str = "custom"
+    geometry: dict[str, Any]  # GeoJSON geometry
+    area_name: str
+    
+    class Config:
+        extra = "allow"
+
+
 class DeleteCoverageAreaModel(BaseModel):
     """Model for deleting a coverage area, requiring only the display name."""
 
@@ -72,6 +84,13 @@ class ValidateLocationModel(BaseModel):
 
     location: str
     locationType: str
+
+
+class ValidateCustomBoundaryModel(BaseModel):
+    """Model for custom boundary validation."""
+    
+    area_name: str
+    geometry: dict[str, Any]  # GeoJSON geometry
 
 
 class CollectionModel(BaseModel):

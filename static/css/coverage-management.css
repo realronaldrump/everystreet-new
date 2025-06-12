@@ -238,3 +238,147 @@
 .efficiency-metrics div {
   margin: 4px 0;
 }
+
+/* Drawing Interface Styles */
+.drawing-interface {
+  margin-top: 1rem;
+}
+
+#drawing-map {
+  border: 2px solid var(--bs-border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mapboxgl-ctrl-draw-btn {
+  background-color: var(--bs-primary) !important;
+  color: white !important;
+}
+
+.mapboxgl-ctrl-draw-btn:hover {
+  background-color: var(--bs-primary-hover) !important;
+}
+
+.mapboxgl-ctrl-draw-btn.active {
+  background-color: var(--bs-success) !important;
+}
+
+/* Custom draw controls styling */
+.mapboxgl-ctrl-draw {
+  background: rgba(40, 40, 40, 0.9) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.mapboxgl-ctrl-draw button {
+  background-color: transparent !important;
+  border: none !important;
+  color: #fff !important;
+  font-size: 16px !important;
+  padding: 8px !important;
+  margin: 2px !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+}
+
+.mapboxgl-ctrl-draw button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.mapboxgl-ctrl-draw button.active {
+  background-color: var(--bs-primary) !important;
+  color: white !important;
+}
+
+/* Area type selection */
+.btn-check:checked + .btn-outline-primary {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+  color: white;
+}
+
+/* Drawing validation styling */
+#drawing-validation-result {
+  animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom area form styling */
+#custom-area-name {
+  font-weight: 500;
+}
+
+#custom-area-name:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Drawing instructions styling */
+.alert-info {
+  background-color: rgba(13, 202, 240, 0.1);
+  border-color: rgba(13, 202, 240, 0.2);
+  color: #0dcaf0;
+}
+
+/* Modal size adjustment for drawing interface */
+.modal-lg {
+  max-width: 900px;
+}
+
+/* Ensure drawing map container has proper styling */
+.drawing-map-container {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Drawing tools styling */
+.drawing-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--bs-border-color);
+  margin-top: 8px;
+}
+
+.drawing-info {
+  font-size: 0.875rem;
+  color: var(--bs-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .modal-lg {
+    max-width: 95vw;
+    margin: 1rem auto;
+  }
+  
+  #drawing-map {
+    height: 300px;
+  }
+  
+  .drawing-tools {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+  
+  .drawing-info {
+    justify-content: center;
+  }
+}

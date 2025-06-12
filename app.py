@@ -53,9 +53,11 @@ from models import (
     ActiveTripSuccessResponse,
     BulkProcessModel,
     CollectionModel,
+    CustomBoundaryModel,
     DateRangeModel,
     LocationModel,
     NoActiveTripResponse,
+    ValidateCustomBoundaryModel,
     ValidateLocationModel,
 )
 from osm_utils import generate_geojson_osm
