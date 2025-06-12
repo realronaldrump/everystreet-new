@@ -367,17 +367,17 @@
     max-width: 95vw;
     margin: 1rem auto;
   }
-  
+
   #drawing-map {
     height: 300px;
   }
-  
+
   .drawing-tools {
     flex-direction: column;
     gap: 8px;
     align-items: stretch;
   }
-  
+
   .drawing-info {
     justify-content: center;
   }
