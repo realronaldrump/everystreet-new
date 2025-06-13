@@ -1806,8 +1806,20 @@ async def get_trips_in_bounds(
 
 
 @app.get("/api/driver-behavior")
-async def driver_behavior_analytics():
-    trips = await trips_collection.find({}).to_list(length=None)
+async def driver_behavior_analytics(request: Request):
+    """Aggregate driving behavior statistics within optional date range filters.
+
+    Accepts the same `start_date` and `end_date` query parameters used by other API endpoints.
+    If no filters are provided, all trips are considered (back-compat)."""
+
+    # Build the Mongo query using the shared helper so filters stay consistent app-wide
+    try:
+        query = await build_query_from_request(request)
+    except Exception as e:
+        logger.exception("Failed to build query for driver behavior analytics: %s", e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    trips = await trips_collection.find(query).to_list(length=None)
     if not trips:
         return {
             "totalTrips": 0,
@@ -1858,7 +1870,7 @@ async def driver_behavior_analytics():
         for t in trips
     )
     idling = sum(
-        get_field(t, "totalIdlingTime", "totalIdleDuration", default=0.0) for t in trips
+        get_field(t, "totalIdleDuration", default=0.0) for t in trips
     )
     fuel = sum(get_field(t, "fuelConsumed", default=0.0) for t in trips)
 

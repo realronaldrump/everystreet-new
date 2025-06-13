@@ -40,9 +40,9 @@ if (typeof window !== "undefined") {
 
   // Event Listeners
   function setupEventListeners() {
-    // Period selector
-    document.querySelectorAll(".period-preset").forEach((btn) => {
-      btn.addEventListener("click", handlePeriodChange);
+    // React to global date-filter changes triggered elsewhere in the app
+    document.addEventListener("filtersApplied", () => {
+      loadAllData();
     });
 
     // View toggles
@@ -96,13 +96,27 @@ if (typeof window !== "undefined") {
 
     try {
       const dateRange = getDateRange();
+
+      // Update current period length (in days) for metrics that rely on it
+      try {
+        const startDateObj = new Date(dateRange.start);
+        const endDateObj = new Date(dateRange.end);
+        if (!isNaN(startDateObj) && !isNaN(endDateObj)) {
+          const diffTime = endDateObj - startDateObj;
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          state.currentPeriod = Math.max(diffDays, 1);
+        }
+      } catch {
+        /* ignore invalid dates */
+      }
+
       const params = new URLSearchParams({
         start_date: dateRange.start,
         end_date: dateRange.end,
       });
 
       const [behavior, insights, analytics, metrics] = await Promise.all([
-        fetch("/api/driver-behavior").then((r) => r.json()),
+        fetch(`/api/driver-behavior?${params}`).then((r) => r.json()),
         fetch(`/api/driving-insights?${params}`).then((r) => r.json()),
         fetch(`/api/trip-analytics?${params}`).then((r) => r.json()),
         fetch(`/api/metrics?${params}`).then((r) => r.json()),
@@ -337,15 +351,16 @@ if (typeof window !== "undefined") {
     animateCounter("total-fuel", insights.total_fuel_consumed || 0, 2);
     animateCounter("hero-total-miles", insights.total_distance || 0, 1);
 
-    // Behavior metrics
+    // Behavior / safety metrics (date-filtered)
     animateCounter("hard-braking", behavior.hardBrakingCounts || 0);
     animateCounter("hard-accel", behavior.hardAccelerationCounts || 0);
     animateCounter("max-speed", behavior.maxSpeed || 0, 1);
     animateCounter("avg-speed", behavior.avgSpeed || 0, 1);
 
-    // Time metrics
-    updateTimeMetric("total-time", behavior.totalIdlingTime || 0);
-    updateTimeMetric("idle-time", behavior.totalIdlingTime || 0);
+    // Time metrics – use duration from /api/metrics for total time on road,
+    // and idle duration from /api/driving-insights for idle time.
+    updateTimeMetric("total-time", metrics.total_duration_seconds || 0);
+    updateTimeMetric("idle-time", insights.total_idle_duration || 0);
 
     // Update comparisons
     updateComparisons();
@@ -624,26 +639,6 @@ if (typeof window !== "undefined") {
   }
 
   // Event Handlers
-  function handlePeriodChange(e) {
-    const btn = e.currentTarget;
-    const days = btn.dataset.days;
-
-    if (days === "custom") {
-      // Show custom date picker modal
-      showCustomDatePicker();
-      return;
-    }
-
-    // Update active state
-    document
-      .querySelectorAll(".period-preset")
-      .forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-
-    state.currentPeriod = parseInt(days);
-    loadAllData();
-  }
-
   function handleToggleChange(e) {
     const btn = e.currentTarget;
     const parent = btn.parentElement;
@@ -678,14 +673,13 @@ if (typeof window !== "undefined") {
   }
 
   // Utility Functions
+  // Get the date range from the universal filters (utils storage)
   function getDateRange() {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - state.currentPeriod);
-
+    const utilsObj = window.utils || {};
+    const today = formatDate(new Date());
     return {
-      start: formatDate(start),
-      end: formatDate(end),
+      start: utilsObj.getStorage ? utilsObj.getStorage("startDate", today) : today,
+      end: utilsObj.getStorage ? utilsObj.getStorage("endDate", today) : today,
     };
   }
 
