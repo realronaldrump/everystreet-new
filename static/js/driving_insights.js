@@ -627,6 +627,9 @@ if (typeof window !== "undefined") {
   }
 
   function updateAnalyticsTable() {
+    const tableEl = document.getElementById("analytics-table");
+    if (!tableEl) return;
+
     const { behavior } = state.data;
 
     const tableData =
@@ -634,7 +637,9 @@ if (typeof window !== "undefined") {
         ? behavior.weekly || []
         : behavior.monthly || [];
 
-    const tbody = document.querySelector("#analytics-table tbody");
+    const tbody = tableEl.querySelector("tbody");
+    if (!tbody) return;
+
     tbody.innerHTML = tableData
       .map((row) => {
         const period =

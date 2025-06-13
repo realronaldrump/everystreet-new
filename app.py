@@ -2373,6 +2373,7 @@ async def get_metrics(request: Request):
             "avg_driving_time": avg_driving_time_str,
             "avg_speed": f"{round(metrics.get('avg_speed', 0.0), 2)}",
             "max_speed": f"{round(metrics.get('max_speed', 0.0), 2)}",
+            "total_duration_seconds": round(metrics.get("total_duration_seconds", 0.0), 0),
         }
 
         return JSONResponse(content=response_content)
