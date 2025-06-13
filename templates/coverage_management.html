@@ -260,60 +260,74 @@
                 <div class="card bg-darker h-100 d-flex flex-column">
                   <div class="card-header">
                     <div
-                      class="d-flex justify-content-between align-items-center"
-                    >
-                      <h4 class="h6 mb-0 card-title">
-                        <i class="fas fa-map me-2"></i>Coverage Map
-                      </h4>
-                      <div class="d-flex gap-2 align-items-center">
-                        <div
-                          class="map-controls btn-group btn-group-sm"
-                          role="group"
-                        >
-                          <button
-                            class="btn btn-primary active"
-                            data-filter="all"
-                            data-bs-toggle="tooltip"
-                            title="Show all streets"
-                          >
-                            All
-                          </button>
-                          <button
-                            class="btn btn-outline-success"
-                            data-filter="driven"
-                            data-bs-toggle="tooltip"
-                            title="Show only driven streets"
-                          >
-                            Driven
-                          </button>
-                          <button
-                            class="btn btn-outline-danger"
-                            data-filter="undriven"
-                            data-bs-toggle="tooltip"
-                            title="Show only undriven streets"
-                          >
-                            Undriven
-                          </button>
-                          <button
-                            class="btn btn-warning"
-                            id="find-efficient-street-btn"
-                            title="Find the most efficient undriven streets based on proximity and length"
-                            data-bs-toggle="tooltip"
-                          >
-                            <i class="fas fa-bullseye me-1"></i>Efficient
-                          </button>
-                        </div>
-                        <div class="vr mx-1 d-none d-sm-block"></div>
+                    class="d-flex justify-content-between align-items-center"
+                  >
+                    <h4 class="h6 mb-0 card-title">
+                      <i class="fas fa-map me-2"></i>Coverage Map
+                    </h4>
+                    <div class="d-flex gap-2 align-items-center">
+                      <!-- Filter Buttons -->
+                      <div
+                        class="map-controls btn-group btn-group-sm"
+                        role="group"
+                      >
                         <button
-                          id="export-coverage-map"
-                          class="btn btn-sm btn-icon btn-outline-secondary export-button"
+                          class="btn btn-primary active"
+                          data-filter="all"
                           data-bs-toggle="tooltip"
-                          title="Export map as image"
+                          title="Show all streets"
                         >
-                          <i class="fas fa-download"></i>
+                          <i class="fas fa-globe-americas me-1"></i> All
+                        </button>
+                        <button
+                          class="btn btn-outline-success"
+                          data-filter="driven"
+                          data-bs-toggle="tooltip"
+                          title="Show only driven streets"
+                        >
+                          <i class="fas fa-check-circle me-1"></i> Driven
+                        </button>
+                        <button
+                          class="btn btn-outline-danger"
+                          data-filter="undriven"
+                          data-bs-toggle="tooltip"
+                          title="Show only undriven streets"
+                        >
+                          <i class="fas fa-times-circle me-1"></i> Undriven
+                        </button>
+                        <!-- NEW BUTTON ADDED HERE -->
+                        <button
+                          class="btn btn-outline-warning"
+                          data-filter="undriveable"
+                          data-bs-toggle="tooltip"
+                          title="Show only streets marked as undriveable"
+                        >
+                          <i class="fas fa-ban me-1"></i> Undriveable
                         </button>
                       </div>
+                  
+                      <!-- Action Buttons -->
+                      <button
+                        class="btn btn-sm btn-info"
+                        id="find-efficient-street-btn"
+                        title="Find the most efficient undriven streets to complete"
+                        data-bs-toggle="tooltip"
+                      >
+                        <i class="fas fa-bullseye me-1"></i>Efficient
+                      </button>
+                  
+                      <div class="vr mx-1 d-none d-sm-block"></div>
+                      
+                      <button
+                        id="export-coverage-map"
+                        class="btn btn-sm btn-icon btn-outline-secondary export-button"
+                        data-bs-toggle="tooltip"
+                        title="Export map as image"
+                      >
+                        <i class="fas fa-download"></i>
+                      </button>
                     </div>
+                  </div>
                   </div>
                   <div class="card-body p-0 d-flex flex-column">
                     <div
