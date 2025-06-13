@@ -24,7 +24,7 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -52,11 +52,9 @@ from models import (
     ActiveTripSuccessResponse,
     BulkProcessModel,
     CollectionModel,
-    CustomBoundaryModel,
     DateRangeModel,
     LocationModel,
     NoActiveTripResponse,
-    ValidateCustomBoundaryModel,
     ValidateLocationModel,
 )
 from osm_utils import generate_geojson_osm

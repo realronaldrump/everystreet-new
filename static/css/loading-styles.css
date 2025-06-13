@@ -9,12 +9,13 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(
+  background-color: rgb(
     var(--surface-0-rgb, 18, 18, 18),
     0.85
   ); /* Use surface-0 with opacity */
+
   backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
   display: flex; /* Changed from none to flex for direct control with opacity/visibility */
   justify-content: center;
   align-items: center;
@@ -26,13 +27,15 @@
     visibility var(--transition-normal);
   contain: strict; /* Performance: isolate rendering */
 }
+
 .loading-overlay.visible,
 .loading-overlay[style*="display: flex"] /* Compatibility with older JS that might use display property */ {
   opacity: 1;
   visibility: visible;
 }
+
 body.light-mode .loading-overlay {
-  background-color: rgba(var(--surface-0-rgb-light, 248, 249, 250), 0.85);
+  background-color: rgb(var(--surface-0-rgb-light, 248, 249, 250), 0.85);
 }
 
 .loading-content {
@@ -53,6 +56,7 @@ body.light-mode .loading-overlay {
   height: 50px;
   margin: 0 auto var(--space-4);
 }
+
 .loading-spinner::before {
   /* Main spinner ring */
   content: "";
@@ -64,6 +68,7 @@ body.light-mode .loading-overlay {
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
+
 /* Optional: Inner dot for more visual interest */
 .loading-spinner::after {
   content: "";
@@ -83,11 +88,13 @@ body.light-mode .loading-overlay {
     transform: rotate(360deg);
   }
 }
+
 @keyframes pulse-dot {
   from {
     transform: translate(-50%, -50%) scale(0.8);
     opacity: 0.7;
   }
+
   to {
     transform: translate(-50%, -50%) scale(1.2);
     opacity: 1;
@@ -102,9 +109,11 @@ body.light-mode .loading-overlay {
   min-height: 1.5em; /* Prevent layout shift */
   transition: color var(--transition-fast);
 }
+
 .loading-text.text-danger {
   color: var(--danger) !important;
 }
+
 .loading-text.text-success {
   color: var(--success) !important;
 }
@@ -117,6 +126,7 @@ body.light-mode .loading-overlay {
   overflow: hidden;
   margin-bottom: var(--space-4);
 }
+
 .loading-progress .progress-bar {
   /* Assumes an inner div for the bar */
   height: 100%;
@@ -125,15 +135,17 @@ body.light-mode .loading-overlay {
   transition:
     width var(--transition-slow),
     background-color var(--transition-slow);
-  box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.3);
+  box-shadow: 0 0 10px rgb(var(--primary-rgb), 0.3);
 }
+
 .loading-progress .progress-bar.bg-success {
   background: var(--success-gradient);
-  box-shadow: 0 0 10px rgba(var(--success-rgb), 0.3);
+  box-shadow: 0 0 10px rgb(var(--success-rgb), 0.3);
 }
+
 .loading-progress .progress-bar.bg-danger {
   background: var(--danger-gradient);
-  box-shadow: 0 0 10px rgba(var(--danger-rgb), 0.3);
+  box-shadow: 0 0 10px rgb(var(--danger-rgb), 0.3);
 }
 
 /* === Button Loading State === */
@@ -143,6 +155,7 @@ body.light-mode .loading-overlay {
   color: transparent !important; /* Hide button text */
   pointer-events: none; /* Prevent clicks while loading */
 }
+
 .btn.btn-loading::after {
   /* Spinner element */
   content: "";
@@ -153,13 +166,14 @@ body.light-mode .loading-overlay {
   left: 50%;
   margin-left: -0.5em;
   margin-top: -0.5em;
-  border: 2px solid currentColor; /* Use button's text color for spinner */
+  border: 2px solid currentcolor; /* Use button's text color for spinner */
   border-radius: 50%;
   border-top-color: transparent !important; /* Create the spinning effect */
   border-right-color: transparent !important; /* Make it a semi-circle for cleaner spin */
   animation: btn-spin 0.6s linear infinite;
   opacity: 0.7;
 }
+
 /* Adjust spinner color for filled buttons */
 .btn-primary.btn-loading::after,
 .btn-secondary.btn-loading::after,
@@ -185,6 +199,7 @@ body.light-mode .loading-overlay {
   background-color: var(--surface-2); /* Base color for skeleton */
   border-radius: var(--radius-sm);
 }
+
 .skeleton-loader::after {
   /* Shimmer element */
   content: "";
@@ -202,9 +217,11 @@ body.light-mode .loading-overlay {
   animation: skeleton-shine 1.5s infinite;
   background-size: 200% 100%;
 }
+
 body.light-mode .skeleton-loader {
   background-color: var(--surface-3);
 }
+
 body.light-mode .skeleton-loader::after {
   background-color: var(--surface-4);
 }
@@ -213,6 +230,7 @@ body.light-mode .skeleton-loader::after {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -224,6 +242,7 @@ body.light-mode .skeleton-loader::after {
   margin: 0.25em 0;
   border-radius: var(--radius-xs);
 }
+
 .skeleton-text:last-child {
   width: 70%;
 } /* Common pattern for last line */
@@ -233,6 +252,7 @@ body.light-mode .skeleton-loader::after {
   height: 40px;
   border-radius: 50%;
 }
+
 .skeleton-image {
   /* For image placeholders */
   width: 100%;
@@ -259,6 +279,7 @@ body.light-mode .skeleton-loader::after {
   align-items: center;
   gap: var(--space-2);
 }
+
 .map-loading .spinner-border {
   /* If using Bootstrap spinner */
   width: 2rem;
@@ -266,20 +287,23 @@ body.light-mode .skeleton-loader::after {
   border-width: 0.2em;
   color: var(--primary);
 }
+
 .map-loading-text {
   font-size: var(--font-size-sm);
 }
 
 /* === Responsive Adjustments === */
-@media (max-width: 576px) {
+@media (width <= 576px) {
   .loading-content {
     padding: var(--space-4);
   }
+
   .loading-spinner {
     width: 40px;
     height: 40px;
     margin-bottom: var(--space-3);
   }
+
   .loading-text {
     font-size: var(--font-size-md);
   }
@@ -293,15 +317,18 @@ body.light-mode .skeleton-loader::after {
   .skeleton-loader::after {
     animation: none; /* Disable animations */
   }
+
   /* Provide a static state for spinners if animation is off */
   .loading-spinner::before {
     border-top-color: var(--primary-light); /* Make it a full circle */
     opacity: 0.5;
   }
+
   .loading-spinner::after {
     opacity: 0.5;
     transform: translate(-50%, -50%) scale(1);
   }
+
   .skeleton-loader::after {
     background: none; /* Hide shimmer */
   }

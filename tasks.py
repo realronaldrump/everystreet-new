@@ -16,7 +16,8 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Callable
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -68,7 +69,7 @@ class TaskPriority(Enum):
     HIGH = 3
 
     @classmethod
-    def from_string(cls, priority_str: str) -> "TaskPriority":
+    def from_string(cls, priority_str: str) -> TaskPriority:
         priority_map = {
             "LOW": cls.LOW,
             "MEDIUM": cls.MEDIUM,

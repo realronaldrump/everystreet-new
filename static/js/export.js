@@ -331,8 +331,11 @@
     }
     try {
       activeExports[formType] = true;
-      window.notificationManager.show(`Starting ${config.name} export...`, "info");
-      let url = buildExportUrl(formType, config);
+      window.notificationManager.show(
+        `Starting ${config.name} export...`,
+        "info",
+      );
+      const url = buildExportUrl(formType, config);
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => {
         abortController.abort();
@@ -342,7 +345,10 @@
       }, 120000);
       try {
         await downloadFile(url, config.name, abortController.signal);
-        window.notificationManager.show(`${config.name} export completed`, "success");
+        window.notificationManager.show(
+          `${config.name} export completed`,
+          "success",
+        );
       } finally {
         clearTimeout(timeoutId);
       }
@@ -601,7 +607,10 @@
 
     const locationData = locationInput.getAttribute("data-location");
     if (!locationData) {
-      window.notificationManager.show("Please validate the location first", "warning");
+      window.notificationManager.show(
+        "Please validate the location first",
+        "warning",
+      );
       return false;
     }
 
@@ -688,7 +697,10 @@
         window.handleError(error, "validating location");
       } else {
         console.error("Error validating location:", error);
-        window.notificationManager.show(`Validation failed: ${error.message}`, "danger");
+        window.notificationManager.show(
+          `Validation failed: ${error.message}`,
+          "danger",
+        );
       }
 
       locationInput.classList.add("is-invalid");
@@ -704,7 +716,10 @@
   async function downloadFile(url, exportName, signal) {
     const urlWithTimestamp = `${url}${url.includes("?") ? "&" : "?"}timestamp=${new Date().getTime()}`;
     try {
-      window.notificationManager.show(`Requesting ${exportName} data...`, "info");
+      window.notificationManager.show(
+        `Requesting ${exportName} data...`,
+        "info",
+      );
       console.info(`Requesting export from: ${urlWithTimestamp}`);
       window.loadingManager.show(exportName);
       const fetchOptions = { signal };
@@ -771,8 +786,6 @@
       window.loadingManager.hide();
     }
   }
-
-
 
   function getFilenameFromHeaders(contentDisposition, exportName, format) {
     let filename = null;
@@ -947,7 +960,7 @@
         locationSelect.innerHTML =
           '<option value="">Failed to load areas</option>';
         window.notificationManager.show(
-          "Failed to load areas: " + err.message,
+          `Failed to load areas: ${  err.message}`,
           "error",
         );
       });
@@ -981,11 +994,11 @@
           throw new Error(msg);
         }
         let blob;
-        let displayName = area.display_name || "undriven_streets";
-        let sanitizedName = displayName.replace(/[^a-zA-Z0-9]/g, "_");
-        let now = new Date();
-        let pad = (n) => n.toString().padStart(2, "0");
-        let dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+        const displayName = area.display_name || "undriven_streets";
+        const sanitizedName = displayName.replace(/[^a-zA-Z0-9]/g, "_");
+        const now = new Date();
+        const pad = (n) => n.toString().padStart(2, "0");
+        const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
         let filename = `${sanitizedName}_undriven_${dateStr}`;
         if (format === "gpx") {
           // Convert GeoJSON to GPX client-side (simple, for LineStrings)
@@ -1014,7 +1027,7 @@
         );
       } catch (err) {
         window.notificationManager.show(
-          "Export failed: " + err.message,
+          `Export failed: ${  err.message}`,
           "error",
         );
       } finally {

@@ -1599,7 +1599,7 @@
     ) {
       window.visitsManager = new VisitsManager();
     } else {
-      let missingLibraries = [];
+      const missingLibraries = [];
       if (typeof L === "undefined") missingLibraries.push("Leaflet");
       if (typeof Chart === "undefined") missingLibraries.push("Chart.js");
       if (typeof $ === "undefined") missingLibraries.push("jQuery");

@@ -2163,7 +2163,7 @@ const STATUS = window.STATUS || {
           { orderable: false, targets: 6 }, // Actions column
           {
             targets: 1, // Total Length column
-            render: function (data, type) {
+            render (data, type) {
               return type === "display" ? data : parseFloat(data);
             },
           },
@@ -2171,7 +2171,7 @@ const STATUS = window.STATUS || {
         language: {
           emptyTable: "No coverage areas defined yet.",
         },
-        drawCallback: function () {
+        drawCallback () {
           // Re-initialize tooltips after table redraw
           window.coverageManager.initTooltips();
         },
@@ -4567,8 +4567,8 @@ const STATUS = window.STATUS || {
                 label: (ctx) =>
                   `${ctx.dataset.label}: ${
                     ctx.dataset.label === "% Covered"
-                      ? ctx.parsed.y.toFixed(1) + "%"
-                      : ctx.parsed.y.toFixed(2) + " mi"
+                      ? `${ctx.parsed.y.toFixed(1)  }%`
+                      : `${ctx.parsed.y.toFixed(2)  } mi`
                   }`,
               },
             },
@@ -4588,7 +4588,7 @@ const STATUS = window.STATUS || {
               beginAtZero: true,
               position: "right",
               title: { display: true, text: "% Covered", color: "#ffb300" },
-              ticks: { color: "#ffb300", callback: (v) => v + "%" },
+              ticks: { color: "#ffb300", callback: (v) => `${v  }%` },
               grid: { drawOnChartArea: false },
               min: 0,
               max: 100,
