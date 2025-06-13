@@ -158,7 +158,6 @@ async def get_trips_datatable(request: Request):
         start_date = body.get("start_date")
         end_date = body.get("end_date")
 
-
         # ------------------------------------------------------------------
         # Date filtering – use **each trip's own time zone**
         # ------------------------------------------------------------------
@@ -202,7 +201,9 @@ async def get_trips_datatable(request: Request):
                 expr_clauses.append({"$lte": [date_expr, end_date]})
 
             if expr_clauses:
-                query["$expr"] = {"$and": expr_clauses} if len(expr_clauses) > 1 else expr_clauses[0]
+                query["$expr"] = (
+                    {"$and": expr_clauses} if len(expr_clauses) > 1 else expr_clauses[0]
+                )
 
         if search_value:
             search_regex = {"$regex": search_value, "$options": "i"}
