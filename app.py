@@ -1869,9 +1869,7 @@ async def driver_behavior_analytics(request: Request):
         get_field(t, "hardAccelerationCounts", "hardAccelerationCount", default=0)
         for t in trips
     )
-    idling = sum(
-        get_field(t, "totalIdleDuration", default=0.0) for t in trips
-    )
+    idling = sum(get_field(t, "totalIdleDuration", default=0.0) for t in trips)
     fuel = sum(get_field(t, "fuelConsumed", default=0.0) for t in trips)
 
     weekly = defaultdict(
@@ -2099,7 +2097,9 @@ async def get_driving_insights(request: Request):
             {"$limit": 5},
         ]
 
-        trips_top = await aggregate_with_retry(trips_collection, pipeline_top_destinations)
+        trips_top = await aggregate_with_retry(
+            trips_collection, pipeline_top_destinations
+        )
 
         combined = {
             "total_trips": 0,
@@ -2139,7 +2139,11 @@ async def get_driving_insights(request: Request):
                     "location": (
                         d["_id"].get("formatted_address")
                         if isinstance(d["_id"], dict)
-                        else (d["_id"].get("name") if isinstance(d["_id"], dict) else str(d["_id"]))
+                        else (
+                            d["_id"].get("name")
+                            if isinstance(d["_id"], dict)
+                            else str(d["_id"])
+                        )
                     ),
                     "visits": d.get("visits", 0),
                     "distance": round(d.get("distance", 0.0), 2),
