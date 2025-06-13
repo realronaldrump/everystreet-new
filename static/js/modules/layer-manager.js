@@ -358,6 +358,15 @@ const layerManager = {
           mouseenter: mouseEnterHandler,
           mouseleave: mouseLeaveHandler,
         });
+
+        // After adding trip layers, apply dynamic styling (selected/recent)
+        requestAnimationFrame(() => {
+          try {
+            mapManager.refreshTripStyles();
+          } catch (e) {
+            console.warn("Failed to refresh trip styles after layer add", e);
+          }
+        });
       }
 
       layerInfo.layer = data;

@@ -160,21 +160,73 @@ const mapManager = {
   refreshTripStyles: utils.throttle(function () {
     if (!state.map || !state.mapInitialized) return;
 
+    const selectedId = state.selectedTripId
+      ? String(state.selectedTripId)
+      : null;
+    const highlightRecent = state.mapSettings.highlightRecentTrips;
+
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
       if (!layerInfo?.visible) return;
 
       const layerId = `${layerName}-layer`;
-      if (state.map.getLayer(layerId)) {
-        const updates = {
-          "line-color": layerInfo.color,
-          "line-opacity": layerInfo.opacity,
-          "line-width": layerInfo.weight,
-        };
+      if (!state.map.getLayer(layerId)) return;
 
-        Object.entries(updates).forEach(([property, value]) => {
-          state.map.setPaintProperty(layerId, property, value);
-        });
+      // Build dynamic color expression
+      // Priority: selected trip > recent trip > default
+      const colorExpr = ["case"];
+
+      if (selectedId) {
+        colorExpr.push([
+          "==",
+          ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]]],
+          selectedId,
+        ]);
+        colorExpr.push(layerInfo.highlightColor || "#FFD700");
+      }
+
+      if (highlightRecent) {
+        colorExpr.push(["get", "isRecent"]);
+        colorExpr.push(layerInfo.colorRecent || "#FFB703");
+      }
+
+      // Default color
+      colorExpr.push(layerInfo.color);
+
+      // Build width expression (slightly thicker for selected)
+      const baseWeight = layerInfo.weight || 2;
+      const widthExpr = ["case"];
+      if (selectedId) {
+        widthExpr.push([
+          "==",
+          ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]]],
+          selectedId,
+        ]);
+        widthExpr.push(baseWeight * 2);
+      }
+      widthExpr.push(["get", "isRecent"]);
+      widthExpr.push(baseWeight * 1.5);
+      widthExpr.push(baseWeight);
+
+      // Apply paint updates
+      try {
+        state.map.setPaintProperty(layerId, "line-color", colorExpr);
+        state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
+        // Maintain zoom-interpolated width by wrapping expression with interpolate if necessary
+        const zoomWidthExpr = [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10,
+          ["*", 0.5, widthExpr],
+          15,
+          widthExpr,
+          20,
+          ["*", 2, widthExpr],
+        ];
+        state.map.setPaintProperty(layerId, "line-width", zoomWidthExpr);
+      } catch (err) {
+        console.warn("Failed to update trip styles:", err);
       }
     });
   }, CONFIG.MAP.throttleDelay),

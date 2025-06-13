@@ -34,6 +34,24 @@ const dataManager = {
         75,
         `Processing ${fullCollection.features.length} trips...`,
       );
+
+      // Mark recent trips for styling later
+      try {
+        const now = Date.now();
+        const threshold = CONFIG.MAP.recentTripThreshold;
+        fullCollection.features.forEach((f) => {
+          const end = f?.properties?.endTime;
+          const endTs = end ? new Date(end).getTime() : null;
+          f.properties = f.properties || {};
+          f.properties.isRecent =
+            typeof endTs === "number" && !isNaN(endTs)
+              ? now - endTs <= threshold
+              : false;
+        });
+      } catch (err) {
+        console.warn("Failed to tag recent trips:", err);
+      }
+
       metricsManager.updateTripsTable(fullCollection);
       await layerManager.updateMapLayer("trips", fullCollection);
 
@@ -60,6 +78,23 @@ const dataManager = {
       });
       const data = await utils.fetchWithRetry(`/api/matched_trips?${params}`);
       if (data?.type === "FeatureCollection") {
+        // Tag recent matched trips as well
+        try {
+          const now = Date.now();
+          const threshold = CONFIG.MAP.recentTripThreshold;
+          data.features.forEach((f) => {
+            const end = f?.properties?.endTime;
+            const endTs = end ? new Date(end).getTime() : null;
+            f.properties = f.properties || {};
+            f.properties.isRecent =
+              typeof endTs === "number" && !isNaN(endTs)
+                ? now - endTs <= threshold
+                : false;
+          });
+        } catch (err) {
+          console.warn("Failed to tag recent matched trips:", err);
+        }
+
         state.mapLayers.matchedTrips.layer = data;
         await layerManager.updateMapLayer("matchedTrips", data);
         return data;
