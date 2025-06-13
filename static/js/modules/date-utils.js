@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import utils from './utils.js';
 
 /**
  * Helper functions that wrap the legacy global `DateUtils` module and localStorage caching.
@@ -7,11 +8,11 @@ import { CONFIG } from './config.js';
  */
 const dateUtils = {
   getStartDate: () =>
-    window.utils.getStorage(CONFIG.STORAGE_KEYS.startDate) ||
+    utils.getStorage(CONFIG.STORAGE_KEYS.startDate) ||
     window.DateUtils.getCurrentDate(),
 
   getEndDate: () =>
-    window.utils.getStorage(CONFIG.STORAGE_KEYS.endDate) ||
+    utils.getStorage(CONFIG.STORAGE_KEYS.endDate) ||
     window.DateUtils.getCurrentDate(),
 
   formatTimeFromHours(hours) {
@@ -24,7 +25,7 @@ const dateUtils = {
    */
   getCachedDateRange() {
     const cacheKey = 'cached_date_range';
-    const cached = window.utils.getStorage(cacheKey);
+    const cached = utils.getStorage(cacheKey);
     const currentStart = this.getStartDate();
     const currentEnd = this.getEndDate();
 
@@ -48,7 +49,7 @@ const dateUtils = {
         ) + 1,
     };
 
-    window.utils.setStorage(cacheKey, range);
+    utils.setStorage(cacheKey, range);
     return range;
   },
 };

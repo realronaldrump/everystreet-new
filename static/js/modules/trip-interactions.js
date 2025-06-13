@@ -1,4 +1,4 @@
-import './utils.js';
+import utils from './utils.js';
 import state from './state.js';
 import metricsManager from './metrics-manager.js';
 import mapManager from './map-manager.js';
@@ -175,7 +175,7 @@ const tripInteractions = {
       return;
 
     try {
-      const response = await window.utils.fetchWithRetry(`/api/matched_trips/${tripId}`, { method: 'DELETE' });
+      const response = await utils.fetchWithRetry(`/api/matched_trips/${tripId}`, { method: 'DELETE' });
       if (response) {
         popup.remove();
         window.notificationManager.show('Matched trip deleted successfully', 'success');
@@ -200,7 +200,7 @@ const tripInteractions = {
       return;
 
     try {
-      const response = await window.utils.fetchWithRetry(`/api/trips/${tripId}`, { method: 'DELETE' });
+      const response = await utils.fetchWithRetry(`/api/trips/${tripId}`, { method: 'DELETE' });
       if (response) {
         popup.remove();
         window.notificationManager.show('Trip deleted successfully', 'success');
@@ -216,7 +216,7 @@ const tripInteractions = {
   async rematchTrip(tripId, popup) {
     try {
       window.notificationManager.show('Starting map matching...', 'info');
-      const response = await window.utils.fetchWithRetry(`/api/process_trip/${tripId}`, {
+      const response = await utils.fetchWithRetry(`/api/process_trip/${tripId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ map_match: true }),

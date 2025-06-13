@@ -845,8 +845,17 @@
     <!-- App scripts - Load in dependency order -->
     <script src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"></script>
     <script src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
-    <script type="module" src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"></script>
-    <script type="module" src="{{ url_for('static', path='js/modern-ui.js') | replace('http://', '//') }}"></script>
+    <!-- Consolidated ES-module bootstrap (replaces app.js & modern-ui.js stubs) -->
+    <script type="module">
+      import AppController from "{{ url_for('static', path='js/modules/app-controller.js') | replace('http://', '//') }}";
+      import "{{ url_for('static', path='js/modules/ui/ui-init.js') | replace('http://', '//') }}";
+      const start = () => AppController.initialize();
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+      } else {
+        start();
+      }
+    </script>
 
     {% block extra_js %}{% endblock %}
 

@@ -4162,6 +4162,8 @@ const STATUS = window.STATUS || {
           ["==", ["get", "driven"], false],
           ["!=", ["get", "undriveable"], true],
         ];
+      else if (filterType === "undriveable")
+        filter = ["==", ["get", "undriveable"], true];
 
       try {
         this.coverageMap.setFilter("streets-layer", filter);
@@ -4180,27 +4182,33 @@ const STATUS = window.STATUS || {
         ".map-controls button[data-filter]"
       );
       filterButtons.forEach((btn) => {
+        // Remove all possible style classes to prevent conflicts
         btn.classList.remove(
           "active",
-          "btn-primary",
-          "btn-success",
-          "btn-danger"
+          "btn-primary", "btn-outline-primary",
+          "btn-success", "btn-outline-success",
+          "btn-danger", "btn-outline-danger",
+          "btn-warning", "btn-outline-warning"
         );
-        btn.classList.add(
-          btn.dataset.filter === this.currentFilter
-            ? this.currentFilter === "driven"
-              ? "btn-success"
-              : this.currentFilter === "undriven"
-              ? "btn-danger"
-              : "btn-primary"
-            : btn.dataset.filter === "driven"
-            ? "btn-outline-success"
-            : btn.dataset.filter === "undriven"
-            ? "btn-outline-danger"
-            : "btn-outline-primary"
-        );
-        if (btn.dataset.filter === this.currentFilter)
-          btn.classList.add("active");
+
+        let buttonClass = "";
+        // Determine the class based on whether the button's filter is the current one
+        if (btn.dataset.filter === this.currentFilter) {
+          btn.classList.add("active"); // Add active class if it's selected
+          // Assign the solid button style
+          if (this.currentFilter === "driven") buttonClass = "btn-success";
+          else if (this.currentFilter === "undriven") buttonClass = "btn-danger";
+          else if (this.currentFilter === "undriveable") buttonClass = "btn-warning";
+          else buttonClass = "btn-primary"; // for 'all' filter
+        } else {
+          // Assign the outline button style for inactive buttons
+          if (btn.dataset.filter === "driven") buttonClass = "btn-outline-success";
+          else if (btn.dataset.filter === "undriven") buttonClass = "btn-outline-danger";
+          else if (btn.dataset.filter === "undriveable") buttonClass = "btn-outline-warning";
+          else buttonClass = "btn-outline-primary"; // for 'all' filter
+        }
+        
+        btn.classList.add(buttonClass);
       });
     }
 

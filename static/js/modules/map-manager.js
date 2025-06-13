@@ -1,4 +1,4 @@
-import './utils.js';
+import utils from './utils.js';
 import { CONFIG } from './config.js';
 import state from './state.js';
 import dateUtils from './date-utils.js';
@@ -14,7 +14,7 @@ const mapManager = {
         'Initializing map...',
       );
 
-      const mapElement = window.utils.getElement('map');
+      const mapElement = utils.getElement('map');
       if (!mapElement || state.map) {
         initStage.complete();
         return state.mapInitialized;
@@ -46,7 +46,7 @@ const mapManager = {
       const latParam = parseFloat(urlParams.get('lat'));
       const lngParam = parseFloat(urlParams.get('lng'));
       const zoomParam = parseFloat(urlParams.get('zoom'));
-      const savedView = window.utils.getStorage('mapView');
+      const savedView = utils.getStorage('mapView');
       const center =
         !isNaN(latParam) && !isNaN(lngParam)
           ? [lngParam, latParam]
@@ -86,11 +86,11 @@ const mapManager = {
       );
 
       // Setup event handlers
-      const saveViewState = window.utils.debounce(() => {
+      const saveViewState = utils.debounce(() => {
         if (!state.map) return;
         const center = state.map.getCenter();
         const zoom = state.map.getZoom();
-        window.utils.setStorage('mapView', {
+        utils.setStorage('mapView', {
           center: [center.lng, center.lat],
           zoom,
         });
@@ -157,7 +157,7 @@ const mapManager = {
     }
   },
 
-  refreshTripStyles: window.utils.throttle(function () {
+  refreshTripStyles: utils.throttle(function () {
     if (!state.map || !state.mapInitialized) return;
 
     ['trips', 'matchedTrips'].forEach((layerName) => {
@@ -182,7 +182,7 @@ const mapManager = {
   async fitBounds(animate = true) {
     if (!state.map || !state.mapInitialized) return;
 
-    await window.utils.measurePerformance('fitBounds', async () => {
+    await utils.measurePerformance('fitBounds', async () => {
       const bounds = new mapboxgl.LngLatBounds();
       let hasFeatures = false;
 

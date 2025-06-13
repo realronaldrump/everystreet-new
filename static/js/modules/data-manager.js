@@ -1,4 +1,4 @@
-import './utils.js';
+import utils from './utils.js';
 import state from './state.js';
 import dateUtils from './date-utils.js';
 import layerManager from './layer-manager.js';
@@ -17,7 +17,7 @@ const dataManager = {
       const params = new URLSearchParams({ start_date: start, end_date: end });
       dataStage.update(30, `Loading trips from ${start} to ${end}...`);
 
-      const fullCollection = await window.utils.fetchWithRetry(`/api/trips?${params}`);
+      const fullCollection = await utils.fetchWithRetry(`/api/trips?${params}`);
       if (fullCollection?.type !== 'FeatureCollection') {
         dataStage.error('Invalid trip data received from server.');
         window.notificationManager.show('Failed to load valid trip data', 'danger');
@@ -44,7 +44,7 @@ const dataManager = {
     try {
       const { start, end } = dateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end, format: 'geojson' });
-      const data = await window.utils.fetchWithRetry(`/api/matched_trips?${params}`);
+      const data = await utils.fetchWithRetry(`/api/matched_trips?${params}`);
       if (data?.type === 'FeatureCollection') {
         state.mapLayers.matchedTrips.layer = data;
         await layerManager.updateMapLayer('matchedTrips', data);
@@ -58,12 +58,12 @@ const dataManager = {
   },
 
   async fetchUndrivenStreets() {
-    const selectedLocationId = window.utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded) return null;
 
     window.loadingManager.pulse('Loading undriven streets...');
     try {
-      const data = await window.utils.fetchWithRetry(`/api/coverage_areas/${selectedLocationId}/streets?undriven=true`);
+      const data = await utils.fetchWithRetry(`/api/coverage_areas/${selectedLocationId}/streets?undriven=true`);
       if (data?.type === 'FeatureCollection') {
         state.mapLayers.undrivenStreets.layer = data;
         state.undrivenStreetsLoaded = true;
@@ -82,7 +82,7 @@ const dataManager = {
     try {
       const { start, end } = dateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end });
-      const data = await window.utils.fetchWithRetry(`/api/trip-analytics?${params}`);
+      const data = await utils.fetchWithRetry(`/api/trip-analytics?${params}`);
       if (data) document.dispatchEvent(new CustomEvent('metricsUpdated', { detail: data }));
       return data;
     } catch (error) {

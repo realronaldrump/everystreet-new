@@ -1,4 +1,4 @@
-import './utils.js';
+import utils from './utils.js';
 import { CONFIG } from './config.js';
 import state from './state.js';
 import dataManager from './data-manager.js';
@@ -10,13 +10,13 @@ const layerManager = {
   _layerCleanupMap: new Map(),
 
   initializeControls() {
-    const container = window.utils.getElement('layer-toggles');
+    const container = utils.getElement('layer-toggles');
     if (!container) return;
 
     // Load saved layer settings
-    const savedSettings =
-      window.utils.getStorage(CONFIG.STORAGE_KEYS.layerSettings) || {};
-    Object.entries(savedSettings).forEach(([name, settings]) => {
+    const settings =
+      utils.getStorage(CONFIG.STORAGE_KEYS.layerSettings) || {};
+    Object.entries(settings).forEach(([name, settings]) => {
       if (state.mapLayers[name]) {
         Object.assign(state.mapLayers[name], settings);
       }
@@ -67,7 +67,7 @@ const layerManager = {
   setupEventListeners(container) {
     container.addEventListener(
       'change',
-      window.utils.debounce((e) => {
+      utils.debounce((e) => {
         const input = e.target;
         const layerName = input.closest('.layer-control')?.dataset.layerName;
         if (!layerName) return;
@@ -133,11 +133,11 @@ const layerManager = {
         order: info.order,
       };
     });
-    window.utils.setStorage(CONFIG.STORAGE_KEYS.layerSettings, settings);
+    utils.setStorage(CONFIG.STORAGE_KEYS.layerSettings, settings);
   },
 
   updateLayerOrder() {
-    const container = window.utils.getElement('layer-order-list');
+    const container = utils.getElement('layer-order-list');
     if (!container) return;
 
     const sortedLayers = Object.entries(state.mapLayers).sort(
@@ -237,7 +237,7 @@ const layerManager = {
   },
 
   reorderLayers() {
-    const container = window.utils.getElement('layer-order-list');
+    const container = utils.getElement('layer-order-list');
     if (!container) return;
 
     Array.from(container.children).forEach((item, index) => {

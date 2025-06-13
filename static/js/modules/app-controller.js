@@ -1,4 +1,4 @@
-import './utils.js';
+import utils from './utils.js';
 import { CONFIG } from './config.js';
 import state from './state.js';
 import mapManager from './map-manager.js';
@@ -9,8 +9,8 @@ import dateUtils from './date-utils.js';
 
 // --- Helper functions --------------------------------------------------
 const initializeDates = () => {
-  const startDateInput = window.utils.getElement('start-date');
-  const endDateInput = window.utils.getElement('end-date');
+  const startDateInput = utils.getElement('start-date');
+  const endDateInput = utils.getElement('end-date');
   if (startDateInput && !startDateInput.value) startDateInput.value = dateUtils.getStartDate();
   if (endDateInput && !endDateInput.value) endDateInput.value = dateUtils.getEndDate();
 };
@@ -26,10 +26,10 @@ const initializeLiveTracker = () => {
 };
 
 const initializeLocationDropdown = async () => {
-  const dropdown = window.utils.getElement('undriven-streets-location');
+  const dropdown = utils.getElement('undriven-streets-location');
   if (!dropdown) return;
   try {
-    const response = await window.utils.fetchWithRetry('/api/coverage_areas');
+    const response = await utils.fetchWithRetry('/api/coverage_areas');
     const areas = response.areas || [];
     dropdown.innerHTML = '<option value="">Select a location...</option>';
     const frag = document.createDocumentFragment();
@@ -41,7 +41,7 @@ const initializeLocationDropdown = async () => {
       frag.appendChild(option);
     });
     dropdown.appendChild(frag);
-    const savedId = window.utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const savedId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     if (savedId) dropdown.value = savedId;
   } catch (err) {
     console.error('Location dropdown error:', err);
@@ -50,7 +50,7 @@ const initializeLocationDropdown = async () => {
 };
 
 const restoreLayerVisibility = () => {
-  const saved = window.utils.getStorage(CONFIG.STORAGE_KEYS.layerVisibility) || {};
+  const saved = utils.getStorage(CONFIG.STORAGE_KEYS.layerVisibility) || {};
   Object.keys(state.mapLayers).forEach((layerName) => {
     const toggle = document.getElementById(`${layerName}-toggle`);
     if (layerName === 'trips') {
@@ -71,7 +71,7 @@ const AppController = {
 
       initializeDates();
 
-      if (window.utils.getElement('map') && !document.getElementById('visits-page')) {
+      if (utils.getElement('map') && !document.getElementById('visits-page')) {
         const ok = await mapManager.initialize();
         if (!ok) throw new Error('Map init failed');
 
@@ -103,10 +103,10 @@ const AppController = {
   /* ------------------------------------------------------------------ */
   setupEventListeners() {
     // Controls toggle collapse icon
-    const controlsToggle = window.utils.getElement('controls-toggle');
+    const controlsToggle = utils.getElement('controls-toggle');
     if (controlsToggle) {
       controlsToggle.addEventListener('click', () => {
-        const content = window.utils.getElement('controls-content');
+        const content = utils.getElement('controls-content');
         const icon = controlsToggle.querySelector('i');
         if (content && icon) {
           content.addEventListener(
@@ -122,10 +122,10 @@ const AppController = {
     }
 
     // Location dropdown change
-    const locationDropdown = window.utils.getElement('undriven-streets-location');
+    const locationDropdown = utils.getElement('undriven-streets-location');
     if (locationDropdown) {
       locationDropdown.addEventListener('change', async (e) => {
-        window.utils.setStorage(CONFIG.STORAGE_KEYS.selectedLocation, e.target.value);
+        utils.setStorage(CONFIG.STORAGE_KEYS.selectedLocation, e.target.value);
         if (e.target.value && state.mapLayers.undrivenStreets.visible) {
           state.undrivenStreetsLoaded = false;
           await dataManager.fetchUndrivenStreets();
@@ -134,7 +134,7 @@ const AppController = {
     }
 
     // Center-on-location button (geolocation)
-    const centerBtn = window.utils.getElement('center-on-location');
+    const centerBtn = utils.getElement('center-on-location');
     if (centerBtn) {
       centerBtn.addEventListener('click', () => {
         if (!navigator.geolocation) {
@@ -172,7 +172,7 @@ const AppController = {
     });
 
     // Refresh map button
-    const refreshBtn = window.utils.getElement('refresh-map');
+    const refreshBtn = utils.getElement('refresh-map');
     if (refreshBtn) {
       refreshBtn.addEventListener('click', async () => {
         refreshBtn.disabled = true;
@@ -188,11 +188,11 @@ const AppController = {
     }
 
     // Fit-bounds button
-    const fitBoundsBtn = window.utils.getElement('fit-bounds');
+    const fitBoundsBtn = utils.getElement('fit-bounds');
     if (fitBoundsBtn) fitBoundsBtn.addEventListener('click', () => mapManager.fitBounds());
 
     // Highlight recent trips toggle
-    const highlightToggle = window.utils.getElement('highlight-recent-trips');
+    const highlightToggle = utils.getElement('highlight-recent-trips');
     if (highlightToggle) {
       highlightToggle.addEventListener('change', (e) => {
         state.mapSettings.highlightRecentTrips = e.target.checked;
@@ -203,7 +203,7 @@ const AppController = {
     // Filters applied (date-range etc.)
     document.addEventListener('filtersApplied', async () => {
       if (state.mapInitialized) {
-        window.utils.setStorage('cached_date_range', null);
+        utils.setStorage('cached_date_range', null);
         await dataManager.updateMap(true);
       }
     });
@@ -241,7 +241,7 @@ const AppController = {
       state.cancelAllRequests();
       const visibility = {};
       Object.entries(state.mapLayers).forEach(([name, info]) => (visibility[name] = info.visible));
-      window.utils.setStorage(CONFIG.STORAGE_KEYS.layerVisibility, visibility);
+      utils.setStorage(CONFIG.STORAGE_KEYS.layerVisibility, visibility);
       layerManager.cleanup();
     });
 
@@ -266,7 +266,7 @@ const AppController = {
       });
       if (!confirmed) return;
       window.loadingManager.show('Starting map matching process...');
-      const res = await window.utils.fetchWithRetry('/api/map_match_trips', {
+      const res = await utils.fetchWithRetry('/api/map_match_trips', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ start_date: dateUtils.getStartDate(), end_date: dateUtils.getEndDate() }),
@@ -300,7 +300,7 @@ window.EveryStreet.App = {
   mapMatchTrips: AppController.mapMatchTrips.bind(AppController),
   AppState: state,
   CONFIG,
-  utils: window.utils,
+  utils: utils,
 };
 
 export default AppController; 

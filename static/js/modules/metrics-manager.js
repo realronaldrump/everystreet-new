@@ -1,21 +1,21 @@
-import './utils.js';
+import utils from './utils.js';
 import state from './state.js';
 import dateUtils from './date-utils.js';
 
 const metricsManager = {
   updateTripsTable(geojson) {
     const elements = {
-      totalTrips: window.utils.getElement('total-trips'),
-      totalDistance: window.utils.getElement('total-distance'),
-      avgDistance: window.utils.getElement('avg-distance'),
-      avgStartTime: window.utils.getElement('avg-start-time'),
-      avgDrivingTime: window.utils.getElement('avg-driving-time'),
-      avgSpeed: window.utils.getElement('avg-speed'),
-      maxSpeed: window.utils.getElement('max-speed'),
+      totalTrips: utils.getElement('total-trips'),
+      totalDistance: utils.getElement('total-distance'),
+      avgDistance: utils.getElement('avg-distance'),
+      avgStartTime: utils.getElement('avg-start-time'),
+      avgDrivingTime: utils.getElement('avg-driving-time'),
+      avgSpeed: utils.getElement('avg-speed'),
+      maxSpeed: utils.getElement('max-speed'),
     };
 
     if (!geojson?.features) {
-      window.utils.batchDOMUpdates([
+      utils.batchDOMUpdates([
         () =>
           Object.values(elements).forEach((el) => {
             if (el) el.textContent = el.id.includes('time') ? '--:--' : '0';
@@ -26,7 +26,7 @@ const metricsManager = {
 
     const metrics = this.calculateMetrics(geojson.features);
 
-    window.utils.batchDOMUpdates([
+    utils.batchDOMUpdates([
       () => {
         if (elements.totalTrips)
           elements.totalTrips.textContent = metrics.totalTrips;
