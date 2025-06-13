@@ -1869,9 +1869,7 @@ async def driver_behavior_analytics(request: Request):
         get_field(t, "hardAccelerationCounts", "hardAccelerationCount", default=0)
         for t in trips
     )
-    idling = sum(
-        get_field(t, "totalIdleDuration", default=0.0) for t in trips
-    )
+    idling = sum(get_field(t, "totalIdleDuration", default=0.0) for t in trips)
     fuel = sum(get_field(t, "fuelConsumed", default=0.0) for t in trips)
 
     weekly = defaultdict(
