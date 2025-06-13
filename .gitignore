@@ -20,3 +20,7 @@ eslint.config.mjs
 .vscode
 .ruff_cache
 
+scripts/autofix.sh
+scripts/
+.stylelintrc.json
+*.txt

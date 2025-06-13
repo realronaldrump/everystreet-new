@@ -74,6 +74,7 @@
     --text-primary
   ); /* Will be inverted by body.light-mode if needed */
 }
+
 body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   filter: invert(0.8); /* Adjust for light mode */
 }
@@ -82,11 +83,12 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .mapboxgl-ctrl-attrib {
   background-color: var(--surface-glass) !important;
   backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
   border-radius: var(--radius-sm) !important;
   padding: var(--space-1) var(--space-2) !important;
   box-shadow: var(--shadow-sm);
 }
+
 .mapboxgl-ctrl-attrib a,
 .mapboxgl-ctrl-attrib span {
   color: var(--text-secondary) !important;
@@ -94,6 +96,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   font-family: var(--font-family) !important;
   text-decoration: none;
 }
+
 .mapboxgl-ctrl-attrib a:hover {
   color: var(--text-primary) !important;
   text-decoration: underline;
@@ -104,12 +107,14 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   z-index: var(--z-popover);
   animation: fadeInScale 0.2s ease-out; /* From map-enhancements */
 }
+
 @keyframes fadeInScale {
   /* From map-enhancements */
   from {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -126,15 +131,17 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   max-width: 350px !important;
   border: 1px solid var(--border-color) !important;
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .mapboxgl-popup-tip {
   border-top-color: var(
     --surface-glass
   ) !important; /* Match content background */
+
   /* Adjust tip color if content has a border */
 }
+
 .mapboxgl-popup-tip::before {
   /* If there's a border on content, this helps blend */
   border-top-color: var(--border-color) !important;
@@ -155,6 +162,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   align-items: center;
   justify-content: center;
 }
+
 .mapboxgl-popup-close-button:hover {
   color: var(--text-primary) !important;
   background: var(--surface-3) !important;
@@ -167,6 +175,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
 }
+
 .coverage-popup-content .popup-title {
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-lg);
@@ -175,38 +184,46 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--divider-color);
 }
+
 .coverage-popup-content .popup-detail {
   margin-bottom: var(--space-2);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .coverage-popup-content .popup-label {
   color: var(--text-secondary);
   margin-right: var(--space-2);
   font-weight: var(--font-weight-medium);
 }
+
 .coverage-popup-content .popup-value {
   color: var(--text-primary);
   text-align: right;
   font-weight: var(--font-weight-regular);
 }
+
 .coverage-popup-content .popup-value.status-driven {
   color: var(--success);
   font-weight: var(--font-weight-semibold);
 }
+
 .coverage-popup-content .popup-value.status-undriven {
   color: var(--danger);
   font-weight: var(--font-weight-semibold);
 }
+
 .coverage-popup-content .popup-value.status-undriveable {
   color: var(--warning);
 }
+
 .coverage-popup-content .popup-value.segment-id {
   color: var(--text-tertiary);
   font-family: monospace;
   font-size: var(--font-size-xs);
 }
+
 .coverage-popup-content .popup-actions {
   margin-top: var(--space-3);
   padding-top: var(--space-3);
@@ -215,6 +232,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   gap: var(--space-2);
   flex-wrap: wrap; /* Allow buttons to wrap */
 }
+
 .coverage-popup-content .popup-actions .btn {
   font-size: var(--font-size-xs);
   padding: var(--space-1) var(--space-3);
@@ -224,12 +242,15 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .mapboxgl-canvas-container {
   cursor: grab;
 }
+
 .mapboxgl-canvas-container:active {
   cursor: grabbing;
 }
+
 .mapboxgl-canvas {
   transition: opacity var(--transition-normal);
 }
+
 .mapboxgl-canvas.loading {
   /* If Mapbox adds a loading class */
   opacity: 0.6;
@@ -239,6 +260,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   transition: transform 0.2s ease-out;
   will-change: transform; /* Performance hint */
 }
+
 .mapboxgl-marker:hover {
   transform: scale(1.1);
 }
@@ -246,13 +268,14 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 /* Enhanced vehicle markers */
 .vehicle-marker {
   border-radius: 50%;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 5px rgb(0 0 0 / 50%);
   background-color: var(--success); /* Default to success/connected */
   border: 2px solid var(--surface-1); /* Contrast border */
   transition: all var(--transition-normal);
   width: 16px; /* Example size */
   height: 16px;
 }
+
 .vehicle-marker-inner {
   width: 100%;
   height: 100%;
@@ -262,16 +285,20 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   justify-content: center;
   position: relative;
 }
+
 .vehicle-stopped {
   background-color: var(--danger);
   animation: pulse-marker 2s infinite;
 }
+
 .vehicle-slow {
   background-color: var(--warning);
 }
+
 .vehicle-medium {
   background-color: var(--info);
 }
+
 .vehicle-fast {
   background-color: var(--primary);
   transform: scale(1.2);
@@ -284,6 +311,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
     transform: scale(1);
     opacity: 1;
   }
+
   50% {
     transform: scale(1.1);
     opacity: 0.8;
@@ -298,13 +326,16 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
     opacity 0.15s ease-out,
     filter 0.15s ease-out;
   cursor: pointer;
+
   /* Default style set by JS, this is for interactions */
 }
+
 .trip-path:hover {
   /* stroke-width: increased by JS or specific layer paint properties */
   opacity: 1 !important; /* Ensure hover is visible */
-  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.7));
+  filter: drop-shadow(0 0 3px rgb(255 255 255 / 70%));
 }
+
 .trip-path.selected,
 .trip-feature-selected {
   /* stroke-width: further increased by JS */
@@ -312,19 +343,22 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
     0 0 6px var(--primary)
   ); /* Use primary color for selection glow */
 }
+
 .recent-trip,
 .trip-feature-recent {
   /* Highlight recent trips */
-  filter: drop-shadow(0 0 4px rgba(var(--primary-rgb), 0.6));
+  filter: drop-shadow(0 0 4px rgb(var(--primary-rgb), 0.6));
 }
 
 .undriven-street-feature {
   transition: filter 0.3s ease;
+
   /* Default style set by JS */
 }
+
 .undriven-street-feature:hover {
   filter: drop-shadow(
-    0 0 5px rgba(var(--info-rgb), 0.8)
+    0 0 5px rgb(var(--info-rgb), 0.8)
   ); /* Info color for undriven hover */
 }
 
@@ -339,12 +373,13 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   max-height: calc(
     100vh - var(--header-height, 0px) - (2 * var(--space-4))
   ); /* Avoid overlap with header */
+
   overflow-y: auto;
   z-index: var(--z-dropdown); /* Above map, below popups/modals */
   border-radius: var(--radius-lg);
   background: var(--surface-glass);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-lg);
   transition:
@@ -355,23 +390,28 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   will-change: transform, max-height, opacity;
   contain: content; /* Performance hint */
 }
+
 .control-panel#map-controls.minimized {
   transform: translateY(calc(100% - 50px)); /* Adjust based on header height */
   max-height: 50px; /* Height of the visible header part */
   opacity: 0.9;
 }
+
 .control-panel#map-controls.minimized:hover {
   opacity: 1;
   transform: translateY(calc(100% - 50px)) scale(0.99); /* Slight visual cue on hover when minimized */
 }
+
 .control-panel#map-controls .card-header h2,
 .control-panel#map-controls .card-header h3 {
   /* Control panel titles */
   color: var(--primary);
 }
+
 .control-panel#map-controls #controls-toggle i {
   transition: transform var(--transition-normal);
 }
+
 .control-panel#map-controls #controls-toggle[aria-expanded="false"] i {
   transform: rotate(-180deg);
 }
@@ -380,10 +420,12 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 #layer-toggles .form-check {
   margin-bottom: var(--space-2);
 }
+
 #layer-order-list {
   background: transparent;
   padding-left: 0; /* Remove default ul padding */
 }
+
 #layer-order-list .list-group-item {
   background: transparent;
   border: none;
@@ -393,9 +435,11 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
 }
+
 #layer-order-list .list-group-item:last-child {
   border-bottom: none;
 }
+
 #layer-order-list .list-group-item:hover {
   background: var(--surface-2);
   color: var(--text-primary);
@@ -415,14 +459,16 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   pointer-events: none; /* Info only, not interactive */
   box-shadow: var(--shadow-md);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--border-color);
   animation: fadeIn 0.3s ease forwards;
   max-width: 280px;
 }
+
 .map-info-panel strong {
   font-weight: var(--font-weight-semibold);
 }
+
 .map-info-panel hr.panel-divider {
   border-top: 1px solid var(--divider-color);
   margin: var(--space-2) 0;
@@ -432,17 +478,19 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .map-legend {
   background: var(--surface-glass);
   backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
   border: 1px solid var(--border-color);
   padding: var(--space-2);
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);
   box-shadow: var(--shadow-sm);
 }
+
 .map-legend .badge {
   /* If using badges in legend */
   font-weight: var(--font-weight-medium);
 }
+
 .map-legend small {
   color: var(--text-secondary);
 }
@@ -451,7 +499,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .coverage-summary-control {
   background: var(--surface-glass) !important;
   backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  backdrop-filter: blur(8px) !important;
   border: 1px solid var(--border-color) !important;
   box-shadow: var(--shadow-lg) !important;
   padding: var(--space-3) !important;
@@ -459,6 +507,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   color: var(--text-primary);
   min-width: 200px; /* Example width */
 }
+
 .coverage-summary-control .summary-title {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -467,33 +516,38 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
 .coverage-summary-control .summary-percentage {
   font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
   margin-bottom: var(--space-2);
   color: var(--primary);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
+
 .coverage-summary-control .summary-progress {
   margin-bottom: var(--space-3);
   height: 6px; /* Slimmer progress bar */
   background-color: var(--surface-3);
   border-radius: var(--radius-full);
 }
+
 .coverage-summary-control .summary-progress .progress-bar {
   background-color: var(--primary);
   border-radius: var(--radius-full);
 }
+
 .coverage-summary-control .summary-details {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
+
 .coverage-summary-control .summary-details > div {
   margin-bottom: var(--space-1);
 }
 
 /* === Responsive Adjustments for Map Elements === */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .control-panel#map-controls {
     left: var(--space-2);
     right: var(--space-2);
@@ -501,24 +555,30 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
     max-width: calc(100% - (2 * var(--space-2)));
     max-height: 50vh; /* More space on smaller screens */
   }
+
   .control-panel#map-controls.minimized {
     max-height: 45px; /* Adjust for smaller screens */
     transform: translateY(calc(100% - 45px));
   }
+
   .mapboxgl-ctrl-group {
     margin: var(--space-2) !important;
   }
+
   .mapboxgl-ctrl-group button {
     width: 32px !important;
     height: 32px !important;
     font-size: var(--font-size-md) !important;
   }
+
   .mapboxgl-popup-content {
     max-width: 280px !important; /* Adjust popup width */
   }
+
   .coverage-popup-content {
     padding: var(--space-3);
   }
+
   .map-info-panel {
     max-width: 200px;
     font-size: var(--font-size-xs);
@@ -526,24 +586,29 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   }
 }
 
-@media (max-width: 576px) {
+@media (width <= 576px) {
   .control-panel#map-controls {
     border-radius: var(--radius-md); /* Slightly smaller radius */
   }
+
   .mapboxgl-ctrl-group button {
     width: 28px !important;
     height: 28px !important;
     font-size: var(--font-size-sm) !important;
   }
+
   .mapboxgl-popup-content {
     max-width: calc(
       100vw - (2 * var(--space-3))
     ) !important; /* Full width minus padding */
+
     font-size: var(--font-size-sm);
   }
+
   .coverage-popup-content .popup-actions {
     flex-direction: column; /* Stack action buttons */
   }
+
   .coverage-popup-content .popup-actions .btn {
     width: 100%;
   }

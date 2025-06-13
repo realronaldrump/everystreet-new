@@ -155,13 +155,13 @@
           },
           tooltip: {
             callbacks: {
-              label: function (context) {
+              label(context) {
                 let label = context.dataset.label || "";
                 if (label) label += ": ";
                 if (context.dataset.yAxisID === "y") {
-                  label += context.parsed.y.toFixed(1) + " miles";
+                  label += `${context.parsed.y.toFixed(1)} miles`;
                 } else {
-                  label += context.parsed.y + " trips";
+                  label += `${context.parsed.y} trips`;
                 }
                 return label;
               },
@@ -228,8 +228,8 @@
           },
           tooltip: {
             callbacks: {
-              label: function (context) {
-                return context.label + ": " + context.parsed + "%";
+              label(context) {
+                return `${context.label}: ${context.parsed}%`;
               },
             },
           },

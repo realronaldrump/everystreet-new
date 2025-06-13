@@ -11,16 +11,11 @@ import geojson as geojson_module
 import httpx
 import numpy as np
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sklearn.cluster import KMeans
 
-from db import (
-    find_one_with_retry,
-    streets_collection,
-    trips_collection,
-    db_manager,
-)
+from db import db_manager, find_one_with_retry, streets_collection, trips_collection
 from live_tracking import get_active_trip
 from models import LocationModel
 from utils import haversine
@@ -533,8 +528,8 @@ async def get_mapbox_directions(request: Request):
 
 
 async def find_connected_undriven_clusters(
-    streets: List[Dict[str, Any]], max_distance_km: float = 0.05
-) -> List[Dict[str, Any]]:
+    streets: list[dict[str, Any]], max_distance_km: float = 0.05
+) -> list[dict[str, Any]]:
     """Finds clusters of connected undriven street segments using a graph-based approach."""
     if not streets:
         return []
