@@ -1195,9 +1195,17 @@ async def upload_files(
 async def get_trip_analytics(request: Request):
     """Get analytics on trips over time."""
     try:
+        # Build query with new timezone-aware helper
         query = await build_query_from_request(request)
 
-        if "startTime" not in query:
+        # Ensure caller provided at least a date range; with the new helper the
+        # range lives under $expr instead of startTime, so we just verify that
+        # either query contains a $expr date filter or the request actually
+        # included start_date / end_date parameters.
+        if "$expr" not in query and (
+            request.query_params.get("start_date") is None
+            or request.query_params.get("end_date") is None
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Missing date range",
