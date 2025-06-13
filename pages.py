@@ -37,14 +37,10 @@ async def settings_page(request: Request):
     return templates.TemplateResponse("settings.html", {"request": request})
 
 
-@router.get(
-    "/driving-insights",
-    response_class=HTMLResponse,
-)
-async def driving_insights_page(request: Request):
-    """Render driving insights page."""
+@router.get("/insights")
+async def insights_page(request: Request):
     return templates.TemplateResponse(
-        "driving_insights.html",
+        "insights.html",
         {"request": request},
     )
 
@@ -142,13 +138,3 @@ async def driving_navigation_page(request: Request):
     )
 
 
-@router.get(
-    "/driver-behavior",
-    response_class=HTMLResponse,
-)
-async def driver_behavior_page(request: Request):
-    """Render driver behavior page."""
-    return templates.TemplateResponse(
-        "driver_behavior.html",
-        {"request": request},
-    )

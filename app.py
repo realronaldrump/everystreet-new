@@ -1807,17 +1807,6 @@ async def get_trips_in_bounds(
         )
 
 
-@app.get(
-    "/driver-behavior",
-    response_class=HTMLResponse,
-)
-async def driver_behavior_page(request: Request):
-    return templates.TemplateResponse(
-        "driver_behavior.html",
-        {"request": request},
-    )
-
-
 @app.get("/api/driver-behavior")
 async def driver_behavior_analytics():
     trips = await trips_collection.find({}).to_list(length=None)

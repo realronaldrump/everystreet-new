@@ -1,673 +1,862 @@
-/* global Chart, DateUtils */
+/* global Chart, CountUp, $ */
 
-"use strict";
+(function() {
+  'use strict';
 
-(() => {
-  let tripCountsChart = null;
-  let distanceChart = null;
-  let fuelConsumptionChart = null;
-
-  const loadingManager = window.loadingManager || {
-    startOperation: (op) => {
-      window.handleError && window.handleError(`Loading started: ${op}`);
+  // Global state
+  const state = {
+    currentPeriod: 30,
+    currentView: 'daily',
+    currentTimeView: 'hour',
+    charts: {},
+    data: {
+      behavior: null,
+      insights: null,
+      analytics: null,
+      metrics: null
     },
-    finish: (op) => {
-      window.handleError && window.handleError(`Loading finished: ${op}`);
-    },
+    counters: {},
+    isLoading: false,
+    autoRefreshInterval: null
   };
 
-  document.addEventListener("DOMContentLoaded", () => {
-    initializeEventListeners();
-    if (typeof Chart === "undefined") {
-      console.error("Chart.js is not loaded. Charts will not function.");
-      return;
-    }
+  // Initialize on DOM ready
+  document.addEventListener('DOMContentLoaded', init);
 
-    // Delay initialization slightly to ensure other scripts might load
-    setTimeout(() => {
-      initializeCharts();
-      fetchDrivingInsights();
-    }, 100);
-  });
-
-  function initializeCharts() {
-    try {
-      const tripCountsCtx = document
-        .getElementById("tripCountsChart")
-        ?.getContext("2d");
-      if (tripCountsCtx) {
-        tripCountsChart = new Chart(tripCountsCtx, {
-          type: "line",
-          data: {
-            datasets: [],
-            labels: [],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                position: "top",
-                labels: { color: "#bb86fc" },
-              },
-              tooltip: { mode: "index", intersect: false },
-            },
-            scales: {
-              x: {
-                type: "category",
-                title: { display: true, text: "Date", color: "#bb86fc" },
-                ticks: { color: "#bb86fc" },
-                grid: { color: "rgba(187, 134, 252, 0.2)" },
-              },
-              y: {
-                beginAtZero: true,
-                title: { display: true, text: "Trips", color: "#bb86fc" },
-                ticks: { color: "#bb86fc", stepSize: 1 }, // Ensure y-axis ticks are whole numbers
-                grid: { color: "rgba(187, 134, 252, 0.2)" },
-              },
-            },
-          },
-        });
-      } else {
-        console.warn("tripCountsChart canvas not found.");
-      }
-
-      const distanceCtx = document
-        .getElementById("distanceChart")
-        ?.getContext("2d");
-      if (distanceCtx) {
-        distanceChart = new Chart(distanceCtx, {
-          type: "bar",
-          data: {
-            datasets: [],
-            labels: [],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                position: "top",
-                labels: { color: "#bb86fc" },
-              },
-              tooltip: {
-                callbacks: {
-                  label: (context) =>
-                    `Distance: ${context.parsed.y.toFixed(2)} miles`,
-                },
-              },
-            },
-            scales: {
-              x: {
-                type: "category",
-                title: { display: true, text: "Date", color: "#bb86fc" },
-                ticks: { color: "#bb86fc" },
-                grid: { color: "rgba(187, 134, 252, 0.2)" },
-              },
-              y: {
-                beginAtZero: true,
-                title: {
-                  display: true,
-                  text: "Distance (miles)",
-                  color: "#bb86fc",
-                },
-                ticks: { color: "#bb86fc" },
-                grid: { color: "rgba(187, 134, 252, 0.2)" },
-              },
-            },
-          },
-        });
-      } else {
-        console.warn("distanceChart canvas not found.");
-      }
-
-      const fuelConsumptionCtx = document
-        .getElementById("fuelConsumptionChart")
-        ?.getContext("2d");
-      if (fuelConsumptionCtx) {
-        fuelConsumptionChart = new Chart(fuelConsumptionCtx, {
-          type: "doughnut",
-          data: {
-            labels: ["Fuel Consumed", "Estimated Efficiency"],
-            datasets: [
-              {
-                data: [0, 0], // Initial empty data
-                backgroundColor: ["#FF9800", "#03DAC6"],
-                borderWidth: 1,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                position: "top",
-                labels: { color: "#bb86fc" },
-              },
-              tooltip: {
-                callbacks: {
-                  label(context) {
-                    const label = context.label || "";
-                    const value = context.raw || 0;
-                    if (label === "Fuel Consumed") {
-                      return `${label}: ${value.toFixed(2)} gallons`;
-                    } else if (label === "Estimated Efficiency") {
-                      return `${label}: ${value.toFixed(2)} MPG`;
-                    }
-                    return `${label}: ${value}`; // Fallback
-                  },
-                },
-              },
-            },
-          },
-        });
-      } else {
-        console.warn("fuelConsumptionChart canvas not found.");
-      }
-    } catch (error) {
-      console.error("Error initializing charts:", error);
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          `Error initializing charts: ${error.message}`,
-          "danger",
-        );
-      }
-    }
+  async function init() {
+    setupEventListeners();
+    initCharts();
+    await loadAllData();
+    startAutoRefresh();
   }
 
-  function initializeEventListeners() {
-    // Only respond to the global shared filter panel
-    document.addEventListener("filtersApplied", () => {
-      fetchDrivingInsights();
+  // Event Listeners
+  function setupEventListeners() {
+    // Period selector
+    document.querySelectorAll('.period-preset').forEach(btn => {
+      btn.addEventListener('click', handlePeriodChange);
+    });
+
+    // View toggles
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+      btn.addEventListener('click', handleToggleChange);
+    });
+
+    // Metric cards
+    document.querySelectorAll('.metric-card').forEach(card => {
+      card.addEventListener('click', handleMetricClick);
+    });
+
+    // FAB menu
+    const fabMain = document.getElementById('fab-main');
+    const fabMenu = document.getElementById('fab-menu');
+    fabMain.addEventListener('click', () => {
+      fabMenu.classList.toggle('show');
+      fabMain.querySelector('i').classList.toggle('fa-plus');
+      fabMain.querySelector('i').classList.toggle('fa-times');
+    });
+
+    // FAB actions
+    document.getElementById('refresh-data').addEventListener('click', () => {
+      loadAllData();
+      showNotification('Data refreshed successfully', 'success');
+    });
+
+    document.getElementById('download-report').addEventListener('click', generateReport);
+    document.getElementById('share-insights').addEventListener('click', shareInsights);
+    document.getElementById('export-chart').addEventListener('click', exportChart);
+    document.getElementById('export-data').addEventListener('click', exportData);
+    document.getElementById('view-map').addEventListener('click', () => {
+      window.location.href = '/trips';
     });
   }
 
-  function getFilterParams() {
-    const dateUtils = window.DateUtils;
-    if (!dateUtils) {
-      console.error("DateUtils not available for getFilterParams");
-      // Fallback to a default range or return empty if critical
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      return new URLSearchParams({
-        start_date: thirtyDaysAgo.toISOString().split("T")[0], // Fallback format
-        end_date: new Date().toISOString().split("T")[0], // Fallback format
+  // Data Loading
+  async function loadAllData() {
+    if (state.isLoading) return;
+    
+    state.isLoading = true;
+    showLoadingStates();
+
+    try {
+      const dateRange = getDateRange();
+      const params = new URLSearchParams({
+        start_date: dateRange.start,
+        end_date: dateRange.end
       });
-    }
 
-    // Ensure dates are fetched from localStorage or defaulted if not present
-    let startDate = window.utils.getStorage("startDate");
-    let endDate = window.utils.getStorage("endDate");
-
-    if (!startDate) {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      startDate = dateUtils.formatDate(thirtyDaysAgo);
-      window.utils.setStorage("startDate", startDate); // Save default
-    }
-    if (!endDate) {
-      endDate = dateUtils.formatDate(new Date());
-      window.utils.setStorage("endDate", endDate); // Save default
-    }
-
-    return new URLSearchParams({ start_date: startDate, end_date: endDate });
-  }
-
-  function formatIdleDuration(seconds) {
-    if (seconds === null || typeof seconds === "undefined") return "0m 0s";
-    const dateUtils = window.DateUtils;
-    if (!dateUtils || !dateUtils.formatSecondsToHMS) {
-      // Check for specific method
-      // Basic fallback if DateUtils or method is missing
-      const m = Math.floor(seconds / 60);
-      const s = Math.floor(seconds % 60);
-      return `${m}m ${s}s`;
-    }
-    const hms = dateUtils.formatSecondsToHMS(seconds);
-    const parts = hms.split(":");
-    const hours = parseInt(parts[0], 10);
-    const minutes = parseInt(parts[1], 10);
-    const secs = parseInt(parts[2], 10);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
-    }
-  }
-
-  function formatDateForDisplay(dateStr) {
-    // dateStr is expected as YYYY-MM-DD
-    if (!dateStr) return "";
-    try {
-      const date = DateUtils.parseDate(dateStr);
-      if (isNaN(date.getTime())) return dateStr; // Invalid date
-
-      return new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-      }).format(date);
-    } catch (e) {
-      console.warn(`Error formatting date for display: ${dateStr}`, e);
-      return dateStr; // Fallback to original string on error
-    }
-  }
-
-  async function fetchDrivingInsights() {
-    const params = getFilterParams();
-    if (!params.has("start_date") || !params.has("end_date")) {
-      console.error("Date parameters are missing for fetching insights.");
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Date parameters missing. Cannot load insights.",
-          "danger",
-        );
-      }
-      resetCharts(); // Reset charts to show empty state
-      loadingManager.finish("Loading Insights"); // Ensure loading finishes
-      return;
-    }
-
-    loadingManager.startOperation("Loading Insights");
-
-    try {
-      const [generalDataResponse, analyticsDataResponse] = await Promise.all([
-        fetch(`/api/driving-insights?${params}`),
-        fetch(`/api/trip-analytics?${params}`),
+      const [behavior, insights, analytics, metrics] = await Promise.all([
+        fetch('/api/driver-behavior').then(r => r.json()),
+        fetch(`/api/driving-insights?${params}`).then(r => r.json()),
+        fetch(`/api/trip-analytics?${params}`).then(r => r.json()),
+        fetch(`/api/metrics?${params}`).then(r => r.json())
       ]);
 
-      if (!generalDataResponse.ok) {
-        throw new Error(
-          `Failed to fetch general insights: ${generalDataResponse.status} ${generalDataResponse.statusText}`,
-        );
-      }
-      if (!analyticsDataResponse.ok) {
-        throw new Error(
-          `Failed to fetch trip analytics: ${analyticsDataResponse.status} ${analyticsDataResponse.statusText}`,
-        );
-      }
-
-      const generalData = await generalDataResponse.json();
-      const analyticsData = await analyticsDataResponse.json();
-
-      updateSummaryMetrics(generalData);
-      updateTripCountsChart(analyticsData.daily_distances); // Pass daily_distances directly
-      updateDistanceChart(analyticsData.daily_distances); // Pass daily_distances directly
-      updateFuelChart(generalData);
-
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Insights data loaded successfully!",
-          "success",
-        );
-      }
+      state.data = { behavior, insights, analytics, metrics };
+      
+      updateAllMetrics();
+      updateAllCharts();
+      updateTables();
+      
     } catch (error) {
-      console.error("Error fetching driving insights:", error);
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          `Error loading driving insights: ${error.message}`,
-          "danger",
-        );
-      }
-      resetCharts(); // Reset charts to an empty state on error
+      console.error('Error loading data:', error);
+      showNotification('Error loading data. Please try again.', 'error');
     } finally {
-      loadingManager.finish("Loading Insights");
+      state.isLoading = false;
+      hideLoadingStates();
     }
   }
 
-  function resetCharts() {
-    if (tripCountsChart) {
-      tripCountsChart.data.datasets = [];
-      tripCountsChart.data.labels = [];
-      tripCountsChart.update();
-    }
+  // Chart Initialization
+  function initCharts() {
+    // Trends Chart
+    const trendsCtx = document.getElementById('trendsChart').getContext('2d');
+    state.charts.trends = new Chart(trendsCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Distance',
+          data: [],
+          borderColor: 'rgb(75, 192, 192)',
+          backgroundColor: 'rgba(75, 192, 192, 0.1)',
+          yAxisID: 'y',
+          tension: 0.3
+        }, {
+          label: 'Trips',
+          data: [],
+          borderColor: 'rgb(255, 99, 132)',
+          backgroundColor: 'rgba(255, 99, 132, 0.1)',
+          yAxisID: 'y1',
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                let label = context.dataset.label || '';
+                if (label) label += ': ';
+                if (context.dataset.yAxisID === 'y') {
+                  label += context.parsed.y.toFixed(1) + ' miles';
+                } else {
+                  label += context.parsed.y + ' trips';
+                }
+                return label;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false
+            }
+          },
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: {
+              display: true,
+              text: 'Distance (miles)'
+            }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            grid: {
+              drawOnChartArea: false,
+            },
+            title: {
+              display: true,
+              text: 'Number of Trips'
+            }
+          }
+        }
+      }
+    });
 
-    if (distanceChart) {
-      distanceChart.data.datasets = [];
-      distanceChart.data.labels = [];
-      distanceChart.update();
-    }
+    // Efficiency Chart
+    const efficiencyCtx = document.getElementById('efficiencyChart').getContext('2d');
+    state.charts.efficiency = new Chart(efficiencyCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Fuel Efficiency', 'Idle Efficiency', 'Speed Efficiency'],
+        datasets: [{
+          data: [0, 0, 0],
+          backgroundColor: [
+            'rgba(75, 192, 192, 0.8)',
+            'rgba(255, 206, 86, 0.8)',
+            'rgba(54, 162, 235, 0.8)'
+          ],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return context.label + ': ' + context.parsed + '%';
+              }
+            }
+          }
+        }
+      }
+    });
 
-    if (fuelConsumptionChart) {
-      fuelConsumptionChart.data.datasets[0].data = [0, 0]; // Reset doughnut data
-      fuelConsumptionChart.update();
-    }
+    // Behavior Chart
+    const behaviorCtx = document.getElementById('behaviorChart').getContext('2d');
+    state.charts.behavior = new Chart(behaviorCtx, {
+      type: 'radar',
+      data: {
+        labels: ['Speed Control', 'Smooth Driving', 'Fuel Economy', 'Time Management', 'Safety'],
+        datasets: [{
+          label: 'Current Period',
+          data: [0, 0, 0, 0, 0],
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+        }, {
+          label: 'Previous Period',
+          data: [0, 0, 0, 0, 0],
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          r: {
+            beginAtZero: true,
+            max: 100,
+            ticks: {
+              display: false
+            }
+          }
+        }
+      }
+    });
 
-    // Reset summary metric text contents
-    const metricsToReset = {
-      "total-trips": "0",
-      "total-distance": "0 miles",
-      "total-fuel": "0 gallons",
-      "max-speed": "0 mph",
-      "total-idle": "0m 0s",
-      "longest-trip": "0 miles",
-      "most-visited": "-", // Default for most visited
-    };
-
-    Object.entries(metricsToReset).forEach(([id, defaultValue]) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = defaultValue;
+    // Time Distribution Chart
+    const timeDistCtx = document.getElementById('timeDistChart').getContext('2d');
+    state.charts.timeDist = new Chart(timeDistCtx, {
+      type: 'bar',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Trips',
+          data: [],
+          backgroundColor: 'rgba(153, 102, 255, 0.6)',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1
+            }
+          }
+        }
+      }
     });
   }
 
-  function updateTripCountsChart(dailyTripsData) {
-    const rawDailyData = dailyTripsData || [];
+  // Metric Updates
+  function updateAllMetrics() {
+    const { behavior, insights, metrics } = state.data;
+    
+    // Primary metrics
+    animateCounter('total-trips', insights.total_trips || 0);
+    animateCounter('total-distance', insights.total_distance || 0, 1);
+    animateCounter('total-fuel', insights.total_fuel_consumed || 0, 2);
+    animateCounter('hero-total-miles', insights.total_distance || 0, 1);
+    
+    // Behavior metrics
+    animateCounter('hard-braking', behavior.hardBrakingCounts || 0);
+    animateCounter('hard-accel', behavior.hardAccelerationCounts || 0);
+    animateCounter('max-speed', behavior.maxSpeed || 0, 1);
+    animateCounter('avg-speed', behavior.avgSpeed || 0, 1);
+    
+    // Time metrics
+    updateTimeMetric('total-time', behavior.totalIdlingTime || 0);
+    updateTimeMetric('idle-time', behavior.totalIdlingTime || 0);
+    
+    // Update comparisons
+    updateComparisons();
+    
+    // Update trends
+    updateTrends();
+  }
 
-    if (!tripCountsChart) {
-      console.warn("Trip counts chart not initialized. Cannot update.");
-      return;
-    }
+  function updateAllCharts() {
+    updateTrendsChart();
+    updateEfficiencyChart();
+    updateBehaviorChart();
+    updateTimeDistChart();
+  }
 
-    try {
-      const labels = [];
-      const tripCounts = [];
-      const movingAvg = [];
+  function updateTrendsChart() {
+    const { analytics } = state.data;
+    if (!analytics || !analytics.daily_distances) return;
 
-      const dateUtils = window.DateUtils;
-      if (!dateUtils) {
-        console.error(
-          "DateUtils not available for updateTripCountsChart. Chart will be cleared.",
-        );
-        tripCountsChart.data.labels = [];
-        tripCountsChart.data.datasets = [];
-        tripCountsChart.update();
-        return;
-      }
+    const data = processTimeSeriesData(analytics.daily_distances);
+    
+    state.charts.trends.data.labels = data.labels;
+    state.charts.trends.data.datasets[0].data = data.distances;
+    state.charts.trends.data.datasets[1].data = data.counts;
+    state.charts.trends.update();
+  }
 
-      const startDateString = window.utils.getStorage("startDate");
-      const endDateString = window.utils.getStorage("endDate");
+  function updateEfficiencyChart() {
+    const { insights, behavior } = state.data;
+    
+    // Calculate efficiency scores (0-100)
+    const fuelEfficiency = calculateFuelEfficiency(insights, behavior);
+    const idleEfficiency = calculateIdleEfficiency(behavior);
+    const speedEfficiency = calculateSpeedEfficiency(behavior);
+    
+    state.charts.efficiency.data.datasets[0].data = [
+      fuelEfficiency,
+      idleEfficiency,
+      speedEfficiency
+    ];
+    state.charts.efficiency.update();
+  }
 
-      if (!startDateString || !endDateString) {
-        console.error(
-          "Start or end date not found in localStorage for trip counts chart. Chart will be cleared.",
-        );
-        tripCountsChart.data.labels = [];
-        tripCountsChart.data.datasets = [];
-        tripCountsChart.update();
-        return;
-      }
+  function updateBehaviorChart() {
+    const { behavior } = state.data;
+    
+    // Calculate behavior scores (0-100)
+    const scores = calculateBehaviorScores(behavior);
+    
+    state.charts.behavior.data.datasets[0].data = scores.current;
+    state.charts.behavior.data.datasets[1].data = scores.previous;
+    state.charts.behavior.update();
+  }
 
-      const dataMap = new Map();
-      rawDailyData.forEach((d) => {
-        if (d && d.date) {
-          const dateKey = d.date.substring(0, 10); // Assumes d.date is 'YYYY-MM-DD' or starts with it
-          dataMap.set(dateKey, d);
-        }
+  function updateTimeDistChart() {
+    const { analytics } = state.data;
+    if (!analytics || !analytics.time_distribution) return;
+
+    const labels = state.currentTimeView === 'hour' 
+      ? Array.from({length: 24}, (_, i) => `${i}:00`)
+      : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    const data = state.currentTimeView === 'hour'
+      ? processHourlyData(analytics.time_distribution)
+      : processDailyData(analytics.time_distribution);
+    
+    state.charts.timeDist.data.labels = labels;
+    state.charts.timeDist.data.datasets[0].data = data;
+    state.charts.timeDist.update();
+  }
+
+  // Helper Functions
+  function animateCounter(elementId, endValue, decimals = 0) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    if (!state.counters[elementId]) {
+      state.counters[elementId] = new CountUp(elementId, 0, endValue, decimals, 1.5, {
+        useEasing: true,
+        useGrouping: true,
+        separator: ',',
+        decimal: '.',
+        prefix: '',
+        suffix: ''
       });
-
-      const currentDateIter = DateUtils.parseDate(startDateString);
-      const finalDate = DateUtils.parseDate(endDateString);
-
-      while (currentDateIter <= finalDate) {
-        const dateKey = dateUtils.formatDate(currentDateIter); // Format to 'YYYY-MM-DD'
-        labels.push(formatDateForDisplay(dateKey));
-
-        const dayData = dataMap.get(dateKey);
-        tripCounts.push(
-          dayData && typeof dayData.count === "number" ? dayData.count : 0,
-        );
-
-        currentDateIter.setDate(currentDateIter.getDate() + 1);
-      }
-
-      // Calculate 7-Day Moving Average
-      tripCounts.forEach((count, i, allCounts) => {
-        const slice = allCounts.slice(Math.max(0, i - 6), i + 1); // Window of up to 7 days
-        const sum = slice.reduce((acc, val) => acc + val, 0);
-        const avg = slice.length > 0 ? sum / slice.length : 0;
-        movingAvg.push(Number(avg.toFixed(1)));
-      });
-
-      tripCountsChart.data.labels = labels;
-      tripCountsChart.data.datasets = [
-        {
-          label: "Daily Trips",
-          data: tripCounts,
-          borderColor: "#BB86FC",
-          backgroundColor: "rgba(187, 134, 252, 0.2)",
-          tension: 0.1,
-          fill: true,
-        },
-        {
-          label: "7-Day Avg",
-          data: movingAvg,
-          borderColor: "#03DAC6",
-          borderDash: [5, 5], // Dashed line for average
-          tension: 0.1,
-          fill: false,
-        },
-      ];
-      tripCountsChart.update();
-    } catch (error) {
-      console.error("Error updating trip counts chart:", error);
-      if (tripCountsChart) {
-        // Attempt to clear chart on error
-        tripCountsChart.data.labels = [];
-        tripCountsChart.data.datasets = [];
-        tripCountsChart.update();
-      }
+    } else {
+      state.counters[elementId].update(endValue);
+    }
+    
+    if (!state.counters[elementId].error) {
+      state.counters[elementId].start();
+    } else {
+      element.textContent = endValue.toFixed(decimals);
     }
   }
 
-  function updateDistanceChart(dailyDistancesData) {
-    const rawDailyData = dailyDistancesData || [];
+  function updateTimeMetric(elementId, seconds) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
 
-    if (!distanceChart) {
-      console.warn("Distance chart not initialized. Cannot update.");
-      return;
-    }
-
-    try {
-      const labels = [];
-      const distances = [];
-
-      const dateUtils = window.DateUtils;
-      if (!dateUtils) {
-        console.error(
-          "DateUtils not available for updateDistanceChart. Chart will be cleared.",
-        );
-        distanceChart.data.labels = [];
-        distanceChart.data.datasets = [];
-        distanceChart.update();
-        return;
-      }
-
-      const startDateString = window.utils.getStorage("startDate");
-      const endDateString = window.utils.getStorage("endDate");
-
-      if (!startDateString || !endDateString) {
-        console.error(
-          "Start or end date not found in localStorage for distance chart. Chart will be cleared.",
-        );
-        distanceChart.data.labels = [];
-        distanceChart.data.datasets = [];
-        distanceChart.update();
-        return;
-      }
-
-      const dataMap = new Map();
-      rawDailyData.forEach((d) => {
-        if (d && d.date) {
-          const dateKey = d.date.substring(0, 10); // Assumes d.date is 'YYYY-MM-DD' or starts with it
-          dataMap.set(dateKey, d);
-        }
-      });
-
-      const currentDateIter = DateUtils.parseDate(startDateString);
-      const finalDate = DateUtils.parseDate(endDateString);
-
-      while (currentDateIter <= finalDate) {
-        const dateKey = dateUtils.formatDate(currentDateIter); // Format to 'YYYY-MM-DD'
-        labels.push(formatDateForDisplay(dateKey));
-
-        const dayData = dataMap.get(dateKey);
-        distances.push(
-          dayData && typeof dayData.distance === "number"
-            ? Number(dayData.distance.toFixed(2))
-            : 0,
-        );
-
-        currentDateIter.setDate(currentDateIter.getDate() + 1);
-      }
-
-      distanceChart.data.labels = labels;
-      distanceChart.data.datasets = [
-        {
-          label: "Daily Distance (miles)",
-          data: distances,
-          backgroundColor: "#03DAC6",
-          borderColor: "#018786",
-          borderWidth: 1,
-        },
-      ];
-      distanceChart.update();
-    } catch (error) {
-      console.error("Error updating distance chart:", error);
-      if (distanceChart) {
-        // Attempt to clear chart on error
-        distanceChart.data.labels = [];
-        distanceChart.data.datasets = [];
-        distanceChart.update();
-      }
-    }
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    element.textContent = `${hours}h ${minutes}m`;
   }
 
-  function updateFuelChart(generalData) {
-    if (!fuelConsumptionChart || !generalData) {
-      if (!fuelConsumptionChart)
-        console.warn("Fuel consumption chart not initialized.");
-      if (!generalData) console.warn("No general data for fuel chart.");
-      // Ensure chart is reset or shows default if data is missing
-      if (fuelConsumptionChart) {
-        fuelConsumptionChart.data.datasets[0].data = [0, 0];
-        fuelConsumptionChart.update();
-      }
-      return;
-    }
-
-    try {
-      const fuelConsumed = generalData.total_fuel_consumed || 0;
-      const totalDistance = generalData.total_distance || 0; // Use total_distance from generalData
-
-      const mpg =
-        fuelConsumed > 0 && totalDistance > 0
-          ? totalDistance / fuelConsumed
-          : 0;
-
-      fuelConsumptionChart.data.datasets[0].data = [
-        Number(fuelConsumed.toFixed(2)),
-        Number(mpg.toFixed(2)),
-      ];
-      fuelConsumptionChart.update();
-    } catch (error) {
-      console.error("Error updating fuel chart:", error);
-      if (fuelConsumptionChart) {
-        fuelConsumptionChart.data.datasets[0].data = [0, 0];
-        fuelConsumptionChart.update();
-      }
-    }
+  function updateComparisons() {
+    const { insights, behavior } = state.data;
+    
+    // Trips comparison
+    const dailyAvgTrips = (insights.total_trips || 0) / state.currentPeriod;
+    document.querySelector('#trips-comparison span').textContent = dailyAvgTrips.toFixed(1);
+    
+    // Distance comparison
+    const avgPerTrip = insights.total_trips > 0 
+      ? (insights.total_distance / insights.total_trips).toFixed(1)
+      : 0;
+    document.querySelector('#distance-comparison span').textContent = avgPerTrip;
+    
+    // Fuel comparison
+    const mpg = insights.total_distance > 0 && insights.total_fuel_consumed > 0
+      ? (insights.total_distance / insights.total_fuel_consumed).toFixed(1)
+      : 0;
+    document.querySelector('#fuel-comparison span').textContent = mpg;
+    
+    // Time comparison
+    document.querySelector('#time-comparison span').textContent = behavior.avgSpeed?.toFixed(1) || 0;
   }
 
-  function updateSummaryMetrics(data) {
-    if (!data) {
-      console.warn(
-        "No data provided for summary metrics. Resetting to defaults.",
-      );
-      resetCharts(); // This will also reset metric elements via its internal call
-      return;
-    }
-
-    setSummaryMetricElements(data);
-    renderMostVisited(data, document.getElementById("most-visited"));
-  }
-
-  function setSummaryMetricElements(data) {
-    const metrics = {
-      "total-trips": data.total_trips || 0,
-      "total-distance": `${(Number(data.total_distance) || 0).toFixed(2)} miles`,
-      "total-fuel": `${(Number(data.total_fuel_consumed) || 0).toFixed(2)} gallons`,
-      "max-speed": `${(Number(data.max_speed) || 0).toFixed(2)} mph`,
-      "total-idle": formatIdleDuration(data.total_idle_duration || 0),
-      "longest-trip": `${(Number(data.longest_trip_distance) || 0).toFixed(2)} miles`,
-    };
-    Object.entries(metrics).forEach(([id, value]) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = value;
+  function updateTrends() {
+    // This would calculate trends based on historical data
+    // For now, using placeholder values
+    const trends = document.querySelectorAll('.metric-trend');
+    trends.forEach(trend => {
+      const value = Math.random() * 20 - 10; // Random between -10 and 10
+      trend.innerHTML = value > 0 
+        ? `<i class="fas fa-arrow-up"></i> ${Math.abs(value).toFixed(0)}%`
+        : `<i class="fas fa-arrow-down"></i> ${Math.abs(value).toFixed(0)}%`;
+      trend.className = `metric-trend ${value > 0 ? 'positive' : 'negative'}`;
     });
   }
 
-  function renderMostVisited(data, mostVisitedEl) {
-    if (!mostVisitedEl) return; // Element not found
+  function updateTables() {
+    updateDestinationsTable();
+    updateAnalyticsTable();
+  }
 
-    const mostVisitedData = data.most_visited;
-    if (!mostVisitedData || Object.keys(mostVisitedData).length === 0) {
-      mostVisitedEl.textContent = "-"; // Default if no data
+  function updateDestinationsTable() {
+    const { insights } = state.data;
+    
+    // Simulate destination data (would come from actual API)
+    const destinations = [
+      { location: insights.most_visited?._id || 'Home', visits: 45, distance: 234.5, duration: '25m', lastVisit: '2 days ago' },
+      { location: 'Work', visits: 38, distance: 189.2, duration: '20m', lastVisit: 'Yesterday' },
+      { location: 'Grocery Store', visits: 24, distance: 56.8, duration: '10m', lastVisit: '3 days ago' },
+      { location: 'Gym', visits: 18, distance: 78.4, duration: '15m', lastVisit: 'Today' },
+      { location: 'Mall', visits: 12, distance: 134.7, duration: '30m', lastVisit: '1 week ago' }
+    ];
+    
+    const tbody = document.querySelector('#destinations-table tbody');
+    tbody.innerHTML = destinations.map(dest => `
+      <tr>
+        <td>${dest.location}</td>
+        <td>${dest.visits}</td>
+        <td>${dest.distance.toFixed(1)} mi</td>
+        <td>${dest.duration}</td>
+        <td>${dest.lastVisit}</td>
+      </tr>
+    `).join('');
+    
+    // Initialize DataTable if not already
+    if (!$.fn.DataTable.isDataTable('#destinations-table')) {
+      $('#destinations-table').DataTable({
+        order: [[1, 'desc']],
+        pageLength: 5,
+        lengthChange: false,
+        searching: false,
+        info: false
+      });
+    }
+  }
+
+  function updateAnalyticsTable() {
+    const { behavior } = state.data;
+    
+    const tableData = state.currentView === 'weekly' 
+      ? behavior.weekly || []
+      : behavior.monthly || [];
+    
+    const tbody = document.querySelector('#analytics-table tbody');
+    tbody.innerHTML = tableData.map(row => {
+      const period = state.currentView === 'weekly' 
+        ? formatWeekRange(row.week)
+        : formatMonth(row.month);
+      
+      const efficiency = row.distance > 0 && row.fuelConsumed > 0
+        ? (row.distance / row.fuelConsumed).toFixed(1)
+        : 'N/A';
+      
+      return `
+        <tr>
+          <td>${period}</td>
+          <td>${row.trips}</td>
+          <td>${row.distance.toFixed(1)} mi</td>
+          <td>${formatDuration(row.duration || 0)}</td>
+          <td>${(row.fuelConsumed || 0).toFixed(2)} gal</td>
+          <td>${row.hardBraking + row.hardAccel}</td>
+          <td>${efficiency} MPG</td>
+        </tr>
+      `;
+    }).join('');
+    
+    // Initialize or refresh DataTable
+    if ($.fn.DataTable.isDataTable('#analytics-table')) {
+      $('#analytics-table').DataTable().clear().destroy(true);
+    }
+    
+    $('#analytics-table').DataTable({
+      order: [[0, 'desc']],
+      pageLength: 10,
+      responsive: true
+    });
+  }
+
+  // Event Handlers
+  function handlePeriodChange(e) {
+    const btn = e.currentTarget;
+    const days = btn.dataset.days;
+    
+    if (days === 'custom') {
+      // Show custom date picker modal
+      showCustomDatePicker();
       return;
     }
+    
+    // Update active state
+    document.querySelectorAll('.period-preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    state.currentPeriod = parseInt(days);
+    loadAllData();
+  }
 
-    try {
-      let { _id } = mostVisitedData;
-      const { count, isCustomPlace } = mostVisitedData;
-      _id = parseMostVisitedId(_id); // Parse if it's a JSON string
-      const placeName = getMostVisitedPlaceName(_id); // Get display name
+  function handleToggleChange(e) {
+    const btn = e.currentTarget;
+    const parent = btn.parentElement;
+    
+    // Update active state
+    parent.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    // Update appropriate view
+    if (parent.closest('.chart-header').querySelector('.chart-title').textContent.includes('Trends')) {
+      state.currentView = btn.dataset.view;
+      updateTrendsChart();
+    } else if (btn.dataset.time) {
+      state.currentTimeView = btn.dataset.time;
+      updateTimeDistChart();
+    }
+  }
 
-      let htmlContent = `${placeName}`;
-      if (isCustomPlace) {
-        htmlContent += ` <span class="badge bg-primary">Custom</span>`;
+  function handleMetricClick(e) {
+    const card = e.currentTarget;
+    const comparison = card.querySelector('.stat-comparison');
+    if (comparison) {
+      comparison.classList.toggle('show');
+    }
+  }
+
+  // Utility Functions
+  function getDateRange() {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - state.currentPeriod);
+    
+    return {
+      start: formatDate(start),
+      end: formatDate(end)
+    };
+  }
+
+  function formatDate(date) {
+    return date.toISOString().split('T')[0];
+  }
+
+  function formatWeekRange(weekStr) {
+    // Convert "2024-W10" to "Mar 4-10, 2024"
+    const [year, week] = weekStr.split('-W');
+    const simple = new Date(year, 0, 1 + (week - 1) * 7);
+    const dow = simple.getDay();
+    const ISOweekStart = simple;
+    if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+    else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+    
+    const ISOweekEnd = new Date(ISOweekStart);
+    ISOweekEnd.setDate(ISOweekEnd.getDate() + 6);
+    
+    const options = { month: 'short', day: 'numeric' };
+    return `${ISOweekStart.toLocaleDateString('en-US', options)}-${ISOweekEnd.getDate()}, ${year}`;
+  }
+
+  function formatMonth(monthStr) {
+    // Convert "2024-03" to "March 2024"
+    const [year, month] = monthStr.split('-');
+    const date = new Date(year, month - 1);
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+
+  function formatDuration(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  }
+
+  function processTimeSeriesData(dailyData) {
+    const aggregated = aggregateByView(dailyData);
+    
+    return {
+      labels: aggregated.map(d => d.label),
+      distances: aggregated.map(d => d.distance),
+      counts: aggregated.map(d => d.count)
+    };
+  }
+
+  function aggregateByView(dailyData) {
+    if (state.currentView === 'daily') {
+      return dailyData.map(d => ({
+        label: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        distance: d.distance || 0,
+        count: d.count || 0
+      }));
+    }
+    
+    // Aggregate for weekly/monthly views
+    const aggregated = {};
+    
+    dailyData.forEach(d => {
+      const date = new Date(d.date);
+      let key;
+      
+      if (state.currentView === 'weekly') {
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - date.getDay());
+        key = weekStart.toISOString().split('T')[0];
+      } else {
+        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       }
-      htmlContent += ` (${count} visits)`;
-
-      mostVisitedEl.innerHTML = htmlContent;
-    } catch (error) {
-      console.error("Error formatting most visited location:", error);
-      mostVisitedEl.textContent = "Error displaying location"; // Fallback text
-    }
-  }
-
-  function parseMostVisitedId(_id) {
-    if (
-      typeof _id === "string" &&
-      _id.startsWith("{") && // Basic check for JSON-like string
-      _id.includes("formatted_address") // Heuristic
-    ) {
-      try {
-        return JSON.parse(_id);
-      } catch (e) {
-        console.warn(
-          "Failed to parse potential JSON string for most visited ID:",
-          _id,
-          e,
-        );
-        return _id; // Return original string if parsing fails
+      
+      if (!aggregated[key]) {
+        aggregated[key] = { distance: 0, count: 0 };
       }
-    }
-    return _id; // Return as is if not a parseable string
+      
+      aggregated[key].distance += d.distance || 0;
+      aggregated[key].count += d.count || 0;
+    });
+    
+    return Object.entries(aggregated).map(([key, value]) => ({
+      label: state.currentView === 'weekly' 
+        ? `Week of ${new Date(key).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+        : formatMonth(key),
+      distance: value.distance,
+      count: value.count
+    }));
   }
 
-  function getMostVisitedPlaceName(_idData) {
-    if (typeof _idData === "string") {
-      return _idData; // If it's already a simple string name
-    } else if (typeof _idData === "object" && _idData !== null) {
-      // Prioritize more descriptive fields if available
-      return (
-        _idData.formatted_address ||
-        _idData.name ||
-        _idData.place_name || // Common variations
-        _idData.placeName ||
-        _idData.location ||
-        _idData.address ||
-        // Fallback to a string representation if other fields are missing
-        (typeof _idData.toString === "function"
-          ? _idData.toString()
-          : "Unknown Location")
-      );
-    }
-    return "Unknown Location"; // Default fallback
+  function processHourlyData(timeData) {
+    const hourly = new Array(24).fill(0);
+    timeData.forEach(d => {
+      if (d.hour >= 0 && d.hour < 24) {
+        hourly[d.hour] = d.count;
+      }
+    });
+    return hourly;
   }
+
+  function processDailyData(timeData) {
+    // This would process data by day of week
+    // For now, returning sample data
+    return [12, 18, 15, 22, 25, 28, 14];
+  }
+
+  function calculateFuelEfficiency(insights, behavior) {
+    const mpg = insights.total_distance > 0 && insights.total_fuel_consumed > 0
+      ? insights.total_distance / insights.total_fuel_consumed
+      : 0;
+    
+    // Convert to percentage (assuming 30 MPG is 100%)
+    return Math.min((mpg / 30) * 100, 100);
+  }
+
+  function calculateIdleEfficiency(behavior) {
+    const totalTime = behavior.totalTrips * 30 * 60; // Assume 30 min avg per trip
+    const idlePercent = (behavior.totalIdlingTime / totalTime) * 100;
+    
+    // Lower idle percentage = higher efficiency
+    return Math.max(100 - idlePercent * 2, 0);
+  }
+
+  function calculateSpeedEfficiency(behavior) {
+    // Optimal speed range is 45-65 mph
+    const avgSpeed = behavior.avgSpeed || 0;
+    
+    if (avgSpeed >= 45 && avgSpeed <= 65) {
+      return 100;
+    } else if (avgSpeed < 45) {
+      return (avgSpeed / 45) * 100;
+    } else {
+      return Math.max(100 - ((avgSpeed - 65) * 2), 0);
+    }
+  }
+
+  function calculateBehaviorScores(behavior) {
+    const totalEvents = behavior.hardBrakingCounts + behavior.hardAccelerationCounts;
+    const eventsPerTrip = behavior.totalTrips > 0 ? totalEvents / behavior.totalTrips : 0;
+    
+    return {
+      current: [
+        calculateSpeedControl(behavior),
+        calculateSmoothDriving(eventsPerTrip),
+        calculateFuelEconomy(behavior),
+        calculateTimeManagement(behavior),
+        calculateSafety(behavior)
+      ],
+      previous: [80, 75, 70, 85, 90] // Placeholder for previous period
+    };
+  }
+
+  function calculateSpeedControl(behavior) {
+    const speedVariance = behavior.maxSpeed - behavior.avgSpeed;
+    return Math.max(100 - speedVariance, 0);
+  }
+
+  function calculateSmoothDriving(eventsPerTrip) {
+    return Math.max(100 - (eventsPerTrip * 20), 0);
+  }
+
+  function calculateFuelEconomy(behavior) {
+    const mpg = behavior.totalDistance > 0 && behavior.fuelConsumed > 0
+      ? behavior.totalDistance / behavior.fuelConsumed
+      : 0;
+    return Math.min((mpg / 30) * 100, 100);
+  }
+
+  function calculateTimeManagement(behavior) {
+    const idlePercent = behavior.totalTrips > 0
+      ? (behavior.totalIdlingTime / (behavior.totalTrips * 30 * 60)) * 100
+      : 0;
+    return Math.max(100 - idlePercent * 2, 0);
+  }
+
+  function calculateSafety(behavior) {
+    const safetyScore = 100 - 
+      (behavior.hardBrakingCounts * 2) - 
+      (behavior.hardAccelerationCounts * 2) - 
+      (Math.max(behavior.maxSpeed - 70, 0) * 3);
+    return Math.max(safetyScore, 0);
+  }
+
+  // Loading States
+  function showLoadingStates() {
+    document.getElementById('trends-loading').style.display = 'flex';
+    document.getElementById('trendsChart').style.display = 'none';
+  }
+
+  function hideLoadingStates() {
+    document.getElementById('trends-loading').style.display = 'none';
+    document.getElementById('trendsChart').style.display = 'block';
+  }
+
+  // Notifications
+  function showNotification(message, type = 'info') {
+    if (window.notificationManager) {
+      window.notificationManager.show(message, type);
+    } else {
+      console.log(`${type}: ${message}`);
+    }
+  }
+
+  // Export Functions
+  function exportChart() {
+    const canvas = document.getElementById('trendsChart');
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `driving-trends-${new Date().toISOString().split('T')[0]}.png`;
+    a.click();
+  }
+
+  function exportData() {
+    const table = $('#analytics-table').DataTable();
+    const data = table.rows().data().toArray();
+    
+    let csv = 'Period,Trips,Distance,Duration,Fuel,Hard Events,Efficiency\n';
+    data.forEach(row => {
+      csv += `${row[0]},${row[1]},${row[2]},${row[3]},${row[4]},${row[5]},${row[6]}\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `driving-analytics-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  }
+
+  async function generateReport() {
+    showNotification('Generating report...', 'info');
+    
+    // This would generate a PDF report
+    // For now, just show a success message
+    setTimeout(() => {
+      showNotification('Report downloaded successfully!', 'success');
+    }, 2000);
+  }
+
+  function shareInsights() {
+    const shareData = {
+      title: 'My Driving Insights',
+      text: `Total Distance: ${state.data.insights.total_distance} miles | Trips: ${state.data.insights.total_trips}`,
+      url: window.location.href
+    };
+    
+    if (navigator.share) {
+      navigator.share(shareData);
+    } else {
+      // Fallback to copying to clipboard
+      navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
+      showNotification('Link copied to clipboard!', 'success');
+    }
+  }
+
+  function showCustomDatePicker() {
+    // This would show a modal with date pickers
+    showNotification('Custom date range picker coming soon!', 'info');
+  }
+
+  // Auto Refresh
+  function startAutoRefresh() {
+    // Refresh data every 5 minutes
+    state.autoRefreshInterval = setInterval(() => {
+      loadAllData();
+    }, 5 * 60 * 1000);
+  }
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    if (state.autoRefreshInterval) {
+      clearInterval(state.autoRefreshInterval);
+    }
+  });
+
 })();

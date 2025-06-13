@@ -131,6 +131,7 @@
       />
     </noscript>
 
+    {% block extra_css %}{% endblock %}
     {% block head_content %}{% endblock %}
   </head>
   <body>
@@ -202,15 +203,15 @@
                 </a>
               </li>
               <li
-                class="nav-item {% if request.url.path == '/driving-insights' %}active{% endif %}"
+                class="nav-item {% if request.url.path == '/insights' %}active{% endif %}"
               >
                 <a
-                  href="/driving-insights"
+                  href="/insights"
                   title="Insights"
                   {%
                   if
                   request.url.path ==
-                  "/driving-insights"
+                  "/insights"
                   %}aria-current="page"
                   {%
                   endif
@@ -218,25 +219,6 @@
                 >
                   <i class="fas fa-chart-line" aria-hidden="true"></i>
                   <span>Insights</span>
-                </a>
-              </li>
-              <li
-                class="nav-item {% if request.url.path == '/driver-behavior' %}active{% endif %}"
-              >
-                <a
-                  href="/driver-behavior"
-                  title="Driver Behavior"
-                  {%
-                  if
-                  request.url.path ==
-                  "/driver-behavior"
-                  %}aria-current="page"
-                  {%
-                  endif
-                  %}
-                >
-                  <i class="fas fa-bar-chart" aria-hidden="true"></i>
-                  <span>Driver Behavior</span>
                 </a>
               </li>
               <li
@@ -538,12 +520,12 @@
             </li>
             <li role="none">
               <a
-                href="/driving-insights"
-                class="{% if request.url.path == '/driving-insights' %}active{% endif %}"
+                href="/insights"
+                class="{% if request.url.path == '/insights' %}active{% endif %}"
                 {%
                 if
                 request.url.path ==
-                "/driving-insights"
+                "/insights"
                 %}aria-current="page"
                 {%
                 endif
@@ -551,23 +533,6 @@
               >
                 <i class="fas fa-chart-line me-2" aria-hidden="true"></i>
                 Driving Insights
-              </a>
-            </li>
-            <li role="none">
-              <a
-                href="/driver-behavior"
-                class="{% if request.url.path == '/driver-behavior' %}active{% endif %}"
-                {%
-                if
-                request.url.path ==
-                "/driver-behavior"
-                %}aria-current="page"
-                {%
-                endif
-                %}
-              >
-                <i class="fas fa-bar-chart me-2" aria-hidden="true"></i> Driver
-                Behavior
               </a>
             </li>
             <li role="none">
@@ -880,8 +845,8 @@
     <!-- App scripts - Load in dependency order -->
     <script src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"></script>
     <script src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
-    <script src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"></script>
-    <script src="{{ url_for('static', path='js/modern-ui.js') | replace('http://', '//') }}"></script>
+    <script type="module" src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"></script>
+    <script type="module" src="{{ url_for('static', path='js/modern-ui.js') | replace('http://', '//') }}"></script>
 
     {% block extra_js %}{% endblock %}
 
