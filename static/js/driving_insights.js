@@ -120,7 +120,9 @@ if (typeof window !== "undefined") {
       const prevEndDateObj = new Date(dateRange.start);
       prevEndDateObj.setDate(prevEndDateObj.getDate() - 1);
       const prevStartDateObj = new Date(prevEndDateObj);
-      prevStartDateObj.setDate(prevStartDateObj.getDate() - (state.currentPeriod - 1));
+      prevStartDateObj.setDate(
+        prevStartDateObj.getDate() - (state.currentPeriod - 1),
+      );
 
       const prevRange = {
         start: formatDate(prevStartDateObj),
@@ -132,7 +134,14 @@ if (typeof window !== "undefined") {
         end_date: prevRange.end,
       });
 
-      const [behavior, insights, analytics, metrics, prevBehavior, prevInsights] = await Promise.all([
+      const [
+        behavior,
+        insights,
+        analytics,
+        metrics,
+        prevBehavior,
+        prevInsights,
+      ] = await Promise.all([
         fetch(`/api/driver-behavior?${params}`).then((r) => r.json()),
         fetch(`/api/driving-insights?${params}`).then((r) => r.json()),
         fetch(`/api/trip-analytics?${params}`).then((r) => r.json()),
@@ -586,16 +595,15 @@ if (typeof window !== "undefined") {
 
     const tbody = document.querySelector("#destinations-table tbody");
     tbody.innerHTML = destinations
-      .map(
-        (dest) => {
-          const duration = formatDuration(dest.duration_seconds || 0);
-          const last = dest.lastVisit
-            ? new Date(dest.lastVisit).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })
-            : "-";
-          return `
+      .map((dest) => {
+        const duration = formatDuration(dest.duration_seconds || 0);
+        const last = dest.lastVisit
+          ? new Date(dest.lastVisit).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })
+          : "-";
+        return `
       <tr>
         <td>${dest.location || "Unknown"}</td>
         <td>${dest.visits}</td>
@@ -604,8 +612,7 @@ if (typeof window !== "undefined") {
         <td>${last}</td>
       </tr>
     `;
-        }
-      )
+      })
       .join("");
 
     // Initialize DataTable if not already
@@ -707,7 +714,9 @@ if (typeof window !== "undefined") {
     const utilsObj = window.utils || {};
     const today = formatDate(new Date());
     return {
-      start: utilsObj.getStorage ? utilsObj.getStorage("startDate", today) : today,
+      start: utilsObj.getStorage
+        ? utilsObj.getStorage("startDate", today)
+        : today,
       end: utilsObj.getStorage ? utilsObj.getStorage("endDate", today) : today,
     };
   }
