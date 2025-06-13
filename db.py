@@ -908,17 +908,50 @@ async def build_query_from_request(
         MongoDB query filter
 
     """
-    date_filter = await parse_date_params(
-        request,
-        field_name=date_field,
-        end_of_day=end_of_day,
-    )
-    query = date_filter.get_query_dict()
+    # ------------------------------------------------------------------
+    # NEW: Simple, timezone-aware date filtering without helper classes
+    # ------------------------------------------------------------------
+    query: dict[str, Any] = {}
 
+    start_date_str = request.query_params.get("start_date")
+    end_date_str = request.query_params.get("end_date")
+
+    if start_date_str or end_date_str:
+        tz_expr = {
+            "$switch": {
+                "branches": [
+                    {
+                        "case": {"$in": ["$timeZone", ["", "0000"]]},
+                        "then": "UTC",
+                    }
+                ],
+                "default": {"$ifNull": ["$timeZone", "UTC"]},
+            }
+        }
+
+        date_expr = {
+            "$dateToString": {
+                "format": "%Y-%m-%d",
+                "date": f"${date_field}",
+                "timezone": tz_expr,
+            }
+        }
+
+        expr_clauses = []
+        if start_date_str:
+            expr_clauses.append({"$gte": [date_expr, start_date_str]})
+        if end_date_str:
+            expr_clauses.append({"$lte": [date_expr, end_date_str]})
+
+        if expr_clauses:
+            query["$expr"] = {"$and": expr_clauses} if len(expr_clauses) > 1 else expr_clauses[0]
+
+    # IMEI filter
     imei_param = request.query_params.get("imei")
     if include_imei and imei_param:
         query["imei"] = imei_param
 
+    # Any extra filters requested by caller
     if additional_filters:
         query.update(additional_filters)
 

@@ -158,15 +158,51 @@ async def get_trips_datatable(request: Request):
         start_date = body.get("start_date")
         end_date = body.get("end_date")
 
+
+        # ------------------------------------------------------------------
+        # Date filtering – use **each trip's own time zone**
+        # ------------------------------------------------------------------
+        # The client sends calendar dates (YYYY-MM-DD). We need trips whose
+        # local start date – when converted to that trip's timeZone field –
+        # falls inside the selected range.  We can do this entirely inside
+        # MongoDB using a $dateToString+$expr filter so there is no Python-side
+        # timezone math and no helper utilities.
+
         query = {}
-        if start_date and end_date:
-            try:
-                parsed_start = parse_query_date(start_date)
-                parsed_end = parse_query_date(end_date, end_of_day=True)
-                if parsed_start and parsed_end:
-                    query["startTime"] = {"$gte": parsed_start, "$lte": parsed_end}
-            except Exception as e:
-                logger.warning(f"Error parsing dates: {e}")
+
+        if start_date or end_date:
+            # Build an expression that converts startTime to the trip's local
+            # calendar date string ("YYYY-MM-DD") using the timeZone stored on
+            # the document (or UTC if missing) and then compares that string
+            # to the supplied start/end date strings.
+            tz_expr = {
+                "$switch": {
+                    "branches": [
+                        {
+                            "case": {"$in": ["$timeZone", ["", "0000"]]},
+                            "then": "UTC",
+                        }
+                    ],
+                    "default": {"$ifNull": ["$timeZone", "UTC"]},
+                }
+            }
+
+            date_expr = {
+                "$dateToString": {
+                    "format": "%Y-%m-%d",
+                    "date": "$startTime",
+                    "timezone": tz_expr,
+                }
+            }
+
+            expr_clauses = []
+            if start_date:
+                expr_clauses.append({"$gte": [date_expr, start_date]})
+            if end_date:
+                expr_clauses.append({"$lte": [date_expr, end_date]})
+
+            if expr_clauses:
+                query["$expr"] = {"$and": expr_clauses} if len(expr_clauses) > 1 else expr_clauses[0]
 
         if search_value:
             search_regex = {"$regex": search_value, "$options": "i"}
