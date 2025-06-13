@@ -128,7 +128,8 @@ async def _recalculate_coverage_stats(
             total_length = agg_result.get("total_length", 0.0) or 0.0
             driven_length = agg_result.get("driven_length", 0.0) or 0.0
             driveable_length = agg_result.get("driveable_length", 0.0) or 0.0
-            total_segments = agg_result.get("driveable_segments", 0) or 0
+            total_segments = agg_result.get("total_segments", 0) or 0
+            driveable_segments = agg_result.get("driveable_segments", 0) or 0
 
             coverage_percentage = (
                 (driven_length / driveable_length * 100)
@@ -188,12 +189,12 @@ async def _recalculate_coverage_stats(
             )
 
             stats = {
-                "total_length": driveable_length,
+                "total_length": total_length,
                 "driven_length": driven_length,
                 "driveable_length": driveable_length,
-                "driveable_segments": total_segments,
-                "coverage_percentage": coverage_percentage,
                 "total_segments": total_segments,
+                "driveable_segments": driveable_segments,
+                "coverage_percentage": coverage_percentage,
                 "street_types": final_street_types,
             }
 

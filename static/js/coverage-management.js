@@ -3415,17 +3415,12 @@ const STATUS = window.STATUS || {
       );
       if (!statsContainer) return;
 
-      const totalLengthM = parseFloat(
-        coverage.driveable_length ?? coverage.total_length ?? 0
-      );
+      const totalLengthM = parseFloat(coverage.total_length || 0);
       const drivenLengthM = parseFloat(coverage.driven_length || 0);
       const coveragePercentage = parseFloat(
         coverage.coverage_percentage || 0
       ).toFixed(1);
-      const totalSegments = parseInt(
-        coverage.driveable_segments ?? coverage.total_segments ?? 0,
-        10
-      );
+      const totalSegments = parseInt(coverage.total_segments || 0, 10);
 
       let coveredSegments = 0;
       if (Array.isArray(coverage.street_types)) {
