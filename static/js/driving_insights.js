@@ -26,6 +26,7 @@ if (typeof window !== "undefined") {
     counters: {},
     isLoading: false,
     autoRefreshInterval: null,
+    prevRange: null,
   };
 
   // Initialize on DOM ready
@@ -115,14 +116,33 @@ if (typeof window !== "undefined") {
         end_date: dateRange.end,
       });
 
-      const [behavior, insights, analytics, metrics] = await Promise.all([
+      // Calculate previous-period date range for trend comparisons
+      const prevEndDateObj = new Date(dateRange.start);
+      prevEndDateObj.setDate(prevEndDateObj.getDate() - 1);
+      const prevStartDateObj = new Date(prevEndDateObj);
+      prevStartDateObj.setDate(prevStartDateObj.getDate() - (state.currentPeriod - 1));
+
+      const prevRange = {
+        start: formatDate(prevStartDateObj),
+        end: formatDate(prevEndDateObj),
+      };
+
+      const paramsPrev = new URLSearchParams({
+        start_date: prevRange.start,
+        end_date: prevRange.end,
+      });
+
+      const [behavior, insights, analytics, metrics, prevBehavior, prevInsights] = await Promise.all([
         fetch(`/api/driver-behavior?${params}`).then((r) => r.json()),
         fetch(`/api/driving-insights?${params}`).then((r) => r.json()),
         fetch(`/api/trip-analytics?${params}`).then((r) => r.json()),
         fetch(`/api/metrics?${params}`).then((r) => r.json()),
+        fetch(`/api/driver-behavior?${paramsPrev}`).then((r) => r.json()),
+        fetch(`/api/driving-insights?${paramsPrev}`).then((r) => r.json()),
       ]);
 
       state.data = { behavior, insights, analytics, metrics };
+      state.prevRange = { behavior: prevBehavior, insights: prevInsights };
 
       updateAllMetrics();
       updateAllCharts();
@@ -365,7 +385,7 @@ if (typeof window !== "undefined") {
     // Update comparisons
     updateComparisons();
 
-    // Update trends
+    // Update trends vs. previous fetch
     updateTrends();
   }
 
@@ -504,16 +524,46 @@ if (typeof window !== "undefined") {
   }
 
   function updateTrends() {
-    // This would calculate trends based on historical data
-    // For now, using placeholder values
-    const trends = document.querySelectorAll(".metric-trend");
-    trends.forEach((trend) => {
-      const value = Math.random() * 20 - 10; // Random between -10 and 10
-      trend.innerHTML =
-        value > 0
-          ? `<i class="fas fa-arrow-up"></i> ${Math.abs(value).toFixed(0)}%`
-          : `<i class="fas fa-arrow-down"></i> ${Math.abs(value).toFixed(0)}%`;
-      trend.className = `metric-trend ${value > 0 ? "positive" : "negative"}`;
+    if (!state.prevRange) return;
+
+    const { insights, behavior } = state.data;
+    const { insights: prevIn, behavior: prevBh } = state.prevRange;
+
+    const trendElements = document.querySelectorAll(".metric-trend");
+    if (trendElements.length < 4) return;
+
+    const currentVals = [
+      insights.total_trips || 0,
+      insights.total_distance || 0,
+      insights.total_fuel_consumed || 0,
+      behavior.avgSpeed || 0,
+    ];
+
+    const prevVals = [
+      prevIn?.total_trips || 0,
+      prevIn?.total_distance || 0,
+      prevIn?.total_fuel_consumed || 0,
+      prevBh?.avgSpeed || 0,
+    ];
+
+    trendElements.forEach((el, idx) => {
+      const curr = currentVals[idx];
+      const prev = prevVals[idx];
+      let diff = 0;
+      if (prev > 0) diff = ((curr - prev) / prev) * 100;
+
+      let cls = "neutral";
+      let icon = "fa-minus";
+      if (diff > 0.5) {
+        cls = "positive";
+        icon = "fa-arrow-up";
+      } else if (diff < -0.5) {
+        cls = "negative";
+        icon = "fa-arrow-down";
+      }
+
+      el.className = `metric-trend ${cls}`;
+      el.innerHTML = `${diff !== 0 ? `<i class="fas ${icon}"></i>` : ""} ${Math.abs(diff).toFixed(0)}%`;
     });
   }
 
@@ -525,57 +575,36 @@ if (typeof window !== "undefined") {
   function updateDestinationsTable() {
     const { insights } = state.data;
 
-    // Simulate destination data (would come from actual API)
-    const destinations = [
-      {
-        location: insights.most_visited?._id || "Home",
-        visits: 45,
-        distance: 234.5,
-        duration: "25m",
-        lastVisit: "2 days ago",
-      },
-      {
-        location: "Work",
-        visits: 38,
-        distance: 189.2,
-        duration: "20m",
-        lastVisit: "Yesterday",
-      },
-      {
-        location: "Grocery Store",
-        visits: 24,
-        distance: 56.8,
-        duration: "10m",
-        lastVisit: "3 days ago",
-      },
-      {
-        location: "Gym",
-        visits: 18,
-        distance: 78.4,
-        duration: "15m",
-        lastVisit: "Today",
-      },
-      {
-        location: "Mall",
-        visits: 12,
-        distance: 134.7,
-        duration: "30m",
-        lastVisit: "1 week ago",
-      },
-    ];
+    const destinations = insights.top_destinations || [];
+
+    if (!destinations.length) {
+      const tbody = document.querySelector("#destinations-table tbody");
+      tbody.innerHTML =
+        '<tr><td colspan="5" class="text-center">No destination data in the selected date range.</td></tr>';
+      return;
+    }
 
     const tbody = document.querySelector("#destinations-table tbody");
     tbody.innerHTML = destinations
       .map(
-        (dest) => `
+        (dest) => {
+          const duration = formatDuration(dest.duration_seconds || 0);
+          const last = dest.lastVisit
+            ? new Date(dest.lastVisit).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })
+            : "-";
+          return `
       <tr>
-        <td>${dest.location}</td>
+        <td>${dest.location || "Unknown"}</td>
         <td>${dest.visits}</td>
         <td>${dest.distance.toFixed(1)} mi</td>
-        <td>${dest.duration}</td>
-        <td>${dest.lastVisit}</td>
+        <td>${duration}</td>
+        <td>${last}</td>
       </tr>
-    `,
+    `;
+        }
       )
       .join("");
 
@@ -782,9 +811,14 @@ if (typeof window !== "undefined") {
   }
 
   function processDailyData(timeData) {
-    // This would process data by day of week
-    // For now, returning sample data
-    return [12, 18, 15, 22, 25, 28, 14];
+    // Aggregate counts by weekday (0–6) if such info exists in timeData
+    const byDay = new Array(7).fill(0);
+    timeData.forEach((d) => {
+      if (d.day !== undefined && d.day >= 0 && d.day <= 6) {
+        byDay[d.day] += d.count || 0;
+      }
+    });
+    return byDay;
   }
 
   function calculateFuelEfficiency(insights, behavior) {
@@ -824,15 +858,33 @@ if (typeof window !== "undefined") {
     const eventsPerTrip =
       behavior.totalTrips > 0 ? totalEvents / behavior.totalTrips : 0;
 
+    const currentScores = [
+      calculateSpeedControl(behavior),
+      calculateSmoothDriving(eventsPerTrip),
+      calculateFuelEconomy(behavior),
+      calculateTimeManagement(behavior),
+      calculateSafety(behavior),
+    ];
+
+    let previousScores = currentScores;
+    if (state.prevRange?.behavior) {
+      const prevBh = state.prevRange.behavior;
+      const prevEvents =
+        prevBh.hardBrakingCounts + prevBh.hardAccelerationCounts;
+      const prevEventsPerTrip =
+        prevBh.totalTrips > 0 ? prevEvents / prevBh.totalTrips : 0;
+      previousScores = [
+        calculateSpeedControl(prevBh),
+        calculateSmoothDriving(prevEventsPerTrip),
+        calculateFuelEconomy(prevBh),
+        calculateTimeManagement(prevBh),
+        calculateSafety(prevBh),
+      ];
+    }
+
     return {
-      current: [
-        calculateSpeedControl(behavior),
-        calculateSmoothDriving(eventsPerTrip),
-        calculateFuelEconomy(behavior),
-        calculateTimeManagement(behavior),
-        calculateSafety(behavior),
-      ],
-      previous: [80, 75, 70, 85, 90], // Placeholder for previous period
+      current: currentScores,
+      previous: previousScores,
     };
   }
 

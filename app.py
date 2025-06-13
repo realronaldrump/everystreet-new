@@ -1946,7 +1946,7 @@ async def driver_behavior_analytics(request: Request):
     weekly_trend = [{"week": k, **v} for k, v in sorted(weekly.items())]
     monthly_trend = [{"month": k, **v} for k, v in sorted(monthly.items())]
 
-    return {
+    combined = {
         "totalTrips": total_trips,
         "totalDistance": round(total_distance, 2),
         "avgSpeed": round(avg_speed, 2),
@@ -1958,6 +1958,9 @@ async def driver_behavior_analytics(request: Request):
         "weekly": weekly_trend,
         "monthly": monthly_trend,
     }
+
+    # Ensure all datetime objects are JSON serializable (convert to ISO strings)
+    return JSONResponse(content=convert_datetimes_to_isoformat(combined))
 
 
 def convert_datetimes_to_isoformat(item: Any) -> Any:
@@ -2057,23 +2060,46 @@ async def get_driving_insights(request: Request):
 
         trips_result = await aggregate_with_retry(trips_collection, pipeline)
 
-        pipeline_most_visited = [
+        # Top destinations (up to 5) with basic stats
+        pipeline_top_destinations = [
             {"$match": query},
+            {
+                "$addFields": {
+                    "duration_seconds": {
+                        "$cond": {
+                            "if": {
+                                "$and": [
+                                    {"$ifNull": ["$startTime", None]},
+                                    {"$ifNull": ["$endTime", None]},
+                                    {"$lt": ["$startTime", "$endTime"]},
+                                ]
+                            },
+                            "then": {
+                                "$divide": [
+                                    {"$subtract": ["$endTime", "$startTime"]},
+                                    1000,
+                                ]
+                            },
+                            "else": 0.0,
+                        }
+                    }
+                }
+            },
             {
                 "$group": {
                     "_id": "$destination",
-                    "count": {"$sum": 1},
+                    "visits": {"$sum": 1},
+                    "distance": {"$sum": {"$ifNull": ["$distance", 0]}},
+                    "total_duration": {"$sum": "$duration_seconds"},
+                    "last_visit": {"$max": "$endTime"},
                     "isCustomPlace": {"$first": "$isCustomPlace"},
-                },
+                }
             },
-            {"$sort": {"count": -1}},
-            {"$limit": 1},
+            {"$sort": {"visits": -1}},
+            {"$limit": 5},
         ]
 
-        trips_mv = await aggregate_with_retry(
-            trips_collection,
-            pipeline_most_visited,
-        )
+        trips_top = await aggregate_with_retry(trips_collection, pipeline_top_destinations)
 
         combined = {
             "total_trips": 0,
@@ -2083,6 +2109,7 @@ async def get_driving_insights(request: Request):
             "total_idle_duration": 0,
             "longest_trip_distance": 0.0,
             "most_visited": {},
+            "top_destinations": [],
         }
 
         if trips_result and trips_result[0]:
@@ -2097,15 +2124,29 @@ async def get_driving_insights(request: Request):
                 0,
             )
 
-        if trips_mv and trips_mv[0]:
-            best = trips_mv[0]
+        if trips_top:
+            # The first entry is also the "most visited" location
+            best = trips_top[0]
             combined["most_visited"] = {
                 "_id": best["_id"],
-                "count": best["count"],
+                "count": best["visits"],
                 "isCustomPlace": best.get("isCustomPlace", False),
             }
 
-        return JSONResponse(content=combined)
+            # Add formatted top destinations list
+            combined["top_destinations"] = [
+                {
+                    "location": d["_id"],
+                    "visits": d.get("visits", 0),
+                    "distance": round(d.get("distance", 0.0), 2),
+                    "duration_seconds": round(d.get("total_duration", 0.0), 0),
+                    "lastVisit": d.get("last_visit"),
+                    "isCustomPlace": d.get("isCustomPlace", False),
+                }
+                for d in trips_top
+            ]
+
+        return JSONResponse(content=convert_datetimes_to_isoformat(combined))
     except Exception as e:
         logger.exception(
             "Error in get_driving_insights: %s",
