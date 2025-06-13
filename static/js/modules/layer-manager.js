@@ -1,8 +1,8 @@
-import utils from './utils.js';
-import { CONFIG } from './config.js';
-import state from './state.js';
-import dataManager from './data-manager.js';
-import mapManager from './map-manager.js';
+import utils from "./utils.js";
+import { CONFIG } from "./config.js";
+import state from "./state.js";
+import dataManager from "./data-manager.js";
+import mapManager from "./map-manager.js";
 
 // Extracted from app.js – unchanged except minimal path updates.
 const layerManager = {
@@ -10,39 +10,38 @@ const layerManager = {
   _layerCleanupMap: new Map(),
 
   initializeControls() {
-    const container = utils.getElement('layer-toggles');
+    const container = utils.getElement("layer-toggles");
     if (!container) return;
 
     // Load saved layer settings
-    const settings =
-      utils.getStorage(CONFIG.STORAGE_KEYS.layerSettings) || {};
+    const settings = utils.getStorage(CONFIG.STORAGE_KEYS.layerSettings) || {};
     Object.entries(settings).forEach(([name, settings]) => {
       if (state.mapLayers[name]) {
         Object.assign(state.mapLayers[name], settings);
       }
     });
 
-    container.innerHTML = '';
+    container.innerHTML = "";
     const fragment = document.createDocumentFragment();
 
     Object.entries(state.mapLayers).forEach(([name, info]) => {
-      const div = document.createElement('div');
+      const div = document.createElement("div");
       div.className =
-        'layer-control d-flex align-items-center mb-2 p-2 rounded';
+        "layer-control d-flex align-items-center mb-2 p-2 rounded";
       div.dataset.layerName = name;
 
       const checkboxId = `${name}-toggle`;
       div.innerHTML = `
           <div class="form-check form-switch me-auto">
             <input class="form-check-input" type="checkbox" id="${checkboxId}"
-                   ${info.visible ? 'checked' : ''} role="switch">
+                   ${info.visible ? "checked" : ""} role="switch">
             <label class="form-check-label" for="${checkboxId}">
               ${info.name || name}
               <span class="layer-loading d-none" id="${name}-loading"></span>
             </label>
           </div>
           ${
-            name !== 'customPlaces'
+            name !== "customPlaces"
               ? `
             <input type="color" id="${name}-color" value="${info.color}"
                    class="form-control form-control-color me-2"
@@ -52,7 +51,7 @@ const layerManager = {
                    value="${info.opacity}" class="form-range" style="width: 80px;"
                    title="Layer opacity">
           `
-              : ''
+              : ""
           }
         `;
 
@@ -66,18 +65,18 @@ const layerManager = {
 
   setupEventListeners(container) {
     container.addEventListener(
-      'change',
+      "change",
       utils.debounce((e) => {
         const input = e.target;
-        const layerName = input.closest('.layer-control')?.dataset.layerName;
+        const layerName = input.closest(".layer-control")?.dataset.layerName;
         if (!layerName) return;
 
-        if (input.type === 'checkbox') {
+        if (input.type === "checkbox") {
           this.toggleLayer(layerName, input.checked);
-        } else if (input.type === 'color') {
-          this.updateLayerStyle(layerName, 'color', input.value);
-        } else if (input.type === 'range') {
-          this.updateLayerStyle(layerName, 'opacity', parseFloat(input.value));
+        } else if (input.type === "color") {
+          this.updateLayerStyle(layerName, "color", input.value);
+        } else if (input.type === "range") {
+          this.updateLayerStyle(layerName, "opacity", parseFloat(input.value));
         }
 
         this.saveLayerSettings();
@@ -92,22 +91,26 @@ const layerManager = {
     layerInfo.visible = visible;
 
     const loadingEl = document.getElementById(`${name}-loading`);
-    if (loadingEl) loadingEl.classList.remove('d-none');
+    if (loadingEl) loadingEl.classList.remove("d-none");
 
     if (visible) {
-      if (name === 'matchedTrips' && !layerInfo.layer) {
+      if (name === "matchedTrips" && !layerInfo.layer) {
         await dataManager.fetchMatchedTrips();
-      } else if (name === 'undrivenStreets' && !state.undrivenStreetsLoaded) {
+      } else if (name === "undrivenStreets" && !state.undrivenStreetsLoaded) {
         await dataManager.fetchUndrivenStreets();
       }
     }
 
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
-      state.map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+      state.map.setLayoutProperty(
+        layerId,
+        "visibility",
+        visible ? "visible" : "none",
+      );
     }
 
-    if (loadingEl) loadingEl.classList.add('d-none');
+    if (loadingEl) loadingEl.classList.add("d-none");
   },
 
   updateLayerStyle(name, property, value) {
@@ -118,7 +121,8 @@ const layerManager = {
 
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
-      const paintProperty = property === 'color' ? 'line-color' : 'line-opacity';
+      const paintProperty =
+        property === "color" ? "line-color" : "line-opacity";
       state.map.setPaintProperty(layerId, paintProperty, value);
     }
   },
@@ -137,7 +141,7 @@ const layerManager = {
   },
 
   updateLayerOrder() {
-    const container = utils.getElement('layer-order-list');
+    const container = utils.getElement("layer-order-list");
     if (!container) return;
 
     const sortedLayers = Object.entries(state.mapLayers).sort(
@@ -161,22 +165,22 @@ const layerManager = {
           </li>
         `,
       )
-      .join('');
+      .join("");
 
     this.setupDragAndDrop(container);
 
-    container.addEventListener('click', (e) => {
-      const button = e.target.closest('button');
+    container.addEventListener("click", (e) => {
+      const button = e.target.closest("button");
       if (!button) return;
 
-      const li = button.closest('li');
+      const li = button.closest("li");
       const layerName = li?.dataset.layerName;
       if (!layerName) return;
 
-      if (button.classList.contains('move-up') && li.previousElementSibling) {
+      if (button.classList.contains("move-up") && li.previousElementSibling) {
         container.insertBefore(li, li.previousElementSibling);
       } else if (
-        button.classList.contains('move-down') &&
+        button.classList.contains("move-down") &&
         li.nextElementSibling
       ) {
         container.insertBefore(li.nextElementSibling, li);
@@ -189,23 +193,23 @@ const layerManager = {
   setupDragAndDrop(container) {
     let draggedElement = null;
 
-    container.addEventListener('dragstart', (e) => {
-      draggedElement = e.target.closest('li');
+    container.addEventListener("dragstart", (e) => {
+      draggedElement = e.target.closest("li");
       if (draggedElement) {
-        draggedElement.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
+        draggedElement.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
       }
     });
 
-    container.addEventListener('dragend', () => {
+    container.addEventListener("dragend", () => {
       if (draggedElement) {
-        draggedElement.classList.remove('dragging');
+        draggedElement.classList.remove("dragging");
         draggedElement = null;
         this.reorderLayers();
       }
     });
 
-    container.addEventListener('dragover', (e) => {
+    container.addEventListener("dragover", (e) => {
       e.preventDefault();
       const afterElement = this.getDragAfterElement(container, e.clientY);
       if (afterElement == null) {
@@ -218,7 +222,7 @@ const layerManager = {
 
   getDragAfterElement(container, y) {
     const draggableElements = [
-      ...container.querySelectorAll('li:not(.dragging)'),
+      ...container.querySelectorAll("li:not(.dragging)"),
     ];
 
     return draggableElements.reduce(
@@ -237,7 +241,7 @@ const layerManager = {
   },
 
   reorderLayers() {
-    const container = utils.getElement('layer-order-list');
+    const container = utils.getElement("layer-order-list");
     if (!container) return;
 
     Array.from(container.children).forEach((item, index) => {
@@ -277,7 +281,7 @@ const layerManager = {
     try {
       // Clean up existing layer and source completely
       if (state.map.getLayer(layerId)) {
-        const events = ['click', 'mouseenter', 'mouseleave'];
+        const events = ["click", "mouseenter", "mouseleave"];
         events.forEach((event) => state.map.off(event, layerId));
         state.map.removeLayer(layerId);
       }
@@ -288,7 +292,7 @@ const layerManager = {
       await new Promise((resolve) => requestAnimationFrame(resolve));
 
       state.map.addSource(sourceId, {
-        type: 'geojson',
+        type: "geojson",
         data,
         tolerance: 0.5,
         buffer: 128,
@@ -298,22 +302,22 @@ const layerManager = {
 
       const layerConfig = {
         id: layerId,
-        type: 'line',
+        type: "line",
         source: sourceId,
         minzoom: layerInfo.minzoom || 0,
         maxzoom: layerInfo.maxzoom || 22,
         layout: {
-          visibility: layerInfo.visible ? 'visible' : 'none',
-          'line-join': 'round',
-          'line-cap': 'round',
+          visibility: layerInfo.visible ? "visible" : "none",
+          "line-join": "round",
+          "line-cap": "round",
         },
         paint: {
-          'line-color': layerInfo.color,
-          'line-opacity': layerInfo.opacity,
-          'line-width': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
+          "line-color": layerInfo.color,
+          "line-opacity": layerInfo.opacity,
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
             10,
             layerInfo.weight * 0.5,
             15,
@@ -324,26 +328,29 @@ const layerManager = {
         },
       };
 
-      if (layerName === 'undrivenStreets') {
-        layerConfig.paint['line-dasharray'] = [2, 2];
+      if (layerName === "undrivenStreets") {
+        layerConfig.paint["line-dasharray"] = [2, 2];
       }
 
       state.map.addLayer(layerConfig);
 
-      if (layerName === 'trips' || layerName === 'matchedTrips') {
-        const tripInteractions = (await import('./trip-interactions.js')).default;
+      if (layerName === "trips" || layerName === "matchedTrips") {
+        const tripInteractions = (await import("./trip-interactions.js"))
+          .default;
         const clickHandler = (e) => {
           e.originalEvent.stopPropagation();
           if (e.features?.length > 0) {
             tripInteractions.handleTripClick(e, e.features[0]);
           }
         };
-        const mouseEnterHandler = () => state.map.getCanvas().style.cursor = 'pointer';
-        const mouseLeaveHandler = () => state.map.getCanvas().style.cursor = '';
+        const mouseEnterHandler = () =>
+          (state.map.getCanvas().style.cursor = "pointer");
+        const mouseLeaveHandler = () =>
+          (state.map.getCanvas().style.cursor = "");
 
-        state.map.on('click', layerId, clickHandler);
-        state.map.on('mouseenter', layerId, mouseEnterHandler);
-        state.map.on('mouseleave', layerId, mouseLeaveHandler);
+        state.map.on("click", layerId, clickHandler);
+        state.map.on("mouseenter", layerId, mouseEnterHandler);
+        state.map.on("mouseleave", layerId, mouseLeaveHandler);
 
         if (!this._layerCleanupMap) this._layerCleanupMap = new Map();
         this._layerCleanupMap.set(layerId, {
@@ -358,7 +365,7 @@ const layerManager = {
       console.error(`Error updating ${layerName} layer:`, error);
       window.notificationManager.show(
         `Failed to update ${layerName} layer`,
-        'warning',
+        "warning",
       );
     }
   },
@@ -374,7 +381,7 @@ const layerManager = {
           });
           state.map.removeLayer(layerId);
         }
-        const sourceId = layerId.replace('-layer', '-source');
+        const sourceId = layerId.replace("-layer", "-source");
         if (state.map.getSource(sourceId)) {
           state.map.removeSource(sourceId);
         }
@@ -388,4 +395,4 @@ const layerManager = {
 if (!window.EveryStreet) window.EveryStreet = {};
 window.EveryStreet.LayerManager = layerManager;
 
-export default layerManager; 
+export default layerManager;

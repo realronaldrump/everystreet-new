@@ -27,11 +27,11 @@ from shapely.ops import transform, unary_union
 from db import (
     coverage_metadata_collection,
     delete_many_with_retry,
+    find_with_retry,
     progress_collection,
     streets_collection,
-    update_one_with_retry,
     update_many_with_retry,
-    find_with_retry,
+    update_one_with_retry,
 )
 
 # Import the centralized query builder
@@ -825,12 +825,20 @@ async def process_osm_data(
             flags = {
                 "manual_override": props.get("manual_override", False),
                 "manually_marked_driven": props.get("manually_marked_driven", False),
-                "manually_marked_undriven": props.get("manually_marked_undriven", False),
-                "manually_marked_undriveable": props.get("manually_marked_undriveable", False),
-                "manually_marked_driveable": props.get("manually_marked_driveable", False),
+                "manually_marked_undriven": props.get(
+                    "manually_marked_undriven", False
+                ),
+                "manually_marked_undriveable": props.get(
+                    "manually_marked_undriveable", False
+                ),
+                "manually_marked_driveable": props.get(
+                    "manually_marked_driveable", False
+                ),
                 "undriveable": props.get("undriveable", False),
             }
-            simplified_overrides.append({"geometry": doc.get("geometry"), "flags": flags})
+            simplified_overrides.append(
+                {"geometry": doc.get("geometry"), "flags": flags}
+            )
 
         if simplified_overrides:
             try:
@@ -845,13 +853,37 @@ async def process_osm_data(
                     if flags.get("manual_override"):
                         set_updates.update({"properties.manual_override": True})
                     if flags.get("manually_marked_driven"):
-                        set_updates.update({"properties.manually_marked_driven": True, "properties.driven": True, "properties.manual_override": True})
+                        set_updates.update(
+                            {
+                                "properties.manually_marked_driven": True,
+                                "properties.driven": True,
+                                "properties.manual_override": True,
+                            }
+                        )
                     if flags.get("manually_marked_undriven"):
-                        set_updates.update({"properties.manually_marked_undriven": True, "properties.driven": False, "properties.manual_override": True})
+                        set_updates.update(
+                            {
+                                "properties.manually_marked_undriven": True,
+                                "properties.driven": False,
+                                "properties.manual_override": True,
+                            }
+                        )
                     if flags.get("manually_marked_undriveable"):
-                        set_updates.update({"properties.manually_marked_undriveable": True, "properties.undriveable": True, "properties.manual_override": True})
+                        set_updates.update(
+                            {
+                                "properties.manually_marked_undriveable": True,
+                                "properties.undriveable": True,
+                                "properties.manual_override": True,
+                            }
+                        )
                     if flags.get("manually_marked_driveable"):
-                        set_updates.update({"properties.manually_marked_driveable": True, "properties.undriveable": False, "properties.manual_override": True})
+                        set_updates.update(
+                            {
+                                "properties.manually_marked_driveable": True,
+                                "properties.undriveable": False,
+                                "properties.manual_override": True,
+                            }
+                        )
 
                     if set_updates:
                         await update_many_with_retry(
@@ -862,9 +894,17 @@ async def process_osm_data(
                             },
                             {"$set": set_updates},
                         )
-                logger.info("Re-applied manual overrides by geometry (%d docs) for %s", len(simplified_overrides), location_name)
+                logger.info(
+                    "Re-applied manual overrides by geometry (%d docs) for %s",
+                    len(simplified_overrides),
+                    location_name,
+                )
             except Exception as override_err:
-                logger.warning("Failed geometry-based reapply of overrides for %s: %s", location_name, override_err)
+                logger.warning(
+                    "Failed geometry-based reapply of overrides for %s: %s",
+                    location_name,
+                    override_err,
+                )
 
     except Exception as e:
         logger.error(

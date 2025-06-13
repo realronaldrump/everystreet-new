@@ -9,11 +9,12 @@ from typing import Any
 
 import bson  # For bson.json_util
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Request, Response, status, Query
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi.encoders import jsonable_encoder  # <--- ADDED THIS IMPORT
 from fastapi.responses import JSONResponse, StreamingResponse
 from gridfs import errors
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+from shapely.geometry import shape
 
 from coverage_tasks import (
     process_area,
@@ -31,8 +32,12 @@ from db import (
     find_with_retry,
     update_one_with_retry,
 )
-from models import DeleteCoverageAreaModel, LocationModel, ValidateCustomBoundaryModel, CustomBoundaryModel
-from shapely.geometry import shape
+from models import (
+    CustomBoundaryModel,
+    DeleteCoverageAreaModel,
+    LocationModel,
+    ValidateCustomBoundaryModel,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -1168,7 +1173,11 @@ async def _mark_segment(
         await _recalculate_coverage_stats(obj_location_id)
         await _regenerate_streets_geojson(obj_location_id)
     except Exception as bg_err:
-        logger.warning("Post-mark background update failed for %s: %s", expected_location_name, bg_err)
+        logger.warning(
+            "Post-mark background update failed for %s: %s",
+            expected_location_name,
+            bg_err,
+        )
 
     return {
         "success": True,
@@ -1419,15 +1428,20 @@ async def _regenerate_streets_geojson(location_id: ObjectId):
 
 # Helper function to compute bounding box (south, north, west, east)
 
+
 def _bbox_from_geometry(geom: dict) -> list[float]:
     """Return bounding box [min_lat, max_lat, min_lon, max_lon] from GeoJSON geometry."""
     try:
         geom_shape = shape(geom)
-        minx, miny, maxx, maxy = geom_shape.bounds  # (min_lon, min_lat, max_lon, max_lat)
+        minx, miny, maxx, maxy = (
+            geom_shape.bounds
+        )  # (min_lon, min_lat, max_lon, max_lat)
         return [miny, maxy, minx, maxx]
     except Exception as e:
         logger.error("Failed to compute bbox from geometry: %s", e)
-        raise HTTPException(status_code=400, detail="Invalid geometry for bounding box computation")
+        raise HTTPException(
+            status_code=400, detail="Invalid geometry for bounding box computation"
+        )
 
 
 @router.post("/api/validate_custom_boundary")
@@ -1439,7 +1453,10 @@ async def validate_custom_boundary(data: ValidateCustomBoundaryModel):
     """
     area_name = data.area_name.strip()
     if not area_name:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="area_name must not be empty")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="area_name must not be empty",
+        )
 
     geometry = data.geometry
     try:
@@ -1488,7 +1505,10 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
     """
     display_name = data.display_name or data.area_name
     if not display_name:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="display_name (or area_name) required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="display_name (or area_name) required",
+        )
 
     # Build location-like dict compatible with existing preprocessing pipeline
     geom_dict = data.geometry
@@ -1517,7 +1537,10 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
         {"location.display_name": display_name},
     )
     if existing and existing.get("status") == "processing":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This area is already being processed")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This area is already being processed",
+        )
 
     # Upsert metadata placeholder
     await update_one_with_retry(
@@ -1540,7 +1563,9 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
 
     # Kick off async processing task
     task_id = str(uuid.uuid4())
-    asyncio.create_task(process_area(location_dict, task_id, data.segment_length_meters))
+    asyncio.create_task(
+        process_area(location_dict, task_id, data.segment_length_meters)
+    )
 
     return {
         "status": "success",

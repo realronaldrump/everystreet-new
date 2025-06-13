@@ -136,5 +136,3 @@ async def driving_navigation_page(request: Request):
         "driving_navigation.html",
         {"request": request, "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN},
     )
-
-

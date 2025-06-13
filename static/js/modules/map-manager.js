@@ -1,7 +1,7 @@
-import utils from './utils.js';
-import { CONFIG } from './config.js';
-import state from './state.js';
-import dateUtils from './date-utils.js';
+import utils from "./utils.js";
+import { CONFIG } from "./config.js";
+import state from "./state.js";
+import dateUtils from "./date-utils.js";
 
 // NOTE: this is extracted verbatim from `app.js` to keep behaviour identical.
 // Future refactors can safely trim dependencies now that the code is isolated.
@@ -10,18 +10,18 @@ const mapManager = {
   async initialize() {
     try {
       const initStage = window.loadingManager.startStage(
-        'init',
-        'Initializing map...',
+        "init",
+        "Initializing map...",
       );
 
-      const mapElement = utils.getElement('map');
+      const mapElement = utils.getElement("map");
       if (!mapElement || state.map) {
         initStage.complete();
         return state.mapInitialized;
       }
 
       if (!window.MAPBOX_ACCESS_TOKEN) {
-        throw new Error('Mapbox access token not configured');
+        throw new Error("Mapbox access token not configured");
       }
 
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
@@ -29,24 +29,24 @@ const mapManager = {
       if (!mapboxgl.supported()) {
         mapElement.innerHTML =
           '<div class="webgl-unsupported-message p-4 text-center">WebGL is not supported by your browser.</div>';
-        throw new Error('WebGL not supported');
+        throw new Error("WebGL not supported");
       }
 
-      initStage.update(30, 'Configuring map...');
+      initStage.update(30, "Configuring map...");
 
       // Disable telemetry for performance
       mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
       mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
 
       const theme =
-        document.documentElement.getAttribute('data-bs-theme') || 'dark';
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
 
       // Determine initial map view
       const urlParams = new URLSearchParams(window.location.search);
-      const latParam = parseFloat(urlParams.get('lat'));
-      const lngParam = parseFloat(urlParams.get('lng'));
-      const zoomParam = parseFloat(urlParams.get('zoom'));
-      const savedView = utils.getStorage('mapView');
+      const latParam = parseFloat(urlParams.get("lat"));
+      const lngParam = parseFloat(urlParams.get("lng"));
+      const zoomParam = parseFloat(urlParams.get("zoom"));
+      const savedView = utils.getStorage("mapView");
       const center =
         !isNaN(latParam) && !isNaN(lngParam)
           ? [lngParam, latParam]
@@ -55,19 +55,19 @@ const mapManager = {
         ? zoomParam
         : savedView?.zoom || CONFIG.MAP.defaultZoom;
 
-      initStage.update(60, 'Creating map instance...');
+      initStage.update(60, "Creating map instance...");
 
       state.map = new mapboxgl.Map({
-        container: 'map',
+        container: "map",
         style: CONFIG.MAP.styles[theme],
         center,
         zoom,
         maxZoom: CONFIG.MAP.maxZoom,
         attributionControl: false,
-        logoPosition: 'bottom-right',
+        logoPosition: "bottom-right",
         ...CONFIG.MAP.performanceOptions,
         transformRequest: (url) => {
-          if (typeof url === 'string' && url.includes('events.mapbox.com')) {
+          if (typeof url === "string" && url.includes("events.mapbox.com")) {
             return null;
           }
           return { url };
@@ -76,13 +76,13 @@ const mapManager = {
 
       window.map = state.map;
 
-      initStage.update(80, 'Adding controls...');
+      initStage.update(80, "Adding controls...");
 
       // Add controls
-      state.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      state.map.addControl(new mapboxgl.NavigationControl(), "top-right");
       state.map.addControl(
         new mapboxgl.AttributionControl({ compact: true }),
-        'bottom-right',
+        "bottom-right",
       );
 
       // Setup event handlers
@@ -90,19 +90,19 @@ const mapManager = {
         if (!state.map) return;
         const center = state.map.getCenter();
         const zoom = state.map.getZoom();
-        utils.setStorage('mapView', {
+        utils.setStorage("mapView", {
           center: [center.lng, center.lat],
           zoom,
         });
         this.updateUrlState();
       }, CONFIG.MAP.debounceDelay);
 
-      state.map.on('moveend', saveViewState);
-      state.map.on('click', this.handleMapClick.bind(this));
+      state.map.on("moveend", saveViewState);
+      state.map.on("click", this.handleMapClick.bind(this));
 
       // Wait for map to load
       await new Promise((resolve) => {
-        state.map.on('load', () => {
+        state.map.on("load", () => {
           initStage.complete();
           resolve();
         });
@@ -111,15 +111,15 @@ const mapManager = {
       state.mapInitialized = true;
       state.metrics.mapLoadTime = Date.now() - state.metrics.loadStartTime;
 
-      document.dispatchEvent(new CustomEvent('mapInitialized'));
+      document.dispatchEvent(new CustomEvent("mapInitialized"));
 
       return true;
     } catch (error) {
-      console.error('Map initialization error:', error);
-      window.loadingManager.stageError('init', error.message);
+      console.error("Map initialization error:", error);
+      window.loadingManager.stageError("init", error.message);
       window.notificationManager.show(
         `Map initialization failed: ${error.message}`,
-        'danger',
+        "danger",
       );
       return false;
     }
@@ -133,20 +133,20 @@ const mapManager = {
       const zoom = state.map.getZoom();
       const url = new URL(window.location.href);
 
-      url.searchParams.set('zoom', zoom.toFixed(2));
-      url.searchParams.set('lat', center.lat.toFixed(5));
-      url.searchParams.set('lng', center.lng.toFixed(5));
+      url.searchParams.set("zoom", zoom.toFixed(2));
+      url.searchParams.set("lat", center.lat.toFixed(5));
+      url.searchParams.set("lng", center.lng.toFixed(5));
 
-      window.history.replaceState({}, '', url.toString());
+      window.history.replaceState({}, "", url.toString());
     } catch (error) {
-      console.warn('Failed to update URL:', error);
+      console.warn("Failed to update URL:", error);
     }
   },
 
   handleMapClick(e) {
     // Clear selections when clicking on an empty area.
     const features = state.map.queryRenderedFeatures(e.point, {
-      layers: ['trips-layer', 'matchedTrips-layer'],
+      layers: ["trips-layer", "matchedTrips-layer"],
     });
 
     if (features.length === 0) {
@@ -160,16 +160,16 @@ const mapManager = {
   refreshTripStyles: utils.throttle(function () {
     if (!state.map || !state.mapInitialized) return;
 
-    ['trips', 'matchedTrips'].forEach((layerName) => {
+    ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
       if (!layerInfo?.visible) return;
 
       const layerId = `${layerName}-layer`;
       if (state.map.getLayer(layerId)) {
         const updates = {
-          'line-color': layerInfo.color,
-          'line-opacity': layerInfo.opacity,
-          'line-width': layerInfo.weight,
+          "line-color": layerInfo.color,
+          "line-opacity": layerInfo.opacity,
+          "line-width": layerInfo.weight,
         };
 
         Object.entries(updates).forEach(([property, value]) => {
@@ -182,7 +182,7 @@ const mapManager = {
   async fitBounds(animate = true) {
     if (!state.map || !state.mapInitialized) return;
 
-    await utils.measurePerformance('fitBounds', async () => {
+    await utils.measurePerformance("fitBounds", async () => {
       const bounds = new mapboxgl.LngLatBounds();
       let hasFeatures = false;
 
@@ -190,10 +190,10 @@ const mapManager = {
         if (visible && layer?.features) {
           layer.features.forEach((feature) => {
             if (feature.geometry) {
-              if (feature.geometry.type === 'Point') {
+              if (feature.geometry.type === "Point") {
                 bounds.extend(feature.geometry.coordinates);
                 hasFeatures = true;
-              } else if (feature.geometry.type === 'LineString') {
+              } else if (feature.geometry.type === "LineString") {
                 feature.geometry.coordinates.forEach((coord) => {
                   bounds.extend(coord);
                   hasFeatures = true;
@@ -236,9 +236,9 @@ const mapManager = {
     let lastCoord = null;
     const { type, coordinates } = lastTripFeature.geometry;
 
-    if (type === 'LineString' && coordinates?.length > 0) {
+    if (type === "LineString" && coordinates?.length > 0) {
       lastCoord = coordinates[coordinates.length - 1];
-    } else if (type === 'Point') {
+    } else if (type === "Point") {
       lastCoord = coordinates;
     }
 
@@ -261,4 +261,4 @@ const mapManager = {
 if (!window.EveryStreet) window.EveryStreet = {};
 window.EveryStreet.MapManager = mapManager;
 
-export default mapManager; 
+export default mapManager;

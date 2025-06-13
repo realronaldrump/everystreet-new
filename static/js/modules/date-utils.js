@@ -1,5 +1,5 @@
-import { CONFIG } from './config.js';
-import utils from './utils.js';
+import { CONFIG } from "./config.js";
+import utils from "./utils.js";
 
 /**
  * Helper functions that wrap the legacy global `DateUtils` module and localStorage caching.
@@ -24,7 +24,7 @@ const dateUtils = {
    * range is stale it re-computes it and writes it back to storage.
    */
   getCachedDateRange() {
-    const cacheKey = 'cached_date_range';
+    const cacheKey = "cached_date_range";
     const cached = utils.getStorage(cacheKey);
     const currentStart = this.getStartDate();
     const currentEnd = this.getEndDate();
@@ -54,4 +54,4 @@ const dateUtils = {
   },
 };
 
-export default dateUtils; 
+export default dateUtils;

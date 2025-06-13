@@ -70,4 +70,4 @@ export const UI_CONFIG = {
   },
 };
 
-export default UI_CONFIG; 
+export default UI_CONFIG;

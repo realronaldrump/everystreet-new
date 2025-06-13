@@ -1,4 +1,4 @@
-import { UI_CONFIG as CONFIG } from './ui-config.js';
+import { UI_CONFIG as CONFIG } from "./ui-config.js";
 
 class UIState {
   constructor() {
@@ -10,7 +10,9 @@ class UIState {
     this.touchStartX = null;
     this.touchStartY = null;
     this.isMobile = window.innerWidth < CONFIG.mobileBreakpoint;
-    this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     this.uiState = this.loadUIState();
   }
 
@@ -32,20 +34,33 @@ class UIState {
   loadUIState() {
     try {
       const saved = localStorage.getItem(CONFIG.storage.uiState);
-      return saved ? JSON.parse(saved) : { controlsMinimized: false, filtersOpen: false, lastFilterPreset: null };
+      return saved
+        ? JSON.parse(saved)
+        : {
+            controlsMinimized: false,
+            filtersOpen: false,
+            lastFilterPreset: null,
+          };
     } catch {
-      return { controlsMinimized: false, filtersOpen: false, lastFilterPreset: null };
+      return {
+        controlsMinimized: false,
+        filtersOpen: false,
+        lastFilterPreset: null,
+      };
     }
   }
 
   saveUIState() {
     try {
-      localStorage.setItem(CONFIG.storage.uiState, JSON.stringify(this.uiState));
+      localStorage.setItem(
+        CONFIG.storage.uiState,
+        JSON.stringify(this.uiState),
+      );
     } catch (e) {
-      console.warn('Failed to save UI state:', e);
+      console.warn("Failed to save UI state:", e);
     }
   }
 }
 
 export const uiState = new UIState();
-export default uiState; 
+export default uiState;

@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js';
+import { CONFIG } from "./config.js";
 
 class AppState {
   constructor() {
@@ -51,7 +51,7 @@ class AppState {
       try {
         controller.abort();
       } catch (e) {
-        console.warn('Error aborting request:', e);
+        console.warn("Error aborting request:", e);
       }
     });
     this.abortControllers.clear();
@@ -72,4 +72,4 @@ class AppState {
 }
 
 export const state = new AppState();
-export default state; 
+export default state;

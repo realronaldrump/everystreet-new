@@ -1,24 +1,24 @@
-import utils from './utils.js';
-import state from './state.js';
-import dateUtils from './date-utils.js';
+import utils from "./utils.js";
+import state from "./state.js";
+import dateUtils from "./date-utils.js";
 
 const metricsManager = {
   updateTripsTable(geojson) {
     const elements = {
-      totalTrips: utils.getElement('total-trips'),
-      totalDistance: utils.getElement('total-distance'),
-      avgDistance: utils.getElement('avg-distance'),
-      avgStartTime: utils.getElement('avg-start-time'),
-      avgDrivingTime: utils.getElement('avg-driving-time'),
-      avgSpeed: utils.getElement('avg-speed'),
-      maxSpeed: utils.getElement('max-speed'),
+      totalTrips: utils.getElement("total-trips"),
+      totalDistance: utils.getElement("total-distance"),
+      avgDistance: utils.getElement("avg-distance"),
+      avgStartTime: utils.getElement("avg-start-time"),
+      avgDrivingTime: utils.getElement("avg-driving-time"),
+      avgSpeed: utils.getElement("avg-speed"),
+      maxSpeed: utils.getElement("max-speed"),
     };
 
     if (!geojson?.features) {
       utils.batchDOMUpdates([
         () =>
           Object.values(elements).forEach((el) => {
-            if (el) el.textContent = el.id.includes('time') ? '--:--' : '0';
+            if (el) el.textContent = el.id.includes("time") ? "--:--" : "0";
           }),
       ]);
       return;
@@ -90,7 +90,10 @@ const metricsManager = {
       }
 
       if (props.maxSpeed && !isNaN(props.maxSpeed)) {
-        metrics.maxSpeed = Math.max(metrics.maxSpeed, parseFloat(props.maxSpeed));
+        metrics.maxSpeed = Math.max(
+          metrics.maxSpeed,
+          parseFloat(props.maxSpeed),
+        );
       }
     });
 
@@ -106,13 +109,13 @@ const metricsManager = {
           ? dateUtils.formatTimeFromHours(
               metrics.totalStartHours / metrics.validStartTimeCount,
             )
-          : '--:--',
+          : "--:--",
       avgDrivingTime:
         metrics.validDrivingTimeCount > 0
           ? this.formatDuration(
               metrics.totalDrivingTime / metrics.validDrivingTimeCount,
             )
-          : '--:--',
+          : "--:--",
       avgSpeed:
         metrics.totalDrivingTime > 0
           ? (metrics.totalDistance / metrics.totalDrivingTime) * 3600
@@ -122,19 +125,19 @@ const metricsManager = {
   },
 
   formatDuration(seconds) {
-    if (!seconds || isNaN(seconds)) return '--:--';
+    if (!seconds || isNaN(seconds)) return "--:--";
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
     return hours > 0
-      ? `${hours}:${minutes.toString().padStart(2, '0')}:${secs
+      ? `${hours}:${minutes.toString().padStart(2, "0")}:${secs
           .toString()
-          .padStart(2, '0')}`
-      : `${minutes}:${secs.toString().padStart(2, '0')}`;
+          .padStart(2, "0")}`
+      : `${minutes}:${secs.toString().padStart(2, "0")}`;
   },
 };
 
 if (!window.EveryStreet) window.EveryStreet = {};
 window.EveryStreet.MetricsManager = metricsManager;
 
-export default metricsManager; 
+export default metricsManager;

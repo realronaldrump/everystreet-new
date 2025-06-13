@@ -103,9 +103,9 @@
       href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}"
     />
     <link
-    rel="stylesheet"
-    href="{{ url_for('static', path='css/loading-styles.css') | replace('http://', '//') }}"
-  />
+      rel="stylesheet"
+      href="{{ url_for('static', path='css/loading-styles.css') | replace('http://', '//') }}"
+    />
 
     <!-- DataTables CSS - Load early for critical rendering -->
     <link
@@ -131,8 +131,7 @@
       />
     </noscript>
 
-    {% block extra_css %}{% endblock %}
-    {% block head_content %}{% endblock %}
+    {% block extra_css %}{% endblock %} {% block head_content %}{% endblock %}
   </head>
   <body>
     <a href="#main-content" class="visually-hidden-focusable"
@@ -173,8 +172,8 @@
                   title="Map"
                   {%
                   if
-                  request.url.path ==
-                  "/"
+                  request.url.path=""
+                  ="/"
                   %}aria-current="page"
                   {%
                   endif
@@ -191,8 +190,8 @@
                   title="Trips"
                   {%
                   if
-                  request.url.path ==
-                  "/trips"
+                  request.url.path=""
+                  ="/trips"
                   %}aria-current="page"
                   {%
                   endif
@@ -210,8 +209,8 @@
                   title="Insights"
                   {%
                   if
-                  request.url.path ==
-                  "/insights"
+                  request.url.path=""
+                  ="/insights"
                   %}aria-current="page"
                   {%
                   endif
@@ -229,8 +228,8 @@
                   title="Driving Navigation"
                   {%
                   if
-                  request.url.path ==
-                  "/driving-navigation"
+                  request.url.path=""
+                  ="/driving-navigation"
                   %}aria-current="page"
                   {%
                   endif
@@ -261,8 +260,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/edit_trips"
+                      request.url.path=""
+                      ="/edit_trips"
                       %}aria-current="page"
                       {%
                       endif
@@ -279,8 +278,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/visits"
+                      request.url.path=""
+                      ="/visits"
                       %}aria-current="page"
                       {%
                       endif
@@ -300,8 +299,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/coverage-management"
+                      request.url.path=""
+                      ="/coverage-management"
                       %}aria-current="page"
                       {%
                       endif
@@ -321,8 +320,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/export"
+                      request.url.path=""
+                      ="/export"
                       %}aria-current="page"
                       {%
                       endif
@@ -339,8 +338,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/upload"
+                      request.url.path=""
+                      ="/upload"
                       %}aria-current="page"
                       {%
                       endif
@@ -358,8 +357,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/database-management"
+                      request.url.path=""
+                      ="/database-management"
                       %}aria-current="page"
                       {%
                       endif
@@ -376,8 +375,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/settings"
+                      request.url.path=""
+                      ="/settings"
                       %}aria-current="page"
                       {%
                       endif
@@ -394,8 +393,8 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path ==
-                      "/app-settings"
+                      request.url.path=""
+                      ="/app-settings"
                       %}aria-current="page"
                       {%
                       endif
@@ -459,8 +458,8 @@
                 class="{% if request.url.path == '/' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/"
+                request.url.path=""
+                ="/"
                 %}aria-current="page"
                 {%
                 endif
@@ -475,8 +474,8 @@
                 class="{% if request.url.path == '/trips' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/trips"
+                request.url.path=""
+                ="/trips"
                 %}aria-current="page"
                 {%
                 endif
@@ -491,8 +490,8 @@
                 class="{% if request.url.path == '/driving-navigation' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/driving-navigation"
+                request.url.path=""
+                ="/driving-navigation"
                 %}aria-current="page"
                 {%
                 endif
@@ -508,8 +507,8 @@
                 class="{% if request.url.path == '/edit_trips' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/edit_trips"
+                request.url.path=""
+                ="/edit_trips"
                 %}aria-current="page"
                 {%
                 endif
@@ -524,8 +523,8 @@
                 class="{% if request.url.path == '/insights' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/insights"
+                request.url.path=""
+                ="/insights"
                 %}aria-current="page"
                 {%
                 endif
@@ -541,8 +540,8 @@
                 class="{% if request.url.path == '/export' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/export"
+                request.url.path=""
+                ="/export"
                 %}aria-current="page"
                 {%
                 endif
@@ -558,8 +557,8 @@
                 class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/coverage-management"
+                request.url.path=""
+                ="/coverage-management"
                 %}aria-current="page"
                 {%
                 endif
@@ -575,8 +574,8 @@
                 class="{% if request.url.path == '/upload' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/upload"
+                request.url.path=""
+                ="/upload"
                 %}aria-current="page"
                 {%
                 endif
@@ -591,8 +590,8 @@
                 class="{% if request.url.path == '/visits' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/visits"
+                request.url.path=""
+                ="/visits"
                 %}aria-current="page"
                 {%
                 endif
@@ -608,8 +607,8 @@
                 class="{% if request.url.path == '/database-management' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/database-management"
+                request.url.path=""
+                ="/database-management"
                 %}aria-current="page"
                 {%
                 endif
@@ -624,8 +623,8 @@
                 class="{% if request.url.path == '/settings' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/settings"
+                request.url.path=""
+                ="/settings"
                 %}aria-current="page"
                 {%
                 endif
@@ -640,8 +639,8 @@
                 class="{% if request.url.path == '/app-settings' %}active{% endif %}"
                 {%
                 if
-                request.url.path ==
-                "/app-settings"
+                request.url.path=""
+                ="/app-settings"
                 %}aria-current="page"
                 {%
                 endif
@@ -750,7 +749,6 @@
                 </button>
               </div>
             </div>
-
           </form>
 
           <div class="panel-actions">
@@ -823,7 +821,7 @@
     <!-- Critical libraries -->
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
-    
+
     <!-- DataTables - Load before page-specific scripts -->
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
@@ -850,8 +848,8 @@
       import AppController from "{{ url_for('static', path='js/modules/app-controller.js') | replace('http://', '//') }}";
       import "{{ url_for('static', path='js/modules/ui/ui-init.js') | replace('http://', '//') }}";
       const start = () => AppController.initialize();
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', start);
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", start);
       } else {
         start();
       }

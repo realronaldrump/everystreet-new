@@ -19,8 +19,12 @@ class LocationModel(BaseModel):
     display_name: str
     osm_id: int
     osm_type: str
-    segment_length_meters: int | None = None  # Optional override for street segmentation length
-    match_buffer_meters: float | None = None  # Optional buffer radius for trip→street match
+    segment_length_meters: int | None = (
+        None  # Optional override for street segmentation length
+    )
+    match_buffer_meters: float | None = (
+        None  # Optional buffer radius for trip→street match
+    )
     min_match_length_meters: float | None = None  # Optional minimum overlap length
 
     class Config:
@@ -29,7 +33,7 @@ class LocationModel(BaseModel):
 
 class CustomBoundaryModel(BaseModel):
     """Model for custom drawn boundary data."""
-    
+
     display_name: str
     boundary_type: str = "custom"
     geometry: dict[str, Any]  # GeoJSON geometry
@@ -37,7 +41,7 @@ class CustomBoundaryModel(BaseModel):
     segment_length_meters: int | None = None  # Optional segmentation length override
     match_buffer_meters: float | None = None
     min_match_length_meters: float | None = None
-    
+
     class Config:
         extra = "allow"
 
@@ -94,7 +98,7 @@ class ValidateLocationModel(BaseModel):
 
 class ValidateCustomBoundaryModel(BaseModel):
     """Model for custom boundary validation."""
-    
+
     area_name: str
     geometry: dict[str, Any]  # GeoJSON geometry
 

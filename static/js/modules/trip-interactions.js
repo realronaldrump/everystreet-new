@@ -1,7 +1,7 @@
-import utils from './utils.js';
-import state from './state.js';
-import metricsManager from './metrics-manager.js';
-import mapManager from './map-manager.js';
+import utils from "./utils.js";
+import state from "./state.js";
+import metricsManager from "./metrics-manager.js";
+import mapManager from "./map-manager.js";
 
 const tripInteractions = {
   handleTripClick(e, feature) {
@@ -20,29 +20,31 @@ const tripInteractions = {
     const popup = new mapboxgl.Popup({
       closeButton: true,
       closeOnClick: true,
-      maxWidth: '400px',
-      anchor: 'bottom',
+      maxWidth: "400px",
+      anchor: "bottom",
     })
       .setLngLat(e.lngLat)
       .setHTML(this.createPopupContent(feature))
       .addTo(state.map);
 
-    popup.on('open', () => this.setupPopupEventListeners(popup, feature));
+    popup.on("open", () => this.setupPopupEventListeners(popup, feature));
   },
 
   createPopupContent(feature) {
     const props = feature.properties || {};
 
-    const formatValue = (value, formatter) => (value != null ? formatter(value) : 'N/A');
-    const formatNumber = (value, digits = 1) => formatValue(value, (v) => parseFloat(v).toFixed(digits));
+    const formatValue = (value, formatter) =>
+      value != null ? formatter(value) : "N/A";
+    const formatNumber = (value, digits = 1) =>
+      formatValue(value, (v) => parseFloat(v).toFixed(digits));
     const formatTime = (value) =>
       formatValue(value, (v) =>
-        new Date(v).toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
+        new Date(v).toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
           hour12: true,
         }),
       );
@@ -91,12 +93,12 @@ const tripInteractions = {
   createActionButtons(feature) {
     const props = feature.properties || {};
     const isMatched =
-      props.source === 'matched' ||
-      props.mapMatchingStatus === 'success' ||
-      feature.source?.includes('matched');
+      props.source === "matched" ||
+      props.mapMatchingStatus === "success" ||
+      feature.source?.includes("matched");
     const tripId = props.transactionId || props.id || props.tripId;
 
-    if (!tripId) return '';
+    if (!tripId) return "";
 
     return `
         <div class="popup-actions mt-3 d-flex gap-2 flex-wrap">
@@ -130,35 +132,35 @@ const tripInteractions = {
     const popupElement = popup.getElement();
     if (!popupElement) return;
 
-    popupElement.addEventListener('click', async (e) => {
-      const button = e.target.closest('button');
+    popupElement.addEventListener("click", async (e) => {
+      const button = e.target.closest("button");
       if (!button) return;
 
       const tripId = button.dataset.tripId;
       if (!tripId) return;
 
       button.disabled = true;
-      button.classList.add('btn-loading');
+      button.classList.add("btn-loading");
 
       try {
-        if (button.classList.contains('view-trip-btn')) {
-          window.open(`/trips/${tripId}`, '_blank');
-        } else if (button.classList.contains('delete-matched-trip-btn')) {
+        if (button.classList.contains("view-trip-btn")) {
+          window.open(`/trips/${tripId}`, "_blank");
+        } else if (button.classList.contains("delete-matched-trip-btn")) {
           await this.deleteMatchedTrip(tripId, popup);
-        } else if (button.classList.contains('delete-trip-btn')) {
+        } else if (button.classList.contains("delete-trip-btn")) {
           await this.deleteTrip(tripId, popup);
         } else if (
-          button.classList.contains('rematch-trip-btn') ||
-          button.classList.contains('map-match-btn')
+          button.classList.contains("rematch-trip-btn") ||
+          button.classList.contains("map-match-btn")
         ) {
           await this.rematchTrip(tripId, popup);
         }
       } catch (error) {
-        console.error('Error handling popup action:', error);
-        window.notificationManager.show('Error performing action', 'danger');
+        console.error("Error handling popup action:", error);
+        window.notificationManager.show("Error performing action", "danger");
       } finally {
         button.disabled = false;
-        button.classList.remove('btn-loading');
+        button.classList.remove("btn-loading");
       }
     });
   },
@@ -166,70 +168,85 @@ const tripInteractions = {
   async deleteMatchedTrip(tripId, popup) {
     if (
       !(await window.confirmationDialog.show({
-        title: 'Delete Matched Trip',
-        message: 'Are you sure you want to delete this matched trip?',
-        confirmText: 'Delete',
-        confirmButtonClass: 'btn-danger',
+        title: "Delete Matched Trip",
+        message: "Are you sure you want to delete this matched trip?",
+        confirmText: "Delete",
+        confirmButtonClass: "btn-danger",
       }))
     )
       return;
 
     try {
-      const response = await utils.fetchWithRetry(`/api/matched_trips/${tripId}`, { method: 'DELETE' });
+      const response = await utils.fetchWithRetry(
+        `/api/matched_trips/${tripId}`,
+        { method: "DELETE" },
+      );
       if (response) {
         popup.remove();
-        window.notificationManager.show('Matched trip deleted successfully', 'success');
-        const dataManager = (await import('./data-manager.js')).default;
+        window.notificationManager.show(
+          "Matched trip deleted successfully",
+          "success",
+        );
+        const dataManager = (await import("./data-manager.js")).default;
         await dataManager.updateMap();
       }
     } catch (error) {
-      console.error('Error deleting matched trip:', error);
-      window.notificationManager.show(error.message, 'danger');
+      console.error("Error deleting matched trip:", error);
+      window.notificationManager.show(error.message, "danger");
     }
   },
 
   async deleteTrip(tripId, popup) {
     if (
       !(await window.confirmationDialog.show({
-        title: 'Delete Trip',
-        message: 'Are you sure you want to delete this trip? This action cannot be undone.',
-        confirmText: 'Delete',
-        confirmButtonClass: 'btn-danger',
+        title: "Delete Trip",
+        message:
+          "Are you sure you want to delete this trip? This action cannot be undone.",
+        confirmText: "Delete",
+        confirmButtonClass: "btn-danger",
       }))
     )
       return;
 
     try {
-      const response = await utils.fetchWithRetry(`/api/trips/${tripId}`, { method: 'DELETE' });
+      const response = await utils.fetchWithRetry(`/api/trips/${tripId}`, {
+        method: "DELETE",
+      });
       if (response) {
         popup.remove();
-        window.notificationManager.show('Trip deleted successfully', 'success');
-        const dataManager = (await import('./data-manager.js')).default;
+        window.notificationManager.show("Trip deleted successfully", "success");
+        const dataManager = (await import("./data-manager.js")).default;
         await dataManager.updateMap();
       }
     } catch (error) {
-      console.error('Error deleting trip:', error);
-      window.notificationManager.show(error.message, 'danger');
+      console.error("Error deleting trip:", error);
+      window.notificationManager.show(error.message, "danger");
     }
   },
 
   async rematchTrip(tripId, popup) {
     try {
-      window.notificationManager.show('Starting map matching...', 'info');
-      const response = await utils.fetchWithRetry(`/api/process_trip/${tripId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ map_match: true }),
-      });
+      window.notificationManager.show("Starting map matching...", "info");
+      const response = await utils.fetchWithRetry(
+        `/api/process_trip/${tripId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ map_match: true }),
+        },
+      );
       if (response) {
         popup.remove();
-        window.notificationManager.show('Trip map matching completed', 'success');
-        const dataManager = (await import('./data-manager.js')).default;
+        window.notificationManager.show(
+          "Trip map matching completed",
+          "success",
+        );
+        const dataManager = (await import("./data-manager.js")).default;
         await dataManager.updateMap();
       }
     } catch (error) {
-      console.error('Error remapping trip:', error);
-      window.notificationManager.show(error.message, 'danger');
+      console.error("Error remapping trip:", error);
+      window.notificationManager.show(error.message, "danger");
     }
   },
 };
@@ -237,4 +254,4 @@ const tripInteractions = {
 if (!window.EveryStreet) window.EveryStreet = {};
 window.EveryStreet.TripInteractions = tripInteractions;
 
-export default tripInteractions; 
+export default tripInteractions;
