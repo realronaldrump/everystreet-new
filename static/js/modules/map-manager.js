@@ -179,7 +179,15 @@ const mapManager = {
       if (selectedId) {
         colorExpr.push([
           "==",
-          ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]]],
+          [
+            "to-string",
+            [
+              "coalesce",
+              ["get", "transactionId"],
+              ["get", "id"],
+              ["get", "tripId"],
+            ],
+          ],
           selectedId,
         ]);
         colorExpr.push(layerInfo.highlightColor || "#FFD700");
@@ -199,7 +207,15 @@ const mapManager = {
       if (selectedId) {
         widthExpr.push([
           "==",
-          ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]]],
+          [
+            "to-string",
+            [
+              "coalesce",
+              ["get", "transactionId"],
+              ["get", "id"],
+              ["get", "tripId"],
+            ],
+          ],
           selectedId,
         ]);
         widthExpr.push(baseWeight * 2);
