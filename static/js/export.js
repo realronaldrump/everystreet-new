@@ -960,7 +960,7 @@
         locationSelect.innerHTML =
           '<option value="">Failed to load areas</option>';
         window.notificationManager.show(
-          `Failed to load areas: ${  err.message}`,
+          `Failed to load areas: ${err.message}`,
           "error",
         );
       });
@@ -1027,7 +1027,7 @@
         );
       } catch (err) {
         window.notificationManager.show(
-          `Export failed: ${  err.message}`,
+          `Export failed: ${err.message}`,
           "error",
         );
       } finally {

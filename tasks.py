@@ -14,10 +14,10 @@ import asyncio
 import functools
 import os
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, TypeVar
-from collections.abc import Callable
 
 from celery import shared_task
 from celery.utils.log import get_task_logger

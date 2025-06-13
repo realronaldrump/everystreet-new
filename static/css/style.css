@@ -70,17 +70,15 @@
   --text-on-light: #000;
   --border-color: rgb(255 255 255 / 12%);
   --border-color-light: rgb(
-    255
-    255
-    255 /
-    24%
+    255 255 255 / 24%
   ); /* For focused elements or stronger divisions */
 
   --divider-color: rgb(255 255 255 / 8%);
 
   /* Typography */
-  --font-family: "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", roboto,
-    oxygen, ubuntu, cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --font-family:
+    "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen,
+    ubuntu, cantarell, "Open Sans", "Helvetica Neue", sans-serif;
   --font-size-xs: 0.75rem; /* 12px */
   --font-size-sm: 0.875rem; /* 14px */
   --font-size-md: 1rem; /* 16px */
@@ -753,12 +751,7 @@ body {
 }
 
 body.light-mode .card::before {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgb(0 0 0 / 2%),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgb(0 0 0 / 2%), transparent);
 }
 
 .card:hover::before {
