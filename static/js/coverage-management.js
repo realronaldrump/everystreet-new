@@ -1686,6 +1686,12 @@ const STATUS = window.STATUS || {
         const val = parseInt(segLenEl.value, 10);
         if (!isNaN(val) && val > 0) locationToAdd.segment_length_meters = val;
       }
+      if (bufEl && bufEl.value) {
+        const v=parseFloat(bufEl.value); if(!isNaN(v)&&v>0) locationToAdd.match_buffer_meters=v;
+      }
+      if (minEl && minEl.value) {
+        const v2=parseFloat(minEl.value); if(!isNaN(v2)&&v2>0) locationToAdd.min_match_length_meters=v2;
+      }
 
       try {
         const currentAreasResponse = await fetch("/api/coverage_areas");
@@ -3409,12 +3415,17 @@ const STATUS = window.STATUS || {
       );
       if (!statsContainer) return;
 
-      const totalLengthM = parseFloat(coverage.total_length || 0);
+      const totalLengthM = parseFloat(
+        coverage.driveable_length ?? coverage.total_length ?? 0
+      );
       const drivenLengthM = parseFloat(coverage.driven_length || 0);
       const coveragePercentage = parseFloat(
         coverage.coverage_percentage || 0
       ).toFixed(1);
-      const totalSegments = parseInt(coverage.total_segments || 0, 10);
+      const totalSegments = parseInt(
+        coverage.driveable_segments ?? coverage.total_segments ?? 0,
+        10
+      );
 
       let coveredSegments = 0;
       if (Array.isArray(coverage.street_types)) {
@@ -3483,6 +3494,17 @@ const STATUS = window.STATUS || {
         </div>
       `;
       statsContainer.innerHTML = html;
+      // Smooth transition animations
+      statsContainer.querySelectorAll(".stat-value").forEach((el) => {
+        el.classList.add("value-updated");
+        setTimeout(() => el.classList.remove("value-updated"), 600);
+      });
+      const progressBar = statsContainer.querySelector(
+        ".progress-bar",
+      );
+      if (progressBar) {
+        progressBar.style.transition = "width 0.6s ease";
+      }
       this.initTooltips();
     }
 
@@ -5619,6 +5641,8 @@ const STATUS = window.STATUS || {
         const val2 = parseInt(segLenEl2.value, 10);
         if (!isNaN(val2) && val2 > 0) customAreaToAdd.segment_length_meters = val2;
       }
+      const bufElC=document.getElementById("match-buffer-input"); if(bufElC && bufElC.value){const v=parseFloat(bufElC.value); if(!isNaN(v)&&v>0) customAreaToAdd.match_buffer_meters=v;}
+      const minElC=document.getElementById("min-match-length-input"); if(minElC && minElC.value){const v2=parseFloat(minElC.value); if(!isNaN(v2)&&v2>0) customAreaToAdd.min_match_length_meters=v2;}
 
       try {
         const currentAreasResponse = await fetch("/api/coverage_areas");
@@ -5722,10 +5746,16 @@ const STATUS = window.STATUS || {
         if (!location.display_name) throw new Error("Missing location");
 
         // Ask user for new segment length
-        const defaultLen = location.segment_length_meters || 100;
-        const newLen = await this._askSegmentLength(location.display_name, defaultLen);
-        if (newLen === null) return; // cancelled or invalid
-        location.segment_length_meters = newLen;
+        const defaults = {
+          segment: location.segment_length_meters || 100,
+          buffer: location.match_buffer_meters || 15,
+          min: location.min_match_length_meters || 5,
+        };
+        const settings = await this._askMatchSettings(location.display_name, defaults);
+        if (settings === null) return; // cancelled
+        location.segment_length_meters = settings.segment;
+        location.match_buffer_meters = settings.buffer;
+        location.min_match_length_meters = settings.min;
 
         const endpoint =
           location.osm_type === "custom"
@@ -5734,7 +5764,7 @@ const STATUS = window.STATUS || {
 
         // show modal progress
         this.showProgressModal(
-          `Reprocessing streets for ${location.display_name} (seg ${newLen} m)...`,
+          `Reprocessing streets for ${location.display_name} (seg ${settings.segment} m)...`,
           0
         );
 
@@ -5767,17 +5797,21 @@ const STATUS = window.STATUS || {
       }
     }
 
-    async _askSegmentLength(locationName, defaultLen = 100) {
+    async _askMatchSettings(locationName, defaults = {segment:100, buffer:15, min:5}) {
       return new Promise((resolve) => {
         const modalEl = document.getElementById("segmentLengthModal");
         if (!modalEl) return resolve(null);
 
-        const inputEl = modalEl.querySelector("#segment-length-modal-input");
+        const segEl = modalEl.querySelector("#segment-length-modal-input");
+        const bufEl = modalEl.querySelector("#modal-match-buffer");
+        const minEl = modalEl.querySelector("#modal-min-match");
         const titleEl = modalEl.querySelector(".modal-title");
         const confirmBtn = modalEl.querySelector("#segment-length-confirm-btn");
         const cancelBtn = modalEl.querySelector("#segment-length-cancel-btn");
 
-        inputEl.value = defaultLen;
+        segEl.value = defaults.segment;
+        bufEl.value = defaults.buffer;
+        minEl.value = defaults.min;
         if (titleEl) titleEl.textContent = `Re-segment Streets for ${locationName}`;
 
         const bsModal = new bootstrap.Modal(modalEl, { backdrop: "static" });
@@ -5789,10 +5823,16 @@ const STATUS = window.STATUS || {
         };
 
         const onConfirm = () => {
-          const val = parseInt(inputEl.value, 10);
+          const segVal = parseInt(segEl.value, 10);
+          const bufVal = parseFloat(bufEl.value);
+          const minVal = parseFloat(minEl.value);
           cleanup();
           bsModal.hide();
-          resolve(isNaN(val) || val <= 0 ? null : val);
+          if (isNaN(segVal) || segVal <= 0 || isNaN(bufVal) || bufVal<=0 || isNaN(minVal)||minVal<=0) {
+            resolve(null);
+          } else {
+            resolve({segment:segVal, buffer:bufVal, min:minVal});
+          }
         };
 
         const onCancel = () => {

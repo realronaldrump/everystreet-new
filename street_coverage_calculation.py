@@ -233,8 +233,13 @@ class CoverageCalculator:
         self.utm_proj: pyproj.CRS | None = None
         self.project_to_utm = None
 
-        self.match_buffer: float = DEFAULT_MATCH_BUFFER_METERS
-        self.min_match_length: float = DEFAULT_MIN_MATCH_LENGTH_METERS
+        # Allow per-location overrides
+        self.match_buffer: float = float(
+            location.get("match_buffer_meters", DEFAULT_MATCH_BUFFER_METERS)
+        )
+        self.min_match_length: float = float(
+            location.get("min_match_length_meters", DEFAULT_MIN_MATCH_LENGTH_METERS)
+        )
 
         self.street_index_batch_size: int = MAX_STREETS_PER_INDEX_BATCH
         self.trip_batch_size: int = MAX_TRIPS_PER_BATCH

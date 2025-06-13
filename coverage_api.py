@@ -72,34 +72,33 @@ async def _recalculate_coverage_stats(
                 "$group": {
                     "_id": None,
                     "total_segments": {"$sum": 1},
+                    "driveable_segments": {
+                        "$sum": {
+                            "$cond": [
+                                {"$eq": ["$properties.undriveable", True]},
+                                0,
+                                1,
+                            ]
+                        }
+                    },
                     "total_length": {"$sum": "$properties.segment_length"},
                     "driveable_length": {
                         "$sum": {
                             "$cond": [
-                                {
-                                    "$eq": [
-                                        "$properties.undriveable",
-                                        True,
-                                    ],
-                                },
+                                {"$eq": ["$properties.undriveable", True]},
                                 0,
                                 "$properties.segment_length",
-                            ],
-                        },
+                            ]
+                        }
                     },
                     "driven_length": {
                         "$sum": {
                             "$cond": [
-                                {
-                                    "$eq": [
-                                        "$properties.driven",
-                                        True,
-                                    ],
-                                },
+                                {"$eq": ["$properties.driven", True]},
                                 "$properties.segment_length",
                                 0,
-                            ],
-                        },
+                            ]
+                        }
                     },
                     "street_types_data": {
                         "$push": {
@@ -129,7 +128,7 @@ async def _recalculate_coverage_stats(
             total_length = agg_result.get("total_length", 0.0) or 0.0
             driven_length = agg_result.get("driven_length", 0.0) or 0.0
             driveable_length = agg_result.get("driveable_length", 0.0) or 0.0
-            total_segments = agg_result.get("total_segments", 0) or 0
+            total_segments = agg_result.get("driveable_segments", 0) or 0
 
             coverage_percentage = (
                 (driven_length / driveable_length * 100)
@@ -189,9 +188,10 @@ async def _recalculate_coverage_stats(
             )
 
             stats = {
-                "total_length": total_length,
+                "total_length": driveable_length,
                 "driven_length": driven_length,
                 "driveable_length": driveable_length,
+                "driveable_segments": total_segments,
                 "coverage_percentage": coverage_percentage,
                 "total_segments": total_segments,
                 "street_types": final_street_types,
@@ -1162,6 +1162,13 @@ async def _mark_segment(
         },
     )
 
+    # Recalculate stats & regenerate GeoJSON asynchronously (don't block response)
+    try:
+        await _recalculate_coverage_stats(obj_location_id)
+        await _regenerate_streets_geojson(obj_location_id)
+    except Exception as bg_err:
+        logger.warning("Post-mark background update failed for %s: %s", expected_location_name, bg_err)
+
     return {
         "success": True,
         "message": f"Segment marked as {action_name}",
@@ -1499,6 +1506,8 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
         "geojson": geom_dict,
         "boundary_type": "custom",
         "segment_length_meters": data.segment_length_meters,
+        "match_buffer_meters": data.match_buffer_meters,
+        "min_match_length_meters": data.min_match_length_meters,
     }
 
     # Check if already being processed

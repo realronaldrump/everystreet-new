@@ -808,7 +808,7 @@ async def process_osm_data(
                 ],
             },
             {
-                "properties.osm_id": 1,
+                "geometry": 1,
                 "properties.manual_override": 1,
                 "properties.manually_marked_driven": 1,
                 "properties.manually_marked_undriven": 1,
@@ -818,22 +818,53 @@ async def process_osm_data(
             },
         )
 
-        overrides_map: dict[int, dict[str, bool]] = {}
+        # Prepare simplified override documents list
+        simplified_overrides: list[dict[str, Any]] = []
         for doc in override_docs:
-            osm_id = doc["properties"]["osm_id"]
-            props = doc["properties"]
-            if osm_id not in overrides_map:
-                overrides_map[osm_id] = {
-                    "manual_override": False,
-                    "manually_marked_driven": False,
-                    "manually_marked_undriven": False,
-                    "manually_marked_undriveable": False,
-                    "manually_marked_driveable": False,
-                    "undriveable": False,
-                }
-            for key in overrides_map[osm_id]:
-                overrides_map[osm_id][key] = overrides_map[osm_id][key] or props.get(key, False)
-        # ------------------------------------------------------------------
+            props = doc.get("properties", {})
+            flags = {
+                "manual_override": props.get("manual_override", False),
+                "manually_marked_driven": props.get("manually_marked_driven", False),
+                "manually_marked_undriven": props.get("manually_marked_undriven", False),
+                "manually_marked_undriveable": props.get("manually_marked_undriveable", False),
+                "manually_marked_driveable": props.get("manually_marked_driveable", False),
+                "undriveable": props.get("undriveable", False),
+            }
+            simplified_overrides.append({"geometry": doc.get("geometry"), "flags": flags})
+
+        if simplified_overrides:
+            try:
+                for ov in simplified_overrides:
+                    geomspec = ov.get("geometry")
+                    if not geomspec:
+                        continue
+                    set_updates = {}
+                    flags = ov.get("flags", {})
+                    if flags.get("undriveable"):
+                        set_updates.update({"properties.undriveable": True})
+                    if flags.get("manual_override"):
+                        set_updates.update({"properties.manual_override": True})
+                    if flags.get("manually_marked_driven"):
+                        set_updates.update({"properties.manually_marked_driven": True, "properties.driven": True, "properties.manual_override": True})
+                    if flags.get("manually_marked_undriven"):
+                        set_updates.update({"properties.manually_marked_undriven": True, "properties.driven": False, "properties.manual_override": True})
+                    if flags.get("manually_marked_undriveable"):
+                        set_updates.update({"properties.manually_marked_undriveable": True, "properties.undriveable": True, "properties.manual_override": True})
+                    if flags.get("manually_marked_driveable"):
+                        set_updates.update({"properties.manually_marked_driveable": True, "properties.undriveable": False, "properties.manual_override": True})
+
+                    if set_updates:
+                        await update_many_with_retry(
+                            streets_collection,
+                            {
+                                "properties.location": location_name,
+                                "geometry": {"$geoIntersects": {"$geometry": geomspec}},
+                            },
+                            {"$set": set_updates},
+                        )
+                logger.info("Re-applied manual overrides by geometry (%d docs) for %s", len(simplified_overrides), location_name)
+            except Exception as override_err:
+                logger.warning("Failed geometry-based reapply of overrides for %s: %s", location_name, override_err)
 
     except Exception as e:
         logger.error(
@@ -1285,33 +1316,6 @@ async def preprocess_streets(
                 "Street preprocessing completed successfully for %s.",
                 location_name,
             )
-
-            # ------------------------------------------------------------------
-            # Re-apply preserved manual overrides (if any)
-            # ------------------------------------------------------------------
-            if overrides_map:
-                try:
-                    for flag_name, field_updates in {
-                        "undriveable": {"properties.undriveable": True, "properties.manual_override": True},
-                        "manually_marked_driven": {"properties.manually_marked_driven": True, "properties.driven": True, "properties.manual_override": True},
-                        "manually_marked_undriven": {"properties.manually_marked_undriven": True, "properties.driven": False, "properties.manual_override": True},
-                        "manually_marked_undriveable": {"properties.manually_marked_undriveable": True, "properties.undriveable": True, "properties.manual_override": True},
-                        "manually_marked_driveable": {"properties.manually_marked_driveable": True, "properties.undriveable": False, "properties.manual_override": True},
-                        "manual_override": {"properties.manual_override": True},
-                    }.items():
-                        affected_ids = [oid for oid, flags in overrides_map.items() if flags.get(flag_name)]
-                        if affected_ids:
-                            await update_many_with_retry(
-                                streets_collection,
-                                {
-                                    "properties.location": location_name,
-                                    "properties.osm_id": {"$in": affected_ids},
-                                },
-                                {"$set": field_updates},
-                            )
-                    logger.info("Re-applied manual overrides for %d OSM ways in %s", len(overrides_map), location_name)
-                except Exception as override_err:
-                    logger.warning("Failed to re-apply manual overrides for %s: %s", location_name, override_err)
 
         except TimeoutError:  # Catch asyncio.TimeoutError from wait_for
             logger.error(
