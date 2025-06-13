@@ -1498,6 +1498,7 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
         "lon": shape(geom_dict).centroid.x,
         "geojson": geom_dict,
         "boundary_type": "custom",
+        "segment_length_meters": data.segment_length_meters,
     }
 
     # Check if already being processed
@@ -1529,7 +1530,7 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
 
     # Kick off async processing task
     task_id = str(uuid.uuid4())
-    asyncio.create_task(process_area(location_dict, task_id))
+    asyncio.create_task(process_area(location_dict, task_id, data.segment_length_meters))
 
     return {
         "status": "success",

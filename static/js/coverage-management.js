@@ -1250,6 +1250,11 @@ const STATUS = window.STATUS || {
             this.cancelProcessing(locationData).finally(resetButton);
           }
           break;
+        case "reprocess":
+          if (locationId) {
+            this.reprocessStreetsForArea(locationId).finally(resetButton);
+          }
+          break;
         default:
           this.notificationManager.show(
             `Unknown table action: ${action}`,
@@ -1676,6 +1681,11 @@ const STATUS = window.STATUS || {
       addButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
 
       const locationToAdd = { ...this.validatedLocation };
+      const segLenEl = document.getElementById("segment-length-input");
+      if (segLenEl && segLenEl.value) {
+        const val = parseInt(segLenEl.value, 10);
+        if (!isNaN(val) && val > 0) locationToAdd.segment_length_meters = val;
+      }
 
       try {
         const currentAreasResponse = await fetch("/api/coverage_areas");
@@ -2579,6 +2589,9 @@ const STATUS = window.STATUS || {
                       } 
                       data-bs-toggle="tooltip">
                 <i class="fas fa-bolt"></i>
+              </button>
+              <button class="btn btn-sm btn-secondary" data-action="reprocess" data-location-id="${locationId}" title="Re-segment streets (choose new segment length)" ${isProcessing ? "disabled" : ""} data-bs-toggle="tooltip">
+                <i class="fas fa-sliders-h"></i>
               </button>
               <button class="btn btn-sm btn-danger" data-action="delete" data-location='${locationButtonData}' 
                       title="Delete this coverage area" ${
@@ -5601,6 +5614,11 @@ const STATUS = window.STATUS || {
       addButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
 
       const customAreaToAdd = { ...this.validatedCustomBoundary };
+      const segLenEl2 = document.getElementById("segment-length-input");
+      if (segLenEl2 && segLenEl2.value) {
+        const val2 = parseInt(segLenEl2.value, 10);
+        if (!isNaN(val2) && val2 > 0) customAreaToAdd.segment_length_meters = val2;
+      }
 
       try {
         const currentAreasResponse = await fetch("/api/coverage_areas");
@@ -5690,6 +5708,104 @@ const STATUS = window.STATUS || {
         addButton.disabled = true;
         addButton.innerHTML = originalButtonContent;
       }
+    }
+
+    async reprocessStreetsForArea(locationId) {
+      try {
+        // Fetch location metadata
+        const resp = await fetch(`/api/coverage_areas/${locationId}`);
+        const data = await resp.json();
+        if (!data.success || !data.coverage) {
+          throw new Error(data.error || "Failed to fetch coverage area");
+        }
+        const location = data.coverage.location;
+        if (!location.display_name) throw new Error("Missing location");
+
+        // Ask user for new segment length
+        const defaultLen = location.segment_length_meters || 100;
+        const newLen = await this._askSegmentLength(location.display_name, defaultLen);
+        if (newLen === null) return; // cancelled or invalid
+        location.segment_length_meters = newLen;
+
+        const endpoint =
+          location.osm_type === "custom"
+            ? "/api/preprocess_custom_boundary"
+            : "/api/preprocess_streets";
+
+        // show modal progress
+        this.showProgressModal(
+          `Reprocessing streets for ${location.display_name} (seg ${newLen} m)...`,
+          0
+        );
+
+        const resp2 = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(location),
+        });
+        const taskData = await resp2.json();
+        if (!resp2.ok) {
+          throw new Error(taskData.detail || "Failed to start reprocessing");
+        }
+
+        this.currentProcessingLocation = location;
+        this.currentTaskId = taskData.task_id;
+        this.activeTaskIds.add(taskData.task_id);
+        this.saveProcessingState();
+
+        await this.pollCoverageProgress(taskData.task_id);
+
+        this.notificationManager.show(
+          `Reprocessing completed for ${location.display_name}`,
+          "success"
+        );
+        await this.loadCoverageAreas();
+      } catch (err) {
+        console.error("Reprocess error", err);
+        this.notificationManager.show(`Reprocess failed: ${err.message}`, "danger");
+        this.hideProgressModal();
+      }
+    }
+
+    async _askSegmentLength(locationName, defaultLen = 100) {
+      return new Promise((resolve) => {
+        const modalEl = document.getElementById("segmentLengthModal");
+        if (!modalEl) return resolve(null);
+
+        const inputEl = modalEl.querySelector("#segment-length-modal-input");
+        const titleEl = modalEl.querySelector(".modal-title");
+        const confirmBtn = modalEl.querySelector("#segment-length-confirm-btn");
+        const cancelBtn = modalEl.querySelector("#segment-length-cancel-btn");
+
+        inputEl.value = defaultLen;
+        if (titleEl) titleEl.textContent = `Re-segment Streets for ${locationName}`;
+
+        const bsModal = new bootstrap.Modal(modalEl, { backdrop: "static" });
+
+        const cleanup = () => {
+          confirmBtn.removeEventListener("click", onConfirm);
+          cancelBtn.removeEventListener("click", onCancel);
+          modalEl.removeEventListener("hidden.bs.modal", onCancel);
+        };
+
+        const onConfirm = () => {
+          const val = parseInt(inputEl.value, 10);
+          cleanup();
+          bsModal.hide();
+          resolve(isNaN(val) || val <= 0 ? null : val);
+        };
+
+        const onCancel = () => {
+          cleanup();
+          resolve(null);
+        };
+
+        confirmBtn.addEventListener("click", onConfirm);
+        cancelBtn.addEventListener("click", onCancel);
+        modalEl.addEventListener("hidden.bs.modal", onCancel);
+
+        bsModal.show();
+      });
     }
   } // End of CoverageManager class
 

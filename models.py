@@ -19,6 +19,7 @@ class LocationModel(BaseModel):
     display_name: str
     osm_id: int
     osm_type: str
+    segment_length_meters: int | None = None  # Optional override for street segmentation length
 
     class Config:
         extra = "allow"
@@ -31,6 +32,7 @@ class CustomBoundaryModel(BaseModel):
     boundary_type: str = "custom"
     geometry: dict[str, Any]  # GeoJSON geometry
     area_name: str
+    segment_length_meters: int | None = None  # Optional segmentation length override
     
     class Config:
         extra = "allow"
