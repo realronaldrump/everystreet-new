@@ -720,7 +720,7 @@ endblock %} {% block extra_css %}
         <div class="chart-header">
           <h3 class="chart-title">Frequently Visited Locations</h3>
           <button class="btn btn-sm btn-primary" id="view-map">
-            <i class="fas fa-map"></i> View on Map
+            <i class="fas fa-map"></i> View on Trips Page
           </button>
         </div>
         <div class="table-responsive">
@@ -729,7 +729,7 @@ endblock %} {% block extra_css %}
               <tr>
                 <th>Location</th>
                 <th>Visits</th>
-                <th>Total Distance</th>
+                <th data-bs-toggle="tooltip" title="Sum of miles driven to this location during the selected date range">Total Distance&nbsp;<i class="fas fa-question-circle text-muted"></i></th>
                 <th>Avg Duration</th>
                 <th>Last Visit</th>
               </tr>

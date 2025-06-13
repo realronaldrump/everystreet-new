@@ -34,6 +34,12 @@ if (typeof window !== "undefined") {
 
   async function init() {
     setupEventListeners();
+    // Enable Bootstrap tooltips used in the page (e.g., Total Distance column)
+    const tooltipTriggerList = [].slice.call(
+      document.querySelectorAll('[data-bs-toggle="tooltip"]'),
+    );
+    tooltipTriggerList.forEach((el) => new bootstrap.Tooltip(el));
+
     initCharts();
     await loadAllData();
     startAutoRefresh();
