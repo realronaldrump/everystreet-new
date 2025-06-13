@@ -997,10 +997,6 @@ if (typeof window !== "undefined") {
     }
   }
 
-  function showCustomDatePicker() {
-    // This would show a modal with date pickers
-    showNotification("Custom date range picker coming soon!", "info");
-  }
 
   // Auto Refresh
   function startAutoRefresh() {

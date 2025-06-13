@@ -2136,7 +2136,11 @@ async def get_driving_insights(request: Request):
             # Add formatted top destinations list
             combined["top_destinations"] = [
                 {
-                    "location": d["_id"],
+                    "location": (
+                        d["_id"].get("formatted_address")
+                        if isinstance(d["_id"], dict)
+                        else (d["_id"].get("name") if isinstance(d["_id"], dict) else str(d["_id"]))
+                    ),
                     "visits": d.get("visits", 0),
                     "distance": round(d.get("distance", 0.0), 2),
                     "duration_seconds": round(d.get("total_duration", 0.0), 0),
