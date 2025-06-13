@@ -367,18 +367,27 @@
     max-width: 95vw;
     margin: 1rem auto;
   }
-  
+
   #drawing-map {
     height: 300px;
   }
-  
+
   .drawing-tools {
     flex-direction: column;
     gap: 8px;
     align-items: stretch;
   }
-  
+
   .drawing-info {
     justify-content: center;
   }
+}
+
+/* Smooth update animation for dashboard stats */
+.value-updated {
+  transition:
+    transform 0.4s ease,
+    color 0.4s ease;
+  transform: scale(1.15);
+  color: var(--bs-info);
 }

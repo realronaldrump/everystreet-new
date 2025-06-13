@@ -26,7 +26,6 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from trips import router as trips_router
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -65,6 +64,7 @@ from pages import router as pages_router
 from tasks import process_webhook_event_task
 from tasks_api import router as tasks_api_router
 from trip_processor import TripProcessor, TripState
+from trips import router as trips_router
 from update_geo_points import update_geo_points
 from utils import (
     calculate_circular_average_hour,
@@ -1805,17 +1805,6 @@ async def get_trips_in_bounds(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve trips within bounds: {str(e)}",
         )
-
-
-@app.get(
-    "/driver-behavior",
-    response_class=HTMLResponse,
-)
-async def driver_behavior_page(request: Request):
-    return templates.TemplateResponse(
-        "driver_behavior.html",
-        {"request": request},
-    )
 
 
 @app.get("/api/driver-behavior")

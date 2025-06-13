@@ -27,8 +27,10 @@ from shapely.ops import transform, unary_union
 from db import (
     coverage_metadata_collection,
     delete_many_with_retry,
+    find_with_retry,
     progress_collection,
     streets_collection,
+    update_many_with_retry,
     update_one_with_retry,
 )
 
@@ -48,7 +50,7 @@ WGS84 = pyproj.CRS("EPSG:4326")
 
 # Regex constants are now centralized in osm_utils.py
 
-SEGMENT_LENGTH_METERS = 100
+SEGMENT_LENGTH_METERS = 100  # Default – can be overridden per-run
 BATCH_SIZE = 1000
 PROCESS_TIMEOUT = 30000  # Timeout for individual parallel processing tasks
 MAX_WORKERS = min(multiprocessing.cpu_count(), 8)
@@ -343,6 +345,10 @@ def process_element_parallel(
         proj_to_utm: Callable = element_data["project_to_utm"]
         proj_to_wgs84: Callable = element_data["project_to_wgs84"]
         boundary_polygon: BaseGeometry | None = element_data.get("boundary_polygon")
+        segment_length_meters: float = element_data.get(
+            "segment_length_meters",
+            SEGMENT_LENGTH_METERS,
+        )
         nodes = [(node["lon"], node["lat"]) for node in geometry_nodes]
         if len(nodes) < 2:
             return []
@@ -357,7 +363,7 @@ def process_element_parallel(
 
         segments = segment_street(
             projected_line,
-            segment_length_meters=SEGMENT_LENGTH_METERS,
+            segment_length_meters=segment_length_meters,
         )
 
         features = []
@@ -453,6 +459,7 @@ def process_element_parallel(
                     "last_manual_update": None,
                     "matched_trips": [],
                     "tags": tags,  # Store original tags for reference
+                    "segment_length_meters": segment_length_meters,
                 },
             }
             features.append(feature)
@@ -474,6 +481,7 @@ async def process_osm_data(
     project_to_utm_func: Callable,
     project_to_wgs84_func: Callable,
     boundary_polygon: BaseGeometry | None,
+    segment_length_meters: float,
     task_id: str | None = None,
 ) -> None:
     """Convert OSM ways into segmented features and insert them into
@@ -544,6 +552,7 @@ async def process_osm_data(
                 "project_to_utm": project_to_utm_func,
                 "project_to_wgs84": project_to_wgs84_func,
                 "boundary_polygon": boundary_polygon,
+                "segment_length_meters": segment_length_meters,
             }
             for element in way_elements
             if element.get("id") is not None  # Ensure ID exists
@@ -782,6 +791,121 @@ async def process_osm_data(
                 upsert=True,
             )
 
+        # ------------------------------------------------------------------
+        # Preserve manual overrides before we wipe & re-create segments
+        # ------------------------------------------------------------------
+        override_docs = await find_with_retry(
+            streets_collection,
+            {
+                "properties.location": location_name,
+                "$or": [
+                    {"properties.manual_override": True},
+                    {"properties.manually_marked_driven": True},
+                    {"properties.manually_marked_undriven": True},
+                    {"properties.manually_marked_undriveable": True},
+                    {"properties.manually_marked_driveable": True},
+                    {"properties.undriveable": True},
+                ],
+            },
+            {
+                "geometry": 1,
+                "properties.manual_override": 1,
+                "properties.manually_marked_driven": 1,
+                "properties.manually_marked_undriven": 1,
+                "properties.manually_marked_undriveable": 1,
+                "properties.manually_marked_driveable": 1,
+                "properties.undriveable": 1,
+            },
+        )
+
+        # Prepare simplified override documents list
+        simplified_overrides: list[dict[str, Any]] = []
+        for doc in override_docs:
+            props = doc.get("properties", {})
+            flags = {
+                "manual_override": props.get("manual_override", False),
+                "manually_marked_driven": props.get("manually_marked_driven", False),
+                "manually_marked_undriven": props.get(
+                    "manually_marked_undriven", False
+                ),
+                "manually_marked_undriveable": props.get(
+                    "manually_marked_undriveable", False
+                ),
+                "manually_marked_driveable": props.get(
+                    "manually_marked_driveable", False
+                ),
+                "undriveable": props.get("undriveable", False),
+            }
+            simplified_overrides.append(
+                {"geometry": doc.get("geometry"), "flags": flags}
+            )
+
+        if simplified_overrides:
+            try:
+                for ov in simplified_overrides:
+                    geomspec = ov.get("geometry")
+                    if not geomspec:
+                        continue
+                    set_updates = {}
+                    flags = ov.get("flags", {})
+                    if flags.get("undriveable"):
+                        set_updates.update({"properties.undriveable": True})
+                    if flags.get("manual_override"):
+                        set_updates.update({"properties.manual_override": True})
+                    if flags.get("manually_marked_driven"):
+                        set_updates.update(
+                            {
+                                "properties.manually_marked_driven": True,
+                                "properties.driven": True,
+                                "properties.manual_override": True,
+                            }
+                        )
+                    if flags.get("manually_marked_undriven"):
+                        set_updates.update(
+                            {
+                                "properties.manually_marked_undriven": True,
+                                "properties.driven": False,
+                                "properties.manual_override": True,
+                            }
+                        )
+                    if flags.get("manually_marked_undriveable"):
+                        set_updates.update(
+                            {
+                                "properties.manually_marked_undriveable": True,
+                                "properties.undriveable": True,
+                                "properties.manual_override": True,
+                            }
+                        )
+                    if flags.get("manually_marked_driveable"):
+                        set_updates.update(
+                            {
+                                "properties.manually_marked_driveable": True,
+                                "properties.undriveable": False,
+                                "properties.manual_override": True,
+                            }
+                        )
+
+                    if set_updates:
+                        await update_many_with_retry(
+                            streets_collection,
+                            {
+                                "properties.location": location_name,
+                                "geometry": {"$geoIntersects": {"$geometry": geomspec}},
+                            },
+                            {"$set": set_updates},
+                        )
+                logger.info(
+                    "Re-applied manual overrides by geometry (%d docs) for %s",
+                    len(simplified_overrides),
+                    location_name,
+                )
+            except Exception as override_err:
+                logger.warning(
+                    "Failed geometry-based reapply of overrides for %s: %s",
+                    location_name,
+                    override_err,
+                )
+
     except Exception as e:
         logger.error(
             "Error in process_osm_data for %s: %s",
@@ -814,12 +938,14 @@ async def process_osm_data(
 async def preprocess_streets(
     validated_location: dict[str, Any],
     task_id: str | None = None,
+    segment_length_meters: float = SEGMENT_LENGTH_METERS,
 ) -> None:
     """Preprocess street data for a validated location:
     Fetch filtered OSM data (excluding non-drivable/private ways),
     determine appropriate UTM zone, segment streets, and update the database.
     Clips streets to the location's GeoJSON boundary if available.
     """
+    overrides_map: dict[int, dict[str, bool]] = {}
     location_name = validated_location["display_name"]
     boundary_shape: BaseGeometry | None = None  # Initialize boundary_shape
 
@@ -1221,6 +1347,7 @@ async def preprocess_streets(
                     project_to_utm_dynamic,
                     project_to_wgs84_dynamic,
                     boundary_shape,
+                    segment_length_meters,
                     task_id,
                 ),
                 timeout=1800,  # Timeout for the entire data processing stage
