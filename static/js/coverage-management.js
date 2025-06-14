@@ -117,6 +117,8 @@ const STATUS = window.STATUS || {
 
       // Container reference for undriven streets list
       this.undrivenStreetsContainer = null;
+      this.undrivenSortCriterion = "length_desc";
+      this.undrivenSortSelect = null;
     }
 
     // Override setTimeout and setInterval to track them
@@ -5942,6 +5944,17 @@ const STATUS = window.STATUS || {
       if (!this.undrivenStreetsContainer) {
         this.undrivenStreetsContainer = document.getElementById("undriven-streets-list");
       }
+      if (!this.undrivenSortSelect) {
+        this.undrivenSortSelect = document.getElementById("undriven-streets-sort");
+        if (this.undrivenSortSelect && !this.undrivenSortSelect.dataset.listenerAttached) {
+          this.undrivenSortSelect.addEventListener("change", () => {
+            this.undrivenSortCriterion = this.undrivenSortSelect.value;
+            // Rebuild list with new sort
+            this.updateUndrivenStreetsList(this.streetsGeoJson || geojson);
+          });
+          this.undrivenSortSelect.dataset.listenerAttached = "true";
+        }
+      }
       const container = this.undrivenStreetsContainer;
       if (!container) return;
 
@@ -5955,28 +5968,28 @@ const STATUS = window.STATUS || {
         return;
       }
 
-      // Create a map of street_name -> { driven: boolean }
-      const streetStatus = new Map();
+      // Aggregate stats per street
+      const aggregates = new Map();
       for (const feature of geojson.features) {
         const props = feature.properties || {};
         const name = props.street_name || "Unnamed";
-        if (!streetStatus.has(name)) {
-          // Initialize entry
-          streetStatus.set(name, { driven: false });
+        const segLen = parseFloat(props.segment_length || 0);
+        let agg = aggregates.get(name);
+        if (!agg) {
+          agg = { length: 0, segments: 0, driven: false };
+          aggregates.set(name, agg);
         }
-        // If any segment is driven, mark as driven
-        if (props.driven) {
-          streetStatus.get(name).driven = true;
-        }
+        agg.length += isNaN(segLen) ? 0 : segLen;
+        agg.segments += 1;
+        if (props.driven) agg.driven = true;
       }
 
-      // Filter to streets with no driven segments
-      const undrivenNames = [...streetStatus.entries()]
-        .filter(([, status]) => !status.driven)
-        .map(([name]) => name)
-        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+      // Build undriven array with metrics
+      let undrivenData = [...aggregates.entries()]
+        .filter(([, agg]) => !agg.driven)
+        .map(([name, agg]) => ({ name, length: agg.length, segments: agg.segments }));
 
-      if (!undrivenNames.length) {
+      if (!undrivenData.length) {
         container.innerHTML = CoverageManager.createAlertMessage(
           "All Covered",
           "Great job! Every street has at least one driven segment.",
@@ -5985,10 +5998,33 @@ const STATUS = window.STATUS || {
         return;
       }
 
-      // Build list HTML
+      // Apply sorting
+      const sortKey = this.undrivenSortCriterion || "length_desc";
+      undrivenData.sort((a, b) => {
+        switch (sortKey) {
+          case "length_asc":
+            return a.length - b.length;
+          case "length_desc":
+            return b.length - a.length;
+          case "segments_asc":
+            return a.segments - b.segments;
+          case "segments_desc":
+            return b.segments - a.segments;
+          case "name_asc":
+            return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+          default:
+            return 0;
+        }
+      });
+
+      // Build list HTML with metrics badges
       let html = '<ul class="list-group list-group-flush small">';
-      undrivenNames.forEach((name) => {
-        html += `<li class="list-group-item bg-transparent text-truncate undriven-street-item" data-street-name="${name}" title="${name}">${name}</li>`;
+      undrivenData.forEach((item) => {
+        const dist = CoverageManager.distanceInUserUnits(item.length);
+        html += `<li class="list-group-item d-flex align-items-center justify-content-between bg-transparent text-truncate undriven-street-item" data-street-name="${item.name}" title="${item.name}">
+          <span class="street-name text-truncate me-2">${item.name}</span>
+          <div class="text-nowrap"><span class="badge bg-secondary" title="Total length">${dist}</span> <span class="badge bg-dark" title="Segment count">${item.segments}</span></div>
+        </li>`;
       });
       html += "</ul>";
 

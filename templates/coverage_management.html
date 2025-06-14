@@ -262,6 +262,16 @@ block head_content %}
                   </h4>
                 </div>
                 <div class="card-body p-0">
+                  <!-- Sort controls -->
+                  <div class="d-flex justify-content-end p-2">
+                    <select id="undriven-streets-sort" class="form-select form-select-sm w-auto" title="Sort undriven streets">
+                      <option value="length_desc" selected>Longest</option>
+                      <option value="length_asc">Shortest</option>
+                      <option value="segments_desc">Most Segments</option>
+                      <option value="segments_asc">Fewest Segments</option>
+                      <option value="name_asc">Name A–Z</option>
+                    </select>
+                  </div>
                   <div id="undriven-streets-list" style="max-height: 200px; overflow-y: auto;">
                     <div class="placeholder-content text-secondary p-3 text-center">
                       <i class="fas fa-road fa-2x mb-2"></i>
