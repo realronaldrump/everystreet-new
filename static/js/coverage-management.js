@@ -5942,11 +5942,18 @@ const STATUS = window.STATUS || {
     updateUndrivenStreetsList(geojson) {
       // Ensure container exists
       if (!this.undrivenStreetsContainer) {
-        this.undrivenStreetsContainer = document.getElementById("undriven-streets-list");
+        this.undrivenStreetsContainer = document.getElementById(
+          "undriven-streets-list",
+        );
       }
       if (!this.undrivenSortSelect) {
-        this.undrivenSortSelect = document.getElementById("undriven-streets-sort");
-        if (this.undrivenSortSelect && !this.undrivenSortSelect.dataset.listenerAttached) {
+        this.undrivenSortSelect = document.getElementById(
+          "undriven-streets-sort",
+        );
+        if (
+          this.undrivenSortSelect &&
+          !this.undrivenSortSelect.dataset.listenerAttached
+        ) {
           this.undrivenSortSelect.addEventListener("change", () => {
             this.undrivenSortCriterion = this.undrivenSortSelect.value;
             // Rebuild list with new sort
@@ -5959,7 +5966,11 @@ const STATUS = window.STATUS || {
       if (!container) return;
 
       // Validate geojson structure
-      if (!geojson || !Array.isArray(geojson.features) || !geojson.features.length) {
+      if (
+        !geojson ||
+        !Array.isArray(geojson.features) ||
+        !geojson.features.length
+      ) {
         container.innerHTML = CoverageManager.createAlertMessage(
           "No Data",
           "No street data available.",
@@ -5987,7 +5998,11 @@ const STATUS = window.STATUS || {
       // Build undriven array with metrics
       let undrivenData = [...aggregates.entries()]
         .filter(([, agg]) => !agg.driven)
-        .map(([name, agg]) => ({ name, length: agg.length, segments: agg.segments }));
+        .map(([name, agg]) => ({
+          name,
+          length: agg.length,
+          segments: agg.segments,
+        }));
 
       if (!undrivenData.length) {
         container.innerHTML = CoverageManager.createAlertMessage(
@@ -6011,7 +6026,9 @@ const STATUS = window.STATUS || {
           case "segments_desc":
             return b.segments - a.segments;
           case "name_asc":
-            return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+            return a.name.localeCompare(b.name, undefined, {
+              sensitivity: "base",
+            });
           default:
             return 0;
         }
