@@ -22,6 +22,7 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
     status,
+    Body,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -56,7 +57,6 @@ from models import (
     LocationModel,
     NoActiveTripResponse,
     ValidateLocationModel,
-    AppSettingsModel,
 )
 from osm_utils import generate_geojson_osm
 from pages import router as pages_router
@@ -131,9 +131,14 @@ archived_live_trips_collection = db_manager.db["archived_live_trips"]
 app_settings_collection = db_manager.db["app_settings"]
 
 # Default settings if none stored
-DEFAULT_APP_SETTINGS = {
+DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "_id": "default",
     "disableWebSockets": False,
+    "highlightRecentTrips": True,
+    "autoCenter": True,
+    "showLiveTracking": True,
+    "polylineColor": "#00FF00",
+    "polylineOpacity": 0.8,
 }
 
 
@@ -2422,7 +2427,7 @@ async def get_persisted_app_settings() -> dict[str, Any]:
 
 @app.get(
     "/api/app_settings",
-    response_model=AppSettingsModel,
+    response_model=dict,
     summary="Get Application Settings",
     description="Retrieve persisted application-wide settings such as WebSocket preference.",
 )
@@ -2431,7 +2436,7 @@ async def get_app_settings_endpoint():
         doc = await get_persisted_app_settings()
         # Remove Mongo _id for response clarity
         doc.pop("_id", None)
-        return AppSettingsModel(**doc)
+        return doc
     except Exception as e:
         logger.exception("Error fetching app settings via API: %s", e)
         raise HTTPException(
@@ -2442,17 +2447,19 @@ async def get_app_settings_endpoint():
 
 @app.post(
     "/api/app_settings",
-    response_model=AppSettingsModel,
+    response_model=dict,
     summary="Update Application Settings",
     description="Persist application settings. Fields omitted in the payload remain unchanged.",
 )
-async def update_app_settings_endpoint(settings: AppSettingsModel):
+async def update_app_settings_endpoint(settings: dict = Body(...)):
     try:
-        update_doc = settings.dict(exclude_unset=True)
+        if not isinstance(settings, dict):
+            raise HTTPException(status_code=400, detail="Invalid payload")
+
         # Upsert merge into single document with _id = default
         await app_settings_collection.update_one(
             {"_id": "default"},
-            {"$set": update_doc},
+            {"$set": settings},
             upsert=True,
         )
         return settings
