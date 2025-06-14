@@ -139,7 +139,9 @@ class DrivingNavigation {
     try {
       const show = window.localStorage.getItem("showLiveTracking") !== "false";
       if (!show) {
-        console.info("Live tracking disabled by user setting (navigation page)");
+        console.info(
+          "Live tracking disabled by user setting (navigation page)",
+        );
         return;
       }
     } catch (e) {
