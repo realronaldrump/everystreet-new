@@ -19,6 +19,17 @@ const initializeDates = () => {
 
 const initializeLiveTracker = () => {
   if (window.LiveTripTracker && state.map && !state.liveTracker) {
+    // Respect user preference to hide live tracking
+    try {
+      const show = window.localStorage.getItem("showLiveTracking") !== "false";
+      if (!show) {
+        console.info("Live tracking disabled by user setting");
+        return;
+      }
+    } catch (e) {
+      // Ignore storage errors
+    }
+
     try {
       state.liveTracker = new window.LiveTripTracker(state.map);
     } catch (err) {

@@ -135,6 +135,17 @@ class DrivingNavigation {
       return;
     }
 
+    // Respect user preference to hide live tracking
+    try {
+      const show = window.localStorage.getItem("showLiveTracking") !== "false";
+      if (!show) {
+        console.info("Live tracking disabled by user setting (navigation page)");
+        return;
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
     this.liveTracker = new LiveTripTracker(this.map);
 
     this.liveTracker.setActiveTrip = (trip) => {

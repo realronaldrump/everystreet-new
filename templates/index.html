@@ -381,6 +381,25 @@ block content %}
       // Initial state
       updateLiveTrackingVisibility();
 
+      // Fetch server-side setting once and reconcile localStorage
+      (async () => {
+        try {
+          const res = await fetch("/api/app_settings");
+          if (res.ok) {
+            const data = await res.json();
+            if (typeof data.showLiveTracking !== "undefined") {
+              window.localStorage.setItem(
+                "showLiveTracking",
+                data.showLiveTracking,
+              );
+              updateLiveTrackingVisibility();
+            }
+          }
+        } catch (err) {
+          console.warn("Unable to sync showLiveTracking setting:", err);
+        }
+      })();
+
       // Respond to changes from other tabs/windows or settings page
       window.addEventListener("storage", (e) => {
         if (e.key === "showLiveTracking") {
