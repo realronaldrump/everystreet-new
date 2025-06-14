@@ -5940,13 +5940,19 @@ const STATUS = window.STATUS || {
     updateUndrivenStreetsList(geojson) {
       // Ensure container exists
       if (!this.undrivenStreetsContainer) {
-        this.undrivenStreetsContainer = document.getElementById("undriven-streets-list");
+        this.undrivenStreetsContainer = document.getElementById(
+          "undriven-streets-list",
+        );
       }
       const container = this.undrivenStreetsContainer;
       if (!container) return;
 
       // Validate geojson structure
-      if (!geojson || !Array.isArray(geojson.features) || !geojson.features.length) {
+      if (
+        !geojson ||
+        !Array.isArray(geojson.features) ||
+        !geojson.features.length
+      ) {
         container.innerHTML = CoverageManager.createAlertMessage(
           "No Data",
           "No street data available.",
