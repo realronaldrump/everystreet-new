@@ -60,7 +60,7 @@ class LiveTripTracker {
     this.currentLineCoords = [];
     this.markerAnimationId = null;
 
-    this.statusIndicator = document.querySelector(".live-status-indicator");
+    this.statusIndicator = document.querySelector(".status-indicator");
     this.statusText = document.querySelector(".live-status-text");
     this.activeTripsCountElem = document.querySelector("#active-trips-count");
     this.tripMetricsElem = document.querySelector(".live-trip-metrics");

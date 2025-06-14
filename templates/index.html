@@ -39,7 +39,7 @@ block content %}
       <div id="controls-content" class="collapse show px-3 pb-3">
         <div class="row g-3">
           <!-- Live Tracking Status Panel -->
-          <div class="col-12">
+          <div class="col-12" id="live-tracking-panel">
             <div class="card border-0 bg-transparent p-0">
               <!-- Removed card for tighter integration -->
               <div
@@ -367,6 +367,26 @@ block content %}
       } else if (chevron) {
         chevron.style.transform = "rotate(180deg)";
       }
+
+      // Toggle Live Tracking Panel visibility based on user setting
+      const liveTrackingPanel = document.getElementById("live-tracking-panel");
+      function updateLiveTrackingVisibility() {
+        if (!liveTrackingPanel) return;
+        const showLiveTracking = window.localStorage.getItem("showLiveTracking");
+        // Default: show panel unless setting exists and is explicitly "false"
+        const shouldShow = showLiveTracking !== "false";
+        liveTrackingPanel.classList.toggle("d-none", !shouldShow);
+      }
+
+      // Initial state
+      updateLiveTrackingVisibility();
+
+      // Respond to changes from other tabs/windows or settings page
+      window.addEventListener("storage", (e) => {
+        if (e.key === "showLiveTracking") {
+          updateLiveTrackingVisibility();
+        }
+      });
     }
   });
 </script>
