@@ -114,6 +114,9 @@ const STATUS = window.STATUS || {
       this._activeTimeouts = new Set();
       this._activeEventSources = new Set();
       this.sseReconnectAttempts = 0;
+
+      // Container reference for undriven streets list
+      this.undrivenStreetsContainer = null;
     }
 
     // Override setTimeout and setInterval to track them
@@ -3371,6 +3374,8 @@ const STATUS = window.STATUS || {
 
         if (coverageData.streets_geojson) {
           this.initializeCoverageMap(coverageData);
+          // Update undriven streets listing
+          this.updateUndrivenStreetsList(coverageData.streets_geojson);
         } else {
           mapContainer.innerHTML = CoverageManager.createAlertMessage(
             "Map Data Error",
@@ -4088,6 +4093,8 @@ const STATUS = window.STATUS || {
             newGeoJson.features[featureIndex] = { ...feature };
             this.coverageMap.getSource("streets").setData(newGeoJson);
             this.streetsGeoJson = newGeoJson;
+            // Refresh undriven streets list after segment status change
+            this.updateUndrivenStreetsList(this.streetsGeoJson);
           }
         }
         // Full refresh of stats and potentially map data
@@ -5924,6 +5931,143 @@ const STATUS = window.STATUS || {
 
         bsModal.show();
       });
+    }
+
+    /**
+     * Updates the sidebar list of undriven streets (street names with zero driven segments).
+     * @param {object} geojson - The streets GeoJSON for the current area.
+     */
+    updateUndrivenStreetsList(geojson) {
+      // Ensure container exists
+      if (!this.undrivenStreetsContainer) {
+        this.undrivenStreetsContainer = document.getElementById("undriven-streets-list");
+      }
+      const container = this.undrivenStreetsContainer;
+      if (!container) return;
+
+      // Validate geojson structure
+      if (!geojson || !Array.isArray(geojson.features) || !geojson.features.length) {
+        container.innerHTML = CoverageManager.createAlertMessage(
+          "No Data",
+          "No street data available.",
+          "secondary",
+        );
+        return;
+      }
+
+      // Create a map of street_name -> { driven: boolean }
+      const streetStatus = new Map();
+      for (const feature of geojson.features) {
+        const props = feature.properties || {};
+        const name = props.street_name || "Unnamed";
+        if (!streetStatus.has(name)) {
+          // Initialize entry
+          streetStatus.set(name, { driven: false });
+        }
+        // If any segment is driven, mark as driven
+        if (props.driven) {
+          streetStatus.get(name).driven = true;
+        }
+      }
+
+      // Filter to streets with no driven segments
+      const undrivenNames = [...streetStatus.entries()]
+        .filter(([, status]) => !status.driven)
+        .map(([name]) => name)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+
+      if (!undrivenNames.length) {
+        container.innerHTML = CoverageManager.createAlertMessage(
+          "All Covered",
+          "Great job! Every street has at least one driven segment.",
+          "success",
+        );
+        return;
+      }
+
+      // Build list HTML
+      let html = '<ul class="list-group list-group-flush small">';
+      undrivenNames.forEach((name) => {
+        html += `<li class="list-group-item bg-transparent text-truncate undriven-street-item" data-street-name="${name}" title="${name}">${name}</li>`;
+      });
+      html += "</ul>";
+
+      container.innerHTML = html;
+
+      // Attach click listeners
+      container.querySelectorAll(".undriven-street-item").forEach((el) => {
+        el.addEventListener("click", () => {
+          const street = el.dataset.streetName || el.textContent.trim();
+          this.showStreetOnMap(street);
+        });
+      });
+    }
+
+    /**
+     * Zooms and highlights all segments for a given street name.
+     * @param {string} streetName - Display name of the street ("Unnamed" possible).
+     */
+    showStreetOnMap(streetName) {
+      if (!this.coverageMap || !this.streetsGeoJson) return;
+
+      const matchingFeatures = this.streetsGeoJson.features.filter(
+        (f) => (f.properties?.street_name || "Unnamed") === streetName,
+      );
+
+      if (!matchingFeatures.length) {
+        this.notificationManager?.show(
+          `No geometry found for '${streetName}'.`,
+          "warning",
+        );
+        return;
+      }
+
+      // Remove any previous selection layer/source
+      const selSource = "selected-street";
+      const selLayer = "selected-street-layer";
+      if (this.coverageMap.getLayer(selLayer))
+        this.coverageMap.removeLayer(selLayer);
+      if (this.coverageMap.getSource(selSource))
+        this.coverageMap.removeSource(selSource);
+
+      // Add new selection source/layer
+      this.coverageMap.addSource(selSource, {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: matchingFeatures,
+        },
+      });
+
+      this.coverageMap.addLayer({
+        id: selLayer,
+        type: "line",
+        source: selSource,
+        paint: {
+          "line-color": "#00e5ff", // Cyan highlight
+          "line-width": 6,
+          "line-opacity": 0.9,
+        },
+        layout: { "line-cap": "round", "line-join": "round" },
+      });
+
+      // Compute bounds
+      const bounds = new mapboxgl.LngLatBounds();
+      matchingFeatures.forEach((f) => {
+        const geom = f.geometry;
+        if (!geom) return;
+        const extendCoord = (coord) => bounds.extend(coord);
+        if (geom.type === "LineString") geom.coordinates.forEach(extendCoord);
+        else if (geom.type === "MultiLineString")
+          geom.coordinates.forEach((line) => line.forEach(extendCoord));
+      });
+      if (!bounds.isEmpty()) {
+        this.coverageMap.fitBounds(bounds, {
+          padding: 40,
+          maxZoom: 18,
+          duration: 800,
+        });
+      }
     }
   } // End of CoverageManager class
 
