@@ -3,6 +3,23 @@
 class LiveTripTracker {
   static instance = null; // Singleton pattern
 
+  // ADD: user preference flag to disable WebSocket
+  static isWebSocketDisabledByUser() {
+    try {
+      // 1) URL param ?disable_ws=true or =1
+      const urlParams = new URLSearchParams(window.location.search);
+      const qpFlag = urlParams.get("disable_ws");
+      if (qpFlag === "1" || qpFlag?.toLowerCase() === "true") return true;
+
+      // 2) localStorage key 'disableWebSockets' set to 'true'
+      const lsFlag = window.localStorage.getItem("disableWebSockets");
+      if (lsFlag === "true") return true;
+    } catch (e) {
+      // Silently ignore parsing/localStorage errors
+    }
+    return false;
+  }
+
   constructor(map) {
     // Enforce singleton
     if (LiveTripTracker.instance) {
@@ -48,6 +65,8 @@ class LiveTripTracker {
     this.activeTripsCountElem = document.querySelector("#active-trips-count");
     this.tripMetricsElem = document.querySelector(".live-trip-metrics");
     this.errorMessageElem = document.querySelector(".error-message");
+
+    this.websocketDisabled = LiveTripTracker.isWebSocketDisabledByUser();
 
     this.initialize();
   }
@@ -112,7 +131,12 @@ class LiveTripTracker {
   async initialize() {
     try {
       await this.loadInitialTripData();
-      this.initWebSocket(); // WebSocket first; fallback to polling if not available
+      if (this.websocketDisabled) {
+        // User preference: skip WebSocket, go straight to polling
+        this.startPolling();
+      } else {
+        this.initWebSocket(); // WebSocket first; fallback to polling if not available
+      }
       document.addEventListener("mapUpdated", () => {
         this.bringLiveTripToFront();
       });
@@ -905,6 +929,11 @@ class LiveTripTracker {
    * Falls back to polling when socket closes or errors.
    */
   initWebSocket() {
+    // Add early return respecting user preference
+    if (this.websocketDisabled) {
+      return this.startPolling();
+    }
+
     // Clean up any existing connection
     if (this.ws) {
       this.ws.close();
