@@ -56,6 +56,7 @@ from models import (
     LocationModel,
     NoActiveTripResponse,
     ValidateLocationModel,
+    AppSettingsModel,
 )
 from osm_utils import generate_geojson_osm
 from pages import router as pages_router
@@ -125,6 +126,15 @@ streets_collection = db_manager.db["streets"]
 
 live_trips_collection = db_manager.db["live_trips"]
 archived_live_trips_collection = db_manager.db["archived_live_trips"]
+
+# Collection for application settings (single-document)
+app_settings_collection = db_manager.db["app_settings"]
+
+# Default settings if none stored
+DEFAULT_APP_SETTINGS = {
+    "_id": "default",
+    "disableWebSockets": False,
+}
 
 
 class ConnectionManager:
@@ -2391,6 +2401,66 @@ async def get_metrics(request: Request):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
+        )
+
+
+async def get_persisted_app_settings() -> dict[str, Any]:
+    """Retrieve persisted application settings (creates defaults if missing)."""
+
+    try:
+        doc = await find_one_with_retry(app_settings_collection, {"_id": "default"})
+        if doc is None:
+            # Initialise defaults
+            await app_settings_collection.insert_one(DEFAULT_APP_SETTINGS)
+            doc = DEFAULT_APP_SETTINGS.copy()
+        return doc
+    except Exception as e:
+        logger.exception("Error fetching app settings: %s", e)
+        # Fallback to defaults on error
+        return DEFAULT_APP_SETTINGS.copy()
+
+
+@app.get(
+    "/api/app_settings",
+    response_model=AppSettingsModel,
+    summary="Get Application Settings",
+    description="Retrieve persisted application-wide settings such as WebSocket preference.",
+)
+async def get_app_settings_endpoint():
+    try:
+        doc = await get_persisted_app_settings()
+        # Remove Mongo _id for response clarity
+        doc.pop("_id", None)
+        return AppSettingsModel(**doc)
+    except Exception as e:
+        logger.exception("Error fetching app settings via API: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve application settings.",
+        )
+
+
+@app.post(
+    "/api/app_settings",
+    response_model=AppSettingsModel,
+    summary="Update Application Settings",
+    description="Persist application settings. Fields omitted in the payload remain unchanged.",
+)
+async def update_app_settings_endpoint(settings: AppSettingsModel):
+    try:
+        update_doc = settings.dict(exclude_unset=True)
+        # Upsert merge into single document with _id = default
+        await app_settings_collection.update_one(
+            {"_id": "default"},
+            {"$set": update_doc},
+            upsert=True,
+        )
+        return settings
+    except Exception as e:
+        logger.exception("Error updating app settings via API: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update application settings.",
         )
 
 

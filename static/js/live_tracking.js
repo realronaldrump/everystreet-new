@@ -68,6 +68,9 @@ class LiveTripTracker {
 
     this.websocketDisabled = LiveTripTracker.isWebSocketDisabledByUser();
 
+    // Fetch server-side setting asynchronously and reconcile
+    this.syncWebSocketPreference();
+
     this.initialize();
   }
 
@@ -1060,6 +1063,43 @@ class LiveTripTracker {
     };
 
     this.markerAnimationId = requestAnimationFrame(step);
+  }
+
+  async syncWebSocketPreference() {
+    try {
+      const res = await fetch("/api/app_settings");
+      if (!res.ok) return;
+      const data = await res.json();
+      const serverDisable = Boolean(data.disableWebSockets);
+
+      if (serverDisable && !this.websocketDisabled) {
+        // Need to switch to polling
+        this.websocketDisabled = true;
+        if (this.ws) {
+          try {
+            this.ws.close();
+          } catch {}
+          this.ws = null;
+        }
+        if (!this.isPolling) {
+          this.startPolling();
+        }
+        window.localStorage.setItem("disableWebSockets", "true");
+      } else if (!serverDisable && this.websocketDisabled) {
+        // Server allows websockets; if user hadn't explicitly disabled via URL/localStorage we re-enable
+        if (window.localStorage.getItem("disableWebSockets") === "true") {
+          // Respect explicit local override
+          return;
+        }
+        this.websocketDisabled = false;
+        if (!this.ws) {
+          this.initWebSocket();
+        }
+        window.localStorage.removeItem("disableWebSockets");
+      }
+    } catch (e) {
+      console.warn("LiveTripTracker: unable to sync WS preference", e);
+    }
   }
 }
 

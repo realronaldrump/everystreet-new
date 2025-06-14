@@ -178,24 +178,55 @@ endblock %} {% block content %}
       "theme-toggle-checkbox",
     );
 
-    // Load settings from localStorage
-    const isDarkMode =
-      document.documentElement.getAttribute("data-bs-theme") === "dark";
-    darkModeToggle.checked = isDarkMode;
-    highlightRecentTrips.checked =
-      localStorage.getItem("highlightRecentTrips") !== "false";
-    autoCenterToggle.checked = localStorage.getItem("autoCenter") !== "false";
-    showLiveTracking.checked =
-      localStorage.getItem("showLiveTracking") !== "false";
+    // Function to init UI with settings object
+    function applySettings(settings = {}) {
+      const {
+        highlightRecentTrips: hrt,
+        autoCenter,
+        showLiveTracking: slt,
+        polylineColor: pc,
+        polylineOpacity: po,
+        disableWebSockets,
+      } = settings;
 
-    // Load WebSocket preference (inverse logic: stored key means disabled)
-    useWebSocketToggle.checked =
-      localStorage.getItem("disableWebSockets") !== "true";
+      const isDarkMode =
+        document.documentElement.getAttribute("data-bs-theme") === "dark";
+      darkModeToggle.checked = isDarkMode;
 
-    // Load polyline settings
-    polylineColor.value = localStorage.getItem("polylineColor") || "#00FF00";
-    polylineOpacity.value = localStorage.getItem("polylineOpacity") || "0.8";
-    opacityValue.textContent = polylineOpacity.value;
+      highlightRecentTrips.checked = hrt !== false;
+      autoCenterToggle.checked = autoCenter !== false;
+      showLiveTracking.checked = slt !== false;
+
+      useWebSocketToggle.checked = disableWebSockets !== true;
+
+      polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
+      polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
+      opacityValue.textContent = polylineOpacity.value;
+    }
+
+    // Initial load: fetch settings from server
+    (async () => {
+      try {
+        const res = await fetch("/api/app_settings");
+        if (res.ok) {
+          const data = await res.json();
+          applySettings(data);
+
+          // Mirror to localStorage for quick access elsewhere
+          if (data.disableWebSockets) {
+            localStorage.setItem("disableWebSockets", "true");
+          } else {
+            localStorage.removeItem("disableWebSockets");
+          }
+        } else {
+          console.warn("Failed to fetch app settings. HTTP", res.status);
+          applySettings(); // Fallback to existing localStorage
+        }
+      } catch (err) {
+        console.error("Error fetching app settings:", err);
+        applySettings();
+      }
+    })();
 
     // Update opacity value display when slider changes
     polylineOpacity.addEventListener("input", function () {
@@ -203,24 +234,47 @@ endblock %} {% block content %}
     });
 
     // Handle form submission
-    form.addEventListener("submit", function (e) {
+    form.addEventListener("submit", async function (e) {
       e.preventDefault();
 
-      // Save other settings
-      localStorage.setItem(
-        "highlightRecentTrips",
-        highlightRecentTrips.checked,
-      );
-      localStorage.setItem("autoCenter", autoCenterToggle.checked);
-      localStorage.setItem("showLiveTracking", showLiveTracking.checked);
-      localStorage.setItem("polylineColor", polylineColor.value);
-      localStorage.setItem("polylineOpacity", polylineOpacity.value);
+      const payload = {
+        highlightRecentTrips: highlightRecentTrips.checked,
+        autoCenter: autoCenterToggle.checked,
+        showLiveTracking: showLiveTracking.checked,
+        polylineColor: polylineColor.value,
+        polylineOpacity: polylineOpacity.value,
+        disableWebSockets: !useWebSocketToggle.checked,
+      };
 
-      // Save WebSocket preference
-      if (useWebSocketToggle.checked) {
-        localStorage.removeItem("disableWebSockets");
-      } else {
+      // Persist to server
+      try {
+        const resp = await fetch("/api/app_settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!resp.ok) {
+          throw new Error(`Server returned ${resp.status}`);
+        }
+      } catch (err) {
+        console.error("Error saving settings to server:", err);
+        window.notificationManager?.show(
+          "Failed to save settings on server",
+          "danger",
+        );
+      }
+
+      // Mirror to localStorage for quick access
+      localStorage.setItem("highlightRecentTrips", payload.highlightRecentTrips);
+      localStorage.setItem("autoCenter", payload.autoCenter);
+      localStorage.setItem("showLiveTracking", payload.showLiveTracking);
+      localStorage.setItem("polylineColor", payload.polylineColor);
+      localStorage.setItem("polylineOpacity", payload.polylineOpacity);
+      if (payload.disableWebSockets) {
         localStorage.setItem("disableWebSockets", "true");
+      } else {
+        localStorage.removeItem("disableWebSockets");
       }
 
       // Show success notification
@@ -245,8 +299,8 @@ endblock %} {% block content %}
       if (window.liveTracker) {
         try {
           window.liveTracker.updatePolylineStyle(
-            polylineColor.value,
-            polylineOpacity.value,
+            payload.polylineColor,
+            payload.polylineOpacity,
           );
         } catch (err) {
           console.error("Error updating live tracker style:", err);
