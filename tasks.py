@@ -709,7 +709,7 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
     name="tasks.periodic_fetch_trips",
     queue="high_priority",
 )
-def periodic_fetch_trips(self):
+def periodic_fetch_trips(self, *args, **kwargs):
     """Celery task wrapper for fetching periodic trips."""
     return run_async_from_sync(periodic_fetch_trips_async(self))
 
@@ -810,7 +810,7 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
     name="tasks.update_coverage_for_new_trips",
     queue="default",
 )
-def update_coverage_for_new_trips(self):
+def update_coverage_for_new_trips(self, *args, **kwargs):
     """Celery task wrapper for updating coverage incrementally."""
     return run_async_from_sync(update_coverage_for_new_trips_async(self))
 
@@ -863,7 +863,7 @@ async def cleanup_stale_trips_async(self) -> dict[str, Any]:
     name="tasks.cleanup_stale_trips",
     queue="low_priority",
 )
-def cleanup_stale_trips(self):
+def cleanup_stale_trips(self, *args, **kwargs):
     """Celery task wrapper for cleaning up stale live trips."""
     return run_async_from_sync(cleanup_stale_trips_async(self))
 
@@ -971,7 +971,7 @@ async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
     name="tasks.cleanup_invalid_trips",
     queue="low_priority",
 )
-def cleanup_invalid_trips(self):
+def cleanup_invalid_trips(self, *args, **kwargs):
     """Celery task wrapper for cleaning up invalid trip data."""
     return run_async_from_sync(cleanup_invalid_trips_async(self))
 
@@ -1074,7 +1074,7 @@ async def update_geocoding_async(self) -> dict[str, Any]:
     name="tasks.update_geocoding",
     queue="default",
 )
-def update_geocoding(self):
+def update_geocoding(self, *args, **kwargs):
     """Celery task wrapper for updating trip geocoding."""
     return run_async_from_sync(update_geocoding_async(self))
 
@@ -1177,7 +1177,7 @@ async def remap_unmatched_trips_async(self) -> dict[str, Any]:
     name="tasks.remap_unmatched_trips",
     queue="default",
 )
-def remap_unmatched_trips(self):
+def remap_unmatched_trips(self, *args, **kwargs):
     """Celery task wrapper for remapping unmatched trips."""
     return run_async_from_sync(remap_unmatched_trips_async(self))
 
@@ -1311,7 +1311,7 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
     name="tasks.validate_trip_data",
     queue="low_priority",
 )
-def validate_trip_data(self):
+def validate_trip_data(self, *args, **kwargs):
     """Celery task wrapper for validating trip data."""
     return run_async_from_sync(validate_trip_data_async(self))
 
@@ -1503,7 +1503,7 @@ async def run_task_scheduler_async(self) -> None:
     time_limit=300,
     soft_time_limit=280,
 )
-def run_task_scheduler(self):
+def run_task_scheduler(self, *args, **kwargs):
     """Celery task wrapper for the main task scheduler."""
     run_async_from_sync(run_task_scheduler_async(self))
 
