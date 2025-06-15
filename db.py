@@ -100,6 +100,7 @@ class DatabaseManager:
                 ),
             )
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
+            self._limit_mb: float = float(os.getenv("STORAGE_LIMIT_MB", 512))
 
             logger.debug(
                 "Database configuration initialized with pool size %s",
@@ -181,6 +182,27 @@ class DatabaseManager:
     def quota_exceeded(self) -> bool:
         """Check if the database quota is exceeded."""
         return self._quota_exceeded
+
+    @property
+    def limit_mb(self) -> float:
+        """Return current storage limit in MB."""
+        return self._limit_mb
+
+    def set_limit_mb(self, value: float | int | None) -> None:
+        """Update the in-memory storage limit.
+
+        Args:
+            value: New limit in megabytes. If None or invalid, the previous value is kept.
+        """
+        if value is None:
+            return
+        try:
+            numeric = float(value)
+            if numeric > 0:
+                self._limit_mb = numeric
+        except Exception:
+            # Ignore invalid inputs – keep current limit
+            pass
 
     def get_collection(self, collection_name: str) -> AsyncIOMotorCollection:
         """Get a collection by name, cached for efficiency.
@@ -328,7 +350,7 @@ class DatabaseManager:
                 stats = await self.db.command("dbStats")
                 data_size = stats.get("dataSize", 0)
                 used_mb = data_size / (1024 * 1024)
-                limit_mb = 512
+                limit_mb = self._limit_mb
                 self._quota_exceeded = used_mb > limit_mb
                 return used_mb, limit_mb
 

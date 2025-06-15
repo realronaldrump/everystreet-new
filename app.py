@@ -139,6 +139,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "showLiveTracking": True,
     "polylineColor": "#00FF00",
     "polylineOpacity": 0.8,
+    "storageLimitMb": 512,
 }
 
 
@@ -1627,7 +1628,7 @@ async def get_storage_info():
 
         if used_mb is None or limit_mb is None:
             used_mb = 0
-            limit_mb = 512
+            limit_mb = db_manager.limit_mb
             storage_usage_percent = 0
         else:
             storage_usage_percent = round((used_mb / limit_mb) * 100, 2)
@@ -1644,7 +1645,7 @@ async def get_storage_info():
         )
         return {
             "used_mb": 0,
-            "limit_mb": 512,
+            "limit_mb": db_manager.limit_mb,
             "usage_percent": 0,
             "error": str(e),
         }
@@ -1670,6 +1671,16 @@ async def startup_event():
             mapbox_token=MAPBOX_ACCESS_TOKEN
         )  # Initializes the class, not an instance for immediate use
         logger.info("TripProcessor class initialized (available for use).")
+
+        # Configure storage limit from persisted application settings, if available
+        try:
+            settings_doc = await get_persisted_app_settings()
+            storage_limit_mb = settings_doc.get("storageLimitMb")
+            if storage_limit_mb:
+                db_manager.set_limit_mb(storage_limit_mb)
+                logger.info("Storage limit set to %.2f MB from app settings", storage_limit_mb)
+        except Exception:
+            logger.exception("Failed to read storageLimitMb from app settings; using default limit")
 
         used_mb, limit_mb = await db_manager.check_quota()
         if not db_manager.quota_exceeded:
@@ -2462,7 +2473,13 @@ async def update_app_settings_endpoint(settings: dict = Body(...)):
             {"$set": settings},
             upsert=True,
         )
-        return settings
+
+        # Update in-memory storage limit if provided
+        if "storageLimitMb" in settings:
+            db_manager.set_limit_mb(settings["storageLimitMb"])
+
+        updated_settings = await get_persisted_app_settings()
+        return updated_settings
     except Exception as e:
         logger.exception("Error updating app settings via API: %s", e)
         raise HTTPException(
