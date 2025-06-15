@@ -540,21 +540,39 @@ async def delete_coverage_area(
                 await fs.delete(gridfs_id)
                 logger.info("Deleted GridFS file %s for %s", gridfs_id, display_name)
             except errors.NoFile:
-                logger.warning("Referenced GridFS file %s not found for %s, continuing.", gridfs_id, display_name)
+                logger.warning(
+                    "Referenced GridFS file %s not found for %s, continuing.",
+                    gridfs_id,
+                    display_name,
+                )
             except Exception as gridfs_err:
-                logger.warning("Error deleting referenced GridFS file for %s: %s", display_name, gridfs_err)
+                logger.warning(
+                    "Error deleting referenced GridFS file for %s: %s",
+                    display_name,
+                    gridfs_err,
+                )
 
             # Additionally, delete ANY GridFS files that were tagged with this location name
             try:
-                cursor = db_manager.db["fs.files"].find({"metadata.location": display_name}, {"_id": 1})
+                cursor = db_manager.db["fs.files"].find(
+                    {"metadata.location": display_name}, {"_id": 1}
+                )
                 async for file_doc in cursor:
                     try:
                         await fs.delete(file_doc["_id"])
-                        logger.info("Deleted extra GridFS file %s for %s", file_doc["_id"], display_name)
+                        logger.info(
+                            "Deleted extra GridFS file %s for %s",
+                            file_doc["_id"],
+                            display_name,
+                        )
                     except errors.NoFile:
                         pass
             except Exception as extra_del_err:
-                logger.warning("Error purging additional GridFS files for %s: %s", display_name, extra_del_err)
+                logger.warning(
+                    "Error purging additional GridFS files for %s: %s",
+                    display_name,
+                    extra_del_err,
+                )
 
         try:
             await delete_many_with_retry(
