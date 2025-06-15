@@ -81,7 +81,7 @@ async def database_management_page(request: Request):
     try:
         db_stats = await db_manager.db.command("dbStats")
         storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
-        storage_limit_mb = 512
+        storage_limit_mb = db_manager.limit_mb
         storage_usage_percent = round(
             (storage_used_mb / storage_limit_mb) * 100,
             2,

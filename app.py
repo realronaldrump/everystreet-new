@@ -1655,6 +1655,16 @@ async def get_storage_info():
 async def startup_event():
     """Initialize database indexes and components on application startup."""
     try:
+        # Configure storage limit early using persisted settings so index creation uses correct quota
+        try:
+            settings_doc = await get_persisted_app_settings()
+            storage_limit_mb = settings_doc.get("storageLimitMb")
+            if storage_limit_mb:
+                db_manager.set_limit_mb(storage_limit_mb)
+                logger.info("Storage limit set to %.2f MB from app settings (pre-init)", storage_limit_mb)
+        except Exception:
+            logger.exception("Failed to read storageLimitMb from app settings at startup; using default limit")
+
         await init_database()  # This already creates many indexes
         logger.info("Core database initialized successfully (indexes, etc.).")
 
@@ -1671,16 +1681,6 @@ async def startup_event():
             mapbox_token=MAPBOX_ACCESS_TOKEN
         )  # Initializes the class, not an instance for immediate use
         logger.info("TripProcessor class initialized (available for use).")
-
-        # Configure storage limit from persisted application settings, if available
-        try:
-            settings_doc = await get_persisted_app_settings()
-            storage_limit_mb = settings_doc.get("storageLimitMb")
-            if storage_limit_mb:
-                db_manager.set_limit_mb(storage_limit_mb)
-                logger.info("Storage limit set to %.2f MB from app settings", storage_limit_mb)
-        except Exception:
-            logger.exception("Failed to read storageLimitMb from app settings; using default limit")
 
         used_mb, limit_mb = await db_manager.check_quota()
         if not db_manager.quota_exceeded:
@@ -2477,6 +2477,11 @@ async def update_app_settings_endpoint(settings: dict = Body(...)):
         # Update in-memory storage limit if provided
         if "storageLimitMb" in settings:
             db_manager.set_limit_mb(settings["storageLimitMb"])
+            # Recalculate quota status immediately
+            try:
+                await db_manager.check_quota()
+            except Exception:
+                logger.exception("Failed to refresh quota after storageLimitMb update")
 
         updated_settings = await get_persisted_app_settings()
         return updated_settings
