@@ -1692,10 +1692,12 @@ const STATUS = window.STATUS || {
         const val = parseInt(segLenEl.value, 10);
         if (!isNaN(val) && val > 0) locationToAdd.segment_length_meters = val;
       }
+      const bufEl = document.getElementById("match-buffer-input");
       if (bufEl && bufEl.value) {
         const v = parseFloat(bufEl.value);
         if (!isNaN(v) && v > 0) locationToAdd.match_buffer_meters = v;
       }
+      const minEl = document.getElementById("min-match-length-input");
       if (minEl && minEl.value) {
         const v2 = parseFloat(minEl.value);
         if (!isNaN(v2) && v2 > 0) locationToAdd.min_match_length_meters = v2;
