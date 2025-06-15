@@ -10,7 +10,7 @@ import logging
 import multiprocessing
 import os
 from collections import defaultdict
-from concurrent.futures import CancelledError, Future, ProcessPoolExecutor
+from concurrent.futures import CancelledError, Future, ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
 from typing import Any
@@ -422,7 +422,32 @@ class CoverageCalculator:
             )
 
     async def initialize_workers(self) -> None:
-        """Initializes the ProcessPoolExecutor."""
+        """Initializes a worker pool.
+
+        Celery prefork workers are marked as *daemonic* in Python's multiprocessing
+        implementation.  A daemonic process is prohibited from creating child
+        processes, which causes a ``ValueError: daemonic processes are not allowed
+        to have children`` whenever we try to spin up a ``ProcessPoolExecutor``
+        inside a Celery task.  To avoid flooding the logs with this error we
+        detect the condition up-front and fall back to sequential (single-thread)
+        execution.  This preserves correctness while keeping the door open for
+        true multiprocessing when the code is executed outside a Celery worker
+        (for example during CLI runs or unit tests).
+        """
+
+        # If we're running inside a Celery worker (daemon=True) we cannot spawn
+        # extra processes – bail out early.
+        if multiprocessing.current_process().daemon:
+            logger.info(
+                "Task %s: Current process is daemonic (likely a Celery worker). "
+                "Disabling ProcessPoolExecutor to prevent 'daemonic processes are not allowed to have children'.",
+                self.task_id,
+            )
+            self.max_workers = 0
+            self.process_pool = None
+            return
+
+        # Regular non-daemon execution path – attempt to create a process pool.
         if self.process_pool is None and self.max_workers > 0:
             try:
                 context = multiprocessing.get_context("spawn")
@@ -437,7 +462,7 @@ class CoverageCalculator:
                 )
             except Exception as e:
                 logger.error(
-                    "Task %s: Failed to create process pool: %s. Running sequentially.",
+                    "Task %s: Failed to create process pool (%s). Running sequentially.",
                     self.task_id,
                     e,
                 )
