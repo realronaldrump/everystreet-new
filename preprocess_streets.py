@@ -48,8 +48,6 @@ logger = logging.getLogger(__name__)
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
 WGS84 = pyproj.CRS("EPSG:4326")
 
-# Regex constants are now centralized in osm_utils.py
-
 SEGMENT_LENGTH_METERS = 100  # Default – can be overridden per-run
 BATCH_SIZE = 1000
 PROCESS_TIMEOUT = 30000  # Timeout for individual parallel processing tasks

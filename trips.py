@@ -18,7 +18,6 @@ from db import (
     find_with_retry,
     get_trip_by_id,
     matched_trips_collection,
-    parse_query_date,
     trips_collection,
 )
 from trip_processor import TripProcessor, TripState

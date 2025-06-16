@@ -119,6 +119,10 @@ const STATUS = window.STATUS || {
       this.undrivenStreetsContainer = null;
       this.undrivenSortCriterion = "length_desc";
       this.undrivenSortSelect = null;
+
+      // Multi-select street segment support
+      // Holds the segment_id strings that the user has selected for bulk actions
+      this.selectedSegmentIds = new Set();
     }
 
     // Override setTimeout and setInterval to track them
@@ -3762,6 +3766,8 @@ const STATUS = window.STATUS || {
 
         if (this.mapInfoPanel) this.mapInfoPanel.remove();
         this.createMapInfoPanel();
+        // Initialize toolbar for bulk segment actions
+        this.createBulkActionToolbar();
       } catch (mapInitError) {
         console.error("Failed to initialize Mapbox GL:", mapInitError);
         mapContainer.innerHTML = CoverageManager.createAlertMessage(
@@ -3782,6 +3788,7 @@ const STATUS = window.STATUS || {
         "streets-layer",
         "streets-hover-highlight",
         "streets-click-highlight",
+        "streets-selection-highlight",
       ];
       layersToRemove.forEach((layerId) => {
         if (this.coverageMap.getLayer(layerId))
@@ -3924,6 +3931,18 @@ const STATUS = window.STATUS || {
           if (e.originalEvent?.button !== 0) return;
           if (e.features?.length > 0) {
             const props = e.features[0].properties;
+
+            // Detect if user is holding a modifier key to perform multi-selection
+            const isMultiSelect =
+              e.originalEvent?.ctrlKey ||
+              e.originalEvent?.metaKey ||
+              e.originalEvent?.shiftKey;
+            if (isMultiSelect) {
+              const segId = props.segment_id;
+              if (segId) this.toggleSegmentSelection(segId);
+              return; // skip showing popup when multi-selecting
+            }
+
             const popupContent = this.createStreetPopupContentHTML(props);
             const popup = new mapboxgl.Popup({
               closeButton: true,
@@ -6106,6 +6125,200 @@ const STATUS = window.STATUS || {
           duration: 800,
         });
       }
+    }
+
+    /* =============================================================
+     * Multi-select / Bulk Segment Actions
+     * =========================================================== */
+
+    createBulkActionToolbar() {
+      if (document.getElementById("bulk-action-toolbar")) return;
+      const mapContainer = document.getElementById("coverage-map");
+      if (!mapContainer) return;
+
+      const toolbar = document.createElement("div");
+      toolbar.id = "bulk-action-toolbar";
+      toolbar.className = "bulk-action-toolbar mapboxgl-ctrl mapboxgl-ctrl-group p-2";
+      toolbar.style.display = "none";
+
+      toolbar.innerHTML = `
+        <span id="bulk-selected-count" class="badge bg-info me-2">0 Selected</span>
+        <button class="btn btn-sm btn-outline-success me-1 bulk-mark-btn" data-action="driven" disabled>Mark Driven</button>
+        <button class="btn btn-sm btn-outline-danger me-1 bulk-mark-btn" data-action="undriven" disabled>Mark Undriven</button>
+        <button class="btn btn-sm btn-outline-warning me-1 bulk-mark-btn" data-action="undriveable" disabled>Mark Undriveable</button>
+        <button class="btn btn-sm btn-outline-info me-1 bulk-mark-btn" data-action="driveable" disabled>Mark Driveable</button>
+        <button class="btn btn-sm btn-secondary ms-2 bulk-clear-selection-btn" disabled>Clear</button>
+      `;
+
+      toolbar.addEventListener("click", (e) => {
+        const markBtn = e.target.closest(".bulk-mark-btn");
+        if (markBtn) {
+          const action = markBtn.dataset.action;
+          if (action) {
+            this._handleBulkMarkSegments(action);
+          }
+          return;
+        }
+        if (e.target.closest(".bulk-clear-selection-btn")) {
+          this.clearSelection();
+        }
+      });
+
+      mapContainer.appendChild(toolbar);
+    }
+
+    toggleSegmentSelection(segmentId) {
+      if (!segmentId) return;
+      if (this.selectedSegmentIds.has(segmentId))
+        this.selectedSegmentIds.delete(segmentId);
+      else this.selectedSegmentIds.add(segmentId);
+
+      this._updateSelectionHighlight();
+      this._updateBulkToolbar();
+    }
+
+    _updateSelectionHighlight() {
+      if (!this.coverageMap || !this.coverageMap.getSource("streets")) return;
+
+      const layerId = "streets-selection-highlight";
+      if (!this.coverageMap.getLayer(layerId)) {
+        // Create highlight layer above base streets
+        this.coverageMap.addLayer(
+          {
+            id: layerId,
+            type: "line",
+            source: "streets",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: {
+              "line-color": "#00bcd4",
+              "line-width": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                8,
+                3,
+                14,
+                7,
+              ],
+              "line-opacity": 1,
+            },
+            filter: ["in", "segment_id", ""],
+          },
+          "streets-layer",
+        );
+      }
+
+      const ids = Array.from(this.selectedSegmentIds);
+      if (ids.length === 0) {
+        this.coverageMap.setFilter(layerId, ["in", "segment_id", ""]);
+      } else {
+        this.coverageMap.setFilter(layerId, ["in", "segment_id", ...ids]);
+      }
+    }
+
+    _updateBulkToolbar() {
+      const toolbar = document.getElementById("bulk-action-toolbar");
+      if (!toolbar) return;
+      const countSpan = document.getElementById("bulk-selected-count");
+      const count = this.selectedSegmentIds.size;
+      if (countSpan) countSpan.textContent = `${count} Selected`;
+
+      const disabled = count === 0;
+      toolbar.querySelectorAll(".bulk-mark-btn, .bulk-clear-selection-btn").forEach((btn) => {
+        btn.disabled = disabled;
+      });
+      // Show or hide toolbar
+      toolbar.style.display = count > 0 ? "block" : "none";
+    }
+
+    clearSelection() {
+      if (this.selectedSegmentIds.size === 0) return;
+      this.selectedSegmentIds.clear();
+      this._updateSelectionHighlight();
+      this._updateBulkToolbar();
+    }
+
+    async _handleBulkMarkSegments(action) {
+      if (this.selectedSegmentIds.size === 0) return;
+
+      const activeLocationId =
+        this.selectedLocation?._id || this.currentDashboardLocationId;
+      if (!activeLocationId) {
+        this.notificationManager.show(
+          "Cannot perform bulk action: No active location.",
+          "warning",
+        );
+        return;
+      }
+
+      const segmentIds = Array.from(this.selectedSegmentIds);
+
+      const endpointMap = {
+        driven: "/api/street_segments/mark_driven",
+        undriven: "/api/street_segments/mark_undriven",
+        undriveable: "/api/street_segments/mark_undriveable",
+        driveable: "/api/street_segments/mark_driveable",
+      };
+
+      const endpoint = endpointMap[action];
+      if (!endpoint) {
+        this.notificationManager.show(`Unknown action: ${action}`, "danger");
+        return;
+      }
+
+      // Fire off requests in parallel for speed
+      await Promise.allSettled(
+        segmentIds.map((segId) =>
+          this._makeSegmentApiRequest(endpoint, {
+            location_id: activeLocationId,
+            segment_id: segId,
+          }),
+        ),
+      );
+
+      // Optimistic local update (reuse logic from single handler)
+      segmentIds.forEach((segId) => {
+        const idx = this.streetsGeoJson?.features?.findIndex(
+          (f) => f.properties.segment_id === segId,
+        );
+        if (idx !== undefined && idx !== -1) {
+          const feature = this.streetsGeoJson.features[idx];
+          switch (action) {
+            case "driven":
+              feature.properties.driven = true;
+              feature.properties.undriveable = false;
+              break;
+            case "undriven":
+              feature.properties.driven = false;
+              break;
+            case "undriveable":
+              feature.properties.undriveable = true;
+              feature.properties.driven = false;
+              break;
+            case "driveable":
+              feature.properties.undriveable = false;
+              break;
+          }
+          this.streetsGeoJson.features[idx] = { ...feature };
+        }
+      });
+
+      if (this.coverageMap?.getSource("streets")) {
+        this.coverageMap.getSource("streets").setData(this.streetsGeoJson);
+      }
+
+      this.notificationManager.show(
+        `${segmentIds.length} segments marked as ${action}.`,
+        "success",
+        2500,
+      );
+
+      // Refresh statistics once after bulk operation
+      await this.refreshDashboardData(activeLocationId);
+      await this.loadCoverageAreas();
+
+      // Clear selection & UI
+      this.clearSelection();
     }
   } // End of CoverageManager class
 
