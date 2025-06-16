@@ -10,7 +10,7 @@ import logging
 import multiprocessing
 import os
 from collections import defaultdict
-from concurrent.futures import CancelledError, Future, ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import CancelledError, Future, ProcessPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
 from typing import Any
