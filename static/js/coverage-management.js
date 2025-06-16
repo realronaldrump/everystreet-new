@@ -6138,16 +6138,18 @@ const STATUS = window.STATUS || {
 
       const toolbar = document.createElement("div");
       toolbar.id = "bulk-action-toolbar";
-      toolbar.className = "bulk-action-toolbar mapboxgl-ctrl mapboxgl-ctrl-group p-2";
-      toolbar.style.display = "none";
+      toolbar.className =
+        "bulk-action-toolbar d-flex align-items-center bg-dark bg-opacity-75 rounded shadow-sm";
+      toolbar.style.cssText =
+        "position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;gap:6px;padding:6px 10px;display:none;";
 
       toolbar.innerHTML = `
-        <span id="bulk-selected-count" class="badge bg-info me-2">0 Selected</span>
-        <button class="btn btn-sm btn-outline-success me-1 bulk-mark-btn" data-action="driven" disabled>Mark Driven</button>
-        <button class="btn btn-sm btn-outline-danger me-1 bulk-mark-btn" data-action="undriven" disabled>Mark Undriven</button>
-        <button class="btn btn-sm btn-outline-warning me-1 bulk-mark-btn" data-action="undriveable" disabled>Mark Undriveable</button>
-        <button class="btn btn-sm btn-outline-info me-1 bulk-mark-btn" data-action="driveable" disabled>Mark Driveable</button>
-        <button class="btn btn-sm btn-secondary ms-2 bulk-clear-selection-btn" disabled>Clear</button>
+        <span id="bulk-selected-count" class="badge bg-info">0 Selected</span>
+        <button class="btn btn-sm btn-success bulk-mark-btn" data-action="driven" disabled title="Mark Driven"><i class="fas fa-check"></i></button>
+        <button class="btn btn-sm btn-danger bulk-mark-btn" data-action="undriven" disabled title="Mark Undriven"><i class="fas fa-times"></i></button>
+        <button class="btn btn-sm btn-warning bulk-mark-btn" data-action="undriveable" disabled title="Mark Undriveable"><i class="fas fa-ban"></i></button>
+        <button class="btn btn-sm btn-info text-white bulk-mark-btn" data-action="driveable" disabled title="Mark Driveable"><i class="fas fa-road"></i></button>
+        <button class="btn btn-sm btn-secondary bulk-clear-selection-btn" disabled title="Clear Selection"><i class="fas fa-eraser"></i></button>
       `;
 
       toolbar.addEventListener("click", (e) => {
@@ -6228,7 +6230,7 @@ const STATUS = window.STATUS || {
         btn.disabled = disabled;
       });
       // Show or hide toolbar
-      toolbar.style.display = count > 0 ? "block" : "none";
+      toolbar.style.display = count > 0 ? "flex" : "none";
     }
 
     clearSelection() {
