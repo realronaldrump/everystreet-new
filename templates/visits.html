@@ -1,4 +1,5 @@
-{% extends "base.html" %} {% block title %}Every Street - Visits{% endblock %}
+{% extends "base.html" %} 
+{% block title %}Every Street - Visits{% endblock %}
 {% block head_content %}
 <link
   rel="stylesheet"
@@ -7,146 +8,764 @@
 />
 
 <style>
-  /* Page-specific styles that are not part of the global system can remain or be moved to a page-specific CSS file */
+  /* Enhanced Map Containers */
   .map-container {
-    /* This is a common class, but height is often page-specific */
-    height: 500px !important; /* Default height for this page */
-    width: 100% !important;
-    border-radius: var(--radius-md);
-    background-color: var(--surface-2); /* Match theme */
-    display: block !important;
-    visibility: visible !important;
-    position: relative !important;
-    z-index: 5 !important;
+    height: 600px;
+    width: 100%;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
+    display: block;
+    visibility: visible;
+    position: relative;
+    z-index: 5;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    transition: all var(--transition-normal);
+  }
+
+  .map-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, 
+      rgba(var(--primary-rgb), 0.05) 0%, 
+      transparent 50%,
+      rgba(var(--secondary-rgb), 0.05) 100%);
+    pointer-events: none;
+    z-index: 1;
   }
 
   #trip-map-container {
-    /* Specific map container in modal */
-    height: 400px;
+    height: 450px;
+    border-radius: var(--radius-lg);
   }
 
-  .place-popup .btn {
-    /* Specific to popups on this page's map */
-    margin-top: var(--space-2);
+  /* Enhanced Card Styles */
+  .visits-card {
+    background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
+    border: 1px solid rgba(var(--primary-rgb), 0.2);
+    backdrop-filter: blur(10px);
+    overflow: visible;
   }
-  .trip-marker {
-    /* Leaflet specific marker styling */
-    color: var(--info);
+
+  .visits-card::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, 
+      var(--primary), 
+      var(--secondary), 
+      var(--primary));
+    border-radius: var(--radius-lg);
+    opacity: 0;
+    z-index: -1;
+    transition: opacity var(--transition-normal);
+    background-size: 300% 300%;
+    animation: gradient-shift 4s ease infinite;
+  }
+
+  .visits-card:hover::before {
+    opacity: 0.15;
+  }
+
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  /* Enhanced Place Management Panel */
+  .place-management-panel {
+    background: rgba(var(--surface-glass), 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(var(--primary-rgb), 0.1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .place-management-panel::after {
+    content: '';
+    position: absolute;
+    bottom: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(var(--primary-rgb), 0.1) 0%, transparent 70%);
+    animation: pulse-subtle 8s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes pulse-subtle {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 0.3; }
+  }
+
+  /* Enhanced Form Controls */
+  .place-name-input {
+    background: rgba(var(--surface-3), 0.5);
+    border: 2px solid transparent;
+    transition: all var(--transition-normal);
+    font-size: var(--font-size-md);
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .place-name-input:focus {
+    background: var(--surface-2);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.25rem rgba(var(--primary-rgb), 0.15);
+    transform: translateY(-1px);
+  }
+
+  /* Enhanced Buttons */
+  .action-button {
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition-normal);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: var(--space-3) var(--space-5);
+  }
+
+  .action-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .action-button:hover::before {
+    width: 300px;
+    height: 300px;
+  }
+
+  .action-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(var(--primary-rgb), 0.3);
+  }
+
+  .draw-button.active {
+    background: linear-gradient(135deg, var(--warning), var(--warning-dark));
+    box-shadow: 0 4px 15px rgba(var(--warning-rgb), 0.3);
+    animation: pulse-draw 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-draw {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+
+  /* Enhanced Chart Container */
+  .chart-container {
+    background: linear-gradient(135deg, 
+      rgba(var(--surface-2), 0.8), 
+      rgba(var(--surface-1), 0.9));
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chart-container::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(var(--primary-rgb), 0.1) 60deg,
+      transparent 120deg
+    );
+    animation: rotate-slow 20s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes rotate-slow {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Enhanced Table Styles */
+  .visits-table {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .visits-table thead {
+    background: linear-gradient(135deg, var(--surface-3), var(--surface-2));
+  }
+
+  .visits-table tbody tr {
+    transition: all var(--transition-fast);
+    border-bottom: 1px solid rgba(var(--border-color), 0.5);
+  }
+
+  .visits-table tbody tr:hover {
+    background: rgba(var(--primary-rgb), 0.05);
+    transform: scale(1.01);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  .place-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: var(--font-weight-medium);
+    position: relative;
+    transition: all var(--transition-fast);
+  }
+
+  .place-link::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--primary-gradient);
+    transition: width var(--transition-normal);
+  }
+
+  .place-link:hover::after {
+    width: 100%;
+  }
+
+  /* Enhanced Tab Navigation */
+  .visits-nav-tabs {
+    background: rgba(var(--surface-2), 0.5);
+    border-radius: var(--radius-lg);
+    padding: var(--space-1);
+    border: 1px solid var(--border-color);
+    margin-bottom: var(--space-5);
+  }
+
+  .visits-nav-tabs .nav-link {
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-4);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+    transition: all var(--transition-fast);
+    border: none;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .visits-nav-tabs .nav-link::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 3px;
+    background: var(--primary-gradient);
+    transform: translateX(-50%);
+    transition: width var(--transition-normal);
+  }
+
+  .visits-nav-tabs .nav-link:hover {
+    color: var(--text-primary);
+    background: rgba(var(--primary-rgb), 0.05);
+  }
+
+  .visits-nav-tabs .nav-link.active {
+    background: var(--primary-gradient);
+    color: var(--text-on-primary);
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+  }
+
+  .visits-nav-tabs .nav-link.active::before {
+    width: 100%;
+  }
+
+  /* Enhanced Map Controls */
+  .map-controls-enhanced {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    z-index: 10;
+  }
+
+  .map-control-btn {
+    width: 44px;
+    height: 44px;
+    background: rgba(var(--surface-glass), 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(var(--border-color), 0.5);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .map-control-btn:hover {
+    background: rgba(var(--primary-rgb), 0.15);
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.2);
+  }
+
+  .map-control-btn i {
+    font-size: var(--font-size-lg);
+  }
+
+  /* Enhanced Modal Styles */
+  .visits-modal .modal-content {
+    background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
+    border: 1px solid rgba(var(--primary-rgb), 0.2);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+  }
+
+  .visits-modal .modal-header {
+    background: linear-gradient(135deg, 
+      rgba(var(--primary-rgb), 0.1), 
+      rgba(var(--secondary-rgb), 0.05));
+    border-bottom: 1px solid rgba(var(--border-color), 0.5);
+    padding: var(--space-5);
+  }
+
+  .visits-modal .modal-title {
+    font-weight: var(--font-weight-bold);
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Enhanced Popup Styles */
+  .mapboxgl-popup-content {
+    background: rgba(var(--surface-glass), 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(var(--primary-rgb), 0.3);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    padding: var(--space-3);
+    min-width: 280px;
+  }
+
+  .mapboxgl-popup-close-button {
+    color: var(--text-secondary);
+    font-size: var(--font-size-xl);
+    padding: var(--space-2);
+    transition: all var(--transition-fast);
+  }
+
+  .mapboxgl-popup-close-button:hover {
+    color: var(--primary);
+    transform: scale(1.1);
+  }
+
+  .custom-place-popup h6 {
+    color: var(--primary);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-lg);
+  }
+
+  .custom-place-popup p {
+    margin-bottom: var(--space-2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid rgba(var(--border-color), 0.3);
+  }
+
+  .custom-place-popup p:last-of-type {
+    border-bottom: none;
+  }
+
+  .custom-place-popup strong {
+    color: var(--primary);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  /* Trip Details Enhanced */
+  .trip-details {
+    background: rgba(var(--surface-2), 0.5);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    border: 1px solid rgba(var(--primary-rgb), 0.2);
+  }
+
+  .trip-details h6 {
+    color: var(--primary);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--space-3);
+  }
+
+  .trip-details .row > div {
+    margin-bottom: var(--space-2);
+  }
+
+  /* Loading States */
+  .skeleton-loader {
+    background: linear-gradient(90deg, 
+      var(--surface-2) 25%, 
+      var(--surface-3) 50%, 
+      var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: var(--radius-sm);
+    height: 20px;
+    margin-bottom: var(--space-2);
+  }
+
+  @keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Responsive Enhancements */
+  @media (max-width: 992px) {
+    .map-container {
+      height: 450px;
+    }
+    
+    .place-management-panel {
+      padding: var(--space-4);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .map-container {
+      height: 350px;
+    }
+    
+    .map-controls-enhanced {
+      flex-direction: row;
+      top: auto;
+      bottom: var(--space-4);
+      left: 50%;
+      transform: translateX(-50%);
+      right: auto;
+    }
+    
+    .place-management-panel {
+      padding: var(--space-3);
+    }
+    
+    .visits-nav-tabs {
+      padding: var(--space-1) 0;
+      overflow-x: auto;
+      border-radius: 0;
+    }
+  }
+
+  /* Animation Classes */
+  .fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .scale-in {
+    animation: scaleIn 0.4s ease-out;
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Status Badges */
+  .visits-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    background: var(--primary-gradient);
+    color: var(--text-on-primary);
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+  }
+
+  /* Empty State */
+  .empty-state {
     text-align: center;
-    line-height: 20px;
-    font-size: 20px;
-    text-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
-  }
-  .start-marker {
-    color: var(--success);
-  }
-  .end-marker {
-    color: var(--danger);
+    padding: var(--space-8);
+    color: var(--text-secondary);
   }
 
-  /* Ensure Leaflet Draw tooltips are interactive if needed, or style them */
-  .leaflet-draw-tooltip {
-    background-color: var(--surface-glass) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: var(--radius-sm) !important;
-    box-shadow: var(--shadow-md) !important;
+  .empty-state i {
+    font-size: 4rem;
+    color: var(--primary);
+    margin-bottom: var(--space-4);
+    opacity: 0.3;
+  }
+
+  .empty-state h5 {
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+  }
+
+  /* Progress Indicator */
+  .progress-ring {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto var(--space-4);
+  }
+
+  .progress-ring-circle {
+    stroke: var(--primary);
+    stroke-width: 4;
+    fill: none;
+    stroke-dasharray: 339.292;
+    stroke-dashoffset: 339.292;
+    animation: progress-fill 2s ease-out forwards;
+    transform: rotate(-90deg);
+    transform-origin: center;
+  }
+
+  @keyframes progress-fill {
+    to {
+      stroke-dashoffset: 0;
+    }
   }
 </style>
-{% endblock %} {% block content %}
-<div class="container-fluid px-4 py-3">
-  <div id="visits-page"></div>
-  <!-- This div seems unused, can be removed if not needed by JS -->
-  <div class="row">
-    <!-- Places Management Column -->
-    <div class="col-lg-4 col-md-12 mb-4">
-      <!-- Adjusted col for better responsiveness -->
-      <div class="card">
-        <div class="card-header">
-          <h3 class="h5 mb-0 card-title">Places Management</h3>
-        </div>
-        <div class="card-body">
-          <div class="form-group">
-            <!-- Changed to form-group for consistency -->
-            <label for="place-name" class="form-label">Place Name</label>
-            <input
-              type="text"
-              id="place-name"
-              class="form-control"
-              placeholder="Enter place name"
-            />
+{% endblock %} 
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  <!-- Hero Section -->
+  <div class="row mb-4 fade-in-up">
+    <div class="col-12">
+      <div class="hero-section" style="background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.15), rgba(var(--secondary-rgb), 0.1)); padding: var(--space-6) var(--space-5);">
+        <div class="row align-items-center">
+          <div class="col-lg-8">
+            <h1 class="display-4 fw-bold mb-3">
+              <i class="fas fa-map-marked-alt me-3 text-primary"></i>
+              Your Places & Visits
+            </h1>
+            <p class="lead text-secondary mb-0">
+              Track and analyze your visits to custom places. Draw boundaries on the map to define your special locations and monitor your visit patterns over time.
+            </p>
           </div>
-          <div class="form-check form-switch mb-3">
-            <input
-              type="checkbox"
-              class="form-check-input"
-              id="toggle-custom-places"
-              checked
-            />
-            <label class="form-check-label" for="toggle-custom-places">
-              Show Custom Places on Map
-            </label>
-          </div>
-          <div class="d-grid gap-2 mb-3">
-            <button id="start-drawing" class="btn btn-primary">
-              <i class="fas fa-draw-polygon me-2"></i> Draw Place
-            </button>
-            <button id="save-place" class="btn btn-success" disabled>
-              <i class="fas fa-save me-2"></i> Save Place
-            </button>
-          </div>
-          <hr class="my-3" />
-          <button id="manage-places" class="btn btn-outline-secondary w-100">
-            <i class="fas fa-cog me-2"></i> Manage All Places
-          </button>
-        </div>
-      </div>
-    </div>
-    <!-- Map Column -->
-    <div class="col-lg-8 col-md-12 mb-4">
-      <!-- Adjusted col for better responsiveness -->
-      <div class="card">
-        <div
-          class="card-header d-flex justify-content-between align-items-center"
-        >
-          <h3 class="h5 mb-0 card-title">Places Map</h3>
-          <div class="map-controls">
-            <div class="btn-group btn-group-sm" role="group">
-              <button
-                type="button"
-                class="btn btn-outline-secondary"
-                id="zoom-to-fit"
-                title="Zoom to fit all custom places"
-                data-bs-toggle="tooltip"
-              >
-                <i class="fas fa-expand-arrows-alt"></i>
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary"
-                id="clear-drawing"
-                title="Clear current drawing"
-                data-bs-toggle="tooltip"
-              >
-                <i class="fas fa-trash-alt"></i>
-              </button>
+          <div class="col-lg-4 text-lg-end">
+            <div class="d-inline-flex align-items-center">
+              <div class="me-4">
+                <div class="h2 mb-0 text-primary fw-bold">
+                  <span id="total-places-count">0</span>
+                </div>
+                <div class="text-secondary small">Custom Places</div>
+              </div>
+              <div>
+                <div class="h2 mb-0 text-success fw-bold">
+                  <span id="total-visits-count">0</span>
+                </div>
+                <div class="text-secondary small">Total Visits</div>
+              </div>
             </div>
           </div>
         </div>
-        <div class="card-body p-0">
-          <!-- Remove padding if map should fill -->
-          <div id="map" class="map-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Enhanced Places Management Column -->
+    <div class="col-lg-4 mb-4">
+      <div class="place-management-panel scale-in">
+        <h3 class="h4 mb-4 fw-bold">
+          <i class="fas fa-layer-group me-2 text-primary"></i>
+          Places Management
+        </h3>
+        
+        <div class="mb-4">
+          <label for="place-name" class="form-label fw-semibold mb-3">
+            <i class="fas fa-tag me-2 text-primary"></i>
+            Place Name
+          </label>
+          <input
+            type="text"
+            id="place-name"
+            class="form-control form-control-lg place-name-input"
+            placeholder="Enter a memorable name..."
+          />
+          <div class="form-text mt-2">
+            <i class="fas fa-info-circle me-1"></i>
+            Choose a name that helps you remember this location
+          </div>
+        </div>
+
+        <div class="form-check form-switch mb-4 p-3 bg-surface-2 rounded-3">
+          <input
+            type="checkbox"
+            class="form-check-input"
+            id="toggle-custom-places"
+            checked
+            style="width: 3em; height: 1.5em;"
+          />
+          <label class="form-check-label ms-2 fw-medium" for="toggle-custom-places">
+            Show Custom Places on Map
+          </label>
+        </div>
+
+        <div class="d-grid gap-3 mb-4">
+          <button id="start-drawing" class="btn btn-lg btn-primary action-button draw-button">
+            <i class="fas fa-draw-polygon me-2"></i> 
+            <span>Draw Place Boundary</span>
+          </button>
+          <button id="save-place" class="btn btn-lg btn-success action-button" disabled>
+            <i class="fas fa-save me-2"></i> 
+            <span>Save Place</span>
+          </button>
+        </div>
+
+        <div class="divider-gradient my-4"></div>
+
+        <button id="manage-places" class="btn btn-lg btn-outline-primary w-100 action-button">
+          <i class="fas fa-cog me-2"></i> 
+          <span>Manage All Places</span>
+        </button>
+
+        <!-- Quick Stats -->
+        <div class="mt-4 p-3 bg-surface-2 rounded-3">
+          <div class="row g-3 text-center">
+            <div class="col-6">
+              <div class="p-2">
+                <i class="fas fa-map-pin text-primary mb-2" style="font-size: 1.5rem;"></i>
+                <div class="small text-secondary">Active Places</div>
+                <div class="fw-bold" id="active-places-stat">0</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="p-2">
+                <i class="fas fa-calendar-check text-success mb-2" style="font-size: 1.5rem;"></i>
+                <div class="small text-secondary">This Month</div>
+                <div class="fw-bold" id="month-visits-stat">0</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    <!-- Visit Statistics -->
-    <div class="col-12" id="visits-table-container">
-      <div class="card">
+
+    <!-- Enhanced Map Column -->
+    <div class="col-lg-8 mb-4">
+      <div class="card visits-card scale-in">
+        <div class="card-header d-flex justify-content-between align-items-center py-3">
+          <h3 class="h4 mb-0 fw-bold">
+            <i class="fas fa-map me-2 text-primary"></i>
+            Places Map
+          </h3>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary-subtle text-primary px-3 py-2">
+              <i class="fas fa-mouse-pointer me-1"></i>
+              Interactive Map
+            </span>
+          </div>
+        </div>
+        <div class="card-body p-0 position-relative">
+          <div id="map" class="map-container"></div>
+          <!-- Floating Map Controls -->
+          <div class="map-controls-enhanced">
+            <button
+              type="button"
+              class="map-control-btn"
+              id="zoom-to-fit"
+              title="Zoom to fit all places"
+              data-bs-toggle="tooltip"
+            >
+              <i class="fas fa-expand-arrows-alt"></i>
+            </button>
+            <button
+              type="button"
+              class="map-control-btn"
+              id="clear-drawing"
+              title="Clear current drawing"
+              data-bs-toggle="tooltip"
+            >
+              <i class="fas fa-eraser"></i>
+            </button>
+            <button
+              type="button"
+              class="map-control-btn"
+              id="map-style-toggle"
+              title="Toggle map style"
+              data-bs-toggle="tooltip"
+            >
+              <i class="fas fa-palette"></i>
+            </button>
+          </div>
+          <!-- Map Loading Overlay -->
+          <div id="map-loading" class="position-absolute inset-0 d-flex align-items-center justify-content-center bg-surface-1 bg-opacity-75" style="z-index: 20; display: none;">
+            <div class="text-center">
+              <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="text-secondary">Loading map data...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enhanced Visit Statistics -->
+    <div class="col-12 fade-in-up" id="visits-table-container">
+      <div class="card visits-card">
         <div class="card-header">
-          <h3 class="h5 mb-0 card-title">Visit Statistics</h3>
+          <div class="row align-items-center">
+            <div class="col-md-6">
+              <h3 class="h4 mb-0 fw-bold">
+                <i class="fas fa-chart-line me-2 text-primary"></i>
+                Visit Statistics
+              </h3>
+            </div>
+            <div class="col-md-6 text-md-end">
+              <div class="d-inline-flex align-items-center gap-3">
+                <select class="form-select form-select-sm" id="time-filter" style="width: auto;">
+                  <option value="all">All Time</option>
+                  <option value="year">This Year</option>
+                  <option value="month">This Month</option>
+                  <option value="week">This Week</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="card-body">
-          <ul class="nav nav-tabs mb-3" id="visitsTab" role="tablist">
+          <!-- Enhanced Tab Navigation -->
+          <ul class="nav visits-nav-tabs" id="visitsTab" role="tablist">
             <li class="nav-item" role="presentation">
               <button
                 class="nav-link active"
@@ -155,9 +774,8 @@
                 data-bs-target="#custom-places-content"
                 type="button"
                 role="tab"
-                aria-controls="custom-places-content"
-                aria-selected="true"
               >
+                <i class="fas fa-map-marker-alt me-2"></i>
                 Custom Places
               </button>
             </li>
@@ -169,40 +787,46 @@
                 data-bs-target="#non-custom-places-content"
                 type="button"
                 role="tab"
-                aria-controls="non-custom-places-content"
-                aria-selected="false"
               >
-                Other Visited Locations
+                <i class="fas fa-globe me-2"></i>
+                Other Locations
+              </button>
+            </li>
+            <li class="nav-item ms-auto" role="presentation">
+              <button
+                class="nav-link"
+                id="insights-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#insights-content"
+                type="button"
+                role="tab"
+              >
+                <i class="fas fa-lightbulb me-2"></i>
+                Insights
               </button>
             </li>
           </ul>
+
           <div class="tab-content" id="visitsTabContent">
-            <div
-              class="tab-pane fade show active"
-              id="custom-places-content"
-              role="tabpanel"
-              aria-labelledby="custom-places-tab"
-            >
+            <!-- Custom Places Tab -->
+            <div class="tab-pane fade show active" id="custom-places-content" role="tabpanel">
               <div class="row">
                 <div class="col-lg-5 mb-4 mb-lg-0">
-                  <!-- Adjusted col for chart -->
-                  <canvas id="visitsChart" style="max-height: 400px"></canvas>
+                  <div class="chart-container">
+                    <h5 class="text-center mb-3 fw-semibold">Visit Distribution</h5>
+                    <canvas id="visitsChart" style="max-height: 350px"></canvas>
+                  </div>
                 </div>
                 <div class="col-lg-7">
-                  <!-- Adjusted col for table -->
-                  <div class="table-responsive-lg">
-                    <table
-                      id="visits-table"
-                      class="table table-hover"
-                      style="width: 100%"
-                    >
+                  <div class="table-responsive">
+                    <table id="visits-table" class="table visits-table" style="width: 100%">
                       <thead>
                         <tr>
                           <th>Place</th>
-                          <th class="text-end">Total Visits</th>
+                          <th class="text-end">Visits</th>
                           <th>First Visit</th>
                           <th>Last Visit</th>
-                          <th class="text-end">Avg Time Spent</th>
+                          <th class="text-end">Avg Duration</th>
                         </tr>
                       </thead>
                       <tbody></tbody>
@@ -211,22 +835,15 @@
                 </div>
               </div>
             </div>
-            <div
-              class="tab-pane fade"
-              id="non-custom-places-content"
-              role="tabpanel"
-              aria-labelledby="non-custom-places-tab"
-            >
-              <div class="table-responsive-lg">
-                <table
-                  id="non-custom-visits-table"
-                  class="table table-hover"
-                  style="width: 100%"
-                >
+
+            <!-- Other Locations Tab -->
+            <div class="tab-pane fade" id="non-custom-places-content" role="tabpanel">
+              <div class="table-responsive">
+                <table id="non-custom-visits-table" class="table visits-table" style="width: 100%">
                   <thead>
                     <tr>
-                      <th>Place</th>
-                      <th class="text-end">Total Visits</th>
+                      <th>Location</th>
+                      <th class="text-end">Visits</th>
                       <th>First Visit</th>
                       <th>Last Visit</th>
                     </tr>
@@ -235,48 +852,68 @@
                 </table>
               </div>
             </div>
+
+            <!-- Insights Tab -->
+            <div class="tab-pane fade" id="insights-content" role="tabpanel">
+              <div class="row g-4">
+                <div class="col-md-4">
+                  <div class="text-center p-4 bg-surface-2 rounded-3">
+                    <div class="progress-ring mb-3">
+                      <svg width="120" height="120">
+                        <circle cx="60" cy="60" r="54" stroke="var(--surface-3)" stroke-width="4" fill="none"/>
+                        <circle class="progress-ring-circle" cx="60" cy="60" r="54"/>
+                      </svg>
+                    </div>
+                    <h6 class="fw-semibold">Most Visited</h6>
+                    <p class="text-primary fw-bold mb-0" id="most-visited-place">-</p>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="text-center p-4 bg-surface-2 rounded-3">
+                    <i class="fas fa-clock fa-3x text-warning mb-3"></i>
+                    <h6 class="fw-semibold">Average Visit Duration</h6>
+                    <p class="text-warning fw-bold mb-0" id="avg-visit-duration">-</p>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="text-center p-4 bg-surface-2 rounded-3">
+                    <i class="fas fa-calendar-alt fa-3x text-info mb-3"></i>
+                    <h6 class="fw-semibold">Visit Frequency</h6>
+                    <p class="text-info fw-bold mb-0" id="visit-frequency">-</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <!-- Trips for Selected Place -->
-    <div
-      class="col-12 mt-4"
-      id="trips-for-place-container"
-      style="display: none"
-    >
-      <div class="card">
-        <div
-          class="card-header d-flex justify-content-between align-items-center"
-        >
-          <h3 class="h5 mb-0 card-title">
+
+    <!-- Enhanced Trips for Selected Place -->
+    <div class="col-12 mt-4 fade-in-up" id="trips-for-place-container" style="display: none">
+      <div class="card visits-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h3 class="h4 mb-0 fw-bold">
+            <i class="fas fa-route me-2 text-primary"></i>
             Trips for
-            <span id="selected-place-name" class="text-primary"
-              >Selected Place</span
-            >
+            <span id="selected-place-name" class="text-primary"></span>
           </h3>
-          <button
-            id="back-to-places-btn"
-            class="btn btn-sm btn-outline-secondary"
-          >
-            <i class="fas fa-arrow-left me-1"></i> Back to Places
+          <button id="back-to-places-btn" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i> 
+            Back to Places
           </button>
         </div>
         <div class="card-body">
-          <div class="table-responsive-lg">
-            <table
-              id="trips-for-place-table"
-              class="table table-hover"
-              style="width: 100%"
-            >
+          <div class="table-responsive">
+            <table id="trips-for-place-table" class="table visits-table" style="width: 100%">
               <thead>
                 <tr>
-                  <th>Transaction ID</th>
-                  <th>Arrival Date</th>
-                  <th class="text-end">Arrival Time</th>
-                  <th class="text-end">Departure Time</th>
-                  <th class="text-end">Duration of Stay</th>
-                  <th class="text-end">Time Since Last Visit</th>
+                  <th>Trip ID</th>
+                  <th>Date</th>
+                  <th>Arrival</th>
+                  <th>Departure</th>
+                  <th class="text-end">Duration</th>
+                  <th class="text-end">Since Last</th>
                   <th class="text-center">Actions</th>
                 </tr>
               </thead>
@@ -289,35 +926,24 @@
   </div>
 </div>
 
-<!-- Manage Places Modal -->
-<div
-  class="modal fade"
-  id="manage-places-modal"
-  tabindex="-1"
-  aria-labelledby="managePlacesModalLabel"
-  aria-hidden="true"
->
+<!-- Enhanced Manage Places Modal -->
+<div class="modal fade visits-modal" id="manage-places-modal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="managePlacesModalLabel">Manage Places</h5>
-        <button
-          type="button"
-          class="btn-close btn-close-white"
-          data-bs-dismiss="modal"
-          aria-label="Close"
-        ></button>
+        <h5 class="modal-title">
+          <i class="fas fa-cog me-2"></i>
+          Manage Places
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div class="table-responsive-lg">
-          <table
-            id="manage-places-table"
-            class="table table-hover"
-            style="width: 100%"
-          >
+        <div class="table-responsive">
+          <table id="manage-places-table" class="table visits-table" style="width: 100%">
             <thead>
               <tr>
-                <th>Name</th>
+                <th>Place Name</th>
+                <th class="text-center">Created</th>
                 <th class="text-center">Actions</th>
               </tr>
             </thead>
@@ -329,47 +955,40 @@
   </div>
 </div>
 
-<!-- Edit Place Modal -->
-<div
-  class="modal fade"
-  id="edit-place-modal"
-  tabindex="-1"
-  aria-labelledby="editPlaceModalLabel"
-  aria-hidden="true"
->
+<!-- Enhanced Edit Place Modal -->
+<div class="modal fade visits-modal" id="edit-place-modal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="editPlaceModalLabel">Edit Place</h5>
-        <button
-          type="button"
-          class="btn-close btn-close-white"
-          data-bs-dismiss="modal"
-          aria-label="Close"
-        ></button>
+        <h5 class="modal-title">
+          <i class="fas fa-edit me-2"></i>
+          Edit Place
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <form id="edit-place-form">
           <input type="hidden" id="edit-place-id" />
-          <div class="form-group">
-            <label for="edit-place-name" class="form-label">Place Name</label>
+          <div class="mb-4">
+            <label for="edit-place-name" class="form-label fw-semibold">
+              <i class="fas fa-tag me-2 text-primary"></i>
+              Place Name
+            </label>
             <input
               type="text"
-              class="form-control"
+              class="form-control form-control-lg place-name-input"
               id="edit-place-name"
               required
             />
           </div>
-          <div class="d-flex justify-content-between mt-4">
-            <button
-              type="button"
-              class="btn btn-outline-primary"
-              id="edit-place-boundary"
-            >
-              <i class="fas fa-draw-polygon me-2"></i> Edit Boundary
+          <div class="d-flex justify-content-between gap-3">
+            <button type="button" class="btn btn-outline-primary" id="edit-place-boundary">
+              <i class="fas fa-draw-polygon me-2"></i> 
+              Edit Boundary
             </button>
             <button type="submit" class="btn btn-success">
-              <i class="fas fa-save me-2"></i> Save Changes
+              <i class="fas fa-save me-2"></i> 
+              Save Changes
             </button>
           </div>
         </form>
@@ -378,42 +997,40 @@
   </div>
 </div>
 
-<!-- View Trip Modal -->
-<div
-  class="modal fade"
-  id="view-trip-modal"
-  tabindex="-1"
-  aria-labelledby="viewTripModalLabel"
-  aria-hidden="true"
->
+<!-- Enhanced View Trip Modal -->
+<div class="modal fade visits-modal" id="view-trip-modal" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-centered">
-    <!-- Made modal larger -->
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="viewTripModalLabel">Trip Details</h5>
-        <button
-          type="button"
-          class="btn-close btn-close-white"
-          data-bs-dismiss="modal"
-          aria-label="Close"
-        ></button>
+        <h5 class="modal-title">
+          <i class="fas fa-route me-2"></i>
+          Trip Details
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div id="trip-info" class="mb-3">
-          <!-- Trip info will be populated here -->
-        </div>
-        <div
-          id="trip-map-container"
-          class="map-container"
-          style="height: 450px"
-        ></div>
+        <div id="trip-info" class="mb-4"></div>
+        <div id="trip-map-container" class="map-container"></div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %} {% block extra_js %}
+
+<!-- Divider Style -->
+<style>
+  .divider-gradient {
+    height: 2px;
+    background: linear-gradient(90deg, 
+      transparent, 
+      var(--primary), 
+      transparent);
+    opacity: 0.3;
+  }
+</style>
+{% endblock %} 
+
+{% block extra_js %}
 <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.js"></script>
-<!-- Provide Mapbox token before app scripts -->
 <script>
   window.MAPBOX_ACCESS_TOKEN =
     "{{ MAPBOX_ACCESS_TOKEN }}" ||
@@ -423,5 +1040,4 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
 <script src="{{ url_for('static', path='js/visits.js') | replace('http://', '//') }}"></script>
-<!-- Mapbox Draw will be initialized by visits.js -->
 {% endblock %}

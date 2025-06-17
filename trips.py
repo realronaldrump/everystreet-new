@@ -449,3 +449,47 @@ async def regeocode_all_trips():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error re-geocoding trips: {e}",
         )
+
+
+@router.post("/api/trips/{trip_id}/regeocode", tags=["Trips API"])
+async def regeocode_single_trip(trip_id: str):
+    """Re-run geocoding for a single trip. Used by the Trips UI when a user clicks
+    the per-trip "Refresh Geocoding" button so the trip is re-evaluated against
+    any newly-created custom places.
+    """
+    try:
+        trip = await get_trip_by_id(trip_id, trips_collection)
+        if not trip:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found",
+            )
+
+        source = trip.get("source", "unknown")
+        processor = TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN, source=source)
+        processor.set_trip_data(trip)
+
+        # Run through the minimum required phases so geocode() can succeed
+        await processor.validate()
+        if processor.state == TripState.VALIDATED:
+            await processor.process_basic()
+        if processor.state != TripState.PROCESSED:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Trip failed validation or basic processing; cannot re-geocode.",
+            )
+
+        await processor.geocode()
+        await processor.save()
+
+        return {
+            "status": "success",
+            "message": f"Trip {trip_id} re-geocoded successfully.",
+        }
+    except HTTPException:
+        raise  # Bubble up intact so FastAPI handles
+    except Exception as e:
+        logger.exception("Error in regeocode_single_trip: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error re-geocoding trip {trip_id}: {e}",
+        )

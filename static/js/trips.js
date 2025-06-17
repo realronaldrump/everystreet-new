@@ -166,6 +166,13 @@ class TripsManager {
       const format = $(e.currentTarget).data("format");
       this.exportTrip(tripId, format);
     });
+
+    $(document).on("mousedown", ".refresh-geocoding-trip-btn", async (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const tripId = $(e.currentTarget).data("id");
+      await this.refreshGeocodingForTrip(tripId);
+    });
   }
 
   setRowEditMode(row, editMode) {
@@ -465,6 +472,7 @@ class TripsManager {
     return `
       <div class="btn-group">
         <button class="btn btn-sm btn-outline-primary edit-trip-btn">Edit</button>
+        <button class="btn btn-sm btn-outline-info refresh-geocoding-trip-btn" data-id="${transactionId}">Refresh Geocoding</button>
         <button class="btn btn-sm btn-outline-danger delete-trip-btn" data-id="${transactionId}">Delete</button>
         <div class="btn-group">
           <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -708,6 +716,52 @@ class TripsManager {
           handleError(error, `Error exporting trip ${tripId}`);
         }
       });
+  }
+
+  async refreshGeocodingForTrip(tripId) {
+    if (!tripId) {
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          "Cannot refresh geocoding: trip ID missing",
+          "warning",
+        );
+      }
+      return;
+    }
+
+    if (window.notificationManager) {
+      window.notificationManager.show(
+        `Refreshing geocoding for ${tripId}...`,
+        "info",
+      );
+    }
+
+    try {
+      const response = await fetch(`/api/trips/${tripId}/regeocode`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || `Failed to refresh geocoding for ${tripId}`,
+        );
+      }
+
+      if (window.notificationManager) {
+        window.notificationManager.show(
+          `Trip ${tripId} geocoding refreshed successfully`,
+          "success",
+        );
+      }
+
+      // Reload the row data
+      this.fetchTrips();
+    } catch (error) {
+      if (typeof handleError === "function") {
+        handleError(error, `Error refreshing geocoding for ${tripId}`);
+      }
+    }
   }
 
   static formatDuration(seconds) {

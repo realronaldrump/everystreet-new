@@ -444,6 +444,51 @@ const DateUtils = {
       .padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
   },
 
+  // NEW: converts duration strings like "2h 5m 7s" to seconds
+  convertDurationToSeconds(duration = "") {
+    if (!duration || duration === "N/A" || duration === "Unknown") return 0;
+
+    let seconds = 0;
+    const dayMatch = duration.match(/(\d+)\s*d/);
+    const hourMatch = duration.match(/(\d+)\s*h/);
+    const minuteMatch = duration.match(/(\d+)\s*m/);
+    const secondMatch = duration.match(/(\d+)\s*s/);
+
+    if (dayMatch) seconds += parseInt(dayMatch[1]) * 86400;
+    if (hourMatch) seconds += parseInt(hourMatch[1]) * 3600;
+    if (minuteMatch) seconds += parseInt(minuteMatch[1]) * 60;
+    if (secondMatch) seconds += parseInt(secondMatch[1]);
+
+    return seconds;
+  },
+
+  // NEW: formats a millisecond (or second) duration into a human-readable string
+  formatDuration(durationMsOrSec = 0) {
+    if (!durationMsOrSec || isNaN(durationMsOrSec)) return "N/A";
+
+    // Allow callers to pass seconds as well as milliseconds
+    let totalSeconds = durationMsOrSec;
+    if (durationMsOrSec > 1000000) {
+      // values larger than ~11 days in seconds will be > million but typical callers pass ms
+      totalSeconds = Math.floor(durationMsOrSec / 1000);
+    }
+
+    const days = Math.floor(totalSeconds / 86400);
+    totalSeconds %= 86400;
+    const hours = Math.floor(totalSeconds / 3600);
+    totalSeconds %= 3600;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    const parts = [];
+    if (days) parts.push(`${days}d`);
+    if (hours) parts.push(`${hours}h`);
+    if (minutes) parts.push(`${minutes}m`);
+    if (seconds || parts.length === 0) parts.push(`${seconds}s`);
+
+    return parts.join(" ");
+  },
+
   formatTimeFromHours(hours) {
     if (typeof hours !== "number" || isNaN(hours)) return "--:--";
 

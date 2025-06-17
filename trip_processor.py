@@ -809,6 +809,18 @@ class TripProcessor:
                 transaction_id,
             )
 
+            # Force a fresh geocoding pass each time this method is called by
+            # clearing any previously stored location/place fields.  This allows
+            # newly-created custom places to be picked up when a user requests a
+            # geocoding refresh from the UI.
+            for _field in (
+                "startLocation",
+                "destination",
+                "startPlaceId",
+                "destinationPlaceId",
+            ):
+                self.processed_data.pop(_field, None)
+
             start_coord = self.processed_data["startGeoPoint"]["coordinates"]
             end_coord = self.processed_data["destinationGeoPoint"]["coordinates"]
 

@@ -979,28 +979,32 @@ def cleanup_invalid_trips(self, *args, **kwargs):
 @task_runner
 async def update_geocoding_async(self) -> dict[str, Any]:
     """Async logic for updating geocoding for trips missing location data."""
-    geocoded_count = 0
-    failed_count = 0
+    # We now refresh geocoding for *all* trips so that newly-created custom
+    # places are picked up.  To avoid hammering the DB we still process in
+    # batches of `limit`, choosing the oldest `geocoded_at` first so that we
+    # eventually cycle through the entire dataset across multiple task runs.
+
     limit = 100
 
-    query = {
-        "$or": [
-            {"startLocation": {"$exists": False}},
-            {"destination": {"$exists": False}},
-            {"startLocation.formatted_address": ""},
-            {"destination.formatted_address": ""},
-        ],
-    }
+    query = {}
+    sort = [("geocoded_at", 1)]  # oldest first (nulls come first)
 
-    trips_to_process = await find_with_retry(trips_collection, query, limit=limit)
+    trips_to_process = await find_with_retry(
+        trips_collection, query, sort=sort, limit=limit
+    )
     logger.info(
-        f"Found {len(trips_to_process)} trips needing geocoding (limit {limit})."
+        "Queued %d trip(s) for geocoding refresh (batch limit %d).",
+        len(trips_to_process),
+        limit,
     )
 
     mapbox_token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
     if not mapbox_token:
         logger.warning("MAPBOX_ACCESS_TOKEN not set, cannot perform geocoding.")
         raise ValueError("MAPBOX_ACCESS_TOKEN is not configured.")
+
+    geocoded_count = 0
+    failed_count = 0
 
     for trip in trips_to_process:
         trip_id = trip.get("transactionId", str(trip.get("_id")))
