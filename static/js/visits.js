@@ -1,4 +1,4 @@
-/* global L, Chart, DateUtils, bootstrap, $, MapboxDraw, mapboxgl */
+/* global Chart, DateUtils, bootstrap, $, MapboxDraw, mapboxgl */
 
 "use strict";
 (() => {
@@ -6,15 +6,13 @@
     constructor() {
       this.map = null;
       this.places = new Map();
-      this.placeLayers = new Map();
-      this.drawControl = null;
+      this.draw = null;
       this.currentPolygon = null;
       this.visitsChart = null;
       this.visitsTable = null;
       this.tripsTable = null;
       this.nonCustomVisitsTable = null;
       this.drawingEnabled = false;
-      this.customPlacesLayer = null;
       this.loadingManager = window.loadingManager;
       this.isDetailedView = false;
       this.placeBeingEdited = null;
@@ -1009,9 +1007,8 @@
         const places = await response.json();
 
         this.places.clear();
-        this.placeLayers.clear?.();
-        this.customPlacesData.features = [];
         this.placeFeatures.clear();
+        this.customPlacesData.features = [];
         if (this.map && this.map.getSource("custom-places")) {
           this.map.getSource("custom-places").setData(this.customPlacesData);
         }
