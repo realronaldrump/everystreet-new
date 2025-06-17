@@ -55,3 +55,29 @@ const dateUtils = {
 };
 
 export default dateUtils;
+
+/**
+ * Utility: converts a human-readable duration string (e.g. "2h 5m 7s") to seconds.
+ * Supports days, hours, minutes, seconds in any combination.
+ */
+export function convertDurationToSeconds(duration = "") {
+  if (!duration || duration === "N/A" || duration === "Unknown") return 0;
+
+  let seconds = 0;
+  const dayMatch = duration.match(/(\d+)\s*d/);
+  const hourMatch = duration.match(/(\d+)\s*h/);
+  const minuteMatch = duration.match(/(\d+)\s*m/);
+  const secondMatch = duration.match(/(\d+)\s*s/);
+
+  if (dayMatch) seconds += parseInt(dayMatch[1]) * 86400;
+  if (hourMatch) seconds += parseInt(hourMatch[1]) * 3600;
+  if (minuteMatch) seconds += parseInt(minuteMatch[1]) * 60;
+  if (secondMatch) seconds += parseInt(secondMatch[1]);
+
+  return seconds;
+}
+
+// Expose on the existing global DateUtils (for legacy scripts)
+if (window.DateUtils && !window.DateUtils.convertDurationToSeconds) {
+  window.DateUtils.convertDurationToSeconds = convertDurationToSeconds;
+}

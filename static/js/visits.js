@@ -319,25 +319,10 @@
       this.initTripsTable();
     }
 
-    static convertDurationToSeconds(duration) {
-      if (!duration || duration === "N/A" || duration === "Unknown") return 0;
-      let seconds = 0;
-      const dayMatch = duration.match(/(\d+)\s*d/);
-      const hourMatch = duration.match(/(\d+)\s*h/);
-      const minuteMatch = duration.match(/(\d+)\s*m/);
-      const secondMatch = duration.match(/(\d+)\s*s/);
-
-      if (dayMatch) seconds += parseInt(dayMatch[1]) * 86400;
-      if (hourMatch) seconds += parseInt(hourMatch[1]) * 3600;
-      if (minuteMatch) seconds += parseInt(minuteMatch[1]) * 60;
-      if (secondMatch) seconds += parseInt(secondMatch[1]);
-      return seconds;
-    }
-
     setupDurationSorting() {
       if (window.$ && $.fn.dataTable) {
         $.fn.dataTable.ext.type.order["duration-pre"] = (data) => {
-          return VisitsManager.convertDurationToSeconds(data);
+          return DateUtils.convertDurationToSeconds(data);
         };
       } else {
         window.notificationManager?.show(
