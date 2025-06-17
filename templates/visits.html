@@ -1,5 +1,4 @@
-{% extends "base.html" %}
-{% block title %}Every Street - Visits{% endblock %}
+{% extends "base.html" %} {% block title %}Every Street - Visits{% endblock %}
 {% block head_content %}
 <link
   rel="stylesheet"
@@ -10,13 +9,21 @@
   rel="stylesheet"
   href="{{ url_for('static', path='css/visits.css') | replace('http://', '//') }}"
 />
-{% endblock %} 
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid px-4 py-4">
   <div class="row mb-4 fade-in-up">
     <div class="col-12">
-      <div class="hero-section" style="background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.15), rgba(var(--secondary-rgb), 0.1)); padding: var(--space-6) var(--space-5);">
+      <div
+        class="hero-section"
+        style="
+          background: linear-gradient(
+            135deg,
+            rgba(var(--primary-rgb), 0.15),
+            rgba(var(--secondary-rgb), 0.1)
+          );
+          padding: var(--space-6) var(--space-5);
+        "
+      >
         <div class="row align-items-center">
           <div class="col-lg-8">
             <h1 class="display-4 fw-bold mb-3">
@@ -24,7 +31,9 @@
               Your Places & Visits
             </h1>
             <p class="lead text-secondary mb-0">
-              Track and analyze your visits to custom places. Draw boundaries on the map to define your special locations and monitor your visit patterns over time.
+              Track and analyze your visits to custom places. Draw boundaries on
+              the map to define your special locations and monitor your visit
+              patterns over time.
             </p>
           </div>
           <div class="col-lg-4 text-lg-end">
@@ -55,7 +64,7 @@
           <i class="fas fa-layer-group me-2 text-primary"></i>
           Places Management
         </h3>
-        
+
         <div class="mb-4">
           <label for="place-name" class="form-label fw-semibold mb-3">
             <i class="fas fa-tag me-2 text-primary"></i>
@@ -79,28 +88,41 @@
             class="form-check-input"
             id="toggle-custom-places"
             checked
-            style="width: 3em; height: 1.5em;"
+            style="width: 3em; height: 1.5em"
           />
-          <label class="form-check-label ms-2 fw-medium" for="toggle-custom-places">
+          <label
+            class="form-check-label ms-2 fw-medium"
+            for="toggle-custom-places"
+          >
             Show Custom Places on Map
           </label>
         </div>
 
         <div class="d-grid gap-3 mb-4">
-          <button id="start-drawing" class="btn btn-lg btn-primary action-button draw-button">
-            <i class="fas fa-draw-polygon me-2"></i> 
+          <button
+            id="start-drawing"
+            class="btn btn-lg btn-primary action-button draw-button"
+          >
+            <i class="fas fa-draw-polygon me-2"></i>
             <span>Draw Place Boundary</span>
           </button>
-          <button id="save-place" class="btn btn-lg btn-success action-button" disabled>
-            <i class="fas fa-save me-2"></i> 
+          <button
+            id="save-place"
+            class="btn btn-lg btn-success action-button"
+            disabled
+          >
+            <i class="fas fa-save me-2"></i>
             <span>Save Place</span>
           </button>
         </div>
 
         <div class="divider-gradient my-4"></div>
 
-        <button id="manage-places" class="btn btn-lg btn-outline-primary w-100 action-button">
-          <i class="fas fa-cog me-2"></i> 
+        <button
+          id="manage-places"
+          class="btn btn-lg btn-outline-primary w-100 action-button"
+        >
+          <i class="fas fa-cog me-2"></i>
           <span>Manage All Places</span>
         </button>
 
@@ -108,14 +130,20 @@
           <div class="row g-3 text-center">
             <div class="col-6">
               <div class="p-2">
-                <i class="fas fa-map-pin text-primary mb-2" style="font-size: 1.5rem;"></i>
+                <i
+                  class="fas fa-map-pin text-primary mb-2"
+                  style="font-size: 1.5rem"
+                ></i>
                 <div class="small text-secondary">Active Places</div>
                 <div class="fw-bold" id="active-places-stat">0</div>
               </div>
             </div>
             <div class="col-6">
               <div class="p-2">
-                <i class="fas fa-calendar-check text-success mb-2" style="font-size: 1.5rem;"></i>
+                <i
+                  class="fas fa-calendar-check text-success mb-2"
+                  style="font-size: 1.5rem"
+                ></i>
                 <div class="small text-secondary">This Month</div>
                 <div class="fw-bold" id="month-visits-stat">0</div>
               </div>
@@ -127,7 +155,9 @@
 
     <div class="col-lg-8 mb-4">
       <div class="card visits-card scale-in">
-        <div class="card-header d-flex justify-content-between align-items-center py-3">
+        <div
+          class="card-header d-flex justify-content-between align-items-center py-3"
+        >
           <h3 class="h4 mb-0 fw-bold">
             <i class="fas fa-map me-2 text-primary"></i>
             Places Map
@@ -170,7 +200,11 @@
               <i class="fas fa-palette"></i>
             </button>
           </div>
-          <div id="map-loading" class="position-absolute inset-0 d-flex align-items-center justify-content-center bg-surface-1 bg-opacity-75" style="z-index: 20; display: none;">
+          <div
+            id="map-loading"
+            class="position-absolute inset-0 d-flex align-items-center justify-content-center bg-surface-1 bg-opacity-75"
+            style="z-index: 20; display: none"
+          >
             <div class="text-center">
               <div class="spinner-border text-primary mb-3" role="status">
                 <span class="visually-hidden">Loading...</span>
@@ -194,7 +228,11 @@
             </div>
             <div class="col-md-6 text-md-end">
               <div class="d-inline-flex align-items-center gap-3">
-                <select class="form-select form-select-sm" id="time-filter" style="width: auto;">
+                <select
+                  class="form-select form-select-sm"
+                  id="time-filter"
+                  style="width: auto"
+                >
                   <option value="all">All Time</option>
                   <option value="year">This Year</option>
                   <option value="month">This Month</option>
@@ -248,17 +286,27 @@
           </ul>
 
           <div class="tab-content" id="visitsTabContent">
-            <div class="tab-pane fade show active" id="custom-places-content" role="tabpanel">
+            <div
+              class="tab-pane fade show active"
+              id="custom-places-content"
+              role="tabpanel"
+            >
               <div class="row">
                 <div class="col-lg-5 mb-4 mb-lg-0">
                   <div class="chart-container">
-                    <h5 class="text-center mb-3 fw-semibold">Visit Distribution</h5>
+                    <h5 class="text-center mb-3 fw-semibold">
+                      Visit Distribution
+                    </h5>
                     <canvas id="visitsChart" style="max-height: 350px"></canvas>
                   </div>
                 </div>
                 <div class="col-lg-7">
                   <div class="table-responsive">
-                    <table id="visits-table" class="table visits-table" style="width: 100%">
+                    <table
+                      id="visits-table"
+                      class="table visits-table"
+                      style="width: 100%"
+                    >
                       <thead>
                         <tr>
                           <th>Place</th>
@@ -275,9 +323,17 @@
               </div>
             </div>
 
-            <div class="tab-pane fade" id="non-custom-places-content" role="tabpanel">
+            <div
+              class="tab-pane fade"
+              id="non-custom-places-content"
+              role="tabpanel"
+            >
               <div class="table-responsive">
-                <table id="non-custom-visits-table" class="table visits-table" style="width: 100%">
+                <table
+                  id="non-custom-visits-table"
+                  class="table visits-table"
+                  style="width: 100%"
+                >
                   <thead>
                     <tr>
                       <th>Location</th>
@@ -297,19 +353,41 @@
                   <div class="text-center p-4 bg-surface-2 rounded-3">
                     <div class="progress-ring mb-3">
                       <svg width="120" height="120">
-                        <circle cx="60" cy="60" r="54" stroke="var(--surface-3)" stroke-width="4" fill="none"/>
-                        <circle class="progress-ring-circle" cx="60" cy="60" r="54"/>
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="54"
+                          stroke="var(--surface-3)"
+                          stroke-width="4"
+                          fill="none"
+                        />
+                        <circle
+                          class="progress-ring-circle"
+                          cx="60"
+                          cy="60"
+                          r="54"
+                        />
                       </svg>
                     </div>
                     <h6 class="fw-semibold">Most Visited</h6>
-                    <p class="text-primary fw-bold mb-0" id="most-visited-place">-</p>
+                    <p
+                      class="text-primary fw-bold mb-0"
+                      id="most-visited-place"
+                    >
+                      -
+                    </p>
                   </div>
                 </div>
                 <div class="col-md-4">
                   <div class="text-center p-4 bg-surface-2 rounded-3">
                     <i class="fas fa-clock fa-3x text-warning mb-3"></i>
                     <h6 class="fw-semibold">Average Visit Duration</h6>
-                    <p class="text-warning fw-bold mb-0" id="avg-visit-duration">-</p>
+                    <p
+                      class="text-warning fw-bold mb-0"
+                      id="avg-visit-duration"
+                    >
+                      -
+                    </p>
                   </div>
                 </div>
                 <div class="col-md-4">
@@ -326,22 +404,32 @@
       </div>
     </div>
 
-    <div class="col-12 mt-4 fade-in-up" id="trips-for-place-container" style="display: none">
+    <div
+      class="col-12 mt-4 fade-in-up"
+      id="trips-for-place-container"
+      style="display: none"
+    >
       <div class="card visits-card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
           <h3 class="h4 mb-0 fw-bold">
             <i class="fas fa-route me-2 text-primary"></i>
             Trips for
             <span id="selected-place-name" class="text-primary"></span>
           </h3>
           <button id="back-to-places-btn" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i> 
+            <i class="fas fa-arrow-left me-2"></i>
             Back to Places
           </button>
         </div>
         <div class="card-body">
           <div class="table-responsive">
-            <table id="trips-for-place-table" class="table visits-table" style="width: 100%">
+            <table
+              id="trips-for-place-table"
+              class="table visits-table"
+              style="width: 100%"
+            >
               <thead>
                 <tr>
                   <th>Trip ID</th>
@@ -370,11 +458,19 @@
           <i class="fas fa-cog me-2"></i>
           Manage Places
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
       </div>
       <div class="modal-body">
         <div class="table-responsive">
-          <table id="manage-places-table" class="table visits-table" style="width: 100%">
+          <table
+            id="manage-places-table"
+            class="table visits-table"
+            style="width: 100%"
+          >
             <thead>
               <tr>
                 <th>Place Name</th>
@@ -398,7 +494,11 @@
           <i class="fas fa-edit me-2"></i>
           Edit Place
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
       </div>
       <div class="modal-body">
         <form id="edit-place-form">
@@ -416,12 +516,16 @@
             />
           </div>
           <div class="d-flex justify-content-between gap-3">
-            <button type="button" class="btn btn-outline-primary" id="edit-place-boundary">
-              <i class="fas fa-draw-polygon me-2"></i> 
+            <button
+              type="button"
+              class="btn btn-outline-primary"
+              id="edit-place-boundary"
+            >
+              <i class="fas fa-draw-polygon me-2"></i>
               Edit Boundary
             </button>
             <button type="submit" class="btn btn-success">
-              <i class="fas fa-save me-2"></i> 
+              <i class="fas fa-save me-2"></i>
               Save Changes
             </button>
           </div>
@@ -439,7 +543,11 @@
           <i class="fas fa-route me-2"></i>
           Trip Details
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
       </div>
       <div class="modal-body">
         <div id="trip-info" class="mb-4"></div>
@@ -448,9 +556,7 @@
     </div>
   </div>
 </div>
-{% endblock %} 
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.js"></script>
 <script>
   window.MAPBOX_ACCESS_TOKEN =
