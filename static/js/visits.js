@@ -946,8 +946,7 @@
 
       this.currentPolygon = event.features[0];
 
-      // Switch to select mode, keep the new polygon selected so it's still visible
-      this.draw.changeMode("simple_select", { featureIds: [this.currentPolygon.id] });
+      // Mapbox Draw automatically switches to simple_select; feature remains visible.
 
       this.drawingEnabled = false;
 
