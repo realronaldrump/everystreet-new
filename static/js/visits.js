@@ -191,7 +191,11 @@
           {
             id: "gl-draw-polygon-fill-inactive",
             type: "fill",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "false"],
+            ],
             paint: {
               "fill-color": "#BB86FC",
               "fill-opacity": 0.15,
@@ -200,7 +204,11 @@
           {
             id: "gl-draw-polygon-fill-active",
             type: "fill",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "true"],
+            ],
             paint: {
               "fill-color": "#F59E0B",
               "fill-opacity": 0.1,
@@ -210,7 +218,11 @@
           {
             id: "gl-draw-polygon-stroke-inactive",
             type: "line",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "false"],
+            ],
             paint: {
               "line-color": "#BB86FC",
               "line-width": 2,
@@ -219,7 +231,11 @@
           {
             id: "gl-draw-polygon-stroke-active",
             type: "line",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "true"],
+            ],
             paint: {
               "line-color": "#F59E0B",
               "line-width": 2,
@@ -890,9 +906,8 @@
         // Remove feature from map source
         if (this.placeFeatures.has(placeId)) {
           const feature = this.placeFeatures.get(placeId);
-          this.customPlacesData.features = this.customPlacesData.features.filter(
-            (f) => f !== feature,
-          );
+          this.customPlacesData.features =
+            this.customPlacesData.features.filter((f) => f !== feature);
           this.placeFeatures.delete(placeId);
           if (this.map && this.map.getSource("custom-places")) {
             this.map.getSource("custom-places").setData(this.customPlacesData);
@@ -947,7 +962,9 @@
       this.currentPolygon = event.features[0];
 
       // Switch to select mode, keep the new polygon selected so it's still visible
-      this.draw.changeMode("simple_select", { featureIds: [this.currentPolygon.id] });
+      this.draw.changeMode("simple_select", {
+        featureIds: [this.currentPolygon.id],
+      });
 
       this.drawingEnabled = false;
 
@@ -1104,9 +1121,8 @@
         // Replace feature in source
         if (this.placeFeatures.has(placeId)) {
           const oldFeature = this.placeFeatures.get(placeId);
-          this.customPlacesData.features = this.customPlacesData.features.filter(
-            (f) => f !== oldFeature,
-          );
+          this.customPlacesData.features =
+            this.customPlacesData.features.filter((f) => f !== oldFeature);
           this.placeFeatures.delete(placeId);
         }
 
@@ -1443,7 +1459,10 @@
 
       if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
         try {
-          this.tripViewMap.addSource("trip", { type: "geojson", data: trip.geometry });
+          this.tripViewMap.addSource("trip", {
+            type: "geojson",
+            data: trip.geometry,
+          });
 
           this.tripViewMap.addLayer({
             id: "trip-path",
