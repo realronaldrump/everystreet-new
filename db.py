@@ -966,7 +966,9 @@ async def build_query_from_request(
             expr_clauses.append({"$lte": [date_expr, end_date_str]})
 
         if expr_clauses:
-            query["$expr"] = {"$and": expr_clauses} if len(expr_clauses) > 1 else expr_clauses[0]
+            query["$expr"] = (
+                {"$and": expr_clauses} if len(expr_clauses) > 1 else expr_clauses[0]
+            )
 
     # IMEI filter
     imei_param = request.query_params.get("imei")
