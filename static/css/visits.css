@@ -21,13 +21,15 @@
 }
 
 .map-container::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, 
-    rgba(var(--primary-rgb), 0.05) 0%, 
+  background: linear-gradient(
+    135deg,
+    rgba(var(--primary-rgb), 0.05) 0%,
     transparent 50%,
-    rgba(var(--secondary-rgb), 0.05) 100%);
+    rgba(var(--secondary-rgb), 0.05) 100%
+  );
   pointer-events: none;
   z-index: 1;
 }
@@ -46,16 +48,18 @@
 }
 
 .visits-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -2px;
   left: -2px;
   right: -2px;
   bottom: -2px;
-  background: linear-gradient(45deg, 
-    var(--primary), 
-    var(--secondary), 
-    var(--primary));
+  background: linear-gradient(
+    45deg,
+    var(--primary),
+    var(--secondary),
+    var(--primary)
+  );
   border-radius: var(--radius-lg);
   opacity: 0;
   z-index: -1;
@@ -69,8 +73,13 @@
 }
 
 @keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 /* Enhanced Place Management Panel */
@@ -86,20 +95,31 @@
 }
 
 .place-management-panel::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -50%;
   right: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(var(--primary-rgb), 0.1) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(var(--primary-rgb), 0.1) 0%,
+    transparent 70%
+  );
   animation: pulse-subtle 8s ease-in-out infinite;
   pointer-events: none;
 }
 
 @keyframes pulse-subtle {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50% { transform: scale(1.1); opacity: 0.3; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.3;
+  }
 }
 
 /* Enhanced Form Controls */
@@ -130,7 +150,7 @@
 }
 
 .action-button::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 50%;
@@ -139,7 +159,9 @@
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
   transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
+  transition:
+    width 0.6s,
+    height 0.6s;
 }
 
 .action-button:hover::before {
@@ -159,15 +181,22 @@
 }
 
 @keyframes pulse-draw {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
 }
 
 /* Enhanced Chart Container */
 .chart-container {
-  background: linear-gradient(135deg, 
-    rgba(var(--surface-2), 0.8), 
-    rgba(var(--surface-1), 0.9));
+  background: linear-gradient(
+    135deg,
+    rgba(var(--surface-2), 0.8),
+    rgba(var(--surface-1), 0.9)
+  );
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -176,7 +205,7 @@
 }
 
 .chart-container::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: -50%;
@@ -193,7 +222,9 @@
 }
 
 @keyframes rotate-slow {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Enhanced Table Styles */
@@ -227,7 +258,7 @@
 }
 
 .place-link::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -2px;
   left: 0;
@@ -262,7 +293,7 @@
 }
 
 .visits-nav-tabs .nav-link::before {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 50%;
@@ -336,9 +367,11 @@
 }
 
 .visits-modal .modal-header {
-  background: linear-gradient(135deg, 
-    rgba(var(--primary-rgb), 0.1), 
-    rgba(var(--secondary-rgb), 0.05));
+  background: linear-gradient(
+    135deg,
+    rgba(var(--primary-rgb), 0.1),
+    rgba(var(--secondary-rgb), 0.05)
+  );
   border-bottom: 1px solid rgba(var(--border-color), 0.5);
   padding: var(--space-5);
 }
@@ -420,10 +453,12 @@
 
 /* Loading States */
 .skeleton-loader {
-  background: linear-gradient(90deg, 
-    var(--surface-2) 25%, 
-    var(--surface-3) 50%, 
-    var(--surface-2) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 50%,
+    var(--surface-2) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: var(--radius-sm);
@@ -432,8 +467,12 @@
 }
 
 @keyframes loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* Responsive Enhancements */
@@ -441,7 +480,7 @@
   .map-container {
     height: 450px;
   }
-  
+
   .place-management-panel {
     padding: var(--space-4);
   }
@@ -451,7 +490,7 @@
   .map-container {
     height: 350px;
   }
-  
+
   .map-controls-enhanced {
     flex-direction: row;
     top: auto;
@@ -460,11 +499,11 @@
     transform: translateX(-50%);
     right: auto;
   }
-  
+
   .place-management-panel {
     padding: var(--space-3);
   }
-  
+
   .visits-nav-tabs {
     padding: var(--space-1) 0;
     overflow-x: auto;
@@ -562,9 +601,6 @@
 /* Divider Gradient (extracted from bottom inline style) */
 .divider-gradient {
   height: 2px;
-  background: linear-gradient(90deg, 
-    transparent, 
-    var(--primary), 
-    transparent);
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
   opacity: 0.3;
-} 
+}
