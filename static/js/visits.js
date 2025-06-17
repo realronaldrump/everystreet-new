@@ -1,4 +1,4 @@
-/* global L, Chart, DateUtils, bootstrap, $ */
+/* global L, Chart, DateUtils, bootstrap, $, MapboxDraw, mapboxgl */
 
 "use strict";
 (() => {
@@ -21,6 +21,12 @@
       this.tripViewMap = null;
       this.tripViewLayerGroup = null;
       this.isCustomPlacesVisible = true;
+      // Mapbox specific state
+      this.customPlacesData = { type: "FeatureCollection", features: [] };
+      this.placeFeatures = new Map(); // Map placeId -> feature id
+      this.activePopup = null; // Currently open popup instance
+      this.startMarker = null;
+      this.endMarker = null;
 
       this.setupDurationSorting();
       this.initialize();
@@ -46,56 +52,187 @@
     }
 
     initializeMap() {
-      return new Promise((resolve) => {
-        // Skip map initialization - will be handled by emergency script
-        console.log(
-          "VisitsManager: Skipping normal map initialization, will be handled by emergency fix",
-        );
-        this.customPlacesLayer = L.featureGroup(); // Create but don't add to map yet
-        resolve();
+      return new Promise((resolve, reject) => {
+        try {
+          const theme =
+            document.documentElement.getAttribute("data-bs-theme") || "dark";
+
+          // Create Mapbox map instance (helper supports both libs)
+          this.map = window.mapBase.createMap("map", {
+            library: "mapbox",
+            style:
+              theme === "light"
+                ? "mapbox://styles/mapbox/light-v11"
+                : "mapbox://styles/mapbox/dark-v11",
+            center: [-95.7129, 37.0902], // USA centroid as default
+            zoom: 4,
+            attributionControl: false,
+          });
+
+          // Wait for map load before continuing
+          this.map.on("load", () => {
+            // GeoJSON source that will hold ALL custom places
+            if (this.map.getSource("custom-places")) {
+              this.map.removeLayer("custom-places-fill");
+              this.map.removeLayer("custom-places-outline");
+              this.map.removeSource("custom-places");
+            }
+
+            this.map.addSource("custom-places", {
+              type: "geojson",
+              data: this.customPlacesData,
+            });
+
+            // Fill layer
+            this.map.addLayer({
+              id: "custom-places-fill",
+              type: "fill",
+              source: "custom-places",
+              paint: {
+                "fill-color": "#BB86FC",
+                "fill-opacity": 0.15,
+              },
+            });
+
+            // Outline layer
+            this.map.addLayer({
+              id: "custom-places-outline",
+              type: "line",
+              source: "custom-places",
+              paint: {
+                "line-color": "#BB86FC",
+                "line-width": 2,
+              },
+            });
+
+            // Cursor feedback
+            this.map.on("mouseenter", "custom-places-fill", () => {
+              this.map.getCanvas().style.cursor = "pointer";
+            });
+            this.map.on("mouseleave", "custom-places-fill", () => {
+              this.map.getCanvas().style.cursor = "";
+            });
+
+            // Click interaction – show statistics
+            this.map.on("click", "custom-places-fill", (e) => {
+              const feature = e.features?.[0];
+              if (!feature) return;
+              const placeId = feature.properties?.placeId;
+              if (placeId) {
+                this.showPlaceStatistics(placeId, e.lngLat);
+              }
+            });
+
+            resolve();
+          });
+        } catch (err) {
+          console.error("VisitsManager: Map initialization error", err);
+          reject(err);
+        }
       });
     }
 
     updateMapTheme(theme) {
       if (!this.map) return;
 
-      this.map.eachLayer((layer) => {
-        if (layer instanceof L.TileLayer) {
-          this.map.removeLayer(layer);
+      const styleUrl =
+        theme === "light"
+          ? "mapbox://styles/mapbox/light-v11"
+          : "mapbox://styles/mapbox/dark-v11";
+
+      this.map.setStyle(styleUrl);
+
+      // After style reload we need to re-add our custom places source/layers
+      this.map.once("styledata", () => {
+        if (!this.map.getSource("custom-places")) {
+          this.map.addSource("custom-places", {
+            type: "geojson",
+            data: this.customPlacesData,
+          });
+
+          this.map.addLayer({
+            id: "custom-places-fill",
+            type: "fill",
+            source: "custom-places",
+            paint: {
+              "fill-color": "#BB86FC",
+              "fill-opacity": 0.15,
+            },
+          });
+
+          this.map.addLayer({
+            id: "custom-places-outline",
+            type: "line",
+            source: "custom-places",
+            paint: {
+              "line-color": "#BB86FC",
+              "line-width": 2,
+            },
+          });
         }
       });
-
-      const tileUrls = {
-        light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      };
-
-      const tileUrl = tileUrls[theme] || tileUrls.dark;
-      L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(this.map);
     }
 
     initializeDrawControls() {
-      this.drawControl = new L.Control.Draw({
-        draw: {
-          polygon: {
-            allowIntersection: false,
-            drawError: {
-              color: "#e1e100",
-              message: "<strong>Error:</strong> Shape edges cannot cross!",
+      if (typeof MapboxDraw === "undefined") {
+        console.error("MapboxDraw library not loaded");
+        return;
+      }
+
+      this.draw = new MapboxDraw({
+        displayControlsDefault: false,
+        controls: {
+          polygon: true,
+          trash: true,
+        },
+        defaultMode: "draw_polygon",
+        styles: [
+          // Fill
+          {
+            id: "gl-draw-polygon-fill-inactive",
+            type: "fill",
+            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+            paint: {
+              "fill-color": "#BB86FC",
+              "fill-opacity": 0.15,
             },
-            shapeOptions: { color: "#BB86FC", weight: 2 },
           },
-          circle: false,
-          rectangle: false,
-          circlemarker: false,
-          marker: false,
-          polyline: false,
-        },
-        edit: {
-          featureGroup: this.customPlacesLayer,
-          remove: false,
-        },
+          {
+            id: "gl-draw-polygon-fill-active",
+            type: "fill",
+            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+            paint: {
+              "fill-color": "#F59E0B",
+              "fill-opacity": 0.1,
+            },
+          },
+          // Outline
+          {
+            id: "gl-draw-polygon-stroke-inactive",
+            type: "line",
+            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+            paint: {
+              "line-color": "#BB86FC",
+              "line-width": 2,
+            },
+          },
+          {
+            id: "gl-draw-polygon-stroke-active",
+            type: "line",
+            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+            paint: {
+              "line-color": "#F59E0B",
+              "line-width": 2,
+            },
+          },
+        ],
       });
+
+      if (this.map) {
+        this.map.addControl(this.draw, "top-left");
+
+        this.map.on("draw.create", (e) => this.onPolygonCreated(e));
+      }
     }
 
     initializeChart() {
@@ -497,13 +634,6 @@
           this.clearCurrentDrawing();
         });
 
-      if (this.map && typeof this.map.on === "function") {
-        this.map.on(L.Draw.Event.CREATED, (e) => this.onPolygonCreated(e));
-      } else {
-        console.warn(
-          "VisitsManager: map not initialized, skipping Draw.Event.CREATED binding",
-        );
-      }
       document
         .getElementById("zoom-to-fit")
         ?.addEventListener("mousedown", (e) => {
@@ -560,8 +690,12 @@
         const places = await response.json();
 
         this.places.clear();
-        this.placeLayers.clear();
-        this.customPlacesLayer.clearLayers();
+        this.placeLayers.clear?.(); // Legacy no-op if not used
+        this.customPlacesData.features = [];
+        this.placeFeatures.clear();
+        if (this.map && this.map.getSource("custom-places")) {
+          this.map.getSource("custom-places").setData(this.customPlacesData);
+        }
 
         places.forEach((place) => {
           this.places.set(place._id, place);
@@ -589,40 +723,25 @@
         console.warn("Attempted to display invalid place:", place);
         return;
       }
-      if (!this.customPlacesLayer) {
-        console.error("customPlacesLayer is not initialized!");
-        return;
-      }
 
-      try {
-        const polygon = L.geoJSON(place.geometry, {
-          style: {
-            color: "#BB86FC",
-            fillColor: "#BB86FC",
-            fillOpacity: 0.15,
-            weight: 2,
-          },
-          onEachFeature(feature) {
-            feature.properties = feature.properties || {};
-            feature.properties.placeId = place._id;
-            feature.properties.placeName = place.name;
-          },
-        });
+      // Build feature
+      const feature = {
+        type: "Feature",
+        geometry: place.geometry,
+        properties: {
+          placeId: place._id,
+          name: place.name,
+        },
+      };
 
-        polygon.bindPopup(`<h6>${place.name}</h6><p>Loading statistics...</p>`);
+      // Store mapping for quick removal later
+      this.placeFeatures.set(place._id, feature);
 
-        polygon.on("click", (e) => {
-          L.DomEvent.stopPropagation(e);
-          this.showPlaceStatistics(place._id);
-        });
+      // Push to collection and update source
+      this.customPlacesData.features.push(feature);
 
-        this.customPlacesLayer.addLayer(polygon);
-        this.placeLayers.set(place._id, polygon);
-      } catch (error) {
-        console.error(
-          `Error creating GeoJSON layer for place ${place.name} (${place._id}):`,
-          error,
-        );
+      if (this.map && this.map.getSource("custom-places")) {
+        this.map.getSource("custom-places").setData(this.customPlacesData);
       }
     }
 
@@ -701,7 +820,7 @@
 
       this.loadingManager.startOperation("Saving Place");
       try {
-        const geoJsonGeometry = this.currentPolygon.toGeoJSON().geometry;
+        const geoJsonGeometry = this.currentPolygon.geometry;
 
         const response = await fetch("/api/places", {
           method: "POST",
@@ -768,16 +887,16 @@
 
         this.places.delete(placeId);
 
-        const layerToRemove = this.placeLayers.get(placeId);
-        if (layerToRemove) {
-          this.customPlacesLayer.removeLayer(layerToRemove);
-          this.placeLayers.delete(placeId);
-        } else {
-          this.customPlacesLayer.eachLayer((layer) => {
-            if (layer.feature?.properties?.placeId === placeId) {
-              this.customPlacesLayer.removeLayer(layer);
-            }
-          });
+        // Remove feature from map source
+        if (this.placeFeatures.has(placeId)) {
+          const feature = this.placeFeatures.get(placeId);
+          this.customPlacesData.features = this.customPlacesData.features.filter(
+            (f) => f !== feature,
+          );
+          this.placeFeatures.delete(placeId);
+          if (this.map && this.map.getSource("custom-places")) {
+            this.map.getSource("custom-places").setData(this.customPlacesData);
+          }
         }
 
         await this.updateVisitsData();
@@ -800,20 +919,18 @@
     }
 
     startDrawing() {
-      if (this.drawingEnabled) {
-        return;
-      }
+      if (this.drawingEnabled || !this.draw) return;
+
       this.resetDrawing(false);
 
-      this.map.addControl(this.drawControl);
-      new L.Draw.Polygon(
-        this.map,
-        this.drawControl.options.draw.polygon,
-      ).enable();
+      // Enter draw mode
+      this.draw.changeMode("draw_polygon");
 
       this.drawingEnabled = true;
+
       document.getElementById("start-drawing")?.classList.add("active");
       document.getElementById("save-place")?.setAttribute("disabled", true);
+
       window.notificationManager?.show(
         "Click on the map to start drawing the place boundary. Click the first point to finish.",
         "info",
@@ -821,16 +938,22 @@
     }
 
     onPolygonCreated(event) {
-      if (this.currentPolygon) {
-        this.map.removeLayer(this.currentPolygon);
-      }
-      this.currentPolygon = event.layer;
-      this.map.addLayer(this.currentPolygon);
+      if (!event?.features || event.features.length === 0) return;
 
-      this.map.removeControl(this.drawControl);
+      if (this.currentPolygon) {
+        this.draw.delete(this.currentPolygon.id);
+      }
+
+      this.currentPolygon = event.features[0];
+
+      // Switch to select mode, keep the new polygon selected so it's still visible
+      this.draw.changeMode("simple_select", { featureIds: [this.currentPolygon.id] });
+
       this.drawingEnabled = false;
+
       document.getElementById("start-drawing")?.classList.remove("active");
       document.getElementById("save-place")?.removeAttribute("disabled");
+
       window.notificationManager?.show(
         "Boundary drawn. Enter a name and click Save Place.",
         "info",
@@ -839,18 +962,14 @@
 
     clearCurrentDrawing() {
       if (this.currentPolygon) {
-        this.map.removeLayer(this.currentPolygon);
+        this.draw.delete(this.currentPolygon.id);
         this.currentPolygon = null;
         document.getElementById("save-place")?.setAttribute("disabled", true);
         window.notificationManager?.show("Drawing cleared.", "info");
       }
+
       if (this.drawingEnabled) {
-        this.map.eachLayer((layer) => {
-          if (layer instanceof L.Draw.Polygon && layer.editing?._enabled) {
-            layer.disableEdit?.();
-          }
-        });
-        this.map.removeControl(this.drawControl);
+        this.draw.changeMode("simple_select");
         this.drawingEnabled = false;
         document.getElementById("start-drawing")?.classList.remove("active");
       }
@@ -858,7 +977,7 @@
 
     resetDrawing(removeControl = true) {
       if (this.currentPolygon) {
-        this.map.removeLayer(this.currentPolygon);
+        this.draw.delete(this.currentPolygon.id);
         this.currentPolygon = null;
       }
 
@@ -871,14 +990,7 @@
       if (startDrawingBtn) startDrawingBtn.classList.remove("active");
 
       if (this.drawingEnabled && removeControl) {
-        try {
-          this.map.removeControl(this.drawControl);
-        } catch (e) {
-          console.warn(
-            "Could not remove draw control (might not have been added):",
-            e,
-          );
-        }
+        this.draw.changeMode("simple_select");
       }
       this.drawingEnabled = false;
       this.placeBeingEdited = null;
@@ -903,21 +1015,33 @@
 
       this.resetDrawing(false);
 
-      if (place.geometry) {
+      if (place.geometry && this.map) {
+        // Simple fit bounds to existing geometry
         try {
-          const existingPolygon = L.geoJSON(place.geometry, {
-            style: {
-              color: "#FFC107",
-              fillOpacity: 0.1,
-              weight: 1,
-              dashArray: "5, 5",
-            },
-          }).addTo(this.map);
-          this.map.fitBounds(existingPolygon.getBounds().pad(0.1));
-
-          this._tempOldBoundary = existingPolygon;
+          const coords = place.geometry.coordinates.flat(2);
+          if (coords.length >= 2) {
+            let minX = coords[0][0],
+              minY = coords[0][1],
+              maxX = coords[0][0],
+              maxY = coords[0][1];
+            coords.forEach((c) => {
+              if (!Array.isArray(c)) return;
+              const [lng, lat] = c;
+              if (lng < minX) minX = lng;
+              if (lng > maxX) maxX = lng;
+              if (lat < minY) minY = lat;
+              if (lat > maxY) maxY = lat;
+            });
+            this.map.fitBounds(
+              [
+                [minX, minY],
+                [maxX, maxY],
+              ],
+              { padding: 20 },
+            );
+          }
         } catch (e) {
-          console.error("Error displaying existing geometry for editing:", e);
+          console.warn("Failed to compute bounds for existing geometry", e);
         }
       }
 
@@ -932,6 +1056,7 @@
       );
     }
 
+    /* eslint-disable-next-line complexity */
     async saveEditedPlace() {
       const placeId = document.getElementById("edit-place-id")?.value;
       const newNameInput = document.getElementById("edit-place-name");
@@ -960,7 +1085,7 @@
         const requestBody = { name: newName };
 
         if (this.currentPolygon && this.placeBeingEdited === placeId) {
-          requestBody.geometry = this.currentPolygon.toGeoJSON().geometry;
+          requestBody.geometry = this.currentPolygon.geometry;
         }
 
         const response = await fetch(`/api/places/${placeId}`, {
@@ -976,16 +1101,20 @@
 
         this.places.set(placeId, updatedPlace);
 
-        const oldLayer = this.placeLayers.get(placeId);
-        if (oldLayer) {
-          this.customPlacesLayer.removeLayer(oldLayer);
-          this.placeLayers.delete(placeId);
+        // Replace feature in source
+        if (this.placeFeatures.has(placeId)) {
+          const oldFeature = this.placeFeatures.get(placeId);
+          this.customPlacesData.features = this.customPlacesData.features.filter(
+            (f) => f !== oldFeature,
+          );
+          this.placeFeatures.delete(placeId);
         }
+
         this.displayPlace(updatedPlace);
 
-        if (this._tempOldBoundary) {
-          this.map.removeLayer(this._tempOldBoundary);
-          this._tempOldBoundary = null;
+        // Update source data
+        if (this.map && this.map.getSource("custom-places")) {
+          this.map.getSource("custom-places").setData(this.customPlacesData);
         }
 
         await this.updateVisitsData();
@@ -1006,6 +1135,7 @@
           "success",
         );
       } catch (error) {
+        console.error("Error updating place:", error);
         window.notificationManager?.show(
           "Failed to update place. Please try again.",
           "danger",
@@ -1127,6 +1257,7 @@
       }
     }
 
+    /* eslint-disable-next-line complexity */
     static extractTripGeometry(trip) {
       // Prioritize using trip.gps if it's already a valid GeoJSON object
       if (
@@ -1159,6 +1290,7 @@
             return;
           }
         } catch (e) {
+          console.error("Failed to parse gps JSON", e);
           window.notificationManager?.show(
             "Failed to parse gps JSON.",
             "danger",
@@ -1268,107 +1400,116 @@
         mapContainer.innerHTML = "";
         mapContainer.appendChild(mapElement);
 
-        this.tripViewMap = L.map(mapElement.id, { attributionControl: false });
-        L.tileLayer(
-          "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", // Use current theme? Needs access or event
-          { maxZoom: 19 },
-        ).addTo(this.tripViewMap);
-        this.tripViewLayerGroup = L.layerGroup().addTo(this.tripViewMap);
-      }
+        const theme =
+          document.documentElement.getAttribute("data-bs-theme") || "dark";
 
-      this.updateTripMapData(trip);
+        this.tripViewMap = new mapboxgl.Map({
+          container: mapElement.id,
+          style:
+            theme === "light"
+              ? "mapbox://styles/mapbox/light-v11"
+              : "mapbox://styles/mapbox/dark-v11",
+          center: [-95.7129, 37.0902],
+          zoom: 4,
+          attributionControl: false,
+        });
+
+        this.tripViewMap.on("load", () => {
+          this.updateTripMapData(trip);
+        });
+      } else {
+        this.updateTripMapData(trip);
+      }
     }
 
     updateTripMapData(trip) {
-      if (!this.tripViewMap || !this.tripViewLayerGroup) {
-        console.error("Trip view map or layer group not ready for update.");
+      if (!this.tripViewMap) {
+        console.error("Trip view map not ready");
         return;
       }
 
-      this.tripViewLayerGroup.clearLayers();
+      // Remove existing layers/sources
+      if (this.tripViewMap.getLayer("trip-path")) {
+        this.tripViewMap.removeLayer("trip-path");
+      }
+      if (this.tripViewMap.getSource("trip")) {
+        this.tripViewMap.removeSource("trip");
+      }
+
+      this.startMarker?.remove();
+      this.endMarker?.remove();
+
       document.getElementById("trip-info").querySelector(".alert")?.remove();
 
       if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
         try {
-          const tripPath = L.geoJSON(trip.geometry, {
-            style: { color: "#BB86FC", weight: 4, opacity: 0.8 },
+          this.tripViewMap.addSource("trip", { type: "geojson", data: trip.geometry });
+
+          this.tripViewMap.addLayer({
+            id: "trip-path",
+            type: "line",
+            source: "trip",
+            paint: { "line-color": "#BB86FC", "line-width": 4 },
           });
-          this.tripViewLayerGroup.addLayer(tripPath);
 
           const coordinates = trip.geometry.coordinates;
-          if (coordinates.length > 0) {
-            const startCoord = coordinates[0];
-            const endCoord = coordinates[coordinates.length - 1];
+          const startCoord = coordinates[0];
+          const endCoord = coordinates[coordinates.length - 1];
 
-            if (
-              Array.isArray(startCoord) &&
-              startCoord.length >= 2 &&
-              !isNaN(startCoord[0]) &&
-              !isNaN(startCoord[1])
-            ) {
-              L.marker([startCoord[1], startCoord[0]], {
-                icon: L.divIcon({
-                  className: "trip-marker start-marker",
-                  html: '<i class="fas fa-play-circle"></i>',
-                  iconSize: [20, 20],
-                  iconAnchor: [10, 10],
-                }),
-              })
-                .bindTooltip("Start")
-                .addTo(this.tripViewLayerGroup);
-            } else {
-              console.warn("Invalid start coordinate:", startCoord);
-            }
-
-            if (
-              Array.isArray(endCoord) &&
-              endCoord.length >= 2 &&
-              !isNaN(endCoord[0]) &&
-              !isNaN(endCoord[1])
-            ) {
-              L.marker([endCoord[1], endCoord[0]], {
-                icon: L.divIcon({
-                  className: "trip-marker end-marker",
-                  html: '<i class="fas fa-stop-circle"></i>',
-                  iconSize: [20, 20],
-                  iconAnchor: [10, 10],
-                }),
-              })
-                .bindTooltip("End")
-                .addTo(this.tripViewLayerGroup);
-            } else {
-              console.warn("Invalid end coordinate:", endCoord);
-            }
-
-            this.tripViewMap.fitBounds(tripPath.getBounds(), {
-              padding: [25, 25],
-              maxZoom: 17,
-            });
+          if (Array.isArray(startCoord) && startCoord.length >= 2) {
+            this.startMarker = new mapboxgl.Marker({ color: "#22c55e" })
+              .setLngLat(startCoord)
+              .setPopup(new mapboxgl.Popup().setText("Start"))
+              .addTo(this.tripViewMap);
           }
+
+          if (Array.isArray(endCoord) && endCoord.length >= 2) {
+            this.endMarker = new mapboxgl.Marker({ color: "#ef4444" })
+              .setLngLat(endCoord)
+              .setPopup(new mapboxgl.Popup().setText("End"))
+              .addTo(this.tripViewMap);
+          }
+
+          // Fit bounds
+          const bounds = coordinates.reduce(
+            (b, c) => b.extend(c),
+            new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
+          );
+          this.tripViewMap.fitBounds(bounds, { padding: 25, maxZoom: 17 });
         } catch (error) {
-          console.error("Error processing trip geometry for map:", error);
+          console.error("Error processing trip geometry:", error);
           document.getElementById("trip-info").innerHTML +=
             '<div class="alert alert-danger mt-2">Error displaying trip route.</div>';
         }
       } else {
         document.getElementById("trip-info").innerHTML +=
           '<div class="alert alert-warning mt-2">No route data available for this trip.</div>';
-        this.tripViewMap.setView([37.0902, -95.7129], 4);
+        this.tripViewMap.setCenter([-95.7129, 37.0902]);
+        this.tripViewMap.setZoom(4);
       }
 
-      this.tripViewMap.invalidateSize();
+      this.tripViewMap.resize();
     }
 
-    async showPlaceStatistics(placeId) {
+    async showPlaceStatistics(placeId, lngLat = null) {
       const place = this.places.get(placeId);
-      const layer = this.placeLayers.get(placeId);
-      if (!place || !layer) return;
+      if (!place || !this.map) return;
 
-      layer
-        .setPopupContent(
-          `<h6>${place.name}</h6><p><i>Fetching details...</i></p>`,
-        )
-        .openPopup();
+      // Close any existing popup
+      if (this.activePopup) {
+        this.activePopup.remove();
+      }
+
+      // Determine popup location if not provided (fallback to first coordinate)
+      if (!lngLat && place.geometry?.coordinates) {
+        const first = place.geometry.coordinates[0][0];
+        lngLat = { lng: first[0], lat: first[1] };
+      }
+
+      this.activePopup = new mapboxgl.Popup({ offset: 8 })
+        .setLngLat(lngLat)
+        .setHTML(`<h6>${place.name}</h6><p><i>Fetching details...</i></p>`)
+        .addTo(this.map);
 
       try {
         const response = await fetch(`/api/places/${placeId}/statistics`);
@@ -1384,40 +1525,38 @@
         const formatAvg = (value) => value || "N/A";
 
         const popupContent = `
-                <div class="custom-place-popup">
-                <h6>${place.name}</h6>
-                <p>Total Visits: <strong>${stats.totalVisits || 0}</strong></p>
-                <p>First Visit: ${formatDate(stats.firstVisit)}</p>
-                <p>Last Visit: ${formatDate(stats.lastVisit)}</p>
-                <p>Avg Time Spent: ${formatAvg(stats.averageTimeSpent)}</p>
-                <p>Avg Time Since Last: ${formatAvg(stats.averageTimeSinceLastVisit)}</p>
-                 <hr style="margin: 5px 0;">
-                 <button class="btn btn-sm btn-outline-primary w-100 view-trips-btn" data-place-id="${placeId}">
-                    <i class="fas fa-list-ul me-1"></i> View Trips
-                 </button>
-                </div>
-            `;
+              <div class="custom-place-popup">
+              <h6>${place.name}</h6>
+              <p>Total Visits: <strong>${stats.totalVisits || 0}</strong></p>
+              <p>First Visit: ${formatDate(stats.firstVisit)}</p>
+              <p>Last Visit: ${formatDate(stats.lastVisit)}</p>
+              <p>Avg Time Spent: ${formatAvg(stats.averageTimeSpent)}</p>
+              <p>Avg Time Since Last: ${formatAvg(stats.averageTimeSinceLastVisit)}</p>
+               <hr style="margin: 5px 0;">
+               <button class="btn btn-sm btn-outline-primary w-100 view-trips-btn" data-place-id="${placeId}">
+                  <i class="fas fa-list-ul me-1"></i> View Trips
+               </button>
+              </div>`;
 
-        layer.setPopupContent(popupContent);
+        this.activePopup.setHTML(popupContent);
 
+        // Attach event listener once contents rendered
         setTimeout(() => {
-          const popupNode = layer.getPopup()?.getElement();
-          if (popupNode) {
-            popupNode
-              .querySelector(".view-trips-btn")
-              ?.addEventListener("click", (e) => {
-                e.preventDefault();
-                const id = e.currentTarget.getAttribute("data-place-id");
-                if (id) {
-                  layer.closePopup();
-                  this.toggleView(id);
-                }
-              });
-          }
+          const popupNode = this.activePopup.getElement();
+          popupNode
+            ?.querySelector(".view-trips-btn")
+            ?.addEventListener("click", (e) => {
+              e.preventDefault();
+              const id = e.currentTarget.getAttribute("data-place-id");
+              if (id) {
+                this.activePopup?.remove();
+                this.toggleView(id);
+              }
+            });
         }, 100);
       } catch (error) {
         console.error("Error fetching place statistics:", error);
-        layer.setPopupContent(
+        this.activePopup.setHTML(
           `<h6>${place.name}</h6><p><i>Error loading statistics.</i></p>`,
         );
         window.notificationManager?.show(
@@ -1539,11 +1678,20 @@
 
     toggleCustomPlacesVisibility(isVisible) {
       this.isCustomPlacesVisible = isVisible;
+
+      if (this.map) {
+        const visibility = isVisible ? "visible" : "none";
+        ["custom-places-fill", "custom-places-outline"].forEach((layerId) => {
+          if (this.map.getLayer(layerId)) {
+            this.map.setLayoutProperty(layerId, "visibility", visibility);
+          }
+        });
+      }
+
       const customContent = document.getElementById("custom-places-content");
       const customTabButton = document.getElementById("custom-places-tab");
 
       if (isVisible) {
-        if (this.customPlacesLayer) this.map.addLayer(this.customPlacesLayer);
         customContent?.classList.remove("hidden");
         if (customTabButton?.parentElement) {
           customTabButton.parentElement.style.display = "";
@@ -1556,8 +1704,6 @@
           }
         }
       } else {
-        if (this.customPlacesLayer)
-          this.map.removeLayer(this.customPlacesLayer);
         customContent?.classList.add("hidden");
         if (customTabButton?.parentElement) {
           customTabButton.parentElement.style.display = "none";
@@ -1573,15 +1719,37 @@
     }
 
     zoomToFitAllPlaces() {
-      if (!this.customPlacesLayer || !this.map) return;
-
-      const bounds = this.customPlacesLayer.getBounds();
-      if (bounds.isValid()) {
-        this.map.fitBounds(bounds.pad(0.1));
-      } else {
+      if (!this.map || this.customPlacesData.features.length === 0) {
         window.notificationManager?.show(
           "No custom places found to zoom to.",
           "info",
+        );
+        return;
+      }
+
+      let minX, minY, maxX, maxY;
+      this.customPlacesData.features.forEach((feature) => {
+        const coords = feature.geometry.coordinates.flat(2);
+        coords.forEach(([lng, lat]) => {
+          if (minX === undefined) {
+            minX = maxX = lng;
+            minY = maxY = lat;
+          } else {
+            if (lng < minX) minX = lng;
+            if (lng > maxX) maxX = lng;
+            if (lat < minY) minY = lat;
+            if (lat > maxY) maxY = lat;
+          }
+        });
+      });
+
+      if (minX !== undefined) {
+        this.map.fitBounds(
+          [
+            [minX, minY],
+            [maxX, maxY],
+          ],
+          { padding: 20 },
         );
       }
     }

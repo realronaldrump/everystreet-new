@@ -2,13 +2,8 @@
 {% block head_content %}
 <link
   rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-  crossorigin=""
-/>
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
+  href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css"
+  crossorigin="anonymous"
 />
 
 <style>
@@ -417,116 +412,16 @@
   </div>
 </div>
 {% endblock %} {% block extra_js %}
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-  crossorigin=""
-></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.js"></script>
+<!-- Provide Mapbox token before app scripts -->
+<script>
+  window.MAPBOX_ACCESS_TOKEN =
+    "{{ MAPBOX_ACCESS_TOKEN }}" ||
+    window.MAPBOX_ACCESS_TOKEN ||
+    "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
 <script src="{{ url_for('static', path='js/visits.js') | replace('http://', '//') }}"></script>
-
-<!-- EMERGENCY MAP FIX -->
-<script>
-  // This script will directly initialize the map regardless of any other issues
-  document.addEventListener("DOMContentLoaded", function () {
-    setTimeout(function () {
-      try {
-        console.log("EMERGENCY MAP FIX: Starting direct map initialization");
-        const mapContainer = document.getElementById("map");
-
-        // Make sure the map container is visible and has height
-        if (mapContainer) {
-          mapContainer.style.height = "500px";
-          mapContainer.style.width = "100%";
-          mapContainer.style.display = "block";
-          mapContainer.style.visibility = "visible";
-          mapContainer.style.position = "relative";
-          mapContainer.style.zIndex = "50";
-
-          // Check if Leaflet map already exists on this container and remove it
-          if (mapContainer._leaflet_id) {
-            console.log(
-              "EMERGENCY MAP FIX: Found existing map, cleaning up first",
-            );
-            mapContainer.innerHTML = "";
-            mapContainer._leaflet_id = null;
-            if (window.visitsManager && window.visitsManager.map) {
-              try {
-                window.visitsManager.map.remove();
-                window.visitsManager.map = null;
-              } catch (e) {
-                console.log(
-                  "EMERGENCY MAP FIX: Error cleaning up existing map:",
-                  e,
-                );
-              }
-            }
-          }
-
-          console.log("EMERGENCY MAP FIX: Container prepared");
-
-          // Directly create a Leaflet map
-          if (typeof L !== "undefined") {
-            const newMapDiv = document.createElement("div");
-            newMapDiv.id = "emergency-map";
-            newMapDiv.style.height = "100%";
-            newMapDiv.style.width = "100%";
-            mapContainer.appendChild(newMapDiv);
-
-            const emergencyMap = L.map("emergency-map", {
-              center: [37.0902, -95.7129],
-              zoom: 4,
-            });
-
-            // Add tile layer
-            L.tileLayer(
-              "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-              {
-                attribution:
-                  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-                maxZoom: 19,
-              },
-            ).addTo(emergencyMap);
-
-            // Bind draw-created event so onPolygonCreated still works
-            if (window.visitsManager) {
-              emergencyMap.on(L.Draw.Event.CREATED, function (e) {
-                window.visitsManager.onPolygonCreated(e);
-              });
-            }
-
-            // Force redraw
-            setTimeout(function () {
-              emergencyMap.invalidateSize(true);
-              console.log("EMERGENCY MAP FIX: Map should now be visible");
-            }, 500);
-
-            // Make this map available to the VisitsManager
-            if (window.visitsManager) {
-              window.visitsManager.map = emergencyMap;
-
-              if (!window.visitsManager.customPlacesLayer) {
-                window.visitsManager.customPlacesLayer =
-                  L.featureGroup().addTo(emergencyMap);
-              } else {
-                window.visitsManager.customPlacesLayer.addTo(emergencyMap);
-              }
-              console.log("EMERGENCY MAP FIX: Connected to VisitsManager");
-            }
-          } else {
-            console.error("EMERGENCY MAP FIX: Leaflet (L) is not defined");
-            mapContainer.innerHTML =
-              '<div class="alert alert-danger">Leaflet library not loaded. Please refresh the page.</div>';
-          }
-        } else {
-          console.error("EMERGENCY MAP FIX: Map container #map not found");
-        }
-      } catch (error) {
-        console.error("EMERGENCY MAP FIX: Error during emergency fix:", error);
-      }
-    }, 1000); // Delay to ensure DOM is fully loaded
-  });
-</script>
+<!-- Mapbox Draw will be initialized by visits.js -->
 {% endblock %}
