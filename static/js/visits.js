@@ -1849,7 +1849,16 @@
 
       let minX, minY, maxX, maxY;
       this.customPlacesData.features.forEach((feature) => {
-        const coords = feature.geometry.coordinates.flat(2);
+        let coords = [];
+        // Handle both Polygon and MultiPolygon geometries safely
+        if (feature.geometry.type === "Polygon") {
+          // Polygon -> Array<Ring<Array<[lng,lat]>>> -> flatten one level to get coordinate pairs
+          coords = feature.geometry.coordinates.flat(1);
+        } else if (feature.geometry.type === "MultiPolygon") {
+          // MultiPolygon -> Array<Polygon<Ring<Array<[lng,lat]>>>>
+          coords = feature.geometry.coordinates.flat(2);
+        }
+
         coords.forEach(([lng, lat]) => {
           if (minX === undefined) {
             minX = maxX = lng;
