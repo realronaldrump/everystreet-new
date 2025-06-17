@@ -1,14 +1,21 @@
-{% extends "base.html" %} 
-{% block title %}Coverage Management{% endblock %} 
-{% block head_content %}
+{% extends "base.html" %} {% block title %}Coverage Management{% endblock %} {%
+block head_content %}
 <!-- Mapbox GL JS CSS -->
-<link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet" />
+<link
+  href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css"
+  rel="stylesheet"
+/>
 <!-- Mapbox Draw CSS -->
-<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css" type="text/css" />
-<link rel="stylesheet" href="{{ url_for('static', path='css/coverage-management.css') }}" />
-{% endblock %} 
-
-{% block content %}
+<link
+  rel="stylesheet"
+  href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css"
+  type="text/css"
+/>
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/coverage-management.css') }}"
+/>
+{% endblock %} {% block content %}
 <div class="container-fluid">
   <div class="row">
     <div class="col-12">
@@ -27,7 +34,12 @@
           <div class="col-md-4 text-md-end">
             <div class="d-flex flex-column align-items-md-end">
               <div class="text-secondary small mb-2">Total Coverage Areas</div>
-              <div class="display-4 fw-bold text-primary" id="total-areas-count">0</div>
+              <div
+                class="display-4 fw-bold text-primary"
+                id="total-areas-count"
+              >
+                0
+              </div>
             </div>
           </div>
         </div>
@@ -39,29 +51,48 @@
       <!-- Quick Actions -->
       <div class="row mb-4">
         <div class="col-md-4 mb-3">
-          <div class="card quick-action-card text-success border-success" data-bs-toggle="modal" data-bs-target="#addAreaModal" style="cursor: pointer">
+          <div
+            class="card quick-action-card text-success border-success"
+            data-bs-toggle="modal"
+            data-bs-target="#addAreaModal"
+            style="cursor: pointer"
+          >
             <div class="card-body text-center">
               <i class="fas fa-plus-circle fa-2x mb-2"></i>
               <h5 class="card-title mt-2 mb-1">Add New Area</h5>
-              <p class="card-text small text-secondary mb-0">Start tracking a new location</p>
+              <p class="card-text small text-secondary mb-0">
+                Start tracking a new location
+              </p>
             </div>
           </div>
         </div>
         <div class="col-md-4 mb-3">
-          <div class="card quick-action-card text-primary border-primary" id="quick-refresh-all" style="cursor: pointer">
+          <div
+            class="card quick-action-card text-primary border-primary"
+            id="quick-refresh-all"
+            style="cursor: pointer"
+          >
             <div class="card-body text-center">
               <i class="fas fa-sync-alt fa-2x mb-2"></i>
               <h5 class="card-title mt-2 mb-1">Refresh All</h5>
-              <p class="card-text small text-secondary mb-0">Update all coverage data</p>
+              <p class="card-text small text-secondary mb-0">
+                Update all coverage data
+              </p>
             </div>
           </div>
         </div>
         <div class="col-md-4 mb-3">
-          <div class="card quick-action-card text-info border-info" id="quick-export-data" style="cursor: pointer">
+          <div
+            class="card quick-action-card text-info border-info"
+            id="quick-export-data"
+            style="cursor: pointer"
+          >
             <div class="card-body text-center">
               <i class="fas fa-download fa-2x mb-2"></i>
               <h5 class="card-title mt-2 mb-1">Export Data</h5>
-              <p class="card-text small text-secondary mb-0">Download coverage reports</p>
+              <p class="card-text small text-secondary mb-0">
+                Download coverage reports
+              </p>
             </div>
           </div>
         </div>
@@ -69,15 +100,26 @@
 
       <!-- Coverage Areas Table -->
       <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
           <h3 class="h5 mb-0 card-title">
             <i class="fas fa-list me-2"></i>Coverage Areas
           </h3>
           <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-secondary" id="refresh-table-btn" title="Refresh table">
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              id="refresh-table-btn"
+              title="Refresh table"
+            >
               <i class="fas fa-sync-alt"></i>
             </button>
-            <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addAreaModal" title="Add new area">
+            <button
+              class="btn btn-sm btn-success"
+              data-bs-toggle="modal"
+              data-bs-target="#addAreaModal"
+              title="Add new area"
+            >
               <i class="fas fa-plus"></i> Add Area
             </button>
           </div>
@@ -100,10 +142,15 @@
                 <tr>
                   <td colspan="7" class="text-center p-4">
                     <div class="empty-state">
-                      <div class="spinner-border text-primary spinner-border-sm mb-2" role="status">
+                      <div
+                        class="spinner-border text-primary spinner-border-sm mb-2"
+                        role="status"
+                      >
                         <span class="visually-hidden">Loading...</span>
                       </div>
-                      <p class="mb-0 text-secondary">Loading coverage areas...</p>
+                      <p class="mb-0 text-secondary">
+                        Loading coverage areas...
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -115,12 +162,20 @@
 
       <!-- Coverage Dashboard -->
       <div class="card mt-4" id="coverage-dashboard" style="display: none">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
           <h3 class="h5 mb-0 card-title">
             <i class="fas fa-chart-line me-2"></i>Coverage Dashboard:
-            <span id="dashboard-location-name" class="text-info">Select a location</span>
+            <span id="dashboard-location-name" class="text-info"
+              >Select a location</span
+            >
           </h3>
-          <button class="btn btn-sm btn-icon btn-outline-secondary" id="close-dashboard-btn" title="Close dashboard">
+          <button
+            class="btn btn-sm btn-icon btn-outline-secondary"
+            id="close-dashboard-btn"
+            title="Close dashboard"
+          >
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -150,7 +205,10 @@
                 </div>
                 <div class="card-body">
                   <div id="street-type-chart" style="min-height: 200px">
-                    <div class="skeleton-loader" style="height: 180px; border-radius: var(--radius-md)"></div>
+                    <div
+                      class="skeleton-loader"
+                      style="height: 180px; border-radius: var(--radius-md)"
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -181,7 +239,11 @@
                 </div>
                 <div class="card-body p-0">
                   <div class="d-flex justify-content-end p-2">
-                    <select id="undriven-streets-sort" class="form-select form-select-sm w-auto" title="Sort undriven streets">
+                    <select
+                      id="undriven-streets-sort"
+                      class="form-select form-select-sm w-auto"
+                      title="Sort undriven streets"
+                    >
                       <option value="length_desc" selected>Longest</option>
                       <option value="length_asc">Shortest</option>
                       <option value="segments_desc">Most Segments</option>
@@ -189,8 +251,13 @@
                       <option value="name_asc">Name A–Z</option>
                     </select>
                   </div>
-                  <div id="undriven-streets-list" style="max-height: 200px; overflow-y: auto;">
-                    <div class="placeholder-content text-secondary p-3 text-center">
+                  <div
+                    id="undriven-streets-list"
+                    style="max-height: 200px; overflow-y: auto"
+                  >
+                    <div
+                      class="placeholder-content text-secondary p-3 text-center"
+                    >
                       <i class="fas fa-road fa-2x mb-2"></i>
                       <p class="mt-1 mb-0 small">Loading undriven streets...</p>
                     </div>
@@ -203,43 +270,78 @@
             <div class="col-lg-8 dashboard-map-card">
               <div class="card bg-darker h-100 d-flex flex-column">
                 <div class="card-header">
-                  <div class="d-flex justify-content-between align-items-center">
+                  <div
+                    class="d-flex justify-content-between align-items-center"
+                  >
                     <h4 class="h6 mb-0 card-title">
                       <i class="fas fa-map me-2"></i>Coverage Map
                     </h4>
                     <div class="d-flex gap-2 align-items-center">
                       <!-- Filter Buttons -->
-                      <div class="map-controls btn-group btn-group-sm" role="group">
-                        <button class="btn btn-primary active" data-filter="all" title="Show all streets">
+                      <div
+                        class="map-controls btn-group btn-group-sm"
+                        role="group"
+                      >
+                        <button
+                          class="btn btn-primary active"
+                          data-filter="all"
+                          title="Show all streets"
+                        >
                           <i class="fas fa-globe-americas me-1"></i> All
                         </button>
-                        <button class="btn btn-outline-success" data-filter="driven" title="Show only driven streets">
+                        <button
+                          class="btn btn-outline-success"
+                          data-filter="driven"
+                          title="Show only driven streets"
+                        >
                           <i class="fas fa-check-circle me-1"></i> Driven
                         </button>
-                        <button class="btn btn-outline-danger" data-filter="undriven" title="Show only undriven streets">
+                        <button
+                          class="btn btn-outline-danger"
+                          data-filter="undriven"
+                          title="Show only undriven streets"
+                        >
                           <i class="fas fa-times-circle me-1"></i> Undriven
                         </button>
-                        <button class="btn btn-outline-warning" data-filter="undriveable" title="Show only undriveable streets">
+                        <button
+                          class="btn btn-outline-warning"
+                          data-filter="undriveable"
+                          title="Show only undriveable streets"
+                        >
                           <i class="fas fa-ban me-1"></i> Undriveable
                         </button>
                       </div>
 
                       <!-- Action Buttons -->
-                      <button class="btn btn-sm btn-info" id="find-efficient-street-btn" title="Find efficient streets">
+                      <button
+                        class="btn btn-sm btn-info"
+                        id="find-efficient-street-btn"
+                        title="Find efficient streets"
+                      >
                         <i class="fas fa-bullseye me-1"></i>Efficient
                       </button>
 
                       <div class="vr mx-1 d-none d-sm-block"></div>
 
-                      <button id="export-coverage-map" class="btn btn-sm btn-icon btn-outline-secondary" title="Export map">
+                      <button
+                        id="export-coverage-map"
+                        class="btn btn-sm btn-icon btn-outline-secondary"
+                        title="Export map"
+                      >
                         <i class="fas fa-download"></i>
                       </button>
                     </div>
                   </div>
                 </div>
                 <div class="card-body p-0 d-flex flex-column">
-                  <div id="coverage-map" class="flex-fill position-relative map-wrapper" style="min-height: 450px">
-                    <div class="map-loading d-flex justify-content-center align-items-center h-100">
+                  <div
+                    id="coverage-map"
+                    class="flex-fill position-relative map-wrapper"
+                    style="min-height: 450px"
+                  >
+                    <div
+                      class="map-loading d-flex justify-content-center align-items-center h-100"
+                    >
                       <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading map...</span>
                       </div>
@@ -247,11 +349,23 @@
                   </div>
                 </div>
                 <div class="card-footer">
-                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <div
+                    class="d-flex justify-content-between align-items-center flex-wrap gap-2"
+                  >
                     <!-- Trip Overlay Toggle -->
-                    <div class="form-check form-switch d-flex align-items-center">
-                      <input class="form-check-input me-2" type="checkbox" role="switch" id="toggle-trip-overlay" />
-                      <label class="form-check-label small" for="toggle-trip-overlay">
+                    <div
+                      class="form-check form-switch d-flex align-items-center"
+                    >
+                      <input
+                        class="form-check-input me-2"
+                        type="checkbox"
+                        role="switch"
+                        id="toggle-trip-overlay"
+                      />
+                      <label
+                        class="form-check-label small"
+                        for="toggle-trip-overlay"
+                      >
                         <i class="fas fa-route me-1"></i>Show Trip Overlay
                       </label>
                     </div>
@@ -262,15 +376,40 @@
                           <span class="badge bg-secondary me-1">Legend:</span>
                         </div>
                         <div class="col-auto d-flex align-items-center">
-                          <div style="width: 15px; height: 3px; background-color: var(--danger); margin-right: 4px; border-radius: 2px;"></div>
+                          <div
+                            style="
+                              width: 15px;
+                              height: 3px;
+                              background-color: var(--danger);
+                              margin-right: 4px;
+                              border-radius: 2px;
+                            "
+                          ></div>
                           <small>Not Driven</small>
                         </div>
                         <div class="col-auto d-flex align-items-center">
-                          <div style="width: 15px; height: 3px; background-color: var(--success); margin-right: 4px; border-radius: 2px;"></div>
+                          <div
+                            style="
+                              width: 15px;
+                              height: 3px;
+                              background-color: var(--success);
+                              margin-right: 4px;
+                              border-radius: 2px;
+                            "
+                          ></div>
                           <small>Driven</small>
                         </div>
                         <div class="col-auto d-flex align-items-center">
-                          <div style="width: 15px; height: 3px; background-color: var(--text-tertiary); margin-right: 4px; border-radius: 2px; border: 1px dashed var(--text-secondary);"></div>
+                          <div
+                            style="
+                              width: 15px;
+                              height: 3px;
+                              background-color: var(--text-tertiary);
+                              margin-right: 4px;
+                              border-radius: 2px;
+                              border: 1px dashed var(--text-secondary);
+                            "
+                          ></div>
                           <small>Undriveable</small>
                         </div>
                       </div>
@@ -294,18 +433,35 @@
         <h5 class="modal-title">
           <i class="fas fa-plus-circle me-2"></i>Add New Coverage Area
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
       </div>
       <div class="modal-body">
         <!-- Area Type Selection -->
         <div class="mb-4">
           <h6 class="form-label">How would you like to define the area?</h6>
           <div class="btn-group w-100" role="group">
-            <input type="radio" class="btn-check" name="area-definition-type" id="area-type-location" value="location" checked />
+            <input
+              type="radio"
+              class="btn-check"
+              name="area-definition-type"
+              id="area-type-location"
+              value="location"
+              checked
+            />
             <label class="btn btn-outline-primary" for="area-type-location">
               <i class="fas fa-search me-2"></i>Search Location
             </label>
-            <input type="radio" class="btn-check" name="area-definition-type" id="area-type-draw" value="draw" />
+            <input
+              type="radio"
+              class="btn-check"
+              name="area-definition-type"
+              id="area-type-draw"
+              value="draw"
+            />
             <label class="btn btn-outline-primary" for="area-type-draw">
               <i class="fas fa-draw-polygon me-2"></i>Draw Custom Boundary
             </label>
@@ -316,8 +472,16 @@
         <div id="location-search-form">
           <div class="mb-3">
             <label for="location-input" class="form-label">Location Name</label>
-            <input type="text" id="location-input" class="form-control" placeholder="e.g., Waco, TX" required />
-            <small class="form-text text-secondary">Start typing to search for a location</small>
+            <input
+              type="text"
+              id="location-input"
+              class="form-control"
+              placeholder="e.g., Waco, TX"
+              required
+            />
+            <small class="form-text text-secondary"
+              >Start typing to search for a location</small
+            >
           </div>
           <div class="mb-3">
             <label for="location-type" class="form-label">Location Type</label>
@@ -329,22 +493,63 @@
             </select>
           </div>
           <div class="mb-3">
-            <label for="segment-length-input" class="form-label">Street Segment Length (meters)</label>
-            <input type="number" id="segment-length-input" class="form-control" placeholder="100" min="20" step="10" value="100" />
-            <small class="form-text text-secondary">Lower values give more precise coverage stats but increase processing time.</small>
+            <label for="segment-length-input" class="form-label"
+              >Street Segment Length (meters)</label
+            >
+            <input
+              type="number"
+              id="segment-length-input"
+              class="form-control"
+              placeholder="100"
+              min="20"
+              step="10"
+              value="100"
+            />
+            <small class="form-text text-secondary"
+              >Lower values give more precise coverage stats but increase
+              processing time.</small
+            >
           </div>
           <div class="mb-3">
-            <label for="match-buffer-input" class="form-label">Trip Buffer Radius (meters)</label>
-            <input type="number" id="match-buffer-input" class="form-control" placeholder="15" min="1" step="1" value="15" />
-            <small class="form-text text-secondary">Distance around trip line used to match streets.</small>
+            <label for="match-buffer-input" class="form-label"
+              >Trip Buffer Radius (meters)</label
+            >
+            <input
+              type="number"
+              id="match-buffer-input"
+              class="form-control"
+              placeholder="15"
+              min="1"
+              step="1"
+              value="15"
+            />
+            <small class="form-text text-secondary"
+              >Distance around trip line used to match streets.</small
+            >
           </div>
           <div class="mb-3">
-            <label for="min-match-length-input" class="form-label">Min Overlap Length (meters)</label>
-            <input type="number" id="min-match-length-input" class="form-control" placeholder="5" min="1" step="1" value="5" />
-            <small class="form-text text-secondary">Minimum overlap length to count a segment as driven.</small>
+            <label for="min-match-length-input" class="form-label"
+              >Min Overlap Length (meters)</label
+            >
+            <input
+              type="number"
+              id="min-match-length-input"
+              class="form-control"
+              placeholder="5"
+              min="1"
+              step="1"
+              value="5"
+            />
+            <small class="form-text text-secondary"
+              >Minimum overlap length to count a segment as driven.</small
+            >
           </div>
 
-          <div class="alert alert-info d-none mt-3" id="validation-result" role="alert">
+          <div
+            class="alert alert-info d-none mt-3"
+            id="validation-result"
+            role="alert"
+          >
             <i class="fas fa-check-circle me-2"></i>
             <span class="validation-message"></span>
           </div>
@@ -353,37 +558,74 @@
         <!-- Drawing Interface -->
         <div id="drawing-interface" class="d-none">
           <div class="mb-3">
-            <label for="custom-area-name" class="form-label">Custom Area Name <span class="text-danger">*</span></label>
-            <input type="text" id="custom-area-name" class="form-control" placeholder="e.g., Downtown District" required />
+            <label for="custom-area-name" class="form-label"
+              >Custom Area Name <span class="text-danger">*</span></label
+            >
+            <input
+              type="text"
+              id="custom-area-name"
+              class="form-control"
+              placeholder="e.g., Downtown District"
+              required
+            />
           </div>
           <div class="mb-3">
             <label class="form-label">Draw Your Coverage Area</label>
             <div class="alert alert-info small mb-2">
-              <i class="fas fa-info-circle me-1"></i>Use the polygon tool to draw your coverage area boundary.
+              <i class="fas fa-info-circle me-1"></i>Use the polygon tool to
+              draw your coverage area boundary.
             </div>
-            <div id="drawing-map" style="height: 400px; border-radius: 8px; border: 2px solid var(--bs-border-color);"></div>
+            <div
+              id="drawing-map"
+              style="
+                height: 400px;
+                border-radius: 8px;
+                border: 2px solid var(--bs-border-color);
+              "
+            ></div>
             <div class="mt-2 d-flex justify-content-between">
-              <small class="text-secondary">Click on the map to start drawing</small>
-              <button type="button" id="clear-drawing" class="btn btn-sm btn-outline-warning">
+              <small class="text-secondary"
+                >Click on the map to start drawing</small
+              >
+              <button
+                type="button"
+                id="clear-drawing"
+                class="btn btn-sm btn-outline-warning"
+              >
                 <i class="fas fa-trash me-1"></i>Clear Drawing
               </button>
             </div>
           </div>
-          <div class="alert alert-success d-none" id="drawing-validation-result" role="alert">
+          <div
+            class="alert alert-success d-none"
+            id="drawing-validation-result"
+            role="alert"
+          >
             <i class="fas fa-check-circle me-2"></i>
             <span class="drawing-validation-message"></span>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-        
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          data-bs-dismiss="modal"
+        >
+          Cancel
+        </button>
+
         <!-- Location Search Buttons -->
         <div id="location-search-buttons">
           <button type="button" id="validate-location" class="btn btn-primary">
             <i class="fas fa-check"></i> Validate
           </button>
-          <button type="button" id="add-coverage-area" class="btn btn-success" disabled>
+          <button
+            type="button"
+            id="add-coverage-area"
+            class="btn btn-success"
+            disabled
+          >
             <i class="fas fa-plus"></i> Add Area
           </button>
         </div>
@@ -393,7 +635,12 @@
           <button type="button" id="validate-drawing" class="btn btn-primary">
             <i class="fas fa-check"></i> Validate Drawing
           </button>
-          <button type="button" id="add-custom-area" class="btn btn-success" disabled>
+          <button
+            type="button"
+            id="add-custom-area"
+            class="btn btn-success"
+            disabled
+          >
             <i class="fas fa-plus"></i> Add Custom Area
           </button>
         </div>
@@ -403,7 +650,14 @@
 </div>
 
 <!-- Task Progress Modal -->
-<div class="modal fade" id="taskProgressModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+<div
+  class="modal fade"
+  id="taskProgressModal"
+  tabindex="-1"
+  aria-hidden="true"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
@@ -438,7 +692,16 @@
 
         <!-- Progress Bar -->
         <div class="progress mb-3" style="height: 25px">
-          <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+          <div
+            class="progress-bar progress-bar-striped progress-bar-animated"
+            role="progressbar"
+            style="width: 0%"
+            aria-valuenow="0"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            0%
+          </div>
         </div>
 
         <!-- Progress Info -->
@@ -470,9 +733,7 @@
     </div>
   </div>
 </div>
-{% endblock %} 
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <!-- Mapbox GL JS -->
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
 <!-- Mapbox Draw -->
@@ -480,13 +741,16 @@
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- HTML2Canvas for map export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" 
-        integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" 
-        crossorigin="anonymous"></script>
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+  integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA=="
+  crossorigin="anonymous"
+></script>
 
 <!-- Set Mapbox access token -->
 <script>
-  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}" || 
+  window.MAPBOX_ACCESS_TOKEN =
+    "{{ MAPBOX_ACCESS_TOKEN }}" ||
     "pk.eyJ1IjoicmVhbHJvbmFsZHJ1bXAiLCJhIjoiY204eXBvMzRhMDNubTJrb2NoaDIzN2dodyJ9.3Hnv3_ps0T7YS8cwSE3XKA";
 </script>
 
