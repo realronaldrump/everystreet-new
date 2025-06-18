@@ -483,7 +483,11 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
        ``month`` | ``year``).  When supplied, only trips whose *endTime* falls
        inside that rolling window are considered.
     """
-    from datetime import datetime, timedelta, timezone  # Local import to avoid circular issues
+    from datetime import (  # Local import to avoid circular issues
+        datetime,
+        timedelta,
+        timezone,
+    )
 
     try:
         # ------------------------------------------------------------------
@@ -688,7 +692,8 @@ async def get_visit_suggestions(
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=(
-                        "Unsupported timeframe. Choose from day, week, month, year."),
+                        "Unsupported timeframe. Choose from day, week, month, year."
+                    ),
                 )
 
             match_stage["endTime"] = {"$gte": now - delta_map[timeframe]}
@@ -746,9 +751,12 @@ async def get_visit_suggestions(
         # ------------------------------------------------------------------
         # Build list of existing custom place polygons for overlap check
         # ------------------------------------------------------------------
-        from shapely.geometry import shape as shp_shape, Point as ShpPoint
+        from shapely.geometry import Point as ShpPoint
+        from shapely.geometry import shape as shp_shape
 
-        existing_places = await find_with_retry(Collections.places, {}, projection={"geometry": 1})
+        existing_places = await find_with_retry(
+            Collections.places, {}, projection={"geometry": 1}
+        )
         existing_polygons = []
         for p in existing_places:
             try:
@@ -792,7 +800,9 @@ async def get_visit_suggestions(
                 {
                     "suggestedName": f"Area near {round(center_lat,3)}, {round(center_lng,3)}",
                     "totalVisits": c["totalVisits"],
-                    "firstVisit": SerializationHelper.serialize_datetime(c["firstVisit"]),
+                    "firstVisit": SerializationHelper.serialize_datetime(
+                        c["firstVisit"]
+                    ),
                     "lastVisit": SerializationHelper.serialize_datetime(c["lastVisit"]),
                     "centroid": [center_lng, center_lat],
                     "boundary": boundary,
