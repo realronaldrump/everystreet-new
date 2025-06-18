@@ -25,9 +25,9 @@
       this.activePopup = null; // Currently open popup instance
       this.startMarker = null;
       this.endMarker = null;
-      
+
       // Enhanced state for UI improvements
-      this.mapStyle = 'dark';
+      this.mapStyle = "dark";
       this.animationFrames = new Map();
       this.statsUpdateTimer = null;
       this.visitTrends = new Map();
@@ -62,27 +62,27 @@
     }
 
     showInitialLoading() {
-      const loadingOverlay = document.getElementById('map-loading');
+      const loadingOverlay = document.getElementById("map-loading");
       if (loadingOverlay) {
-        loadingOverlay.style.display = 'flex';
+        loadingOverlay.style.display = "flex";
       }
     }
 
     hideInitialLoading() {
-      const loadingOverlay = document.getElementById('map-loading');
+      const loadingOverlay = document.getElementById("map-loading");
       if (loadingOverlay) {
         setTimeout(() => {
-          loadingOverlay.style.transition = 'opacity 0.3s ease';
-          loadingOverlay.style.opacity = '0';
+          loadingOverlay.style.transition = "opacity 0.3s ease";
+          loadingOverlay.style.opacity = "0";
           setTimeout(() => {
-            loadingOverlay.style.display = 'none';
+            loadingOverlay.style.display = "none";
           }, 300);
         }, 500);
       }
     }
 
     showErrorState() {
-      const mapContainer = document.getElementById('map');
+      const mapContainer = document.getElementById("map");
       if (mapContainer) {
         mapContainer.innerHTML = `
           <div class="empty-state">
@@ -96,53 +96,56 @@
 
     setupEnhancedUI() {
       // Add smooth scroll to all internal links
-      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', (e) => {
+      document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+        anchor.addEventListener("click", (e) => {
           e.preventDefault();
-          const target = document.querySelector(anchor.getAttribute('href'));
+          const target = document.querySelector(anchor.getAttribute("href"));
           if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
           }
         });
       });
 
       // Initialize tooltips with custom styling
-      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      const tooltipTriggerList = [].slice.call(
+        document.querySelectorAll('[data-bs-toggle="tooltip"]'),
+      );
       tooltipTriggerList.map((tooltipTriggerEl) => {
         return new bootstrap.Tooltip(tooltipTriggerEl, {
-          template: '<div class="tooltip" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner bg-primary"></div></div>'
+          template:
+            '<div class="tooltip" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner bg-primary"></div></div>',
         });
       });
 
       // Add ripple effect to buttons
-      document.querySelectorAll('.action-button').forEach(button => {
-        button.addEventListener('click', (e) => {
-          const ripple = document.createElement('span');
+      document.querySelectorAll(".action-button").forEach((button) => {
+        button.addEventListener("click", (e) => {
+          const ripple = document.createElement("span");
           const rect = button.getBoundingClientRect();
           const size = Math.max(rect.width, rect.height);
           const x = e.clientX - rect.left - size / 2;
           const y = e.clientY - rect.top - size / 2;
-          
-          ripple.style.position = 'absolute';
-          ripple.style.width = ripple.style.height = size + 'px';
-          ripple.style.left = x + 'px';
-          ripple.style.top = y + 'px';
-          ripple.classList.add('ripple');
-          
+
+          ripple.style.position = "absolute";
+          ripple.style.width = ripple.style.height = size + "px";
+          ripple.style.left = x + "px";
+          ripple.style.top = y + "px";
+          ripple.classList.add("ripple");
+
           button.appendChild(ripple);
           setTimeout(() => ripple.remove(), 600);
         });
       });
 
       // Enhance form inputs with floating labels effect
-      document.querySelectorAll('.place-name-input').forEach(input => {
-        input.addEventListener('focus', () => {
-          input.parentElement.classList.add('focused');
+      document.querySelectorAll(".place-name-input").forEach((input) => {
+        input.addEventListener("focus", () => {
+          input.parentElement.classList.add("focused");
         });
-        
-        input.addEventListener('blur', () => {
+
+        input.addEventListener("blur", () => {
           if (!input.value) {
-            input.parentElement.classList.remove('focused');
+            input.parentElement.classList.remove("focused");
           }
         });
       });
@@ -150,11 +153,11 @@
 
     startStatsAnimation() {
       // Animate stats counters
-      this.animateCounter('total-places-count', this.places.size, 1000);
-      
+      this.animateCounter("total-places-count", this.places.size, 1000);
+
       // Update monthly visits with animation
       this.updateMonthlyVisits();
-      
+
       // Start periodic updates
       this.statsUpdateTimer = setInterval(() => {
         this.updateStatsCounts();
@@ -164,90 +167,108 @@
     animateCounter(elementId, targetValue, duration = 1000) {
       const element = document.getElementById(elementId);
       if (!element) return;
-      
+
       const startValue = parseInt(element.textContent) || 0;
       const increment = (targetValue - startValue) / (duration / 16);
       let currentValue = startValue;
-      
+
       const animate = () => {
         currentValue += increment;
-        if ((increment > 0 && currentValue >= targetValue) || 
-            (increment < 0 && currentValue <= targetValue)) {
+        if (
+          (increment > 0 && currentValue >= targetValue) ||
+          (increment < 0 && currentValue <= targetValue)
+        ) {
           element.textContent = targetValue;
         } else {
           element.textContent = Math.round(currentValue);
           requestAnimationFrame(animate);
         }
       };
-      
+
       requestAnimationFrame(animate);
     }
 
     async updateStatsCounts() {
       // Update total places count
-      document.getElementById('total-places-count').textContent = this.places.size;
-      document.getElementById('active-places-stat').textContent = this.places.size;
-      
+      document.getElementById("total-places-count").textContent =
+        this.places.size;
+      document.getElementById("active-places-stat").textContent =
+        this.places.size;
+
       // Calculate total visits
       try {
         const [customRes, otherRes] = await Promise.all([
-          fetch('/api/places/statistics'),
-          fetch('/api/non_custom_places_visits'),
+          fetch("/api/places/statistics"),
+          fetch("/api/non_custom_places_visits"),
         ]);
 
         let totalVisits = 0;
 
         if (customRes.ok) {
           const customStats = await customRes.json();
-          totalVisits += customStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
+          totalVisits += customStats.reduce(
+            (sum, p) => sum + (p.totalVisits || 0),
+            0,
+          );
         }
 
         if (otherRes.ok) {
           const otherStats = await otherRes.json();
-          totalVisits += otherStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
+          totalVisits += otherStats.reduce(
+            (sum, p) => sum + (p.totalVisits || 0),
+            0,
+          );
         }
 
-        this.animateCounter('total-visits-count', totalVisits);
+        this.animateCounter("total-visits-count", totalVisits);
       } catch (error) {
-        console.error('Error updating stats:', error);
+        console.error("Error updating stats:", error);
       }
     }
 
     async updateMonthlyVisits() {
       try {
         const [customRes, otherRes] = await Promise.all([
-          fetch('/api/places/statistics?timeframe=month'),
-          fetch('/api/non_custom_places_visits?timeframe=month'),
+          fetch("/api/places/statistics?timeframe=month"),
+          fetch("/api/non_custom_places_visits?timeframe=month"),
         ]);
 
         let monthlyVisits = 0;
 
         if (customRes.ok) {
           const customStats = await customRes.json();
-          monthlyVisits += customStats.reduce((sum, p) => sum + (p.monthlyVisits || p.totalVisits || 0), 0);
+          monthlyVisits += customStats.reduce(
+            (sum, p) => sum + (p.monthlyVisits || p.totalVisits || 0),
+            0,
+          );
         }
 
         if (otherRes.ok) {
           const otherStats = await otherRes.json();
-          monthlyVisits += otherStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
+          monthlyVisits += otherStats.reduce(
+            (sum, p) => sum + (p.totalVisits || 0),
+            0,
+          );
         }
 
-        this.animateCounter('month-visits-stat', monthlyVisits);
+        this.animateCounter("month-visits-stat", monthlyVisits);
       } catch (error) {
-        console.error('Error updating monthly visits:', error);
+        console.error("Error updating monthly visits:", error);
       }
     }
 
     initializeMap() {
       return new Promise((resolve, reject) => {
         try {
-          const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+          const theme =
+            document.documentElement.getAttribute("data-bs-theme") || "dark";
           this.mapStyle = theme;
 
           // Create Mapbox map instance with enhanced styling
           this.map = window.mapBase.createMap("map", {
             library: "mapbox",
-            style: theme === "light"
+            style:
+              theme === "light"
                 ? "mapbox://styles/mapbox/light-v11"
                 : "mapbox://styles/mapbox/dark-v11",
             center: [-95.7129, 37.0902], // USA centroid as default
@@ -256,23 +277,26 @@
             // Enhanced map options
             pitchWithRotate: false,
             dragRotate: false,
-            touchZoomRotate: false
+            touchZoomRotate: false,
           });
 
           // Add navigation controls with custom styling
-          this.map.addControl(new mapboxgl.NavigationControl({
-            showCompass: false
-          }), 'bottom-right');
+          this.map.addControl(
+            new mapboxgl.NavigationControl({
+              showCompass: false,
+            }),
+            "bottom-right",
+          );
 
           // Wait for map load before continuing
           this.map.on("load", () => {
             // Add custom map animations
-            this.map.on('movestart', () => {
-              document.getElementById('map').classList.add('map-moving');
+            this.map.on("movestart", () => {
+              document.getElementById("map").classList.add("map-moving");
             });
-            
-            this.map.on('moveend', () => {
-              document.getElementById('map').classList.remove('map-moving');
+
+            this.map.on("moveend", () => {
+              document.getElementById("map").classList.remove("map-moving");
             });
 
             // GeoJSON source that will hold ALL custom places
@@ -295,17 +319,17 @@
               source: "custom-places",
               paint: {
                 "fill-color": [
-                  'case',
-                  ['boolean', ['feature-state', 'hover'], false],
-                  '#BB86FC',
-                  '#BB86FC'
+                  "case",
+                  ["boolean", ["feature-state", "hover"], false],
+                  "#BB86FC",
+                  "#BB86FC",
                 ],
                 "fill-opacity": [
-                  'case',
-                  ['boolean', ['feature-state', 'hover'], false],
+                  "case",
+                  ["boolean", ["feature-state", "hover"], false],
                   0.25,
-                  0.15
-                ]
+                  0.15,
+                ],
               },
             });
 
@@ -316,17 +340,17 @@
               source: "custom-places",
               paint: {
                 "line-color": [
-                  'case',
-                  ['boolean', ['feature-state', 'hover'], false],
-                  '#9965EB',
-                  '#BB86FC'
+                  "case",
+                  ["boolean", ["feature-state", "hover"], false],
+                  "#9965EB",
+                  "#BB86FC",
                 ],
                 "line-width": [
-                  'case',
-                  ['boolean', ['feature-state', 'hover'], false],
+                  "case",
+                  ["boolean", ["feature-state", "hover"], false],
                   3,
-                  2
-                ]
+                  2,
+                ],
               },
             });
 
@@ -336,27 +360,27 @@
               type: "line",
               source: "custom-places",
               paint: {
-                "line-color": '#F59E0B',
+                "line-color": "#F59E0B",
                 "line-width": 4,
-                "line-opacity": 0
+                "line-opacity": 0,
               },
             });
 
             // Enhanced hover effects
             let hoveredStateId = null;
-            
+
             this.map.on("mousemove", "custom-places-fill", (e) => {
               if (e.features.length > 0) {
                 if (hoveredStateId !== null) {
                   this.map.setFeatureState(
-                    { source: 'custom-places', id: hoveredStateId },
-                    { hover: false }
+                    { source: "custom-places", id: hoveredStateId },
+                    { hover: false },
                   );
                 }
                 hoveredStateId = e.features[0].id;
                 this.map.setFeatureState(
-                  { source: 'custom-places', id: hoveredStateId },
-                  { hover: true }
+                  { source: "custom-places", id: hoveredStateId },
+                  { hover: true },
                 );
                 this.map.getCanvas().style.cursor = "pointer";
               }
@@ -365,8 +389,8 @@
             this.map.on("mouseleave", "custom-places-fill", () => {
               if (hoveredStateId !== null) {
                 this.map.setFeatureState(
-                  { source: 'custom-places', id: hoveredStateId },
-                  { hover: false }
+                  { source: "custom-places", id: hoveredStateId },
+                  { hover: false },
                 );
               }
               hoveredStateId = null;
@@ -377,10 +401,10 @@
             this.map.on("click", "custom-places-fill", (e) => {
               const feature = e.features?.[0];
               if (!feature) return;
-              
+
               // Add click animation
               this.animatePlaceClick(feature);
-              
+
               const placeId = feature.properties?.placeId;
               if (placeId) {
                 this.showPlaceStatistics(placeId, e.lngLat);
@@ -400,35 +424,36 @@
       // Create a pulse animation on click
       const placeId = feature.properties?.placeId;
       if (!placeId) return;
-      
+
       // Temporarily highlight the clicked place
-      this.map.setPaintProperty('custom-places-highlight', 'line-opacity', 0.8);
-      
+      this.map.setPaintProperty("custom-places-highlight", "line-opacity", 0.8);
+
       setTimeout(() => {
-        this.map.setPaintProperty('custom-places-highlight', 'line-opacity', 0);
+        this.map.setPaintProperty("custom-places-highlight", "line-opacity", 0);
       }, 300);
     }
 
     setupMapStyleToggle() {
-      const styleToggle = document.getElementById('map-style-toggle');
+      const styleToggle = document.getElementById("map-style-toggle");
       if (styleToggle) {
-        styleToggle.addEventListener('click', () => {
-          this.mapStyle = this.mapStyle === 'dark' ? 'satellite' : 'dark';
-          const styleUrl = this.mapStyle === 'satellite' 
-            ? 'mapbox://styles/mapbox/satellite-streets-v12'
-            : 'mapbox://styles/mapbox/dark-v11';
-          
+        styleToggle.addEventListener("click", () => {
+          this.mapStyle = this.mapStyle === "dark" ? "satellite" : "dark";
+          const styleUrl =
+            this.mapStyle === "satellite"
+              ? "mapbox://styles/mapbox/satellite-streets-v12"
+              : "mapbox://styles/mapbox/dark-v11";
+
           this.map.setStyle(styleUrl);
-          
+
           // Re-add layers after style change
-          this.map.once('styledata', () => {
+          this.map.once("styledata", () => {
             this.reloadCustomPlacesLayers();
           });
-          
+
           // Animate button
-          styleToggle.classList.add('rotating');
+          styleToggle.classList.add("rotating");
           setTimeout(() => {
-            styleToggle.classList.remove('rotating');
+            styleToggle.classList.remove("rotating");
           }, 500);
         });
       }
@@ -467,9 +492,9 @@
           type: "line",
           source: "custom-places",
           paint: {
-            "line-color": '#F59E0B',
+            "line-color": "#F59E0B",
             "line-width": 4,
-            "line-opacity": 0
+            "line-opacity": 0,
           },
         });
       }
@@ -484,11 +509,12 @@
 
       // Enhanced chart configuration
       Chart.defaults.color = "rgba(255, 255, 255, 0.8)";
-      Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      Chart.defaults.font.family =
+        "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
       const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-      gradient.addColorStop(0, 'rgba(187, 134, 252, 0.8)');
-      gradient.addColorStop(1, 'rgba(187, 134, 252, 0.1)');
+      gradient.addColorStop(0, "rgba(187, 134, 252, 0.8)");
+      gradient.addColorStop(1, "rgba(187, 134, 252, 0.1)");
 
       this.visitsChart = new Chart(ctx, {
         type: "bar",
@@ -511,11 +537,11 @@
           maintainAspectRatio: false,
           animation: {
             duration: 1000,
-            easing: 'easeInOutQuart'
+            easing: "easeInOutQuart",
           },
           interaction: {
-            mode: 'index',
-            intersect: false
+            mode: "index",
+            intersect: false,
           },
           scales: {
             y: {
@@ -524,11 +550,11 @@
                 stepSize: 1,
                 color: "rgba(255, 255, 255, 0.75)",
                 font: { weight: "400", size: 11 },
-                padding: 10
+                padding: 10,
               },
-              grid: { 
+              grid: {
                 color: "rgba(255, 255, 255, 0.08)",
-                drawBorder: false
+                drawBorder: false,
               },
             },
             x: {
@@ -536,11 +562,11 @@
                 color: "rgba(255, 255, 255, 0.8)",
                 font: { weight: "500", size: 12 },
                 maxRotation: 45,
-                minRotation: 45
+                minRotation: 45,
               },
-              grid: { 
+              grid: {
                 display: false,
-                drawBorder: false
+                drawBorder: false,
               },
             },
           },
@@ -560,24 +586,25 @@
               callbacks: {
                 label: (context) => {
                   return `Visits: ${context.parsed.y}`;
-                }
-              }
+                },
+              },
             },
           },
           onClick: (event, elements) => {
             if (elements.length > 0) {
               const chartElement = elements[0];
-              const placeName = this.visitsChart.data.labels[chartElement.index];
+              const placeName =
+                this.visitsChart.data.labels[chartElement.index];
               const placeEntry = Array.from(this.places.entries()).find(
                 ([, placeData]) => placeData.name === placeName,
               );
               if (placeEntry) {
                 const [placeId] = placeEntry;
-                
+
                 // Add click animation
                 this.visitsChart.options.animation.duration = 300;
                 this.visitsChart.update();
-                
+
                 setTimeout(() => {
                   this.toggleView(placeId);
                 }, 300);
@@ -585,8 +612,9 @@
             }
           },
           onHover: (event, elements) => {
-            ctx.canvas.style.cursor = elements.length > 0 ? 'pointer' : 'default';
-          }
+            ctx.canvas.style.cursor =
+              elements.length > 0 ? "pointer" : "default";
+          },
         },
       });
     }
@@ -667,14 +695,16 @@
             data: "avgTimeSpent",
             className: "numeric-cell text-end",
             type: "duration",
-            render: (data) => data ? `<i class="far fa-clock me-1"></i>${data}` : "N/A",
+            render: (data) =>
+              data ? `<i class="far fa-clock me-1"></i>${data}` : "N/A",
             createdCell: (td, cellData, rowData, row, col) => {
               $(td).attr("data-label", headers[col]);
             },
           },
         ],
         language: {
-          emptyTable: '<div class="empty-state"><i class="fas fa-map-marked-alt"></i><h5>No Custom Places Yet</h5><p>Draw your first place on the map to start tracking visits</p></div>',
+          emptyTable:
+            '<div class="empty-state"><i class="fas fa-map-marked-alt"></i><h5>No Custom Places Yet</h5><p>Draw your first place on the map to start tracking visits</p></div>',
           info: "Showing _START_ to _END_ of _TOTAL_ places",
           search: "",
           searchPlaceholder: "Search places...",
@@ -684,16 +714,18 @@
           "<'row'<'col-sm-12'tr>>" +
           "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
         columnDefs: [{ type: "duration", targets: 4 }],
-        drawCallback: function() {
+        drawCallback: function () {
           // Add fade-in animation to rows
-          $('#visits-table tbody tr').each(function(i) {
-            $(this).delay(50 * i).animate({ opacity: 1 }, 300);
+          $("#visits-table tbody tr").each(function (i) {
+            $(this)
+              .delay(50 * i)
+              .animate({ opacity: 1 }, 300);
           });
-        }
+        },
       });
 
       // Custom search styling
-      $('#visits-table_filter input').addClass('form-control-sm');
+      $("#visits-table_filter input").addClass("form-control-sm");
     }
 
     initNonCustomVisitsTable() {
@@ -709,7 +741,8 @@
         columns: [
           {
             data: "name",
-            render: (data) => `<i class="fas fa-globe me-2 text-info"></i>${data}`,
+            render: (data) =>
+              `<i class="fas fa-globe me-2 text-info"></i>${data}`,
             createdCell: (td, cellData, rowData, row, col) => {
               $(td).attr("data-label", headers[col]);
             },
@@ -750,7 +783,8 @@
           },
         ],
         language: {
-          emptyTable: '<div class="empty-state"><i class="fas fa-globe"></i><h5>No Other Locations Visited</h5><p>Visit tracking data will appear here</p></div>',
+          emptyTable:
+            '<div class="empty-state"><i class="fas fa-globe"></i><h5>No Other Locations Visited</h5><p>Visit tracking data will appear here</p></div>',
           info: "Showing _START_ to _END_ of _TOTAL_ locations",
           search: "",
           searchPlaceholder: "Search locations...",
@@ -841,7 +875,8 @@
             data: "timeSinceLastVisit",
             className: "numeric-cell text-end",
             type: "duration",
-            render: (data) => data || '<span class="text-muted">First visit</span>',
+            render: (data) =>
+              data || '<span class="text-muted">First visit</span>',
             createdCell: (td, cellData, rowData, row, col) => {
               $(td).attr("data-label", headers[col]);
             },
@@ -862,7 +897,8 @@
           },
         ],
         language: {
-          emptyTable: '<div class="empty-state"><i class="fas fa-route"></i><h5>No Trips Found</h5><p>Trip history will appear here</p></div>',
+          emptyTable:
+            '<div class="empty-state"><i class="fas fa-route"></i><h5>No Trips Found</h5><p>Trip history will appear here</p></div>',
           info: "Showing _START_ to _END_ of _TOTAL_ trips",
           search: "",
           searchPlaceholder: "Search trips...",
@@ -882,7 +918,7 @@
           if (tripId) {
             // Add loading animation to button
             const $btn = $(e.currentTarget);
-            $btn.addClass('loading');
+            $btn.addClass("loading");
             this.confirmViewTripOnMap(tripId);
           }
         });
@@ -896,14 +932,14 @@
           if (e.button !== 0) return;
           this.startDrawing();
         });
-        
+
       document
         .getElementById("save-place")
         ?.addEventListener("mousedown", (e) => {
           if (e.button !== 0) return;
           this.savePlace();
         });
-        
+
       document
         .getElementById("clear-drawing")
         ?.addEventListener("mousedown", (e) => {
@@ -924,21 +960,21 @@
           if (e.button !== 0) return;
           this.showManagePlacesModal();
         });
-        
+
       document
         .getElementById("edit-place-form")
         ?.addEventListener("submit", (e) => {
           e.preventDefault();
           this.saveEditedPlace();
         });
-        
+
       document
         .getElementById("edit-place-boundary")
         ?.addEventListener("mousedown", (e) => {
           if (e.button !== 0) return;
           this.startEditingPlaceBoundary();
         });
-        
+
       document
         .getElementById("toggle-custom-places")
         ?.addEventListener("change", (e) =>
@@ -951,41 +987,43 @@
           if (e.button !== 0) return;
           this.toggleView();
         });
-        
+
       $("#visits-table").on("mousedown", ".place-link", (event) => {
         if (event.button !== 0) return;
         event.preventDefault();
-        const placeId = $(event.target).closest('.place-link').data("place-id");
+        const placeId = $(event.target).closest(".place-link").data("place-id");
         if (placeId) {
           this.toggleView(placeId);
         }
       });
-      
+
       // Map style toggle
       this.setupMapStyleToggle();
-      
+
       // Time filter
-      document.getElementById('time-filter')?.addEventListener('change', (e) => {
-        this.filterByTimeframe(e.target.value);
-      });
-      
+      document
+        .getElementById("time-filter")
+        ?.addEventListener("change", (e) => {
+          this.filterByTimeframe(e.target.value);
+        });
+
       // Enhanced keyboard shortcuts
-      document.addEventListener('keydown', (e) => {
+      document.addEventListener("keydown", (e) => {
         if (e.ctrlKey || e.metaKey) {
-          switch(e.key) {
-            case 'd':
+          switch (e.key) {
+            case "d":
               e.preventDefault();
-              document.getElementById('start-drawing')?.click();
+              document.getElementById("start-drawing")?.click();
               break;
-            case 's':
+            case "s":
               e.preventDefault();
-              if (!document.getElementById('save-place')?.disabled) {
-                document.getElementById('save-place')?.click();
+              if (!document.getElementById("save-place")?.disabled) {
+                document.getElementById("save-place")?.click();
               }
               break;
-            case 'z':
+            case "z":
               e.preventDefault();
-              document.getElementById('zoom-to-fit')?.click();
+              document.getElementById("zoom-to-fit")?.click();
               break;
           }
         }
@@ -995,7 +1033,7 @@
     async filterByTimeframe(timeframe) {
       // Add loading state to both tables
       const tables = [this.visitsTable, this.nonCustomVisitsTable];
-      tables.forEach(table => table?.processing?.(true));
+      tables.forEach((table) => table?.processing?.(true));
 
       try {
         const params = new URLSearchParams({ timeframe });
@@ -1018,10 +1056,10 @@
           this.nonCustomVisitsTable.clear().rows.add(otherStats).draw();
         }
       } catch (error) {
-        console.error('Error filtering by timeframe:', error);
-        window.notificationManager?.show('Error filtering data', 'danger');
+        console.error("Error filtering by timeframe:", error);
+        window.notificationManager?.show("Error filtering data", "danger");
       } finally {
-        tables.forEach(table => table?.processing?.(false));
+        tables.forEach((table) => table?.processing?.(false));
       }
     }
 
@@ -1049,11 +1087,14 @@
         });
 
         // Wait for all places to be added
-        setTimeout(async () => {
-          await this.updateVisitsData();
-          this.updateStatsCounts();
-          this.loadingManager.finish("Loading Places");
-        }, places.length * 50 + 100);
+        setTimeout(
+          async () => {
+            await this.updateVisitsData();
+            this.updateStatsCounts();
+            this.loadingManager.finish("Loading Places");
+          },
+          places.length * 50 + 100,
+        );
       } catch (error) {
         console.error("Error loading places:", error);
         window.notificationManager?.show(
@@ -1115,9 +1156,9 @@
           if (!response.ok) throw new Error("Failed to fetch place statistics");
           statsList = await response.json();
         }
-        
+
         statsList.sort((a, b) => b.totalVisits - a.totalVisits);
-        
+
         const validResults = statsList.map((d) => ({
           _id: d._id,
           name: d.name,
@@ -1126,22 +1167,25 @@
           lastVisit: d.lastVisit,
           avgTimeSpent: d.averageTimeSpent || "N/A",
         }));
-        
+
         // Update chart with animation
         if (this.visitsChart) {
-          this.visitsChart.data.labels = validResults.slice(0, 10).map((d) => d.name);
-          this.visitsChart.data.datasets[0].data = validResults.slice(0, 10).map((d) => d.totalVisits);
-          this.visitsChart.update('active');
+          this.visitsChart.data.labels = validResults
+            .slice(0, 10)
+            .map((d) => d.name);
+          this.visitsChart.data.datasets[0].data = validResults
+            .slice(0, 10)
+            .map((d) => d.totalVisits);
+          this.visitsChart.update("active");
         }
-        
+
         // Update table with fade effect
         if (this.visitsTable) {
           this.visitsTable.clear().rows.add(validResults).draw();
         }
-        
+
         // Update insights
         this.updateInsights(statsList);
-        
       } catch (error) {
         console.error("Error updating place statistics:", error);
         window.notificationManager?.show(
@@ -1155,40 +1199,48 @@
 
     updateInsights(stats) {
       if (stats.length === 0) {
-        document.getElementById('most-visited-place').textContent = '-';
-        document.getElementById('avg-visit-duration').textContent = '-';
-        document.getElementById('visit-frequency').textContent = '-';
+        document.getElementById("most-visited-place").textContent = "-";
+        document.getElementById("avg-visit-duration").textContent = "-";
+        document.getElementById("visit-frequency").textContent = "-";
         return;
       }
-      
+
       // Most visited place
-      const mostVisited = stats.reduce((max, place) => 
-        place.totalVisits > max.totalVisits ? place : max
+      const mostVisited = stats.reduce((max, place) =>
+        place.totalVisits > max.totalVisits ? place : max,
       );
-      document.getElementById('most-visited-place').textContent = 
+      document.getElementById("most-visited-place").textContent =
         `${mostVisited.name} (${mostVisited.totalVisits} visits)`;
-      
+
       // Average visit duration across all places
       const avgDurations = stats
-        .filter(s => s.averageTimeSpent && s.averageTimeSpent !== 'N/A')
-        .map(s => DateUtils.convertDurationToSeconds(s.averageTimeSpent));
-      
+        .filter((s) => s.averageTimeSpent && s.averageTimeSpent !== "N/A")
+        .map((s) => DateUtils.convertDurationToSeconds(s.averageTimeSpent));
+
       if (avgDurations.length > 0) {
-        const overallAvg = avgDurations.reduce((a, b) => a + b, 0) / avgDurations.length;
+        const overallAvg =
+          avgDurations.reduce((a, b) => a + b, 0) / avgDurations.length;
         const formatted = DateUtils.formatDuration(overallAvg * 1000);
-        document.getElementById('avg-visit-duration').textContent = formatted;
+        document.getElementById("avg-visit-duration").textContent = formatted;
       }
-      
+
       // Visit frequency (visits per week)
-      const totalVisits = stats.reduce((sum, place) => sum + place.totalVisits, 0);
+      const totalVisits = stats.reduce(
+        (sum, place) => sum + place.totalVisits,
+        0,
+      );
       const firstVisitDate = stats
-        .filter(s => s.firstVisit)
-        .map(s => new Date(s.firstVisit))
-        .reduce((min, date) => date < min ? date : min, new Date());
-      
-      const weeksSinceFirst = (new Date() - firstVisitDate) / (1000 * 60 * 60 * 24 * 7);
-      const visitsPerWeek = (totalVisits / Math.max(weeksSinceFirst, 1)).toFixed(1);
-      document.getElementById('visit-frequency').textContent = `${visitsPerWeek} visits/week`;
+        .filter((s) => s.firstVisit)
+        .map((s) => new Date(s.firstVisit))
+        .reduce((min, date) => (date < min ? date : min), new Date());
+
+      const weeksSinceFirst =
+        (new Date() - firstVisitDate) / (1000 * 60 * 60 * 24 * 7);
+      const visitsPerWeek = (
+        totalVisits / Math.max(weeksSinceFirst, 1)
+      ).toFixed(1);
+      document.getElementById("visit-frequency").textContent =
+        `${visitsPerWeek} visits/week`;
     }
 
     async savePlace() {
@@ -1196,7 +1248,10 @@
       const placeName = placeNameInput?.value.trim();
 
       if (!placeName) {
-        this.showInputError(placeNameInput, "Please enter a name for the place.");
+        this.showInputError(
+          placeNameInput,
+          "Please enter a name for the place.",
+        );
         return;
       }
       if (!this.currentPolygon) {
@@ -1208,9 +1263,10 @@
       }
 
       // Add saving animation
-      const saveBtn = document.getElementById('save-place');
-      saveBtn.classList.add('loading');
-      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+      const saveBtn = document.getElementById("save-place");
+      saveBtn.classList.add("loading");
+      saveBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
 
       this.loadingManager.startOperation("Saving Place");
       try {
@@ -1230,10 +1286,10 @@
         // Add with animation
         this.places.set(savedPlace._id, savedPlace);
         this.displayPlace(savedPlace);
-        
+
         // Animate to new place
         this.animateToPlace(savedPlace);
-        
+
         await this.updateVisitsData();
         this.resetDrawing();
 
@@ -1241,10 +1297,9 @@
           `Place "${placeName}" saved successfully!`,
           "success",
         );
-        
+
         // Update stats
         this.updateStatsCounts();
-        
       } catch (error) {
         console.error("Error saving place:", error);
         window.notificationManager?.show(
@@ -1252,32 +1307,39 @@
           "danger",
         );
       } finally {
-        saveBtn.classList.remove('loading');
-        saveBtn.innerHTML = '<i class="fas fa-save me-2"></i><span>Save Place</span>';
+        saveBtn.classList.remove("loading");
+        saveBtn.innerHTML =
+          '<i class="fas fa-save me-2"></i><span>Save Place</span>';
         this.loadingManager.finish("Saving Place");
       }
     }
 
     showInputError(input, message) {
-      input.classList.add('is-invalid');
+      input.classList.add("is-invalid");
       window.notificationManager?.show(message, "warning");
       input.focus();
-      
+
       // Remove error state after typing
-      input.addEventListener('input', () => {
-        input.classList.remove('is-invalid');
-      }, { once: true });
+      input.addEventListener(
+        "input",
+        () => {
+          input.classList.remove("is-invalid");
+        },
+        { once: true },
+      );
     }
 
     animateToPlace(place) {
       if (!place.geometry || !this.map) return;
-      
+
       try {
         const coords = place.geometry.coordinates.flat(2);
         if (coords.length >= 2) {
-          let minX = coords[0][0], minY = coords[0][1];
-          let maxX = coords[0][0], maxY = coords[0][1];
-          
+          let minX = coords[0][0],
+            minY = coords[0][1];
+          let maxX = coords[0][0],
+            maxY = coords[0][1];
+
           coords.forEach((c) => {
             if (!Array.isArray(c)) return;
             const [lng, lat] = c;
@@ -1286,10 +1348,13 @@
             if (lat < minY) minY = lat;
             if (lat > maxY) maxY = lat;
           });
-          
+
           this.map.fitBounds(
-            [[minX, minY], [maxX, maxY]],
-            { padding: 100, duration: 1000 }
+            [
+              [minX, minY],
+              [maxX, maxY],
+            ],
+            { padding: 100, duration: 1000 },
           );
         }
       } catch (e) {
@@ -1331,15 +1396,14 @@
 
         // Animate removal
         this.animatePlaceRemoval(placeId);
-        
+
         this.places.delete(placeId);
 
         // Remove feature from map source
         if (this.placeFeatures.has(placeId)) {
           const feature = this.placeFeatures.get(placeId);
-          this.customPlacesData.features = this.customPlacesData.features.filter(
-            (f) => f !== feature,
-          );
+          this.customPlacesData.features =
+            this.customPlacesData.features.filter((f) => f !== feature);
           this.placeFeatures.delete(placeId);
           if (this.map && this.map.getSource("custom-places")) {
             this.map.getSource("custom-places").setData(this.customPlacesData);
@@ -1367,13 +1431,13 @@
 
     animatePlaceRemoval(placeId) {
       // Add fade-out animation to map feature
-      if (this.map && this.map.getLayer('custom-places-fill')) {
+      if (this.map && this.map.getLayer("custom-places-fill")) {
         // Temporarily change opacity for this feature
-        this.map.setPaintProperty('custom-places-fill', 'fill-opacity', [
-          'case',
-          ['==', ['get', 'placeId'], placeId],
+        this.map.setPaintProperty("custom-places-fill", "fill-opacity", [
+          "case",
+          ["==", ["get", "placeId"], placeId],
           0,
-          0.15
+          0.15,
         ]);
       }
     }
@@ -1396,9 +1460,9 @@
       const notification = window.notificationManager?.show(
         "Click on the map to start drawing the place boundary. Click the first point or press Enter to finish.",
         "info",
-        0
+        0,
       );
-      
+
       // Store notification to dismiss later
       this.drawingNotification = notification;
     }
@@ -1425,9 +1489,9 @@
         "Boundary drawn! Enter a name and click Save Place.",
         "success",
       );
-      
+
       // Focus on name input
-      document.getElementById('place-name')?.focus();
+      document.getElementById("place-name")?.focus();
     }
 
     clearCurrentDrawing() {
@@ -1457,7 +1521,7 @@
 
       if (placeNameInput) {
         placeNameInput.value = "";
-        placeNameInput.classList.remove('is-invalid');
+        placeNameInput.classList.remove("is-invalid");
       }
       if (savePlaceBtn) savePlaceBtn.setAttribute("disabled", true);
       if (startDrawingBtn) startDrawingBtn.classList.remove("active");
@@ -1504,10 +1568,10 @@
 
       placesArray.forEach((place, index) => {
         const row = tableBody.insertRow();
-        const createdDate = place.createdAt 
-          ? DateUtils.formatForDisplay(place.createdAt, { dateStyle: 'medium' })
-          : 'Unknown';
-          
+        const createdDate = place.createdAt
+          ? DateUtils.formatForDisplay(place.createdAt, { dateStyle: "medium" })
+          : "Unknown";
+
         row.innerHTML = `
           <td>
             <i class="fas fa-map-marker-alt me-2 text-primary"></i>
@@ -1527,10 +1591,10 @@
         `;
 
         // Add fade-in animation
-        row.style.opacity = '0';
+        row.style.opacity = "0";
         setTimeout(() => {
-          row.style.transition = 'opacity 0.3s ease';
-          row.style.opacity = '1';
+          row.style.transition = "opacity 0.3s ease";
+          row.style.opacity = "1";
         }, index * 50);
 
         row.querySelector(".edit-place-btn").addEventListener("click", (e) => {
@@ -1541,13 +1605,15 @@
           this.showEditPlaceModal(placeId);
         });
 
-        row.querySelector(".delete-place-btn").addEventListener("click", (e) => {
-          const placeId = e.currentTarget.getAttribute("data-place-id");
-          bootstrap.Modal.getInstance(
-            document.getElementById("manage-places-modal"),
-          )?.hide();
-          this.deletePlace(placeId);
-        });
+        row
+          .querySelector(".delete-place-btn")
+          .addEventListener("click", (e) => {
+            const placeId = e.currentTarget.getAttribute("data-place-id");
+            bootstrap.Modal.getInstance(
+              document.getElementById("manage-places-modal"),
+            )?.hide();
+            this.deletePlace(placeId);
+          });
       });
     }
 
@@ -1586,13 +1652,14 @@
       }
 
       // Create enhanced popup with loading state
-      this.activePopup = new mapboxgl.Popup({ 
+      this.activePopup = new mapboxgl.Popup({
         offset: 12,
-        className: 'custom-popup-enhanced',
-        maxWidth: '320px'
+        className: "custom-popup-enhanced",
+        maxWidth: "320px",
       })
         .setLngLat(lngLat)
-        .setHTML(`
+        .setHTML(
+          `
           <div class="custom-place-popup">
             <h6><i class="fas fa-map-marker-alt me-2"></i>${place.name}</h6>
             <div class="text-center py-3">
@@ -1602,7 +1669,8 @@
               <p class="mb-0 mt-2 text-muted small">Fetching statistics...</p>
             </div>
           </div>
-        `)
+        `,
+        )
         .addTo(this.map);
 
       try {
@@ -1659,7 +1727,7 @@
         // Attach event listeners once contents rendered
         setTimeout(() => {
           const popupNode = this.activePopup.getElement();
-          
+
           popupNode
             ?.querySelector(".view-trips-btn")
             ?.addEventListener("click", (e) => {
@@ -1670,7 +1738,7 @@
                 this.toggleView(id);
               }
             });
-            
+
           popupNode
             ?.querySelector(".zoom-to-place-btn")
             ?.addEventListener("click", (e) => {
@@ -1703,28 +1771,37 @@
     }
 
     async toggleView(placeId = null) {
-      const mainViewContainer = document.getElementById("visits-table-container");
-      const detailViewContainer = document.getElementById("trips-for-place-container");
+      const mainViewContainer = document.getElementById(
+        "visits-table-container",
+      );
+      const detailViewContainer = document.getElementById(
+        "trips-for-place-container",
+      );
 
       if (placeId) {
         const place = this.places.get(placeId);
         if (!place) {
-          console.error(`Cannot switch to detail view: Place ID ${placeId} not found.`);
-          window.notificationManager?.show("Could not find the selected place.", "warning");
+          console.error(
+            `Cannot switch to detail view: Place ID ${placeId} not found.`,
+          );
+          window.notificationManager?.show(
+            "Could not find the selected place.",
+            "warning",
+          );
           return;
         }
 
         // Animate transition
-        mainViewContainer.style.opacity = '0';
+        mainViewContainer.style.opacity = "0";
         setTimeout(() => {
           this.isDetailedView = true;
           mainViewContainer.style.display = "none";
           detailViewContainer.style.display = "block";
-          detailViewContainer.style.opacity = '0';
-          
+          detailViewContainer.style.opacity = "0";
+
           setTimeout(() => {
-            detailViewContainer.style.transition = 'opacity 0.3s ease';
-            detailViewContainer.style.opacity = '1';
+            detailViewContainer.style.transition = "opacity 0.3s ease";
+            detailViewContainer.style.opacity = "1";
           }, 50);
         }, 300);
 
@@ -1732,21 +1809,21 @@
         if (placeNameElement) placeNameElement.textContent = place.name;
 
         await this.showTripsForPlace(placeId);
-        
+
         // Zoom to place on map
         this.animateToPlace(place);
       } else {
         // Animate back
-        detailViewContainer.style.opacity = '0';
+        detailViewContainer.style.opacity = "0";
         setTimeout(() => {
           this.isDetailedView = false;
           detailViewContainer.style.display = "none";
           mainViewContainer.style.display = "block";
-          mainViewContainer.style.opacity = '0';
-          
+          mainViewContainer.style.opacity = "0";
+
           setTimeout(() => {
-            mainViewContainer.style.transition = 'opacity 0.3s ease';
-            mainViewContainer.style.opacity = '1';
+            mainViewContainer.style.transition = "opacity 0.3s ease";
+            mainViewContainer.style.opacity = "1";
           }, 50);
         }, 300);
 
@@ -1817,9 +1894,7 @@
           "Failed to load non-custom places visits",
           "danger",
         );
-        this.loadingManager.error(
-          "Failed during Loading Other Locations",
-        );
+        this.loadingManager.error("Failed during Loading Other Locations");
       }
     }
 
@@ -1828,7 +1903,11 @@
 
       if (this.map) {
         const visibility = isVisible ? "visible" : "none";
-        ["custom-places-fill", "custom-places-outline", "custom-places-highlight"].forEach((layerId) => {
+        [
+          "custom-places-fill",
+          "custom-places-outline",
+          "custom-places-highlight",
+        ].forEach((layerId) => {
           if (this.map.getLayer(layerId)) {
             this.map.setLayoutProperty(layerId, "visibility", visibility);
           }
@@ -1901,8 +1980,11 @@
 
       if (minX !== undefined) {
         this.map.fitBounds(
-          [[minX, minY], [maxX, maxY]],
-          { padding: 50, duration: 1000 }
+          [
+            [minX, minY],
+            [maxX, maxY],
+          ],
+          { padding: 50, duration: 1000 },
         );
       }
     }
@@ -1918,7 +2000,9 @@
       try {
         const response = await fetch(`/api/trips/${tripId}`);
         if (!response.ok)
-          throw new Error(`Failed to fetch trip ${tripId}: ${response.statusText}`);
+          throw new Error(
+            `Failed to fetch trip ${tripId}: ${response.statusText}`,
+          );
 
         const tripResponse = await response.json();
         const trip = tripResponse.trip || tripResponse;
@@ -1935,8 +2019,8 @@
       } finally {
         this.loadingManager.finish("Loading Trip");
         // Remove loading state from button
-        document.querySelectorAll('.view-trip-btn.loading').forEach(btn => {
-          btn.classList.remove('loading');
+        document.querySelectorAll(".view-trip-btn.loading").forEach((btn) => {
+          btn.classList.remove("loading");
         });
       }
     }
@@ -1973,10 +2057,14 @@
           formattedDistance = `${distanceValue.toFixed(2)} miles`;
         }
       }
-      
+
       const transactionId = trip.transactionId || trip.id || trip._id;
-      const startLocation = trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
-      const endLocation = trip.destination?.formatted_address || trip.destinationPlace || "Unknown";
+      const startLocation =
+        trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
+      const endLocation =
+        trip.destination?.formatted_address ||
+        trip.destinationPlace ||
+        "Unknown";
 
       tripInfoContainer.innerHTML = `
         <div class="trip-details">
@@ -2019,9 +2107,16 @@
 
       const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
 
-      modalElement.removeEventListener("shown.bs.modal", this._handleTripModalShown);
+      modalElement.removeEventListener(
+        "shown.bs.modal",
+        this._handleTripModalShown,
+      );
       this._handleTripModalShown = () => this.initializeOrUpdateTripMap(trip);
-      modalElement.addEventListener("shown.bs.modal", this._handleTripModalShown, { once: true });
+      modalElement.addEventListener(
+        "shown.bs.modal",
+        this._handleTripModalShown,
+        { once: true },
+      );
 
       modal.show();
     }
@@ -2041,11 +2136,13 @@
         mapContainer.innerHTML = "";
         mapContainer.appendChild(mapElement);
 
-        const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+        const theme =
+          document.documentElement.getAttribute("data-bs-theme") || "dark";
 
         this.tripViewMap = new mapboxgl.Map({
           container: mapElement.id,
-          style: theme === "light"
+          style:
+            theme === "light"
               ? "mapbox://styles/mapbox/light-v11"
               : "mapbox://styles/mapbox/dark-v11",
           center: [-95.7129, 37.0902],
@@ -2085,9 +2182,9 @@
 
       if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
         try {
-          this.tripViewMap.addSource("trip", { 
-            type: "geojson", 
-            data: trip.geometry 
+          this.tripViewMap.addSource("trip", {
+            type: "geojson",
+            data: trip.geometry,
           });
 
           // Add outline for better visibility
@@ -2095,10 +2192,10 @@
             id: "trip-path-outline",
             type: "line",
             source: "trip",
-            paint: { 
-              "line-color": "#9965EB", 
+            paint: {
+              "line-color": "#9965EB",
               "line-width": 6,
-              "line-opacity": 0.6
+              "line-opacity": 0.6,
             },
           });
 
@@ -2106,10 +2203,10 @@
             id: "trip-path",
             type: "line",
             source: "trip",
-            paint: { 
-              "line-color": "#BB86FC", 
+            paint: {
+              "line-color": "#BB86FC",
               "line-width": 4,
-              "line-dasharray": [2, 1]
+              "line-dasharray": [2, 1],
             },
           });
 
@@ -2118,19 +2215,21 @@
           const endCoord = coordinates[coordinates.length - 1];
 
           if (Array.isArray(startCoord) && startCoord.length >= 2) {
-            this.startMarker = new mapboxgl.Marker({ 
+            this.startMarker = new mapboxgl.Marker({
               color: "#22c55e",
-              scale: 1.2
+              scale: 1.2,
             })
               .setLngLat(startCoord)
-              .setPopup(new mapboxgl.Popup({ offset: 25 }).setText("Trip Start"))
+              .setPopup(
+                new mapboxgl.Popup({ offset: 25 }).setText("Trip Start"),
+              )
               .addTo(this.tripViewMap);
           }
 
           if (Array.isArray(endCoord) && endCoord.length >= 2) {
-            this.endMarker = new mapboxgl.Marker({ 
+            this.endMarker = new mapboxgl.Marker({
               color: "#ef4444",
-              scale: 1.2
+              scale: 1.2,
             })
               .setLngLat(endCoord)
               .setPopup(new mapboxgl.Popup({ offset: 25 }).setText("Trip End"))
@@ -2142,10 +2241,10 @@
             (b, c) => b.extend(c),
             new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
           );
-          this.tripViewMap.fitBounds(bounds, { 
-            padding: 50, 
+          this.tripViewMap.fitBounds(bounds, {
+            padding: 50,
             maxZoom: 16,
-            duration: 1000
+            duration: 1000,
           });
         } catch (error) {
           console.error("Error processing trip geometry:", error);
@@ -2168,20 +2267,20 @@
       if (this.statsUpdateTimer) {
         clearInterval(this.statsUpdateTimer);
       }
-      
+
       // Clear animation frames
-      this.animationFrames.forEach(frame => cancelAnimationFrame(frame));
-      
+      this.animationFrames.forEach((frame) => cancelAnimationFrame(frame));
+
       // Remove event listeners
-      document.removeEventListener('keydown', this.keyboardHandler);
-      
+      document.removeEventListener("keydown", this.keyboardHandler);
+
       // Destroy maps
       this.map?.remove();
       this.tripViewMap?.remove();
-      
+
       // Destroy charts
       this.visitsChart?.destroy();
-      
+
       // Destroy datatables
       this.visitsTable?.destroy();
       this.nonCustomVisitsTable?.destroy();
@@ -2299,9 +2398,8 @@
         // Replace feature in source
         if (this.placeFeatures.has(placeId)) {
           const oldFeature = this.placeFeatures.get(placeId);
-          this.customPlacesData.features = this.customPlacesData.features.filter(
-            (f) => f !== oldFeature,
-          );
+          this.customPlacesData.features =
+            this.customPlacesData.features.filter((f) => f !== oldFeature);
           this.placeFeatures.delete(placeId);
         }
 
@@ -2418,7 +2516,11 @@
           {
             id: "gl-draw-polygon-fill-inactive",
             type: "fill",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "false"],
+            ],
             paint: {
               "fill-color": "#BB86FC",
               "fill-opacity": 0.15,
@@ -2427,7 +2529,11 @@
           {
             id: "gl-draw-polygon-fill-active",
             type: "fill",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "true"],
+            ],
             paint: {
               "fill-color": "#F59E0B",
               "fill-opacity": 0.1,
@@ -2437,7 +2543,11 @@
           {
             id: "gl-draw-polygon-stroke-inactive",
             type: "line",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "false"],
+            ],
             paint: {
               "line-color": "#BB86FC",
               "line-width": 2,
@@ -2446,7 +2556,11 @@
           {
             id: "gl-draw-polygon-stroke-active",
             type: "line",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "true"],
+            ],
             paint: {
               "line-color": "#F59E0B",
               "line-width": 2,
@@ -2461,9 +2575,9 @@
               "circle-radius": 6,
               "circle-color": "#F59E0B",
               "circle-stroke-width": 2,
-              "circle-stroke-color": "#fff"
-            }
-          }
+              "circle-stroke-color": "#fff",
+            },
+          },
         ],
       });
 
@@ -2501,20 +2615,21 @@
       typeof window.mapBase.createMap === "function"
     ) {
       window.visitsManager = new VisitsManager();
-      
+
       // Handle theme changes
       const themeObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
-          if (mutation.attributeName === 'data-bs-theme') {
-            const newTheme = document.documentElement.getAttribute('data-bs-theme');
+          if (mutation.attributeName === "data-bs-theme") {
+            const newTheme =
+              document.documentElement.getAttribute("data-bs-theme");
             window.visitsManager?.updateMapTheme(newTheme);
           }
         });
       });
-      
+
       themeObserver.observe(document.documentElement, {
         attributes: true,
-        attributeFilter: ['data-bs-theme']
+        attributeFilter: ["data-bs-theme"],
       });
     } else {
       const missingLibraries = [];
@@ -2529,7 +2644,7 @@
 
       const errorMessage = `Critical libraries not loaded: ${missingLibraries.join(", ")}`;
       console.error(errorMessage);
-      
+
       const errorDiv = document.createElement("div");
       errorDiv.className = "alert alert-danger m-4";
       errorDiv.innerHTML = `
