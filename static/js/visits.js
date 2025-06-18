@@ -12,6 +12,7 @@
       this.visitsTable = null;
       this.tripsTable = null;
       this.nonCustomVisitsTable = null;
+      this.suggestionsTable = null;
       this.drawingEnabled = false;
       this.loadingManager = window.loadingManager;
       this.isDetailedView = false;
@@ -49,6 +50,7 @@
         await Promise.all([
           this.loadPlaces(),
           this.loadNonCustomPlacesVisits(),
+          this.loadSuggestions(),
         ]);
         this.updateStatsCounts();
         this.startStatsAnimation();
@@ -595,6 +597,7 @@
       this.initVisitsTable();
       this.initNonCustomVisitsTable();
       this.initTripsTable();
+      this.initSuggestionsTable();
     }
 
     initVisitsTable() {
@@ -888,6 +891,101 @@
         });
     }
 
+    initSuggestionsTable() {
+      const el = document.getElementById("suggested-places-table");
+      if (!el || !window.$) return;
+
+      const headers = [
+        "Suggested Name",
+        "Total Visits",
+        "First Visit",
+        "Last Visit",
+        "Actions",
+      ];
+
+      this.suggestionsTable = $(el).DataTable({
+        responsive: true,
+        order: [[1, "desc"]],
+        pageLength: 10,
+        columns: [
+          {
+            data: "suggestedName",
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
+          },
+          {
+            data: "totalVisits",
+            className: "numeric-cell text-end",
+            render: (d) => `<span class="badge bg-info">${d}</span>`,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
+          },
+          {
+            data: "firstVisit",
+            className: "date-cell",
+            render: (d, type) =>
+              type === "display" || type === "filter"
+                ? d
+                  ? DateUtils.formatForDisplay(d, { dateStyle: "medium" })
+                  : "N/A"
+                : d,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
+          },
+          {
+            data: "lastVisit",
+            className: "date-cell",
+            render: (d, type) =>
+              type === "display" || type === "filter"
+                ? d
+                  ? DateUtils.formatForDisplay(d, { dateStyle: "medium" })
+                  : "N/A"
+                : d,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
+          },
+          {
+            data: null,
+            orderable: false,
+            className: "action-cell text-center",
+            render: () =>
+              `<div class="btn-group btn-group-sm">
+                 <button class="btn btn-outline-primary preview-suggestion-btn" title="Preview on Map"><i class="fas fa-eye"></i></button>
+                 <button class="btn btn-primary create-place-btn" title="Create Place"><i class="fas fa-plus"></i></button>
+               </div>`,
+            createdCell: (td, cellData, rowData, row, col) => {
+              $(td).attr("data-label", headers[col]);
+            },
+          },
+        ],
+        language: {
+          emptyTable:
+            '<div class="empty-state"><i class="fas fa-magic"></i><h5>No Suggestions Yet</h5><p>Drive around to gather data</p></div>',
+        },
+      });
+
+      // Action handler
+      $(el).find("tbody")
+        .on("click", ".create-place-btn", (e) => {
+          const row = this.suggestionsTable.row($(e.currentTarget).closest("tr"));
+          const data = row.data();
+          if (data) {
+            this.applySuggestion(data);
+          }
+        })
+        .on("click", ".preview-suggestion-btn", (e) => {
+          const row = this.suggestionsTable.row($(e.currentTarget).closest("tr"));
+          const data = row.data();
+          if (data) {
+            this.previewSuggestion(data);
+          }
+        });
+    }
+
     setupEventListeners() {
       // Enhanced button interactions
       document
@@ -1017,6 +1115,9 @@
           const otherStats = await otherLocRes.json();
           this.nonCustomVisitsTable.clear().rows.add(otherStats).draw();
         }
+
+        // Reload suggestions separately
+        await this.loadSuggestions();
       } catch (error) {
         console.error('Error filtering by timeframe:', error);
         window.notificationManager?.show('Error filtering data', 'danger');
@@ -1273,14 +1374,37 @@
       if (!place.geometry || !this.map) return;
       
       try {
-        const coords = place.geometry.coordinates.flat(2);
+        let coords = [];
+        const geom = place.geometry;
+
+        if (!geom) throw new Error("No geometry provided");
+
+        switch (geom.type) {
+          case "Point":
+            coords = [geom.coordinates];
+            break;
+          case "LineString":
+            coords = geom.coordinates;
+            break;
+          case "Polygon":
+            // Polygon -> Array<Ring<Array<[lng,lat]>>>
+            coords = geom.coordinates.flat(1);
+            break;
+          case "MultiPolygon":
+            coords = geom.coordinates.flat(2);
+            break;
+          default:
+            coords = [];
+        }
+
         if (coords.length >= 2) {
           let minX = coords[0][0], minY = coords[0][1];
           let maxX = coords[0][0], maxY = coords[0][1];
           
           coords.forEach((c) => {
-            if (!Array.isArray(c)) return;
+            if (!Array.isArray(c) || c.length < 2) return;
             const [lng, lat] = c;
+            if (typeof lng !== "number" || typeof lat !== "number") return;
             if (lng < minX) minX = lng;
             if (lng > maxX) maxX = lng;
             if (lat < minY) minY = lat;
@@ -2186,6 +2310,7 @@
       this.visitsTable?.destroy();
       this.nonCustomVisitsTable?.destroy();
       this.tripsTable?.destroy();
+      this.suggestionsTable?.destroy();
     }
 
     setupDurationSorting() {
@@ -2369,8 +2494,9 @@
               maxX = coords[0][0],
               maxY = coords[0][1];
             coords.forEach((c) => {
-              if (!Array.isArray(c)) return;
+              if (!Array.isArray(c) || c.length < 2) return;
               const [lng, lat] = c;
+              if (typeof lng !== "number" || typeof lat !== "number") return;
               if (lng < minX) minX = lng;
               if (lng > maxX) maxX = lng;
               if (lat < minY) minY = lat;
@@ -2487,6 +2613,113 @@
       this.map.once("styledata", () => {
         this.reloadCustomPlacesLayers();
       });
+    }
+
+    async loadSuggestions() {
+      if (!this.suggestionsTable) return;
+
+      if (this.suggestionsTable?.processing) {
+        this.suggestionsTable.processing(true);
+      }
+      try {
+        const params = new URLSearchParams();
+        // default timeframe according to current filter selection
+        const tfSelect = document.getElementById("time-filter");
+        if (tfSelect && tfSelect.value && tfSelect.value !== "all") {
+          params.append("timeframe", tfSelect.value);
+        }
+
+        const response = await fetch(`/api/visit_suggestions?${params}`);
+        if (response.ok) {
+          const data = await response.json();
+          this.suggestionsTable.clear().rows.add(data).draw();
+        }
+      } catch (err) {
+        console.error("Error loading visit suggestions", err);
+      } finally {
+        if (this.suggestionsTable?.processing) {
+          this.suggestionsTable.processing(false);
+        }
+      }
+    }
+
+    applySuggestion(suggestion) {
+      if (!suggestion || !suggestion.boundary) return;
+
+      // Reset any current drawing
+      this.resetDrawing(false);
+
+      const feature = {
+        type: "Feature",
+        geometry: suggestion.boundary,
+        properties: {},
+      };
+
+      // Add to Draw control
+      if (this.draw) {
+        this.draw.changeMode("simple_select");
+        const [featId] = this.draw.add(feature);
+        this.currentPolygon = { id: featId, ...feature };
+      } else {
+        this.currentPolygon = feature;
+      }
+
+      // Populate name input
+      const nameInput = document.getElementById("place-name");
+      if (nameInput && !nameInput.value) {
+        nameInput.value = suggestion.suggestedName;
+      }
+
+      // Enable save button
+      document.getElementById("save-place")?.removeAttribute("disabled");
+
+      // Zoom to suggestion
+      this.animateToPlace({ geometry: suggestion.boundary });
+
+      // Switch to Custom Places tab for clarity
+      const customTab = document.getElementById("custom-places-tab");
+      if (customTab) {
+        bootstrap.Tab.getOrCreateInstance(customTab).show();
+      }
+
+      // Ensure preview is visible first
+      this.previewSuggestion(suggestion);
+
+      window.notificationManager?.show(
+        "Suggestion applied! Adjust boundary or name, then click Save Place.",
+        "info",
+      );
+    }
+
+    previewSuggestion(suggestion) {
+      if (!this.map || !suggestion?.boundary) return;
+
+      // Remove previous preview layer/source if they exist
+      if (this.map.getLayer("suggestion-preview-fill")) {
+        this.map.removeLayer("suggestion-preview-fill");
+      }
+      if (this.map.getSource("suggestion-preview")) {
+        this.map.removeSource("suggestion-preview");
+      }
+
+      // Add source & layer
+      this.map.addSource("suggestion-preview", {
+        type: "geojson",
+        data: suggestion.boundary,
+      });
+
+      this.map.addLayer({
+        id: "suggestion-preview-fill",
+        type: "fill",
+        source: "suggestion-preview",
+        paint: {
+          "fill-color": "#F59E0B",
+          "fill-opacity": 0.25,
+        },
+      });
+
+      // Zoom to bounds
+      this.animateToPlace({ geometry: suggestion.boundary });
     }
   }
 

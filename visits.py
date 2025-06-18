@@ -627,3 +627,162 @@ async def get_all_places_statistics():
     except Exception as e:
         logger.exception("Error in get_all_places_statistics: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========================================================================== #
+#  SUGGESTED CUSTOM PLACES                                                  #
+# ========================================================================== #
+
+
+@router.get("/visit_suggestions")
+async def get_visit_suggestions(
+    min_visits: int = 5,
+    cell_size_m: int = 250,
+    timeframe: str | None = None,
+):
+    """Suggest areas that are visited often but are *not* yet custom places.
+
+    This endpoint groups trip destinations **without** ``destinationPlaceId``
+    by a spatial grid (default ≈250 m × 250 m) and returns any cells that have
+    at least ``min_visits`` visits.  It supports an optional rolling
+    ``timeframe`` (day/week/month/year) similar to other endpoints.
+
+    The response is a list of dictionaries:
+
+        [
+            {
+              "suggestedName": "Downtown Coffee Strip",
+              "totalVisits": 17,
+              "firstVisit": "…",
+              "lastVisit": "…",
+              "centroid": [lng, lat],
+              "boundary": { …GeoJSON Polygon… }
+            },
+            …
+        ]
+
+    where *boundary* is a square cell polygon the frontend can edit/fine-tune
+    before saving as a real custom place.
+    """
+
+    from datetime import datetime, timedelta, timezone  # Local import
+
+    try:
+        match_stage: dict[str, Any] = {
+            "destinationPlaceId": {"$exists": False},
+            # Ensure destinationGeoPoint has coordinates (i.e., is a GeoJSON point)
+            "destinationGeoPoint.type": "Point",
+            "destinationGeoPoint.coordinates": {"$exists": True, "$ne": []},
+        }
+
+        if timeframe:
+            timeframe = timeframe.lower()
+            now = datetime.now(timezone.utc)
+            delta_map = {
+                "day": timedelta(days=1),
+                "week": timedelta(weeks=1),
+                "month": timedelta(days=30),
+                "year": timedelta(days=365),
+            }
+            if timeframe not in delta_map:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Unsupported timeframe. Choose from day, week, month, year."),
+                )
+
+            match_stage["endTime"] = {"$gte": now - delta_map[timeframe]}
+
+        # ------------------------------------------------------------------
+        # Grid bucketing – approximate a cell by truncating coordinates to a
+        # fixed precision.  0.0025° ≈ 277 m at the equator.
+        # ------------------------------------------------------------------
+
+        cell_precision = max(1, int(1 / (cell_size_m / 111_320)))  # ~meters/deg
+
+        pipeline = [
+            {"$match": match_stage},
+            {
+                "$project": {
+                    "lng": {"$arrayElemAt": ["$destinationGeoPoint.coordinates", 0]},
+                    "lat": {"$arrayElemAt": ["$destinationGeoPoint.coordinates", 1]},
+                    "endTime": 1,
+                }
+            },
+            # Bucket key = rounded lng/lat
+            {
+                "$addFields": {
+                    "lngCell": {
+                        "$round": [
+                            {"$multiply": ["$lng", cell_precision]},
+                            0,
+                        ]
+                    },
+                    "latCell": {
+                        "$round": [
+                            {"$multiply": ["$lat", cell_precision]},
+                            0,
+                        ]
+                    },
+                }
+            },
+            {
+                "$group": {
+                    "_id": {"lng": "$lngCell", "lat": "$latCell"},
+                    "totalVisits": {"$sum": 1},
+                    "firstVisit": {"$min": "$endTime"},
+                    "lastVisit": {"$max": "$endTime"},
+                    "avgLng": {"$avg": "$lng"},
+                    "avgLat": {"$avg": "$lat"},
+                }
+            },
+            {"$match": {"totalVisits": {"$gte": min_visits}}},
+            {"$sort": {"totalVisits": -1}},
+            {"$limit": 50},
+        ]
+
+        clusters = await aggregate_with_retry(Collections.trips, pipeline)
+
+        # Convert each bucket to square polygon boundary
+        suggestions = []
+        cell_deg = 1 / cell_precision
+        half = cell_deg / 2
+
+        for c in clusters:
+            center_lng = c["avgLng"]
+            center_lat = c["avgLat"]
+
+            boundary = {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [center_lng - half, center_lat - half],
+                        [center_lng + half, center_lat - half],
+                        [center_lng + half, center_lat + half],
+                        [center_lng - half, center_lat + half],
+                        [center_lng - half, center_lat - half],
+                    ]
+                ],
+            }
+
+            suggestions.append(
+                {
+                    "suggestedName": f"Area near {round(center_lat,3)}, {round(center_lng,3)}",
+                    "totalVisits": c["totalVisits"],
+                    "firstVisit": SerializationHelper.serialize_datetime(c["firstVisit"]),
+                    "lastVisit": SerializationHelper.serialize_datetime(c["lastVisit"]),
+                    "centroid": [center_lng, center_lat],
+                    "boundary": boundary,
+                }
+            )
+
+        return suggestions
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error generating visit suggestions: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )

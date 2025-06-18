@@ -235,6 +235,19 @@
                 Other Locations
               </button>
             </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="suggested-places-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#suggested-places-content"
+                type="button"
+                role="tab"
+              >
+                <i class="fas fa-magic me-2"></i>
+                Suggestions
+              </button>
+            </li>
             <li class="nav-item ms-auto" role="presentation">
               <button
                 class="nav-link"
@@ -287,6 +300,23 @@
                       <th class="text-end">Visits</th>
                       <th>First Visit</th>
                       <th>Last Visit</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tab-pane fade" id="suggested-places-content" role="tabpanel">
+              <div class="table-responsive">
+                <table id="suggested-places-table" class="table visits-table" style="width: 100%">
+                  <thead>
+                    <tr>
+                      <th>Suggested Name</th>
+                      <th class="text-end">Visits</th>
+                      <th>First Visit</th>
+                      <th>Last Visit</th>
+                      <th class="text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
