@@ -190,12 +190,24 @@
       
       // Calculate total visits
       try {
-        const response = await fetch('/api/places/statistics');
-        if (response.ok) {
-          const stats = await response.json();
-          const totalVisits = stats.reduce((sum, place) => sum + (place.totalVisits || 0), 0);
-          this.animateCounter('total-visits-count', totalVisits);
+        const [customRes, otherRes] = await Promise.all([
+          fetch('/api/places/statistics'),
+          fetch('/api/non_custom_places_visits'),
+        ]);
+
+        let totalVisits = 0;
+
+        if (customRes.ok) {
+          const customStats = await customRes.json();
+          totalVisits += customStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
         }
+
+        if (otherRes.ok) {
+          const otherStats = await otherRes.json();
+          totalVisits += otherStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
+        }
+
+        this.animateCounter('total-visits-count', totalVisits);
       } catch (error) {
         console.error('Error updating stats:', error);
       }
@@ -203,12 +215,24 @@
 
     async updateMonthlyVisits() {
       try {
-        const response = await fetch('/api/places/statistics?timeframe=month');
-        if (response.ok) {
-          const stats = await response.json();
-          const monthlyVisits = stats.reduce((sum, place) => sum + (place.monthlyVisits || 0), 0);
-          this.animateCounter('month-visits-stat', monthlyVisits);
+        const [customRes, otherRes] = await Promise.all([
+          fetch('/api/places/statistics?timeframe=month'),
+          fetch('/api/non_custom_places_visits?timeframe=month'),
+        ]);
+
+        let monthlyVisits = 0;
+
+        if (customRes.ok) {
+          const customStats = await customRes.json();
+          monthlyVisits += customStats.reduce((sum, p) => sum + (p.monthlyVisits || p.totalVisits || 0), 0);
         }
+
+        if (otherRes.ok) {
+          const otherStats = await otherRes.json();
+          monthlyVisits += otherStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
+        }
+
+        this.animateCounter('month-visits-stat', monthlyVisits);
       } catch (error) {
         console.error('Error updating monthly visits:', error);
       }
@@ -969,32 +993,35 @@
     }
 
     async filterByTimeframe(timeframe) {
-      // Add loading state
+      // Add loading state to both tables
       const tables = [this.visitsTable, this.nonCustomVisitsTable];
-      tables.forEach(table => {
-        if (table) {
-          table.processing(true);
-        }
-      });
-      
+      tables.forEach(table => table?.processing?.(true));
+
       try {
-        // Fetch filtered data based on timeframe
         const params = new URLSearchParams({ timeframe });
-        const response = await fetch(`/api/places/statistics?${params}`);
-        if (response.ok) {
-          const stats = await response.json();
-          // Update tables and charts with filtered data
-          this.updateVisitsData(stats);
+
+        // ------------------------------------------------------------------
+        // Request custom-place statistics
+        // ------------------------------------------------------------------
+        const [customRes, otherLocRes] = await Promise.all([
+          fetch(`/api/places/statistics?${params}`),
+          fetch(`/api/non_custom_places_visits?${params}`),
+        ]);
+
+        if (customRes.ok) {
+          const customStats = await customRes.json();
+          this.updateVisitsData(customStats);
+        }
+
+        if (otherLocRes.ok && this.nonCustomVisitsTable) {
+          const otherStats = await otherLocRes.json();
+          this.nonCustomVisitsTable.clear().rows.add(otherStats).draw();
         }
       } catch (error) {
         console.error('Error filtering by timeframe:', error);
         window.notificationManager?.show('Error filtering data', 'danger');
       } finally {
-        tables.forEach(table => {
-          if (table) {
-            table.processing(false);
-          }
-        });
+        tables.forEach(table => table?.processing?.(false));
       }
     }
 

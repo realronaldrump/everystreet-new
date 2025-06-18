@@ -466,26 +466,96 @@ async def get_trips_for_place(place_id: str):
 
 
 @router.get("/non_custom_places_visits")
-async def get_non_custom_places_visits():
-    """Get visits to non-custom places."""
+async def get_non_custom_places_visits(timeframe: str | None = None):
+    """Aggregate visits to *non-custom* destinations.
+
+    The logic has been enhanced to:
+
+    1. Derive a human-readable *place name* from the destination information
+       even when ``destinationPlaceName`` is not populated.  It attempts, in
+       order, to use:
+
+       • ``destinationPlaceName`` (if present)
+       • the city field from ``destination.address_components``
+       • ``destination.formatted_address``
+
+    2. Support an optional ``timeframe`` query-param (``day`` | ``week`` |
+       ``month`` | ``year``).  When supplied, only trips whose *endTime* falls
+       inside that rolling window are considered.
+    """
+    from datetime import datetime, timedelta, timezone  # Local import to avoid circular issues
+
     try:
+        # ------------------------------------------------------------------
+        # Build the dynamic $match stage
+        # ------------------------------------------------------------------
+        match_stage: dict[str, Any] = {
+            # Exclude trips that already map to a custom place
+            "destinationPlaceId": {"$exists": False},
+            # Require that we at least have *some* destination information
+            "$or": [
+                {"destinationPlaceName": {"$exists": True, "$ne": None}},
+                {"destination.address_components.city": {"$exists": True, "$ne": ""}},
+                {"destination.formatted_address": {"$exists": True, "$ne": ""}},
+            ],
+        }
+
+        if timeframe:
+            timeframe = timeframe.lower()
+            now = datetime.now(timezone.utc)
+            delta_map = {
+                "day": timedelta(days=1),
+                "week": timedelta(weeks=1),
+                "month": timedelta(days=30),
+                "year": timedelta(days=365),
+            }
+            if timeframe not in delta_map:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unsupported timeframe '{timeframe}'. Choose from day, week, month, year.",
+                )
+
+            start_date = now - delta_map[timeframe]
+            match_stage["endTime"] = {"$gte": start_date}
+
+        # ------------------------------------------------------------------
+        # Build the aggregation pipeline
+        # ------------------------------------------------------------------
         pipeline = [
+            {"$match": match_stage},
+            # Consolidate a single 'placeName' field
             {
-                "$match": {
-                    "destinationPlaceName": {"$exists": True, "$ne": None},
-                    "destinationPlaceId": {"$exists": False},  # Exclude custom places
-                },
+                "$addFields": {
+                    "placeName": {
+                        "$ifNull": [
+                            "$destinationPlaceName",
+                            {
+                                "$ifNull": [
+                                    "$destination.address_components.city",
+                                    {
+                                        "$ifNull": [
+                                            "$destination.formatted_address",
+                                            "Unknown",
+                                        ]
+                                    },
+                                ]
+                            },
+                        ]
+                    }
+                }
             },
+            # Filter out docs where placeName is still null/Unknown
+            {"$match": {"placeName": {"$ne": None, "$nin": ["", "Unknown"]}}},
             {
                 "$group": {
-                    "_id": "$destinationPlaceName",
+                    "_id": "$placeName",
                     "totalVisits": {"$sum": 1},
                     "firstVisit": {"$min": "$endTime"},
                     "lastVisit": {"$max": "$endTime"},
-                },
+                }
             },
             {"$sort": {"totalVisits": -1}},
-            {"$limit": 50},
+            {"$limit": 100},
         ]
 
         results = await aggregate_with_retry(Collections.trips, pipeline)
@@ -501,6 +571,9 @@ async def get_non_custom_places_visits():
         ]
 
         return places_data
+    except HTTPException:
+        # Already well-formed – just bubble up
+        raise
     except Exception as e:
         logger.exception("Error getting non-custom places visits: %s", str(e))
         raise HTTPException(
