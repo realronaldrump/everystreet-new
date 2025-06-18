@@ -743,7 +743,26 @@ async def get_visit_suggestions(
 
         clusters = await aggregate_with_retry(Collections.trips, pipeline)
 
-        # Convert each bucket to square polygon boundary
+        # ------------------------------------------------------------------
+        # Build list of existing custom place polygons for overlap check
+        # ------------------------------------------------------------------
+        from shapely.geometry import shape as shp_shape, Point as ShpPoint
+
+        existing_places = await find_with_retry(Collections.places, {}, projection={"geometry": 1})
+        existing_polygons = []
+        for p in existing_places:
+            try:
+                g = p.get("geometry")
+                if g:
+                    existing_polygons.append(shp_shape(g))
+            except Exception:  # noqa: BLE001
+                continue
+
+        def overlaps_existing(lng: float, lat: float) -> bool:
+            pt = ShpPoint(lng, lat)
+            return any(poly.contains(pt) for poly in existing_polygons)
+
+        # Convert each bucket to square polygon boundary & remove overlaps
         suggestions = []
         cell_deg = 1 / cell_precision
         half = cell_deg / 2
@@ -751,6 +770,10 @@ async def get_visit_suggestions(
         for c in clusters:
             center_lng = c["avgLng"]
             center_lat = c["avgLat"]
+
+            # Skip if inside an existing place
+            if overlaps_existing(center_lng, center_lat):
+                continue
 
             boundary = {
                 "type": "Polygon",
