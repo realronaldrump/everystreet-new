@@ -5,7 +5,7 @@ import math
 import os
 import uuid
 from collections import defaultdict, deque
-from typing import Any, Dict, List
+from typing import Any
 
 import geojson as geojson_module
 import httpx

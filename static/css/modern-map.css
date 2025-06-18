@@ -83,7 +83,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .mapboxgl-ctrl-attrib {
   background-color: var(--surface-glass) !important;
   backdrop-filter: blur(5px);
-  backdrop-filter: blur(5px);
   border-radius: var(--radius-sm) !important;
   padding: var(--space-1) var(--space-2) !important;
   box-shadow: var(--shadow-sm);
@@ -130,7 +129,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   padding: 0 !important; /* Remove default padding, handle in custom content */
   max-width: 350px !important;
   border: 1px solid var(--border-color) !important;
-  backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
 
@@ -379,7 +377,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   border-radius: var(--radius-lg);
   background: var(--surface-glass);
   backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-lg);
   transition:
@@ -459,7 +456,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   pointer-events: none; /* Info only, not interactive */
   box-shadow: var(--shadow-md);
   backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   border: 1px solid var(--border-color);
   animation: fadeIn 0.3s ease forwards;
   max-width: 280px;
@@ -477,7 +473,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 /* Map Legend (from coverage_management.html) */
 .map-legend {
   background: var(--surface-glass);
-  backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
   border: 1px solid var(--border-color);
   padding: var(--space-2);
@@ -498,7 +493,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 /* Coverage Summary Control (Map Overlay from coverage_management.html) */
 .coverage-summary-control {
   background: var(--surface-glass) !important;
-  backdrop-filter: blur(8px) !important;
   backdrop-filter: blur(8px) !important;
   border: 1px solid var(--border-color) !important;
   box-shadow: var(--shadow-lg) !important;

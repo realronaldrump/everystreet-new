@@ -189,13 +189,16 @@ ActiveTripResponseUnion = Union[
 
 # Add new model for app settings
 
+
 class AppSettingsModel(BaseModel):
     """Persistent application settings stored on the server.
 
     Currently only stores the WebSocket preference but can be extended.
     """
 
-    disableWebSockets: bool = Field(False, description="Disable WebSocket live updates and use polling instead.")
+    disableWebSockets: bool = Field(
+        False, description="Disable WebSocket live updates and use polling instead."
+    )
 
     class Config:
         extra = "allow"

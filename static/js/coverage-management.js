@@ -5963,11 +5963,18 @@ const STATUS = window.STATUS || {
     updateUndrivenStreetsList(geojson) {
       // Ensure container exists
       if (!this.undrivenStreetsContainer) {
-        this.undrivenStreetsContainer = document.getElementById("undriven-streets-list");
+        this.undrivenStreetsContainer = document.getElementById(
+          "undriven-streets-list",
+        );
       }
       if (!this.undrivenSortSelect) {
-        this.undrivenSortSelect = document.getElementById("undriven-streets-sort");
-        if (this.undrivenSortSelect && !this.undrivenSortSelect.dataset.listenerAttached) {
+        this.undrivenSortSelect = document.getElementById(
+          "undriven-streets-sort",
+        );
+        if (
+          this.undrivenSortSelect &&
+          !this.undrivenSortSelect.dataset.listenerAttached
+        ) {
           this.undrivenSortSelect.addEventListener("change", () => {
             this.undrivenSortCriterion = this.undrivenSortSelect.value;
             // Rebuild list with new sort
@@ -5980,7 +5987,11 @@ const STATUS = window.STATUS || {
       if (!container) return;
 
       // Validate geojson structure
-      if (!geojson || !Array.isArray(geojson.features) || !geojson.features.length) {
+      if (
+        !geojson ||
+        !Array.isArray(geojson.features) ||
+        !geojson.features.length
+      ) {
         container.innerHTML = CoverageManager.createAlertMessage(
           "No Data",
           "No street data available.",
@@ -6006,9 +6017,13 @@ const STATUS = window.STATUS || {
       }
 
       // Build undriven array with metrics
-      let undrivenData = [...aggregates.entries()]
+      const undrivenData = [...aggregates.entries()]
         .filter(([, agg]) => !agg.driven)
-        .map(([name, agg]) => ({ name, length: agg.length, segments: agg.segments }));
+        .map(([name, agg]) => ({
+          name,
+          length: agg.length,
+          segments: agg.segments,
+        }));
 
       if (!undrivenData.length) {
         container.innerHTML = CoverageManager.createAlertMessage(
@@ -6032,7 +6047,9 @@ const STATUS = window.STATUS || {
           case "segments_desc":
             return b.segments - a.segments;
           case "name_asc":
-            return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+            return a.name.localeCompare(b.name, undefined, {
+              sensitivity: "base",
+            });
           default:
             return 0;
         }
@@ -6193,15 +6210,7 @@ const STATUS = window.STATUS || {
             layout: { "line-cap": "round", "line-join": "round" },
             paint: {
               "line-color": "#00bcd4",
-              "line-width": [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
-                8,
-                3,
-                14,
-                7,
-              ],
+              "line-width": ["interpolate", ["linear"], ["zoom"], 8, 3, 14, 7],
               "line-opacity": 1,
             },
             filter: ["in", "segment_id", ""],
@@ -6226,9 +6235,11 @@ const STATUS = window.STATUS || {
       if (countSpan) countSpan.textContent = `${count} Selected`;
 
       const disabled = count === 0;
-      toolbar.querySelectorAll(".bulk-mark-btn, .bulk-clear-selection-btn").forEach((btn) => {
-        btn.disabled = disabled;
-      });
+      toolbar
+        .querySelectorAll(".bulk-mark-btn, .bulk-clear-selection-btn")
+        .forEach((btn) => {
+          btn.disabled = disabled;
+        });
       // Show or hide toolbar
       toolbar.style.display = count > 0 ? "flex" : "none";
     }
