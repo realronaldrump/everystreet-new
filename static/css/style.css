@@ -76,8 +76,9 @@
   --divider-color: rgb(255 255 255 / 8%);
 
   /* Typography */
-  --font-family: "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", roboto,
-    oxygen, ubuntu, cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --font-family:
+    "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen,
+    ubuntu, cantarell, "Open Sans", "Helvetica Neue", sans-serif;
   --font-size-xs: 0.75rem; /* 12px */
   --font-size-sm: 0.875rem; /* 14px */
   --font-size-md: 1rem; /* 16px */
