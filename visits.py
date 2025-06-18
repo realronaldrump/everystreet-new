@@ -483,7 +483,11 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
        ``month`` | ``year``).  When supplied, only trips whose *endTime* falls
        inside that rolling window are considered.
     """
-    from datetime import datetime, timedelta, timezone  # Local import to avoid circular issues
+    from datetime import (  # Local import to avoid circular issues
+        datetime,
+        timedelta,
+        timezone,
+    )
 
     try:
         # ------------------------------------------------------------------
