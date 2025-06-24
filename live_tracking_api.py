@@ -90,6 +90,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # API Endpoints
 
+
 @router.post("/webhook/bouncie")
 async def bouncie_webhook(request: Request):
     """Receives webhook events from Bouncie, acknowledges immediately,

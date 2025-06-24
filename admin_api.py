@@ -1,15 +1,15 @@
-from datetime import datetime, timezone
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 import geojson as geojson_module
 from fastapi import APIRouter, Body, HTTPException, status
 
 from db import (
+    SerializationHelper,
     db_manager,
     delete_many_with_retry,
     find_one_with_retry,
-    SerializationHelper,
 )
 from models import CollectionModel, LocationModel, ValidateLocationModel
 from osm_utils import generate_geojson_osm
