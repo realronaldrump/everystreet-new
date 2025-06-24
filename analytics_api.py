@@ -8,12 +8,7 @@ from dateutil import parser as dateutil_parser
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-
-from db import (
-    aggregate_with_retry,
-    build_query_from_request,
-    db_manager,
-)
+from db import aggregate_with_retry, build_query_from_request, db_manager
 from utils import calculate_circular_average_hour
 
 logger = logging.getLogger(__name__)
