@@ -1883,6 +1883,7 @@ class TripProcessor:
             )
             return "00:00:00"
 
+
 # REMOVED: process_from_coordinates class method
-    # This functionality has been moved to TripService to consolidate
-    # trip processing logic and eliminate duplications
+# This functionality has been moved to TripService to consolidate
+# trip processing logic and eliminate duplications

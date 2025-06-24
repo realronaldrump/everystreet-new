@@ -173,17 +173,20 @@ async def fetch_bouncie_trips_in_range(
                 f"Processing {len(raw_fetched_trips_for_device)} fetched trips for device {imei} "
                 f"(do_map_match={do_map_match})...",
             )
-            
+
             processed_trip_ids = await trip_service.process_bouncie_trips(
                 raw_fetched_trips_for_device,
                 do_map_match=do_map_match,
                 progress_tracker=progress_tracker,
             )
-            
-            all_new_trips.extend([
-                trip for trip in raw_fetched_trips_for_device
-                if trip.get("transactionId") in processed_trip_ids
-            ])
+
+            all_new_trips.extend(
+                [
+                    trip
+                    for trip in raw_fetched_trips_for_device
+                    if trip.get("transactionId") in processed_trip_ids
+                ]
+            )
 
             if progress_tracker is not None:
                 progress_tracker["fetch_and_store_trips"]["progress"] = (
