@@ -379,7 +379,6 @@
 .visits-modal .modal-title {
   font-weight: var(--font-weight-bold);
   background: var(--primary-gradient);
-  background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }

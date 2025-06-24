@@ -129,9 +129,9 @@
           const y = e.clientY - rect.top - size / 2;
 
           ripple.style.position = "absolute";
-          ripple.style.width = ripple.style.height = `${size  }px`;
-          ripple.style.left = `${x  }px`;
-          ripple.style.top = `${y  }px`;
+          ripple.style.width = ripple.style.height = `${size}px`;
+          ripple.style.left = `${x}px`;
+          ripple.style.top = `${y}px`;
           ripple.classList.add("ripple");
 
           button.appendChild(ripple);
@@ -717,7 +717,7 @@
           "<'row'<'col-sm-12'tr>>" +
           "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
         columnDefs: [{ type: "duration", targets: 4 }],
-        drawCallback () {
+        drawCallback() {
           // Add fade-in animation to rows
           $("#visits-table tbody tr").each(function (i) {
             $(this)
