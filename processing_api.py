@@ -16,7 +16,7 @@ from db import (
 )
 from models import BulkProcessModel, DateRangeModel
 from trip_processor import TripProcessor, TripState
-from trip_service import TripService, ProcessingOptions
+from trip_service import ProcessingOptions, TripService
 
 # Setup
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ async def process_single_trip(
     match.
     """
     trip = await trip_service.get_trip_by_id(trip_id)
-    
+
     if not trip:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -82,9 +82,7 @@ async def bulk_process_trips(
         map_match=options.get("map_match", False),
     )
 
-    result = await trip_service.process_batch_trips(
-        query, processing_options, limit
-    )
+    result = await trip_service.process_batch_trips(query, processing_options, limit)
 
     if result.total == 0:
         return {
@@ -197,7 +195,11 @@ async def map_match_trips_endpoint(
                 detail="No trips found matching criteria",
             )
 
-        trip_ids = [trip.get("transactionId") for trip in trips_list if trip.get("transactionId")]
+        trip_ids = [
+            trip.get("transactionId")
+            for trip in trips_list
+            if trip.get("transactionId")
+        ]
         result = await trip_service.remap_trips(trip_ids=trip_ids)
 
         return {
@@ -272,7 +274,7 @@ async def remap_matched_trips(
                 "$lte": end_date,
             },
         }
-        
+
         result = await trip_service.remap_trips(query=query, limit=1000)
 
         return {
@@ -303,7 +305,7 @@ async def refresh_geocoding_for_trips(
         )
 
     result = await trip_service.refresh_geocoding(trip_ids)
-    
+
     return {
         "message": f"Geocoding refreshed for {result['updated']} trips. Failed: {result['failed']}",
         "updated_count": result["updated"],
