@@ -21,6 +21,7 @@ from db import (
     trips_collection,
 )
 from trip_processor import TripProcessor, TripState
+from trip_service import TripService
 
 # ==============================================================================
 # Setup
@@ -31,6 +32,9 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
+
+# Initialize TripService
+trip_service = TripService(MAPBOX_ACCESS_TOKEN)
 
 # ==============================================================================
 # Pydantic Models for this file
@@ -423,27 +427,15 @@ async def regeocode_all_trips():
     """Re-run geocoding for all trips to check against custom places."""
     try:
         trips_list = await find_with_retry(trips_collection, {})
-        for trip in trips_list:
-            try:
-                source = trip.get("source", "unknown")
-                processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN, source=source
-                )
-                processor.set_trip_data(trip)
-                await processor.validate()
-                if processor.state == TripState.VALIDATED:
-                    await processor.process_basic()
-                    if processor.state == TripState.PROCESSED:
-                        await processor.geocode()
-                        await processor.save()
-            except Exception as trip_err:
-                logger.error(
-                    "Error re-geocoding trip %s: %s",
-                    trip.get("transactionId", "unknown"),
-                    trip_err,
-                )
-                continue
-        return {"message": "All trips re-geocoded successfully."}
+        trip_ids = [trip.get("transactionId") for trip in trips_list if trip.get("transactionId")]
+        
+        result = await trip_service.refresh_geocoding(trip_ids)
+        
+        return {
+            "message": f"Re-geocoded {result['updated']} trips successfully. Failed: {result['failed']}",
+            "updated_count": result["updated"],
+            "failed_count": result["failed"],
+        }
     except Exception as e:
         logger.exception("Error in regeocode_all_trips: %s", str(e))
         raise HTTPException(
@@ -459,34 +451,25 @@ async def regeocode_single_trip(trip_id: str):
     any newly-created custom places.
     """
     try:
-        trip = await get_trip_by_id(trip_id, trips_collection)
+        trip = await trip_service.get_trip_by_id(trip_id)
         if not trip:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Trip not found",
             )
 
-        source = trip.get("source", "unknown")
-        processor = TripProcessor(mapbox_token=MAPBOX_ACCESS_TOKEN, source=source)
-        processor.set_trip_data(trip)
-
-        # Run through the minimum required phases so geocode() can succeed
-        await processor.validate()
-        if processor.state == TripState.VALIDATED:
-            await processor.process_basic()
-        if processor.state != TripState.PROCESSED:
+        result = await trip_service.refresh_geocoding([trip_id])
+        
+        if result["updated"] > 0:
+            return {
+                "status": "success",
+                "message": f"Trip {trip_id} re-geocoded successfully.",
+            }
+        else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Trip failed validation or basic processing; cannot re-geocode.",
+                detail=f"Failed to re-geocode trip {trip_id}. Check logs for details.",
             )
-
-        await processor.geocode()
-        await processor.save()
-
-        return {
-            "status": "success",
-            "message": f"Trip {trip_id} re-geocoded successfully.",
-        }
     except HTTPException:
         raise  # Bubble up intact so FastAPI handles
     except Exception as e:

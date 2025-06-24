@@ -16,6 +16,7 @@ from db import (
 )
 from models import BulkProcessModel, DateRangeModel
 from trip_processor import TripProcessor, TripState
+from trip_service import TripService, ProcessingOptions
 
 # Setup
 logger = logging.getLogger(__name__)
@@ -25,6 +26,9 @@ MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 # Collections
 trips_collection = db_manager.db["trips"]
 matched_trips_collection = db_manager.db["matched_trips"]
+
+# Initialize TripService
+trip_service = TripService(MAPBOX_ACCESS_TOKEN)
 
 
 # Pydantic Models specific to this module
@@ -43,67 +47,24 @@ async def process_single_trip(
     """Process a single trip with options to validate, geocode, and map
     match.
     """
-    try:
-        trip = await get_trip_by_id(trip_id, trips_collection)
-
-        if not trip:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Trip not found",
-            )
-
-        source = trip.get("source", "unknown")
-
-        processor = TripProcessor(
-            mapbox_token=MAPBOX_ACCESS_TOKEN,
-            source=source,
-        )
-        processor.set_trip_data(trip)
-
-        if options.validate_only:
-            await processor.validate()
-            processing_status = processor.get_processing_status()
-            return {
-                "status": "success",
-                "processing_status": processing_status,
-                "is_valid": processing_status["state"] == TripState.VALIDATED.value,
-            }
-        if options.geocode_only:
-            await processor.validate()
-            if processor.state == TripState.VALIDATED:
-                await processor.process_basic()
-                if processor.state == TripState.PROCESSED:
-                    await processor.geocode()
-
-            saved_id = await processor.save()
-            processing_status = processor.get_processing_status()
-            return {
-                "status": "success",
-                "processing_status": processing_status,
-                "geocoded": processing_status["state"] == TripState.GEOCODED.value,
-                "saved_id": saved_id,
-            }
-        await processor.process(do_map_match=options.map_match)
-        saved_id = await processor.save(map_match_result=options.map_match)
-        processing_status = processor.get_processing_status()
-
-        return {
-            "status": "success",
-            "processing_status": processing_status,
-            "completed": processing_status["state"] == TripState.COMPLETED.value,
-            "saved_id": saved_id,
-        }
-
-    except Exception as e:
-        logger.exception(
-            "Error processing trip %s: %s",
-            trip_id,
-            str(e),
-        )
+    trip = await trip_service.get_trip_by_id(trip_id)
+    
+    if not trip:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trip not found",
         )
+
+    source = trip.get("source", "unknown")
+    processing_options = ProcessingOptions(
+        validate=True,
+        geocode=True,
+        map_match=options.map_match,
+        validate_only=options.validate_only,
+        geocode_only=options.geocode_only,
+    )
+
+    return await trip_service.process_single_trip(trip, processing_options, source)
 
 
 @router.post("/api/bulk_process_trips")
@@ -111,98 +72,32 @@ async def bulk_process_trips(
     data: BulkProcessModel,
 ):
     """Process multiple trips in bulk with configurable options."""
-    try:
-        query = data.query
-        options = data.options
-        limit = min(data.limit, 500)
+    query = data.query
+    options = data.options
+    limit = min(data.limit, 500)
 
-        do_validate = options.get("validate", True)
-        do_geocode = options.get("geocode", True)
-        do_map_match = options.get("map_match", False)
+    processing_options = ProcessingOptions(
+        validate=options.get("validate", True),
+        geocode=options.get("geocode", True),
+        map_match=options.get("map_match", False),
+    )
 
-        collection = trips_collection
+    result = await trip_service.process_batch_trips(
+        query, processing_options, limit
+    )
 
-        trips = await find_with_retry(collection, query, limit=limit)
-
-        if not trips:
-            return {
-                "status": "success",
-                "message": "No trips found matching criteria",
-                "count": 0,
-            }
-
-        results = {
-            "total": len(trips),
-            "validated": 0,
-            "geocoded": 0,
-            "map_matched": 0,
-            "failed": 0,
-            "skipped": 0,
-        }
-
-        for trip in trips:
-            try:
-                source = trip.get("source", "unknown")
-                processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN,
-                    source=source,
-                )
-                processor.set_trip_data(trip)
-
-                if do_validate:
-                    await processor.validate()
-                    if processor.state == TripState.VALIDATED:
-                        results["validated"] += 1
-                    else:
-                        results["failed"] += 1
-                        continue
-
-                if do_geocode and processor.state == TripState.VALIDATED:
-                    await processor.process_basic()
-                    if processor.state == TripState.PROCESSED:
-                        await processor.geocode()
-                        if processor.state == TripState.GEOCODED:
-                            results["geocoded"] += 1
-                        else:
-                            results["failed"] += 1
-                            continue
-                    else:
-                        results["failed"] += 1
-                        continue
-
-                if do_map_match and processor.state == TripState.GEOCODED:
-                    await processor.map_match()
-                    if processor.state == TripState.MAP_MATCHED:
-                        results["map_matched"] += 1
-                    else:
-                        results["failed"] += 1
-                        continue
-
-                saved_id = await processor.save(map_match_result=do_map_match)
-                if not saved_id:
-                    results["failed"] += 1
-            except Exception as e:
-                logger.error(
-                    "Error processing trip %s: %s",
-                    trip.get("transactionId"),
-                    str(e),
-                )
-                results["failed"] += 1
-
+    if result.total == 0:
         return {
             "status": "success",
-            "message": f"Processed {len(trips)} trips",
-            "results": results,
+            "message": "No trips found matching criteria",
+            "count": 0,
         }
-    except Exception as e:
-        logger.exception(
-            "Error in bulk_process_trips: %s",
-            str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+
+    return {
+        "status": "success",
+        "message": f"Processed {result.total} trips",
+        "results": result.to_dict(),
+    }
 
 
 @router.get("/api/trips/{trip_id}/status")
@@ -302,40 +197,14 @@ async def map_match_trips_endpoint(
                 detail="No trips found matching criteria",
             )
 
-        processed_count = 0
-        failed_count = 0
-        for trip in trips_list:
-            try:
-                source = trip.get("source", "unknown")
-                processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN,
-                    source=source,
-                )
-                processor.set_trip_data(trip)
-                await processor.process(do_map_match=True)
-                result = await processor.save(map_match_result=True)
-
-                if result:
-                    processed_count += 1
-                else:
-                    failed_count += 1
-                    logger.warning(
-                        "Failed to save matched trip %s",
-                        trip.get("transactionId"),
-                    )
-            except Exception as e:
-                failed_count += 1
-                logger.error(
-                    "Error processing trip %s: %s",
-                    trip.get("transactionId"),
-                    str(e),
-                )
+        trip_ids = [trip.get("transactionId") for trip in trips_list if trip.get("transactionId")]
+        result = await trip_service.remap_trips(trip_ids=trip_ids)
 
         return {
             "status": "success",
-            "message": f"Map matching completed: {processed_count} successful, {failed_count} failed.",
-            "processed_count": processed_count,
-            "failed_count": failed_count,
+            "message": f"Map matching completed: {result['map_matched']} successful, {result['failed']} failed.",
+            "processed_count": result["map_matched"],
+            "failed_count": result["failed"],
         }
 
     except Exception as e:
@@ -397,28 +266,18 @@ async def remap_matched_trips(
             },
         )
 
-        processed_count = 0
-        for trip in trips_list:
-            try:
-                source = trip.get("source", "unknown")
-                processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN,
-                    source=source,
-                )
-                processor.set_trip_data(trip)
-                await processor.process(do_map_match=True)
-                await processor.save(map_match_result=True)
-                processed_count += 1
-            except Exception as e:
-                logger.error(
-                    "Error remapping trip %s: %s",
-                    trip.get("transactionId"),
-                    str(e),
-                )
+        query = {
+            "startTime": {
+                "$gte": start_date,
+                "$lte": end_date,
+            },
+        }
+        
+        result = await trip_service.remap_trips(query=query, limit=1000)
 
         return {
             "status": "success",
-            "message": f"Re-matching completed. Processed {processed_count} trips.",
+            "message": f"Re-matching completed. Processed {result['map_matched']} trips.",
         }
 
     except Exception as e:
@@ -443,51 +302,10 @@ async def refresh_geocoding_for_trips(
             detail="No trip_ids provided",
         )
 
-    updated_count = 0
-    failed_count = 0
-    for trip_id in trip_ids:
-        try:
-            trip = await find_one_with_retry(
-                trips_collection,
-                {"transactionId": trip_id},
-            )
-            if trip:
-                source = trip.get("source", "unknown")
-                processor = TripProcessor(
-                    mapbox_token=MAPBOX_ACCESS_TOKEN,
-                    source=source,
-                )
-                processor.set_trip_data(trip)
-                await processor.validate()
-                if processor.state == TripState.VALIDATED:
-                    await processor.process_basic()
-                    if processor.state == TripState.PROCESSED:
-                        await processor.geocode()
-                        if processor.state == TripState.GEOCODED:
-                            await processor.save()
-                            updated_count += 1
-                        else:
-                            failed_count += 1
-                    else:
-                        failed_count += 1
-                else:
-                    failed_count += 1
-            else:
-                logger.warning(
-                    "Trip not found for geocoding refresh: %s",
-                    trip_id,
-                )
-                failed_count += 1
-        except Exception as e:
-            logger.error(
-                "Error refreshing geocoding for trip %s: %s",
-                trip_id,
-                str(e),
-            )
-            failed_count += 1
-
+    result = await trip_service.refresh_geocoding(trip_ids)
+    
     return {
-        "message": f"Geocoding refreshed for {updated_count} trips. Failed: {failed_count}",
-        "updated_count": updated_count,
-        "failed_count": failed_count,
+        "message": f"Geocoding refreshed for {result['updated']} trips. Failed: {result['failed']}",
+        "updated_count": result["updated"],
+        "failed_count": result["failed"],
     }

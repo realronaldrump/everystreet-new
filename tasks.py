@@ -56,6 +56,7 @@ from live_tracking import (
 )
 from street_coverage_calculation import compute_incremental_coverage
 from trip_processor import TripProcessor, TripState
+from trip_service import TripService, ProcessingOptions
 from utils import run_async_from_sync
 from utils import validate_trip_data as validate_trip_data_logic
 
@@ -1003,56 +1004,13 @@ async def update_geocoding_async(self) -> dict[str, Any]:
         logger.warning("MAPBOX_ACCESS_TOKEN not set, cannot perform geocoding.")
         raise ValueError("MAPBOX_ACCESS_TOKEN is not configured.")
 
-    geocoded_count = 0
-    failed_count = 0
-
-    for trip in trips_to_process:
-        trip_id = trip.get("transactionId", str(trip.get("_id")))
-        logger.debug(f"Attempting to geocode trip {trip_id}")
-
-        try:
-            source = trip.get("source", "unknown")
-            processor = TripProcessor(mapbox_token=mapbox_token, source=source)
-            processor.set_trip_data(trip)
-
-            await processor.validate()
-            if processor.state == TripState.VALIDATED:
-                await processor.process_basic()
-
-            if processor.state == TripState.PROCESSED:
-                await processor.geocode()
-
-                if processor.state == TripState.GEOCODED:
-                    save_result = await processor.save()
-                    if save_result:
-                        geocoded_count += 1
-                        logger.debug(f"Successfully geocoded and saved trip {trip_id}")
-                    else:
-                        failed_count += 1
-                        logger.warning(
-                            f"Geocoding succeeded for trip {trip_id}, but save failed."
-                        )
-                else:
-                    failed_count += 1
-                    status_info = processor.get_processing_status()
-                    logger.warning(
-                        f"Geocoding failed for trip {trip_id}. State: {processor.state.value}, Errors: {status_info.get('errors')}"
-                    )
-            else:
-                failed_count += 1
-                status_info = processor.get_processing_status()
-                logger.warning(
-                    f"Skipping geocoding for trip {trip_id} due to prior processing failure. State: {processor.state.value}, Errors: {status_info.get('errors')}"
-                )
-
-        except Exception as e:
-            logger.error(
-                f"Unexpected error geocoding trip {trip_id}: {e}",
-                exc_info=False,
-            )
-            failed_count += 1
-
-        await asyncio.sleep(0.2)
+    trip_service = TripService(mapbox_token)
+    trip_ids = [trip.get("transactionId") for trip in trips_to_process if trip.get("transactionId")]
+    
+    result = await trip_service.refresh_geocoding(trip_ids)
+    
+    geocoded_count = result["updated"]
+    failed_count = result["failed"]
 
     logger.info(
         f"Geocoding attempt finished. Succeeded: {geocoded_count}, Failed: {failed_count}",
@@ -1120,42 +1078,13 @@ async def remap_unmatched_trips_async(self) -> dict[str, Any]:
         logger.warning("MAPBOX_ACCESS_TOKEN not set, cannot perform map matching.")
         raise ValueError("MAPBOX_ACCESS_TOKEN is not configured.")
 
-    for trip in trips_to_process:
-        trip_id = trip.get("transactionId", str(trip.get("_id")))
-        logger.debug(f"Attempting map matching for trip {trip_id}")
-
-        try:
-            source = trip.get("source", "unknown")
-            processor = TripProcessor(mapbox_token=mapbox_token, source=source)
-            processor.set_trip_data(trip)
-
-            await processor.process(do_map_match=True)
-
-            if processor.state in {TripState.MAP_MATCHED, TripState.COMPLETED}:
-                save_result = await processor.save(map_match_result=True)
-                if save_result:
-                    remap_count += 1
-                    logger.debug(f"Successfully remapped and saved trip {trip_id}")
-                else:
-                    failed_count += 1
-                    logger.warning(
-                        f"Remapping succeeded for trip {trip_id}, but save failed."
-                    )
-            else:
-                failed_count += 1
-                status_info = processor.get_processing_status()
-                logger.warning(
-                    f"Failed to remap trip {trip_id}. Final State: {processor.state.value}, Errors: {status_info.get('errors')}"
-                )
-
-        except Exception as e:
-            logger.warning(
-                f"Unexpected error remapping trip {trip_id}: {e}",
-                exc_info=False,
-            )
-            failed_count += 1
-
-        await asyncio.sleep(0.5)
+    trip_service = TripService(mapbox_token)
+    trip_ids = [trip.get("transactionId") for trip in trips_to_process if trip.get("transactionId")]
+    
+    result = await trip_service.remap_trips(trip_ids=trip_ids, limit=len(trip_ids))
+    
+    remap_count = result["map_matched"]
+    failed_count = result["failed"]
 
     logger.info(
         f"Remapping attempt finished. Succeeded: {remap_count}, Failed: {failed_count}",

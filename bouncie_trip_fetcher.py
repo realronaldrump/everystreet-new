@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 import aiohttp
 from dateutil import parser as date_parser
 
-from trip_processor import TripProcessor, TripState
+from trip_service import TripService
 from utils import get_session
 
 logger = logging.getLogger(__name__)
@@ -144,6 +144,7 @@ async def fetch_bouncie_trips_in_range(
             return all_new_trips
 
         mapbox_token = os.getenv("MAPBOX_ACCESS_TOKEN", "")
+        trip_service = TripService(mapbox_token)
 
         for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
             if progress_tracker is not None:
@@ -172,61 +173,17 @@ async def fetch_bouncie_trips_in_range(
                 f"Processing {len(raw_fetched_trips_for_device)} fetched trips for device {imei} "
                 f"(do_map_match={do_map_match})...",
             )
-            for trip in raw_fetched_trips_for_device:
-                transaction_id = trip.get("transactionId", "unknown")
-                if not trip.get("endTime"):
-                    logger.warning(
-                        "Skipping trip %s because 'endTime' is missing from fetched data.",
-                        transaction_id,
-                    )
-                    continue
-                try:
-                    processor = TripProcessor(
-                        mapbox_token=mapbox_token,
-                        source="api",
-                    )
-                    processor.set_trip_data(trip)
-                    await processor.process(do_map_match=do_map_match)
-
-                    if processor.state == TripState.FAILED:
-                        status_info = processor.get_processing_status()
-                        logger.error(
-                            "TripProcessor failed for trip %s. State: %s, Errors: %s",
-                            transaction_id,
-                            processor.state.value,
-                            status_info.get("errors"),
-                        )
-                        continue
-
-                    saved_id = await processor.save(
-                        map_match_result=do_map_match,
-                    )
-
-                    if saved_id:
-                        logger.info(
-                            "Stored/Updated trip %s successfully (Map Matched: %s) with ID %s",
-                            transaction_id,
-                            (
-                                "Yes"
-                                if do_map_match
-                                and "matchedGps" in processor.processed_data
-                                else "No"
-                            ),
-                            saved_id,
-                        )
-                        all_new_trips.append(trip)
-                    else:
-                        logger.error(
-                            "Trip %s processed successfully but could not be saved.",
-                            transaction_id,
-                        )
-
-                except Exception as e:
-                    logger.exception(
-                        "Unexpected error processing/saving trip %s: %s",
-                        transaction_id,
-                        e,
-                    )
+            
+            processed_trip_ids = await trip_service.process_bouncie_trips(
+                raw_fetched_trips_for_device,
+                do_map_match=do_map_match,
+                progress_tracker=progress_tracker,
+            )
+            
+            all_new_trips.extend([
+                trip for trip in raw_fetched_trips_for_device
+                if trip.get("transactionId") in processed_trip_ids
+            ])
 
             if progress_tracker is not None:
                 progress_tracker["fetch_and_store_trips"]["progress"] = (

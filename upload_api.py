@@ -8,6 +8,7 @@ from dateutil import parser as dateutil_parser
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from trip_processor import TripProcessor
+from trip_service import TripService
 from utils import calculate_distance
 
 # Setup
@@ -15,41 +16,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
+# Initialize TripService
+trip_service = TripService(MAPBOX_ACCESS_TOKEN)
+
 # Helper functions moved from app.py
 
 
 async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
-    """Process and store a trip using TripProcessor.
+    """Process and store a trip using TripService.
 
     Args:
         trip: Trip data dictionary
         source: The source of the trip ('upload', 'upload_gpx', 'upload_geojson')
 
     """
-    gps_data = trip.get("gps")
-    if isinstance(gps_data, str):
-        try:
-            gps_data = json.loads(gps_data)
-            trip["gps"] = gps_data
-        except json.JSONDecodeError as e:
-            logger.warning(
-                "Invalid GPS data for trip %s",
-                trip.get("transactionId", "unknown"),
-            )
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"Invalid GPS JSON for trip {trip.get('transactionId', 'unknown')}"
-                ),
-            ) from e
-
-    processor = TripProcessor(
-        mapbox_token=MAPBOX_ACCESS_TOKEN,
-        source=source,
-    )
-    processor.set_trip_data(trip)
-    await processor.process(do_map_match=False)
-    await processor.save()
+    await trip_service.process_uploaded_trip(trip, source)
 
 
 async def process_geojson_trip(
