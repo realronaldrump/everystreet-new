@@ -43,7 +43,8 @@ function waitForDependencies() {
         $.fn.DataTable &&
         typeof DateUtils !== "undefined" &&
         typeof window.utils !== "undefined" &&
-        window.confirmationDialog && typeof window.confirmationDialog.show === 'function'
+        window.confirmationDialog &&
+        typeof window.confirmationDialog.show === "function"
       ) {
         resolve();
       } else {
@@ -520,17 +521,22 @@ class TripsManager {
       return rowData.transactionId;
     });
 
-    if (typeof window.confirmationDialog === "object" && window.confirmationDialog !== null) {
-      window.confirmationDialog.show({
-        title: "Confirm Bulk Deletion",
-        message: `Are you sure you want to delete ${tripIds.length} selected trip(s)? This action cannot be undone.`,
-        confirmText: "Delete",
-        confirmButtonClass: "btn-danger",
-      }).then(async (confirmed) => {
-        if (confirmed) {
-          await this.performBulkDelete(tripIds);
-        }
-      });
+    if (
+      typeof window.confirmationDialog === "object" &&
+      window.confirmationDialog !== null
+    ) {
+      window.confirmationDialog
+        .show({
+          title: "Confirm Bulk Deletion",
+          message: `Are you sure you want to delete ${tripIds.length} selected trip(s)? This action cannot be undone.`,
+          confirmText: "Delete",
+          confirmButtonClass: "btn-danger",
+        })
+        .then(async (confirmed) => {
+          if (confirmed) {
+            await this.performBulkDelete(tripIds);
+          }
+        });
     } else {
       // Fallback for environments where confirmationDialog is not available
       if (
@@ -626,16 +632,25 @@ class TripsManager {
 
     const confirmDelete = () => {
       return new Promise((resolve) => {
-        if (typeof window.confirmationDialog === "object" && window.confirmationDialog !== null) {
-          window.confirmationDialog.show({
-            title: "Confirm Deletion",
-            message: `Are you sure you want to delete trip ${tripId}? This action cannot be undone.`,
-            confirmText: "Delete",
-            confirmButtonClass: "btn-danger",
-          }).then(resolve);
+        if (
+          typeof window.confirmationDialog === "object" &&
+          window.confirmationDialog !== null
+        ) {
+          window.confirmationDialog
+            .show({
+              title: "Confirm Deletion",
+              message: `Are you sure you want to delete trip ${tripId}? This action cannot be undone.`,
+              confirmText: "Delete",
+              confirmButtonClass: "btn-danger",
+            })
+            .then(resolve);
         } else {
           // Fallback for environments where confirmationDialog is not available
-          resolve(confirm(`Are you sure you want to delete trip ${tripId}? This action cannot be undone.`));
+          resolve(
+            confirm(
+              `Are you sure you want to delete trip ${tripId}? This action cannot be undone.`,
+            ),
+          );
         }
       });
     };
