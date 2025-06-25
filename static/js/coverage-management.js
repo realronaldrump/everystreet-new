@@ -1692,17 +1692,17 @@ const STATUS = window.STATUS || {
 
       const locationToAdd = { ...this.validatedLocation };
       const segLenEl = document.getElementById("segment-length-input");
-      if (segLenEl && segLenEl.value) {
+      if (segLenEl?.value) {
         const val = parseInt(segLenEl.value, 10);
         if (!isNaN(val) && val > 0) locationToAdd.segment_length_meters = val;
       }
       const bufEl = document.getElementById("match-buffer-input");
-      if (bufEl && bufEl.value) {
+      if (bufEl?.value) {
         const v = parseFloat(bufEl.value);
         if (!isNaN(v) && v > 0) locationToAdd.match_buffer_meters = v;
       }
       const minEl = document.getElementById("min-match-length-input");
-      if (minEl && minEl.value) {
+      if (minEl?.value) {
         const v2 = parseFloat(minEl.value);
         if (!isNaN(v2) && v2 > 0) locationToAdd.min_match_length_meters = v2;
       }
@@ -4773,8 +4773,7 @@ const STATUS = window.STATUS || {
           if (activeTripResponse.ok) {
             const activeTripData = await activeTripResponse.json();
             if (
-              activeTripData.trip &&
-              activeTripData.trip.coordinates &&
+              activeTripData.trip?.coordinates &&
               activeTripData.trip.coordinates.length > 0
             ) {
               const lastCoord =
@@ -4795,8 +4794,7 @@ const STATUS = window.STATUS || {
               if (tripsData.trips && tripsData.trips.length > 0) {
                 const lastTrip = tripsData.trips[0];
                 if (
-                  lastTrip.destinationGeoPoint &&
-                  lastTrip.destinationGeoPoint.coordinates
+                  lastTrip.destinationGeoPoint?.coordinates
                 ) {
                   currentLon = lastTrip.destinationGeoPoint.coordinates[0];
                   currentLat = lastTrip.destinationGeoPoint.coordinates[1];
@@ -4964,7 +4962,7 @@ const STATUS = window.STATUS || {
 
         // Add marker at the start of the nearest segment in the cluster
         // (or centroid if preferred, but start_coords is good for navigation start)
-        if (cluster.nearest_segment && cluster.nearest_segment.start_coords) {
+        if (cluster.nearest_segment?.start_coords) {
           const startPoint = cluster.nearest_segment.start_coords;
           const el = document.createElement("div");
           el.className = "efficient-street-marker-mapbox"; // Ensure this class exists or style directly
@@ -5021,8 +5019,7 @@ const STATUS = window.STATUS || {
             }
           });
         } else if (
-          cluster.nearest_segment &&
-          cluster.nearest_segment.start_coords
+          cluster.nearest_segment?.start_coords
         ) {
           // Fallback to nearest segment start point if full segment data isn't readily available for bounds
           bounds.extend(cluster.nearest_segment.start_coords);
@@ -5715,18 +5712,18 @@ const STATUS = window.STATUS || {
 
       const customAreaToAdd = { ...this.validatedCustomBoundary };
       const segLenEl2 = document.getElementById("segment-length-input");
-      if (segLenEl2 && segLenEl2.value) {
+      if (segLenEl2?.value) {
         const val2 = parseInt(segLenEl2.value, 10);
         if (!isNaN(val2) && val2 > 0)
           customAreaToAdd.segment_length_meters = val2;
       }
       const bufElC = document.getElementById("match-buffer-input");
-      if (bufElC && bufElC.value) {
+      if (bufElC?.value) {
         const v = parseFloat(bufElC.value);
         if (!isNaN(v) && v > 0) customAreaToAdd.match_buffer_meters = v;
       }
       const minElC = document.getElementById("min-match-length-input");
-      if (minElC && minElC.value) {
+      if (minElC?.value) {
         const v2 = parseFloat(minElC.value);
         if (!isNaN(v2) && v2 > 0) customAreaToAdd.min_match_length_meters = v2;
       }

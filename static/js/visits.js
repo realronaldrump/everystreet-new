@@ -1180,7 +1180,7 @@
         this.places.clear();
         this.placeFeatures.clear();
         this.customPlacesData.features = [];
-        if (this.map && this.map.getSource("custom-places")) {
+        if (this.map?.getSource("custom-places")) {
           this.map.getSource("custom-places").setData(this.customPlacesData);
         }
 
@@ -1234,7 +1234,7 @@
       // Push to collection and update source
       this.customPlacesData.features.push(feature);
 
-      if (this.map && this.map.getSource("custom-places")) {
+      if (this.map?.getSource("custom-places")) {
         this.map.getSource("custom-places").setData(this.customPlacesData);
       }
     }
@@ -1534,7 +1534,7 @@
           this.customPlacesData.features =
             this.customPlacesData.features.filter((f) => f !== feature);
           this.placeFeatures.delete(placeId);
-          if (this.map && this.map.getSource("custom-places")) {
+          if (this.map?.getSource("custom-places")) {
             this.map.getSource("custom-places").setData(this.customPlacesData);
           }
         }
@@ -1560,7 +1560,7 @@
 
     animatePlaceRemoval(placeId) {
       // Add fade-out animation to map feature
-      if (this.map && this.map.getLayer("custom-places-fill")) {
+      if (this.map?.getLayer("custom-places-fill")) {
         // Temporarily change opacity for this feature
         this.map.setPaintProperty("custom-places-fill", "fill-opacity", [
           "case",
@@ -2536,7 +2536,7 @@
         this.displayPlace(updatedPlace);
 
         // Update source data
-        if (this.map && this.map.getSource("custom-places")) {
+        if (this.map?.getSource("custom-places")) {
           this.map.getSource("custom-places").setData(this.customPlacesData);
         }
 
@@ -2744,7 +2744,7 @@
         const params = new URLSearchParams();
         // default timeframe according to current filter selection
         const tfSelect = document.getElementById("time-filter");
-        if (tfSelect && tfSelect.value && tfSelect.value !== "all") {
+        if (tfSelect?.value && tfSelect.value !== "all") {
           params.append("timeframe", tfSelect.value);
         }
 
