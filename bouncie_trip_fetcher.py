@@ -212,6 +212,6 @@ async def fetch_bouncie_trips_in_range(
                 "message"
             ] = f"Completed fetch and processing. Found {len(all_new_trips)} new/updated trips."
     logger.info(
-        f"fetch_bouncie_trips_in_range finished, returning {len(all_new_trips)} trips.",
+        "fetch_bouncie_trips_in_range finished, returning %d trips.", len(all_new_trips)
     )
     return all_new_trips

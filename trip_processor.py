@@ -1878,9 +1878,7 @@ class TripProcessor:
             secs = total_seconds % 60
             return f"{hrs:02d}:{mins:02d}:{secs:02d}"
         except (TypeError, ValueError):
-            logger.error(
-                f"Invalid input for format_idle_time: {seconds}",
-            )
+            logger.error("Invalid input for format_idle_time: %s", seconds)
             return "00:00:00"
 
 

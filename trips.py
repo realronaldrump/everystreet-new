@@ -276,7 +276,7 @@ async def get_trips_datatable(request: Request):
             "data": formatted_data,
         }
     except Exception as e:
-        logger.exception(f"Error in get_trips_datatable: {str(e)}")
+        logger.exception("Error in get_trips_datatable: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -307,7 +307,7 @@ async def bulk_delete_trips(request: Request):
             "message": f"Deleted {result.deleted_count} trips and {matched_result.deleted_count} matched trips",
         }
     except Exception as e:
-        logger.exception(f"Error in bulk_delete_trips: {str(e)}")
+        logger.exception("Error in bulk_delete_trips: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -414,7 +414,7 @@ async def update_trip(trip_id: str, update_data: TripUpdateRequest):
         return {"status": "no_change", "message": "Trip data was already up-to-date."}
 
     except Exception as e:
-        logger.exception(f"Error updating trip {trip_id}: {str(e)}")
+        logger.exception("Error updating trip %s: %s", trip_id, str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update trip: {str(e)}",

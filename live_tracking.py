@@ -48,11 +48,7 @@ def _parse_iso_datetime(
             dt = dt.astimezone(timezone.utc)
         return dt
     except (ValueError, TypeError) as e:
-        logger.error(
-            "Error parsing timestamp string '%s': %s",
-            timestamp_str,
-            e,
-        )
+        logger.error("Error parsing timestamp string '%s': %s", timestamp_str, e)
         return None
 
 

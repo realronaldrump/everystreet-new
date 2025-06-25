@@ -84,7 +84,7 @@ async def _get_mapbox_optimization_route(
                 detail=f"Mapbox Optimization API error: {e.response.text}",
             )
         except httpx.RequestError as e:
-            logger.error(f"Mapbox Optimization API request error: {e}")
+            logger.error("Mapbox Optimization API request error: %s", e)
             raise HTTPException(
                 status_code=503, detail=f"Could not connect to Mapbox API: {e}"
             )
@@ -135,7 +135,7 @@ async def _get_mapbox_directions_route(
                 detail=f"Mapbox API error: {e.response.text}",
             )
         except httpx.RequestError as e:
-            logger.error(f"Mapbox Directions API request error: {e}")
+            logger.error("Mapbox Directions API request error: %s", e)
             raise HTTPException(
                 status_code=503, detail=f"Could not connect to Mapbox API: {e}"
             )
@@ -498,7 +498,7 @@ async def get_coverage_driving_route(request: Request):
     except HTTPException as e:
         raise e
     except Exception as e:
-        logger.error(f"Error generating coverage route: {e}", exc_info=True)
+        logger.error("Error generating coverage route: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to generate coverage route: {e}"
         )

@@ -629,7 +629,9 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
         )
 
     logger.info(
-        f"FINAL DATE RANGE: Fetching Bouncie trips from {start_date_fetch.isoformat()} to {now_utc.isoformat()}"
+        "FINAL DATE RANGE: Fetching Bouncie trips from %s to %s",
+        start_date_fetch.isoformat(),
+        now_utc.isoformat(),
     )
 
     logger.info("Calling fetch_bouncie_trips_in_range...")
@@ -640,7 +642,8 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
             do_map_match=True,
         )
         logger.info(
-            f"fetch_bouncie_trips_in_range returned {len(fetched_trips)} trips",
+            "fetch_bouncie_trips_in_range returned %d trips",
+            len(fetched_trips),
         )
 
         if fetched_trips:
@@ -650,7 +653,7 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
             logger.warning("No trips were fetched in the date range")
 
     except Exception as fetch_err:
-        logger.exception(f"Error in fetch_bouncie_trips_in_range: {fetch_err}")
+        logger.exception("Error in fetch_bouncie_trips_in_range: %s", fetch_err)
         raise
 
     logger.info("Updating last_success_time in task config...")
@@ -662,11 +665,12 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
             upsert=True,
         )
         logger.info(
-            f"Config update result: modified_count={update_result.modified_count}, "
-            f"upserted_id={update_result.upserted_id}",
+            "Config update result: modified_count=%s, upserted_id=%s",
+            update_result.modified_count,
+            update_result.upserted_id,
         )
     except Exception as update_err:
-        logger.exception(f"Error updating task config: {update_err}")
+        logger.exception("Error updating task config: %s", update_err)
 
     try:
         trips_after_fetch = await count_documents_with_retry(
@@ -926,7 +930,7 @@ async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
                         ordered=False,
                     )
                     logger.info(
-                        f"Executed validation batch: Matched={result.matched_count}, Modified={result.modified_count}"
+                        f"Executed validation batch: Matched={result.matched_count}, Modified={result.modified_count}",
                     )
                 except BulkWriteError as bwe:
                     logger.error(
@@ -946,11 +950,11 @@ async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
         try:
             result = await trips_collection.bulk_write(batch_updates, ordered=False)
             logger.info(
-                f"Executed final validation batch: Matched={result.matched_count}, Modified={result.modified_count}"
+                f"Executed final validation batch: Matched={result.matched_count}, Modified={result.modified_count}",
             )
         except BulkWriteError as bwe:
             logger.error(
-                f"Bulk write error during final validation batch: {bwe.details}"
+                f"Bulk write error during final validation batch: {bwe.details}",
             )
         except Exception as bulk_err:
             logger.error(f"Error executing final validation batch: {bulk_err}")
@@ -1206,7 +1210,7 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
                         batch_updates, ordered=False
                     )
                     logger.debug(
-                        f"Executed validation update batch: Matched={result.matched_count}, Modified={result.modified_count}"
+                        f"Executed validation update batch: Matched={result.matched_count}, Modified={result.modified_count}",
                     )
                 except BulkWriteError as bwe:
                     logger.error(
@@ -1221,11 +1225,11 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
         try:
             result = await trips_collection.bulk_write(batch_updates, ordered=False)
             logger.debug(
-                f"Executed final validation update batch: Matched={result.matched_count}, Modified={result.modified_count}"
+                f"Executed final validation update batch: Matched={result.matched_count}, Modified={result.modified_count}",
             )
         except BulkWriteError as bwe:
             logger.error(
-                f"Bulk write error during final validation update: {bwe.details}"
+                f"Bulk write error during final validation update: {bwe.details}",
             )
         except Exception as bulk_err:
             logger.error(f"Error executing final validation update batch: {bulk_err}")

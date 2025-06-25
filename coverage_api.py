@@ -671,7 +671,7 @@ async def cancel_coverage_area(
 async def get_coverage_area_details(location_id: str):
     """Get detailed information about a coverage area, fetching GeoJSON from GridFS."""
     overall_start_time = time.perf_counter()
-    logger.info(f"[{location_id}] Request received for coverage area details.")
+    logger.info("[%s] Request received for coverage area details.", location_id)
     try:
         obj_location_id = ObjectId(location_id)
     except Exception:
@@ -684,7 +684,9 @@ async def get_coverage_area_details(location_id: str):
     )
     t_end_find_meta = time.perf_counter()
     logger.info(
-        f"[{location_id}] Found coverage_doc in {t_end_find_meta - t_start_find_meta:.4f}s."
+        "[%s] Found coverage_doc in %.4fs.",
+        location_id,
+        t_end_find_meta - t_start_find_meta,
     )
 
     if not coverage_doc:
@@ -696,8 +698,11 @@ async def get_coverage_area_details(location_id: str):
     location_info = coverage_doc.get("location")
     if not isinstance(location_info, dict) or not location_info.get("display_name"):
         logger.error(
-            f"Coverage area {location_id} (ID: {obj_location_id}) has malformed or missing 'location' data. "
-            f"Location data: {location_info}. Full document: {coverage_doc}",
+            "Coverage area %s (ID: %s) has malformed or missing 'location' data. Location data: %s. Full document: %s",
+            location_id,
+            obj_location_id,
+            location_info,
+            coverage_doc,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

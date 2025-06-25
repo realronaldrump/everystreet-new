@@ -168,7 +168,7 @@ async def shutdown_event():
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     """Handle 404 Not Found errors."""
-    logger.warning(f"404 Not Found: {request.url}. Detail: {exc.detail}")
+    logger.warning("404 Not Found: %s. Detail: %s", request.url, exc.detail)
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND,
         content={"error": "Endpoint not found", "detail": exc.detail},
