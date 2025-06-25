@@ -1293,7 +1293,6 @@ class CoverageCalculator:
                     for tid, _ in valid_trips_for_processing:
                         if tid not in processed_trip_ids_set:
                             processed_trip_ids_set.add(tid)
-                            # self.processed_trips_count +=1 # Don't increment here, only after worker success
                     continue
 
                 batch_candidate_utm_geoms: dict[str, Any] = {}
@@ -1327,7 +1326,6 @@ class CoverageCalculator:
                     for tid, _ in valid_trips_for_processing:
                         if tid not in processed_trip_ids_set:
                             processed_trip_ids_set.add(tid)
-                            # self.processed_trips_count +=1 # Don't increment here
                     continue
 
                 logger.debug(
@@ -1381,7 +1379,6 @@ class CoverageCalculator:
                         i : i + self.trip_worker_sub_batch
                     ]
                     sub_batch_coords = [coords for _, coords in trip_sub_batch]
-                    # sub_batch_trip_ids = [tid for tid, _ in trip_sub_batch] # Already captured in pending_futures_map value
 
                     for (
                         geom_chunk,

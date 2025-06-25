@@ -614,7 +614,6 @@ async def delete_coverage_area(
         }
 
     except HTTPException:
-        # logger.warning("HTTPException in delete_coverage_area", exc_info=True) # Already logged by FastAPI
         raise
     except Exception as e:
         logger.exception(
