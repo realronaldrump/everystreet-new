@@ -1309,7 +1309,7 @@ async def preprocess_streets(
             )
         except TimeoutError:  # Catch asyncio.TimeoutError from wait_for
             logger.error(
-                "Timeout fetching OSM data for {} (overall fetch timeout)",
+                "Timeout fetching OSM data for %s (overall fetch timeout)",
                 location_name,
             )
             await _update_task_progress(
@@ -1334,14 +1334,16 @@ async def preprocess_streets(
             return
         except Exception as fetch_err:
             logger.error(
-                f"Failed to fetch OSM data for {location_name}: {fetch_err}",
+                "Failed to fetch OSM data for %s: %s",
+                location_name,
+                fetch_err,
                 exc_info=True,
             )
             await _update_task_progress(
                 task_id,
                 "error",
                 20,
-                f"OSM Fetch Error for {location_name}: {fetch_err}",
+                "OSM Fetch Error for {}: {}".format(location_name, fetch_err),
                 error=str(fetch_err)[:200],
             )
             await update_one_with_retry(
@@ -1360,9 +1362,8 @@ async def preprocess_streets(
 
         if not osm_data or not osm_data.get("elements"):
             logger.warning(
-                "No OSM elements returned for {} after filtering. Preprocessing finished.".format(
-                    location_name
-                ),
+                "No OSM elements returned for %s after filtering. Preprocessing finished.",
+                location_name,
             )
             await _update_task_progress(
                 task_id,
@@ -1389,9 +1390,8 @@ async def preprocess_streets(
         # Process and segment the fetched OSM data
         try:
             logger.info(
-                "Processing and segmenting filtered OSM data for {}...".format(
-                    location_name
-                ),
+                "Processing and segmenting filtered OSM data for %s...",
+                location_name,
             )
             await _update_task_progress(
                 task_id,
@@ -1414,14 +1414,14 @@ async def preprocess_streets(
                 timeout=1800,  # Timeout for the entire data processing stage
             )
             logger.info(
-                "Street preprocessing completed successfully for {}.".format(
-                    location_name
-                ),
+                "Street preprocessing completed successfully for %s.",
+                location_name,
             )
 
         except TimeoutError:  # Catch asyncio.TimeoutError from wait_for
             logger.error(
-                f"Timeout processing OSM data for {location_name}",
+                "Timeout processing OSM data for %s",
+                location_name,
             )
             await _update_task_progress(
                 task_id,
@@ -1446,9 +1446,9 @@ async def preprocess_streets(
         except Exception as process_err:
             # process_osm_data should handle its own metadata error update for this case
             logger.error(
-                "Preprocessing failed during data processing stage for {}: {}".format(
-                    location_name, process_err
-                ),
+                "Preprocessing failed during data processing stage for %s: %s",
+                location_name,
+                process_err,
                 exc_info=True,
             )
             # process_osm_data should call _update_task_progress on its own errors
@@ -1461,9 +1461,9 @@ async def preprocess_streets(
             "Unknown Location",
         )
         logger.error(
-            "Unhandled error during street preprocessing orchestration for {}: {}".format(
-                location_name_safe, e
-            ),
+            "Unhandled error during street preprocessing orchestration for %s: %s",
+            location_name_safe,
+            e,
             exc_info=True,
         )
         await _update_task_progress(
@@ -1491,7 +1491,6 @@ async def preprocess_streets(
     finally:
         gc.collect()  # Explicit garbage collection
         logger.debug(
-            "Preprocessing task finished for {}, running GC.".format(
-                validated_location.get("display_name", "Unknown Location")
-            ),
+            "Preprocessing task finished for %s, running GC.",
+            validated_location.get("display_name", "Unknown Location"),
         )
