@@ -197,10 +197,7 @@ def worker_init(**kwargs):
     from datetime import datetime, timezone
 
     current_time = datetime.now(timezone.utc)
-    logger.debug(
-        "Worker starting at UTC time: %s",
-        current_time.isoformat(),
-    )
+    logger.debug("Worker starting at UTC time: %s", current_time.isoformat())
 
 
 @worker_process_init.connect(weak=False)

@@ -1822,7 +1822,7 @@ class TripProcessor:
                 return False
             lon, lat = coordinates
             if not (-180 <= lon <= 180 and -90 <= lat <= 90):
-                logger.debug(f"Point coordinates out of WGS84 range: {[lon, lat]}")
+                logger.debug("Point coordinates out of WGS84 range: %s", [lon, lat])
                 return False
             return True
 
@@ -1843,7 +1843,7 @@ class TripProcessor:
                     return False
                 lon, lat = point
                 if not (-180 <= lon <= 180 and -90 <= lat <= 90):
-                    logger.debug(f"LineString point out of WGS84 range: {[lon, lat]}")
+                    logger.debug("LineString point out of WGS84 range: %s", [lon, lat])
                     return False
             return True
 

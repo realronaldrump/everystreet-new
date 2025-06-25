@@ -78,7 +78,7 @@ max_worker_memory = 512 * 1024 * 1024
 def on_starting(server):
     """Log when server starts."""
     logging.getLogger("gunicorn.error").info(
-        f"Starting Gunicorn with {workers} workers, timeout {timeout}s",
+        "Starting Gunicorn with %d workers, timeout %ds", workers, timeout
     )
 
 
@@ -100,4 +100,4 @@ def worker_abort(worker):
 
 def worker_exit(server, worker):
     """Log when worker exits."""
-    logging.getLogger("gunicorn.error").info(f"Worker {worker.pid} exited.")
+    logging.getLogger("gunicorn.error").info("Worker %d exited.", worker.pid)

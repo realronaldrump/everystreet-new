@@ -213,12 +213,16 @@ async def driver_behavior_analytics(request: Request):
                 start_dt = dateutil_parser.isoparse(start_time_raw)
             except ValueError:
                 logger.warning(
-                    f"Could not parse startTime '{start_time_raw}' for trip {t.get('transactionId')}"
+                    "Could not parse startTime '{}' for trip {}".format(
+                        start_time_raw, t.get("transactionId")
+                    )
                 )
                 continue
         else:
             logger.warning(
-                f"Unexpected startTime type '{type(start_time_raw)}' for trip {t.get('transactionId')}"
+                "Unexpected startTime type '{}' for trip {}".format(
+                    type(start_time_raw), t.get("transactionId")
+                )
             )
             continue
 
