@@ -1338,7 +1338,7 @@ async def preprocess_streets(
                 task_id,
                 "error",
                 20,
-                "OSM Fetch Error for {}: {}".format(location_name, fetch_err),
+                f"OSM Fetch Error for {location_name}: {fetch_err}",
                 error=str(fetch_err)[:200],
             )
             await update_one_with_retry(
