@@ -4793,9 +4793,7 @@ const STATUS = window.STATUS || {
               const tripsData = await lastTripResponse.json();
               if (tripsData.trips && tripsData.trips.length > 0) {
                 const lastTrip = tripsData.trips[0];
-                if (
-                  lastTrip.destinationGeoPoint?.coordinates
-                ) {
+                if (lastTrip.destinationGeoPoint?.coordinates) {
                   currentLon = lastTrip.destinationGeoPoint.coordinates[0];
                   currentLat = lastTrip.destinationGeoPoint.coordinates[1];
                   positionSource = "last-trip";
@@ -5018,9 +5016,7 @@ const STATUS = window.STATUS || {
               );
             }
           });
-        } else if (
-          cluster.nearest_segment?.start_coords
-        ) {
+        } else if (cluster.nearest_segment?.start_coords) {
           // Fallback to nearest segment start point if full segment data isn't readily available for bounds
           bounds.extend(cluster.nearest_segment.start_coords);
         }

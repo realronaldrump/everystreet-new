@@ -730,8 +730,7 @@
       );
       // Check for Content-Disposition header to identify file downloads
       const contentDisposition = response.headers.get("Content-Disposition");
-      const isFileDownload =
-        contentDisposition?.includes("attachment");
+      const isFileDownload = contentDisposition?.includes("attachment");
 
       // Only throw an error if response is not ok AND it's not a file download
       if (!response.ok && !isFileDownload) {
