@@ -975,7 +975,6 @@ async def preprocess_streets(
     determine appropriate UTM zone, segment streets, and update the database.
     Clips streets to the location's GeoJSON boundary if available.
     """
-    overrides_map: dict[int, dict[str, bool]] = {}
     location_name = validated_location["display_name"]
     boundary_shape: BaseGeometry | None = None  # Initialize boundary_shape
 
