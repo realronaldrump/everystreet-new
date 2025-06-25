@@ -384,7 +384,6 @@ def process_element_parallel(
             # Clip the WGS84 segment to the boundary polygon
             if boundary_polygon:
                 if not segment_wgs84.intersects(boundary_polygon):
-                    # logger.debug("Segment %s-%d outside boundary", osm_id, i)
                     continue  # Segment is entirely outside the boundary
 
                 clipped_segment_wgs84 = segment_wgs84.intersection(boundary_polygon)
@@ -396,7 +395,6 @@ def process_element_parallel(
                     or clipped_segment_wgs84.geom_type
                     not in ("LineString", "MultiLineString")
                 ):
-                    # logger.debug("Segment %s-%d became invalid/empty or non-linear after clipping", osm_id, i)
                     continue  # Skip if clipping results in non-LineString or empty geometry
 
                 # If clipping results in a MultiLineString, we might want to process each part
@@ -416,7 +414,6 @@ def process_element_parallel(
                     ):  # Ensure it has some length
                         segment_wgs84_to_use = largest_line
                     else:
-                        # logger.debug("MultiLineString for %s-%d resulted in no suitable LineString after clipping", osm_id, i)
                         continue  # No suitable line found
                 else:  # It's a LineString
                     segment_wgs84_to_use = clipped_segment_wgs84
@@ -424,7 +421,6 @@ def process_element_parallel(
                 if (
                     segment_wgs84_to_use.length < 1e-6
                 ):  # Check length again after potential selection from MultiLineString
-                    # logger.debug("Segment %s-%d too short after clipping", osm_id, i)
                     continue
 
                 # Recalculate UTM geometry and length for the (potentially) clipped segment
