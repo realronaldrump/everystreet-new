@@ -11,9 +11,9 @@ import json
 import logging
 import os
 import time
+from collections.abc import Callable
 from functools import wraps
 from typing import Any
-from collections.abc import Callable
 
 from fastapi import HTTPException, status
 from pymongo.errors import DuplicateKeyError
