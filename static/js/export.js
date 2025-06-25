@@ -730,8 +730,7 @@
       );
       // Check for Content-Disposition header to identify file downloads
       const contentDisposition = response.headers.get("Content-Disposition");
-      const isFileDownload =
-        contentDisposition && contentDisposition.includes("attachment");
+      const isFileDownload = contentDisposition?.includes("attachment");
 
       // Only throw an error if response is not ok AND it's not a file download
       if (!response.ok && !isFileDownload) {
@@ -945,7 +944,7 @@
           '<option value="">Select an area...</option>';
         if (data.success && Array.isArray(data.areas)) {
           data.areas.forEach((area) => {
-            if (area.location && area.location.display_name) {
+            if (area.location?.display_name) {
               const opt = document.createElement("option");
               opt.value = JSON.stringify(area.location);
               opt.textContent = area.location.display_name;

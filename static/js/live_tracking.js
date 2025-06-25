@@ -964,7 +964,7 @@ class LiveTripTracker {
       this.ws.addEventListener("message", (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data && data.trip) {
+          if (data?.trip) {
             latestTrip = data.trip;
             needsUpdate = true;
           }

@@ -190,7 +190,7 @@ const utils = {
     const cacheKeys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith("cache_")) {
+      if (key?.startsWith("cache_")) {
         cacheKeys.push(key);
       }
     }

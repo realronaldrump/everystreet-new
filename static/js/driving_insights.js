@@ -5,7 +5,7 @@
 // Ensure CountUp is defined when using the UMD build, which attaches the class under `countUp.CountUp`.
 // This creates an alias so the rest of the file can safely reference `CountUp`.
 if (typeof window !== "undefined") {
-  window.CountUp = window.CountUp || (window.countUp && window.countUp.CountUp);
+  window.CountUp = window.CountUp || window.countUp?.CountUp;
 }
 
 (function () {
