@@ -7,7 +7,6 @@ import gpxpy
 from dateutil import parser as dateutil_parser
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
-from trip_processor import TripProcessor
 from trip_service import TripService
 from utils import calculate_distance
 

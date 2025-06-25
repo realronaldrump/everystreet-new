@@ -20,7 +20,6 @@ from db import (
     matched_trips_collection,
     trips_collection,
 )
-from trip_processor import TripProcessor, TripState
 from trip_service import TripService
 
 # ==============================================================================
@@ -427,10 +426,14 @@ async def regeocode_all_trips():
     """Re-run geocoding for all trips to check against custom places."""
     try:
         trips_list = await find_with_retry(trips_collection, {})
-        trip_ids = [trip.get("transactionId") for trip in trips_list if trip.get("transactionId")]
-        
+        trip_ids = [
+            trip.get("transactionId")
+            for trip in trips_list
+            if trip.get("transactionId")
+        ]
+
         result = await trip_service.refresh_geocoding(trip_ids)
-        
+
         return {
             "message": f"Re-geocoded {result['updated']} trips successfully. Failed: {result['failed']}",
             "updated_count": result["updated"],
@@ -459,7 +462,7 @@ async def regeocode_single_trip(trip_id: str):
             )
 
         result = await trip_service.refresh_geocoding([trip_id])
-        
+
         if result["updated"] > 0:
             return {
                 "status": "success",

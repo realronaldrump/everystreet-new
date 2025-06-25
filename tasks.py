@@ -56,7 +56,7 @@ from live_tracking import (
 )
 from street_coverage_calculation import compute_incremental_coverage
 from trip_processor import TripProcessor, TripState
-from trip_service import TripService, ProcessingOptions
+from trip_service import TripService
 from utils import run_async_from_sync
 from utils import validate_trip_data as validate_trip_data_logic
 
@@ -1005,10 +1005,14 @@ async def update_geocoding_async(self) -> dict[str, Any]:
         raise ValueError("MAPBOX_ACCESS_TOKEN is not configured.")
 
     trip_service = TripService(mapbox_token)
-    trip_ids = [trip.get("transactionId") for trip in trips_to_process if trip.get("transactionId")]
-    
+    trip_ids = [
+        trip.get("transactionId")
+        for trip in trips_to_process
+        if trip.get("transactionId")
+    ]
+
     result = await trip_service.refresh_geocoding(trip_ids)
-    
+
     geocoded_count = result["updated"]
     failed_count = result["failed"]
 
@@ -1079,10 +1083,14 @@ async def remap_unmatched_trips_async(self) -> dict[str, Any]:
         raise ValueError("MAPBOX_ACCESS_TOKEN is not configured.")
 
     trip_service = TripService(mapbox_token)
-    trip_ids = [trip.get("transactionId") for trip in trips_to_process if trip.get("transactionId")]
-    
+    trip_ids = [
+        trip.get("transactionId")
+        for trip in trips_to_process
+        if trip.get("transactionId")
+    ]
+
     result = await trip_service.remap_trips(trip_ids=trip_ids, limit=len(trip_ids))
-    
+
     remap_count = result["map_matched"]
     failed_count = result["failed"]
 
