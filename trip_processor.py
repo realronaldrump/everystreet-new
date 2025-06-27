@@ -11,7 +11,6 @@ import json
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -20,6 +19,7 @@ import pyproj
 from pymongo.errors import DuplicateKeyError
 from shapely.geometry import Point
 
+from date_utils import get_current_utc_time, parse_timestamp
 from db import matched_trips_collection, places_collection, trips_collection
 from utils import haversine, reverse_geocode_nominatim
 
@@ -289,7 +289,7 @@ class TripProcessor:
         state_change = {
             "from": previous_state.value,
             "to": new_state.value,
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": get_current_utc_time(),
         }
 
         if error and new_state == TripState.FAILED:
@@ -518,7 +518,7 @@ class TripProcessor:
 
             # self.processed_data is already a copy from set_trip_data and gps field is standardized
 
-            self.processed_data["validated_at"] = datetime.now(timezone.utc)
+            self.processed_data["validated_at"] = get_current_utc_time()
             self.processed_data["validation_status"] = TripState.VALIDATED.value
             # Clear previous invalid state
             self.processed_data["invalid"] = False
@@ -568,15 +568,10 @@ class TripProcessor:
                 transaction_id,
             )
 
-            from dateutil import parser
-
             for key in ("startTime", "endTime"):
                 val = self.processed_data.get(key)
                 if isinstance(val, str):
-                    dt = parser.isoparse(val)
-                    if dt.tzinfo is None:
-                        dt = dt.astimezone(timezone.utc)
-                    self.processed_data[key] = dt
+                    self.processed_data[key] = parse_timestamp(val)
 
             gps_data = self.processed_data.get("gps")
             if isinstance(gps_data, str):
@@ -1016,7 +1011,7 @@ class TripProcessor:
 
             self.processed_data["location_schema_version"] = 2
 
-            self.processed_data["geocoded_at"] = datetime.now(timezone.utc)
+            self.processed_data["geocoded_at"] = get_current_utc_time()
 
             self._set_state(TripState.GEOCODED)
             logger.debug("Geocoded trip %s", transaction_id)
@@ -1202,7 +1197,7 @@ class TripProcessor:
 
             if validated_matched_gps:
                 self.processed_data["matchedGps"] = validated_matched_gps
-                self.processed_data["matched_at"] = datetime.now(timezone.utc)
+                self.processed_data["matched_at"] = get_current_utc_time()
                 self._set_state(TripState.MAP_MATCHED)
                 logger.debug(
                     "Map matched trip %s successfully (Type: %s)",
@@ -1695,7 +1690,7 @@ class TripProcessor:
                 trip_to_save["gps"] = None  # Ensure invalid GPS data is not saved.
 
             trip_to_save["source"] = self.source
-            trip_to_save["saved_at"] = datetime.now(timezone.utc)
+            trip_to_save["saved_at"] = get_current_utc_time()
             trip_to_save["processing_history"] = self.state_history
 
             if "_id" in trip_to_save:

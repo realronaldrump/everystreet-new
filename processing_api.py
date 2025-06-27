@@ -185,9 +185,9 @@ async def map_match_trips_endpoint(
                 detail="Either trip_id or date range is required",
             )
 
-        trips_list = await find_with_retry(trips_collection, query)
+        trips = await find_with_retry(trips_collection, query)
 
-        if not trips_list:
+        if not trips:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No trips found matching criteria",
@@ -195,7 +195,7 @@ async def map_match_trips_endpoint(
 
         trip_ids = [
             trip.get("transactionId")
-            for trip in trips_list
+            for trip in trips
             if trip.get("transactionId")
         ]
         result = await trip_service.remap_trips(trip_ids=trip_ids)
@@ -256,15 +256,7 @@ async def remap_matched_trips(
             },
         )
 
-        trips_list = await find_with_retry(
-            trips_collection,
-            {
-                "startTime": {
-                    "$gte": start_date,
-                    "$lte": end_date,
-                },
-            },
-        )
+        
 
         query = {
             "startTime": {

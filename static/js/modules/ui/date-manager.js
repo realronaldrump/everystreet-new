@@ -1,6 +1,7 @@
 import { UI_CONFIG as CONFIG } from "../ui-config.js";
 import uiState from "../ui-state.js";
-import utils, { DateUtils } from "../ui-utils.js";
+import utils from "../utils.js";
+import dateUtils from "../date-utils.js";
 import panelManager from "./panel-manager.js";
 import eventManager from "./event-manager.js";
 
@@ -13,9 +14,9 @@ const dateManager = {
     if (!startInput || !endInput) return;
 
     const startDate =
-      utils.getStorage(CONFIG.storage.startDate) || DateUtils.getCurrentDate();
+      utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
     const endDate =
-      utils.getStorage(CONFIG.storage.endDate) || DateUtils.getCurrentDate();
+      utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
     this.flatpickrInstances = new Map();
 
     const fpConfig = {
@@ -31,7 +32,7 @@ const dateManager = {
     };
 
     if (!startInput._flatpickr) {
-      const sp = DateUtils.initDatePicker(startInput, {
+      const sp = dateUtils.initDatePicker(startInput, {
         ...fpConfig,
         maxDate: endDate,
         onChange: (sel) => {
@@ -43,7 +44,7 @@ const dateManager = {
     }
 
     if (!endInput._flatpickr) {
-      const ep = DateUtils.initDatePicker(endInput, {
+      const ep = dateUtils.initDatePicker(endInput, {
         ...fpConfig,
         minDate: startDate,
         onChange: (sel) => {
@@ -78,14 +79,10 @@ const dateManager = {
   },
 
   async setRange(range) {
-    if (!DateUtils) {
-      utils.showNotification("Date utility missing", "danger");
-      return;
-    }
     const btn = document.querySelector(`[data-range="${range}"]`);
     if (btn) btn.classList.add("btn-loading");
     try {
-      const { startDate, endDate } = await DateUtils.getDateRangePreset(range);
+      const { startDate, endDate } = await dateUtils.getDateRangePreset(range);
       if (startDate && endDate) {
         this.updateInputs(startDate, endDate);
         utils.setStorage(CONFIG.storage.startDate, startDate);
@@ -140,15 +137,15 @@ const dateManager = {
 
   updateIndicator() {
     const indicator = uiState.getElement(CONFIG.selectors.filterIndicator);
-    if (!indicator || !DateUtils) return;
+    if (!indicator) return;
     const span = indicator.querySelector(".filter-date-range");
     if (!span) return;
     const s =
-      utils.getStorage(CONFIG.storage.startDate) || DateUtils.getCurrentDate();
+      utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
     const e =
-      utils.getStorage(CONFIG.storage.endDate) || DateUtils.getCurrentDate();
+      utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
     const fmt = (d) =>
-      DateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
+      dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
     const preset = this.detectPreset(s, e);
     if (preset) {
       span.textContent =
@@ -172,7 +169,7 @@ const dateManager = {
     }
     const s = sIn.value;
     const e = eIn.value;
-    if (!DateUtils?.isValidDateRange?.(s, e)) {
+    if (!dateUtils.isValidDateRange(s, e)) {
       utils.showNotification("Invalid date range", "warning");
       [sIn, eIn].forEach((el) => {
         el.classList.add("invalid-shake");
@@ -194,7 +191,7 @@ const dateManager = {
           detail: { startDate: s, endDate: e },
         }),
       );
-      const fd = (d) => DateUtils.formatForDisplay(d, { dateStyle: "short" });
+      const fd = (d) => dateUtils.formatForDisplay(d, { dateStyle: "short" });
       utils.showNotification(
         `Filters applied: ${fd(s)} to ${fd(e)}`,
         "success",
@@ -209,11 +206,7 @@ const dateManager = {
   },
 
   reset() {
-    if (!DateUtils) {
-      utils.showNotification("Date utility missing", "danger");
-      return;
-    }
-    const today = DateUtils.getCurrentDate();
+    const today = dateUtils.getCurrentDate();
     this.updateInputs(today, today);
     utils.setStorage(CONFIG.storage.startDate, today);
     utils.setStorage(CONFIG.storage.endDate, today);

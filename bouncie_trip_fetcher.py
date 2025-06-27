@@ -6,11 +6,11 @@ the unified TripProcessor, and stores trips in MongoDB.
 
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import aiohttp
-from dateutil import parser as date_parser
 
+from date_utils import parse_timestamp
 from trip_service import TripService
 from utils import get_session
 
@@ -95,13 +95,9 @@ async def fetch_trips_for_device(
 
             for trip in trips:
                 if "startTime" in trip:
-                    trip["startTime"] = date_parser.isoparse(
-                        trip["startTime"],
-                    ).astimezone(timezone.utc)
+                    trip["startTime"] = parse_timestamp(trip["startTime"])
                 if "endTime" in trip:
-                    trip["endTime"] = date_parser.isoparse(
-                        trip["endTime"],
-                    ).astimezone(timezone.utc)
+                    trip["endTime"] = parse_timestamp(trip["endTime"])
 
             logger.info(
                 "Fetched %d trips for device %s",

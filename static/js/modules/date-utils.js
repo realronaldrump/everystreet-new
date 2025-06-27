@@ -1,28 +1,27 @@
 import { CONFIG } from "./config.js";
 import utils from "./utils.js";
 
-/**
- * Helper functions that wrap the legacy global `DateUtils` module and localStorage caching.
- * This lets the rest of the codebase stay agnostic to the underlying implementation
- * (and makes testing a lot easier).
- */
 const dateUtils = {
-  getStartDate: () =>
-    utils.getStorage(CONFIG.STORAGE_KEYS.startDate) ||
-    window.DateUtils.getCurrentDate(),
-
-  getEndDate: () =>
-    utils.getStorage(CONFIG.STORAGE_KEYS.endDate) ||
-    window.DateUtils.getCurrentDate(),
-
-  formatTimeFromHours(hours) {
-    return window.DateUtils.formatTimeFromHours(hours);
+  getStartDate() {
+    return utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate();
   },
 
-  /**
-   * Returns an object describing the current cached date range. If the cached
-   * range is stale it re-computes it and writes it back to storage.
-   */
+  getEndDate() {
+    return utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate();
+  },
+
+  getCurrentDate() {
+    const now = new Date();
+    return now.toISOString().split("T")[0];
+  },
+
+  formatTimeFromHours(hours) {
+    if (hours === null || typeof hours === "undefined") return "0h 0m";
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    return `${h}h ${m}m`;
+  },
+
   getCachedDateRange() {
     const cacheKey = "cached_date_range";
     const cached = utils.getStorage(cacheKey);
@@ -52,32 +51,61 @@ const dateUtils = {
     utils.setStorage(cacheKey, range);
     return range;
   },
+
+  formatForDisplay(dateString, options = { dateStyle: "medium" }) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString(undefined, options);
+  },
+
+  isValidDateRange(start, end) {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    return startDate <= endDate;
+  },
+
+  async getDateRangePreset(range) {
+    const today = new Date();
+    let startDate, endDate;
+
+    switch (range) {
+      case "today":
+        startDate = endDate = today;
+        break;
+      case "yesterday":
+        startDate = endDate = new Date(today.setDate(today.getDate() - 1));
+        break;
+      case "last-week":
+        endDate = new Date();
+        startDate = new Date(new Date().setDate(new Date().getDate() - 6));
+        break;
+      case "last-month":
+        endDate = new Date();
+        startDate = new Date(new Date().setMonth(new Date().getMonth() - 1));
+        break;
+      case "last-quarter":
+        endDate = new Date();
+        startDate = new Date(new Date().setMonth(new Date().getMonth() - 3));
+        break;
+      case "last-year":
+        endDate = new Date();
+        startDate = new Date(new Date().setFullYear(new Date().getFullYear() - 1));
+        break;
+      default:
+        return {};
+    }
+
+    return {
+      startDate: startDate.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0],
+    };
+  },
+
+  initDatePicker(element, config) {
+    if (window.flatpickr) {
+      return window.flatpickr(element, config);
+    }
+    return null;
+  },
 };
 
 export default dateUtils;
-
-/**
- * Utility: converts a human-readable duration string (e.g. "2h 5m 7s") to seconds.
- * Supports days, hours, minutes, seconds in any combination.
- */
-export function convertDurationToSeconds(duration = "") {
-  if (!duration || duration === "N/A" || duration === "Unknown") return 0;
-
-  let seconds = 0;
-  const dayMatch = duration.match(/(\d+)\s*d/);
-  const hourMatch = duration.match(/(\d+)\s*h/);
-  const minuteMatch = duration.match(/(\d+)\s*m/);
-  const secondMatch = duration.match(/(\d+)\s*s/);
-
-  if (dayMatch) seconds += parseInt(dayMatch[1]) * 86400;
-  if (hourMatch) seconds += parseInt(hourMatch[1]) * 3600;
-  if (minuteMatch) seconds += parseInt(minuteMatch[1]) * 60;
-  if (secondMatch) seconds += parseInt(secondMatch[1]);
-
-  return seconds;
-}
-
-// Expose on the existing global DateUtils (for legacy scripts)
-if (window.DateUtils && !window.DateUtils.convertDurationToSeconds) {
-  window.DateUtils.convertDurationToSeconds = convertDurationToSeconds;
-}

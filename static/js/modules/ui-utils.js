@@ -44,5 +44,5 @@ if (!utils.showNotification) {
 }
 
 export { utils as default };
-export const DateUtils = window.DateUtils;
+
 export const handleError = window.handleError;
