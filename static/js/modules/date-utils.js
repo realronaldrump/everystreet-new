@@ -3,11 +3,15 @@ import utils from "./utils.js";
 
 const dateUtils = {
   getStartDate() {
-    return utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate();
+    return (
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate()
+    );
   },
 
   getEndDate() {
-    return utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate();
+    return (
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate()
+    );
   },
 
   getCurrentDate() {
@@ -88,7 +92,9 @@ const dateUtils = {
         break;
       case "last-year":
         endDate = new Date();
-        startDate = new Date(new Date().setFullYear(new Date().getFullYear() - 1));
+        startDate = new Date(
+          new Date().setFullYear(new Date().getFullYear() - 1),
+        );
         break;
       default:
         return {};
