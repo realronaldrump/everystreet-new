@@ -194,9 +194,7 @@ async def map_match_trips_endpoint(
             )
 
         trip_ids = [
-            trip.get("transactionId")
-            for trip in trips
-            if trip.get("transactionId")
+            trip.get("transactionId") for trip in trips if trip.get("transactionId")
         ]
         result = await trip_service.remap_trips(trip_ids=trip_ids)
 
@@ -255,8 +253,6 @@ async def remap_matched_trips(
                 },
             },
         )
-
-        
 
         query = {
             "startTime": {
