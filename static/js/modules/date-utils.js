@@ -90,6 +90,22 @@ const dateUtils = {
         endDate = new Date();
         startDate = new Date(new Date().setFullYear(new Date().getFullYear() - 1));
         break;
+      case "all-time":
+        try {
+          const res = await fetch("/api/first_trip_date");
+          if (res.ok) {
+            const data = await res.json();
+            startDate = new Date(data.first_trip_date || "2000-01-01");
+            endDate = new Date();
+          } else {
+            startDate = new Date("2000-01-01");
+            endDate = new Date();
+          }
+        } catch (_) {
+          startDate = new Date("2000-01-01");
+          endDate = new Date();
+        }
+        break;
       default:
         return {};
     }

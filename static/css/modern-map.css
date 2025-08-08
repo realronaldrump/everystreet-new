@@ -15,10 +15,17 @@
   border: 1px solid var(--border-color);
 }
 
+.map-stage {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex: 1; /* Inherit available height from flex parent (.map-wrapper/.main-content) */
+}
+
 #map {
   /* The Mapbox map container ID */
   flex-grow: 1;
-  height: 100%; /* Ensure it fills its wrapper or a defined height */
+  height: 100%; /* Ensure it fills its wrapper */
   width: 100%;
   background-color: var(--surface-1); /* Fallback background */
   z-index: var(--z-base);

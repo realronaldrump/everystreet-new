@@ -87,6 +87,17 @@ const eventManager = {
     el.addEventListener(event, handler);
     return true;
   },
+
+  /**
+   * Emit a DOM CustomEvent on a target (defaults to document).
+   * Consumers can listen via: document.addEventListener(eventName, handler)
+   */
+  emit(event, detail = {}, target = document) {
+    const el = typeof target === "string" ? state.getElement(target) : target;
+    if (!el) return false;
+    el.dispatchEvent(new CustomEvent(event, { detail }));
+    return true;
+  },
 };
 
 // expose globally for backwards-compat
