@@ -162,11 +162,39 @@ def process_trip_worker(
                         street_utm_geom,
                     )
 
+                    # Dynamic overlap requirement: for very short segments, require a
+                    # reasonable fraction of the segment length rather than a fixed
+                    # absolute threshold. This addresses tiny intersection-center
+                    # segments that would otherwise never reach a fixed minimum.
+                    try:
+                        segment_length_m = street_utm_geom.length
+                    except Exception:
+                        segment_length_m = 0.0
+
+                    # Require at least 60% of a very short segment to be overlapped,
+                    # but never more than the configured absolute minimum, and clamp
+                    # to a small absolute floor to avoid spurious micro-intersections.
+                    dynamic_required_overlap = min(
+                        max(1.0, 0.6 * segment_length_m),  # fraction-based for short segments
+                        max(0.0, float(min_match_length)),   # absolute cap from settings
+                    )
+
                     if (
                         not intersection.is_empty
-                        and intersection.length >= min_match_length
+                        and intersection.length >= dynamic_required_overlap
                     ):
                         results[trip_index].add(seg_id)
+                    else:
+                        # Distance fallback for short segments: if the segment is
+                        # shorter than the configured minimum and sits within the
+                        # buffer distance of the trip line, consider it matched.
+                        if segment_length_m > 0.0 and segment_length_m < float(min_match_length):
+                            try:
+                                if trip_line_utm.distance(street_utm_geom) <= match_buffer:
+                                    results[trip_index].add(seg_id)
+                            except Exception:
+                                # If distance computation fails, ignore and continue
+                                pass
 
             except (
                 GEOSException,
