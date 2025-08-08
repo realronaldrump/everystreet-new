@@ -78,6 +78,9 @@ const STATUS = window.STATUS || {
       this.efficientStreetMarkers = [];
       this.suggestedEfficientStreets = [];
 
+      // Simple debounce utility for this class
+      this._debounceTimers = new Map();
+
       // Drawing interface properties
       this.drawingMap = null;
       this.drawingMapDraw = null;
@@ -123,6 +126,22 @@ const STATUS = window.STATUS || {
       // Multi-select street segment support
       // Holds the segment_id strings that the user has selected for bulk actions
       this.selectedSegmentIds = new Set();
+    }
+
+    debounce(fn, wait = 200) {
+      return (...args) => {
+        const key = fn;
+        const existing = this._debounceTimers.get(key);
+        if (existing) clearTimeout(existing);
+        const t = setTimeout(() => {
+          try {
+            fn.apply(this, args);
+          } catch (e) {
+            console.warn("debounced function error", e);
+          }
+        }, wait);
+        this._debounceTimers.set(key, t);
+      };
     }
 
     // Override setTimeout and setInterval to track them
@@ -3357,6 +3376,7 @@ const STATUS = window.STATUS || {
           }
           coverageData = apiResponse.coverage;
 
+          // Fetch initial streets GeoJSON now for immediate map usage
           const streetsResp = await fetch(
             `/api/coverage_areas/${locationId}/streets?cache_bust=${new Date().getTime()}`,
           );
@@ -3380,18 +3400,7 @@ const STATUS = window.STATUS || {
         this.createStreetTypeChart(coverageData.street_types || []);
         this.updateFilterButtonStates();
 
-        if (coverageData.streets_geojson) {
           this.initializeCoverageMap(coverageData);
-          // Update undriven streets listing
-          this.updateUndrivenStreetsList(coverageData.streets_geojson);
-        } else {
-          mapContainer.innerHTML = CoverageManager.createAlertMessage(
-            "Map Data Error",
-            "Could not load street geometry.",
-            "danger",
-            locationId,
-          );
-        }
 
         // Restore trip overlay state
         this.showTripsActive =
@@ -3979,7 +3988,10 @@ const STATUS = window.STATUS || {
           "danger",
         );
       }
+
     }
+    
+    // Removed viewport-based refreshing to prevent load during scroll
 
     createStreetPopupContentHTML(props) {
       const streetName =

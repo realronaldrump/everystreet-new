@@ -969,6 +969,72 @@ async def get_coverage_area_streets(location_id: str, undriven: bool = Query(Fal
     return {"type": "FeatureCollection", "features": features}
 
 
+@router.get("/api/coverage_areas/{location_id}/streets/viewport")
+async def get_coverage_area_streets_viewport(
+    location_id: str,
+    west: float = Query(..., description="Viewport min longitude"),
+    south: float = Query(..., description="Viewport min latitude"),
+    east: float = Query(..., description="Viewport max longitude"),
+    north: float = Query(..., description="Viewport max latitude"),
+    undriven: bool = Query(False),
+):
+    """Return streets intersecting the current map viewport for the location.
+
+    This significantly reduces payload size vs. sending entire city GeoJSON.
+    """
+    try:
+        obj_location_id = ObjectId(location_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid location_id format")
+
+    meta = await find_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": obj_location_id},
+        {"location.display_name": 1},
+    )
+    if not meta:
+        raise HTTPException(status_code=404, detail="Coverage area not found")
+    name = meta["location"]["display_name"]
+
+    # Build viewport polygon
+    viewport_poly = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [west, south],
+                [east, south],
+                [east, north],
+                [west, north],
+                [west, south],
+            ]
+        ],
+    }
+
+    query: dict[str, Any] = {
+        "properties.location": name,
+        "geometry": {"$geoIntersects": {"$geometry": viewport_poly}},
+    }
+    if undriven:
+        query["properties.driven"] = False
+        query["properties.undriveable"] = {"$ne": True}
+
+    projection = {
+        "_id": 0,
+        "geometry": 1,
+        "properties.segment_id": 1,
+        "properties.street_name": 1,
+        "properties.highway": 1,
+        "properties.segment_length": 1,
+        "properties.driven": 1,
+        "properties.undriveable": 1,
+    }
+
+    cursor = streets_collection.find(query, projection).limit(5000)
+    features = await cursor.to_list(length=5000)
+
+    return {"type": "FeatureCollection", "features": features}
+
+
 @router.post("/api/coverage_areas/{location_id}/refresh_stats")
 async def refresh_coverage_stats(
     location_id: str,

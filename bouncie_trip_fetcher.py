@@ -120,6 +120,7 @@ async def fetch_bouncie_trips_in_range(
     do_map_match: bool = False,
     task_progress: dict = None,
 ) -> list:
+    # Stream-processing version: process chunks per device and do not accumulate
     all_new_trips = []
     total_devices = len(AUTHORIZED_DEVICES)
     progress_tracker = task_progress if task_progress is not None else progress_data
@@ -148,13 +149,9 @@ async def fetch_bouncie_trips_in_range(
                     "message"
                 ] = f"Fetching trips for device {device_index} of {total_devices}"
 
-            raw_fetched_trips_for_device = []
             current_start = start_dt
             while current_start < end_dt:
-                current_end = min(
-                    current_start + timedelta(days=7),
-                    end_dt,
-                )
+                current_end = min(current_start + timedelta(days=7), end_dt)
                 raw_trips_chunk = await fetch_trips_for_device(
                     session,
                     token,
@@ -162,27 +159,31 @@ async def fetch_bouncie_trips_in_range(
                     current_start,
                     current_end,
                 )
-                raw_fetched_trips_for_device.extend(raw_trips_chunk)
+
+                if raw_trips_chunk:
+                    logger.info(
+                        "Processing %s fetched trips for device %s (do_map_match=%s)...",
+                        len(raw_trips_chunk),
+                        imei,
+                        do_map_match,
+                    )
+                    processed_trip_ids = await trip_service.process_bouncie_trips(
+                        raw_trips_chunk,
+                        do_map_match=do_map_match,
+                        progress_tracker=progress_tracker,
+                    )
+                    # Optionally keep a small summary of new trips, not raw chunk
+                    all_new_trips.extend(
+                        [
+                            {"transactionId": t.get("transactionId"), "imei": imei}
+                            for t in raw_trips_chunk
+                            if t.get("transactionId") in processed_trip_ids
+                        ]
+                    )
+
+                # Advance window and release memory by dropping references
+                raw_trips_chunk = None
                 current_start = current_end
-
-            logger.info(
-                f"Processing {len(raw_fetched_trips_for_device)} fetched trips for device {imei} "
-                f"(do_map_match={do_map_match})...",
-            )
-
-            processed_trip_ids = await trip_service.process_bouncie_trips(
-                raw_fetched_trips_for_device,
-                do_map_match=do_map_match,
-                progress_tracker=progress_tracker,
-            )
-
-            all_new_trips.extend(
-                [
-                    trip
-                    for trip in raw_fetched_trips_for_device
-                    if trip.get("transactionId") in processed_trip_ids
-                ]
-            )
 
             if progress_tracker is not None:
                 progress_tracker["fetch_and_store_trips"]["progress"] = (

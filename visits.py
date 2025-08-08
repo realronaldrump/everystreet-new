@@ -349,6 +349,128 @@ async def _calculate_visits_for_place(
     return visits
 
 
+async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:
+    """Calculate visits for a place using a single MongoDB aggregation.
+
+    This avoids the N+1 query pattern by:
+    - Matching all trips that end at the place (destinationPlaceId or within geometry)
+    - Looking up the next global trip with startTime > arrival endTime
+    - Using $setWindowFields to compute time since previous visit's departure
+
+    Returns a list of visit dicts compatible with the existing callers.
+    """
+    place_id = str(place["_id"])
+
+    ended_at_place_match = {
+        "$or": [
+            {"destinationPlaceId": place_id},
+            {
+                "destinationGeoPoint": {
+                    "$geoWithin": {"$geometry": place["geometry"]},
+                }
+            },
+        ],
+        "endTime": {"$ne": None},
+    }
+
+    pipeline = [
+        {"$match": ended_at_place_match},
+        {"$sort": {"endTime": 1}},
+        {
+            "$lookup": {
+                "from": Collections.trips.name if hasattr(Collections.trips, "name") else "trips",
+                "let": {"arrivalEnd": "$endTime"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$gt": ["$startTime", "$$arrivalEnd"]}}},
+                    {"$sort": {"startTime": 1}},
+                    {"$limit": 1},
+                    {"$project": {"_id": 0, "startTime": 1}},
+                ],
+                "as": "nextTrip",
+            }
+        },
+        {
+            "$addFields": {
+                "departure_time": {"$arrayElemAt": ["$nextTrip.startTime", 0]},
+            }
+        },
+        {
+            "$addFields": {
+                "duration_seconds": {
+                    "$cond": [
+                        {
+                            "$and": [
+                                {"$ne": ["$departure_time", None]},
+                                {"$ne": ["$endTime", None]},
+                            ]
+                        },
+                        {"$divide": [{"$subtract": ["$departure_time", "$endTime"]}, 1000]},
+                        None,
+                    ]
+                }
+            }
+        },
+        {
+            "$setWindowFields": {
+                "sortBy": {"endTime": 1},
+                "output": {
+                    "previous_departure_time": {
+                        "$shift": {"output": "$departure_time", "by": 1, "default": None}
+                    }
+                },
+            }
+        },
+        {
+            "$addFields": {
+                "time_since_last_seconds": {
+                    "$cond": [
+                        {
+                            "$and": [
+                                {"$ne": ["$previous_departure_time", None]},
+                                {"$ne": ["$endTime", None]},
+                            ]
+                        },
+                        {
+                            "$divide": [
+                                {"$subtract": ["$endTime", "$previous_departure_time"]},
+                                1000,
+                            ]
+                        },
+                        None,
+                    ]
+                }
+            }
+        },
+        {
+            "$project": {
+                "nextTrip": 0,
+                "previous_departure_time": 0,
+            }
+        },
+    ]
+
+    docs = await aggregate_with_retry(Collections.trips, pipeline)
+
+    visits: list[dict] = []
+    for doc in docs:
+        arrival_time = parse_time(doc.get("endTime"))
+        departure_time = parse_time(doc.get("departure_time")) if doc.get("departure_time") else None
+        duration = doc.get("duration_seconds")
+        time_since_last = doc.get("time_since_last_seconds")
+
+        visits.append(
+            {
+                "arrival_trip": doc,
+                "arrival_time": arrival_time,
+                "departure_time": departure_time,
+                "duration": duration,
+                "time_since_last": time_since_last,
+            }
+        )
+
+    return visits
+
+
 @router.get("/places/{place_id}/statistics")
 async def get_place_statistics(place_id: str):
     """Get statistics about visits to a place using robust calculation."""
@@ -363,7 +485,8 @@ async def get_place_statistics(place_id: str):
                 detail="Place not found",
             )
 
-        visits = await _calculate_visits_for_place(place)
+        # Use aggregation-based calculation to avoid N+1
+        visits = await _calculate_visits_for_place_agg(place)
 
         total_visits = len(visits)
         durations = [
@@ -418,7 +541,8 @@ async def get_trips_for_place(place_id: str):
                 detail="Place not found",
             )
 
-        visits = await _calculate_visits_for_place(place)
+        # Use aggregation-based calculation to avoid N+1
+        visits = await _calculate_visits_for_place_agg(place)
 
         trips_data = []
         for visit in visits:
@@ -591,16 +715,10 @@ async def get_all_places_statistics():
         if not places:
             return []
 
-        # Pre-fetch all trips once for efficiency. This is a broad query.
-        all_trips = await find_with_retry(
-            Collections.trips, {"startTime": {"$ne": None}, "endTime": {"$ne": None}}
-        )
-
         results = []
         for place in places:
-            visits = await _calculate_visits_for_place(
-                place, all_trips_for_bulk=all_trips
-            )
+            # Use aggregation-based calculation per place to avoid loading all trips
+            visits = await _calculate_visits_for_place_agg(place)
 
             total_visits = len(visits)
             durations = [

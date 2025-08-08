@@ -1398,6 +1398,13 @@ async def ensure_street_coverage_indexes() -> None:
             name="trips_startTime_asc_idx",
             background=True,
         )
+        # Also index endTime for arrival sorting
+        await db_manager.safe_create_index(
+            "trips",
+            [("endTime", pymongo.ASCENDING)],
+            name="trips_endTime_asc_idx",
+            background=True,
+        )
 
         # Index for quickly finding arrivals at custom places by their ID.
         await db_manager.safe_create_index(
