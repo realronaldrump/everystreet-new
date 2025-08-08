@@ -371,7 +371,8 @@ block content %}
       const liveTrackingPanel = document.getElementById("live-tracking-panel");
       function updateLiveTrackingVisibility() {
         if (!liveTrackingPanel) return;
-        const showLiveTracking = window.localStorage.getItem("showLiveTracking");
+        const showLiveTracking =
+          window.localStorage.getItem("showLiveTracking");
         // Default: show panel unless setting exists and is explicitly "false"
         const shouldShow = showLiveTracking !== "false";
         liveTrackingPanel.classList.toggle("d-none", !shouldShow);
