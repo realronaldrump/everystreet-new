@@ -3400,7 +3400,7 @@ const STATUS = window.STATUS || {
         this.createStreetTypeChart(coverageData.street_types || []);
         this.updateFilterButtonStates();
 
-          this.initializeCoverageMap(coverageData);
+        this.initializeCoverageMap(coverageData);
 
         // Restore trip overlay state
         this.showTripsActive =
@@ -3988,9 +3988,8 @@ const STATUS = window.STATUS || {
           "danger",
         );
       }
-
     }
-    
+
     // Removed viewport-based refreshing to prevent load during scroll
 
     createStreetPopupContentHTML(props) {
