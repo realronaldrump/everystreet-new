@@ -378,7 +378,11 @@ async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:
         {"$sort": {"endTime": 1}},
         {
             "$lookup": {
-                "from": Collections.trips.name if hasattr(Collections.trips, "name") else "trips",
+                "from": (
+                    Collections.trips.name
+                    if hasattr(Collections.trips, "name")
+                    else "trips"
+                ),
                 "let": {"arrivalEnd": "$endTime"},
                 "pipeline": [
                     {"$match": {"$expr": {"$gt": ["$startTime", "$$arrivalEnd"]}}},
@@ -404,7 +408,12 @@ async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:
                                 {"$ne": ["$endTime", None]},
                             ]
                         },
-                        {"$divide": [{"$subtract": ["$departure_time", "$endTime"]}, 1000]},
+                        {
+                            "$divide": [
+                                {"$subtract": ["$departure_time", "$endTime"]},
+                                1000,
+                            ]
+                        },
                         None,
                     ]
                 }
@@ -415,7 +424,11 @@ async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:
                 "sortBy": {"endTime": 1},
                 "output": {
                     "previous_departure_time": {
-                        "$shift": {"output": "$departure_time", "by": 1, "default": None}
+                        "$shift": {
+                            "output": "$departure_time",
+                            "by": 1,
+                            "default": None,
+                        }
                     }
                 },
             }
@@ -454,7 +467,9 @@ async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:
     visits: list[dict] = []
     for doc in docs:
         arrival_time = parse_time(doc.get("endTime"))
-        departure_time = parse_time(doc.get("departure_time")) if doc.get("departure_time") else None
+        departure_time = (
+            parse_time(doc.get("departure_time")) if doc.get("departure_time") else None
+        )
         duration = doc.get("duration_seconds")
         time_since_last = doc.get("time_since_last_seconds")
 

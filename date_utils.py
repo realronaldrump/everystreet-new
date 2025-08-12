@@ -105,7 +105,9 @@ def get_date_range(
         A tuple containing the start and end datetime objects for the range.
     """
     end_date = (
-        datetime.strptime(end_date_str, "%Y-%m-%d") if end_date_str else get_current_utc_time()
+        datetime.strptime(end_date_str, "%Y-%m-%d")
+        if end_date_str
+        else get_current_utc_time()
     )
     # Set time to the end of the day to ensure the range is inclusive.
     end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
