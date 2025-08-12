@@ -75,7 +75,7 @@
     },
     reprocess(locationPayload) {
       const endpoint =
-        (locationPayload?.osm_type === "custom")
+        locationPayload?.osm_type === "custom"
           ? "/api/preprocess_custom_boundary"
           : "/api/preprocess_streets";
       return request(endpoint, {
@@ -99,9 +99,10 @@
       });
     },
     startCoverageUpdate(locationPayload, mode = "full") {
-      const endpoint = mode === "incremental"
-        ? "/api/street_coverage/incremental"
-        : "/api/street_coverage";
+      const endpoint =
+        mode === "incremental"
+          ? "/api/street_coverage/incremental"
+          : "/api/street_coverage";
       return request(endpoint, {
         method: "POST",
         headers,
@@ -115,5 +116,3 @@
 
   window.CoverageAPI = CoverageAPI;
 })();
-
-

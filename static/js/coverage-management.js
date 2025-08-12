@@ -443,7 +443,10 @@ const STATUS = window.STATUS || {
         this._renderQueue = RQ ? new RQ(this.targetFPS) : null;
       }
       if (this._renderQueue) this._renderQueue.start();
-      else this.animationFrameId = requestAnimationFrame(() => this.processRenderQueue());
+      else
+        this.animationFrameId = requestAnimationFrame(() =>
+          this.processRenderQueue(),
+        );
     }
 
     queueRender(fn) {
@@ -454,21 +457,21 @@ const STATUS = window.STATUS || {
     processRenderQueue() {
       if (this._renderQueue) this._renderQueue.process();
       else {
-      if (this.isRendering || this.renderQueue.length === 0) return;
-      this.isRendering = true;
-      const startTime = performance.now();
-      while (
-        this.renderQueue.length > 0 &&
-        performance.now() - startTime < this.frameTime * 0.8
-      ) {
-        const fn = this.renderQueue.shift();
-        try {
-          fn();
-        } catch (error) {
-          console.error("Render error:", error);
+        if (this.isRendering || this.renderQueue.length === 0) return;
+        this.isRendering = true;
+        const startTime = performance.now();
+        while (
+          this.renderQueue.length > 0 &&
+          performance.now() - startTime < this.frameTime * 0.8
+        ) {
+          const fn = this.renderQueue.shift();
+          try {
+            fn();
+          } catch (error) {
+            console.error("Render error:", error);
+          }
         }
-      }
-      this.isRendering = false;
+        this.isRendering = false;
       }
     }
 
@@ -1483,14 +1486,20 @@ const STATUS = window.STATUS || {
         '<i class="fas fa-spinner fa-spin"></i> Validating...';
 
       try {
-        const data = await window.CoverageAPI
-          .__validateLocation?.({ location: locationInput, locationType: locType })
+        const data =
+          (await window.CoverageAPI.__validateLocation?.({
+            location: locationInput,
+            locationType: locType,
+          })) ??
           // Fallback to POST if helper not provided
-          ?? (await (async () => {
+          (await (async () => {
             const resp = await fetch("/api/validate_location", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ location: locationInput, locationType: locType }),
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                location: locationInput,
+                locationType: locType,
+              }),
             });
             const json = await resp.json();
             if (!resp.ok) throw new Error(json.detail || `Validation failed`);
@@ -1596,9 +1605,8 @@ const STATUS = window.STATUS || {
           0,
         );
 
-        const taskData = await window.CoverageAPI.preprocessStreets(
-          locationToAdd,
-        );
+        const taskData =
+          await window.CoverageAPI.preprocessStreets(locationToAdd);
 
         this.notificationManager.show(
           "Coverage area processing started.",
@@ -1805,9 +1813,7 @@ const STATUS = window.STATUS || {
       );
 
       try {
-        await window.CoverageAPI.cancelCoverage(
-          locationToCancel.display_name,
-        );
+        await window.CoverageAPI.cancelCoverage(locationToCancel.display_name);
 
         this.notificationManager.show(
           `Processing for ${locationToCancel.display_name} cancelled.`,
@@ -2000,14 +2006,20 @@ const STATUS = window.STATUS || {
 
     async pollCoverageProgress(taskId) {
       if (window.CoverageModules?.Progress?.pollCoverageProgress) {
-        return window.CoverageModules.Progress.pollCoverageProgress(this, taskId);
+        return window.CoverageModules.Progress.pollCoverageProgress(
+          this,
+          taskId,
+        );
       }
       throw new Error("Progress module not loaded");
     }
 
     calculatePollInterval(stage, retries) {
       if (window.CoverageModules?.Progress?.calculatePollInterval) {
-        return window.CoverageModules.Progress.calculatePollInterval(stage, retries);
+        return window.CoverageModules.Progress.calculatePollInterval(
+          stage,
+          retries,
+        );
       }
       return 5000;
     }
@@ -2020,7 +2032,10 @@ const STATUS = window.STATUS || {
 
     showErrorState(errorMessage) {
       if (window.CoverageModules?.Progress?.showErrorState) {
-        return window.CoverageModules.Progress.showErrorState(this, errorMessage);
+        return window.CoverageModules.Progress.showErrorState(
+          this,
+          errorMessage,
+        );
       }
     }
 
@@ -2032,7 +2047,11 @@ const STATUS = window.STATUS || {
 
     showProgressModal(message = "Processing...", progress = 0) {
       if (window.CoverageModules?.Progress?.showProgressModal) {
-        return window.CoverageModules.Progress.showProgressModal(this, message, progress);
+        return window.CoverageModules.Progress.showProgressModal(
+          this,
+          message,
+          progress,
+        );
       }
     }
 
@@ -2773,10 +2792,7 @@ const STATUS = window.STATUS || {
       if (window.CoverageModules?.Efficient?.findMostEfficientStreets) {
         return window.CoverageModules.Efficient.findMostEfficientStreets(this);
       }
-      this.notificationManager?.show(
-        "Efficient module not loaded",
-          "warning",
-        );
+      this.notificationManager?.show("Efficient module not loaded", "warning");
     }
 
     // Helper method to get current position
@@ -2887,9 +2903,7 @@ const STATUS = window.STATUS || {
 
     clearDrawingValidationState() {
       if (window.CoverageModules?.Drawing?.clearDrawingValidationState) {
-        return window.CoverageModules.Drawing.clearDrawingValidationState(
-          this,
-        );
+        return window.CoverageModules.Drawing.clearDrawingValidationState(this);
       }
     }
 
@@ -3482,23 +3496,35 @@ const STATUS = window.STATUS || {
   // Dashboard
   proto.displayCoverageDashboard = function (locationId) {
     if (window.CoverageModules?.Dashboard?.displayCoverageDashboard) {
-      return window.CoverageModules.Dashboard.displayCoverageDashboard(this, locationId);
+      return window.CoverageModules.Dashboard.displayCoverageDashboard(
+        this,
+        locationId,
+      );
     }
     throw new Error("Dashboard module not loaded");
   };
   proto.updateDashboardStats = function (coverage) {
     if (window.CoverageModules?.Dashboard?.updateDashboardStats) {
-      return window.CoverageModules.Dashboard.updateDashboardStats(this, coverage);
+      return window.CoverageModules.Dashboard.updateDashboardStats(
+        this,
+        coverage,
+      );
     }
   };
   proto.updateStreetTypeCoverage = function (streetTypes) {
     if (window.CoverageModules?.Dashboard?.updateStreetTypeCoverage) {
-      return window.CoverageModules.Dashboard.updateStreetTypeCoverage(this, streetTypes);
+      return window.CoverageModules.Dashboard.updateStreetTypeCoverage(
+        this,
+        streetTypes,
+      );
     }
   };
   proto.initializeCoverageMap = function (coverage) {
     if (window.CoverageModules?.Dashboard?.initializeCoverageMap) {
-      return window.CoverageModules.Dashboard.initializeCoverageMap(this, coverage);
+      return window.CoverageModules.Dashboard.initializeCoverageMap(
+        this,
+        coverage,
+      );
     }
   };
   proto.addStreetsToMap = function (geojson) {
@@ -3513,7 +3539,10 @@ const STATUS = window.STATUS || {
   };
   proto.createStreetTypeChart = function (streetTypes) {
     if (window.CoverageModules?.Dashboard?.createStreetTypeChart) {
-      return window.CoverageModules.Dashboard.createStreetTypeChart(this, streetTypes);
+      return window.CoverageModules.Dashboard.createStreetTypeChart(
+        this,
+        streetTypes,
+      );
     }
   };
 
@@ -3526,7 +3555,10 @@ const STATUS = window.STATUS || {
   };
   proto.calculatePollInterval = function (stage, retries) {
     if (window.CoverageModules?.Progress?.calculatePollInterval) {
-      return window.CoverageModules.Progress.calculatePollInterval(stage, retries);
+      return window.CoverageModules.Progress.calculatePollInterval(
+        stage,
+        retries,
+      );
     }
     return 5000;
   };
@@ -3547,7 +3579,11 @@ const STATUS = window.STATUS || {
   };
   proto.showProgressModal = function (message = "Processing...", progress = 0) {
     if (window.CoverageModules?.Progress?.showProgressModal) {
-      return window.CoverageModules.Progress.showProgressModal(this, message, progress);
+      return window.CoverageModules.Progress.showProgressModal(
+        this,
+        message,
+        progress,
+      );
     }
   };
   proto.hideProgressModal = function () {
@@ -3565,29 +3601,47 @@ const STATUS = window.STATUS || {
   };
   proto.displayEfficientStreets = function (clusters, source) {
     if (window.CoverageModules?.Efficient?.displayEfficientStreets) {
-      return window.CoverageModules.Efficient.displayEfficientStreets(this, clusters, source);
+      return window.CoverageModules.Efficient.displayEfficientStreets(
+        this,
+        clusters,
+        source,
+      );
     }
   };
   proto.createEfficientStreetPopup = function (cluster, rank) {
     if (window.CoverageModules?.Efficient?.createEfficientStreetPopup) {
-      return window.CoverageModules.Efficient.createEfficientStreetPopup(this, cluster, rank);
+      return window.CoverageModules.Efficient.createEfficientStreetPopup(
+        this,
+        cluster,
+        rank,
+      );
     }
   };
   proto.showEfficientStreetsPanel = function (clusters, source) {
     if (window.CoverageModules?.Efficient?.showEfficientStreetsPanel) {
-      return window.CoverageModules.Efficient.showEfficientStreetsPanel(this, clusters, source);
+      return window.CoverageModules.Efficient.showEfficientStreetsPanel(
+        this,
+        clusters,
+        source,
+      );
     }
   };
   proto.clearEfficientStreetMarkers = function (removePanel = true) {
     if (window.CoverageModules?.Efficient?.clearEfficientStreetMarkers) {
-      return window.CoverageModules.Efficient.clearEfficientStreetMarkers(this, removePanel);
+      return window.CoverageModules.Efficient.clearEfficientStreetMarkers(
+        this,
+        removePanel,
+      );
     }
   };
 
   // Drawing
   proto.handleAreaDefinitionTypeChange = function (type) {
     if (window.CoverageModules?.Drawing?.handleAreaDefinitionTypeChange) {
-      return window.CoverageModules.Drawing.handleAreaDefinitionTypeChange(this, type);
+      return window.CoverageModules.Drawing.handleAreaDefinitionTypeChange(
+        this,
+        type,
+      );
     }
   };
   proto.initializeDrawingMap = function () {
@@ -3647,7 +3701,10 @@ const STATUS = window.STATUS || {
   };
   proto.showDrawingValidationResult = function (data) {
     if (window.CoverageModules?.Drawing?.showDrawingValidationResult) {
-      return window.CoverageModules.Drawing.showDrawingValidationResult(this, data);
+      return window.CoverageModules.Drawing.showDrawingValidationResult(
+        this,
+        data,
+      );
     }
   };
   proto.hideDrawingValidationResult = function () {

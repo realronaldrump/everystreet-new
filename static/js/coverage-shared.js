@@ -8,7 +8,9 @@
     distanceInUserUnits(meters, fixed = 2) {
       if (typeof meters !== "number" || isNaN(meters)) meters = 0;
       const miles = meters * 0.000621371;
-      return miles < 0.1 ? `${(meters * 3.28084).toFixed(0)} ft` : `${miles.toFixed(fixed)} mi`;
+      return miles < 0.1
+        ? `${(meters * 3.28084).toFixed(0)} ft`
+        : `${miles.toFixed(fixed)} mi`;
     },
     showToast(message, type = "info", duration = 3000) {
       const container = document.getElementById("alerts-container");
@@ -101,7 +103,9 @@
       const isOnline = navigator.onLine;
       const alertsContainer = document.querySelector("#alerts-container");
       if (!alertsContainer) return;
-      alertsContainer.querySelectorAll(".connection-status").forEach((el) => el.remove());
+      alertsContainer
+        .querySelectorAll(".connection-status")
+        .forEach((el) => el.remove());
       if (!isOnline) {
         const statusBar = document.createElement("div");
         statusBar.className = "connection-status alert alert-danger fade show";
@@ -122,7 +126,8 @@
           offlineTimer = null;
         }
         const statusBar = document.createElement("div");
-        statusBar.className = "connection-status alert alert-success alert-dismissible fade show";
+        statusBar.className =
+          "connection-status alert alert-success alert-dismissible fade show";
         statusBar.innerHTML = `
           <i class=\"fas fa-wifi me-2\"></i>
           <strong>Connected</strong> - Connection restored.
@@ -158,7 +163,10 @@
       if (this.isProcessing || this.queue.length === 0) return;
       this.isProcessing = true;
       const start = performance.now();
-      while (this.queue.length > 0 && performance.now() - start < this.frameTime * 0.8) {
+      while (
+        this.queue.length > 0 &&
+        performance.now() - start < this.frameTime * 0.8
+      ) {
         const task = this.queue.shift();
         try {
           task();
@@ -193,5 +201,3 @@
 
   window.CoverageShared = { UI, RenderQueue, setupConnectionMonitoring };
 })();
-
-
