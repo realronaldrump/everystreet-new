@@ -824,6 +824,20 @@ block head_content %}
 </script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Coverage shared helpers (must load before coverage-management.js) -->
+<script src="{{ url_for('static', path='js/coverage-shared.js') | replace('http://', '//') }}"></script>
+<!-- Coverage API client -->
+<script src="{{ url_for('static', path='js/coverage-api.js') | replace('http://', '//') }}"></script>
+<!-- Efficient streets module (optional enhancement) -->
+<script src="{{ url_for('static', path='js/coverage-efficient.js') | replace('http://', '//') }}"></script>
+<!-- Drawing module (optional enhancement) -->
+<script src="{{ url_for('static', path='js/coverage-drawing.js') | replace('http://', '//') }}"></script>
+<!-- Progress/polling module (optional enhancement) -->
+<script src="{{ url_for('static', path='js/coverage-progress.js') | replace('http://', '//') }}"></script>
+<!-- Dashboard/map module (optional enhancement) -->
+<script src="{{ url_for('static', path='js/coverage-dashboard.js') | replace('http://', '//') }}"></script>
+<!-- Table module (optional enhancement) -->
+<script src="{{ url_for('static', path='js/coverage-table.js') | replace('http://', '//') }}"></script>
 <!-- Coverage Management Script -->
 <script src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"></script>
 <!-- Segment Length Modal -->

@@ -105,7 +105,7 @@ const STATUS = window.STATUS || {
       this.checkForInterruptedTasks();
       CoverageManager.setupConnectionMonitoring();
       this.initTooltips();
-      this.createMapInfoPanel();
+      // Map info panel creation handled by Dashboard module
       this.setupEventListeners();
       this.loadCoverageAreas();
       this.initializeQuickActions();
@@ -416,137 +416,47 @@ const STATUS = window.STATUS || {
     }
 
     showToast(message, type = "info", duration = 3000) {
-      const toastContainer = document.getElementById("alerts-container");
-      if (!toastContainer) return;
-
-      const toast = document.createElement("div");
-      toast.className = `alert alert-${type} alert-dismissible fade show fade-in-up`;
-      toast.setAttribute("role", "alert");
-
-      const icon =
-        {
-          success: "fa-check-circle",
-          danger: "fa-exclamation-circle",
-          warning: "fa-exclamation-triangle",
-          info: "fa-info-circle",
-        }[type] || "fa-info-circle";
-
-      toast.innerHTML = `
-        <i class="fas ${icon} me-2"></i>
-        <span>${message}</span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-
-      toastContainer.prepend(toast);
-
-      // Announce to screen readers
-      this.announceToScreenReader(message);
-
-      // Auto dismiss
-      if (duration > 0) {
-        setTimeout(() => {
-          const bsAlert = bootstrap.Alert.getOrCreateInstance(toast);
-          if (bsAlert) {
-            bsAlert.close();
-          }
-        }, duration);
+      if (window.CoverageShared?.UI?.showToast) {
+        window.CoverageShared.UI.showToast(message, type, duration);
+        return;
       }
-
-      // Remove after animation
-      toast.addEventListener("closed.bs.alert", () => {
-        toast.remove();
-      });
+      // Fallback to console if shared UI unavailable
+      console.log(`[${type}] ${message}`);
     }
 
     announceToScreenReader(message) {
-      const liveRegion = document.getElementById("coverage-live-region");
-      if (liveRegion) {
-        liveRegion.textContent = message;
-        setTimeout(() => {
-          liveRegion.textContent = "";
-        }, 1000);
+      if (window.CoverageShared?.UI?.announceToScreenReader) {
+        window.CoverageShared.UI.announceToScreenReader(message);
       }
     }
 
     async showEnhancedConfirmDialog(options) {
-      return new Promise((resolve) => {
-        const modalHtml = `
-          <div class="modal fade" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-              <div class="modal-content bg-dark text-white">
-                <div class="modal-header">
-                  <h5 class="modal-title">${
-                    options.title || "Confirm Action"
-                  }</h5>
-                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  <p>${options.message || "Are you sure?"}</p>
-                  ${
-                    options.details
-                      ? `<small class="text-muted">${options.details}</small>`
-                      : ""
-                  }
-                </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    ${options.cancelText || "Cancel"}
-                  </button>
-                  <button type="button" class="btn ${
-                    options.confirmButtonClass || "btn-primary"
-                  }" data-action="confirm">
-                    ${options.confirmText || "Confirm"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-
-        const modalElement = document.createElement("div");
-        modalElement.innerHTML = modalHtml;
-        const modal = modalElement.firstElementChild;
-        document.body.appendChild(modal);
-
-        const bsModal = new bootstrap.Modal(modal);
-
-        modal.addEventListener("click", (e) => {
-          if (e.target.matches('[data-action="confirm"]')) {
-            resolve(true);
-            bsModal.hide();
-          }
-        });
-
-        modal.addEventListener("hidden.bs.modal", () => {
-          resolve(false);
-          modal.remove();
-        });
-
-        bsModal.show();
-      });
+      if (window.CoverageShared?.UI?.showEnhancedConfirmDialog) {
+        return window.CoverageShared.UI.showEnhancedConfirmDialog(options);
+      }
+      return window.confirm(options?.message || "Are you sure?");
     }
 
     startRenderLoop() {
-      const render = (timestamp) => {
-        if (timestamp - this.lastRenderTime >= this.frameTime) {
-          this.processRenderQueue();
-          this.lastRenderTime = timestamp;
-        }
-        this.animationFrameId = requestAnimationFrame(render);
-      };
-      this.animationFrameId = requestAnimationFrame(render);
+      if (!this._renderQueue) {
+        const RQ = window.CoverageShared?.RenderQueue;
+        this._renderQueue = RQ ? new RQ(this.targetFPS) : null;
+      }
+      if (this._renderQueue) this._renderQueue.start();
+      else this.animationFrameId = requestAnimationFrame(() => this.processRenderQueue());
     }
 
     queueRender(fn) {
-      this.renderQueue.push(fn);
+      if (this._renderQueue) this._renderQueue.enqueue(fn);
+      else this.renderQueue.push(fn);
     }
 
     processRenderQueue() {
+      if (this._renderQueue) this._renderQueue.process();
+      else {
       if (this.isRendering || this.renderQueue.length === 0) return;
-
       this.isRendering = true;
       const startTime = performance.now();
-
       while (
         this.renderQueue.length > 0 &&
         performance.now() - startTime < this.frameTime * 0.8
@@ -558,8 +468,8 @@ const STATUS = window.STATUS || {
           console.error("Render error:", error);
         }
       }
-
       this.isRendering = false;
+      }
     }
 
     // Cache management
@@ -633,84 +543,22 @@ const STATUS = window.STATUS || {
 
     // Enhanced utility methods
     static distanceInUserUnits(meters, fixed = 2) {
-      if (typeof meters !== "number" || isNaN(meters)) {
-        meters = 0;
+      if (window.CoverageShared?.UI?.distanceInUserUnits) {
+        return window.CoverageShared.UI.distanceInUserUnits(meters, fixed);
       }
-      const miles = meters * 0.000621371;
+      // Fallback
+      const miles = (meters || 0) * 0.000621371;
       return miles < 0.1
-        ? `${(meters * 3.28084).toFixed(0)} ft`
+        ? `${((meters || 0) * 3.28084).toFixed(0)} ft`
         : `${miles.toFixed(fixed)} mi`;
     }
 
     static setupConnectionMonitoring() {
-      let offlineTimer = null;
-
-      const handleConnectionChange = () => {
-        const isOnline = navigator.onLine;
-        const alertsContainer = document.querySelector("#alerts-container");
-        if (!alertsContainer) return;
-
-        // Clear existing connection status alerts
-        alertsContainer
-          .querySelectorAll(".connection-status")
-          .forEach((el) => el.remove());
-
-        if (!isOnline) {
-          // Show persistent offline warning
-          const statusBar = document.createElement("div");
-          statusBar.className =
-            "connection-status alert alert-danger fade show";
-          statusBar.innerHTML = `
-            <i class="fas fa-wifi-slash me-2"></i>
-            <strong>Offline</strong> - Changes cannot be saved while offline.
-            <div class="mt-2">
-              <small>Your work will be saved locally and synced when connection is restored.</small>
-            </div>
-          `;
-          alertsContainer.insertBefore(statusBar, alertsContainer.firstChild);
-
-          // Start monitoring for reconnection
-          offlineTimer = setInterval(() => {
-            if (navigator.onLine) {
-              clearInterval(offlineTimer);
-              handleConnectionChange();
-            }
-          }, 5000);
-        } else {
-          // Show temporary online confirmation
-          if (offlineTimer) {
-            clearInterval(offlineTimer);
-            offlineTimer = null;
-          }
-
-          const statusBar = document.createElement("div");
-          statusBar.className =
-            "connection-status alert alert-success alert-dismissible fade show";
-          statusBar.innerHTML = `
-            <i class="fas fa-wifi me-2"></i>
-            <strong>Connected</strong> - Connection restored.
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          `;
-          alertsContainer.insertBefore(statusBar, alertsContainer.firstChild);
-
-          // Auto-dismiss after animation
-          setTimeout(() => {
-            const bsAlert = bootstrap.Alert.getOrCreateInstance(statusBar);
-            if (bsAlert) {
-              bsAlert.close();
-            }
-          }, 5000);
-
-          // Sync any pending operations
-          if (window.coverageManager) {
-            window.coverageManager.syncPendingOperations();
-          }
-        }
-      };
-
-      window.addEventListener("online", handleConnectionChange);
-      window.addEventListener("offline", handleConnectionChange);
-      handleConnectionChange();
+      if (window.CoverageShared?.setupConnectionMonitoring) {
+        return window.CoverageShared.setupConnectionMonitoring(() =>
+          window.coverageManager?.syncPendingOperations(),
+        );
+      }
     }
 
     syncPendingOperations() {
@@ -846,9 +694,7 @@ const STATUS = window.STATUS || {
 
     async getAllCoverageAreas() {
       try {
-        const response = await fetch("/api/coverage_areas");
-        if (!response.ok) throw new Error("Failed to fetch coverage areas");
-        const data = await response.json();
+        const data = await window.CoverageAPI.getCoverageAreas();
         return data.areas || [];
       } catch (error) {
         console.error("Error fetching coverage areas:", error);
@@ -1637,20 +1483,19 @@ const STATUS = window.STATUS || {
         '<i class="fas fa-spinner fa-spin"></i> Validating...';
 
       try {
-        const response = await fetch("/api/validate_location", {
+        const data = await window.CoverageAPI
+          .__validateLocation?.({ location: locationInput, locationType: locType })
+          // Fallback to POST if helper not provided
+          ?? (await (async () => {
+            const resp = await fetch("/api/validate_location", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: locationInput,
-            locationType: locType,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || `Validation failed`);
-        }
+              body: JSON.stringify({ location: locationInput, locationType: locType }),
+            });
+            const json = await resp.json();
+            if (!resp.ok) throw new Error(json.detail || `Validation failed`);
+            return json;
+          })());
 
         if (!data || !data.osm_id || !data.display_name) {
           locationInputEl.classList.add("is-invalid");
@@ -1727,12 +1572,7 @@ const STATUS = window.STATUS || {
       }
 
       try {
-        const currentAreasResponse = await fetch("/api/coverage_areas");
-        if (!currentAreasResponse.ok) {
-          throw new Error("Failed to fetch current coverage areas");
-        }
-
-        const { areas } = await currentAreasResponse.json();
+        const { areas } = await window.CoverageAPI.getCoverageAreas();
         const exists = areas.some(
           (area) => area.location?.display_name === locationToAdd.display_name,
         );
@@ -1756,18 +1596,9 @@ const STATUS = window.STATUS || {
           0,
         );
 
-        const preprocessResponse = await fetch("/api/preprocess_streets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(locationToAdd),
-        });
-
-        const taskData = await preprocessResponse.json();
-
-        if (!preprocessResponse.ok) {
-          this.hideProgressModal();
-          throw new Error(taskData.detail || "Failed to start processing");
-        }
+        const taskData = await window.CoverageAPI.preprocessStreets(
+          locationToAdd,
+        );
 
         this.notificationManager.show(
           "Coverage area processing started.",
@@ -1848,13 +1679,10 @@ const STATUS = window.STATUS || {
           return this.updateCoverageForArea(locationId, mode, showNotification);
         });
 
-        const response = await fetch(`/api/coverage_areas/${locationId}`);
-        const data = await response.json();
-
+        const data = await window.CoverageAPI.getCoverageArea(locationId);
         if (!data.success || !data.coverage || !data.coverage.location) {
           throw new Error(data.error || "Failed to fetch location details");
         }
-
         locationData = data.coverage.location;
 
         if (!locationData.display_name) {
@@ -1897,30 +1725,10 @@ const STATUS = window.STATUS || {
           `Requesting ${mode} update for ${processingLocation.display_name}...`,
         );
 
-        const endpoint =
-          mode === "incremental"
-            ? "/api/street_coverage/incremental"
-            : "/api/street_coverage";
-
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(processingLocation),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          if (response.status === 422 && data.detail) {
-            const errorMsg = Array.isArray(data.detail)
-              ? data.detail
-                  .map((err) => `${err.loc?.join(".")}: ${err.msg}`)
-                  .join("; ")
-              : data.detail;
-            throw new Error(`Validation error: ${errorMsg}`);
-          }
-          throw new Error(data.detail || `Failed to start update`);
-        }
+        const data = await window.CoverageAPI.startCoverageUpdate(
+          processingLocation,
+          mode,
+        );
 
         if (data.task_id) {
           this.currentTaskId = data.task_id;
@@ -1997,18 +1805,9 @@ const STATUS = window.STATUS || {
       );
 
       try {
-        const payload = { display_name: locationToCancel.display_name };
-        const response = await fetch("/api/coverage_areas/cancel", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || "Failed to send cancel request");
-        }
+        await window.CoverageAPI.cancelCoverage(
+          locationToCancel.display_name,
+        );
 
         this.notificationManager.show(
           `Processing for ${locationToCancel.display_name} cancelled.`,
@@ -2063,18 +1862,7 @@ const STATUS = window.STATUS || {
           "info",
         );
 
-        const payload = { display_name: location.display_name };
-        const response = await fetch("/api/coverage_areas/delete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || "Failed to delete area");
-        }
+        await window.CoverageAPI.deleteCoverage(location.display_name);
 
         await this.loadCoverageAreas();
 
@@ -2119,26 +1907,12 @@ const STATUS = window.STATUS || {
       }
 
       try {
-        const response = await fetch("/api/coverage_areas");
-
-        if (!response.ok) {
-          let errorDetail = `HTTP ${response.status}`;
-          try {
-            errorDetail = (await response.json()).detail || errorDetail;
-          } catch (e) {
-            /* ignore json parsing error */
-          }
-          throw new Error(`Failed to fetch coverage areas (${errorDetail})`);
-        }
-
-        const data = await response.json();
-
-        if (!data.success) {
-          throw new Error(data.error || "API returned failure");
-        }
+        const data = await window.CoverageAPI.getCoverageAreas();
 
         this.queueRender(() => {
-          CoverageManager.updateCoverageTable(data.areas, this);
+          if (window.CoverageModules?.Table?.updateCoverageTable) {
+            window.CoverageModules.Table.updateCoverageTable(data.areas, this);
+          }
           CoverageManager.enhanceResponsiveTables();
           this.initTooltips();
           this.initializeDataTable();
@@ -2225,543 +1999,46 @@ const STATUS = window.STATUS || {
     }
 
     async pollCoverageProgress(taskId) {
-      const maxRetries = 360; // ~30 minutes
-      let retries = 0;
-      let lastStage = null;
-      let consecutiveSameStage = 0;
-      const pollingStartTime = Date.now();
-
-      while (retries < maxRetries) {
-        if (!this.activeTaskIds.has(taskId)) {
-          this.notificationManager.show(
-            `Polling stopped for task ${taskId.substring(0, 8)}...`,
-            "info",
-          );
-          this._removeBeforeUnloadListener(); // Remove listener as polling stopped
-          throw new Error("Polling canceled");
-        }
-
-        try {
-          const response = await fetch(`/api/street_coverage/${taskId}`);
-
-          if (response.status === 404) {
-            this._removeBeforeUnloadListener();
-            throw new Error("Task not found (expired or invalid).");
-          }
-
-          if (!response.ok) {
-            let errorDetail = `HTTP error ${response.status}`;
-            try {
-              errorDetail = (await response.json()).detail || errorDetail;
-            } catch (e) {
-              /* ignore json parsing error */
-            }
-            this._removeBeforeUnloadListener();
-            throw new Error(`Failed to get task status: ${errorDetail}`);
-          }
-
-          let data = null;
-
-          try {
-            data = await response.json();
-
-            if (!data || typeof data !== "object" || !data.stage) {
-              if (response.ok) {
-                this.notificationManager.show(
-                  `Task ${taskId.substring(
-                    0,
-                    8,
-                  )}...: Received incomplete data.`,
-                  "warning",
-                );
-              }
-              this._removeBeforeUnloadListener();
-              throw new Error("Invalid data format received from server.");
-            }
-          } catch (jsonError) {
-            this._removeBeforeUnloadListener();
-            throw new Error(
-              `Error processing server response: ${jsonError.message}`,
-            );
-          }
-
-          this.updateModalContent(data);
-          CoverageManager.updateStepIndicators(data.stage, data.progress);
-          this.lastActivityTime = new Date();
-          this.saveProcessingState();
-
-          if (
-            data.stage === STATUS.COMPLETE ||
-            data.stage === STATUS.COMPLETED
-          ) {
-            this.updateModalContent({ ...data, progress: 100 });
-            CoverageManager.updateStepIndicators(STATUS.COMPLETE, 100);
-            this.activeTaskIds.delete(taskId);
-            this._removeBeforeUnloadListener(); // Task finished
-            this.showSuccessAnimation();
-            setTimeout(() => {
-              this.hideProgressModal();
-            }, 1500);
-            return data;
-          } else if (data.stage === STATUS.ERROR) {
-            const errorMessage = data.error || data.message || "Unknown error";
-            this.notificationManager.show(
-              `Task failed: ${errorMessage}`,
-              "danger",
-            );
-            this.activeTaskIds.delete(taskId);
-            this._removeBeforeUnloadListener(); // Task finished with error
-            this.showErrorState(errorMessage);
-            throw new Error(
-              data.error || data.message || "Coverage calculation failed",
-            );
-          } else if (data.stage === STATUS.CANCELED) {
-            this.notificationManager.show(`Task was canceled.`, "warning");
-            this.activeTaskIds.delete(taskId);
-            this._removeBeforeUnloadListener(); // Task finished due to cancel
-            this.hideProgressModal();
-            throw new Error("Task was canceled");
-          }
-
-          if (data.stage === lastStage) {
-            consecutiveSameStage++;
-            if (consecutiveSameStage > 12) {
-              // Increased threshold for stall warning
-              this.notificationManager.show(
-                `Task seems stalled at: ${CoverageManager.formatStageName(
-                  data.stage,
-                )}`,
-                "warning",
-              );
-              consecutiveSameStage = 0;
-            }
-          } else {
-            lastStage = data.stage;
-            consecutiveSameStage = 0;
-          }
-
-          const pollInterval = this.calculatePollInterval(data.stage, retries);
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
-          retries++;
-        } catch (error) {
-          this.notificationManager.show(
-            `Error polling progress: ${error.message}`,
-            "danger",
-          );
-          this.updateModalContent({
-            stage: STATUS.ERROR,
-            progress: this.currentProcessingLocation?.progress || 0,
-            message: `Polling failed: ${error.message}`,
-            error: error.message,
-            metrics: {},
-          });
-          CoverageManager.updateStepIndicators(
-            STATUS.ERROR,
-            this.currentProcessingLocation?.progress || 0,
-          );
-          this.activeTaskIds.delete(taskId);
-          this._removeBeforeUnloadListener(); // Task finished with polling error
-          this.showRetryOption(taskId);
-          throw error;
-        }
+      if (window.CoverageModules?.Progress?.pollCoverageProgress) {
+        return window.CoverageModules.Progress.pollCoverageProgress(this, taskId);
       }
-
-      this.notificationManager.show(
-        `Polling timed out after ${Math.round(
-          (maxRetries *
-            this.calculatePollInterval(STATUS.UNKNOWN, maxRetries - 1)) /
-            60000,
-        )} minutes.`,
-        "danger",
-      );
-      this.updateModalContent({
-        stage: STATUS.ERROR,
-        progress: this.currentProcessingLocation?.progress || 99,
-        message: "Polling timed out waiting for completion.",
-        error: "Polling timed out",
-        metrics: {},
-      });
-      CoverageManager.updateStepIndicators(
-        STATUS.ERROR,
-        this.currentProcessingLocation?.progress || 99,
-      );
-      this.activeTaskIds.delete(taskId);
-      this._removeBeforeUnloadListener(); // Task timed out
-      throw new Error("Coverage calculation polling timed out");
+      throw new Error("Progress module not loaded");
     }
 
     calculatePollInterval(stage, retries) {
-      // Adaptive polling based on stage and retry count
-      const baseInterval = 5000; // 5 seconds
-
-      if (stage === STATUS.PROCESSING_TRIPS || stage === STATUS.CALCULATING) {
-        // These stages typically take longer
-        return Math.min(baseInterval * 2, 15000);
+      if (window.CoverageModules?.Progress?.calculatePollInterval) {
+        return window.CoverageModules.Progress.calculatePollInterval(stage, retries);
       }
-
-      if (retries > 100) {
-        // After many retries, poll less frequently
-        return Math.min(baseInterval * 3, 20000);
-      }
-
-      return baseInterval;
+      return 5000;
     }
 
     showSuccessAnimation() {
-      const modal = document.getElementById("taskProgressModal");
-      if (!modal) return;
-
-      const modalBody = modal.querySelector(".modal-body");
-      const successIcon = document.createElement("div");
-      successIcon.className = "text-center my-4 fade-in-up";
-      successIcon.innerHTML = `
-        <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
-        <h4 class="mt-3 text-success">Processing Complete!</h4>
-      `;
-
-      modalBody.appendChild(successIcon);
-
-      setTimeout(() => {
-        successIcon.remove();
-      }, 1500);
+      if (window.CoverageModules?.Progress?.showSuccessAnimation) {
+        return window.CoverageModules.Progress.showSuccessAnimation();
+      }
     }
 
     showErrorState(errorMessage) {
-      const modal = document.getElementById("taskProgressModal");
-      if (!modal) return;
-
-      const footer = modal.querySelector(".modal-footer");
-      const retryBtn = document.createElement("button");
-      retryBtn.className = "btn btn-primary";
-      retryBtn.innerHTML = '<i class="fas fa-redo me-1"></i>Retry';
-      retryBtn.onclick = () => {
-        this.hideProgressModal();
-        if (this.currentProcessingLocation) {
-          this.resumeInterruptedTask({
-            location: this.currentProcessingLocation,
-            taskId: this.currentTaskId,
-            progress: 0,
-          });
-        }
-      };
-
-      footer.insertBefore(retryBtn, footer.firstChild);
+      if (window.CoverageModules?.Progress?.showErrorState) {
+        return window.CoverageModules.Progress.showErrorState(this, errorMessage);
+      }
     }
 
     showRetryOption(taskId) {
-      const modal = document.getElementById("taskProgressModal");
-      if (!modal) return;
-
-      const modalBody = modal.querySelector(".modal-body");
-      const retrySection = document.createElement("div");
-      retrySection.className = "alert alert-warning mt-3 fade-in-up";
-      retrySection.innerHTML = `
-        <p class="mb-2">The operation failed. Would you like to retry?</p>
-        <button class="btn btn-sm btn-primary retry-task-btn">
-          <i class="fas fa-redo me-1"></i>Retry
-        </button>
-      `;
-
-      retrySection.querySelector(".retry-task-btn").onclick = () => {
-        retrySection.remove();
-        this.activeTaskIds.add(taskId);
-        this._addBeforeUnloadListener(); // Re-add listener for retry attempt
-        this.pollCoverageProgress(taskId).catch(console.error);
-      };
-
-      modalBody.appendChild(retrySection);
-    }
-
-    static updateCoverageTable(areas, instance) {
-      const tableBody = document.querySelector("#coverage-areas-table tbody");
-      if (!tableBody) return;
-
-      tableBody.innerHTML = "";
-
-      if (!areas || areas.length === 0) {
-        tableBody.innerHTML = `
-          <tr>
-            <td colspan="7" class="text-center">
-              <div class="empty-state py-5">
-                <i class="fas fa-map-marked-alt fa-3x mb-3 opacity-50"></i>
-                <h5>No Coverage Areas Yet</h5>
-                <p class="text-muted mb-3">Start tracking your coverage by adding a new area.</p>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAreaModal">
-                  <i class="fas fa-plus me-2"></i>Add Your First Area
-                </button>
-              </div>
-            </td>
-          </tr>
-        `;
-        return;
-      }
-
-      // Sort areas by last updated (newest first)
-      areas.sort((a, b) => {
-        const dateA = new Date(a.last_updated || 0);
-        const dateB = new Date(b.last_updated || 0);
-        return dateB - dateA;
-      });
-
-      areas.forEach((area, index) => {
-        const row = document.createElement("tr");
-        const status = area.status || STATUS.UNKNOWN;
-        const isProcessing = [
-          STATUS.PROCESSING_TRIPS,
-          STATUS.PREPROCESSING,
-          STATUS.CALCULATING,
-          STATUS.INDEXING,
-          STATUS.FINALIZING,
-          STATUS.GENERATING_GEOJSON,
-          STATUS.COMPLETE_STATS,
-          STATUS.INITIALIZING,
-          STATUS.LOADING_STREETS,
-          STATUS.COUNTING_TRIPS,
-        ].includes(status);
-        const hasError = status === STATUS.ERROR;
-        const isCanceled = status === STATUS.CANCELED;
-
-        row.className = isProcessing
-          ? "processing-row table-info"
-          : hasError
-            ? "table-danger"
-            : isCanceled
-              ? "table-warning"
-              : "";
-
-        // Add animation for new rows
-        if (index < 5) {
-          row.style.animationDelay = `${index * 0.05}s`;
-          row.classList.add("fade-in-up");
-        }
-
-        const lastUpdated = area.last_updated
-          ? new Date(area.last_updated).toLocaleString()
-          : "Never";
-        const lastUpdatedOrder = area.last_updated
-          ? new Date(area.last_updated).getTime()
-          : 0;
-        const totalLengthMiles = CoverageManager.distanceInUserUnits(
-          area.total_length,
-        );
-        const drivenLengthMiles = CoverageManager.distanceInUserUnits(
-          area.driven_length,
-        );
-        const coveragePercentage =
-          area.coverage_percentage?.toFixed(1) || "0.0";
-
-        let progressBarColor = "bg-success";
-        if (hasError || isCanceled) progressBarColor = "bg-secondary";
-        else if (area.coverage_percentage < 25) progressBarColor = "bg-danger";
-        else if (area.coverage_percentage < 75) progressBarColor = "bg-warning";
-
-        const locationButtonData = JSON.stringify({
-          display_name: area.location?.display_name || "",
-        }).replace(/'/g, "&apos;");
-
-        const locationId = area._id;
-
-        row.innerHTML = `
-          <td data-label="Location">
-            <a href="#" class="location-name-link text-info fw-bold" data-location-id="${locationId}">
-              ${area.location?.display_name || "Unknown Location"}
-            </a>
-            ${
-              hasError
-                ? `<div class="text-danger small mt-1" title="${
-                    area.last_error || ""
-                  }"><i class="fas fa-exclamation-circle me-1"></i>Error occurred</div>`
-                : ""
-            }
-            ${
-              isCanceled
-                ? '<div class="text-warning small mt-1"><i class="fas fa-ban me-1"></i>Canceled</div>'
-                : ""
-            }
-            ${
-              isProcessing
-                ? `<div class="text-primary small mt-1"><i class="fas fa-spinner fa-spin me-1"></i>${CoverageManager.formatStageName(
-                    status,
-                  )}...</div>`
-                : ""
-            }
-          </td>
-          <td data-label="Total Length" class="text-end" data-order="${
-            parseFloat(area.total_length || 0) * 0.000621371
-          }">${totalLengthMiles}</td>
-          <td data-label="Driven Length" class="text-end" data-order="${
-            parseFloat(area.driven_length || 0) * 0.000621371
-          }">${drivenLengthMiles}</td>
-          <td data-label="Coverage" data-order="${parseFloat(
-            area.coverage_percentage || 0,
-          )}">
-            <div class="progress" style="height: 22px;" title="${coveragePercentage}% coverage">
-              <div class="progress-bar ${progressBarColor}" role="progressbar"
-                   style="width: ${coveragePercentage}%; transition: width 0.5s ease;"
-                   aria-valuenow="${coveragePercentage}"
-                   aria-valuemin="0" aria-valuemax="100">
-                <span style="font-weight: 600;">${coveragePercentage}%</span>
-              </div>
-            </div>
-          </td>
-          <td data-label="Segments" class="text-end" data-order="${parseInt(
-            area.total_segments || 0,
-            10,
-          )}">${area.total_segments?.toLocaleString() || 0}</td>
-          <td data-label="Last Updated" data-order="${lastUpdatedOrder}">
-            <span title="${lastUpdated}">${instance.formatRelativeTime(
-              area.last_updated,
-            )}</span>
-          </td>
-          <td data-label="Actions">
-            <div class="btn-group" role="group" aria-label="Coverage area actions">
-              <button class="btn btn-sm btn-success" data-action="update-full" data-location-id="${locationId}" 
-                      title="Full Update - Recalculate all coverage" ${
-                        isProcessing ? "disabled" : ""
-                      } 
-                      data-bs-toggle="tooltip">
-                <i class="fas fa-sync-alt"></i>
-              </button>
-              <button class="btn btn-sm btn-info" data-action="update-incremental" data-location-id="${locationId}" 
-                      title="Quick Update - Process new trips only" ${
-                        isProcessing ? "disabled" : ""
-                      } 
-                      data-bs-toggle="tooltip">
-                <i class="fas fa-bolt"></i>
-              </button>
-              <button class="btn btn-sm btn-secondary" data-action="reprocess" data-location-id="${locationId}" title="Re-segment streets (choose new segment length)" ${isProcessing ? "disabled" : ""} data-bs-toggle="tooltip">
-                <i class="fas fa-sliders-h"></i>
-              </button>
-              <button class="btn btn-sm btn-danger" data-action="delete" data-location='${locationButtonData}' 
-                      title="Delete this coverage area" ${
-                        isProcessing ? "disabled" : ""
-                      } 
-                      data-bs-toggle="tooltip">
-                <i class="fas fa-trash-alt"></i>
-              </button>
-              ${
-                isProcessing
-                  ? `<button class="btn btn-sm btn-warning" data-action="cancel" data-location='${locationButtonData}' title="Cancel processing" data-bs-toggle="tooltip"><i class="fas fa-stop-circle"></i></button>`
-                  : ""
-              }
-            </div>
-          </td>
-        `;
-        tableBody.appendChild(row);
-      });
-    }
-
-    formatRelativeTime(dateString) {
-      if (!dateString) return "Never";
-
-      const date = new Date(dateString);
-      const now = new Date();
-      const diff = now - date;
-
-      const seconds = Math.floor(diff / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-      const days = Math.floor(hours / 24);
-
-      if (days > 7) {
-        return date.toLocaleDateString();
-      } else if (days > 0) {
-        return `${days} day${days > 1 ? "s" : ""} ago`;
-      } else if (hours > 0) {
-        return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-      } else if (minutes > 0) {
-        return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
-      } else {
-        return "Just now";
+      if (window.CoverageModules?.Progress?.showRetryOption) {
+        return window.CoverageModules.Progress.showRetryOption(this, taskId);
       }
     }
 
     showProgressModal(message = "Processing...", progress = 0) {
-      const modalElement = document.getElementById("taskProgressModal");
-      if (!modalElement) return;
-
-      const modalTitle = modalElement.querySelector(".modal-title");
-      const modalProgressBar = modalElement.querySelector(".progress-bar");
-      const progressMessage = modalElement.querySelector(".progress-message");
-      const progressDetails = modalElement.querySelector(".progress-details");
-      const cancelBtn = document.getElementById("cancel-processing");
-
-      if (!progressDetails) {
-        this.notificationManager.show(
-          "UI Error: Progress details container not found.",
-          "danger",
-        );
-        return;
+      if (window.CoverageModules?.Progress?.showProgressModal) {
+        return window.CoverageModules.Progress.showProgressModal(this, message, progress);
       }
-
-      // Set initial modal state with smooth transitions
-      if (modalTitle) {
-        modalTitle.textContent = this.currentProcessingLocation?.display_name
-          ? `Processing: ${this.currentProcessingLocation.display_name}`
-          : "Processing Coverage";
-      }
-
-      if (modalProgressBar) {
-        modalProgressBar.style.width = `${progress}%`;
-        modalProgressBar.setAttribute("aria-valuenow", progress);
-        modalProgressBar.textContent = `${progress}%`;
-        modalProgressBar.className =
-          "progress-bar progress-bar-striped progress-bar-animated bg-primary";
-      }
-
-      if (progressMessage) {
-        progressMessage.textContent = message;
-        progressMessage.className = "progress-message text-center mb-3";
-        progressMessage.removeAttribute("data-stage");
-      }
-
-      // Clear and reset progress details
-      progressDetails.querySelector(".stage-info").innerHTML = "";
-      progressDetails.querySelector(".stats-info").innerHTML = "";
-      progressDetails.querySelector(".elapsed-time").textContent =
-        "Elapsed: 0s";
-      progressDetails.querySelector(".estimated-time").textContent = "";
-
-      if (cancelBtn) cancelBtn.disabled = false;
-
-      // Start timers
-      if (this.progressTimer) clearInterval(this.progressTimer);
-      this.processingStartTime = Date.now();
-      this.lastActivityTime = Date.now();
-
-      this.progressTimer = setInterval(() => {
-        this.updateTimingInfo();
-        this.updateActivityIndicator();
-      }, 1000);
-
-      this.updateTimingInfo();
-      this.updateActivityIndicator();
-
-      // Show modal with animation
-      const bsModal = bootstrap.Modal.getOrCreateInstance(modalElement, {
-        backdrop: "static",
-        keyboard: false,
-      });
-
-      modalElement.classList.add("fade-in-up");
-      bsModal.show();
     }
 
     hideProgressModal() {
-      const modalElement = document.getElementById("taskProgressModal");
-      if (!modalElement) return;
-
-      const modal = bootstrap.Modal.getInstance(modalElement);
-      if (modal) {
-        modalElement.style.opacity = "0";
-        modalElement.style.transform = "scale(0.95)";
-
-        setTimeout(() => {
-          modal.hide();
-          modalElement.style.opacity = "";
-          modalElement.style.transform = "";
-          modalElement.classList.remove("fade-in-up");
-        }, 200);
+      if (window.CoverageModules?.Progress?.hideProgressModal) {
+        return window.CoverageModules.Progress.hideProgressModal();
       }
     }
 
@@ -3305,124 +2582,13 @@ const STATUS = window.STATUS || {
     }
 
     async displayCoverageDashboard(locationId) {
-      this.currentDashboardLocationId = locationId;
-
-      const dashboardElement = document.getElementById("coverage-dashboard");
-      const locationNameElement = document.getElementById(
-        "dashboard-location-name",
-      );
-      const streetTypeChartElement =
-        document.getElementById("street-type-chart");
-      const streetTypeCoverageElement = document.getElementById(
-        "street-type-coverage",
-      );
-      const mapContainer = document.getElementById("coverage-map");
-
-      if (!dashboardElement || !locationNameElement || !mapContainer) {
-        console.error("Essential dashboard elements not found.");
-        this.notificationManager.show(
-          "UI Error: Dashboard components missing.",
-          "danger",
-        );
-        return;
-      }
-
-      this.clearDashboardUI();
-      dashboardElement.style.display = "block";
-      dashboardElement.classList.add("fade-in-up");
-
-      locationNameElement.innerHTML = `<span class="loading-skeleton" style="width: 150px; display: inline-block;"></span>`;
-
-      if (streetTypeChartElement)
-        streetTypeChartElement.innerHTML =
-          CoverageManager.createLoadingSkeleton(180);
-      if (streetTypeCoverageElement)
-        streetTypeCoverageElement.innerHTML =
-          CoverageManager.createLoadingSkeleton(100, 3);
-      mapContainer.innerHTML = CoverageManager.createLoadingIndicator(
-        "Loading map data...",
-      );
-
-      try {
-        const cachedData = this.getCachedData(`dashboard-${locationId}`);
-        let coverageData;
-
-        if (cachedData) {
-          coverageData = cachedData;
-          this.notificationManager.show(
-            "Loaded dashboard from cache.",
-            "info",
-            1500,
-          );
-        } else {
-          const metaResponse = await fetch(`/api/coverage_areas/${locationId}`);
-          if (!metaResponse.ok) {
-            const errorData = await metaResponse.json().catch(() => ({}));
-            throw new Error(
-              `Failed to load metadata: ${
-                errorData.detail || metaResponse.statusText
-              }`,
-            );
-          }
-          const apiResponse = await metaResponse.json();
-          if (
-            !apiResponse.success ||
-            !apiResponse.coverage ||
-            !apiResponse.coverage.location
-          ) {
-            throw new Error(
-              apiResponse.error || "Incomplete metadata received.",
-            );
-          }
-          coverageData = apiResponse.coverage;
-
-          // Fetch initial streets GeoJSON now for immediate map usage
-          const streetsResp = await fetch(
-            `/api/coverage_areas/${locationId}/streets?cache_bust=${new Date().getTime()}`,
-          );
-          if (!streetsResp.ok) {
-            const errData = await streetsResp.json().catch(() => ({}));
-            throw new Error(
-              `Failed to load street geometry: ${
-                errData.detail || streetsResp.statusText
-              }`,
-            );
-          }
-          coverageData.streets_geojson = await streetsResp.json();
-          this.setCachedData(`dashboard-${locationId}`, coverageData);
-        }
-
-        this.selectedLocation = coverageData;
-        locationNameElement.textContent =
-          coverageData.location.display_name || "Unnamed Area";
-        this.updateDashboardStats(coverageData);
-        this.updateStreetTypeCoverage(coverageData.street_types || []);
-        this.createStreetTypeChart(coverageData.street_types || []);
-        this.updateFilterButtonStates();
-
-          this.initializeCoverageMap(coverageData);
-
-        // Restore trip overlay state
-        this.showTripsActive =
-          localStorage.getItem("showTripsOverlay") === "true";
-        const tripToggle = document.getElementById("toggle-trip-overlay");
-        if (tripToggle) tripToggle.checked = this.showTripsActive;
-      } catch (error) {
-        console.error("Error displaying coverage dashboard:", error);
-        locationNameElement.textContent = "Error loading data";
-        this.notificationManager.show(
-          `Error loading dashboard: ${error.message}`,
-          "danger",
-        );
-        mapContainer.innerHTML = CoverageManager.createAlertMessage(
-          "Dashboard Load Error",
-          error.message,
-          "danger",
+      if (window.CoverageModules?.Dashboard?.displayCoverageDashboard) {
+        return window.CoverageModules.Dashboard.displayCoverageDashboard(
+          this,
           locationId,
         );
-      } finally {
-        this.initTooltips();
       }
+      throw new Error("Dashboard module not loaded");
     }
 
     static createLoadingSkeleton(height, count = 1) {
@@ -3434,224 +2600,33 @@ const STATUS = window.STATUS || {
     }
 
     updateDashboardStats(coverage) {
-      if (!coverage) return;
-      const statsContainer = document.querySelector(
-        ".dashboard-stats-card .stats-container",
-      );
-      if (!statsContainer) return;
-
-      const totalLengthM = parseFloat(coverage.total_length || 0);
-      const drivenLengthM = parseFloat(coverage.driven_length || 0);
-      const coveragePercentage = parseFloat(
-        coverage.coverage_percentage || 0,
-      ).toFixed(1);
-      const totalSegments = parseInt(coverage.total_segments || 0, 10);
-
-      let coveredSegments = 0;
-      if (Array.isArray(coverage.street_types)) {
-        coveredSegments = coverage.street_types.reduce((sum, typeStats) => {
-          const c1 = parseInt(typeStats.covered, 10);
-          const c2 = parseInt(typeStats.covered_segments, 10);
-          return sum + (!isNaN(c1) ? c1 : c2 || 0);
-        }, 0);
+      if (window.CoverageModules?.Dashboard?.updateDashboardStats) {
+        return window.CoverageModules.Dashboard.updateDashboardStats(
+          this,
+          coverage,
+        );
       }
-
-      const lastUpdated =
-        coverage.last_stats_update || coverage.last_updated
-          ? this.formatRelativeTime(
-              coverage.last_stats_update || coverage.last_updated,
-            )
-          : "Never";
-
-      let barColor = "bg-success";
-      if (
-        coverage.status === STATUS.ERROR ||
-        coverage.status === STATUS.CANCELED
-      )
-        barColor = "bg-danger";
-      else if (
-        coverage.status !== STATUS.COMPLETED &&
-        coverage.status !== STATUS.COMPLETE
-      )
-        barColor = "bg-warning";
-
-      const html = `
-        <div class="row g-3">
-          ${this.createStatItem(
-            CoverageManager.distanceInUserUnits(totalLengthM),
-            "Total Length",
-          )}
-          ${this.createStatItem(
-            CoverageManager.distanceInUserUnits(drivenLengthM),
-            "Driven Length",
-            "text-success",
-          )}
-          ${this.createStatItem(
-            `${coveragePercentage}%`,
-            "Coverage",
-            "text-primary",
-          )}
-          ${this.createStatItem(
-            totalSegments.toLocaleString(),
-            "Total Segments",
-          )}
-          ${this.createStatItem(
-            coveredSegments.toLocaleString(),
-            "Driven Segments",
-            "text-success",
-          )}
-          ${this.createStatItem(
-            lastUpdated,
-            "Last Updated",
-            "text-muted",
-            "small",
-          )}
-        </div>
-        <div class="progress mt-3 mb-2" style="height: 12px;">
-          <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePercentage}%" 
-               aria-valuenow="${coveragePercentage}" aria-valuemin="0" aria-valuemax="100">
-          </div>
-        </div>
-      `;
-      statsContainer.innerHTML = html;
-      // Smooth transition animations
-      statsContainer.querySelectorAll(".stat-value").forEach((el) => {
-        el.classList.add("value-updated");
-        setTimeout(() => el.classList.remove("value-updated"), 600);
-      });
-      const progressBar = statsContainer.querySelector(".progress-bar");
-      if (progressBar) {
-        progressBar.style.transition = "width 0.6s ease";
-      }
-      this.initTooltips();
-    }
-
-    createStatItem(value, label, valueClass = "", labelClass = "") {
-      return `
-        <div class="col-md-4 col-6">
-          <div class="stat-item">
-            <div class="stat-value ${valueClass}">${value}</div>
-            <div class="stat-label ${labelClass}">${label}</div>
-          </div>
-        </div>`;
     }
 
     updateStreetTypeCoverage(streetTypes) {
-      const streetTypeCoverageEl = document.getElementById(
-        "street-type-coverage",
-      );
-      if (!streetTypeCoverageEl) return;
-
-      if (!streetTypes || !streetTypes.length) {
-        streetTypeCoverageEl.innerHTML = CoverageManager.createAlertMessage(
-          "No Data",
-          "No street type data available.",
-          "secondary",
+      if (window.CoverageModules?.Dashboard?.updateStreetTypeCoverage) {
+        return window.CoverageModules.Dashboard.updateStreetTypeCoverage(
+          this,
+          streetTypes,
         );
-        return;
       }
-
-      const sortedTypes = [...streetTypes].sort(
-        (a, b) =>
-          parseFloat(b.total_length_m || 0) - parseFloat(a.total_length_m || 0),
-      );
-      const topTypes = sortedTypes.slice(0, 6);
-
-      let html = "";
-      topTypes.forEach((type) => {
-        const coveragePct = parseFloat(type.coverage_percentage || 0).toFixed(
-          1,
-        );
-        const coveredDist = CoverageManager.distanceInUserUnits(
-          parseFloat(type.covered_length_m || 0),
-        );
-        const totalDist = CoverageManager.distanceInUserUnits(
-          parseFloat(
-            (type.driveable_length_m !== undefined
-              ? type.driveable_length_m
-              : type.total_length_m) || 0,
-          ),
-        );
-        const denominatorLabel =
-          type.driveable_length_m !== undefined ? "Driveable" : "Total";
-
-        let barColor = "bg-success";
-        if (parseFloat(coveragePct) < 25) barColor = "bg-danger";
-        else if (parseFloat(coveragePct) < 75) barColor = "bg-warning";
-
-        html += `
-          <div class="street-type-item mb-2">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <small class="fw-bold text-truncate me-2" title="${CoverageManager.formatStreetType(
-                type.type,
-              )}">${CoverageManager.formatStreetType(type.type)}</small>
-              <small class="text-muted text-nowrap">${coveragePct}% (${coveredDist} / ${totalDist} ${denominatorLabel})</small>
-            </div>
-            <div class="progress" style="height: 8px;" title="${CoverageManager.formatStreetType(
-              type.type,
-            )}: ${coveragePct}% Covered">
-              <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePct}%"
-                   aria-valuenow="${coveragePct}" aria-valuemin="0" aria-valuemax="100"></div>
-            </div>
-          </div>
-        `;
-      });
-      streetTypeCoverageEl.innerHTML = html;
     }
 
     clearDashboardUI() {
-      document.getElementById("dashboard-location-name").textContent =
-        "Select a location";
-      const statsContainer = document.querySelector(
-        ".dashboard-stats-card .stats-container",
-      );
-      if (statsContainer) statsContainer.innerHTML = "";
-
-      const chartContainer = document.getElementById("street-type-chart");
-      if (chartContainer) chartContainer.innerHTML = "";
-
-      const coverageEl = document.getElementById("street-type-coverage");
-      if (coverageEl) coverageEl.innerHTML = "";
-
-      const mapContainer = document.getElementById("coverage-map");
-      if (mapContainer) mapContainer.innerHTML = "";
-
-      if (this.coverageMap) {
-        try {
-          this.coverageMap.remove();
-        } catch (e) {
-          /* ignore */
-        }
-        this.coverageMap = null;
+      if (window.CoverageModules?.Dashboard?.clearDashboardUI) {
+        return window.CoverageModules.Dashboard.clearDashboardUI(this);
       }
-
-      this.selectedLocation = null;
-      this.streetsGeoJson = null;
-      this.mapBounds = null;
-
-      if (this.streetTypeChartInstance) {
-        this.streetTypeChartInstance.destroy();
-        this.streetTypeChartInstance = null;
-      }
-
-      this.currentDashboardLocationId = null;
-      if (this.mapInfoPanel) {
-        this.mapInfoPanel.remove();
-        this.mapInfoPanel = null;
-      }
-      if (this.coverageSummaryControl && this.coverageMap) {
-        try {
-          this.coverageMap.removeControl(this.coverageSummaryControl);
-        } catch (e) {
-          /* ignore */
-        }
-        this.coverageSummaryControl = null;
-      }
-      document.title = "Coverage Management"; // Reset page title
-      this.clearEfficientStreetMarkers(); // Clear efficient street suggestions
     }
 
     static createLoadingIndicator(message = "Loading...") {
+      if (window.CoverageModules?.Dashboard?.createLoadingIndicator) {
+        return window.CoverageModules.Dashboard.createLoadingIndicator(message);
+      }
       return `
         <div class="d-flex flex-column align-items-center justify-content-center p-4 text-center text-muted h-100">
           <div class="loading-indicator mb-3"></div>
@@ -3665,6 +2640,14 @@ const STATUS = window.STATUS || {
       type = "info",
       locationId = null,
     ) {
+      if (window.CoverageModules?.Dashboard?.createAlertMessage) {
+        return window.CoverageModules.Dashboard.createAlertMessage(
+          title,
+          message,
+          type,
+          locationId,
+        );
+      }
       const iconClass =
         {
           danger: "fa-exclamation-circle",
@@ -3693,508 +2676,25 @@ const STATUS = window.STATUS || {
     }
 
     initializeCoverageMap(coverage) {
-      const mapContainer = document.getElementById("coverage-map");
-      if (!mapContainer) return;
-
-      if (this.coverageMap && typeof this.coverageMap.remove === "function") {
-        try {
-          this.coverageMap.remove();
-        } catch (e) {
-          console.warn("Error removing previous map:", e);
-        }
-        this.coverageMap = null;
-      }
-      mapContainer.innerHTML = "";
-
-      if (!window.MAPBOX_ACCESS_TOKEN) {
-        mapContainer.innerHTML = CoverageManager.createAlertMessage(
-          "Mapbox Token Missing",
-          "Cannot display map. Please configure Mapbox access token.",
-          "danger",
-        );
-        return;
-      }
-      mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
-
-      try {
-        const mapOptions = {
-          container: "coverage-map",
-          style: "mapbox://styles/mapbox/dark-v11",
-          center: [0, 0],
-          zoom: 1,
-          minZoom: 0,
-          maxZoom: 20,
-          preserveDrawingBuffer: true,
-          attributionControl: false,
-        };
-        this.coverageMap = new mapboxgl.Map(mapOptions);
-
-        this.coverageMap.addControl(
-          new mapboxgl.NavigationControl(),
-          "top-right",
-        );
-        this.coverageMap.addControl(new mapboxgl.ScaleControl());
-        this.coverageMap.addControl(new mapboxgl.FullscreenControl());
-        this.coverageMap.addControl(
-          new mapboxgl.AttributionControl({ compact: true }),
-          "bottom-right",
-        );
-
-        this.coverageMap.on("load", () => {
-          if (coverage.streets_geojson) {
-            this.addStreetsToMap(coverage.streets_geojson);
-          } else {
-            this.notificationManager.show(
-              "No street data found for this area.",
-              "warning",
-            );
-            this.mapBounds = null;
-          }
-          this.addCoverageSummary(coverage);
-          this.fitMapToBounds();
-          this.setupMapEventHandlers();
-
-          if (this.showTripsActive) {
-            this.setupTripLayers();
-            this.loadTripsForView();
-          }
-        });
-
-        this.coverageMap.on("error", (e) => {
-          console.error("Mapbox GL Error:", e.error);
-          this.notificationManager.show(
-            `Map error: ${e.error?.message || "Unknown map error"}`,
-            "danger",
-          );
-          mapContainer.innerHTML = CoverageManager.createAlertMessage(
-            "Map Load Error",
-            e.error?.message || "Could not initialize map.",
-            "danger",
-          );
-        });
-
-        if (this.mapInfoPanel) this.mapInfoPanel.remove();
-        this.createMapInfoPanel();
-        // Initialize toolbar for bulk segment actions
-        this.createBulkActionToolbar();
-      } catch (mapInitError) {
-        console.error("Failed to initialize Mapbox GL:", mapInitError);
-        mapContainer.innerHTML = CoverageManager.createAlertMessage(
-          "Map Initialization Failed",
-          mapInitError.message,
-          "danger",
+      if (window.CoverageModules?.Dashboard?.initializeCoverageMap) {
+        return window.CoverageModules.Dashboard.initializeCoverageMap(
+          this,
+          coverage,
         );
       }
+      throw new Error("Dashboard module not loaded");
     }
 
     addStreetsToMap(geojson) {
-      if (!this.coverageMap || !this.coverageMap.isStyleLoaded() || !geojson) {
-        console.warn("Map not ready or no GeoJSON data to add streets.");
-        return;
-      }
-
-      const layersToRemove = [
-        "streets-layer",
-        "streets-hover-highlight",
-        "streets-click-highlight",
-        "streets-selection-highlight",
-      ];
-      layersToRemove.forEach((layerId) => {
-        if (this.coverageMap.getLayer(layerId))
-          this.coverageMap.removeLayer(layerId);
-      });
-      if (this.coverageMap.getSource("streets"))
-        this.coverageMap.removeSource("streets");
-
-      this.streetsGeoJson = geojson;
-      this.currentFilter = "all"; // Reset filter when new streets are added
-
-      try {
-        this.coverageMap.addSource("streets", {
-          type: "geojson",
-          data: geojson,
-          promoteId: "segment_id", // Ensure segment_id is promoted for feature state
-        });
-
-        // Updated getLineColor to handle efficient street highlighting
-        const getLineColor = [
-          "case",
-          ["boolean", ["feature-state", "hover"], false],
-          "#ffff00", // Yellow hover
-          ["!=", ["feature-state", "efficientRank"], null], // Check if efficientRank state exists
-          [
-            "case", // If efficientRank exists, apply rank-based colors
-            ["==", ["feature-state", "efficientRank"], 1],
-            "#ffd700", // Gold for rank 1
-            ["==", ["feature-state", "efficientRank"], 2],
-            "#c0c0c0", // Silver for rank 2
-            ["==", ["feature-state", "efficientRank"], 3],
-            "#cd7f32", // Bronze for rank 3
-            "#9467bd", // Purple for other ranks (if any)
-          ],
-          // Fallback to original logic if not an efficient street
-          ["boolean", ["get", "undriveable"], false],
-          "#607d8b", // Grey undriveable
-          ["boolean", ["get", "driven"], false],
-          "#4caf50", // Green driven
-          "#ff5252", // Red not driven
-        ];
-
-        const getLineWidth = [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          8,
-          1.5,
-          14,
-          4,
-          18,
-          7,
-        ];
-        const getLineOpacity = [
-          "case",
-          ["boolean", ["feature-state", "hover"], false],
-          1.0,
-          ["boolean", ["get", "undriveable"], false],
-          0.6,
-          0.85,
-        ];
-        const getLineDash = [
-          "case",
-          ["boolean", ["get", "undriveable"], false],
-          ["literal", [2, 2]],
-          ["literal", [1, 0]],
-        ];
-
-        this.coverageMap.addLayer({
-          id: "streets-layer",
-          type: "line",
-          source: "streets",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: {
-            "line-color": getLineColor,
-            "line-width": getLineWidth,
-            "line-opacity": getLineOpacity,
-            "line-dasharray": getLineDash,
-          },
-        });
-
-        const bounds = new mapboxgl.LngLatBounds();
-        geojson.features.forEach((f) => {
-          if (f.geometry?.coordinates) {
-            if (f.geometry.type === "LineString")
-              f.geometry.coordinates.forEach((coord) => bounds.extend(coord));
-            else if (f.geometry.type === "MultiLineString")
-              f.geometry.coordinates.forEach((line) =>
-                line.forEach((coord) => bounds.extend(coord)),
-              );
-          }
-        });
-        this.mapBounds = !bounds.isEmpty() ? bounds : null;
-
-        let hoveredSegmentId = null;
-        this.coverageMap.on("mouseenter", "streets-layer", (e) => {
-          this.coverageMap.getCanvas().style.cursor = "pointer";
-          if (e.features?.length > 0) {
-            const props = e.features[0].properties;
-            const currentHoverId = props.segment_id;
-            if (currentHoverId !== hoveredSegmentId) {
-              if (
-                hoveredSegmentId !== null &&
-                this.coverageMap.getSource("streets")
-              ) {
-                this.coverageMap.setFeatureState(
-                  { source: "streets", id: hoveredSegmentId },
-                  { hover: false },
-                );
-              }
-              if (this.coverageMap.getSource("streets")) {
-                this.coverageMap.setFeatureState(
-                  { source: "streets", id: currentHoverId },
-                  { hover: true },
-                );
-              }
-              hoveredSegmentId = currentHoverId;
-            }
-            this.updateMapInfoPanel(props, true);
-            if (this.mapInfoPanel) this.mapInfoPanel.style.display = "block";
-          }
-        });
-
-        this.coverageMap.on("mouseleave", "streets-layer", () => {
-          this.coverageMap.getCanvas().style.cursor = "";
-          if (this.mapInfoPanel) this.mapInfoPanel.style.display = "none";
-          if (
-            hoveredSegmentId !== null &&
-            this.coverageMap.getSource("streets")
-          ) {
-            this.coverageMap.setFeatureState(
-              { source: "streets", id: hoveredSegmentId },
-              { hover: false },
-            );
-          }
-          hoveredSegmentId = null;
-        });
-
-        this.coverageMap.on("click", "streets-layer", (e) => {
-          if (e.originalEvent?.button !== 0) return;
-          if (e.features?.length > 0) {
-            const props = e.features[0].properties;
-
-            // Detect if user is holding a modifier key to perform multi-selection
-            const isMultiSelect =
-              e.originalEvent?.ctrlKey ||
-              e.originalEvent?.metaKey ||
-              e.originalEvent?.shiftKey;
-            if (isMultiSelect) {
-              const segId = props.segment_id;
-              if (segId) this.toggleSegmentSelection(segId);
-              return; // skip showing popup when multi-selecting
-            }
-
-            const popupContent = this.createStreetPopupContentHTML(props);
-            const popup = new mapboxgl.Popup({
-              closeButton: true,
-              closeOnClick: true,
-              maxWidth: "350px",
-              className: "coverage-popup",
-            })
-              .setLngLat(e.lngLat)
-              .setHTML(popupContent)
-              .addTo(this.coverageMap);
-
-            const popupElement = popup.getElement();
-            if (popupElement) {
-              popupElement.addEventListener("click", (event) => {
-                const button = event.target.closest("button[data-action]");
-                if (button) {
-                  const action = button.dataset.action;
-                  const segmentId = button.dataset.segmentId;
-                  if (action && segmentId) {
-                    this._handleMarkSegmentAction(action, segmentId);
-                    popup.remove();
-                  }
-                }
-              });
-            }
-            this.updateMapInfoPanel(props, false);
-            if (this.mapInfoPanel) this.mapInfoPanel.style.display = "block";
-          }
-        });
-      } catch (error) {
-        console.error("Error adding streets source/layer:", error);
-        this.notificationManager.show(
-          `Failed to display streets: ${error.message}`,
-          "danger",
-        );
-      }
-
-    }
-    
-    // Removed viewport-based refreshing to prevent load during scroll
-
-    createStreetPopupContentHTML(props) {
-      const streetName =
-        props.street_name ||
-        props.name ||
-        props.display_name ||
-        "Unnamed Street";
-      const streetType =
-        props.highway || props.inferred_highway_type || "unknown";
-      const segmentLength = parseFloat(
-        props.segment_length || props.segment_length_m || props.length || 0,
-      );
-      const lengthFormatted =
-        CoverageManager.distanceInUserUnits(segmentLength);
-      const isDriven =
-        props.driven === true || String(props.driven).toLowerCase() === "true";
-      const isUndriveable =
-        props.undriveable === true ||
-        String(props.undriveable).toLowerCase() === "true";
-      const status = isDriven ? "Driven" : "Not Driven";
-      const segmentId = props.segment_id || "N/A";
-
-      return `
-        <div class="coverage-popup-content">
-          <div class="popup-title">${streetName}</div>
-          <div class="popup-detail"><span class="popup-label">Type:</span><span class="popup-value">${CoverageManager.formatStreetType(
-            streetType,
-          )}</span></div>
-          <div class="popup-detail"><span class="popup-label">Length:</span><span class="popup-value">${lengthFormatted}</span></div>
-          <div class="popup-detail"><span class="popup-label">Status:</span><span class="popup-value ${
-            isDriven ? "status-driven" : "status-undriven"
-          }">${status}</span></div>
-          ${
-            isUndriveable
-              ? `<div class="popup-detail"><span class="popup-label">Marked as:</span> <span class="popup-value status-undriveable">Undriveable</span></div>`
-              : ""
-          }
-          <div class="popup-detail"><span class="popup-label">ID:</span><span class="popup-value segment-id">${segmentId}</span></div>
-          <div class="street-actions">
-            ${
-              !isDriven
-                ? `<button class="btn btn-sm btn-outline-success mark-driven-btn" data-action="driven" data-segment-id="${segmentId}"><i class="fas fa-check me-1"></i>Mark Driven</button>`
-                : ""
-            }
-            ${
-              isDriven
-                ? `<button class="btn btn-sm btn-outline-danger mark-undriven-btn" data-action="undriven" data-segment-id="${segmentId}"><i class="fas fa-times me-1"></i>Mark Undriven</button>`
-                : ""
-            }
-            ${
-              !isUndriveable
-                ? `<button class="btn btn-sm btn-outline-warning mark-undriveable-btn" data-action="undriveable" data-segment-id="${segmentId}"><i class="fas fa-ban me-1"></i>Mark Undriveable</button>`
-                : ""
-            }
-            ${
-              isUndriveable
-                ? `<button class="btn btn-sm btn-outline-info mark-driveable-btn" data-action="driveable" data-segment-id="${segmentId}"><i class="fas fa-road me-1"></i>Mark Driveable</button>`
-                : ""
-            }
-          </div>
-        </div>`;
-    }
-
-    async _handleMarkSegmentAction(action, segmentId) {
-      const activeLocationId =
-        this.selectedLocation?._id || this.currentDashboardLocationId;
-      if (!activeLocationId || !segmentId) {
-        this.notificationManager.show(
-          "Cannot perform action: Missing ID.",
-          "warning",
-        );
-        return;
-      }
-
-      let endpoint = "";
-      const payload = { location_id: activeLocationId, segment_id: segmentId };
-
-      switch (action) {
-        case "driven":
-          endpoint = "/api/street_segments/mark_driven";
-          break;
-        case "undriven":
-          endpoint = "/api/street_segments/mark_undriven";
-          break;
-        case "undriveable":
-          endpoint = "/api/street_segments/mark_undriveable";
-          break;
-        case "driveable":
-          endpoint = "/api/street_segments/mark_driveable";
-          break;
-        default:
-          this.notificationManager.show(`Unknown action: ${action}`, "warning");
-          return;
-      }
-
-      try {
-        await this._makeSegmentApiRequest(endpoint, payload);
-        this.notificationManager.show(
-          `Segment marked as ${action}. Refreshing...`,
-          "success",
-          2000,
-        );
-
-        // Optimistic UI update
-        if (
-          this.streetsGeoJson?.features &&
-          this.coverageMap?.getSource("streets")
-        ) {
-          const featureIndex = this.streetsGeoJson.features.findIndex(
-            (f) => f.properties.segment_id === segmentId,
-          );
-          if (featureIndex !== -1) {
-            const feature = this.streetsGeoJson.features[featureIndex];
-            switch (action) {
-              case "driven":
-                feature.properties.driven = true;
-                feature.properties.undriveable = false;
-                break;
-              case "undriven":
-                feature.properties.driven = false;
-                break;
-              case "undriveable":
-                feature.properties.undriveable = true;
-                feature.properties.driven = false;
-                break;
-              case "driveable":
-                feature.properties.undriveable = false;
-                break;
-            }
-            const newGeoJson = {
-              ...this.streetsGeoJson,
-              features: [...this.streetsGeoJson.features],
-            };
-            newGeoJson.features[featureIndex] = { ...feature };
-            this.coverageMap.getSource("streets").setData(newGeoJson);
-            this.streetsGeoJson = newGeoJson;
-            // Refresh undriven streets list after segment status change
-            this.updateUndrivenStreetsList(this.streetsGeoJson);
-          }
-        }
-        // Full refresh of stats and potentially map data
-        await this.refreshDashboardData(activeLocationId);
-        await this.loadCoverageAreas(); // Refresh main table
-      } catch (error) {
-        this.notificationManager.show(
-          `Failed to mark segment: ${error.message}`,
-          "danger",
-        );
-      }
-    }
-
-    async refreshDashboardData(locationId) {
-      try {
-        const refreshResp = await fetch(
-          `/api/coverage_areas/${locationId}/refresh_stats`,
-          { method: "POST" },
-        );
-        const refreshData = await refreshResp.json();
-        if (refreshResp.ok && refreshData.coverage) {
-          this.selectedLocation = refreshData.coverage;
-          this.updateDashboardStats(refreshData.coverage);
-          this.addCoverageSummary(refreshData.coverage);
-          this.updateStreetTypeCoverage(
-            refreshData.coverage.street_types || [],
-          );
-          if (this.streetTypeChartInstance)
-            this.streetTypeChartInstance.destroy();
-          this.createStreetTypeChart(refreshData.coverage.street_types || []);
-        } else {
-          this.notificationManager.show(
-            `Failed to refresh stats: ${refreshData.detail || "Unknown error"}`,
-            "warning",
-          );
-        }
-      } catch (e) {
-        console.error("Error refreshing stats:", e);
-        this.notificationManager.show(
-          `Error fetching updated stats: ${e.message}`,
-          "danger",
-        );
-      }
-    }
-
-    async _makeSegmentApiRequest(endpoint, payload) {
-      try {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-        if (!response.ok)
-          throw new Error(
-            data.detail || `API request failed (HTTP ${response.status})`,
-          );
-        return data;
-      } catch (error) {
-        console.error(`Error calling ${endpoint}:`, error);
-        throw error;
+      if (window.CoverageModules?.Dashboard?.addStreetsToMap) {
+        return window.CoverageModules.Dashboard.addStreetsToMap(this, geojson);
       }
     }
 
     fitMapToBounds() {
+      if (window.CoverageModules?.Dashboard?.fitMapToBounds) {
+        return window.CoverageModules.Dashboard.fitMapToBounds(this);
+      }
       if (this.coverageMap && this.mapBounds && !this.mapBounds.isEmpty()) {
         try {
           this.coverageMap.fitBounds(this.mapBounds, {
@@ -4217,427 +2717,13 @@ const STATUS = window.STATUS || {
       }
     }
 
-    setMapFilter(filterType, updateButtons = true) {
-      if (!this.coverageMap || !this.coverageMap.getLayer("streets-layer"))
-        return;
-      this.currentFilter = filterType;
-      let filter = null;
-
-      if (filterType === "driven")
-        filter = [
-          "all",
-          ["==", ["get", "driven"], true],
-          ["!=", ["get", "undriveable"], true],
-        ];
-      else if (filterType === "undriven")
-        filter = [
-          "all",
-          ["==", ["get", "driven"], false],
-          ["!=", ["get", "undriveable"], true],
-        ];
-      else if (filterType === "undriveable")
-        filter = ["==", ["get", "undriveable"], true];
-
-      try {
-        this.coverageMap.setFilter("streets-layer", filter);
-        if (updateButtons) this.updateFilterButtonStates();
-      } catch (error) {
-        console.error("Error setting map filter:", error);
-        this.notificationManager.show(
-          `Failed to apply map filter: ${error.message}`,
-          "danger",
-        );
-      }
-    }
-
-    updateFilterButtonStates() {
-      const filterButtons = document.querySelectorAll(
-        ".map-controls button[data-filter]",
-      );
-      filterButtons.forEach((btn) => {
-        // Remove all possible style classes to prevent conflicts
-        btn.classList.remove(
-          "active",
-          "btn-primary",
-          "btn-outline-primary",
-          "btn-success",
-          "btn-outline-success",
-          "btn-danger",
-          "btn-outline-danger",
-          "btn-warning",
-          "btn-outline-warning",
-        );
-
-        let buttonClass = "";
-        // Determine the class based on whether the button's filter is the current one
-        if (btn.dataset.filter === this.currentFilter) {
-          btn.classList.add("active"); // Add active class if it's selected
-          // Assign the solid button style
-          if (this.currentFilter === "driven") buttonClass = "btn-success";
-          else if (this.currentFilter === "undriven")
-            buttonClass = "btn-danger";
-          else if (this.currentFilter === "undriveable")
-            buttonClass = "btn-warning";
-          else buttonClass = "btn-primary"; // for 'all' filter
-        } else {
-          // Assign the outline button style for inactive buttons
-          if (btn.dataset.filter === "driven")
-            buttonClass = "btn-outline-success";
-          else if (btn.dataset.filter === "undriven")
-            buttonClass = "btn-outline-danger";
-          else if (btn.dataset.filter === "undriveable")
-            buttonClass = "btn-outline-warning";
-          else buttonClass = "btn-outline-primary"; // for 'all' filter
-        }
-
-        btn.classList.add(buttonClass);
-      });
-    }
-
-    static getStageIcon(stage) {
-      const icons = {
-        [STATUS.INITIALIZING]: '<i class="fas fa-cog fa-spin"></i>',
-        [STATUS.PREPROCESSING]: '<i class="fas fa-map-marked-alt"></i>',
-        [STATUS.LOADING_STREETS]: '<i class="fas fa-map"></i>',
-        [STATUS.INDEXING]: '<i class="fas fa-project-diagram"></i>',
-        [STATUS.COUNTING_TRIPS]: '<i class="fas fa-calculator"></i>',
-        [STATUS.PROCESSING_TRIPS]: '<i class="fas fa-route fa-spin"></i>',
-        [STATUS.CALCULATING]: '<i class="fas fa-cogs fa-spin"></i>',
-        [STATUS.FINALIZING]: '<i class="fas fa-chart-line"></i>',
-        [STATUS.GENERATING_GEOJSON]: '<i class="fas fa-file-code fa-spin"></i>',
-        [STATUS.COMPLETE_STATS]: '<i class="fas fa-check"></i>',
-        [STATUS.COMPLETE]: '<i class="fas fa-check-circle"></i>',
-        [STATUS.COMPLETED]: '<i class="fas fa-check-circle"></i>',
-        [STATUS.ERROR]: '<i class="fas fa-exclamation-circle"></i>',
-        [STATUS.WARNING]: '<i class="fas fa-exclamation-triangle"></i>',
-        [STATUS.CANCELED]: '<i class="fas fa-ban"></i>',
-        [STATUS.POLLING_CHECK]: '<i class="fas fa-sync-alt fa-spin"></i>',
-        [STATUS.UNKNOWN]: '<i class="fas fa-question-circle"></i>',
-        [STATUS.POST_PREPROCESSING]: '<i class="fas fa-cog fa-spin"></i>',
-      };
-      return icons[stage] || icons[STATUS.UNKNOWN];
-    }
-
-    static getStageTextClass(stage) {
-      const classes = {
-        [STATUS.COMPLETE]: "text-success",
-        [STATUS.COMPLETED]: "text-success",
-        [STATUS.ERROR]: "text-danger",
-        [STATUS.WARNING]: "text-warning",
-        [STATUS.CANCELED]: "text-warning",
-        [STATUS.POST_PREPROCESSING]: "text-info",
-      };
-      return classes[stage] || "text-info";
-    }
-
-    static formatStageName(stage) {
-      const stageNames = {
-        [STATUS.INITIALIZING]: "Initializing",
-        [STATUS.PREPROCESSING]: "Fetching Streets",
-        [STATUS.LOADING_STREETS]: "Loading Streets",
-        [STATUS.INDEXING]: "Building Index",
-        [STATUS.COUNTING_TRIPS]: "Analyzing Trips",
-        [STATUS.PROCESSING_TRIPS]: "Processing Trips",
-        [STATUS.CALCULATING]: "Calculating Coverage",
-        [STATUS.FINALIZING]: "Calculating Stats",
-        [STATUS.GENERATING_GEOJSON]: "Generating Map",
-        [STATUS.COMPLETE_STATS]: "Finalizing",
-        [STATUS.COMPLETE]: "Complete",
-        [STATUS.COMPLETED]: "Complete",
-        [STATUS.ERROR]: "Error",
-        [STATUS.WARNING]: "Warning",
-        [STATUS.CANCELED]: "Canceled",
-        [STATUS.POLLING_CHECK]: "Checking Status",
-        [STATUS.UNKNOWN]: "Unknown",
-        [STATUS.POST_PREPROCESSING]: "Post-processing",
-      };
-      return (
-        stageNames[stage] ||
-        stage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-      );
-    }
-
-    static formatStreetType(type) {
-      if (!type) return "Unknown";
-      return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-    }
-
-    setupTripLayers() {
-      if (!this.coverageMap || !this.coverageMap.isStyleLoaded()) return;
-      if (!this.coverageMap.getSource("trips-source")) {
-        this.coverageMap.addSource("trips-source", {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
-      }
-      if (!this.coverageMap.getLayer("trips-layer")) {
-        this.coverageMap.addLayer(
-          {
-            id: "trips-layer",
-            type: "line",
-            source: "trips-source",
-            layout: { "line-join": "round", "line-cap": "round" },
-            paint: {
-              "line-color": "#3388ff",
-              "line-width": 2.5,
-              "line-opacity": 0.75,
-              "line-blur": 0.5,
-            },
-          },
-          "streets-layer",
-        ); // Add below streets
-      }
-    }
-
-    clearTripOverlay() {
-      if (!this.coverageMap || !this.coverageMap.getSource("trips-source"))
-        return;
-      try {
-        this.coverageMap
-          .getSource("trips-source")
-          .setData({ type: "FeatureCollection", features: [] });
-      } catch (error) {
-        console.warn("Error clearing trip overlay:", error);
-      }
-    }
-
-    async loadTripsForView() {
-      if (
-        !this.coverageMap ||
-        !this.showTripsActive ||
-        !this.coverageMap.isStyleLoaded()
-      )
-        return;
-      this.setupTripLayers();
-      const tripsSource = this.coverageMap.getSource("trips-source");
-      if (!tripsSource) return;
-
-      const bounds = this.coverageMap.getBounds();
-      const sw = bounds.getSouthWest();
-      const ne = bounds.getNorthEast();
-      const zoom = this.coverageMap.getZoom();
-
-      if (zoom < 12) {
-        // Only load trips if zoomed in sufficiently
-        this.notificationManager.show(
-          "Zoom in further to view trip overlays.",
-          "info",
-          2000,
-        );
-        this.clearTripOverlay();
-        return;
-      }
-
-      const params = new URLSearchParams({
-        min_lat: sw.lat.toFixed(6),
-        min_lon: sw.lng.toFixed(6),
-        max_lat: ne.lat.toFixed(6),
-        max_lon: ne.lng.toFixed(6),
-      });
-      try {
-        const response = await fetch(
-          `/api/trips_in_bounds?${params.toString()}`,
-        );
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || `HTTP Error ${response.status}`);
-        }
-        const data = await response.json();
-        if (!data || !Array.isArray(data.trips))
-          throw new Error("Invalid trip data received.");
-
-        const tripFeatures = data.trips
-          .map((coords, index) => {
-            if (
-              !Array.isArray(coords) ||
-              coords.length < 2 ||
-              !Array.isArray(coords[0]) ||
-              coords[0].length < 2
-            )
-              return null;
-            return {
-              type: "Feature",
-              properties: { tripId: `trip-${index}` },
-              geometry: { type: "LineString", coordinates: coords },
-            };
-          })
-          .filter((feature) => feature !== null);
-
-        tripsSource.setData({
-          type: "FeatureCollection",
-          features: tripFeatures,
-        });
-      } catch (error) {
-        this.notificationManager.show(
-          `Failed to load trip overlay: ${error.message}`,
-          "danger",
-        );
-        this.clearTripOverlay();
-      }
-    }
-
-    createMapInfoPanel() {
-      if (document.querySelector(".map-info-panel")) return;
-      this.mapInfoPanel = document.createElement("div");
-      this.mapInfoPanel.className = "map-info-panel";
-      this.mapInfoPanel.style.display = "none";
-      const mapContainer = document.getElementById("coverage-map");
-      if (mapContainer) mapContainer.appendChild(this.mapInfoPanel);
-      else console.warn("Map container not found for info panel.");
-    }
-
-    updateMapInfoPanel(props, isHover = false) {
-      if (!this.mapInfoPanel) return;
-      const streetName = props.name || props.street_name || "Unnamed Street";
-      const streetType =
-        props.highway || props.inferred_highway_type || "unknown";
-      const segmentLength = parseFloat(
-        props.segment_length || props.segment_length_m || props.length || 0,
-      );
-      const lengthFormatted =
-        CoverageManager.distanceInUserUnits(segmentLength);
-      const isDriven =
-        props.driven === true || String(props.driven).toLowerCase() === "true";
-      const isUndriveable =
-        props.undriveable === true ||
-        String(props.undriveable).toLowerCase() === "true";
-      const status = isDriven ? "Driven" : "Not Driven";
-      const segmentId = props.segment_id || "N/A";
-
-      this.mapInfoPanel.innerHTML = `
-        <strong class="d-block mb-1">${streetName}</strong>
-        ${isHover ? "" : '<hr class="panel-divider my-1">'}
-        <div class="d-flex justify-content-between small"><span class="text-muted">Type:</span><span class="text-info">${CoverageManager.formatStreetType(
-          streetType,
-        )}</span></div>
-        <div class="d-flex justify-content-between small"><span class="text-muted">Length:</span><span class="text-info">${lengthFormatted}</span></div>
-        <div class="d-flex justify-content-between small"><span class="text-muted">Status:</span><span class="${
-          isDriven ? "text-success" : "text-danger"
-        }"><i class="fas fa-${
-          isDriven ? "check-circle" : "times-circle"
-        } me-1"></i>${status}</span></div>
-        ${
-          isUndriveable
-            ? `<div class="d-flex justify-content-between small"><span class="text-muted">Marked:</span><span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Undriveable</span></div>`
-            : ""
-        }
-        ${
-          isHover
-            ? ""
-            : `<div class="d-flex justify-content-between small mt-1"><span class="text-muted">ID:</span><span class="text-muted">${segmentId.substring(
-                0,
-                12,
-              )}...</span></div><div class="mt-2 small text-center text-muted opacity-75">Click segment for actions</div>`
-        }`;
-      if (!isHover) this.mapInfoPanel.style.display = "block";
-    }
-
     createStreetTypeChart(streetTypes) {
-      const chartContainer = document.getElementById("street-type-chart");
-      if (!chartContainer) return;
-      if (this.streetTypeChartInstance) this.streetTypeChartInstance.destroy();
-
-      if (!streetTypes || !streetTypes.length) {
-        chartContainer.innerHTML = CoverageManager.createAlertMessage(
-          "No Data",
-          "No street type data available for chart.",
-          "secondary",
+      if (window.CoverageModules?.Dashboard?.createStreetTypeChart) {
+        return window.CoverageModules.Dashboard.createStreetTypeChart(
+          this,
+          streetTypes,
         );
-        return;
       }
-
-      const sortedTypes = [...streetTypes]
-        .sort((a, b) => (b.total_length_m || 0) - (a.total_length_m || 0))
-        .slice(0, 10); // Top 10 types
-      const labels = sortedTypes.map((t) =>
-        CoverageManager.formatStreetType(t.type),
-      );
-      const covered = sortedTypes.map(
-        (t) => (t.covered_length_m || 0) * 0.000621371,
-      );
-      const driveable = sortedTypes.map(
-        (t) => (t.driveable_length_m || 0) * 0.000621371,
-      );
-      const coveragePct = sortedTypes.map((t) => t.coverage_percentage || 0);
-
-      chartContainer.innerHTML =
-        '<canvas id="streetTypeChartCanvas" style="min-height: 180px;"></canvas>';
-      const ctx = document
-        .getElementById("streetTypeChartCanvas")
-        .getContext("2d");
-
-      this.streetTypeChartInstance = new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Covered (mi)",
-              data: covered,
-              backgroundColor: "#4caf50",
-              order: 1,
-            },
-            {
-              label: "Driveable (mi)",
-              data: driveable,
-              backgroundColor: "#607d8b",
-              order: 1,
-            },
-            {
-              label: "% Covered",
-              data: coveragePct,
-              type: "line",
-              yAxisID: "y1",
-              borderColor: "#ffb300",
-              tension: 0.2,
-              order: 0,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: "bottom",
-              labels: { color: "#fff", boxWidth: 15, padding: 15 },
-            },
-            tooltip: {
-              mode: "index",
-              intersect: false,
-              callbacks: {
-                label: (ctx) =>
-                  `${ctx.dataset.label}: ${
-                    ctx.dataset.label === "% Covered"
-                      ? `${ctx.parsed.y.toFixed(1)}%`
-                      : `${ctx.parsed.y.toFixed(2)} mi`
-                  }`,
-              },
-            },
-          },
-          scales: {
-            x: {
-              ticks: { color: "#ccc", font: { size: 10 } },
-              grid: { color: "rgba(255,255,255,0.05)" },
-            },
-            y: {
-              beginAtZero: true,
-              title: { display: true, text: "Distance (mi)", color: "#ccc" },
-              ticks: { color: "#ccc" },
-              grid: { color: "rgba(255,255,255,0.1)" },
-            },
-            y1: {
-              beginAtZero: true,
-              position: "right",
-              title: { display: true, text: "% Covered", color: "#ffb300" },
-              ticks: { color: "#ffb300", callback: (v) => `${v}%` },
-              grid: { drawOnChartArea: false },
-              min: 0,
-              max: 100,
-            },
-          },
-        },
-      });
     }
 
     addCoverageSummary(coverage) {
@@ -4682,236 +2768,15 @@ const STATUS = window.STATUS || {
       }
     }
 
-    exportCoverageMap() {
-      const mapContainer = document.getElementById("coverage-map");
-      if (!this.coverageMap || !mapContainer) {
-        this.notificationManager.show("Map not ready for export.", "warning");
-        return;
-      }
-      this.notificationManager.show("Preparing map export...", "info");
-
-      const doExport = () => {
-        setTimeout(() => {
-          // Allow map to render fully
-          html2canvas(mapContainer, {
-            useCORS: true,
-            backgroundColor: "#1e1e1e",
-            logging: false,
-            allowTaint: true,
-            width: mapContainer.offsetWidth,
-            height: mapContainer.offsetHeight,
-          })
-            .then((canvas) => {
-              canvas.toBlob((blob) => {
-                if (!blob) {
-                  this.notificationManager.show(
-                    "Failed to create image blob.",
-                    "danger",
-                  );
-                  return;
-                }
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                const locationName =
-                  this.selectedLocation?.location?.display_name ||
-                  "coverage_map";
-                const dateStr = new Date().toISOString().split("T")[0];
-                a.download = `${locationName
-                  .replace(/[^a-z0-9]/gi, "_")
-                  .toLowerCase()}_${dateStr}.png`;
-                document.body.appendChild(a);
-                a.click();
-                setTimeout(() => {
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                  this.notificationManager.show("Map exported.", "success");
-                }, 100);
-              }, "image/png");
-            })
-            .catch((error) => {
-              console.error("html2canvas export error:", error);
-              this.notificationManager.show(
-                `Map export failed: ${error.message}`,
-                "danger",
-              );
-            });
-        }, 500);
-      };
-
-      if (typeof html2canvas === "undefined") {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-        script.integrity =
-          "sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==";
-        script.crossOrigin = "anonymous";
-        script.onload = doExport;
-        script.onerror = () =>
-          this.notificationManager.show(
-            "Failed to load export library.",
-            "danger",
-          );
-        document.head.appendChild(script);
-      } else {
-        doExport();
-      }
-    }
-
     // New method to find most efficient streets
     async findMostEfficientStreets() {
-      if (!this.selectedLocation || !this.selectedLocation._id) {
-        this.notificationManager.show(
-          "Please select a coverage area first.",
+      if (window.CoverageModules?.Efficient?.findMostEfficientStreets) {
+        return window.CoverageModules.Efficient.findMostEfficientStreets(this);
+      }
+      this.notificationManager?.show(
+        "Efficient module not loaded",
           "warning",
         );
-        return;
-      }
-
-      // Try to get current position
-      let currentLat, currentLon;
-      let positionSource = "unknown";
-
-      try {
-        // First try to get from browser geolocation
-        const position = await this.getCurrentPosition();
-        currentLat = position.coords.latitude;
-        currentLon = position.coords.longitude;
-        positionSource = "browser";
-      } catch (error) {
-        // If geolocation fails, try to get from active trip
-        try {
-          const activeTripResponse = await fetch("/api/trip/active");
-          if (activeTripResponse.ok) {
-            const activeTripData = await activeTripResponse.json();
-            if (
-              activeTripData.trip?.coordinates &&
-              activeTripData.trip.coordinates.length > 0
-            ) {
-              const lastCoord =
-                activeTripData.trip.coordinates[
-                  activeTripData.trip.coordinates.length - 1
-                ];
-              currentLat = lastCoord.lat;
-              currentLon = lastCoord.lon;
-              positionSource = "active-trip";
-            }
-          }
-        } catch (tripError) {
-          // If that fails too, check for last trip
-          try {
-            const lastTripResponse = await fetch("/api/trips?limit=1");
-            if (lastTripResponse.ok) {
-              const tripsData = await lastTripResponse.json();
-              if (tripsData.trips && tripsData.trips.length > 0) {
-                const lastTrip = tripsData.trips[0];
-                if (lastTrip.destinationGeoPoint?.coordinates) {
-                  currentLon = lastTrip.destinationGeoPoint.coordinates[0];
-                  currentLat = lastTrip.destinationGeoPoint.coordinates[1];
-                  positionSource = "last-trip";
-                }
-              }
-            }
-          } catch (lastTripError) {
-            this.notificationManager.show(
-              "Unable to determine current position. Please enable location services or start a trip.",
-              "warning",
-            );
-            return;
-          }
-        }
-      }
-
-      if (currentLat === undefined || currentLon === undefined) {
-        this.notificationManager.show(
-          "Unable to determine current position. Please enable location services or start/complete a trip.",
-          "warning",
-        );
-        return;
-      }
-
-      // Show loading state
-      const btn = document.getElementById("find-efficient-street-btn");
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Finding...';
-      }
-
-      try {
-        const response = await fetch(
-          `/api/driving-navigation/suggest-next-street/${this.selectedLocation._id}?` +
-            `current_lat=${currentLat}&current_lon=${currentLon}&top_n=3`,
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || `HTTP error ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (
-          data.status === "no_streets" ||
-          data.status === "no_valid_streets" ||
-          data.status === "no_clusters"
-        ) {
-          this.notificationManager.show(data.message, "info");
-          this.clearEfficientStreetMarkers(); // Clear any previous suggestions
-          return;
-        }
-
-        if (
-          data.status === "success" &&
-          data.suggested_clusters &&
-          data.suggested_clusters.length > 0
-        ) {
-          this.suggestedEfficientStreets = data.suggested_clusters; // Changed from suggested_streets
-          this.displayEfficientStreets(data.suggested_clusters, positionSource); // Changed from suggested_streets
-
-          // Show notification
-          const topCluster = data.suggested_clusters[0];
-          const distanceMiles = (
-            topCluster.distance_to_cluster_m / 1609.34
-          ).toFixed(1);
-          const lengthMiles = (topCluster.total_length_m / 1609.34).toFixed(2);
-          const startingStreetName = topCluster.nearest_segment.street_name;
-
-          this.notificationManager.show(
-            `Found ${data.suggested_clusters.length} efficient street clusters. ` +
-              `Top cluster (starts with ${startingStreetName}): ${distanceMiles} mi away, ${lengthMiles} mi total length.`,
-            "success",
-            7000, // Increased duration for longer message
-          );
-        } else if (
-          data.suggested_clusters &&
-          data.suggested_clusters.length === 0
-        ) {
-          this.notificationManager.show(
-            "No efficient street clusters found matching criteria.",
-            "info",
-          );
-          this.clearEfficientStreetMarkers();
-        } else {
-          this.notificationManager.show(
-            data.message || "Could not retrieve suggestions.",
-            "warning",
-          );
-          this.clearEfficientStreetMarkers();
-        }
-      } catch (error) {
-        console.error("Error finding efficient streets:", error);
-        this.notificationManager.show(
-          `Error finding efficient streets: ${error.message}`,
-          "danger",
-        );
-        this.clearEfficientStreetMarkers();
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML =
-            '<i class="fas fa-bullseye me-2"></i>Find Most Efficient Streets';
-        }
-      }
     }
 
     // Helper method to get current position
@@ -4936,905 +2801,159 @@ const STATUS = window.STATUS || {
 
     // Display efficient streets on the coverage map
     displayEfficientStreets(clusters, positionSource) {
-      // Argument changed from streets to clusters
-      if (!this.coverageMap || !this.coverageMap.isStyleLoaded()) return;
-
-      // Clear previous markers and feature states
-      this.clearEfficientStreetMarkers(false); // Pass false to not remove panel yet
-
-      this.suggestedEfficientStreets = clusters; // Store the clusters
-
-      const colors = ["#ffd700", "#c0c0c0", "#cd7f32"]; // Gold, Silver, Bronze for ranks
-      const defaultClusterColor = "#9467bd"; // Default for other ranks
-
-      // Add markers and highlights for each suggested cluster
-      clusters.forEach((cluster, index) => {
-        const rank = index + 1;
-        const markerColor = colors[index] || defaultClusterColor;
-
-        // Highlight ALL segments within this cluster
-        if (
-          cluster.segments &&
-          Array.isArray(cluster.segments) &&
-          this.coverageMap.getSource("streets")
-        ) {
-          cluster.segments.forEach((segment) => {
-            const segmentId =
-              segment.segment_id || segment.properties?.segment_id;
-            if (segmentId) {
-              this.coverageMap.setFeatureState(
-                { source: "streets", id: segmentId },
-                { efficientRank: rank }, // Store rank (1-based)
-              );
-            }
-          });
-        }
-
-        // Add marker at the start of the nearest segment in the cluster
-        // (or centroid if preferred, but start_coords is good for navigation start)
-        if (cluster.nearest_segment?.start_coords) {
-          const startPoint = cluster.nearest_segment.start_coords;
-          const el = document.createElement("div");
-          el.className = "efficient-street-marker-mapbox"; // Ensure this class exists or style directly
-          el.innerHTML = `
-            <div style="background-color: ${markerColor}; border: 2px solid white; 
-                 border-radius: 50%; width: 30px; height: 30px; display: flex; 
-                 align-items: center; justify-content: center; font-weight: bold; 
-                 color: ${
-                   index === 0 ? "black" : "white"
-                 }; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-              ${rank}
-            </div>
-          `;
-
-          const marker = new mapboxgl.Marker(el)
-            .setLngLat(startPoint)
-            .setPopup(this.createEfficientStreetPopup(cluster, index)) // Pass cluster and rank
-            .addTo(this.coverageMap);
-
-          this.efficientStreetMarkers.push(marker);
-        } else {
-          console.warn(
-            "Cluster missing nearest_segment.start_coords, cannot place marker:",
-            cluster,
-          );
-        }
-      });
-
-      // Show info panel
-      this.showEfficientStreetsPanel(clusters, positionSource);
-
-      // Fit map to show all suggestions
-      const bounds = new mapboxgl.LngLatBounds();
-      clusters.forEach((cluster) => {
-        // Extend bounds to include all segments in the cluster for better visibility.
-        if (cluster.segments && Array.isArray(cluster.segments)) {
-          cluster.segments.forEach((segment) => {
-            if (
-              segment.geometry &&
-              segment.geometry.type === "LineString" &&
-              segment.geometry.coordinates
-            ) {
-              segment.geometry.coordinates.forEach((coord) =>
-                bounds.extend(coord),
-              );
-            } else if (
-              segment.geometry &&
-              segment.geometry.type === "MultiLineString" &&
-              segment.geometry.coordinates
-            ) {
-              segment.geometry.coordinates.forEach((line) =>
-                line.forEach((coord) => bounds.extend(coord)),
-              );
-            }
-          });
-        } else if (cluster.nearest_segment?.start_coords) {
-          // Fallback to nearest segment start point if full segment data isn't readily available for bounds
-          bounds.extend(cluster.nearest_segment.start_coords);
-        }
-      });
-
-      if (!bounds.isEmpty()) {
-        this.coverageMap.fitBounds(bounds, {
-          padding: { top: 100, bottom: 50, left: 50, right: 400 },
-          maxZoom: 17,
-        }); // Increased right padding if panel is on right
+      if (window.CoverageModules?.Efficient?.displayEfficientStreets) {
+        return window.CoverageModules.Efficient.displayEfficientStreets(
+          this,
+          clusters,
+          positionSource,
+        );
       }
     }
 
     // Create popup for efficient street
     createEfficientStreetPopup(cluster, rank) {
-      // Argument changed to cluster
-      const nearestSegment = cluster.nearest_segment;
-      const streetName = nearestSegment.street_name || "Unnamed Street";
-
-      const totalLengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
-      const distanceToClusterMiles = (
-        cluster.distance_to_cluster_m / 1609.34
-      ).toFixed(1);
-      const efficiencyScore = cluster.efficiency_score.toFixed(2);
-      const segmentCount = cluster.segment_count;
-
-      const popup = new mapboxgl.Popup({
-        closeButton: true,
-        closeOnClick: true,
-        maxWidth: "320px", // Adjusted max width
-      });
-
-      const content = `
-        <div class="efficient-street-popup p-3">
-          <h6 class="mb-2 fw-bold text-primary">#${
-            rank + 1
-          } Efficient Cluster</h6>
-          <div class="mb-1"><strong>Starts with:</strong> ${streetName}</div>
-          <div class="small text-muted mb-2">Cluster ID: ${cluster.cluster_id.substring(
-            0,
-            8,
-          )}...</div>
-          
-          <div class="efficiency-metrics small">
-            <div><i class="fas fa-ruler text-info me-1"></i> Total Length: ${totalLengthMiles} mi</div>
-            <div><i class="fas fa-road text-info me-1"></i> Segments: ${segmentCount}</div>
-            <div><i class="fas fa-location-arrow text-warning me-1"></i> Approx. Distance: ${distanceToClusterMiles} mi</div>
-            <div><i class="fas fa-chart-line text-success me-1"></i> Efficiency Score: ${efficiencyScore}</div>
-          </div>
-          
-          <hr class="my-2">
-          <div class="text-center">
-            <button class="btn btn-sm btn-outline-light copy-segment-id-btn" data-segment-id="${
-              nearestSegment.segment_id
-            }" title="Copy ID of starting segment">
-              <i class="fas fa-copy me-1"></i> Copy Start Segment ID
-            </button>
-          </div>
-        </div>
-      `;
-
-      popup.setHTML(content);
-
-      popup.on("open", () => {
-        const copyButton = popup
-          .getElement()
-          .querySelector(".copy-segment-id-btn");
-        if (copyButton) {
-          copyButton.addEventListener("click", (e) => {
-            e.stopPropagation();
-            const segmentId = e.target.dataset.segmentId;
-            navigator.clipboard.writeText(segmentId).then(() => {
-              this.notificationManager.show(
-                "Segment ID copied to clipboard",
-                "success",
-                2000,
-              );
-            });
-          });
-        }
-      });
-
-      return popup;
+      if (window.CoverageModules?.Efficient?.createEfficientStreetPopup) {
+        return window.CoverageModules.Efficient.createEfficientStreetPopup(
+          this,
+          cluster,
+          rank,
+        );
+      }
     }
 
     // Show efficient streets panel
     showEfficientStreetsPanel(clusters, positionSource) {
-      // Argument changed to clusters
-      let panel = document.getElementById("efficient-streets-panel");
-      if (!panel) {
-        panel = document.createElement("div");
-        panel.id = "efficient-streets-panel";
-        panel.className = "efficient-streets-panel-overlay";
-        const dashboard =
-          document.getElementById("coverage-dashboard") || document.body;
-        dashboard.appendChild(panel);
-      }
-
-      let html = `
-        <div class="card bg-dark text-white">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h6 class="mb-0">
-              <i class="fas fa-bullseye me-2"></i>Most Efficient Street Clusters
-            </h6>
-            <button type="button" class="btn-close btn-close-white" 
-                    onclick="document.getElementById('efficient-streets-panel').remove(); window.coverageManager.clearEfficientStreetMarkers(false);">
-            </button>
-          </div>
-          <div class="card-body" style="max-height: 300px; overflow-y: auto;">
-            <small class="text-muted d-block mb-2">Position source: ${positionSource}</small>
-      `;
-
-      clusters.forEach((cluster, index) => {
-        const nearestSegment = cluster.nearest_segment;
-        const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(
-          1,
+      if (window.CoverageModules?.Efficient?.showEfficientStreetsPanel) {
+        return window.CoverageModules.Efficient.showEfficientStreetsPanel(
+          this,
+          clusters,
+          positionSource,
         );
-        const totalLengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
-        const score = cluster.efficiency_score.toFixed(2);
-        const colors = ["#ffd700", "#c0c0c0", "#cd7f32"];
-        const borderColor = colors[index] || "#9467bd";
-
-        html += `
-          <div class="efficient-street-item mb-2 p-2" style="border-left: 4px solid ${borderColor};">
-            <div class="d-flex justify-content-between align-items-start">
-              <div class="flex-grow-1">
-                <div class="d-flex align-items-center mb-1">
-                  <span class="badge bg-secondary me-2">#${index + 1}</span>
-                  <strong>Starts with: ${nearestSegment.street_name}</strong>
-                </div>
-                <div class="small">
-                  <span class="me-3" title="Total length of segments in cluster"><i class="fas fa-ruler"></i> ${totalLengthMiles} mi (${
-                    cluster.segment_count
-                  } segs)</span>
-                  <span class="me-3" title="Approx. distance to cluster centroid"><i class="fas fa-location-arrow"></i> ${distanceMiles} mi</span>
-                  <span title="Efficiency score"><i class="fas fa-chart-line"></i> Score: ${score}</span>
-                </div>
-              </div>
-              <button class="btn btn-sm btn-outline-light focus-street-btn" 
-                      title="Focus map on start of this cluster"
-                      data-coords="${nearestSegment.start_coords.join(",")}"
-                      data-segment-id="${nearestSegment.segment_id}">
-                <i class="fas fa-crosshairs"></i>
-              </button>
-            </div>
-          </div>
-        `;
-      });
-
-      html += `
-            <div class="mt-3 text-muted small">
-              <i class="fas fa-info-circle"></i> Higher score = longer, more compact cluster, closer to you.
-            </div>
-          </div>
-        </div>
-      `;
-
-      panel.innerHTML = html;
-
-      panel.querySelectorAll(".focus-street-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const coords = btn.dataset.coords.split(",").map(Number);
-          if (this.coverageMap) {
-            this.coverageMap.flyTo({ center: coords, zoom: 17 });
-          }
-        });
-      });
+      }
     }
 
     // Clear efficient street markers and their feature states
     clearEfficientStreetMarkers(removePanel = true) {
-      this.efficientStreetMarkers.forEach((marker) => marker.remove());
-      this.efficientStreetMarkers = [];
-
-      if (
-        this.coverageMap &&
-        this.suggestedEfficientStreets &&
-        this.coverageMap.getSource("streets")
-      ) {
-        this.suggestedEfficientStreets.forEach((cluster) => {
-          if (cluster.segments && Array.isArray(cluster.segments)) {
-            cluster.segments.forEach((segment) => {
-              const segmentId =
-                segment.segment_id || segment.properties?.segment_id;
-              if (segmentId && this.coverageMap.getSource("streets")) {
-                // Check source again
-                try {
-                  this.coverageMap.removeFeatureState(
-                    { source: "streets", id: segmentId },
-                    "efficientRank",
-                  );
-                } catch (e) {
-                  // console.warn(`Could not remove feature state for segment ${segmentId}: ${e.message}`);
-                }
-              }
-            });
-          }
-        });
-      }
-
-      this.suggestedEfficientStreets = []; // Clear the stored suggestions
-
-      if (removePanel) {
-        const panel = document.getElementById("efficient-streets-panel");
-        if (panel) panel.remove();
+      if (window.CoverageModules?.Efficient?.clearEfficientStreetMarkers) {
+        return window.CoverageModules.Efficient.clearEfficientStreetMarkers(
+          this,
+          removePanel,
+        );
       }
     }
 
     // Drawing Interface Methods
     handleAreaDefinitionTypeChange(type) {
-      this.currentAreaDefinitionType = type;
-
-      const locationSearchForm = document.getElementById(
-        "location-search-form",
-      );
-      const drawingInterface = document.getElementById("drawing-interface");
-      const locationSearchButtons = document.getElementById(
-        "location-search-buttons",
-      );
-      const drawingButtons = document.getElementById("drawing-buttons");
-
-      if (type === "location") {
-        locationSearchForm?.classList.remove("d-none");
-        drawingInterface?.classList.add("d-none");
-        locationSearchButtons?.classList.remove("d-none");
-        drawingButtons?.classList.add("d-none");
-
-        // Clean up drawing map if it exists
-        this.cleanupDrawingMap();
-      } else if (type === "draw") {
-        locationSearchForm?.classList.add("d-none");
-        drawingInterface?.classList.remove("d-none");
-        locationSearchButtons?.classList.add("d-none");
-        drawingButtons?.classList.remove("d-none");
-
-        // Initialize drawing map
-        this.initializeDrawingMap();
+      if (window.CoverageModules?.Drawing?.handleAreaDefinitionTypeChange) {
+        return window.CoverageModules.Drawing.handleAreaDefinitionTypeChange(
+          this,
+          type,
+        );
       }
-
-      // Reset validation states
-      this.resetModalValidationState();
     }
 
     initializeDrawingMap() {
-      if (this.drawingMap) {
-        this.cleanupDrawingMap();
-      }
-
-      if (!window.MAPBOX_ACCESS_TOKEN) {
-        this.showDrawingError(
-          "Mapbox token not configured. Cannot initialize drawing map.",
-        );
-        return;
-      }
-
-      try {
-        mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
-
-        this.drawingMap = new mapboxgl.Map({
-          container: "drawing-map",
-          style: "mapbox://styles/mapbox/dark-v11",
-          center: [-97.1467, 31.5494], // Default to Waco, TX
-          zoom: 10,
-          attributionControl: false,
-        });
-
-        // Add draw control
-        if (window.MapboxDraw) {
-          this.drawingMapDraw = new MapboxDraw({
-            displayControlsDefault: false,
-            controls: {
-              polygon: true,
-              trash: true,
-            },
-            defaultMode: "draw_polygon",
-            styles: [
-              // Polygon fill
-              {
-                id: "gl-draw-polygon-fill-inactive",
-                type: "fill",
-                filter: [
-                  "all",
-                  ["==", "active", "false"],
-                  ["==", "$type", "Polygon"],
-                  ["!=", "mode", "static"],
-                ],
-                paint: {
-                  "fill-color": "#3bb2d0",
-                  "fill-outline-color": "#3bb2d0",
-                  "fill-opacity": 0.1,
-                },
-              },
-              // Polygon outline
-              {
-                id: "gl-draw-polygon-stroke-inactive",
-                type: "line",
-                filter: [
-                  "all",
-                  ["==", "active", "false"],
-                  ["==", "$type", "Polygon"],
-                  ["!=", "mode", "static"],
-                ],
-                layout: {
-                  "line-cap": "round",
-                  "line-join": "round",
-                },
-                paint: {
-                  "line-color": "#3bb2d0",
-                  "line-width": 2,
-                },
-              },
-              // Active polygon fill
-              {
-                id: "gl-draw-polygon-fill-active",
-                type: "fill",
-                filter: [
-                  "all",
-                  ["==", "active", "true"],
-                  ["==", "$type", "Polygon"],
-                ],
-                paint: {
-                  "fill-color": "#fbb03b",
-                  "fill-outline-color": "#fbb03b",
-                  "fill-opacity": 0.1,
-                },
-              },
-              // Active polygon outline
-              {
-                id: "gl-draw-polygon-stroke-active",
-                type: "line",
-                filter: [
-                  "all",
-                  ["==", "active", "true"],
-                  ["==", "$type", "Polygon"],
-                ],
-                layout: {
-                  "line-cap": "round",
-                  "line-join": "round",
-                },
-                paint: {
-                  "line-color": "#fbb03b",
-                  "line-width": 2,
-                },
-              },
-              // Vertex points
-              {
-                id: "gl-draw-polygon-midpoint",
-                type: "circle",
-                filter: [
-                  "all",
-                  ["==", "$type", "Point"],
-                  ["==", "meta", "midpoint"],
-                ],
-                paint: {
-                  "circle-radius": 3,
-                  "circle-color": "#fbb03b",
-                },
-              },
-              // Active vertex points
-              {
-                id: "gl-draw-polygon-vertex-active",
-                type: "circle",
-                filter: [
-                  "all",
-                  ["==", "$type", "Point"],
-                  ["==", "meta", "vertex"],
-                  ["==", "active", "true"],
-                ],
-                paint: {
-                  "circle-radius": 5,
-                  "circle-color": "#fbb03b",
-                },
-              },
-              // Inactive vertex points
-              {
-                id: "gl-draw-polygon-vertex-inactive",
-                type: "circle",
-                filter: [
-                  "all",
-                  ["==", "$type", "Point"],
-                  ["==", "meta", "vertex"],
-                  ["==", "active", "false"],
-                ],
-                paint: {
-                  "circle-radius": 3,
-                  "circle-color": "#3bb2d0",
-                },
-              },
-            ],
-          });
-
-          this.drawingMap.addControl(this.drawingMapDraw);
-
-          // Add event listeners
-          this.drawingMap.on("draw.create", (e) => {
-            this.handleDrawingCreate(e);
-          });
-
-          this.drawingMap.on("draw.update", (e) => {
-            this.handleDrawingUpdate(e);
-          });
-
-          this.drawingMap.on("draw.delete", (e) => {
-            this.handleDrawingDelete(e);
-          });
-        } else {
-          this.showDrawingError(
-            "MapboxDraw library not loaded. Cannot enable drawing functionality.",
-          );
-        }
-
-        // Add navigation controls
-        this.drawingMap.addControl(
-          new mapboxgl.NavigationControl(),
-          "top-right",
-        );
-      } catch (error) {
-        console.error("Error initializing drawing map:", error);
-        this.showDrawingError(
-          `Failed to initialize drawing map: ${error.message}`,
-        );
+      if (window.CoverageModules?.Drawing?.initializeDrawingMap) {
+        return window.CoverageModules.Drawing.initializeDrawingMap(this);
       }
     }
 
     handleDrawingCreate(e) {
-      if (e.features && e.features.length > 0) {
-        const feature = e.features[0];
-        this.updateDrawingValidationState(feature);
+      if (window.CoverageModules?.Drawing?.handleDrawingCreate) {
+        return window.CoverageModules.Drawing.handleDrawingCreate(this, e);
       }
     }
 
     handleDrawingUpdate(e) {
-      if (e.features && e.features.length > 0) {
-        const feature = e.features[0];
-        this.updateDrawingValidationState(feature);
+      if (window.CoverageModules?.Drawing?.handleDrawingUpdate) {
+        return window.CoverageModules.Drawing.handleDrawingUpdate(this, e);
       }
     }
 
     handleDrawingDelete(e) {
-      this.clearDrawingValidationState();
+      if (window.CoverageModules?.Drawing?.handleDrawingDelete) {
+        return window.CoverageModules.Drawing.handleDrawingDelete(this, e);
+      }
     }
 
     updateDrawingValidationState(feature) {
-      const validateButton = document.getElementById("validate-drawing");
-      const addButton = document.getElementById("add-custom-area");
-
-      if (validateButton) validateButton.disabled = false;
-      if (addButton) addButton.disabled = true;
-
-      this.validatedCustomBoundary = null;
-      this.hideDrawingValidationResult();
+      if (window.CoverageModules?.Drawing?.updateDrawingValidationState) {
+        return window.CoverageModules.Drawing.updateDrawingValidationState(
+          this,
+          feature,
+        );
+      }
     }
 
     clearDrawingValidationState() {
-      const validateButton = document.getElementById("validate-drawing");
-      const addButton = document.getElementById("add-custom-area");
-
-      if (validateButton) validateButton.disabled = true;
-      if (addButton) addButton.disabled = true;
-
-      this.validatedCustomBoundary = null;
-      this.hideDrawingValidationResult();
+      if (window.CoverageModules?.Drawing?.clearDrawingValidationState) {
+        return window.CoverageModules.Drawing.clearDrawingValidationState(
+          this,
+        );
+      }
     }
 
     clearDrawing() {
-      if (this.drawingMapDraw) {
-        this.drawingMapDraw.deleteAll();
-        this.clearDrawingValidationState();
+      if (window.CoverageModules?.Drawing?.clearDrawing) {
+        return window.CoverageModules.Drawing.clearDrawing(this);
       }
     }
 
     cleanupDrawingMap() {
-      if (this.drawingMap) {
-        try {
-          this.drawingMap.remove();
-        } catch (e) {
-          console.warn("Error removing drawing map:", e);
-        }
-        this.drawingMap = null;
-        this.drawingMapDraw = null;
+      if (window.CoverageModules?.Drawing?.cleanupDrawingMap) {
+        return window.CoverageModules.Drawing.cleanupDrawingMap(this);
       }
     }
 
     resetModalState() {
-      // Reset to location search mode
-      const locationRadio = document.getElementById("area-type-location");
-      if (locationRadio) {
-        locationRadio.checked = true;
-        this.handleAreaDefinitionTypeChange("location");
+      if (window.CoverageModules?.Drawing?.resetModalState) {
+        return window.CoverageModules.Drawing.resetModalState(this);
       }
-
-      // Clear form inputs
-      const locationInput = document.getElementById("location-input");
-      const customAreaName = document.getElementById("custom-area-name");
-
-      if (locationInput) {
-        locationInput.value = "";
-        locationInput.classList.remove("is-valid", "is-invalid");
-      }
-
-      if (customAreaName) {
-        customAreaName.value = "";
-      }
-
-      // Reset validation states
-      this.resetModalValidationState();
     }
 
     resetModalValidationState() {
-      this.validatedLocation = null;
-      this.validatedCustomBoundary = null;
-
-      // Hide validation results
-      const validationResult = document.getElementById("validation-result");
-      const drawingValidationResult = document.getElementById(
-        "drawing-validation-result",
-      );
-
-      if (validationResult) validationResult.classList.add("d-none");
-      if (drawingValidationResult)
-        drawingValidationResult.classList.add("d-none");
-
-      // Disable add buttons
-      const addLocationButton = document.getElementById("add-coverage-area");
-      const addCustomButton = document.getElementById("add-custom-area");
-
-      if (addLocationButton) addLocationButton.disabled = true;
-      if (addCustomButton) addCustomButton.disabled = true;
+      if (window.CoverageModules?.Drawing?.resetModalValidationState) {
+        return window.CoverageModules.Drawing.resetModalValidationState(this);
+      }
     }
 
     showDrawingError(message) {
-      const mapContainer = document.getElementById("drawing-map");
-      if (mapContainer) {
-        mapContainer.innerHTML = `
-          <div class="alert alert-danger m-3">
-            <i class="fas fa-exclamation-circle me-2"></i>
-            <strong>Drawing Error:</strong> ${message}
-          </div>
-        `;
+      if (window.CoverageModules?.Drawing?.showDrawingError) {
+        return window.CoverageModules.Drawing.showDrawingError(this, message);
       }
     }
 
     showDrawingValidationResult(data) {
-      const resultDiv = document.getElementById("drawing-validation-result");
-      const messageSpan = resultDiv?.querySelector(
-        ".drawing-validation-message",
-      );
-
-      if (resultDiv && messageSpan) {
-        messageSpan.textContent = `Custom area "${data.display_name}" validated successfully! (${data.stats.total_points} points, ${data.stats.rings} ring${data.stats.rings > 1 ? "s" : ""})`;
-        resultDiv.classList.remove("d-none");
+      if (window.CoverageModules?.Drawing?.showDrawingValidationResult) {
+        return window.CoverageModules.Drawing.showDrawingValidationResult(
+          this,
+          data,
+        );
       }
     }
 
     hideDrawingValidationResult() {
-      const resultDiv = document.getElementById("drawing-validation-result");
-      if (resultDiv) {
-        resultDiv.classList.add("d-none");
+      if (window.CoverageModules?.Drawing?.hideDrawingValidationResult) {
+        return window.CoverageModules.Drawing.hideDrawingValidationResult();
       }
     }
 
     async validateCustomBoundary() {
-      const customAreaNameInput = document.getElementById("custom-area-name");
-      const validateButton = document.getElementById("validate-drawing");
-      const addButton = document.getElementById("add-custom-area");
-
-      if (!customAreaNameInput || !validateButton) {
-        console.error("Required form elements not found.");
-        return;
-      }
-
-      const areaName = customAreaNameInput.value.trim();
-      if (!areaName) {
-        customAreaNameInput.classList.add("is-invalid", "shake-animation");
-        this.notificationManager.show("Please enter an area name.", "warning");
-        return;
-      }
-
-      if (!this.drawingMapDraw) {
-        this.notificationManager.show(
-          "Drawing functionality not initialized.",
-          "danger",
-        );
-        return;
-      }
-
-      const drawnFeatures = this.drawingMapDraw.getAll();
-      if (!drawnFeatures.features || drawnFeatures.features.length === 0) {
-        this.notificationManager.show(
-          "Please draw a polygon boundary first.",
-          "warning",
-        );
-        return;
-      }
-
-      const polygon = drawnFeatures.features[0];
-      if (polygon.geometry.type !== "Polygon") {
-        this.notificationManager.show(
-          "Please draw a polygon boundary.",
-          "warning",
-        );
-        return;
-      }
-
-      // Reset validation state
-      customAreaNameInput.classList.remove("is-invalid", "is-valid");
-      if (addButton) addButton.disabled = true;
-      this.validatedCustomBoundary = null;
-      this.hideDrawingValidationResult();
-
-      const originalButtonContent = validateButton.innerHTML;
-      validateButton.disabled = true;
-      validateButton.innerHTML =
-        '<i class="fas fa-spinner fa-spin"></i> Validating...';
-
-      try {
-        const response = await fetch("/api/validate_custom_boundary", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            area_name: areaName,
-            geometry: polygon.geometry,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || `Validation failed`);
-        }
-
-        if (!data || !data.valid) {
-          customAreaNameInput.classList.add("is-invalid");
-          this.notificationManager.show(
-            "Custom boundary validation failed. Please check your drawing.",
-            "warning",
-          );
-        } else {
-          customAreaNameInput.classList.add("is-valid");
-          this.validatedCustomBoundary = data;
-          if (addButton) addButton.disabled = false;
-
-          // Show validation result
-          this.showDrawingValidationResult(data);
-
-          this.notificationManager.show(
-            `Custom boundary "${data.display_name}" validated successfully!`,
-            "success",
-          );
-
-          // Focus add button
-          if (addButton) addButton.focus();
-        }
-      } catch (error) {
-        console.error("Error validating custom boundary:", error);
-        customAreaNameInput.classList.add("is-invalid");
-        this.notificationManager.show(
-          `Validation failed: ${error.message}`,
-          "danger",
-        );
-      } finally {
-        validateButton.disabled = false;
-        validateButton.innerHTML = originalButtonContent;
+      if (window.CoverageModules?.Drawing?.validateCustomBoundary) {
+        return window.CoverageModules.Drawing.validateCustomBoundary(this);
       }
     }
 
     async addCustomCoverageArea() {
-      if (
-        !this.validatedCustomBoundary ||
-        !this.validatedCustomBoundary.display_name
-      ) {
-        this.notificationManager.show(
-          "Please validate your custom boundary first.",
-          "warning",
-        );
-        return;
-      }
-
-      const addButton = document.getElementById("add-custom-area");
-      const modal = bootstrap.Modal.getInstance(
-        document.getElementById("addAreaModal"),
-      );
-
-      if (!addButton) return;
-
-      const originalButtonContent = addButton.innerHTML;
-      addButton.disabled = true;
-      addButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
-
-      const customAreaToAdd = { ...this.validatedCustomBoundary };
-      const segLenEl2 = document.getElementById("segment-length-input");
-      if (segLenEl2?.value) {
-        const val2 = parseInt(segLenEl2.value, 10);
-        if (!isNaN(val2) && val2 > 0)
-          customAreaToAdd.segment_length_meters = val2;
-      }
-      const bufElC = document.getElementById("match-buffer-input");
-      if (bufElC?.value) {
-        const v = parseFloat(bufElC.value);
-        if (!isNaN(v) && v > 0) customAreaToAdd.match_buffer_meters = v;
-      }
-      const minElC = document.getElementById("min-match-length-input");
-      if (minElC?.value) {
-        const v2 = parseFloat(minElC.value);
-        if (!isNaN(v2) && v2 > 0) customAreaToAdd.min_match_length_meters = v2;
-      }
-
-      try {
-        const currentAreasResponse = await fetch("/api/coverage_areas");
-        if (!currentAreasResponse.ok) {
-          throw new Error("Failed to fetch current coverage areas");
-        }
-
-        const { areas } = await currentAreasResponse.json();
-        const exists = areas.some(
-          (area) =>
-            area.location?.display_name === customAreaToAdd.display_name,
-        );
-
-        if (exists) {
-          this.notificationManager.show(
-            "This area name is already being tracked.",
-            "warning",
-          );
-          return;
-        }
-
-        if (modal) modal.hide();
-
-        this.currentProcessingLocation = customAreaToAdd;
-        this.currentTaskId = null;
-        this._addBeforeUnloadListener();
-
-        this.showProgressModal(
-          `Starting processing for ${customAreaToAdd.display_name}...`,
-          0,
-        );
-
-        const preprocessResponse = await fetch(
-          "/api/preprocess_custom_boundary",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(customAreaToAdd),
-          },
-        );
-
-        const taskData = await preprocessResponse.json();
-
-        if (!preprocessResponse.ok) {
-          this.hideProgressModal();
-          throw new Error(taskData.detail || "Failed to start processing");
-        }
-
-        this.notificationManager.show(
-          "Custom coverage area processing started.",
-          "info",
-        );
-
-        if (taskData?.task_id) {
-          this.currentTaskId = taskData.task_id;
-          this.activeTaskIds.add(taskData.task_id);
-          this.saveProcessingState();
-
-          await this.pollCoverageProgress(taskData.task_id);
-
-          this.notificationManager.show(
-            `Processing for ${customAreaToAdd.display_name} completed.`,
-            "success",
-          );
-
-          await this.loadCoverageAreas();
-        } else {
-          this.hideProgressModal();
-          this.notificationManager.show(
-            "Processing started, but no task ID received.",
-            "warning",
-          );
-          await this.loadCoverageAreas();
-        }
-
-        const customAreaName = document.getElementById("custom-area-name");
-        if (customAreaName) {
-          customAreaName.value = "";
-        }
-        this.validatedCustomBoundary = null;
-        this.updateTotalAreasCount();
-      } catch (error) {
-        console.error("Error adding custom coverage area:", error);
-        this.notificationManager.show(
-          `Failed to add custom coverage area: ${error.message}`,
-          "danger",
-        );
-        this.hideProgressModal();
-        await this.loadCoverageAreas();
-      } finally {
-        addButton.disabled = true;
-        addButton.innerHTML = originalButtonContent;
+      if (window.CoverageModules?.Drawing?.addCustomCoverageArea) {
+        return window.CoverageModules.Drawing.addCustomCoverageArea(this);
       }
     }
 
     async reprocessStreetsForArea(locationId) {
       try {
         // Fetch location metadata
-        const resp = await fetch(`/api/coverage_areas/${locationId}`);
-        const data = await resp.json();
+        const data = await window.CoverageAPI.getCoverageArea(locationId);
         if (!data.success || !data.coverage) {
           throw new Error(data.error || "Failed to fetch coverage area");
         }
@@ -5856,26 +2975,13 @@ const STATUS = window.STATUS || {
         location.match_buffer_meters = settings.buffer;
         location.min_match_length_meters = settings.min;
 
-        const endpoint =
-          location.osm_type === "custom"
-            ? "/api/preprocess_custom_boundary"
-            : "/api/preprocess_streets";
-
         // show modal progress
         this.showProgressModal(
           `Reprocessing streets for ${location.display_name} (seg ${settings.segment} m)...`,
           0,
         );
 
-        const resp2 = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(location),
-        });
-        const taskData = await resp2.json();
-        if (!resp2.ok) {
-          throw new Error(taskData.detail || "Failed to start reprocessing");
-        }
+        const taskData = await window.CoverageAPI.reprocess(location);
 
         this.currentProcessingLocation = location;
         this.currentTaskId = taskData.task_id;
@@ -6364,4 +3470,199 @@ const STATUS = window.STATUS || {
     }
     window.coverageManager = new CoverageManager();
   });
+})();
+// Modular overrides to delegate to smaller focused modules and avoid fallback bloat
+// These override class prototype methods with thin delegations to window.CoverageModules
+// to ensure consistency and reduce code paths.
+(function () {
+  if (!window.coverageManager) return;
+  const CM = window.coverageManager.constructor;
+  const proto = CM.prototype;
+
+  // Dashboard
+  proto.displayCoverageDashboard = function (locationId) {
+    if (window.CoverageModules?.Dashboard?.displayCoverageDashboard) {
+      return window.CoverageModules.Dashboard.displayCoverageDashboard(this, locationId);
+    }
+    throw new Error("Dashboard module not loaded");
+  };
+  proto.updateDashboardStats = function (coverage) {
+    if (window.CoverageModules?.Dashboard?.updateDashboardStats) {
+      return window.CoverageModules.Dashboard.updateDashboardStats(this, coverage);
+    }
+  };
+  proto.updateStreetTypeCoverage = function (streetTypes) {
+    if (window.CoverageModules?.Dashboard?.updateStreetTypeCoverage) {
+      return window.CoverageModules.Dashboard.updateStreetTypeCoverage(this, streetTypes);
+    }
+  };
+  proto.initializeCoverageMap = function (coverage) {
+    if (window.CoverageModules?.Dashboard?.initializeCoverageMap) {
+      return window.CoverageModules.Dashboard.initializeCoverageMap(this, coverage);
+    }
+  };
+  proto.addStreetsToMap = function (geojson) {
+    if (window.CoverageModules?.Dashboard?.addStreetsToMap) {
+      return window.CoverageModules.Dashboard.addStreetsToMap(this, geojson);
+    }
+  };
+  proto.fitMapToBounds = function () {
+    if (window.CoverageModules?.Dashboard?.fitMapToBounds) {
+      return window.CoverageModules.Dashboard.fitMapToBounds(this);
+    }
+  };
+  proto.createStreetTypeChart = function (streetTypes) {
+    if (window.CoverageModules?.Dashboard?.createStreetTypeChart) {
+      return window.CoverageModules.Dashboard.createStreetTypeChart(this, streetTypes);
+    }
+  };
+
+  // Progress modal/polling
+  proto.pollCoverageProgress = function (taskId) {
+    if (window.CoverageModules?.Progress?.pollCoverageProgress) {
+      return window.CoverageModules.Progress.pollCoverageProgress(this, taskId);
+    }
+    return Promise.reject(new Error("Progress module not loaded"));
+  };
+  proto.calculatePollInterval = function (stage, retries) {
+    if (window.CoverageModules?.Progress?.calculatePollInterval) {
+      return window.CoverageModules.Progress.calculatePollInterval(stage, retries);
+    }
+    return 5000;
+  };
+  proto.showSuccessAnimation = function () {
+    if (window.CoverageModules?.Progress?.showSuccessAnimation) {
+      return window.CoverageModules.Progress.showSuccessAnimation();
+    }
+  };
+  proto.showErrorState = function (errorMessage) {
+    if (window.CoverageModules?.Progress?.showErrorState) {
+      return window.CoverageModules.Progress.showErrorState(this, errorMessage);
+    }
+  };
+  proto.showRetryOption = function (taskId) {
+    if (window.CoverageModules?.Progress?.showRetryOption) {
+      return window.CoverageModules.Progress.showRetryOption(this, taskId);
+    }
+  };
+  proto.showProgressModal = function (message = "Processing...", progress = 0) {
+    if (window.CoverageModules?.Progress?.showProgressModal) {
+      return window.CoverageModules.Progress.showProgressModal(this, message, progress);
+    }
+  };
+  proto.hideProgressModal = function () {
+    if (window.CoverageModules?.Progress?.hideProgressModal) {
+      return window.CoverageModules.Progress.hideProgressModal();
+    }
+  };
+
+  // Efficient streets
+  proto.findMostEfficientStreets = function () {
+    if (window.CoverageModules?.Efficient?.findMostEfficientStreets) {
+      return window.CoverageModules.Efficient.findMostEfficientStreets(this);
+    }
+    this.notificationManager?.show?.("Efficient module not loaded", "warning");
+  };
+  proto.displayEfficientStreets = function (clusters, source) {
+    if (window.CoverageModules?.Efficient?.displayEfficientStreets) {
+      return window.CoverageModules.Efficient.displayEfficientStreets(this, clusters, source);
+    }
+  };
+  proto.createEfficientStreetPopup = function (cluster, rank) {
+    if (window.CoverageModules?.Efficient?.createEfficientStreetPopup) {
+      return window.CoverageModules.Efficient.createEfficientStreetPopup(this, cluster, rank);
+    }
+  };
+  proto.showEfficientStreetsPanel = function (clusters, source) {
+    if (window.CoverageModules?.Efficient?.showEfficientStreetsPanel) {
+      return window.CoverageModules.Efficient.showEfficientStreetsPanel(this, clusters, source);
+    }
+  };
+  proto.clearEfficientStreetMarkers = function (removePanel = true) {
+    if (window.CoverageModules?.Efficient?.clearEfficientStreetMarkers) {
+      return window.CoverageModules.Efficient.clearEfficientStreetMarkers(this, removePanel);
+    }
+  };
+
+  // Drawing
+  proto.handleAreaDefinitionTypeChange = function (type) {
+    if (window.CoverageModules?.Drawing?.handleAreaDefinitionTypeChange) {
+      return window.CoverageModules.Drawing.handleAreaDefinitionTypeChange(this, type);
+    }
+  };
+  proto.initializeDrawingMap = function () {
+    if (window.CoverageModules?.Drawing?.initializeDrawingMap) {
+      return window.CoverageModules.Drawing.initializeDrawingMap(this);
+    }
+  };
+  proto.handleDrawingCreate = function (e) {
+    if (window.CoverageModules?.Drawing?.handleDrawingCreate) {
+      return window.CoverageModules.Drawing.handleDrawingCreate(this, e);
+    }
+  };
+  proto.handleDrawingUpdate = function (e) {
+    if (window.CoverageModules?.Drawing?.handleDrawingUpdate) {
+      return window.CoverageModules.Drawing.handleDrawingUpdate(this, e);
+    }
+  };
+  proto.handleDrawingDelete = function (e) {
+    if (window.CoverageModules?.Drawing?.handleDrawingDelete) {
+      return window.CoverageModules.Drawing.handleDrawingDelete(this, e);
+    }
+  };
+  proto.updateDrawingValidationState = function () {
+    if (window.CoverageModules?.Drawing?.updateDrawingValidationState) {
+      return window.CoverageModules.Drawing.updateDrawingValidationState(this);
+    }
+  };
+  proto.clearDrawingValidationState = function () {
+    if (window.CoverageModules?.Drawing?.clearDrawingValidationState) {
+      return window.CoverageModules.Drawing.clearDrawingValidationState(this);
+    }
+  };
+  proto.clearDrawing = function () {
+    if (window.CoverageModules?.Drawing?.clearDrawing) {
+      return window.CoverageModules.Drawing.clearDrawing(this);
+    }
+  };
+  proto.cleanupDrawingMap = function () {
+    if (window.CoverageModules?.Drawing?.cleanupDrawingMap) {
+      return window.CoverageModules.Drawing.cleanupDrawingMap(this);
+    }
+  };
+  proto.resetModalState = function () {
+    if (window.CoverageModules?.Drawing?.resetModalState) {
+      return window.CoverageModules.Drawing.resetModalState(this);
+    }
+  };
+  proto.resetModalValidationState = function () {
+    if (window.CoverageModules?.Drawing?.resetModalValidationState) {
+      return window.CoverageModules.Drawing.resetModalValidationState(this);
+    }
+  };
+  proto.showDrawingError = function (message) {
+    if (window.CoverageModules?.Drawing?.showDrawingError) {
+      return window.CoverageModules.Drawing.showDrawingError(this, message);
+    }
+  };
+  proto.showDrawingValidationResult = function (data) {
+    if (window.CoverageModules?.Drawing?.showDrawingValidationResult) {
+      return window.CoverageModules.Drawing.showDrawingValidationResult(this, data);
+    }
+  };
+  proto.hideDrawingValidationResult = function () {
+    if (window.CoverageModules?.Drawing?.hideDrawingValidationResult) {
+      return window.CoverageModules.Drawing.hideDrawingValidationResult();
+    }
+  };
+  proto.validateCustomBoundary = function () {
+    if (window.CoverageModules?.Drawing?.validateCustomBoundary) {
+      return window.CoverageModules.Drawing.validateCustomBoundary(this);
+    }
+  };
+  proto.addCustomCoverageArea = function () {
+    if (window.CoverageModules?.Drawing?.addCustomCoverageArea) {
+      return window.CoverageModules.Drawing.addCustomCoverageArea(this);
+    }
+  };
 })();
