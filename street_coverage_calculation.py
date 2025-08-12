@@ -175,8 +175,10 @@ def process_trip_worker(
                     # but never more than the configured absolute minimum, and clamp
                     # to a small absolute floor to avoid spurious micro-intersections.
                     dynamic_required_overlap = min(
-                        max(1.0, 0.6 * segment_length_m),  # fraction-based for short segments
-                        max(0.0, float(min_match_length)),   # absolute cap from settings
+                        max(
+                            1.0, 0.6 * segment_length_m
+                        ),  # fraction-based for short segments
+                        max(0.0, float(min_match_length)),  # absolute cap from settings
                     )
 
                     if (
@@ -188,9 +190,14 @@ def process_trip_worker(
                         # Distance fallback for short segments: if the segment is
                         # shorter than the configured minimum and sits within the
                         # buffer distance of the trip line, consider it matched.
-                        if segment_length_m > 0.0 and segment_length_m < float(min_match_length):
+                        if segment_length_m > 0.0 and segment_length_m < float(
+                            min_match_length
+                        ):
                             try:
-                                if trip_line_utm.distance(street_utm_geom) <= match_buffer:
+                                if (
+                                    trip_line_utm.distance(street_utm_geom)
+                                    <= match_buffer
+                                ):
                                     results[trip_index].add(seg_id)
                             except Exception:
                                 # If distance computation fails, ignore and continue

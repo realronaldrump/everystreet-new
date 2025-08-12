@@ -93,9 +93,10 @@ endblock %} {% block content %}
                   >Enable WebSocket Updates (recommended)</label
                 >
                 <small class="form-text text-muted d-block mt-1"
-                  >If disabled, the application will rely on frequent HTTP polling for
-                  live-tracking updates. This can increase network usage and add
-                  latency but may help on restrictive networks.</small
+                  >If disabled, the application will rely on frequent HTTP
+                  polling for live-tracking updates. This can increase network
+                  usage and add latency but may help on restrictive
+                  networks.</small
                 >
               </div>
 
@@ -139,10 +140,10 @@ endblock %} {% block content %}
                 step="10"
               />
               <small class="form-text text-muted d-block mt-1"
-                >When the database grows larger than this value, the
-                application will automatically switch to read-only (limited)
-                mode to protect stability. Lower the number to be more
-                conservative, or raise it if you have upgraded your plan.
+                >When the database grows larger than this value, the application
+                will automatically switch to read-only (limited) mode to protect
+                stability. Lower the number to be more conservative, or raise it
+                if you have upgraded your plan.
               </small>
             </div>
 
@@ -222,8 +223,10 @@ endblock %} {% block content %}
 
       useWebSocketToggle.checked = disableWebSockets !== true;
 
-      polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
-      polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
+      polylineColor.value =
+        pc || localStorage.getItem("polylineColor") || "#00FF00";
+      polylineOpacity.value =
+        po || localStorage.getItem("polylineOpacity") || "0.8";
       opacityValue.textContent = polylineOpacity.value;
 
       if (storageLimitMb) {
@@ -299,7 +302,10 @@ endblock %} {% block content %}
       }
 
       // Mirror to localStorage for quick access
-      localStorage.setItem("highlightRecentTrips", payload.highlightRecentTrips);
+      localStorage.setItem(
+        "highlightRecentTrips",
+        payload.highlightRecentTrips,
+      );
       localStorage.setItem("autoCenter", payload.autoCenter);
       localStorage.setItem("showLiveTracking", payload.showLiveTracking);
       localStorage.setItem("polylineColor", payload.polylineColor);
