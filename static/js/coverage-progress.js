@@ -19,13 +19,17 @@
         try {
           const response = await fetch(`/api/coverage_progress/${taskId}`);
           const data = await response.json();
-          if (!response.ok) throw new Error(data.error || "Failed to fetch progress");
+          if (!response.ok)
+            throw new Error(data.error || "Failed to fetch progress");
 
           manager.lastActivityTime = new Date();
           manager.updateModalContent?.(data);
           manager.updateTimingInfo?.();
           manager.updateActivityIndicator?.();
-          (manager.constructor.updateStepIndicators || (() => {}))(data.stage, data.progress || 0);
+          (manager.constructor.updateStepIndicators || (() => {}))(
+            data.stage,
+            data.progress || 0,
+          );
 
           if ([STATUS.COMPLETE, STATUS.COMPLETED].includes(data.stage)) {
             manager.activeTaskIds.delete(taskId);
@@ -35,11 +39,16 @@
             return data;
           } else if (data.stage === STATUS.ERROR) {
             const errorMessage = data.error || data.message || "Unknown error";
-            manager.notificationManager?.show(`Task failed: ${errorMessage}`, "danger");
+            manager.notificationManager?.show(
+              `Task failed: ${errorMessage}`,
+              "danger",
+            );
             manager.activeTaskIds.delete(taskId);
             manager._removeBeforeUnloadListener?.();
             manager.showErrorState?.(errorMessage);
-            throw new Error(data.error || data.message || "Coverage calculation failed");
+            throw new Error(
+              data.error || data.message || "Coverage calculation failed",
+            );
           } else if (data.stage === STATUS.CANCELED) {
             manager.notificationManager?.show(`Task was canceled.`, "warning");
             manager.activeTaskIds.delete(taskId);
@@ -51,7 +60,10 @@
           if (data.stage === lastStage) {
             consecutiveSameStage++;
             if (consecutiveSameStage > 12) {
-              manager.notificationManager?.show(`Task seems stalled at: ${manager.constructor.formatStageName(data.stage)}`, "warning");
+              manager.notificationManager?.show(
+                `Task seems stalled at: ${manager.constructor.formatStageName(data.stage)}`,
+                "warning",
+              );
               consecutiveSameStage = 0;
             }
           } else {
@@ -59,13 +71,28 @@
             consecutiveSameStage = 0;
           }
 
-          const pollInterval = Progress.calculatePollInterval(data.stage, retries);
+          const pollInterval = Progress.calculatePollInterval(
+            data.stage,
+            retries,
+          );
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
           retries++;
         } catch (error) {
-          manager.notificationManager?.show(`Error polling progress: ${error.message}`, "danger");
-          manager.updateModalContent?.({ stage: STATUS.ERROR, progress: manager.currentProcessingLocation?.progress || 0, message: `Polling failed: ${error.message}`, error: error.message, metrics: {} });
-          (manager.constructor.updateStepIndicators || (() => {}))(STATUS.ERROR, manager.currentProcessingLocation?.progress || 0);
+          manager.notificationManager?.show(
+            `Error polling progress: ${error.message}`,
+            "danger",
+          );
+          manager.updateModalContent?.({
+            stage: STATUS.ERROR,
+            progress: manager.currentProcessingLocation?.progress || 0,
+            message: `Polling failed: ${error.message}`,
+            error: error.message,
+            metrics: {},
+          });
+          (manager.constructor.updateStepIndicators || (() => {}))(
+            STATUS.ERROR,
+            manager.currentProcessingLocation?.progress || 0,
+          );
           manager.activeTaskIds.delete(taskId);
           manager._removeBeforeUnloadListener?.();
           manager.showRetryOption?.(taskId);
@@ -77,8 +104,17 @@
         `Polling timed out after ${Math.round((maxRetries * Progress.calculatePollInterval(STATUS.UNKNOWN, maxRetries - 1)) / 60000)} minutes.`,
         "danger",
       );
-      manager.updateModalContent?.({ stage: STATUS.ERROR, progress: manager.currentProcessingLocation?.progress || 99, message: "Polling timed out waiting for completion.", error: "Polling timed out", metrics: {} });
-      (manager.constructor.updateStepIndicators || (() => {}))(STATUS.ERROR, manager.currentProcessingLocation?.progress || 99);
+      manager.updateModalContent?.({
+        stage: STATUS.ERROR,
+        progress: manager.currentProcessingLocation?.progress || 99,
+        message: "Polling timed out waiting for completion.",
+        error: "Polling timed out",
+        metrics: {},
+      });
+      (manager.constructor.updateStepIndicators || (() => {}))(
+        STATUS.ERROR,
+        manager.currentProcessingLocation?.progress || 99,
+      );
       manager.activeTaskIds.delete(taskId);
       manager._removeBeforeUnloadListener?.();
       throw new Error("Coverage calculation polling timed out");
@@ -86,7 +122,8 @@
 
     calculatePollInterval(stage, retries) {
       const baseInterval = 5000;
-      if (stage === STATUS.PROCESSING_TRIPS || stage === STATUS.CALCULATING) return Math.min(baseInterval * 2, 15000);
+      if (stage === STATUS.PROCESSING_TRIPS || stage === STATUS.CALCULATING)
+        return Math.min(baseInterval * 2, 15000);
       if (retries > 100) return Math.min(baseInterval * 3, 20000);
       return baseInterval;
     },
@@ -114,7 +151,11 @@
       retryBtn.onclick = () => {
         manager.hideProgressModal?.();
         if (manager.currentProcessingLocation) {
-          manager.resumeInterruptedTask?.({ location: manager.currentProcessingLocation, taskId: manager.currentTaskId, progress: 0 });
+          manager.resumeInterruptedTask?.({
+            location: manager.currentProcessingLocation,
+            taskId: manager.currentTaskId,
+            progress: 0,
+          });
         }
       };
       footer.insertBefore(retryBtn, footer.firstChild);
@@ -149,7 +190,10 @@
       const progressDetails = modalElement.querySelector(".progress-details");
       const cancelBtn = document.getElementById("cancel-processing");
       if (!progressDetails) {
-        manager.notificationManager?.show("UI Error: Progress details container not found.", "danger");
+        manager.notificationManager?.show(
+          "UI Error: Progress details container not found.",
+          "danger",
+        );
         return;
       }
       if (modalTitle) {
@@ -161,7 +205,8 @@
         modalProgressBar.style.width = `${progress}%`;
         modalProgressBar.setAttribute("aria-valuenow", progress);
         modalProgressBar.textContent = `${progress}%`;
-        modalProgressBar.className = "progress-bar progress-bar-striped progress-bar-animated bg-primary";
+        modalProgressBar.className =
+          "progress-bar progress-bar-striped progress-bar-animated bg-primary";
       }
       if (progressMessage) {
         progressMessage.textContent = message;
@@ -170,7 +215,8 @@
       }
       progressDetails.querySelector(".stage-info").innerHTML = "";
       progressDetails.querySelector(".stats-info").innerHTML = "";
-      progressDetails.querySelector(".elapsed-time").textContent = "Elapsed: 0s";
+      progressDetails.querySelector(".elapsed-time").textContent =
+        "Elapsed: 0s";
       progressDetails.querySelector(".estimated-time").textContent = "";
       if (cancelBtn) cancelBtn.disabled = false;
       if (manager.progressTimer) clearInterval(manager.progressTimer);
@@ -182,7 +228,10 @@
       }, 1000);
       manager.updateTimingInfo?.();
       manager.updateActivityIndicator?.();
-      const bsModal = bootstrap.Modal.getOrCreateInstance(modalElement, { backdrop: "static", keyboard: false });
+      const bsModal = bootstrap.Modal.getOrCreateInstance(modalElement, {
+        backdrop: "static",
+        keyboard: false,
+      });
       modalElement.classList.add("fade-in-up");
       bsModal.show();
     },
@@ -206,5 +255,3 @@
 
   window.CoverageModules.Progress = Progress;
 })();
-
-

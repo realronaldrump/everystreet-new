@@ -28,7 +28,9 @@
           </tr>`;
         return;
       }
-      areas.sort((a, b) => new Date(b.last_updated || 0) - new Date(a.last_updated || 0));
+      areas.sort(
+        (a, b) => new Date(b.last_updated || 0) - new Date(a.last_updated || 0),
+      );
       areas.forEach((area, index) => {
         const row = document.createElement("tr");
         const status = area.status || STATUS.UNKNOWN;
@@ -46,22 +48,42 @@
         ].includes(status);
         const hasError = status === STATUS.ERROR;
         const isCanceled = status === STATUS.CANCELED;
-        row.className = isProcessing ? "processing-row table-info" : hasError ? "table-danger" : isCanceled ? "table-warning" : "";
+        row.className = isProcessing
+          ? "processing-row table-info"
+          : hasError
+            ? "table-danger"
+            : isCanceled
+              ? "table-warning"
+              : "";
         if (index < 5) {
           row.style.animationDelay = `${index * 0.05}s`;
           row.classList.add("fade-in-up");
         }
-        const lastUpdated = area.last_updated ? new Date(area.last_updated).toLocaleString() : "Never";
-        const lastUpdatedOrder = area.last_updated ? new Date(area.last_updated).getTime() : 0;
-        const totalLength = CoverageShared.UI.distanceInUserUnits(area.total_length || 0);
-        const drivenLength = CoverageShared.UI.distanceInUserUnits(area.driven_length || 0);
-        const coveragePercentage = (area.coverage_percentage || 0).toFixed ? (area.coverage_percentage || 0).toFixed(1) : String(area.coverage_percentage || 0);
+        const lastUpdated = area.last_updated
+          ? new Date(area.last_updated).toLocaleString()
+          : "Never";
+        const lastUpdatedOrder = area.last_updated
+          ? new Date(area.last_updated).getTime()
+          : 0;
+        const totalLength = CoverageShared.UI.distanceInUserUnits(
+          area.total_length || 0,
+        );
+        const drivenLength = CoverageShared.UI.distanceInUserUnits(
+          area.driven_length || 0,
+        );
+        const coveragePercentage = (area.coverage_percentage || 0).toFixed
+          ? (area.coverage_percentage || 0).toFixed(1)
+          : String(area.coverage_percentage || 0);
         let progressBarColor = "bg-success";
         if (hasError || isCanceled) progressBarColor = "bg-secondary";
-        else if ((area.coverage_percentage || 0) < 25) progressBarColor = "bg-danger";
-        else if ((area.coverage_percentage || 0) < 75) progressBarColor = "bg-warning";
+        else if ((area.coverage_percentage || 0) < 25)
+          progressBarColor = "bg-danger";
+        else if ((area.coverage_percentage || 0) < 75)
+          progressBarColor = "bg-warning";
         const locationId = area._id;
-        const locationButtonData = JSON.stringify({ display_name: area.location?.display_name || "" }).replace(/'/g, "&apos;");
+        const locationButtonData = JSON.stringify({
+          display_name: area.location?.display_name || "",
+        }).replace(/'/g, "&apos;");
         row.innerHTML = `
           <td data-label="Location">
             <a href="#" class="location-name-link text-info fw-bold" data-location-id="${locationId}">
@@ -98,5 +120,3 @@
 
   window.CoverageModules.Table = Table;
 })();
-
-
