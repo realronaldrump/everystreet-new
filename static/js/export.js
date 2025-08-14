@@ -989,7 +989,9 @@
           try {
             const errData = await response.json();
             msg = errData.detail || msg;
-          } catch {}
+      } catch (error) {
+        void error;
+      }
           throw new Error(msg);
         }
         let blob;

@@ -1,6 +1,6 @@
 import { UI_CONFIG as CONFIG } from "../ui-config.js";
 import uiState from "../ui-state.js";
-import utils from "../ui-utils.js";
+// utils is not used here; avoid unused import
 import eventManager from "./event-manager.js";
 import dateManager from "./date-manager.js";
 import panelManager from "./panel-manager.js";
@@ -30,7 +30,7 @@ const filterIndicatorManager = {
       indicator.classList.remove(CONFIG.classes.unseen);
     });
 
-    document.addEventListener("filtersApplied", (e) => {
+    document.addEventListener("filtersApplied", () => {
       indicator.classList.remove(CONFIG.classes.active);
       indicator.classList.add(CONFIG.classes.applied);
       indicator.classList.add(CONFIG.classes.unseen);

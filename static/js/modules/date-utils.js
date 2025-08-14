@@ -107,7 +107,8 @@ const dateUtils = {
             startDate = new Date("2000-01-01");
             endDate = new Date();
           }
-        } catch (_) {
+        } catch (error) {
+          void error;
           startDate = new Date("2000-01-01");
           endDate = new Date();
         }

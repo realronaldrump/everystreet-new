@@ -159,8 +159,8 @@ class UploadManager {
       bulkDeleteBtn.addEventListener("click", () => this.bulkDeleteTrips());
     }
 
-    document.addEventListener("change", (e) => {
-      if (e.target.matches(".trip-checkbox")) {
+    document.addEventListener("change", (evt) => {
+      if (evt.target.matches(".trip-checkbox")) {
         this.updateBulkDeleteButtonState();
       }
     });
@@ -444,7 +444,7 @@ class UploadManager {
 
     fileListBody.innerHTML = "";
 
-    this.state.selectedFiles.forEach((entry, index) => {
+    this.state.selectedFiles.forEach((entry) => {
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${entry.filename}</td>
@@ -503,7 +503,7 @@ class UploadManager {
 
         if (confirmed) {
           const currentIndex = this.state.selectedFiles.findIndex(
-            (e) => e === entry,
+            (f) => f === entry,
           );
           if (currentIndex !== -1) {
             this.removeFile(currentIndex);
@@ -629,7 +629,9 @@ class UploadManager {
         try {
           const errorData = await response.json();
           errorDetail = errorData.detail || errorDetail;
-        } catch (e) {}
+        } catch (error) {
+          void error;
+        }
         throw new Error(errorDetail);
       }
 
@@ -818,7 +820,9 @@ class UploadManager {
               try {
                 const errData = await response.json();
                 errorMsg = errData.detail || errorMsg;
-              } catch (e) {}
+              } catch (error) {
+                void error;
+              }
               throw new Error(errorMsg);
             }
             const data = await response.json();
@@ -891,7 +895,9 @@ class UploadManager {
           try {
             const errorData = await response.json();
             errorDetail = errorData.detail || errorDetail;
-          } catch (e) {}
+          } catch (error) {
+            void error;
+          }
           throw new Error(errorDetail);
         }
 

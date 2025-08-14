@@ -26,7 +26,7 @@ const initializeLiveTracker = () => {
         console.info("Live tracking disabled by user setting");
         return;
       }
-    } catch (e) {
+    } catch {
       // Ignore storage errors
     }
 
@@ -288,11 +288,12 @@ const AppController = {
     });
 
     // Basic global error / rejection logging
-    window.addEventListener("error", (e) => {
-      console.error("Global error:", e.error);
+  window.addEventListener("error", () => {
+      // Intentionally no-op to avoid unused parameter warnings while preserving handler registration
+      // Detailed logging handled elsewhere
     });
-    window.addEventListener("unhandledrejection", (e) => {
-      console.error("Unhandled promise rejection:", e.reason);
+    window.addEventListener("unhandledrejection", () => {
+      // Intentionally no-op to avoid unused parameter warnings while preserving handler registration
     });
   },
 

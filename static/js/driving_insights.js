@@ -378,7 +378,7 @@ if (typeof window !== "undefined") {
 
   // Metric Updates
   function updateAllMetrics() {
-    const { behavior, insights, metrics } = state.data;
+    const { behavior: behaviorData, insights, metrics } = state.data;
 
     // Primary metrics
     animateCounter("total-trips", insights.total_trips || 0);
@@ -387,10 +387,10 @@ if (typeof window !== "undefined") {
     animateCounter("hero-total-miles", insights.total_distance || 0, 1);
 
     // Behavior / safety metrics (date-filtered)
-    animateCounter("hard-braking", behavior.hardBrakingCounts || 0);
-    animateCounter("hard-accel", behavior.hardAccelerationCounts || 0);
-    animateCounter("max-speed", behavior.maxSpeed || 0, 1);
-    animateCounter("avg-speed", behavior.avgSpeed || 0, 1);
+    animateCounter("hard-braking", behaviorData.hardBrakingCounts || 0);
+    animateCounter("hard-accel", behaviorData.hardAccelerationCounts || 0);
+    animateCounter("max-speed", behaviorData.maxSpeed || 0, 1);
+    animateCounter("avg-speed", behaviorData.avgSpeed || 0, 1);
 
     // Time metrics – use duration from /api/metrics for total time on road,
     // and idle duration from /api/driving-insights for idle time.
@@ -511,7 +511,7 @@ if (typeof window !== "undefined") {
   }
 
   function updateComparisons() {
-    const { insights, behavior } = state.data;
+    const { insights, behavior: behaviorData } = state.data;
 
     // Trips comparison
     const dailyAvgTrips = (insights.total_trips || 0) / state.currentPeriod;
@@ -535,7 +535,7 @@ if (typeof window !== "undefined") {
 
     // Time comparison
     document.querySelector("#time-comparison span").textContent =
-      behavior.avgSpeed?.toFixed(1) || 0;
+      behaviorData.avgSpeed?.toFixed(1) || 0;
   }
 
   function updateTrends() {

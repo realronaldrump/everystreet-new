@@ -144,8 +144,8 @@ class DrivingNavigation {
         );
         return;
       }
-    } catch (e) {
-      /* ignore */
+    } catch (error) {
+      void error;
     }
 
     this.liveTracker = new LiveTripTracker(this.map);
@@ -502,7 +502,8 @@ class DrivingNavigation {
             ]);
             if (bounds.isValid())
               this.map.fitBounds(bounds, { padding: [50, 50] });
-          } catch (e) {
+          } catch (error) {
+            void error;
             console.warn("Could not parse bounding box for fallback zoom.");
           }
         }
@@ -548,7 +549,7 @@ class DrivingNavigation {
             .join("; ");
         }
         return errorData.detail || JSON.stringify(errorData);
-      } catch (e) {
+      } catch (error) {
         return error.statusText || "An unknown HTTP error occurred.";
       }
     }

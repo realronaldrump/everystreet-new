@@ -158,8 +158,9 @@ const utils = {
   },
 
   setStorage(key, value) {
+    let stringValue;
     try {
-      const stringValue =
+      stringValue =
         typeof value === "object" ? JSON.stringify(value) : String(value);
 
       localStorage.setItem(key, stringValue);
@@ -168,9 +169,17 @@ const utils = {
       console.warn("Storage quota exceeded:", e);
       this.clearOldCache();
       try {
-        localStorage.setItem(key, stringValue);
+        // Reuse the computed value if available, otherwise recompute
+        const toStore =
+          stringValue !== undefined
+            ? stringValue
+            : typeof value === "object"
+              ? JSON.stringify(value)
+              : String(value);
+        localStorage.setItem(key, toStore);
         return true;
-      } catch {
+      } catch (error) {
+        void error;
         return false;
       }
     }
@@ -216,7 +225,9 @@ const utils = {
       try {
         const errData = await response.json();
         errorMsg += `: ${errData.detail || errData.message || response.statusText}`;
-      } catch (_) {}
+      } catch (error) {
+        void error;
+      }
       throw new Error(errorMsg);
     }
     const data = await response.json();

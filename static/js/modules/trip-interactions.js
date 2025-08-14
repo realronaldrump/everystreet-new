@@ -128,7 +128,7 @@ const tripInteractions = {
       `;
   },
 
-  setupPopupEventListeners(popup, feature) {
+  setupPopupEventListeners(popup /* feature is unused here intentionally */) {
     const popupElement = popup.getElement();
     if (!popupElement) return;
 

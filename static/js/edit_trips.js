@@ -1,4 +1,4 @@
-/* global L, DateUtils */
+/* global L */
 
 document.addEventListener("DOMContentLoaded", () => {
   let editMap = null;

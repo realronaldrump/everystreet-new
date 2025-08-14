@@ -2,7 +2,7 @@ import { UI_CONFIG as CONFIG } from "../ui-config.js";
 import uiState from "../ui-state.js";
 import utils from "../ui-utils.js";
 import eventManager from "./event-manager.js";
-import panelManager from "./panel-manager.js";
+// panelManager is not used directly in this module
 
 const mapControlsManager = {
   init() {

@@ -1,5 +1,4 @@
 import utils from "./utils.js";
-import state from "./state.js";
 import dateUtils from "./date-utils.js";
 
 const metricsManager = {

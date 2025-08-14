@@ -1,7 +1,7 @@
 import utils from "./utils.js";
 import { CONFIG } from "./config.js";
 import state from "./state.js";
-import dateUtils from "./date-utils.js";
+// dateUtils currently unused in this module
 
 // NOTE: this is extracted verbatim from `app.js` to keep behaviour identical.
 // Future refactors can safely trim dependencies now that the code is isolated.
@@ -241,8 +241,8 @@ const mapManager = {
           ["*", 2, widthExpr],
         ];
         state.map.setPaintProperty(layerId, "line-width", zoomWidthExpr);
-      } catch (err) {
-        console.warn("Failed to update trip styles:", err);
+      } catch (error) {
+        console.warn("Failed to update trip styles:", error);
       }
     });
   }, CONFIG.MAP.throttleDelay),

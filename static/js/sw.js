@@ -2,11 +2,11 @@ const CACHE_NAME = "everystreet-ui-v1";
 const API_PATTERN = /\/api\//;
 const TILE_PATTERN = /basemaps\.cartocdn\.com/;
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
-self.addEventListener("activate", (event) => {
+self.addEventListener("activate", () => {
   clients.claim();
 });
 
