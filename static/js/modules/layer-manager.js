@@ -231,7 +231,7 @@ const layerManager = {
         const offset = y - box.top - box.height / 2;
 
         if (offset < 0 && offset > closest.offset) {
-          return { offset: offset, element: child };
+          return { offset, element: child };
         } else {
           return closest;
         }

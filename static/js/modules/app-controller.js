@@ -351,7 +351,7 @@ window.EveryStreet.App = {
   mapMatchTrips: AppController.mapMatchTrips.bind(AppController),
   AppState: state,
   CONFIG,
-  utils: utils,
+  utils,
 };
 
 export default AppController;
