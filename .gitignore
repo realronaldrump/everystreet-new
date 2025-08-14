@@ -19,6 +19,7 @@ node_modules/
 eslint.config.mjs
 .vscode
 .ruff_cache
+reports/
 
 scripts/autofix.sh
 scripts/
