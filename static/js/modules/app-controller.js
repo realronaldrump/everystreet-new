@@ -288,7 +288,7 @@ const AppController = {
     });
 
     // Basic global error / rejection logging
-  window.addEventListener("error", () => {
+    window.addEventListener("error", () => {
       // Intentionally no-op to avoid unused parameter warnings while preserving handler registration
       // Detailed logging handled elsewhere
     });
