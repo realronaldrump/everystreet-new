@@ -222,7 +222,9 @@ async def list_student_workers(
     )
 
     items = [_serialize_student(doc) for doc in documents]
-    currency = next((item.get("currency") for item in items if item.get("currency")), None)
+    currency = next(
+        (item.get("currency") for item in items if item.get("currency")), None
+    )
 
     async def _aggregate_operation():
         pipeline = [

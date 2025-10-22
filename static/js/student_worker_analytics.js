@@ -96,7 +96,9 @@
 
     elements.table
       .querySelectorAll("th.sortable")
-      .forEach((header) => header.addEventListener("click", () => handleSort(header)));
+      .forEach((header) =>
+        header.addEventListener("click", () => handleSort(header)),
+      );
   }
 
   function debounce(callback, delay = 250) {
@@ -120,9 +122,11 @@
       });
 
       if (state.filters.search) params.set("search", state.filters.search);
-      if (state.filters.department) params.set("department", state.filters.department);
+      if (state.filters.department)
+        params.set("department", state.filters.department);
       if (state.filters.status) params.set("status", state.filters.status);
-      if (state.filters.startDate) params.set("start_date", state.filters.startDate);
+      if (state.filters.startDate)
+        params.set("start_date", state.filters.startDate);
       if (state.filters.endDate) params.set("end_date", state.filters.endDate);
 
       const response = await fetch(`/api/student-workers?${params.toString()}`);
@@ -172,7 +176,10 @@
     }
 
     if (elements.totalPayroll) {
-      elements.totalPayroll.textContent = formatCurrency(totalPayroll, data.currency);
+      elements.totalPayroll.textContent = formatCurrency(
+        totalPayroll,
+        data.currency,
+      );
     }
 
     if (elements.avgRate) {
@@ -224,7 +231,13 @@
     if (!elements.pagination) return;
     elements.pagination.innerHTML = "";
 
-    const createPageItem = (label, page, disabled = false, active = false, ariaLabel) => {
+    const createPageItem = (
+      label,
+      page,
+      disabled = false,
+      active = false,
+      ariaLabel,
+    ) => {
       const li = document.createElement("li");
       li.className = `page-item${disabled ? " disabled" : ""}${active ? " active" : ""}`;
       const link = document.createElement("button");
@@ -244,7 +257,13 @@
 
     const safeTotal = Math.max(totalPages || 1, 1);
     const prevDisabled = currentPage <= 1;
-    createPageItem("«", Math.max(1, currentPage - 1), prevDisabled, false, "Previous page");
+    createPageItem(
+      "«",
+      Math.max(1, currentPage - 1),
+      prevDisabled,
+      false,
+      "Previous page",
+    );
 
     const maxButtons = 7;
     let start = Math.max(1, currentPage - Math.floor(maxButtons / 2));
@@ -268,11 +287,22 @@
       if (end < safeTotal - 1) {
         appendEllipsis();
       }
-      createPageItem(safeTotal.toString(), safeTotal, false, currentPage === safeTotal);
+      createPageItem(
+        safeTotal.toString(),
+        safeTotal,
+        false,
+        currentPage === safeTotal,
+      );
     }
 
     const nextDisabled = currentPage >= safeTotal;
-    createPageItem("»", Math.min(safeTotal, currentPage + 1), nextDisabled, false, "Next page");
+    createPageItem(
+      "»",
+      Math.min(safeTotal, currentPage + 1),
+      nextDisabled,
+      false,
+      "Next page",
+    );
   }
 
   function appendEllipsis() {
@@ -284,8 +314,16 @@
 
   function renderFilters(filters) {
     if (!filters) return;
-    updateSelectOptions(elements.department, filters.departments, state.filters.department);
-    updateSelectOptions(elements.status, filters.statuses, state.filters.status);
+    updateSelectOptions(
+      elements.department,
+      filters.departments,
+      state.filters.department,
+    );
+    updateSelectOptions(
+      elements.status,
+      filters.statuses,
+      state.filters.status,
+    );
   }
 
   function updateSelectOptions(select, options = [], currentValue = "") {
@@ -307,9 +345,11 @@
         select.appendChild(opt);
       });
 
-    select.value = previous && Array.from(select.options).some((opt) => opt.value === previous)
-      ? previous
-      : "";
+    select.value =
+      previous &&
+      Array.from(select.options).some((opt) => opt.value === previous)
+        ? previous
+        : "";
   }
 
   function updateSummary(page, pageSize, total) {
@@ -324,20 +364,20 @@
   }
 
   function updateSortIndicators() {
-    elements.table
-      .querySelectorAll("th.sortable")
-      .forEach((header) => {
-        header.classList.remove("sort-asc", "sort-desc");
-        const sortKey = header.getAttribute("data-sort");
-        if (!sortKey) return;
-        if (
-          (sortKey === "hours" && state.sortField === "hoursWorked") ||
-          (sortKey === "pay" && state.sortField === "payrollAmount") ||
-          state.sortField === sortKey
-        ) {
-          header.classList.add(state.sortOrder === "desc" ? "sort-desc" : "sort-asc");
-        }
-      });
+    elements.table.querySelectorAll("th.sortable").forEach((header) => {
+      header.classList.remove("sort-asc", "sort-desc");
+      const sortKey = header.getAttribute("data-sort");
+      if (!sortKey) return;
+      if (
+        (sortKey === "hours" && state.sortField === "hoursWorked") ||
+        (sortKey === "pay" && state.sortField === "payrollAmount") ||
+        state.sortField === sortKey
+      ) {
+        header.classList.add(
+          state.sortOrder === "desc" ? "sort-desc" : "sort-asc",
+        );
+      }
+    });
   }
 
   function handleSort(header) {

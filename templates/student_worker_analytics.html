@@ -1,19 +1,17 @@
-{% extends "base.html" %}
-{% block title %}Student Worker Hours & Payroll Analytics{% endblock %}
-
-{% block extra_css %}
+{% extends "base.html" %} {% block title %}Student Worker Hours & Payroll
+Analytics{% endblock %} {% block extra_css %}
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/student-worker-analytics.css') | replace('http://', '//') }}"
 />
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid px-4 py-4 student-worker-analytics">
   <div class="row mb-4">
     <div class="col-12">
       <div class="analytics-hero shadow-sm">
-        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-4">
+        <div
+          class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-4"
+        >
           <div>
             <h1 class="display-5 fw-bold mb-2 d-flex align-items-center gap-3">
               <span class="badge bg-primary-subtle text-primary">
@@ -22,7 +20,8 @@
               Student Worker Hours &amp; Payroll
             </h1>
             <p class="lead text-secondary mb-0">
-              Track logged hours, payroll totals, and staffing insights in one consolidated analytics view.
+              Track logged hours, payroll totals, and staffing insights in one
+              consolidated analytics view.
             </p>
           </div>
           <div class="text-lg-end">
@@ -40,7 +39,12 @@
 
   <div class="row g-4 mb-4">
     <div class="col-12 col-md-4">
-      <div class="metric-card shadow-sm" id="total-hours-card" role="group" aria-label="Total hours worked">
+      <div
+        class="metric-card shadow-sm"
+        id="total-hours-card"
+        role="group"
+        aria-label="Total hours worked"
+      >
         <div class="metric-label">Total Hours</div>
         <div class="metric-value" id="total-hours">0</div>
         <div class="metric-trend" id="hours-trend">
@@ -50,7 +54,12 @@
       </div>
     </div>
     <div class="col-12 col-md-4">
-      <div class="metric-card shadow-sm" id="total-payroll-card" role="group" aria-label="Total payroll">
+      <div
+        class="metric-card shadow-sm"
+        id="total-payroll-card"
+        role="group"
+        aria-label="Total payroll"
+      >
         <div class="metric-label">Total Payroll</div>
         <div class="metric-value" id="total-payroll">$0.00</div>
         <div class="metric-trend" id="payroll-trend">
@@ -60,7 +69,12 @@
       </div>
     </div>
     <div class="col-12 col-md-4">
-      <div class="metric-card shadow-sm" id="avg-rate-card" role="group" aria-label="Average hourly rate">
+      <div
+        class="metric-card shadow-sm"
+        id="avg-rate-card"
+        role="group"
+        aria-label="Average hourly rate"
+      >
         <div class="metric-label">Average Hourly Rate</div>
         <div class="metric-value" id="avg-rate">$0.00</div>
         <div class="metric-trend" id="worker-count">
@@ -71,7 +85,11 @@
     </div>
   </div>
 
-  <div class="card filters-card shadow-sm mb-4" role="region" aria-label="Student worker filters">
+  <div
+    class="card filters-card shadow-sm mb-4"
+    role="region"
+    aria-label="Student worker filters"
+  >
     <div class="card-body">
       <div class="row g-3 align-items-end">
         <div class="col-12 col-lg-4">
@@ -88,23 +106,31 @@
           </div>
         </div>
         <div class="col-6 col-lg-2">
-          <label for="department-filter" class="form-label fw-semibold">Department</label>
+          <label for="department-filter" class="form-label fw-semibold"
+            >Department</label
+          >
           <select id="department-filter" class="form-select">
             <option value="">All</option>
           </select>
         </div>
         <div class="col-6 col-lg-2">
-          <label for="status-filter" class="form-label fw-semibold">Status</label>
+          <label for="status-filter" class="form-label fw-semibold"
+            >Status</label
+          >
           <select id="status-filter" class="form-select">
             <option value="">All</option>
           </select>
         </div>
         <div class="col-6 col-lg-2">
-          <label for="start-date-filter" class="form-label fw-semibold">Start Date</label>
+          <label for="start-date-filter" class="form-label fw-semibold"
+            >Start Date</label
+          >
           <input type="date" id="start-date-filter" class="form-control" />
         </div>
         <div class="col-6 col-lg-2">
-          <label for="end-date-filter" class="form-label fw-semibold">End Date</label>
+          <label for="end-date-filter" class="form-label fw-semibold"
+            >End Date</label
+          >
           <input type="date" id="end-date-filter" class="form-control" />
         </div>
         <div class="col-6 col-lg-2">
@@ -129,18 +155,33 @@
   <div class="card shadow-sm">
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0" id="student-workers-table">
+        <table
+          class="table table-hover align-middle mb-0"
+          id="student-workers-table"
+        >
           <thead class="table-light">
             <tr>
               <th scope="col" data-sort="name" class="sortable">Student</th>
               <th scope="col" data-sort="studentId" class="sortable">ID</th>
-              <th scope="col" data-sort="department" class="sortable">Department</th>
+              <th scope="col" data-sort="department" class="sortable">
+                Department
+              </th>
               <th scope="col" data-sort="status" class="sortable">Status</th>
-              <th scope="col" data-sort="hours" class="sortable text-end">Hours</th>
-              <th scope="col" data-sort="rate" class="sortable text-end">Hourly Rate</th>
-              <th scope="col" data-sort="pay" class="sortable text-end">Payroll</th>
-              <th scope="col" data-sort="payPeriodEnd" class="sortable">Pay Period</th>
-              <th scope="col" data-sort="updated" class="sortable">Last Updated</th>
+              <th scope="col" data-sort="hours" class="sortable text-end">
+                Hours
+              </th>
+              <th scope="col" data-sort="rate" class="sortable text-end">
+                Hourly Rate
+              </th>
+              <th scope="col" data-sort="pay" class="sortable text-end">
+                Payroll
+              </th>
+              <th scope="col" data-sort="payPeriodEnd" class="sortable">
+                Pay Period
+              </th>
+              <th scope="col" data-sort="updated" class="sortable">
+                Last Updated
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -155,7 +196,9 @@
     </div>
   </div>
 
-  <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mt-4">
+  <div
+    class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mt-4"
+  >
     <div id="results-summary" class="text-secondary">
       Showing 0 of 0 workers
     </div>
@@ -170,8 +213,9 @@
     <span class="visually-hidden">Loading...</span>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{{ url_for('static', path='js/student_worker_analytics.js') | replace('http://', '//') }}" defer></script>
+{% endblock %} {% block extra_js %}
+<script
+  src="{{ url_for('static', path='js/student_worker_analytics.js') | replace('http://', '//') }}"
+  defer
+></script>
 {% endblock %}
