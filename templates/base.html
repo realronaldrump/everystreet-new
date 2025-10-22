@@ -252,6 +252,17 @@
                   </li>
                   <li role="none">
                     <a
+                      class="dropdown-item {% if request.url.path == '/analytics/student-workers' %}active{% endif %}"
+                      href="/analytics/student-workers"
+                      role="menuitem"
+                      {% if request.url.path == '/analytics/student-workers' %}aria-current="page"{% endif %}
+                    >
+                      <i class="fas fa-user-clock me-2" aria-hidden="true"></i>
+                      Student Worker Analytics
+                    </a>
+                  </li>
+                  <li role="none">
+                    <a
                       class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
                       href="/coverage-management"
                       role="menuitem"
@@ -413,6 +424,16 @@
               >
                 <i class="fas fa-chart-line me-2" aria-hidden="true"></i>
                 Driving Insights
+              </a>
+            </li>
+            <li role="none">
+              <a
+                href="/analytics/student-workers"
+                class="{% if request.url.path == '/analytics/student-workers' %}active{% endif %}"
+                {% if request.url.path == '/analytics/student-workers' %}aria-current="page"{% endif %}
+              >
+                <i class="fas fa-user-clock me-2" aria-hidden="true"></i>
+                Student Worker Analytics
               </a>
             </li>
             <li role="none">
