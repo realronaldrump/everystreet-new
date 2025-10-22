@@ -45,15 +45,6 @@ async def insights_page(request: Request):
     )
 
 
-@router.get("/analytics/student-workers", response_class=HTMLResponse)
-async def student_worker_analytics_page(request: Request):
-    """Render the student worker analytics page."""
-    return templates.TemplateResponse(
-        "student_worker_analytics.html",
-        {"request": request},
-    )
-
-
 @router.get("/visits", response_class=HTMLResponse)
 async def visits_page(request: Request):
     """Render visits page."""
