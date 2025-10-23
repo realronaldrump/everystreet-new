@@ -157,7 +157,8 @@ function ensure_service() {
 
 # Set default environment variables if not provided
 export GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
-export CELERY_WORKER_CONCURRENCY=${CELERY_WORKER_CONCURRENCY:-2}
+export CELERY_WORKER_CONCURRENCY=${CELERY_WORKER_CONCURRENCY:-1}
+export CELERY_WORKER_POOL=${CELERY_WORKER_POOL:-solo}
 
 # Ensure REDIS_URL is constructed properly if not set
 if [ -z "$REDIS_URL" ]; then
@@ -207,11 +208,11 @@ gunicorn -c gunicorn_config.py app:app &
 echo $! >> $PID_FILE
 
 # Start Celery worker with proper concurrency and non-root user
-echo "Starting Celery worker with concurrency=$CELERY_WORKER_CONCURRENCY as user $CELERY_USER..."
+echo "Starting Celery worker with concurrency=$CELERY_WORKER_CONCURRENCY (pool=$CELERY_WORKER_POOL) as user $CELERY_USER..."
 if [ "$(id -u)" -eq 0 ]; then
-  celery -A celery_app worker --loglevel=info -n worker1@%h --uid=$CELERY_USER --concurrency=$CELERY_WORKER_CONCURRENCY &
+  celery -A celery_app worker --loglevel=info -n worker1@%h --uid=$CELERY_USER --pool=$CELERY_WORKER_POOL --concurrency=$CELERY_WORKER_CONCURRENCY &
 else
-  celery -A celery_app worker --loglevel=info -n worker1@%h --concurrency=$CELERY_WORKER_CONCURRENCY &
+  celery -A celery_app worker --loglevel=info -n worker1@%h --pool=$CELERY_WORKER_POOL --concurrency=$CELERY_WORKER_CONCURRENCY &
 fi
 echo $! >> $PID_FILE
 

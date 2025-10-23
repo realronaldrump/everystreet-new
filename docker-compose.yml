@@ -23,7 +23,7 @@ services:
 
   worker:
     build: .
-    command: celery -A celery_app worker --loglevel=info
+    command: sh -c "celery -A celery_app worker --loglevel=info --pool=${CELERY_WORKER_POOL:-solo} --concurrency=${CELERY_WORKER_CONCURRENCY:-1}"
     environment:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - MONGO_URI=${MONGO_URI:-mongodb://mongo:27017/every_street}
@@ -33,6 +33,8 @@ services:
       - AUTHORIZATION_CODE=${AUTHORIZATION_CODE}
       - AUTHORIZED_DEVICES=${AUTHORIZED_DEVICES}
       - MAPBOX_ACCESS_TOKEN=${MAPBOX_ACCESS_TOKEN}
+      - CELERY_WORKER_POOL=${CELERY_WORKER_POOL:-solo}
+      - CELERY_WORKER_CONCURRENCY=${CELERY_WORKER_CONCURRENCY:-1}
     volumes:
       - .:/app
     depends_on:
