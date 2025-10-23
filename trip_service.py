@@ -102,8 +102,6 @@ def with_comprehensive_handling(func: Callable) -> Callable:
     return wrapper
 
 
-
-
 class TripService:
     """Centralized service for all trip processing operations."""
 
@@ -445,7 +443,10 @@ class TripService:
                 progress_section["message"] = f"Failed to process trips: {exc}"
             raise
         finally:
-            if progress_section is not None and progress_section.get("status") != "failed":
+            if (
+                progress_section is not None
+                and progress_section.get("status") != "failed"
+            ):
                 progress_section["status"] = "completed"
                 progress_section["progress"] = 100
                 progress_section["message"] = "Completed trip processing"
