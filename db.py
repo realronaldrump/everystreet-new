@@ -112,7 +112,11 @@ class DatabaseManager:
         try:
             mongo_uri = os.getenv("MONGO_URI")
             if not mongo_uri:
-                raise ValueError("MONGO_URI environment variable not set")
+                mongo_uri = "mongodb://localhost:27017/every_street"
+                logger.warning(
+                    "MONGO_URI not provided; defaulting to local MongoDB at %s.",
+                    mongo_uri,
+                )
 
             logger.debug("Initializing MongoDB client...")
 

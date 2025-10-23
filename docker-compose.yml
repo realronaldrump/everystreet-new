@@ -20,8 +20,6 @@ services:
     depends_on:
       - mongo
       - redis
-      - worker
-      - beat
 
   worker:
     build: .

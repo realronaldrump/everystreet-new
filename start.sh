@@ -49,8 +49,15 @@ if [ -z "$REDIS_URL" ]; then
     export REDIS_URL="redis://default:${REDISPASSWORD}@${REDISHOST}:${REDISPORT:-6379}"
     echo "Constructed REDIS_URL from component variables"
   else
-    echo "WARNING: REDIS_URL not set and cannot be constructed!"
+    export REDIS_URL="redis://localhost:6379"
+    echo "Using default local Redis URL: $REDIS_URL"
   fi
+fi
+
+# Ensure MONGO_URI defaults to local instance if not set
+if [ -z "$MONGO_URI" ]; then
+  export MONGO_URI="mongodb://localhost:27017/every_street"
+  echo "Using default local MongoDB URI: $MONGO_URI"
 fi
 
 # Create a non-root user for Celery if we're running as root
