@@ -33,6 +33,23 @@ trips_collection = db_manager.db["trips"]
 matched_trips_collection = db_manager.db["matched_trips"]
 
 
+async def _load_trips_for_export(
+    request: Request,
+    not_found_message: str,
+) -> list[dict[str, Any]]:
+    """Fetch trips for export, raising a 404 if none are found."""
+    query = await build_query_from_request(request)
+    trips = await find_with_retry(trips_collection, query)
+
+    if not trips:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=not_found_message,
+        )
+
+    return trips
+
+
 @router.post("/api/export/coverage-route")
 async def export_coverage_route_endpoint(
     payload: dict = Body(...),
@@ -142,17 +159,13 @@ async def export_coverage_route_endpoint(
 async def export_geojson(request: Request):
     """Export trips as GeoJSON."""
     try:
-        query = await build_query_from_request(request)
-        trips = await find_with_retry(trips_collection, query)
-
-        if not trips:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No trips found for filters.",
-            )
-
+        trips = await _load_trips_for_export(
+            request,
+            "No trips found for filters.",
+        )
         return await create_export_response(trips, "geojson", "all_trips")
-
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error exporting GeoJSON: %s", str(e))
         raise HTTPException(
@@ -165,16 +178,10 @@ async def export_geojson(request: Request):
 async def export_gpx(request: Request):
     """Export trips as GPX."""
     try:
-        query = await build_query_from_request(request)
-        trips = await find_with_retry(trips_collection, query)
-
-        if not trips:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No trips found.",
-            )
-
+        trips = await _load_trips_for_export(request, "No trips found.")
         return await export_gpx_response(trips, "trips")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error exporting GPX: %s", str(e))
         raise HTTPException(
