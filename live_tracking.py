@@ -15,16 +15,14 @@ from utils import haversine
 logger = logging.getLogger(__name__)
 
 live_trips_collection_global: Collection | None = None
-archived_live_trips_collection_global: Collection | None = None
 
 
-def initialize_db(db_live_trips, db_archived_live_trips):
+def initialize_db(db_live_trips, _db_archived_live_trips=None):
     """Initialize the database collections used by this module (primarily
     for non-task access).
     """
-    global live_trips_collection_global, archived_live_trips_collection_global
+    global live_trips_collection_global
     live_trips_collection_global = db_live_trips
-    archived_live_trips_collection_global = db_archived_live_trips
     logger.debug("Live tracking global DB collections initialized/updated")
 
 

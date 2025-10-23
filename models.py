@@ -52,14 +52,6 @@ class DeleteCoverageAreaModel(BaseModel):
     display_name: str
 
 
-class TripUpdateModel(BaseModel):
-    """Model for trip update data."""
-
-    type: str
-    geometry: dict[str, Any] | None = None
-    properties: dict[str, Any] = Field(default_factory=dict)
-
-
 class DateRangeModel(BaseModel):
     """Model for date range data."""
 
@@ -81,12 +73,6 @@ class BackgroundTasksConfigModel(BaseModel):
 
     globalDisable: bool | None = None
     tasks: dict[str, dict[str, Any]] | None = None
-
-
-class TaskRunModel(BaseModel):
-    """Model for manual task run."""
-
-    tasks: list[str]
 
 
 class ValidateLocationModel(BaseModel):
