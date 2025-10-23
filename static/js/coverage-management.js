@@ -2182,30 +2182,51 @@ const STATUS = window.STATUS || {
         table.DataTable().destroy();
       }
 
-      table.DataTable({
-        order: [[5, "desc"]], // Sort by last updated descending
-        paging: false,
-        searching: false,
-        info: false,
-        responsive: true,
-        autoWidth: false,
-        columnDefs: [
-          { orderable: false, targets: 6 }, // Actions column
-          {
-            targets: 1, // Total Length column
-            render(data, type) {
-              return type === "display" ? data : parseFloat(data);
-            },
-          },
-        ],
-        language: {
-          emptyTable: "No coverage areas defined yet.",
-        },
-        drawCallback() {
-          // Re-initialize tooltips after table redraw
-          window.coverageManager.initTooltips();
-        },
+      table.removeClass("dataTable no-footer");
+
+      const headerColumns = table
+        .find("thead tr")
+        .first()
+        .children("th").length;
+      const bodyRows = Array.from(table.find("tbody tr"));
+      const hasPlaceholderRows = bodyRows.some((row) => {
+        const cells = Array.from(row.children);
+        if (cells.some((cell) => cell.hasAttribute("colspan"))) return true;
+        return headerColumns && cells.length !== headerColumns;
       });
+
+      if (hasPlaceholderRows) {
+        return;
+      }
+
+      try {
+        table.DataTable({
+          order: [[5, "desc"]], // Sort by last updated descending
+          paging: false,
+          searching: false,
+          info: false,
+          responsive: true,
+          autoWidth: false,
+          columnDefs: [
+            { orderable: false, targets: 6 }, // Actions column
+            {
+              targets: 1, // Total Length column
+              render(data, type) {
+                return type === "display" ? data : parseFloat(data);
+              },
+            },
+          ],
+          language: {
+            emptyTable: "No coverage areas defined yet.",
+          },
+          drawCallback() {
+            // Re-initialize tooltips after table redraw
+            window.coverageManager.initTooltips();
+          },
+        });
+      } catch (error) {
+        console.error("Failed to initialize DataTable:", error);
+      }
     }
 
     updateTotalAreasCount(count = null) {

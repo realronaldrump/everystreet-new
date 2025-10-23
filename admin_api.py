@@ -202,7 +202,24 @@ async def validate_location(
     data: ValidateLocationModel,
 ):
     """Validate a location using OpenStreetMap."""
-    validated = await validate_location_osm(data.location, data.locationType)
+    try:
+        validated = await validate_location_osm(
+            data.location,
+            data.locationType,
+        )
+    except Exception as exc:
+        logger.exception("Location validation failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to validate location at this time.",
+        ) from exc
+
+    if not validated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found.",
+        )
+
     return validated
 
 

@@ -142,6 +142,14 @@ TASK_METADATA = {
         "dependencies": ["periodic_fetch_trips"],
         "description": "Updates coverage calculations incrementally for new trips",
     },
+    "manual_fetch_trips_range": {
+        "display_name": "Fetch Trips (Custom Range)",
+        "default_interval_minutes": 0,
+        "priority": TaskPriority.MEDIUM,
+        "dependencies": [],
+        "description": "Fetches Bouncie trips for a specific date range on-demand",
+        "manual_only": True,
+    },
 }
 
 
@@ -717,6 +725,87 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
 def periodic_fetch_trips(self, *args, **kwargs):
     """Celery task wrapper for fetching periodic trips."""
     return run_async_from_sync(periodic_fetch_trips_async(self))
+
+
+@task_runner
+async def manual_fetch_trips_range_async(
+    self,
+    start_iso: str,
+    end_iso: str,
+    map_match: bool = False,
+    manual_run: bool = False,
+) -> dict[str, Any]:
+    """Fetch trips for a user-specified date range."""
+
+    def _parse_iso(dt_str: str) -> datetime:
+        try:
+            parsed = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        except ValueError as exc:  # pragma: no cover - defensive parsing
+            raise ValueError(f"Invalid date value: {dt_str}") from exc
+
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+
+    start_dt = _parse_iso(start_iso)
+    end_dt = _parse_iso(end_iso)
+
+    if end_dt <= start_dt:
+        raise ValueError("End date must be after start date")
+
+    logger.info(
+        "Manual fetch requested from %s to %s (map_match=%s)",
+        start_dt.isoformat(),
+        end_dt.isoformat(),
+        map_match,
+    )
+
+    fetched_trips = await fetch_bouncie_trips_in_range(
+        start_dt,
+        end_dt,
+        do_map_match=map_match,
+    )
+
+    logger.info("Manual fetch completed: %d trips", len(fetched_trips))
+
+    return {
+        "status": "success",
+        "trips_fetched": len(fetched_trips),
+        "date_range": {
+            "start": start_dt.isoformat(),
+            "end": end_dt.isoformat(),
+        },
+        "map_match": bool(map_match),
+    }
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=60,
+    time_limit=3600,
+    soft_time_limit=3300,
+    name="tasks.manual_fetch_trips_range",
+    queue="high_priority",
+)
+def manual_fetch_trips_range(
+    self,
+    start_iso: str,
+    end_iso: str,
+    map_match: bool = False,
+    manual_run: bool = True,
+):
+    """Celery task wrapper for manual date-range trip fetches."""
+
+    return run_async_from_sync(
+        manual_fetch_trips_range_async(
+            self,
+            start_iso,
+            end_iso,
+            map_match=map_match,
+            manual_run=manual_run,
+        )
+    )
 
 
 @task_runner
@@ -1521,6 +1610,7 @@ async def get_all_task_metadata() -> dict[str, Any]:
                         config_data.get("last_updated"),
                     ),
                     "priority": priority_name,
+                    "manual_only": metadata.get("manual_only", False),
                 },
             )
             task_metadata_with_status[task_id] = task_entry
@@ -1548,6 +1638,7 @@ async def get_all_task_metadata() -> dict[str, Any]:
                 "start_time": None,
                 "end_time": None,
                 "last_updated": None,
+                "manual_only": metadata.get("manual_only", False),
             }
         return fallback_metadata
 
@@ -1682,6 +1773,124 @@ async def _send_manual_task(
             "success": False,
             "message": str(e),
         }
+
+
+async def trigger_manual_fetch_trips_range(
+    start_date: datetime,
+    end_date: datetime,
+    *,
+    map_match: bool,
+) -> dict[str, Any]:
+    """Schedule a manual trip fetch for a specific date range via Celery."""
+
+    status_manager = TaskStatusManager.get_instance()
+
+    def _ensure_utc(dt: datetime) -> datetime:
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+
+    start_utc = _ensure_utc(start_date)
+    end_utc = _ensure_utc(end_date)
+
+    if end_utc <= start_utc:
+        raise ValueError("End date must be after start date")
+
+    celery_task_id = f"manual_fetch_trips_range_{uuid.uuid4()}"
+    kwargs = {
+        "start_iso": start_utc.isoformat(),
+        "end_iso": end_utc.isoformat(),
+        "map_match": bool(map_match),
+        "manual_run": True,
+    }
+
+    try:
+        result = celery_app.send_task(
+            "tasks.manual_fetch_trips_range",
+            task_id=celery_task_id,
+            queue="high_priority",
+            kwargs=kwargs,
+        )
+
+        await status_manager.update_status(
+            "manual_fetch_trips_range",
+            TaskStatus.PENDING.value,
+        )
+
+        await update_task_history_entry(
+            celery_task_id=celery_task_id,
+            task_name="manual_fetch_trips_range",
+            status=TaskStatus.PENDING.value,
+            manual_run=True,
+            start_time=datetime.now(timezone.utc),
+            result={
+                "start_date": start_utc.isoformat(),
+                "end_date": end_utc.isoformat(),
+                "map_match": bool(map_match),
+            },
+        )
+
+        return {
+            "status": "success",
+            "message": "Manual fetch scheduled",
+            "task_id": result.id,
+        }
+    except Exception as exc:  # pragma: no cover - defensive scheduling
+        logger.exception("Failed to schedule manual fetch: %s", exc)
+        await status_manager.update_status(
+            "manual_fetch_trips_range",
+            TaskStatus.FAILED.value,
+            error=str(exc),
+        )
+        raise
+
+
+async def force_reset_task(
+    task_id: str,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    """Forcefully reset a task's status to IDLE for manual recovery."""
+
+    if task_id not in TASK_METADATA:
+        raise ValueError(f"Unknown task_id: {task_id}")
+
+    now = datetime.now(timezone.utc)
+    message = reason or "Task force-stopped by user"
+
+    update_fields = {
+        f"tasks.{task_id}.status": TaskStatus.IDLE.value,
+        f"tasks.{task_id}.last_error": message,
+        f"tasks.{task_id}.end_time": now,
+        f"tasks.{task_id}.last_updated": now,
+        f"tasks.{task_id}.start_time": None,
+    }
+
+    await update_one_with_retry(
+        task_config_collection,
+        {"_id": "global_background_task_config"},
+        {"$set": update_fields},
+        upsert=True,
+    )
+
+    history_id = f"{task_id}_force_stop_{uuid.uuid4()}"
+    await update_task_history_entry(
+        celery_task_id=history_id,
+        task_name=task_id,
+        status="FORCED_STOP",
+        manual_run=True,
+        error=message,
+        start_time=now,
+        end_time=now,
+        runtime_ms=0,
+    )
+
+    logger.info("Task %s force-reset by user", task_id)
+
+    return {
+        "status": "success",
+        "message": f"Task {task_id} was force reset.",
+        "task_id": task_id,
+    }
 
 
 async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, Any]:
