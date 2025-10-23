@@ -112,26 +112,39 @@ class DatabaseManager:
         try:
             mongo_uri = os.getenv("MONGO_URI")
             if not mongo_uri:
-                raise ValueError("MONGO_URI environment variable not set")
+                mongo_uri = "mongodb://localhost:27017/every_street"
+                logger.warning(
+                    "MONGO_URI not provided; defaulting to local MongoDB at %s.",
+                    mongo_uri,
+                )
 
             logger.debug("Initializing MongoDB client...")
+
+            client_kwargs: dict[str, Any] = {
+                "tz_aware": True,
+                "tzinfo": timezone.utc,
+                "maxPoolSize": self._max_pool_size,
+                "minPoolSize": 0,
+                "maxIdleTimeMS": 60000,
+                "connectTimeoutMS": self._connection_timeout_ms,
+                "serverSelectionTimeoutMS": self._server_selection_timeout_ms,
+                "socketTimeoutMS": self._socket_timeout_ms,
+                "retryWrites": True,
+                "retryReads": True,
+                "waitQueueTimeoutMS": 10000,
+                "appname": "EveryStreet",
+            }
+
+            if mongo_uri.startswith("mongodb+srv://"):
+                client_kwargs.update(
+                    tls=True,
+                    tlsAllowInvalidCertificates=True,
+                    tlsCAFile=certifi.where(),
+                )
+
             self._client = AsyncIOMotorClient(
                 mongo_uri,
-                tls=True,
-                tlsAllowInvalidCertificates=True,
-                tlsCAFile=certifi.where(),
-                tz_aware=True,
-                tzinfo=timezone.utc,
-                maxPoolSize=self._max_pool_size,
-                minPoolSize=0,
-                maxIdleTimeMS=60000,
-                connectTimeoutMS=self._connection_timeout_ms,
-                serverSelectionTimeoutMS=self._server_selection_timeout_ms,
-                socketTimeoutMS=self._socket_timeout_ms,
-                retryWrites=True,
-                retryReads=True,
-                waitQueueTimeoutMS=10000,
-                appname="EveryStreet",
+                **client_kwargs,
             )
             self._db = self._client[self._db_name]
             self._connection_healthy = True

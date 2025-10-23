@@ -258,8 +258,11 @@ if __name__ == "__main__":
 
     MONGO_URI = os.environ.get("MONGO_URI")
     if not MONGO_URI:
-        logger.error("MONGO_URI environment variable not set")
-        sys.exit(1)
+        MONGO_URI = "mongodb://localhost:27017/every_street"
+        logger.warning(
+            "MONGO_URI environment variable not set; defaulting to local MongoDB at %s",
+            MONGO_URI,
+        )
 
     client = AsyncIOMotorClient(MONGO_URI, tz_aware=True)
     db = client["every_street"]

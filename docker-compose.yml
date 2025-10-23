@@ -6,8 +6,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - REDIS_URL=${REDIS_URL}
-      - MONGO_URI=${MONGO_URI}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - MONGO_URI=${MONGO_URI:-mongodb://mongo:27017/every_street}
       - CLIENT_ID=${CLIENT_ID}
       - CLIENT_SECRET=${CLIENT_SECRET}
       - REDIRECT_URI=${REDIRECT_URI}
@@ -18,33 +18,35 @@ services:
     volumes:
       - .:/app
     depends_on:
+      - mongo
       - redis
-      - worker
-      - beat
 
   worker:
     build: .
-    command: celery -A celery_app worker --loglevel=info
+    command: sh -c "celery -A celery_app worker --loglevel=info --pool=${CELERY_WORKER_POOL:-solo} --concurrency=${CELERY_WORKER_CONCURRENCY:-1}"
     environment:
-      - REDIS_URL=${REDIS_URL}
-      - MONGO_URI=${MONGO_URI}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - MONGO_URI=${MONGO_URI:-mongodb://mongo:27017/every_street}
       - CLIENT_ID=${CLIENT_ID}
       - CLIENT_SECRET=${CLIENT_SECRET}
       - REDIRECT_URI=${REDIRECT_URI}
       - AUTHORIZATION_CODE=${AUTHORIZATION_CODE}
       - AUTHORIZED_DEVICES=${AUTHORIZED_DEVICES}
       - MAPBOX_ACCESS_TOKEN=${MAPBOX_ACCESS_TOKEN}
+      - CELERY_WORKER_POOL=${CELERY_WORKER_POOL:-solo}
+      - CELERY_WORKER_CONCURRENCY=${CELERY_WORKER_CONCURRENCY:-1}
     volumes:
       - .:/app
     depends_on:
+      - mongo
       - redis
 
   beat:
     build: .
     command: celery -A celery_app beat --loglevel=info
     environment:
-      - REDIS_URL=${REDIS_URL}
-      - MONGO_URI=${MONGO_URI}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - MONGO_URI=${MONGO_URI:-mongodb://mongo:27017/every_street}
       - CLIENT_ID=${CLIENT_ID}
       - CLIENT_SECRET=${CLIENT_SECRET}
       - REDIRECT_URI=${REDIRECT_URI}
@@ -54,6 +56,7 @@ services:
     volumes:
       - .:/app
     depends_on:
+      - mongo
       - redis
 
   redis:
@@ -63,5 +66,13 @@ services:
     volumes:
       - redis_data:/data
 
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
 volumes:
   redis_data:
+  mongo_data:
