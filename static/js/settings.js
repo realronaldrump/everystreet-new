@@ -57,19 +57,30 @@
                 const currentStatus = statusCell.dataset.status;
                 const newStatus = update.status;
 
-                if (currentStatus !== newStatus) {
-                  statusCell.innerHTML = this.getStatusHTML(newStatus);
-                  statusCell.dataset.status = newStatus;
+                  if (currentStatus !== newStatus) {
+                    statusCell.innerHTML = this.getStatusHTML(newStatus);
+                    statusCell.dataset.status = newStatus;
 
-                  const runButton = row.querySelector(".run-now-btn");
-                  if (runButton) {
-                    runButton.disabled = newStatus === "RUNNING";
-                  }
+                    const runButton = row.querySelector(".run-now-btn");
+                    if (runButton) {
+                      const manualOnly = row.dataset.manualOnly === "true";
+                      runButton.disabled = manualOnly || newStatus === "RUNNING";
+                      runButton.title = manualOnly
+                        ? "Use the manual fetch form below"
+                        : "Run task now";
+                    }
 
-                  if (
-                    currentStatus === "RUNNING" &&
-                    (newStatus === "COMPLETED" || newStatus === "FAILED")
-                  ) {
+                    const forceButton = row.querySelector(".force-stop-btn");
+                    if (forceButton) {
+                      forceButton.disabled = !["RUNNING", "PENDING"].includes(
+                        newStatus,
+                      );
+                    }
+
+                    if (
+                      currentStatus === "RUNNING" &&
+                      (newStatus === "COMPLETED" || newStatus === "FAILED")
+                    ) {
                     const taskName =
                       row.querySelector(".task-name-display").textContent;
                     const notificationType =
@@ -281,6 +292,11 @@
         const row = document.createElement("tr");
         row.dataset.taskId = taskId;
 
+        const isManualOnly = Boolean(task.manual_only);
+        row.dataset.manualOnly = isManualOnly ? "true" : "false";
+        const taskStatus = task.status || "IDLE";
+        const canForceStop = ["RUNNING", "PENDING"].includes(taskStatus);
+
         if (!task.display_name) return;
 
         row.innerHTML = `
@@ -289,9 +305,17 @@
                 task.display_name || taskId
               }</span>
               <span class="text-muted small d-block">${taskId}</span>
+              ${
+                isManualOnly
+                  ? '<span class="badge bg-secondary ms-2">Manual</span>'
+                  : ""
+              }
             </td>
             <td>
-              <select class="form-select form-select-sm" data-task-id="${taskId}">
+              ${
+                isManualOnly
+                  ? '<span class="badge bg-info text-dark">Manual trigger</span>'
+                  : `<select class="form-select form-select-sm" data-task-id="${taskId}">
                 ${this.intervalOptions
                   .map(
                     (opt) => `
@@ -303,19 +327,24 @@
                 `,
                   )
                   .join("")}
-              </select>
+              </select>`
+              }
             </td>
             <td>
-              <div class="form-check form-switch">
+              ${
+                isManualOnly
+                  ? '<span class="badge bg-info text-dark">Always enabled</span>'
+                  : `<div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox"
                   id="enable-${taskId}" ${task.enabled ? "checked" : ""}
                   data-task-id="${taskId}">
-              </div>
+              </div>`
+              }
             </td>
             <td>${task.priority || "MEDIUM"}</td>
             <td class="task-status" data-status="${
-              task.status || "IDLE"
-            }">${this.getStatusHTML(task.status || "IDLE")}</td>
+              taskStatus
+            }">${this.getStatusHTML(taskStatus)}</td>
             <td class="task-last-run">${
               task.last_run ? this.formatDateTime(task.last_run) : "Never"
             }</td>
@@ -327,9 +356,22 @@
             <td>
               <div class="btn-group btn-group-sm">
                 <button class="btn btn-info run-now-btn" data-task-id="${taskId}"
-                  ${task.status === "RUNNING" ? "disabled" : ""} 
-                  title="Run task now">
+                  ${
+                    isManualOnly || taskStatus === "RUNNING"
+                      ? "disabled"
+                      : ""
+                  }
+                  title="${
+                    isManualOnly
+                      ? "Use the manual fetch form below"
+                      : "Run task now"
+                  }">
                   <i class="fas fa-play"></i>
+                </button>
+                <button class="btn btn-warning force-stop-btn" data-task-id="${taskId}"
+                  ${canForceStop ? "" : "disabled"}
+                  title="Force stop and reset task">
+                  <i class="fas fa-stop-circle"></i>
                 </button>
                 <button class="btn btn-primary view-details-btn" data-task-id="${taskId}"
                   title="View task details">
@@ -636,6 +678,93 @@
           "danger",
         );
         return false;
+      }
+    }
+
+    async forceStopTask(taskId) {
+      if (!taskId) return false;
+
+      let confirmed = true;
+      const confirmMessage = `Force stop task ${taskId}? This will reset its status.`;
+
+      if (window.confirmationDialog && typeof window.confirmationDialog.show === "function") {
+        confirmed = await window.confirmationDialog.show({
+          title: "Force Stop Task",
+          message: confirmMessage,
+          confirmLabel: "Force Stop",
+          confirmVariant: "danger",
+        });
+      } else {
+        confirmed = window.confirm(confirmMessage);
+      }
+
+      if (!confirmed) return false;
+
+      try {
+        showLoadingOverlay();
+        const response = await fetch("/api/background_tasks/force_stop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ task_id: taskId }),
+        });
+
+        const data = await response.json();
+        hideLoadingOverlay();
+
+        if (!response.ok) {
+          throw new Error(data.detail || data.message || "Failed to force stop task");
+        }
+
+        const message = data.message || `Task ${taskId} has been reset.`;
+        this.notifier.show("Task Reset", message, "warning");
+
+        await this.loadTaskConfig();
+        return true;
+      } catch (error) {
+        hideLoadingOverlay();
+        console.error(`Error force stopping task ${taskId}:`, error);
+        this.notifier.show(
+          "Error",
+          `Failed to force stop task ${taskId}: ${error.message}`,
+          "danger",
+        );
+        return false;
+      }
+    }
+
+    async scheduleManualFetch(startIso, endIso, mapMatch) {
+      try {
+        showLoadingOverlay();
+        const response = await fetch("/api/background_tasks/fetch_trips_range", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            start_date: startIso,
+            end_date: endIso,
+            map_match: Boolean(mapMatch),
+          }),
+        });
+
+        const data = await response.json();
+        hideLoadingOverlay();
+
+        if (!response.ok) {
+          throw new Error(data.detail || data.message || "Failed to schedule fetch");
+        }
+
+        const message = data.message || "Manual trip fetch scheduled.";
+        this.notifier.show("Fetch Scheduled", message, "success");
+        await this.loadTaskConfig();
+        return data;
+      } catch (error) {
+        hideLoadingOverlay();
+        console.error("Error scheduling manual fetch:", error);
+        this.notifier.show(
+          "Error",
+          `Failed to schedule manual fetch: ${error.message}`,
+          "danger",
+        );
+        throw error;
       }
     }
 
@@ -962,6 +1091,7 @@
     window.taskManager = new TaskManager();
 
     setupTaskConfigEventListeners();
+    setupManualFetchTripsForm();
     setupGeoPointsUpdate();
     setupRegeocode();
     setupRemapMatchedTrips();
@@ -1183,12 +1313,16 @@
       .addEventListener("mousedown", (e) => {
         const detailsBtn = e.target.closest(".view-details-btn");
         const runBtn = e.target.closest(".run-now-btn");
+        const forceBtn = e.target.closest(".force-stop-btn");
         if (detailsBtn) {
           const taskId = detailsBtn.dataset.taskId;
           taskManager.showTaskDetails(taskId);
         } else if (runBtn) {
           const taskId = runBtn.dataset.taskId;
           taskManager.runTask(taskId);
+        } else if (forceBtn) {
+          const taskId = forceBtn.dataset.taskId;
+          taskManager.forceStopTask(taskId);
         }
       });
 
@@ -1204,6 +1338,58 @@
           }
         });
     }
+  }
+
+  function setupManualFetchTripsForm() {
+    const form = document.getElementById("manualFetchTripsForm");
+    if (!form) return;
+
+    const startInput = document.getElementById("manual-fetch-start");
+    const endInput = document.getElementById("manual-fetch-end");
+    const mapMatchInput = document.getElementById("manual-fetch-map-match");
+    const statusEl = document.getElementById("manual-fetch-status");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!window.taskManager) return;
+
+      const startValue = startInput?.value;
+      const endValue = endInput?.value;
+
+      if (statusEl) statusEl.textContent = "";
+
+      if (!startValue || !endValue) {
+        if (statusEl) statusEl.textContent = "Please select both start and end dates.";
+        return;
+      }
+
+      const startDate = new Date(startValue);
+      const endDate = new Date(endValue);
+
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        if (statusEl) statusEl.textContent = "Invalid date selection.";
+        return;
+      }
+
+      if (endDate <= startDate) {
+        if (statusEl) statusEl.textContent = "End date must be after the start date.";
+        return;
+      }
+
+      const mapMatchEnabled = Boolean(mapMatchInput?.checked);
+
+      try {
+        if (statusEl) statusEl.textContent = "Scheduling fetch...";
+        await window.taskManager.scheduleManualFetch(
+          startDate.toISOString(),
+          endDate.toISOString(),
+          mapMatchEnabled,
+        );
+        if (statusEl) statusEl.textContent = "Fetch scheduled successfully.";
+      } catch (error) {
+        if (statusEl) statusEl.textContent = `Error: ${error.message}`;
+      }
+    });
   }
 
   function setupGeoPointsUpdate() {

@@ -6,6 +6,7 @@ from math import ceil
 
 from fastapi import APIRouter, Body, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from db import (
     SerializationHelper,
@@ -23,7 +24,9 @@ from tasks import (
     TaskStatus,
     get_all_task_metadata,
     get_task_config,
+    force_reset_task,
     manual_run_task,
+    trigger_manual_fetch_trips_range,
     update_task_schedule,
 )
 
@@ -32,6 +35,17 @@ router = APIRouter()
 
 task_config_collection = db_manager.db["task_config"]
 task_history_collection = db_manager.db["task_history"]
+
+
+class ForceStopRequest(BaseModel):
+    task_id: str
+    reason: str | None = None
+
+
+class FetchTripsRangeRequest(BaseModel):
+    start_date: datetime
+    end_date: datetime
+    map_match: bool = False
 
 
 async def _task_schedule_action(
@@ -102,6 +116,7 @@ async def get_background_tasks_config():
                 "priority",
                 TaskPriority.MEDIUM.name,
             )
+            task_config["manual_only"] = task_def.get("manual_only", False)
 
             task_config["status"] = task_config.get("status", "IDLE")
             task_config["interval_minutes"] = task_config.get(
@@ -256,6 +271,53 @@ async def manual_run_tasks(
         "status": "success",
         "results": results,
     }
+
+
+@router.post("/api/background_tasks/force_stop")
+async def force_stop_task(payload: ForceStopRequest):
+    """Force a task back to IDLE status when it becomes stuck."""
+
+    try:
+        return await force_reset_task(payload.task_id, payload.reason)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception(
+            "Error force-stopping task %s: %s",
+            payload.task_id,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to force stop task.",
+        ) from exc
+
+
+@router.post("/api/background_tasks/fetch_trips_range")
+async def schedule_fetch_trips_range(payload: FetchTripsRangeRequest):
+    """Schedule a manual trip fetch for the given date range."""
+
+    try:
+        result = await trigger_manual_fetch_trips_range(
+            payload.start_date,
+            payload.end_date,
+            map_match=payload.map_match,
+        )
+        return result
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Error scheduling manual fetch: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to schedule manual fetch.",
+        ) from exc
 
 
 @router.get("/api/background_tasks/task/{task_id}")
