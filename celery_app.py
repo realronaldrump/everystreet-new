@@ -38,11 +38,12 @@ if not REDIS_URL:
 
     if redis_host and redis_password:
         REDIS_URL = f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
+        logger.info("Constructed REDIS_URL from component variables.")
     else:
-        raise ValueError(
-            "REDIS_URL environment variable is not set and cannot be constructed! "
-            "This is required for Celery to connect to Redis broker. "
-            "Please configure REDIS_URL in your environment (e.g., Railway).",
+        REDIS_URL = "redis://localhost:6379"
+        logger.warning(
+            "REDIS_URL not provided; defaulting to local Redis at %s.",
+            REDIS_URL,
         )
 
 logger.info(
