@@ -34,44 +34,47 @@ task_config_collection = db_manager.db["task_config"]
 task_history_collection = db_manager.db["task_history"]
 
 
+async def _task_schedule_action(
+    payload: dict[str, object],
+    *,
+    success_message: str,
+    default_error: str,
+    action: str,
+) -> dict[str, str]:
+    """Apply a task schedule update and standardize success/error handling."""
+    try:
+        result = await update_task_schedule(payload)
+    except Exception as exc:
+        logger.exception("Error attempting to %s: %s", action, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    if result.get("status") != "success":
+        detail = result.get("message", default_error)
+        logger.error("Failed to %s: %s", action, detail)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=detail,
+        )
+
+    logger.info("Successfully completed task schedule action: %s", action)
+    return {"status": "success", "message": success_message}
+
+
 @router.post("/api/background_tasks/config")
 async def update_background_tasks_config(
     data: BackgroundTasksConfigModel,
 ):
     """Update the configuration of background tasks."""
-    try:
-        result = await update_task_schedule(data.dict(exclude_unset=True))
-
-        if result.get("status") != "success":
-            logger.error(
-                "Failed to update task schedule: %r",
-                result,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.get("message", "Unknown error"),
-            )
-        return {
-            "status": "success",
-            "message": "Configuration updated",
-        }
-
-    except HTTPException as exc:
-        logger.warning(
-            "HTTPException in update_background_tasks_config: %s",
-            exc,
-            exc_info=True,
-        )
-        raise
-    except Exception as e:
-        logger.exception(
-            "Error updating task configuration: %s",
-            e,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    payload = data.dict(exclude_unset=True)
+    return await _task_schedule_action(
+        payload,
+        success_message="Configuration updated",
+        default_error="Failed to update task configuration",
+        action="update background task configuration",
+    )
 
 
 @router.get("/api/background_tasks/config")
@@ -162,153 +165,61 @@ async def pause_background_tasks(
     minutes: int = 30,
 ):
     """Pause all background tasks for a specified duration."""
-    try:
-        result = await update_task_schedule(
-            {
-                "globalDisable": True,
-                "pauseMinutes": minutes,
-            },
-        )
-        if result.get("status") != "success":
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.get(
-                    "message",
-                    "Failed to pause tasks",
-                ),
-            )
-        return {
-            "status": "success",
-            "message": f"Background tasks paused for {minutes} minutes",
-        }
-    except HTTPException as exc:
-        logger.warning(
-            "HTTPException in pause_background_tasks: %s",
-            exc,
-            exc_info=True,
-        )
-        raise
-    except Exception as e:
-        logger.exception("Error pausing tasks: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return await _task_schedule_action(
+        {
+            "globalDisable": True,
+            "pauseMinutes": minutes,
+        },
+        success_message=f"Background tasks paused for {minutes} minutes",
+        default_error="Failed to pause tasks",
+        action=f"pause background tasks for {minutes} minutes",
+    )
 
 
 @router.post("/api/background_tasks/resume")
 async def resume_background_tasks():
     """Resume all paused background tasks."""
-    try:
-        await update_task_schedule({"globalDisable": False})
-        return {
-            "status": "success",
-            "message": "Background tasks resumed",
-        }
-    except Exception as e:
-        logger.exception("Error resuming tasks: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return await _task_schedule_action(
+        {"globalDisable": False},
+        success_message="Background tasks resumed",
+        default_error="Failed to resume tasks",
+        action="resume background tasks",
+    )
 
 
 @router.post("/api/background_tasks/stop")
 async def stop_all_background_tasks():
     """Stop all currently running background tasks."""
-    try:
-        result = await update_task_schedule({"globalDisable": True})
-        if result.get("status") != "success":
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.get(
-                    "message",
-                    "Failed to stop tasks",
-                ),
-            )
-        return {
-            "status": "success",
-            "message": "All background tasks stopped",
-        }
-    except HTTPException as exc:
-        logger.warning(
-            "HTTPException in stop_all_background_tasks: %s",
-            exc,
-            exc_info=True,
-        )
-        raise
-    except Exception as e:
-        logger.exception("Error stopping all tasks: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return await _task_schedule_action(
+        {"globalDisable": True},
+        success_message="All background tasks stopped",
+        default_error="Failed to stop tasks",
+        action="stop all background tasks",
+    )
 
 
 @router.post("/api/background_tasks/enable")
 async def enable_all_background_tasks():
     """Enable all background tasks."""
-    try:
-        tasks_update = {tid: {"enabled": True} for tid in TASK_METADATA}
-        result = await update_task_schedule({"tasks": tasks_update})
-        if result.get("status") != "success":
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.get(
-                    "message",
-                    "Failed to enable tasks",
-                ),
-            )
-        return {
-            "status": "success",
-            "message": "All background tasks enabled",
-        }
-    except HTTPException as exc:
-        logger.warning(
-            "HTTPException in enable_all_background_tasks: %s",
-            exc,
-            exc_info=True,
-        )
-        raise
-    except Exception as e:
-        logger.exception("Error enabling all tasks: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    tasks_update = {tid: {"enabled": True} for tid in TASK_METADATA}
+    return await _task_schedule_action(
+        {"tasks": tasks_update},
+        success_message="All background tasks enabled",
+        default_error="Failed to enable tasks",
+        action="enable all background tasks",
+    )
 
 
 @router.post("/api/background_tasks/disable")
 async def disable_all_background_tasks():
     """Disable all background tasks."""
-    try:
-        tasks_update = {tid: {"enabled": False} for tid in TASK_METADATA}
-        result = await update_task_schedule({"tasks": tasks_update})
-        if result.get("status") != "success":
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.get(
-                    "message",
-                    "Failed to disable tasks",
-                ),
-            )
-        return {
-            "status": "success",
-            "message": "All background tasks disabled",
-        }
-    except HTTPException as exc:
-        logger.warning(
-            "HTTPException in disable_all_background_tasks: %s",
-            exc,
-            exc_info=True,
-        )
-        raise
-    except Exception as e:
-        logger.exception("Error disabling all tasks: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    tasks_update = {tid: {"enabled": False} for tid in TASK_METADATA}
+    return await _task_schedule_action(
+        {"tasks": tasks_update},
+        success_message="All background tasks disabled",
+        default_error="Failed to disable tasks",
+        action="disable all background tasks",
+    )
 
 
 @router.post("/api/background_tasks/run")

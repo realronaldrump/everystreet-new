@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
@@ -16,51 +17,60 @@ templates = Jinja2Templates(directory="templates")
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 
+def _render_page(template_name: str, request: Request, **context: Any) -> HTMLResponse:
+    """Render a Jinja template with a consistent base context."""
+    return templates.TemplateResponse(
+        template_name,
+        {
+            "request": request,
+            **context,
+        },
+    )
+
+
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """Render main index page."""
-    return templates.TemplateResponse(
+    return _render_page(
         "index.html",
-        {"request": request, "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN},
+        request,
+        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
     )
 
 
 @router.get("/edit_trips", response_class=HTMLResponse)
 async def edit_trips_page(request: Request):
     """Render trip editing page."""
-    return templates.TemplateResponse("edit_trips.html", {"request": request})
+    return _render_page("edit_trips.html", request)
 
 
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """Render settings page."""
-    return templates.TemplateResponse("settings.html", {"request": request})
+    return _render_page("settings.html", request)
 
 
 @router.get("/insights")
 async def insights_page(request: Request):
-    return templates.TemplateResponse(
-        "insights.html",
-        {"request": request},
-    )
+    return _render_page("insights.html", request)
 
 
 @router.get("/visits", response_class=HTMLResponse)
 async def visits_page(request: Request):
     """Render visits page."""
-    return templates.TemplateResponse("visits.html", {"request": request})
+    return _render_page("visits.html", request)
 
 
 @router.get("/export", response_class=HTMLResponse)
 async def export_page(request: Request):
     """Render export page."""
-    return templates.TemplateResponse("export.html", {"request": request})
+    return _render_page("export.html", request)
 
 
 @router.get("/upload", response_class=HTMLResponse)
 async def upload_page(request: Request):
     """Render upload page."""
-    return templates.TemplateResponse("upload.html", {"request": request})
+    return _render_page("upload.html", request)
 
 
 @router.get(
@@ -69,9 +79,10 @@ async def upload_page(request: Request):
 )
 async def coverage_management_page(request: Request):
     """Render coverage management page."""
-    return templates.TemplateResponse(
+    return _render_page(
         "coverage_management.html",
-        {"request": request, "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN},
+        request,
+        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
     )
 
 
@@ -86,10 +97,10 @@ async def database_management_page(request: Request):
             (storage_used_mb / storage_limit_mb) * 100,
             2,
         )
-        collections_info = []
         collection_names = [
             name for name in await db_manager.db.list_collection_names()
         ]
+        collections_info = []
         for collection_name in collection_names:
             stats = await db_manager.db.command("collStats", collection_name)
             collections_info.append(
@@ -99,15 +110,13 @@ async def database_management_page(request: Request):
                     "size_mb": round(stats["size"] / (1024 * 1024), 2),
                 },
             )
-        return templates.TemplateResponse(
+        return _render_page(
             "database_management.html",
-            {
-                "request": request,
-                "storage_used_mb": storage_used_mb,
-                "storage_limit_mb": storage_limit_mb,
-                "storage_usage_percent": storage_usage_percent,
-                "collections": collections_info,
-            },
+            request,
+            storage_used_mb=storage_used_mb,
+            storage_limit_mb=storage_limit_mb,
+            storage_usage_percent=storage_usage_percent,
+            collections=collections_info,
         )
     except Exception as e:
         logger.exception("Error loading database management page: %s", str(e))
@@ -120,10 +129,7 @@ async def database_management_page(request: Request):
 @router.get("/app-settings", response_class=HTMLResponse)
 async def app_settings_page(request: Request):
     """Render app settings page."""
-    return templates.TemplateResponse(
-        "app_settings.html",
-        {"request": request},
-    )
+    return _render_page("app_settings.html", request)
 
 
 @router.get(
@@ -132,7 +138,8 @@ async def app_settings_page(request: Request):
 )
 async def driving_navigation_page(request: Request):
     """Render the driving navigation page."""
-    return templates.TemplateResponse(
+    return _render_page(
         "driving_navigation.html",
-        {"request": request, "MAPBOX_ACCESS_TOKEN": MAPBOX_ACCESS_TOKEN},
+        request,
+        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
     )
