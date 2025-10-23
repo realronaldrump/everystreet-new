@@ -766,9 +766,7 @@ async def manual_fetch_trips_range_async(
         do_map_match=map_match,
     )
 
-    logger.info(
-        "Manual fetch completed: %d trips", len(fetched_trips)
-    )
+    logger.info("Manual fetch completed: %d trips", len(fetched_trips))
 
     return {
         "status": "success",

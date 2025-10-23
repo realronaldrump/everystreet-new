@@ -57,30 +57,30 @@
                 const currentStatus = statusCell.dataset.status;
                 const newStatus = update.status;
 
-                  if (currentStatus !== newStatus) {
-                    statusCell.innerHTML = this.getStatusHTML(newStatus);
-                    statusCell.dataset.status = newStatus;
+                if (currentStatus !== newStatus) {
+                  statusCell.innerHTML = this.getStatusHTML(newStatus);
+                  statusCell.dataset.status = newStatus;
 
-                    const runButton = row.querySelector(".run-now-btn");
-                    if (runButton) {
-                      const manualOnly = row.dataset.manualOnly === "true";
-                      runButton.disabled = manualOnly || newStatus === "RUNNING";
-                      runButton.title = manualOnly
-                        ? "Use the manual fetch form below"
-                        : "Run task now";
-                    }
+                  const runButton = row.querySelector(".run-now-btn");
+                  if (runButton) {
+                    const manualOnly = row.dataset.manualOnly === "true";
+                    runButton.disabled = manualOnly || newStatus === "RUNNING";
+                    runButton.title = manualOnly
+                      ? "Use the manual fetch form below"
+                      : "Run task now";
+                  }
 
-                    const forceButton = row.querySelector(".force-stop-btn");
-                    if (forceButton) {
-                      forceButton.disabled = !["RUNNING", "PENDING"].includes(
-                        newStatus,
-                      );
-                    }
+                  const forceButton = row.querySelector(".force-stop-btn");
+                  if (forceButton) {
+                    forceButton.disabled = !["RUNNING", "PENDING"].includes(
+                      newStatus,
+                    );
+                  }
 
-                    if (
-                      currentStatus === "RUNNING" &&
-                      (newStatus === "COMPLETED" || newStatus === "FAILED")
-                    ) {
+                  if (
+                    currentStatus === "RUNNING" &&
+                    (newStatus === "COMPLETED" || newStatus === "FAILED")
+                  ) {
                     const taskName =
                       row.querySelector(".task-name-display").textContent;
                     const notificationType =
@@ -356,11 +356,7 @@
             <td>
               <div class="btn-group btn-group-sm">
                 <button class="btn btn-info run-now-btn" data-task-id="${taskId}"
-                  ${
-                    isManualOnly || taskStatus === "RUNNING"
-                      ? "disabled"
-                      : ""
-                  }
+                  ${isManualOnly || taskStatus === "RUNNING" ? "disabled" : ""}
                   title="${
                     isManualOnly
                       ? "Use the manual fetch form below"
@@ -687,7 +683,10 @@
       let confirmed = true;
       const confirmMessage = `Force stop task ${taskId}? This will reset its status.`;
 
-      if (window.confirmationDialog && typeof window.confirmationDialog.show === "function") {
+      if (
+        window.confirmationDialog &&
+        typeof window.confirmationDialog.show === "function"
+      ) {
         confirmed = await window.confirmationDialog.show({
           title: "Force Stop Task",
           message: confirmMessage,
@@ -712,7 +711,9 @@
         hideLoadingOverlay();
 
         if (!response.ok) {
-          throw new Error(data.detail || data.message || "Failed to force stop task");
+          throw new Error(
+            data.detail || data.message || "Failed to force stop task",
+          );
         }
 
         const message = data.message || `Task ${taskId} has been reset.`;
@@ -735,21 +736,26 @@
     async scheduleManualFetch(startIso, endIso, mapMatch) {
       try {
         showLoadingOverlay();
-        const response = await fetch("/api/background_tasks/fetch_trips_range", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            start_date: startIso,
-            end_date: endIso,
-            map_match: Boolean(mapMatch),
-          }),
-        });
+        const response = await fetch(
+          "/api/background_tasks/fetch_trips_range",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              start_date: startIso,
+              end_date: endIso,
+              map_match: Boolean(mapMatch),
+            }),
+          },
+        );
 
         const data = await response.json();
         hideLoadingOverlay();
 
         if (!response.ok) {
-          throw new Error(data.detail || data.message || "Failed to schedule fetch");
+          throw new Error(
+            data.detail || data.message || "Failed to schedule fetch",
+          );
         }
 
         const message = data.message || "Manual trip fetch scheduled.";
@@ -1359,20 +1365,25 @@
       if (statusEl) statusEl.textContent = "";
 
       if (!startValue || !endValue) {
-        if (statusEl) statusEl.textContent = "Please select both start and end dates.";
+        if (statusEl)
+          statusEl.textContent = "Please select both start and end dates.";
         return;
       }
 
       const startDate = new Date(startValue);
       const endDate = new Date(endValue);
 
-      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      if (
+        Number.isNaN(startDate.getTime()) ||
+        Number.isNaN(endDate.getTime())
+      ) {
         if (statusEl) statusEl.textContent = "Invalid date selection.";
         return;
       }
 
       if (endDate <= startDate) {
-        if (statusEl) statusEl.textContent = "End date must be after the start date.";
+        if (statusEl)
+          statusEl.textContent = "End date must be after the start date.";
         return;
       }
 
