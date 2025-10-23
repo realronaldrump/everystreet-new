@@ -6,7 +6,6 @@ TripProcessor and provides batch processing, validation, geocoding, and
 map matching capabilities for both Bouncie and uploaded trips.
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -101,69 +100,6 @@ def with_comprehensive_handling(func: Callable) -> Callable:
             )
 
     return wrapper
-
-
-def with_db_retry(func: Callable) -> Callable:
-    """Decorator for database operations with retry logic."""
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                return await func(*args, **kwargs)
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    logger.error(
-                        "Database operation %s failed after %d retries: %s",
-                        func.__name__,
-                        max_retries,
-                        str(e),
-                    )
-                    raise
-                logger.warning(
-                    "Database operation %s failed (attempt %d/%d), retrying: %s",
-                    func.__name__,
-                    attempt + 1,
-                    max_retries,
-                    str(e),
-                )
-                await asyncio.sleep(1.0 * (attempt + 1))
-
-    return wrapper
-
-
-def with_progress_tracking(progress_key: str = None):
-    """Decorator for progress tracking updates."""
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Extract progress tracker from kwargs if available
-            progress_tracker = kwargs.get("progress_tracker")
-            if progress_tracker and progress_key:
-                progress_tracker[progress_key]["status"] = "running"
-                progress_tracker[progress_key]["message"] = f"Starting {func.__name__}"
-
-            try:
-                result = await func(*args, **kwargs)
-                if progress_tracker and progress_key:
-                    progress_tracker[progress_key]["status"] = "completed"
-                    progress_tracker[progress_key][
-                        "message"
-                    ] = f"Completed {func.__name__}"
-                return result
-            except Exception as e:
-                if progress_tracker and progress_key:
-                    progress_tracker[progress_key]["status"] = "failed"
-                    progress_tracker[progress_key][
-                        "message"
-                    ] = f"Failed {func.__name__}: {str(e)}"
-                raise
-
-        return wrapper
-
-    return decorator
 
 
 class TripService:
@@ -296,7 +232,6 @@ class TripService:
         return validate_trip_data(trip_data)
 
     @with_comprehensive_handling
-    @with_db_retry
     async def get_trip_by_id(self, trip_id: str) -> dict[str, Any] | None:
         """Retrieve a trip by its ID."""
         return await get_trip_by_id(trip_id, self.trips_collection)
@@ -444,7 +379,6 @@ class TripService:
         return await processor.save()
 
     @with_comprehensive_handling
-    @with_progress_tracking("fetch_and_store_trips")
     async def process_bouncie_trips(
         self,
         trips_data: list[dict[str, Any]],
@@ -452,45 +386,70 @@ class TripService:
         progress_tracker: dict = None,
     ) -> list[str]:
         """Process multiple Bouncie trips."""
-        processed_trip_ids = []
+        processed_trip_ids: list[str] = []
+        progress_section = None
 
-        for i, trip in enumerate(trips_data):
-            if progress_tracker:
-                progress = int((i / len(trips_data)) * 100)
-                progress_tracker["fetch_and_store_trips"]["progress"] = progress
-                progress_tracker["fetch_and_store_trips"][
-                    "message"
-                ] = f"Processing trip {i + 1} of {len(trips_data)}"
+        if progress_tracker:
+            progress_section = progress_tracker.get("fetch_and_store_trips")
+            if progress_section is not None:
+                progress_section.setdefault("progress", 0)
+                progress_section["status"] = "running"
+                progress_section["message"] = "Starting trip processing"
 
-            transaction_id = trip.get("transactionId", "unknown")
+        try:
+            for index, trip in enumerate(trips_data):
+                if progress_section is not None and trips_data:
+                    progress_section["progress"] = int((index / len(trips_data)) * 100)
+                    progress_section["message"] = (
+                        f"Processing trip {index + 1} of {len(trips_data)}"
+                    )
 
-            if not trip.get("endTime"):
-                logger.warning(
-                    "Skipping trip %s because 'endTime' is missing",
-                    transaction_id,
-                )
-                continue
+                transaction_id = trip.get("transactionId", "unknown")
 
-            try:
-                options = ProcessingOptions(
-                    validate=True,
-                    geocode=True,
-                    map_match=do_map_match,
-                )
+                if not trip.get("endTime"):
+                    logger.warning(
+                        "Skipping trip %s because 'endTime' is missing",
+                        transaction_id,
+                    )
+                    continue
 
-                result = await self.process_single_trip(trip, options, source="api")
+                try:
+                    options = ProcessingOptions(
+                        validate=True,
+                        geocode=True,
+                        map_match=do_map_match,
+                    )
 
-                if result.get("saved_id"):
-                    processed_trip_ids.append(result["saved_id"])
+                    result = await self.process_single_trip(
+                        trip,
+                        options,
+                        source="api",
+                    )
 
-            except Exception as e:
-                logger.error(
-                    "Failed to process Bouncie trip %s: %s",
-                    transaction_id,
-                    str(e),
-                )
+                    if result.get("saved_id"):
+                        processed_trip_ids.append(result["saved_id"])
 
-        return processed_trip_ids
+                except Exception as trip_error:
+                    logger.error(
+                        "Failed to process Bouncie trip %s: %s",
+                        transaction_id,
+                        str(trip_error),
+                    )
+
+            return processed_trip_ids
+        except Exception as exc:
+            if progress_section is not None:
+                progress_section["status"] = "failed"
+                progress_section["message"] = f"Failed to process trips: {exc}"
+            raise
+        finally:
+            if (
+                progress_section is not None
+                and progress_section.get("status") != "failed"
+            ):
+                progress_section["status"] = "completed"
+                progress_section["progress"] = 100
+                progress_section["message"] = "Completed trip processing"
 
     @with_comprehensive_handling
     async def remap_trips(
