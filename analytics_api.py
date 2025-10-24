@@ -143,10 +143,20 @@ async def driver_behavior_analytics(request: Request):
             {
                 "$addFields": {
                     "numericDistance": {
-                        "$convert": {"input": "$distance", "to": "double", "onError": 0.0, "onNull": 0.0}
+                        "$convert": {
+                            "input": "$distance",
+                            "to": "double",
+                            "onError": 0.0,
+                            "onNull": 0.0,
+                        }
                     },
                     "numericMaxSpeed": {
-                        "$convert": {"input": "$maxSpeed", "to": "double", "onError": 0.0, "onNull": 0.0}
+                        "$convert": {
+                            "input": "$maxSpeed",
+                            "to": "double",
+                            "onError": 0.0,
+                            "onNull": 0.0,
+                        }
                     },
                     "speedValue": {
                         "$convert": {
@@ -156,15 +166,41 @@ async def driver_behavior_analytics(request: Request):
                             "onNull": None,
                         }
                     },
-                    "hardBrakingVal": {"$ifNull": ["$hardBrakingCounts", {"$ifNull": ["$hardBrakingCount", 0]}]},
-                    "hardAccelVal": {"$ifNull": ["$hardAccelerationCounts", {"$ifNull": ["$hardAccelerationCount", 0]}]},
+                    "hardBrakingVal": {
+                        "$ifNull": [
+                            "$hardBrakingCounts",
+                            {"$ifNull": ["$hardBrakingCount", 0]},
+                        ]
+                    },
+                    "hardAccelVal": {
+                        "$ifNull": [
+                            "$hardAccelerationCounts",
+                            {"$ifNull": ["$hardAccelerationCount", 0]},
+                        ]
+                    },
                     "idleSeconds": {
-                        "$convert": {"input": "$totalIdleDuration", "to": "double", "onError": 0.0, "onNull": 0.0}
+                        "$convert": {
+                            "input": "$totalIdleDuration",
+                            "to": "double",
+                            "onError": 0.0,
+                            "onNull": 0.0,
+                        }
                     },
                     "fuelDouble": {
-                        "$convert": {"input": "$fuelConsumed", "to": "double", "onError": 0.0, "onNull": 0.0}
+                        "$convert": {
+                            "input": "$fuelConsumed",
+                            "to": "double",
+                            "onError": 0.0,
+                            "onNull": 0.0,
+                        }
                     },
-                    "dtParts": {"$dateToParts": {"date": "$startTime", "timezone": tz_expr, "iso8601": True}},
+                    "dtParts": {
+                        "$dateToParts": {
+                            "date": "$startTime",
+                            "timezone": tz_expr,
+                            "iso8601": True,
+                        }
+                    },
                 }
             },
             {
@@ -175,8 +211,20 @@ async def driver_behavior_analytics(request: Request):
                                 "_id": None,
                                 "totalTrips": {"$sum": 1},
                                 "totalDistance": {"$sum": "$numericDistance"},
-                                "speedSum": {"$sum": {"$cond": [{"$ne": ["$speedValue", None]}, "$speedValue", 0]}},
-                                "speedCount": {"$sum": {"$cond": [{"$ne": ["$speedValue", None]}, 1, 0]}},
+                                "speedSum": {
+                                    "$sum": {
+                                        "$cond": [
+                                            {"$ne": ["$speedValue", None]},
+                                            "$speedValue",
+                                            0,
+                                        ]
+                                    }
+                                },
+                                "speedCount": {
+                                    "$sum": {
+                                        "$cond": [{"$ne": ["$speedValue", None]}, 1, 0]
+                                    }
+                                },
                                 "maxSpeed": {"$max": "$numericMaxSpeed"},
                                 "hardBrakingCounts": {"$sum": "$hardBrakingVal"},
                                 "hardAccelerationCounts": {"$sum": "$hardAccelVal"},
@@ -207,7 +255,10 @@ async def driver_behavior_analytics(request: Request):
                     "weekly": [
                         {
                             "$group": {
-                                "_id": {"wy": "$dtParts.isoWeekYear", "wk": "$dtParts.isoWeek"},
+                                "_id": {
+                                    "wy": "$dtParts.isoWeekYear",
+                                    "wk": "$dtParts.isoWeek",
+                                },
                                 "trips": {"$sum": 1},
                                 "distance": {"$sum": "$numericDistance"},
                                 "hardBraking": {"$sum": "$hardBrakingVal"},
@@ -266,16 +317,21 @@ async def driver_behavior_analytics(request: Request):
             },
             {
                 "$project": {
-                    "totals": {"$ifNull": [{"$arrayElemAt": ["$totals", 0]}, {
-                        "totalTrips": 0,
-                        "totalDistance": 0.0,
-                        "avgSpeed": 0.0,
-                        "maxSpeed": 0.0,
-                        "hardBrakingCounts": 0,
-                        "hardAccelerationCounts": 0,
-                        "totalIdlingTime": 0.0,
-                        "fuelConsumed": 0.0,
-                    }]},
+                    "totals": {
+                        "$ifNull": [
+                            {"$arrayElemAt": ["$totals", 0]},
+                            {
+                                "totalTrips": 0,
+                                "totalDistance": 0.0,
+                                "avgSpeed": 0.0,
+                                "maxSpeed": 0.0,
+                                "hardBrakingCounts": 0,
+                                "hardAccelerationCounts": 0,
+                                "totalIdlingTime": 0.0,
+                                "fuelConsumed": 0.0,
+                            },
+                        ]
+                    },
                     "weekly": 1,
                     "monthly": 1,
                 }
@@ -299,24 +355,26 @@ async def driver_behavior_analytics(request: Request):
         results = await aggregate_with_retry(trips_collection, pipeline)
         if not results:
             payload = {
-            "totalTrips": 0,
-            "totalDistance": 0,
-            "avgSpeed": 0,
-            "maxSpeed": 0,
-            "hardBrakingCounts": 0,
-            "hardAccelerationCounts": 0,
-            "totalIdlingTime": 0,
-            "fuelConsumed": 0,
-            "weekly": [],
-            "monthly": [],
-        }
+                "totalTrips": 0,
+                "totalDistance": 0,
+                "avgSpeed": 0,
+                "maxSpeed": 0,
+                "hardBrakingCounts": 0,
+                "hardAccelerationCounts": 0,
+                "totalIdlingTime": 0,
+                "fuelConsumed": 0,
+                "weekly": [],
+                "monthly": [],
+            }
             return JSONResponse(content=payload)
 
         combined = results[0]
         return JSONResponse(content=convert_datetimes_to_isoformat(combined))
     except Exception as e:
         logger.exception("Error aggregating driver behavior analytics: %s", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.get("/api/driving-insights")

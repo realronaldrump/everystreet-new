@@ -12,14 +12,14 @@ import aiohttp
 from config import (
     API_BASE_URL,
     AUTH_URL,
-    AUTHORIZED_DEVICES,
     AUTHORIZATION_CODE,
+    AUTHORIZED_DEVICES,
     CLIENT_ID,
     CLIENT_SECRET,
+    MAPBOX_ACCESS_TOKEN,
     REDIRECT_URI,
 )
 from date_utils import parse_timestamp
-from config import MAPBOX_ACCESS_TOKEN
 from trip_service import TripService
 from utils import get_session
 

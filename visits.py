@@ -10,11 +10,11 @@ from typing import Any
 
 import pymongo
 from bson import ObjectId
-from date_utils import parse_timestamp
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from shapely.geometry import shape
 
+from date_utils import parse_timestamp
 from db import (
     SerializationHelper,
     aggregate_with_retry,
