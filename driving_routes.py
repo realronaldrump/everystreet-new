@@ -226,38 +226,32 @@ async def get_next_driving_route(request: Request):
                     detail=f"Target segment {target_segment_id} not found.",
                 )
         else:
-            # Find nearest undriven street
-            undriven_streets_cursor = streets_collection.find(
-                {
-                    "properties.location": location_name,
-                    "properties.driven": False,
-                    "properties.undriveable": {"$ne": True},
-                    "geometry.type": "LineString",
-                    "geometry.coordinates": {"$exists": True, "$not": {"$size": 0}},
+            # Find nearest undriven street using geospatial index ($near)
+            near_query = {
+                "properties.location": location_name,
+                "properties.driven": False,
+                "properties.undriveable": {"$ne": True},
+                "geometry": {
+                    "$near": {
+                        "$geometry": {
+                            "type": "Point",
+                            "coordinates": [current_lon, current_lat],
+                        }
+                    }
                 },
+            }
+            target_street = await streets_collection.find_one(
+                near_query,
                 {"geometry.coordinates": 1, "properties": 1, "_id": 0},
             )
-            undriven_streets = await undriven_streets_cursor.to_list(length=None)
 
-            if not undriven_streets:
+            if not target_street:
                 return JSONResponse(
                     content={
                         "status": "completed",
                         "message": f"No undriven streets found in {location_name}.",
                     }
                 )
-
-            # Find the closest street by haversine distance to its start point
-            closest_street = min(
-                undriven_streets,
-                key=lambda s: haversine(
-                    current_lon,
-                    current_lat,
-                    s["geometry"]["coordinates"][0][0],
-                    s["geometry"]["coordinates"][0][1],
-                ),
-            )
-            target_street = closest_street
 
         if not target_street or not target_street.get("geometry", {}).get(
             "coordinates"
@@ -450,17 +444,26 @@ async def get_coverage_driving_route(request: Request):
         raise e
 
     try:
-        undriven_streets_cursor = streets_collection.find(
-            {
-                "properties.location": location_name,
-                "properties.driven": False,
-                "properties.undriveable": {"$ne": True},
-                "geometry.type": "LineString",
-                "geometry.coordinates": {"$exists": True, "$not": {"$size": 0}},
+        # Pull only a limited set of nearest segments to minimize memory
+        max_candidates = int(os.getenv("COVERAGE_MAX_NEAR_SEGMENTS", "60"))
+        near_query = {
+            "properties.location": location_name,
+            "properties.driven": False,
+            "properties.undriveable": {"$ne": True},
+            "geometry": {
+                "$near": {
+                    "$geometry": {
+                        "type": "Point",
+                        "coordinates": [current_lon, current_lat],
+                    }
+                }
             },
+        }
+        undriven_streets_cursor = streets_collection.find(
+            near_query,
             {"geometry": 1, "properties": 1, "_id": 0},
-        )
-        undriven_streets_list = await undriven_streets_cursor.to_list(length=None)
+        ).limit(max_candidates)
+        undriven_streets_list = await undriven_streets_cursor.to_list(length=max_candidates)
 
         if not undriven_streets_list:
             return JSONResponse(

@@ -12,7 +12,6 @@ from db import (
     build_query_from_request,
     db_manager,
     find_one_with_retry,
-    find_with_retry,
     parse_query_date,
 )
 from export_helpers import (
@@ -39,15 +38,252 @@ async def _load_trips_for_export(
 ) -> list[dict[str, Any]]:
     """Fetch trips for export, raising a 404 if none are found."""
     query = await build_query_from_request(request)
-    trips = await find_with_retry(trips_collection, query)
-
-    if not trips:
+    # Switch to streaming approach; this function is retained for back-compat
+    # but now only validates there are any results.
+    doc = await trips_collection.find_one(query, {"_id": 1})
+    if not doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=not_found_message,
         )
+    # Caller should stream from a cursor instead of using this result
+    return []
 
-    return trips
+
+# ----------------------------- Streaming helpers -----------------------------
+
+def _date_range_filename_component(request: Request) -> str:
+    start = request.query_params.get("start_date")
+    end = request.query_params.get("end_date")
+    if start and end:
+        try:
+            s = parse_query_date(start)
+            e = parse_query_date(end)
+            if s and e:
+                return f"{s.strftime('%Y%m%d')}-{e.strftime('%Y%m%d')}"
+        except Exception:
+            pass
+    return datetime.now().strftime("%Y%m%d")
+
+
+async def _stream_geojson_from_cursor(cursor) -> Any:
+    async def generator():
+        yield '{"type":"FeatureCollection","features":['
+        first = True
+        async for trip in cursor:
+            try:
+                geom = trip.get("gps")
+                if not isinstance(geom, dict) or not geom.get("type"):
+                    continue
+                props = {k: v for k, v in trip.items() if k != "gps"}
+                feature = {"type": "Feature", "geometry": geom, "properties": props}
+                chunk = json.dumps(feature, default=default_serializer, separators=(",", ":"))
+                if not first:
+                    yield ","
+                yield chunk
+                first = False
+            except Exception as e:
+                logger.warning("Skipping trip in GeoJSON stream due to error: %s", e)
+                continue
+        yield "]}"
+
+    return generator()
+
+
+async def _stream_json_array_from_cursor(cursor) -> Any:
+    async def generator():
+        yield "["
+        first = True
+        async for doc in cursor:
+            try:
+                chunk = json.dumps(doc, default=default_serializer, separators=(",", ":"))
+                if not first:
+                    yield ","
+                yield chunk
+                first = False
+            except Exception as e:
+                logger.warning("Skipping document in JSON stream: %s", e)
+                continue
+        yield "]"
+
+    return generator()
+
+
+def _xml_escape(text: str) -> str:
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
+async def _stream_gpx_from_cursor(cursor) -> Any:
+    async def generator():
+        yield "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        yield "<gpx version=\"1.1\" creator=\"EveryStreet\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n"
+        async for trip in cursor:
+            try:
+                geom = trip.get("gps")
+                if not isinstance(geom, dict) or "type" not in geom:
+                    continue
+                name = _xml_escape(str(trip.get("transactionId", "trip")))
+                yield f"  <trk><name>{name}</name><trkseg>\n"
+                if geom.get("type") == "LineString":
+                    coords = geom.get("coordinates", [])
+                    for c in coords:
+                        if isinstance(c, (list, tuple)) and len(c) >= 2:
+                            lon, lat = c[0], c[1]
+                            yield f"    <trkpt lat=\"{lat}\" lon=\"{lon}\"/>\n"
+                elif geom.get("type") == "Point":
+                    coords = geom.get("coordinates", [])
+                    if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                        lon, lat = coords[0], coords[1]
+                        yield f"    <trkpt lat=\"{lat}\" lon=\"{lon}\"/>\n"
+                yield "  </trkseg></trk>\n"
+            except Exception as e:
+                logger.warning("Skipping trip in GPX stream: %s", e)
+                continue
+        yield "</gpx>\n"
+
+    return generator()
+
+
+async def _stream_csv_from_cursor(cursor, include_gps_in_csv: bool, flatten_location_fields: bool) -> Any:
+    import csv
+    from io import StringIO
+
+    location_fields = []
+    if flatten_location_fields:
+        location_fields = [
+            "startLocation_formatted_address",
+            "startLocation_street_number",
+            "startLocation_street",
+            "startLocation_city",
+            "startLocation_county",
+            "startLocation_state",
+            "startLocation_postal_code",
+            "startLocation_country",
+            "startLocation_lat",
+            "startLocation_lng",
+            "destination_formatted_address",
+            "destination_street_number",
+            "destination_street",
+            "destination_city",
+            "destination_county",
+            "destination_state",
+            "destination_postal_code",
+            "destination_country",
+            "destination_lat",
+            "destination_lng",
+        ]
+
+    # Determine header once using a sample doc if available
+    sample_doc = await cursor.to_list(length=1)
+    async def rebuild_cursor_after_sample():
+        # Rebuild cursor since we consumed one
+        return trips_collection.find(cursor._Cursor__spec)  # type: ignore[attr-defined]
+
+    fieldnames = set()
+    if sample_doc:
+        fieldnames.update(sample_doc[0].keys())
+    if flatten_location_fields:
+        fieldnames.update(location_fields)
+        fieldnames.discard("startLocation")
+        fieldnames.discard("destination")
+    fieldnames = sorted(fieldnames)
+    priority = ["_id", "transactionId", "trip_id", "trip_type", "startTime", "endTime"] + location_fields
+    for f in reversed(priority):
+        if f in fieldnames:
+            fieldnames.remove(f)
+            fieldnames.insert(0, f)
+
+    async def generator():
+        buf = StringIO()
+        writer = csv.DictWriter(buf, fieldnames=fieldnames)
+        writer.writeheader()
+        yield buf.getvalue()
+        buf.seek(0)
+        buf.truncate(0)
+
+        # If we had a sample, write it first
+        async def write_trip(trip: dict[str, Any]):
+            flat = {}
+            for key, value in trip.items():
+                if key in ["gps", "geometry", "path", "simplified_path", "route"]:
+                    if include_gps_in_csv:
+                        flat[key] = json.dumps(value, default=default_serializer)
+                    else:
+                        flat[key] = "[Geometry data not included in CSV format]"
+                elif flatten_location_fields and key in ["startLocation", "destination"]:
+                    continue
+                elif isinstance(value, (dict, list)):
+                    flat[key] = json.dumps(value, default=default_serializer)
+                else:
+                    flat[key] = value
+
+            if flatten_location_fields:
+                def normalize(obj):
+                    if isinstance(obj, str):
+                        try:
+                            return json.loads(obj)
+                        except json.JSONDecodeError:
+                            return {}
+                    return obj if isinstance(obj, dict) else {}
+
+                start_loc = normalize(trip.get("startLocation", {}))
+                dest = normalize(trip.get("destination", {}))
+
+                flat["startLocation_formatted_address"] = start_loc.get("formatted_address", "")
+                addr = start_loc.get("address_components", {}) if isinstance(start_loc, dict) else {}
+                flat["startLocation_street_number"] = addr.get("street_number", "")
+                flat["startLocation_street"] = addr.get("street", "")
+                flat["startLocation_city"] = addr.get("city", "")
+                flat["startLocation_county"] = addr.get("county", "")
+                flat["startLocation_state"] = addr.get("state", "")
+                flat["startLocation_postal_code"] = addr.get("postal_code", "")
+                flat["startLocation_country"] = addr.get("country", "")
+                coords = start_loc.get("coordinates", {}) if isinstance(start_loc, dict) else {}
+                flat["startLocation_lat"] = coords.get("lat", "")
+                flat["startLocation_lng"] = coords.get("lng", "")
+
+                flat["destination_formatted_address"] = dest.get("formatted_address", "")
+                addr = dest.get("address_components", {}) if isinstance(dest, dict) else {}
+                flat["destination_street_number"] = addr.get("street_number", "")
+                flat["destination_street"] = addr.get("street", "")
+                flat["destination_city"] = addr.get("city", "")
+                flat["destination_county"] = addr.get("county", "")
+                flat["destination_state"] = addr.get("state", "")
+                flat["destination_postal_code"] = addr.get("postal_code", "")
+                flat["destination_country"] = addr.get("country", "")
+                coords = dest.get("coordinates", {}) if isinstance(dest, dict) else {}
+                flat["destination_lat"] = coords.get("lat", "")
+                flat["destination_lng"] = coords.get("lng", "")
+
+            writer.writerow(flat)
+            yield buf.getvalue()
+            buf.seek(0)
+            buf.truncate(0)
+
+        if sample_doc:
+            async for chunk in write_trip(sample_doc[0]):
+                yield chunk
+
+        # Recreate cursor to continue after the first document
+        query = cursor._Cursor__spec  # type: ignore[attr-defined]
+        projection = cursor._Cursor__fields if hasattr(cursor, "_Cursor__fields") else None  # type: ignore[attr-defined]
+        new_cursor = (trips_collection if cursor.collection.name == "trips" else matched_trips_collection).find(query, projection)  # type: ignore
+        # Skip first document to avoid duplication
+        skipped_first = False
+        async for doc in new_cursor:
+            if not skipped_first and sample_doc and doc.get("_id") == sample_doc[0].get("_id"):
+                skipped_first = True
+                continue
+            async for chunk in write_trip(doc):
+                yield chunk
+
+    return generator()
 
 
 @router.post("/api/export/coverage-route")
@@ -159,11 +395,17 @@ async def export_coverage_route_endpoint(
 async def export_geojson(request: Request):
     """Export trips as GeoJSON."""
     try:
-        trips = await _load_trips_for_export(
-            request,
-            "No trips found for filters.",
+        query = await build_query_from_request(request)
+        cursor = trips_collection.find(query).batch_size(500)
+        stream = await _stream_geojson_from_cursor(cursor)
+        filename_base = f"trips_{_date_range_filename_component(request)}"
+        return StreamingResponse(
+            stream,
+            media_type="application/geo+json",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.geojson"',
+            },
         )
-        return await create_export_response(trips, "geojson", "all_trips")
     except HTTPException:
         raise
     except Exception as e:
@@ -178,8 +420,17 @@ async def export_geojson(request: Request):
 async def export_gpx(request: Request):
     """Export trips as GPX."""
     try:
-        trips = await _load_trips_for_export(request, "No trips found.")
-        return await export_gpx_response(trips, "trips")
+        query = await build_query_from_request(request)
+        cursor = trips_collection.find(query).batch_size(500)
+        stream = await _stream_gpx_from_cursor(cursor)
+        filename_base = f"trips_{_date_range_filename_component(request)}"
+        return StreamingResponse(
+            stream,
+            media_type="application/gpx+xml",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename_base}.gpx"',
+            },
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -212,6 +463,7 @@ async def export_single_trip(
         date_str = start_date.strftime("%Y%m%d") if start_date else "unknown_date"
         filename_base = f"trip_{trip_id}_{date_str}"
 
+        # Single-trip export does not risk OOM; reuse existing helper
         return await create_export_response([t], fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
@@ -237,21 +489,49 @@ async def export_all_trips(
 ):
     """Export all trips in various formats."""
     try:
-        all_trips = await find_with_retry(trips_collection, {})
-
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"all_trips_{current_time}"
 
-        if fmt == "json":
-            return JSONResponse(
-                content=json.loads(
-                    json.dumps(
-                        all_trips,
-                        default=default_serializer,
-                    ),
-                ),
-            )
+        cursor = trips_collection.find({}).batch_size(500)
 
+        if fmt.lower() == "json":
+            stream = await _stream_json_array_from_cursor(cursor)
+            return StreamingResponse(
+                stream,
+                media_type="application/json",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.json"',
+                },
+            )
+        if fmt.lower() == "geojson":
+            stream = await _stream_geojson_from_cursor(cursor)
+            return StreamingResponse(
+                stream,
+                media_type="application/geo+json",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.geojson"',
+                },
+            )
+        if fmt.lower() == "gpx":
+            stream = await _stream_gpx_from_cursor(cursor)
+            return StreamingResponse(
+                stream,
+                media_type="application/gpx+xml",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.gpx"',
+                },
+            )
+        if fmt.lower() == "csv":
+            stream = await _stream_csv_from_cursor(cursor, include_gps_in_csv=False, flatten_location_fields=True)
+            return StreamingResponse(
+                stream,
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.csv"',
+                },
+            )
+        # shapefile and others fall back to non-streaming helper
+        all_trips = await trips_collection.find({}).to_list(length=1000)
         return await create_export_response(all_trips, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
@@ -277,19 +557,26 @@ async def export_trips_within_range(
     """Export trips within a date range."""
     try:
         query = await build_query_from_request(request)
+        filename_base = f"trips_{_date_range_filename_component(request)}"
 
-        if "startTime" not in query:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or missing date range",
-            )
+        cursor = trips_collection.find(query).batch_size(500)
 
-        all_trips = await find_with_retry(trips_collection, query)
+        if fmt.lower() == "json":
+            stream = await _stream_json_array_from_cursor(cursor)
+            return StreamingResponse(stream, media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{filename_base}.json"'})
+        if fmt.lower() == "geojson":
+            stream = await _stream_geojson_from_cursor(cursor)
+            return StreamingResponse(stream, media_type="application/geo+json", headers={"Content-Disposition": f'attachment; filename="{filename_base}.geojson"'})
+        if fmt.lower() == "gpx":
+            stream = await _stream_gpx_from_cursor(cursor)
+            return StreamingResponse(stream, media_type="application/gpx+xml", headers={"Content-Disposition": f'attachment; filename="{filename_base}.gpx"'})
+        if fmt.lower() == "csv":
+            stream = await _stream_csv_from_cursor(cursor, include_gps_in_csv=False, flatten_location_fields=True)
+            return StreamingResponse(stream, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{filename_base}.csv"'})
 
-        date_range = extract_date_range_string(query)
-        filename_base = f"trips_{date_range}"
-
-        return await create_export_response(all_trips, fmt, filename_base)
+        # Fallback
+        trips_list = await trips_collection.find(query).to_list(length=1000)
+        return await create_export_response(trips_list, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -315,19 +602,25 @@ async def export_matched_trips_within_range(
     """Export matched trips within a date range."""
     try:
         query = await build_query_from_request(request)
+        filename_base = f"matched_trips_{_date_range_filename_component(request)}"
 
-        if "startTime" not in query:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or missing date range",
-            )
+        cursor = matched_trips_collection.find(query).batch_size(500)
 
-        matched = await find_with_retry(matched_trips_collection, query)
+        if fmt.lower() == "json":
+            stream = await _stream_json_array_from_cursor(cursor)
+            return StreamingResponse(stream, media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{filename_base}.json"'})
+        if fmt.lower() == "geojson":
+            stream = await _stream_geojson_from_cursor(cursor)
+            return StreamingResponse(stream, media_type="application/geo+json", headers={"Content-Disposition": f'attachment; filename="{filename_base}.geojson"'})
+        if fmt.lower() == "gpx":
+            stream = await _stream_gpx_from_cursor(cursor)
+            return StreamingResponse(stream, media_type="application/gpx+xml", headers={"Content-Disposition": f'attachment; filename="{filename_base}.gpx"'})
+        if fmt.lower() == "csv":
+            stream = await _stream_csv_from_cursor(cursor, include_gps_in_csv=False, flatten_location_fields=True)
+            return StreamingResponse(stream, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{filename_base}.csv"'})
 
-        date_range = extract_date_range_string(query)
-        filename_base = f"matched_trips_{date_range}"
-
-        return await create_export_response(matched, fmt, filename_base)
+        matched_list = await matched_trips_collection.find(query).to_list(length=1000)
+        return await create_export_response(matched_list, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -491,58 +784,138 @@ async def export_advanced(
                     },
                 }
 
-        trips = []
-
-        if include_trips:
-            query = date_filter or {}
-            regular_trips = await find_with_retry(trips_collection, query)
-
-            for trip in regular_trips:
-                processed_trip = await process_trip_for_export(
-                    trip,
-                    include_basic_info,
-                    include_locations,
-                    include_telemetry,
-                    include_geometry,
-                    include_meta,
-                    include_custom,
-                )
-                if processed_trip:
-                    processed_trip["trip_type"] = trip.get("source", "unknown")
-                    trips.append(processed_trip)
-
-        if include_matched_trips:
-            query = date_filter or {}
-            matched_trips_list = await find_with_retry(
-                matched_trips_collection,
-                query,
-            )
-
-            for trip in matched_trips_list:
-                processed_trip = await process_trip_for_export(
-                    trip,
-                    include_basic_info,
-                    include_locations,
-                    include_telemetry,
-                    include_geometry,
-                    include_meta,
-                    include_custom,
-                )
-                if processed_trip:
-                    processed_trip["trip_type"] = "map_matched"
-                    trips.append(processed_trip)
-
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"trips_export_{current_time}"
 
+        async def processed_docs_cursor():
+            if include_trips:
+                query = date_filter or {}
+                async for trip in trips_collection.find(query).batch_size(500):
+                    processed = await process_trip_for_export(
+                        trip,
+                        include_basic_info,
+                        include_locations,
+                        include_telemetry,
+                        include_geometry,
+                        include_meta,
+                        include_custom,
+                    )
+                    if processed:
+                        processed["trip_type"] = trip.get("source", "unknown")
+                        yield processed
+            if include_matched_trips:
+                query = date_filter or {}
+                async for trip in matched_trips_collection.find(query).batch_size(500):
+                    processed = await process_trip_for_export(
+                        trip,
+                        include_basic_info,
+                        include_locations,
+                        include_telemetry,
+                        include_geometry,
+                        include_meta,
+                        include_custom,
+                    )
+                    if processed:
+                        processed["trip_type"] = "map_matched"
+                        yield processed
+
         if fmt == "csv":
-            csv_data = await create_csv_export(
-                trips,
-                include_gps_in_csv=include_gps_in_csv,
-                flatten_location_fields=flatten_location_fields,
-            )
+            # Convert async generator to streaming CSV
+            import csv
+            from io import StringIO
+
+            async def csv_generator():
+                # Define a stable header from include_* flags
+                base_fields = []
+                if include_basic_info:
+                    base_fields += [
+                        "_id",
+                        "transactionId",
+                        "trip_id",
+                        "startTime",
+                        "endTime",
+                        "duration",
+                        "durationInMinutes",
+                        "completed",
+                        "active",
+                    ]
+                if include_locations:
+                    base_fields += [
+                        "startLocation",
+                        "destination",
+                        "startAddress",
+                        "endAddress",
+                        "startPoint",
+                        "endPoint",
+                        "state",
+                        "city",
+                    ]
+                if include_telemetry:
+                    base_fields += [
+                        "distance",
+                        "distanceInMiles",
+                        "startOdometer",
+                        "endOdometer",
+                        "maxSpeed",
+                        "averageSpeed",
+                        "idleTime",
+                        "fuelConsumed",
+                        "fuelEconomy",
+                        "speedingEvents",
+                    ]
+                if include_geometry:
+                    base_fields += [
+                        "gps",
+                        "path",
+                        "simplified_path",
+                        "route",
+                        "geometry",
+                    ]
+                if include_meta:
+                    base_fields += [
+                        "deviceId",
+                        "imei",
+                        "vehicleId",
+                        "source",
+                        "processingStatus",
+                        "processingTime",
+                        "mapMatchStatus",
+                        "confidence",
+                        "insertedAt",
+                        "updatedAt",
+                    ]
+                if include_custom:
+                    base_fields += [
+                        "notes",
+                        "tags",
+                        "category",
+                        "purpose",
+                        "customFields",
+                    ]
+                base_fields = sorted(set(base_fields + ["trip_type"]))
+
+                buf = StringIO()
+                writer = csv.DictWriter(buf, fieldnames=base_fields)
+                writer.writeheader()
+                yield buf.getvalue()
+                buf.seek(0)
+                buf.truncate(0)
+
+                async for item in processed_docs_cursor():
+                    row = {}
+                    for k in base_fields:
+                        v = item.get(k)
+                        if isinstance(v, (dict, list)):
+                            row[k] = json.dumps(v, default=default_serializer)
+                        else:
+                            row[k] = v
+                    writer.writerow(row)
+                    yield buf.getvalue()
+                    buf.seek(0)
+                    buf.truncate(0)
+
             return StreamingResponse(
-                io.StringIO(csv_data),
+                csv_generator(),
                 media_type="text/csv",
                 headers={
                     "Content-Disposition": f'attachment; filename="{filename_base}.csv"',
@@ -550,17 +923,33 @@ async def export_advanced(
             )
 
         if fmt == "json":
-            return JSONResponse(
-                content=json.loads(
-                    json.dumps(
-                        trips,
-                        default=default_serializer,
-                    ),
-                ),
+            async def json_generator():
+                yield "["
+                first = True
+                async for item in processed_docs_cursor():
+                    chunk = json.dumps(item, default=default_serializer, separators=(",", ":"))
+                    if not first:
+                        yield ","
+                    yield chunk
+                    first = False
+                yield "]"
+
+            return StreamingResponse(
+                json_generator(),
+                media_type="application/json",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.json"',
+                },
             )
 
+        # For geojson/shapefile/gpx, fall back to existing helper by materializing a bounded list
+        limited = []
+        async for item in processed_docs_cursor():
+            limited.append(item)
+            if len(limited) >= 1000:
+                break
         return await create_export_response(
-            trips,
+            limited,
             fmt,
             filename_base,
             include_gps_in_csv=include_gps_in_csv,

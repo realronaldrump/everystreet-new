@@ -122,7 +122,6 @@ async def driver_behavior_analytics(request: Request):
 
     Accepts the same `start_date` and `end_date` query parameters used by other API endpoints.
     If no filters are provided, all trips are considered (back-compat)."""
-
     # Build the Mongo query using the shared helper so filters stay consistent app-wide
     try:
         query = await build_query_from_request(request)
@@ -130,9 +129,177 @@ async def driver_behavior_analytics(request: Request):
         logger.exception("Failed to build query for driver behavior analytics: %s", e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    trips = await trips_collection.find(query).to_list(length=None)
-    if not trips:
-        return {
+    try:
+        tz_expr = {
+            "$switch": {
+                "branches": [
+                    {"case": {"$in": ["$timeZone", ["", "0000"]]}, "then": "UTC"}
+                ],
+                "default": {"$ifNull": ["$timeZone", "UTC"]},
+            }
+        }
+
+        pipeline = [
+            {"$match": query},
+            {
+                "$addFields": {
+                    "numericDistance": {
+                        "$convert": {"input": "$distance", "to": "double", "onError": 0.0, "onNull": 0.0}
+                    },
+                    "numericMaxSpeed": {
+                        "$convert": {"input": "$maxSpeed", "to": "double", "onError": 0.0, "onNull": 0.0}
+                    },
+                    "speedValue": {
+                        "$convert": {
+                            "input": {"$ifNull": ["$avgSpeed", "$averageSpeed"]},
+                            "to": "double",
+                            "onError": None,
+                            "onNull": None,
+                        }
+                    },
+                    "hardBrakingVal": {"$ifNull": ["$hardBrakingCounts", {"$ifNull": ["$hardBrakingCount", 0]}]},
+                    "hardAccelVal": {"$ifNull": ["$hardAccelerationCounts", {"$ifNull": ["$hardAccelerationCount", 0]}]},
+                    "idleSeconds": {
+                        "$convert": {"input": "$totalIdleDuration", "to": "double", "onError": 0.0, "onNull": 0.0}
+                    },
+                    "fuelDouble": {
+                        "$convert": {"input": "$fuelConsumed", "to": "double", "onError": 0.0, "onNull": 0.0}
+                    },
+                    "dtParts": {"$dateToParts": {"date": "$startTime", "timezone": tz_expr, "iso8601": True}},
+                }
+            },
+            {
+                "$facet": {
+                    "totals": [
+                        {
+                            "$group": {
+                                "_id": None,
+                                "totalTrips": {"$sum": 1},
+                                "totalDistance": {"$sum": "$numericDistance"},
+                                "speedSum": {"$sum": {"$cond": [{"$ne": ["$speedValue", None]}, "$speedValue", 0]}},
+                                "speedCount": {"$sum": {"$cond": [{"$ne": ["$speedValue", None]}, 1, 0]}},
+                                "maxSpeed": {"$max": "$numericMaxSpeed"},
+                                "hardBrakingCounts": {"$sum": "$hardBrakingVal"},
+                                "hardAccelerationCounts": {"$sum": "$hardAccelVal"},
+                                "totalIdlingTime": {"$sum": "$idleSeconds"},
+                                "fuelConsumed": {"$sum": "$fuelDouble"},
+                            }
+                        },
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "totalTrips": 1,
+                                "totalDistance": 1,
+                                "avgSpeed": {
+                                    "$cond": [
+                                        {"$gt": ["$speedCount", 0]},
+                                        {"$divide": ["$speedSum", "$speedCount"]},
+                                        0,
+                                    ]
+                                },
+                                "maxSpeed": 1,
+                                "hardBrakingCounts": 1,
+                                "hardAccelerationCounts": 1,
+                                "totalIdlingTime": 1,
+                                "fuelConsumed": 1,
+                            }
+                        },
+                    ],
+                    "weekly": [
+                        {
+                            "$group": {
+                                "_id": {"wy": "$dtParts.isoWeekYear", "wk": "$dtParts.isoWeek"},
+                                "trips": {"$sum": 1},
+                                "distance": {"$sum": "$numericDistance"},
+                                "hardBraking": {"$sum": "$hardBrakingVal"},
+                                "hardAccel": {"$sum": "$hardAccelVal"},
+                            }
+                        },
+                        {"$sort": {"_id.wy": 1, "_id.wk": 1}},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "week": {
+                                    "$concat": [
+                                        {"$toString": "$_id.wy"},
+                                        "-W",
+                                        {"$cond": [{"$lt": ["$_id.wk", 10]}, "0", ""]},
+                                        {"$toString": "$_id.wk"},
+                                    ]
+                                },
+                                "trips": 1,
+                                "distance": 1,
+                                "hardBraking": 1,
+                                "hardAccel": 1,
+                            }
+                        },
+                    ],
+                    "monthly": [
+                        {
+                            "$group": {
+                                "_id": {"y": "$dtParts.year", "m": "$dtParts.month"},
+                                "trips": {"$sum": 1},
+                                "distance": {"$sum": "$numericDistance"},
+                                "hardBraking": {"$sum": "$hardBrakingVal"},
+                                "hardAccel": {"$sum": "$hardAccelVal"},
+                            }
+                        },
+                        {"$sort": {"_id.y": 1, "_id.m": 1}},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "month": {
+                                    "$concat": [
+                                        {"$toString": "$_id.y"},
+                                        "-",
+                                        {"$cond": [{"$lt": ["$_id.m", 10]}, "0", ""]},
+                                        {"$toString": "$_id.m"},
+                                    ]
+                                },
+                                "trips": 1,
+                                "distance": 1,
+                                "hardBraking": 1,
+                                "hardAccel": 1,
+                            }
+                        },
+                    ],
+                }
+            },
+            {
+                "$project": {
+                    "totals": {"$ifNull": [{"$arrayElemAt": ["$totals", 0]}, {
+                        "totalTrips": 0,
+                        "totalDistance": 0.0,
+                        "avgSpeed": 0.0,
+                        "maxSpeed": 0.0,
+                        "hardBrakingCounts": 0,
+                        "hardAccelerationCounts": 0,
+                        "totalIdlingTime": 0.0,
+                        "fuelConsumed": 0.0,
+                    }]},
+                    "weekly": 1,
+                    "monthly": 1,
+                }
+            },
+            {
+                "$project": {
+                    "totalTrips": "$totals.totalTrips",
+                    "totalDistance": {"$round": ["$totals.totalDistance", 2]},
+                    "avgSpeed": {"$round": ["$totals.avgSpeed", 2]},
+                    "maxSpeed": {"$round": ["$totals.maxSpeed", 2]},
+                    "hardBrakingCounts": "$totals.hardBrakingCounts",
+                    "hardAccelerationCounts": "$totals.hardAccelerationCounts",
+                    "totalIdlingTime": {"$round": ["$totals.totalIdlingTime", 2]},
+                    "fuelConsumed": {"$round": ["$totals.fuelConsumed", 2]},
+                    "weekly": 1,
+                    "monthly": 1,
+                }
+            },
+        ]
+
+        results = await aggregate_with_retry(trips_collection, pipeline)
+        if not results:
+            payload = {
             "totalTrips": 0,
             "totalDistance": 0,
             "avgSpeed": 0,
@@ -144,136 +311,13 @@ async def driver_behavior_analytics(request: Request):
             "weekly": [],
             "monthly": [],
         }
+            return JSONResponse(content=payload)
 
-    def get_field(trip, *names, default=0):
-        for n in names:
-            v = trip.get(n)
-            if v is not None:
-                try:
-                    return float(v) if "." in str(v) else int(v)
-                except (ValueError, TypeError):
-                    continue
-        return default
-
-    total_trips = len(trips)
-    total_distance = sum(get_field(t, "distance", default=0.0) for t in trips)
-
-    speeds_sum = sum(
-        get_field(t, "avgSpeed", "averageSpeed", default=0.0)
-        for t in trips
-        if t.get("avgSpeed") is not None or t.get("averageSpeed") is not None
-    )
-    num_trips_with_speed = sum(
-        1
-        for t in trips
-        if t.get("avgSpeed") is not None or t.get("averageSpeed") is not None
-    )
-    avg_speed = speeds_sum / num_trips_with_speed if num_trips_with_speed > 0 else 0.0
-
-    max_speeds = [get_field(t, "maxSpeed", default=0.0) for t in trips]
-    max_speed = max(max_speeds) if max_speeds else 0.0
-
-    hard_braking = sum(
-        get_field(t, "hardBrakingCounts", "hardBrakingCount", default=0) for t in trips
-    )
-    hard_accel = sum(
-        get_field(t, "hardAccelerationCounts", "hardAccelerationCount", default=0)
-        for t in trips
-    )
-    idling = sum(get_field(t, "totalIdleDuration", default=0.0) for t in trips)
-    fuel = sum(get_field(t, "fuelConsumed", default=0.0) for t in trips)
-
-    weekly = defaultdict(
-        lambda: {
-            "trips": 0,
-            "distance": 0.0,
-            "hardBraking": 0,
-            "hardAccel": 0,
-        },
-    )
-    monthly = defaultdict(
-        lambda: {
-            "trips": 0,
-            "distance": 0.0,
-            "hardBraking": 0,
-            "hardAccel": 0,
-        },
-    )
-
-    for t in trips:
-        start_time_raw = t.get("startTime")
-        if not start_time_raw:
-            continue
-
-        start_dt: datetime | None = None
-        if isinstance(start_time_raw, datetime):
-            start_dt = start_time_raw
-        elif isinstance(start_time_raw, str):
-            try:
-                start_dt = dateutil_parser.isoparse(start_time_raw)
-            except ValueError:
-                logger.warning(
-                    "Could not parse startTime '{}' for trip {}".format(
-                        start_time_raw, t.get("transactionId")
-                    )
-                )
-                continue
-        else:
-            logger.warning(
-                "Unexpected startTime type '{}' for trip {}".format(
-                    type(start_time_raw), t.get("transactionId")
-                )
-            )
-            continue
-
-        if not start_dt:
-            continue
-
-        if start_dt.tzinfo is None:
-            start_dt = start_dt.replace(tzinfo=timezone.utc)
-
-        year, week, _ = start_dt.isocalendar()
-        month_val = start_dt.month
-
-        wkey = f"{year}-W{week:02d}"
-        mkey = f"{year}-{month_val:02d}"
-
-        weekly[wkey]["trips"] += 1
-        weekly[wkey]["distance"] += get_field(t, "distance", default=0.0)
-        weekly[wkey]["hardBraking"] += get_field(
-            t, "hardBrakingCounts", "hardBrakingCount", default=0
-        )
-        weekly[wkey]["hardAccel"] += get_field(
-            t, "hardAccelerationCounts", "hardAccelerationCount", default=0
-        )
-
-        monthly[mkey]["trips"] += 1
-        monthly[mkey]["distance"] += get_field(t, "distance", default=0.0)
-        monthly[mkey]["hardBraking"] += get_field(
-            t, "hardBrakingCounts", "hardBrakingCount", default=0
-        )
-        monthly[mkey]["hardAccel"] += get_field(
-            t, "hardAccelerationCounts", "hardAccelerationCount", default=0
-        )
-
-    weekly_trend = [{"week": k, **v} for k, v in sorted(weekly.items())]
-    monthly_trend = [{"month": k, **v} for k, v in sorted(monthly.items())]
-
-    combined = {
-        "totalTrips": total_trips,
-        "totalDistance": round(total_distance, 2),
-        "avgSpeed": round(avg_speed, 2),
-        "maxSpeed": round(max_speed, 2),
-        "hardBrakingCounts": hard_braking,
-        "hardAccelerationCounts": hard_accel,
-        "totalIdlingTime": round(idling, 2),
-        "fuelConsumed": round(fuel, 2),
-        "weekly": weekly_trend,
-        "monthly": monthly_trend,
-    }
-
-    # Ensure all datetime objects are JSON serializable (convert to ISO strings)
+        combined = results[0]
     return JSONResponse(content=convert_datetimes_to_isoformat(combined))
+    except Exception as e:
+        logger.exception("Error aggregating driver behavior analytics: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @router.get("/api/driving-insights")
