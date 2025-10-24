@@ -387,7 +387,7 @@ async def update_trip(trip_id: str, update_data: TripUpdateRequest):
             )
 
         update_payload = {}
-    if update_data.geometry:
+        if update_data.geometry:
             geometry_data = update_data.geometry
             if isinstance(geometry_data, str):
                 try:
