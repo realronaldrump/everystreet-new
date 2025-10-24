@@ -24,14 +24,9 @@ from celery.utils.log import get_task_logger
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError, ConnectionFailure
 
-from bouncie_trip_fetcher import (
-    AUTH_CODE,
-    AUTHORIZED_DEVICES,
-    CLIENT_ID,
-    CLIENT_SECRET,
-    REDIRECT_URI,
-    fetch_bouncie_trips_in_range,
-)
+from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
+from config import AUTHORIZATION_CODE as AUTH_CODE
+from config import AUTHORIZED_DEVICES, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
 from celery_app import app as celery_app
 from db import (
     SerializationHelper,
@@ -737,15 +732,13 @@ async def manual_fetch_trips_range_async(
 ) -> dict[str, Any]:
     """Fetch trips for a user-specified date range."""
 
-    def _parse_iso(dt_str: str) -> datetime:
-        try:
-            parsed = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-        except ValueError as exc:  # pragma: no cover - defensive parsing
-            raise ValueError(f"Invalid date value: {dt_str}") from exc
+    from date_utils import parse_timestamp
 
-        if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=timezone.utc)
-        return parsed.astimezone(timezone.utc)
+    def _parse_iso(dt_str: str) -> datetime:
+        parsed = parse_timestamp(dt_str)
+        if not parsed:
+            raise ValueError(f"Invalid date value: {dt_str}")
+        return parsed
 
     start_dt = _parse_iso(start_iso)
     end_dt = _parse_iso(end_iso)
@@ -1422,11 +1415,9 @@ async def run_task_scheduler_async(self) -> None:
             if isinstance(last_run_any, datetime):
                 last_run = last_run_any
             elif isinstance(last_run_any, str):
-                try:
-                    last_run = datetime.fromisoformat(
-                        last_run_any.replace("Z", "+00:00"),
-                    )
-                except ValueError:
+                from date_utils import parse_timestamp
+                last_run = parse_timestamp(last_run_any)
+                if not last_run:
                     logger.warning(
                         f"Could not parse last_run timestamp '{last_run_any}' for task '{task_id}'.",
                     )
@@ -1571,12 +1562,8 @@ async def get_all_task_metadata() -> dict[str, Any]:
             if isinstance(last_run_any, datetime):
                 last_run = last_run_any
             elif isinstance(last_run_any, str):
-                try:
-                    last_run = datetime.fromisoformat(
-                        last_run_any.replace("Z", "+00:00"),
-                    )
-                except ValueError:
-                    pass
+                from date_utils import parse_timestamp
+                last_run = parse_timestamp(last_run_any)
 
             if last_run and interval_minutes and interval_minutes > 0:
                 if last_run.tzinfo is None:

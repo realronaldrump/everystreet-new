@@ -8,7 +8,6 @@ map matching capabilities for both Bouncie and uploaded trips.
 
 import json
 import logging
-import os
 import time
 from collections.abc import Callable
 from functools import wraps
@@ -24,7 +23,8 @@ from db import (
     trips_collection,
 )
 from trip_processor import TripProcessor, TripState
-from utils import haversine, validate_trip_data
+from utils import haversine, validate_trip_data, standardize_and_validate_gps
+from config import MAPBOX_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ class TripService:
     """Centralized service for all trip processing operations."""
 
     def __init__(self, mapbox_token: str = None):
-        self.mapbox_token = mapbox_token or os.getenv("MAPBOX_ACCESS_TOKEN", "")
+        self.mapbox_token = mapbox_token or MAPBOX_ACCESS_TOKEN
         self._init_collections()
 
     def _init_collections(self):
@@ -116,101 +116,8 @@ class TripService:
 
     @staticmethod
     def standardize_gps_data(gps_input: Any, transaction_id: str) -> dict | None:
-        """Standardize GPS data into consistent GeoJSON format."""
-        processed_coords = []
-
-        if isinstance(gps_input, str):
-            try:
-                gps_data = json.loads(gps_input)
-            except json.JSONDecodeError:
-                logger.warning(
-                    "Trip %s: Invalid JSON string in GPS data",
-                    transaction_id,
-                )
-                return None
-        elif isinstance(gps_input, (list, dict)):
-            gps_data = gps_input
-        else:
-            logger.warning(
-                "Trip %s: GPS data is of unexpected type: %s",
-                transaction_id,
-                type(gps_input).__name__,
-            )
-            return None
-
-        if isinstance(gps_data, list):
-            raw_coords = gps_data
-        elif isinstance(gps_data, dict):
-            if (
-                gps_data.get("type") in ["Point", "LineString"]
-                and "coordinates" in gps_data
-            ):
-                raw_coords = gps_data.get("coordinates")
-                if gps_data["type"] == "Point":
-                    if (
-                        isinstance(raw_coords, list)
-                        and len(raw_coords) == 2
-                        and all(isinstance(c, (int, float)) for c in raw_coords)
-                    ):
-                        raw_coords = [raw_coords]
-                    else:
-                        logger.warning(
-                            "Trip %s: GPS data (dict, Point) has invalid coordinates",
-                            transaction_id,
-                        )
-                        return None
-            else:
-                logger.warning(
-                    "Trip %s: GPS data (dict) is not a valid GeoJSON Point or LineString",
-                    transaction_id,
-                )
-                return None
-        else:
-            logger.warning(
-                "Trip %s: GPS data structure not recognized",
-                transaction_id,
-            )
-            return None
-
-        # Process coordinates
-        for coord_pair in raw_coords:
-            if (
-                isinstance(coord_pair, list)
-                and len(coord_pair) >= 2
-                and all(isinstance(c, (int, float)) for c in coord_pair[:2])
-            ):
-                lon, lat = coord_pair[0], coord_pair[1]
-                if -180 <= lon <= 180 and -90 <= lat <= 90:
-                    processed_coords.append([lon, lat])
-                else:
-                    logger.warning(
-                        "Trip %s: Coordinate out of bounds: [%s, %s]",
-                        transaction_id,
-                        lon,
-                        lat,
-                    )
-
-        if not processed_coords:
-            logger.warning("Trip %s: No valid coordinates found", transaction_id)
-            return None
-
-        # Deduplicate consecutive identical coordinates
-        unique_coords = []
-        for coord in processed_coords:
-            if not unique_coords or coord != unique_coords[-1]:
-                unique_coords.append(coord)
-
-        # Return appropriate GeoJSON based on coordinate count
-        if len(unique_coords) == 1:
-            return {
-                "type": "Point",
-                "coordinates": unique_coords[0],
-            }
-        else:
-            return {
-                "type": "LineString",
-                "coordinates": unique_coords,
-            }
+        """Standardize GPS data into consistent GeoJSON format using utils."""
+        return standardize_and_validate_gps(gps_input, transaction_id)
 
     @staticmethod
     def calculate_trip_distance(coordinates: list[list[float]]) -> float:

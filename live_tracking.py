@@ -10,6 +10,7 @@ from pymongo.collection import Collection
 from pymongo.results import UpdateResult
 
 from db import SerializationHelper, run_transaction
+from date_utils import parse_timestamp
 from utils import haversine
 
 logger = logging.getLogger(__name__)
@@ -29,25 +30,10 @@ def initialize_db(db_live_trips, _db_archived_live_trips=None):
 def _parse_iso_datetime(
     timestamp_str: str | None,
 ) -> datetime | None:
-    """Safely parse an ISO 8601 timestamp string into a timezone-aware datetime object
-    (UTC).
-    """
-    if not timestamp_str or not isinstance(timestamp_str, str):
+    """Wrapper to parse timestamps using centralized date_utils.parse_timestamp."""
+    if not timestamp_str:
         return None
-    try:
-        if timestamp_str.endswith("Z"):
-            timestamp_str = timestamp_str[:-1] + "+00:00"
-
-        dt = datetime.fromisoformat(timestamp_str)
-
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        else:
-            dt = dt.astimezone(timezone.utc)
-        return dt
-    except (ValueError, TypeError) as e:
-        logger.error("Error parsing timestamp string '%s': %s", timestamp_str, e)
-        return None
+    return parse_timestamp(timestamp_str)
 
 
 def _parse_mongo_date_dict(

@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -7,14 +6,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from db import db_manager
+from config import MAPBOX_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 templates = Jinja2Templates(directory="templates")
 
-# Get Mapbox access token from environment
-MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
+# Get Mapbox access token from centralized config
 
 
 def _render_page(template_name: str, request: Request, **context: Any) -> HTMLResponse:

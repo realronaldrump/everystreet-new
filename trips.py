@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -21,6 +20,7 @@ from db import (
     trips_collection,
 )
 from trip_service import TripService
+from config import MAPBOX_ACCESS_TOKEN
 
 # ==============================================================================
 # Setup
@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 # Initialize TripService
 trip_service = TripService(MAPBOX_ACCESS_TOKEN)

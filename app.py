@@ -3,6 +3,7 @@ import os
 import uuid
 
 from dotenv import load_dotenv
+from config import MAPBOX_ACCESS_TOKEN
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -74,16 +75,7 @@ app.include_router(upload_api_router)
 app.include_router(visits_router)
 
 
-# Global Configuration and Constants
-CLIENT_ID = os.getenv("CLIENT_ID", "")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
-REDIRECT_URI = os.getenv("REDIRECT_URI", "")
-AUTH_CODE = os.getenv("AUTHORIZATION_CODE", "")
-AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
-MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
-
-AUTH_URL = "https://auth.bouncie.com/oauth/token"
-API_BASE_URL = "https://api.bouncie.dev/v1"
+# Global Configuration and Constants (imported from config.py)
 
 # Database collections (for startup initialization)
 trips_collection = db_manager.db["trips"]

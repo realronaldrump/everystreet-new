@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytz
-from dateutil import parser as dateutil_parser
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
@@ -314,7 +313,7 @@ async def driver_behavior_analytics(request: Request):
             return JSONResponse(content=payload)
 
         combined = results[0]
-    return JSONResponse(content=convert_datetimes_to_isoformat(combined))
+        return JSONResponse(content=convert_datetimes_to_isoformat(combined))
     except Exception as e:
         logger.exception("Error aggregating driver behavior analytics: %s", e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

@@ -1,5 +1,4 @@
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, status
@@ -15,11 +14,11 @@ from db import (
 )
 from models import BulkProcessModel, DateRangeModel
 from trip_service import ProcessingOptions, TripService
+from config import MAPBOX_ACCESS_TOKEN
 
 # Setup
 logger = logging.getLogger(__name__)
 router = APIRouter()
-MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 # Collections
 trips_collection = db_manager.db["trips"]

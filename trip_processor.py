@@ -21,7 +21,11 @@ from shapely.geometry import Point
 
 from date_utils import get_current_utc_time, parse_timestamp
 from db import matched_trips_collection, places_collection, trips_collection
-from utils import haversine, reverse_geocode_nominatim
+from utils import (
+    haversine,
+    reverse_geocode_nominatim,
+    standardize_and_validate_gps,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -137,139 +141,8 @@ class TripProcessor:
     def _standardize_and_validate_gps_data(
         self, gps_input: Any, transaction_id: str
     ) -> dict | None:
-        """
-        Standardizes and validates GPS data into a GeoJSON Point or LineString object.
-
-        Args:
-            gps_input: The raw GPS data (string, list of coords, or dict).
-            transaction_id: The transaction ID for logging.
-
-        Returns:
-            A valid GeoJSON dictionary (Point or LineString) or None if invalid.
-        """
-        processed_coords = []
-
-        if isinstance(gps_input, str):
-            try:
-                gps_data = json.loads(gps_input)
-            except json.JSONDecodeError:
-                logger.warning(
-                    "Trip %s: Invalid JSON string in GPS data. Input: %s",
-                    transaction_id,
-                    gps_input[:100],  # Log a snippet
-                )
-                return None
-        elif isinstance(gps_input, (list, dict)):
-            gps_data = gps_input
-        else:
-            logger.warning(
-                "Trip %s: GPS data is of unexpected type: %s",
-                transaction_id,
-                type(gps_input).__name__,
-            )
-            return None
-
-        if isinstance(gps_data, list):  # Assumed to be a list of coordinate pairs
-            raw_coords = gps_data
-        elif isinstance(gps_data, dict):
-            if (
-                gps_data.get("type") in ["Point", "LineString"]
-                and "coordinates" in gps_data
-            ):
-                # It might already be GeoJSON, extract coordinates for validation/standardization
-                raw_coords = gps_data.get("coordinates")
-                if gps_data["type"] == "Point":
-                    # Wrap single point coordinates in a list to use the common processing loop
-                    if (
-                        isinstance(raw_coords, list)
-                        and len(raw_coords) == 2
-                        and all(isinstance(c, (int, float)) for c in raw_coords)
-                    ):
-                        raw_coords = [
-                            raw_coords
-                        ]  # Make it a list of a single coordinate pair
-                    else:  # Invalid point coordinates structure
-                        logger.warning(
-                            "Trip %s: GPS data (dict, Point) has invalid coordinates: %s",
-                            transaction_id,
-                            raw_coords,
-                        )
-                        return None
-            else:  # Dictionary but not in expected GeoJSON structure
-                logger.warning(
-                    "Trip %s: GPS data (dict) is not a valid GeoJSON Point or LineString: %s",
-                    transaction_id,
-                    gps_data,
-                )
-                return None
-        else:  # Should have been caught by initial type check, but as a safeguard
-            logger.warning(
-                "Trip %s: GPS data format is unrecognized after initial parsing. Type: %s",
-                transaction_id,
-                type(gps_data).__name__,
-            )
-            return None
-
-        if not isinstance(raw_coords, list):
-            logger.warning(
-                "Trip %s: Parsed GPS coordinates are not a list: %s",
-                transaction_id,
-                raw_coords,
-            )
-            return None
-
-        # Validate and extract coordinate pairs
-        for coord_pair in raw_coords:
-            if (
-                isinstance(coord_pair, list)
-                and len(coord_pair) == 2
-                and isinstance(coord_pair[0], (int, float))
-                and isinstance(coord_pair[1], (int, float))
-                and -180 <= coord_pair[0] <= 180  # Longitude
-                and -90 <= coord_pair[1] <= 90  # Latitude
-            ):
-                processed_coords.append([coord_pair[0], coord_pair[1]])
-            else:
-                logger.debug(  # More verbose logging for individual bad points
-                    "Trip %s: Skipping invalid coordinate pair: %s",
-                    transaction_id,
-                    coord_pair,
-                )
-
-        if not processed_coords:
-            logger.warning(
-                "Trip %s: No valid coordinate pairs found after validation.",
-                transaction_id,
-            )
-            return None
-
-        # Deduplicate coordinates while preserving order
-        unique_coords = []
-        if processed_coords:
-            unique_coords.append(processed_coords[0])
-            for i in range(1, len(processed_coords)):
-                if processed_coords[i] != processed_coords[i - 1]:
-                    unique_coords.append(processed_coords[i])
-
-        if (
-            not unique_coords
-        ):  # Should not happen if processed_coords had items, but defensive
-            logger.warning(
-                "Trip %s: No unique coordinates after deduplication (unexpected).",
-                transaction_id,
-            )
-            return None
-
-        if len(unique_coords) == 1:
-            return {"type": "Point", "coordinates": unique_coords[0]}
-        elif len(unique_coords) >= 2:
-            return {"type": "LineString", "coordinates": unique_coords}
-        else:  # Should be len 0 if initial processed_coords was empty
-            logger.warning(
-                "Trip %s: Not enough unique coordinates to form Point or LineString.",
-                transaction_id,
-            )
-            return None
+        """Delegate GPS validation/standardization to the canonical utils function."""
+        return standardize_and_validate_gps(gps_input, transaction_id)
 
     def _set_state(
         self,

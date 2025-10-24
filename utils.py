@@ -235,6 +235,104 @@ def validate_trip_data(
     return True, None
 
 
+def standardize_and_validate_gps(
+    gps_input: Any,
+    transaction_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Standardize arbitrary GPS input into GeoJSON and validate ranges.
+
+    Accepts a JSON string, list of coordinate pairs, or a GeoJSON dict and
+    returns a validated GeoJSON Point or LineString. Returns None if invalid.
+
+    Args:
+        gps_input: Raw GPS input (str | list | dict)
+        transaction_id: Optional id for contextual logging
+
+    Returns:
+        GeoJSON dict or None.
+    """
+    processed_coords: list[list[float]] = []
+
+    def _log_warning(msg: str, *args: Any):
+        if transaction_id is not None:
+            logger.warning("Trip %s: " + msg, transaction_id, *args)
+        else:
+            logger.warning(msg, *args)
+
+    def _log_debug(msg: str, *args: Any):
+        if transaction_id is not None:
+            logger.debug("Trip %s: " + msg, transaction_id, *args)
+        else:
+            logger.debug(msg, *args)
+
+    if isinstance(gps_input, str):
+        try:
+            gps_data = json.loads(gps_input)
+        except json.JSONDecodeError:
+            _log_warning("Invalid JSON string in GPS data")
+            return None
+    elif isinstance(gps_input, (list, dict)):
+        gps_data = gps_input
+    else:
+        _log_warning("GPS data is of unexpected type: %s", type(gps_input).__name__)
+        return None
+
+    if isinstance(gps_data, list):
+        raw_coords = gps_data
+    elif isinstance(gps_data, dict):
+        if gps_data.get("type") in ["Point", "LineString"] and "coordinates" in gps_data:
+            raw_coords = gps_data.get("coordinates")
+            if gps_data["type"] == "Point":
+                if (
+                    isinstance(raw_coords, list)
+                    and len(raw_coords) == 2
+                    and all(isinstance(c, (int, float)) for c in raw_coords)
+                ):
+                    raw_coords = [raw_coords]
+                else:
+                    _log_warning("GPS data (dict, Point) has invalid coordinates")
+                    return None
+        else:
+            _log_warning(
+                "GPS data (dict) is not a valid GeoJSON Point or LineString",
+            )
+            return None
+    else:
+        _log_warning("GPS data structure not recognized")
+        return None
+
+    if not isinstance(raw_coords, list):
+        _log_warning("Parsed GPS coordinates are not a list: %s", raw_coords)
+        return None
+
+    for coord_pair in raw_coords:
+        if (
+            isinstance(coord_pair, list)
+            and len(coord_pair) >= 2
+            and all(isinstance(c, (int, float)) for c in coord_pair[:2])
+        ):
+            lon, lat = coord_pair[0], coord_pair[1]
+            if -180 <= lon <= 180 and -90 <= lat <= 90:
+                processed_coords.append([lon, lat])
+            else:
+                _log_warning("Coordinate out of bounds: [%s, %s]", lon, lat)
+        else:
+            _log_debug("Skipping invalid coordinate pair: %s", coord_pair)
+
+    if not processed_coords:
+        _log_warning("No valid coordinate pairs found after validation.")
+        return None
+
+    unique_coords: list[list[float]] = []
+    for coord in processed_coords:
+        if not unique_coords or coord != unique_coords[-1]:
+            unique_coords.append(coord)
+
+    if len(unique_coords) == 1:
+        return {"type": "Point", "coordinates": unique_coords[0]}
+    return {"type": "LineString", "coordinates": unique_coords}
+
+
 @retry_async(max_retries=3, retry_delay=2.0)
 async def reverse_geocode_nominatim(
     lat: float,

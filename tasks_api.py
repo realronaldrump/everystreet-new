@@ -131,9 +131,8 @@ async def get_background_tasks_config():
             if enabled and interval and interval > 0 and last_run:
                 try:
                     if isinstance(last_run, str):
-                        last_run_dt = datetime.fromisoformat(
-                            last_run.replace("Z", "+00:00"),
-                        )
+                        from date_utils import parse_timestamp
+                        last_run_dt = parse_timestamp(last_run)
                     else:
                         last_run_dt = last_run
                     if last_run_dt.tzinfo is None:
@@ -490,31 +489,14 @@ async def reset_task_states():
             if isinstance(start_time_any, datetime):
                 start_time = start_time_any
             elif isinstance(start_time_any, str):
-                try:
-                    start_time = datetime.fromisoformat(
-                        start_time_any.replace("Z", "+00:00"),
+                from date_utils import parse_timestamp
+                start_time = parse_timestamp(start_time_any)
+                if not start_time:
+                    logger.warning(
+                        "Could not parse start_time string '%s' for task %s",
+                        start_time_any,
+                        task_id,
                     )
-                except ValueError:
-                    for fmt in (
-                        "%Y-%m-%dT%H:%M:%S.%f%z",
-                        "%Y-%m-%dT%H:%M:%S%z",
-                        "%Y-%m-%dT%H:%M:%S.%f",
-                        "%Y-%m-%dT%H:%M:%S",
-                    ):
-                        try:
-                            start_time = datetime.strptime(
-                                start_time_any,
-                                fmt,
-                            )
-                            break
-                        except ValueError:
-                            continue
-                    if not start_time:
-                        logger.warning(
-                            "Could not parse start_time string '%s' for task %s",
-                            start_time_any,
-                            task_id,
-                        )
 
             if not start_time:
                 updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value

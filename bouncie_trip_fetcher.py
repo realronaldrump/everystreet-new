@@ -5,24 +5,27 @@ the unified TripProcessor, and stores trips in MongoDB.
 """
 
 import logging
-import os
 from datetime import datetime, timedelta
 
 import aiohttp
 
+from config import (
+    API_BASE_URL,
+    AUTH_URL,
+    AUTHORIZED_DEVICES,
+    AUTHORIZATION_CODE,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    REDIRECT_URI,
+)
 from date_utils import parse_timestamp
+from config import MAPBOX_ACCESS_TOKEN
 from trip_service import TripService
 from utils import get_session
 
 logger = logging.getLogger(__name__)
 
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-REDIRECT_URI = os.getenv("REDIRECT_URI")
-AUTH_URL = "https://auth.bouncie.com/oauth/token"
-API_BASE_URL = "https://api.bouncie.dev/v1"
-AUTHORIZED_DEVICES = [d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d]
-AUTH_CODE = os.getenv("AUTHORIZATION_CODE")
+AUTH_CODE = AUTHORIZATION_CODE
 
 progress_data = {
     "fetch_and_store_trips": {
@@ -140,8 +143,8 @@ async def fetch_bouncie_trips_in_range(
                 ] = "Failed to obtain access token"
             return all_new_trips
 
-        mapbox_token = os.getenv("MAPBOX_ACCESS_TOKEN", "")
-        trip_service = TripService(mapbox_token)
+        # Pass token explicitly from config (optional; TripService also reads from config)
+        trip_service = TripService(MAPBOX_ACCESS_TOKEN)
 
         for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
             if progress_tracker is not None:

@@ -10,7 +10,7 @@ from typing import Any
 
 import pymongo
 from bson import ObjectId
-from dateutil import parser as dateutil_parser
+from date_utils import parse_timestamp
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from shapely.geometry import shape
@@ -241,9 +241,9 @@ def parse_time(time_value):
     if not time_value:
         return None
     if isinstance(time_value, str):
-        time_value = dateutil_parser.isoparse(time_value)
+        return parse_timestamp(time_value)
     if time_value.tzinfo is None:
-        time_value = time_value.astimezone(timezone.utc)
+        return time_value.astimezone(timezone.utc)
     return time_value
 
 

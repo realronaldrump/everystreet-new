@@ -2,7 +2,6 @@ import asyncio
 import json
 import logging
 import math
-import os
 import uuid
 from collections import defaultdict, deque
 from typing import Any
@@ -16,13 +15,13 @@ from fastapi.responses import JSONResponse
 from sklearn.cluster import KMeans
 
 from db import db_manager, find_one_with_retry, streets_collection, trips_collection
+from config import MAPBOX_ACCESS_TOKEN
 from live_tracking import get_active_trip
 from models import LocationModel
 from utils import haversine
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 
 async def _get_mapbox_optimization_route(
