@@ -5,8 +5,8 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from db import db_manager
 from config import MAPBOX_ACCESS_TOKEN
+from db import db_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

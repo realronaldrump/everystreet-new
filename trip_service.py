@@ -16,6 +16,7 @@ from typing import Any
 from fastapi import HTTPException, status
 from pymongo.errors import DuplicateKeyError
 
+from config import MAPBOX_ACCESS_TOKEN
 from db import (
     find_with_retry,
     get_trip_by_id,
@@ -23,8 +24,7 @@ from db import (
     trips_collection,
 )
 from trip_processor import TripProcessor, TripState
-from utils import haversine, validate_trip_data, standardize_and_validate_gps
-from config import MAPBOX_ACCESS_TOKEN
+from utils import haversine, standardize_and_validate_gps, validate_trip_data
 
 logger = logging.getLogger(__name__)
 

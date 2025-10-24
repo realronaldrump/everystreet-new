@@ -14,8 +14,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sklearn.cluster import KMeans
 
-from db import db_manager, find_one_with_retry, streets_collection, trips_collection
 from config import MAPBOX_ACCESS_TOKEN
+from db import db_manager, find_one_with_retry, streets_collection, trips_collection
 from live_tracking import get_active_trip
 from models import LocationModel
 from utils import haversine
@@ -460,7 +460,9 @@ async def get_coverage_driving_route(request: Request):
             near_query,
             {"geometry": 1, "properties": 1, "_id": 0},
         ).limit(max_candidates)
-        undriven_streets_list = await undriven_streets_cursor.to_list(length=max_candidates)
+        undriven_streets_list = await undriven_streets_cursor.to_list(
+            length=max_candidates
+        )
 
         if not undriven_streets_list:
             return JSONResponse(

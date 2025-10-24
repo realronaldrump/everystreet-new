@@ -12,7 +12,6 @@ from typing import Final, List
 
 from dotenv import load_dotenv
 
-
 # Load environment variables from .env if present
 load_dotenv()
 
@@ -47,5 +46,3 @@ __all__ = [
     "AUTHORIZED_DEVICES",
     "MAPBOX_ACCESS_TOKEN",
 ]
-
-

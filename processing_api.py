@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
+from config import MAPBOX_ACCESS_TOKEN
 from db import (
     SerializationHelper,
     db_manager,
@@ -14,7 +15,6 @@ from db import (
 )
 from models import BulkProcessModel, DateRangeModel
 from trip_service import ProcessingOptions, TripService
-from config import MAPBOX_ACCESS_TOKEN
 
 # Setup
 logger = logging.getLogger(__name__)
