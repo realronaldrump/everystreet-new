@@ -67,8 +67,16 @@ const mapManager = {
         logoPosition: "bottom-right",
         ...CONFIG.MAP.performanceOptions,
         transformRequest: (url) => {
-          if (typeof url === "string" && url.includes("events.mapbox.com")) {
-            return null;
+          if (typeof url === "string") {
+            try {
+              // Use window.location.origin for base in case of relative URLs
+              const parsed = new URL(url, window.location.origin);
+              if (parsed.hostname === "events.mapbox.com") {
+                return null;
+              }
+            } catch (e) {
+              // Ignore parse errors, do not block
+            }
           }
           return { url };
         },
