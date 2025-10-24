@@ -255,8 +255,6 @@ async def get_last_trip_point():
             return {"lastPoint": None}
 
         gps_data = most_recent["gps"]
-        if isinstance(gps_data, str):
-            gps_data = geojson_module.loads(gps_data)
 
         if "coordinates" not in gps_data or not gps_data["coordinates"]:
             return {"lastPoint": None}

@@ -1677,17 +1677,32 @@ class TripProcessor:
 
             trip_to_save = self.processed_data.copy()
 
-            # Ensure self.processed_data["gps"] is a GeoJSON object if it exists
-            # `trip_to_save['gps']` should already be a GeoJSON dict or None due to standardization.
-            # Perform a final validation check.
+            # Final safeguard: convert stringified GPS to object and validate before save
             gps_to_save = trip_to_save.get("gps")
-            if gps_to_save is not None and not self._is_valid_geojson_object(
-                gps_to_save
+            if isinstance(gps_to_save, str):
+                logger.warning(
+                    "Attempted to save trip %s with stringified GPS data. Parsing it back to an object.",
+                    trip_to_save.get("transactionId", "unknown"),
+                )
+                try:
+                    trip_to_save["gps"] = json.loads(gps_to_save)
+                except json.JSONDecodeError:
+                    logger.error(
+                        "Failed to parse stringified GPS data for trip %s. Setting GPS to null to prevent saving bad data.",
+                        trip_to_save.get("transactionId", "unknown"),
+                    )
+                    trip_to_save["gps"] = None
+
+            # Final validation check after any potential parsing
+            if trip_to_save.get("gps") is not None and not self._is_valid_geojson_object(
+                trip_to_save["gps"]
             ):
                 logger.error(
-                    f"Trip {trip_to_save.get('transactionId', 'unknown')}: 'gps' field is invalid at save time. Value: {gps_to_save}. Setting to null."
+                    "Trip %s: 'gps' field is invalid at save time. Value: %s. Setting to null.",
+                    trip_to_save.get("transactionId", "unknown"),
+                    trip_to_save["gps"],
                 )
-                trip_to_save["gps"] = None  # Ensure invalid GPS data is not saved.
+                trip_to_save["gps"] = None
 
             trip_to_save["source"] = self.source
             trip_to_save["saved_at"] = get_current_utc_time()

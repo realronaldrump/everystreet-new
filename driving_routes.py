@@ -166,8 +166,6 @@ async def get_current_position(request_data: dict) -> tuple[float, float, str]:
         )
 
     gps_data = last_trip.get("gps")
-    if isinstance(gps_data, str):
-        gps_data = geojson_module.loads(gps_data)
 
     if (
         gps_data

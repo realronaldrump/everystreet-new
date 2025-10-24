@@ -43,7 +43,7 @@ trip_service = TripService(MAPBOX_ACCESS_TOKEN)
 class TripUpdateRequest(BaseModel):
     """A flexible model to handle trip updates from different parts of the UI."""
 
-    geometry: dict | None = None
+    geometry: dict | str | None = None
     properties: dict | None = None
 
     class Config:
@@ -388,8 +388,17 @@ async def update_trip(trip_id: str, update_data: TripUpdateRequest):
             )
 
         update_payload = {}
-        if update_data.geometry:
-            update_payload["gps"] = update_data.geometry
+    if update_data.geometry:
+            geometry_data = update_data.geometry
+            if isinstance(geometry_data, str):
+                try:
+                    geometry_data = json.loads(geometry_data)
+                except json.JSONDecodeError:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Invalid JSON format for geometry field.",
+                    )
+            update_payload["gps"] = geometry_data
 
         if update_data.properties:
             for key, value in update_data.properties.items():
