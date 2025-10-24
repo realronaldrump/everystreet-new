@@ -461,7 +461,9 @@ async def get_coverage_driving_route(request: Request):
             near_query,
             {"geometry": 1, "properties": 1, "_id": 0},
         ).limit(max_candidates)
-        undriven_streets_list = await undriven_streets_cursor.to_list(length=max_candidates)
+        undriven_streets_list = await undriven_streets_cursor.to_list(
+            length=max_candidates
+        )
 
         if not undriven_streets_list:
             return JSONResponse(
