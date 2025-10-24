@@ -26,8 +26,8 @@ const tripInteractions = {
       .setLngLat(e.lngLat)
       .setHTML(this.createPopupContent(feature))
       .addTo(state.map);
-
-    popup.on("open", () => this.setupPopupEventListeners(popup, feature));
+    // Attach listeners immediately; Mapbox GL's 'open' can fire before handler registration
+    this.setupPopupEventListeners(popup, feature);
   },
 
   createPopupContent(feature) {
@@ -128,9 +128,21 @@ const tripInteractions = {
       `;
   },
 
-  setupPopupEventListeners(popup /* feature is unused here intentionally */) {
+  setupPopupEventListeners(
+    popup /* feature is unused here intentionally */,
+    feature,
+    attempt = 0,
+  ) {
     const popupElement = popup.getElement();
-    if (!popupElement) return;
+    if (!popupElement) {
+      if (attempt < 5) {
+        setTimeout(
+          () => this.setupPopupEventListeners(popup, feature, attempt + 1),
+          50,
+        );
+      }
+      return;
+    }
 
     popupElement.addEventListener("click", async (e) => {
       const button = e.target.closest("button");
@@ -166,15 +178,18 @@ const tripInteractions = {
   },
 
   async deleteMatchedTrip(tripId, popup) {
-    if (
-      !(await window.confirmationDialog.show({
-        title: "Delete Matched Trip",
-        message: "Are you sure you want to delete this matched trip?",
-        confirmText: "Delete",
-        confirmButtonClass: "btn-danger",
-      }))
-    )
-      return;
+    const useModal =
+      window.confirmationDialog &&
+      typeof window.confirmationDialog.show === "function";
+    const confirmed = useModal
+      ? await window.confirmationDialog.show({
+          title: "Delete Matched Trip",
+          message: "Are you sure you want to delete this matched trip?",
+          confirmText: "Delete",
+          confirmButtonClass: "btn-danger",
+        })
+      : confirm("Are you sure you want to delete this matched trip?");
+    if (!confirmed) return;
 
     try {
       const response = await utils.fetchWithRetry(
@@ -197,16 +212,21 @@ const tripInteractions = {
   },
 
   async deleteTrip(tripId, popup) {
-    if (
-      !(await window.confirmationDialog.show({
-        title: "Delete Trip",
-        message:
+    const useModal =
+      window.confirmationDialog &&
+      typeof window.confirmationDialog.show === "function";
+    const confirmed = useModal
+      ? await window.confirmationDialog.show({
+          title: "Delete Trip",
+          message:
+            "Are you sure you want to delete this trip? This action cannot be undone.",
+          confirmText: "Delete",
+          confirmButtonClass: "btn-danger",
+        })
+      : confirm(
           "Are you sure you want to delete this trip? This action cannot be undone.",
-        confirmText: "Delete",
-        confirmButtonClass: "btn-danger",
-      }))
-    )
-      return;
+        );
+    if (!confirmed) return;
 
     try {
       const response = await utils.fetchWithRetry(`/api/trips/${tripId}`, {
