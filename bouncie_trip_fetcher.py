@@ -4,9 +4,9 @@ Fetches trip data from the Bouncie API, processes and validates each trip using
 the unified TripProcessor, and stores trips in MongoDB.
 """
 
+import asyncio
 import logging
 import os
-import asyncio
 from datetime import datetime, timedelta
 
 import aiohttp
@@ -14,14 +14,14 @@ import aiohttp
 from config import (
     API_BASE_URL,
     AUTH_URL,
-    AUTHORIZED_DEVICES,
     AUTHORIZATION_CODE,
+    AUTHORIZED_DEVICES,
     CLIENT_ID,
     CLIENT_SECRET,
+    MAPBOX_ACCESS_TOKEN,
     REDIRECT_URI,
 )
 from date_utils import parse_timestamp
-from config import MAPBOX_ACCESS_TOKEN
 from trip_service import TripService
 from utils import get_session, retry_async
 
@@ -185,10 +185,12 @@ async def fetch_bouncie_trips_in_range(
                             imei,
                             do_map_match,
                         )
-                        processed_transaction_ids = await trip_service.process_bouncie_trips(
-                            raw_trips_chunk,
-                            do_map_match=do_map_match,
-                            progress_tracker=progress_tracker,
+                        processed_transaction_ids = (
+                            await trip_service.process_bouncie_trips(
+                                raw_trips_chunk,
+                                do_map_match=do_map_match,
+                                progress_tracker=progress_tracker,
+                            )
                         )
                         return [
                             {"transactionId": t.get("transactionId"), "imei": imei}
@@ -205,9 +207,7 @@ async def fetch_bouncie_trips_in_range(
                             progress_tracker["fetch_and_store_trips"]["progress"] = pct
                             progress_tracker["fetch_and_store_trips"][
                                 "message"
-                            ] = (
-                                f"Processed {completed_chunks}/{total_chunks} chunks"
-                            )
+                            ] = f"Processed {completed_chunks}/{total_chunks} chunks"
 
         # Kick off tasks in parallel
         tasks = [process_chunk(imei, s, e) for (imei, s, e) in chunk_windows]
