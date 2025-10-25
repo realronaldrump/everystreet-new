@@ -929,9 +929,7 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
 
 @router.get("/api/coverage_areas/{location_id}/streets")
 async def get_coverage_area_streets(
-    location_id: str,
-    undriven: bool = Query(False),
-    driven: bool = Query(False)
+    location_id: str, undriven: bool = Query(False), driven: bool = Query(False)
 ):
     """Get updated street GeoJSON for a coverage area, including manual overrides."""
     try:
@@ -959,7 +957,7 @@ async def get_coverage_area_streets(
     elif driven:
         query["properties.driven"] = True
     # If neither undriven nor driven is specified, return all streets
-    
+
     cursor = streets_collection.find(
         query,
         {
