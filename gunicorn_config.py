@@ -64,7 +64,7 @@ worker_connections = 1000
 max_requests = 1000
 max_requests_jitter = 100
 
-preload_app = True
+preload_app = False
 
 threads = int(os.environ.get("GUNICORN_THREADS", "2"))
 
@@ -94,7 +94,8 @@ def on_exit(server):
 def worker_abort(worker):
     """Log worker timeouts."""
     logging.getLogger("gunicorn.error").warning(
-        f"Worker {worker.pid} was aborted due to timeout or memory limits",
+        "Worker %d was aborted due to timeout or memory limits",
+        worker.pid,
     )
 
 

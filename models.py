@@ -188,7 +188,7 @@ class AppSettingsModel(BaseModel):
 
     class Config:
         extra = "allow"
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "disableWebSockets": False,
             },

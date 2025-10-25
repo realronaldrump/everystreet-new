@@ -172,7 +172,11 @@ async def internal_error_handler(request: Request, exc: Exception):
     """Handle 500 Internal Server Error errors."""
     error_id = str(uuid.uuid4())
     logger.error(
-        f"Internal Server Error (ID: {error_id}): Request {request.method} {request.url} failed. Exception: {exc}",
+        "Internal Server Error (ID: %s): Request %s %s failed. Exception: %s",
+        error_id,
+        request.method,
+        request.url,
+        str(exc),
         exc_info=True,
     )
     return JSONResponse(
