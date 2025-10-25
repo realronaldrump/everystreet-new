@@ -1567,9 +1567,9 @@ class TripProcessor:
                     trip_to_save["gps"] = None
 
             # Final validation check after any potential parsing
-            if trip_to_save.get("gps") is not None and not self._is_valid_geojson_object(
-                trip_to_save["gps"]
-            ):
+            if trip_to_save.get(
+                "gps"
+            ) is not None and not self._is_valid_geojson_object(trip_to_save["gps"]):
                 logger.error(
                     "Trip %s: 'gps' field is invalid at save time. Value: %s. Setting to null.",
                     trip_to_save.get("transactionId", "unknown"),
