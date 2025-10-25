@@ -25,9 +25,9 @@ from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError, ConnectionFailure
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
+from celery_app import app as celery_app
 from config import AUTHORIZATION_CODE as AUTH_CODE
 from config import AUTHORIZED_DEVICES, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
-from celery_app import app as celery_app
 from db import (
     SerializationHelper,
     count_documents_with_retry,
@@ -1415,6 +1415,7 @@ async def run_task_scheduler_async(self) -> None:
                 last_run = last_run_any
             elif isinstance(last_run_any, str):
                 from date_utils import parse_timestamp
+
                 last_run = parse_timestamp(last_run_any)
                 if not last_run:
                     logger.warning(
@@ -1562,6 +1563,7 @@ async def get_all_task_metadata() -> dict[str, Any]:
                 last_run = last_run_any
             elif isinstance(last_run_any, str):
                 from date_utils import parse_timestamp
+
                 last_run = parse_timestamp(last_run_any)
 
             if last_run and interval_minutes and interval_minutes > 0:

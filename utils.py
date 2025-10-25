@@ -11,8 +11,8 @@ from typing import Any, TypeVar
 import aiohttp
 from aiohttp import (
     ClientConnectorError,
-    ClientResponseError,
     ClientError,
+    ClientResponseError,
     ServerDisconnectedError,
 )
 
@@ -287,7 +287,10 @@ def standardize_and_validate_gps(
     if isinstance(gps_data, list):
         raw_coords = gps_data
     elif isinstance(gps_data, dict):
-        if gps_data.get("type") in ["Point", "LineString"] and "coordinates" in gps_data:
+        if (
+            gps_data.get("type") in ["Point", "LineString"]
+            and "coordinates" in gps_data
+        ):
             raw_coords = gps_data.get("coordinates")
             if gps_data["type"] == "Point":
                 if (
