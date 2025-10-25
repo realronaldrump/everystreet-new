@@ -9,7 +9,12 @@ from collections.abc import Coroutine
 from typing import Any, TypeVar
 
 import aiohttp
-from aiohttp import ClientConnectorError, ClientResponseError
+from aiohttp import (
+    ClientConnectorError,
+    ClientResponseError,
+    ClientError,
+    ServerDisconnectedError,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -106,6 +111,8 @@ def retry_async(
     retry_exceptions=(
         ClientConnectorError,
         ClientResponseError,
+        ServerDisconnectedError,
+        ClientError,
         asyncio.TimeoutError,
     ),
 ):

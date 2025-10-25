@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
@@ -203,10 +204,24 @@ async def validate_location(
 ):
     """Validate a location using OpenStreetMap."""
     try:
-        validated = await validate_location_osm(
+        # Hard timeout to ensure we never leave the client hanging
+        validated = await asyncio.wait_for(
+            validate_location_osm(
+                data.location,
+                data.locationType,
+            ),
+            timeout=12.0,
+        )
+    except asyncio.TimeoutError as exc:
+        logger.warning(
+            "Location validation timed out for location=%s type=%s",
             data.location,
             data.locationType,
         )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Validation timed out. Please try again.",
+        ) from exc
     except Exception as exc:
         logger.exception("Location validation failed: %s", exc)
         raise HTTPException(
