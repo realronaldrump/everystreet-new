@@ -3,7 +3,6 @@ import os
 import uuid
 
 from dotenv import load_dotenv
-from config import MAPBOX_ACCESS_TOKEN
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -12,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from admin_api import router as admin_api_router
 from analytics_api import router as analytics_api_router
+from config import MAPBOX_ACCESS_TOKEN
 from coverage_api import router as coverage_api_router
 from db import db_manager, init_database
 from driving_routes import router as driving_routes_router
