@@ -170,11 +170,7 @@ const dataManager = {
     const selectedLocationId = utils.getStorage(
       CONFIG.STORAGE_KEYS.selectedLocation,
     );
-    if (
-      !selectedLocationId ||
-      !state.mapInitialized ||
-      state.allStreetsLoaded
-    )
+    if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded)
       return null;
 
     window.loadingManager.pulse("Loading all streets...");
@@ -233,15 +229,9 @@ const dataManager = {
         !state.undrivenStreetsLoaded
       )
         promises.push(this.fetchUndrivenStreets());
-      if (
-        state.mapLayers.drivenStreets.visible &&
-        !state.drivenStreetsLoaded
-      )
+      if (state.mapLayers.drivenStreets.visible && !state.drivenStreetsLoaded)
         promises.push(this.fetchDrivenStreets());
-      if (
-        state.mapLayers.allStreets.visible &&
-        !state.allStreetsLoaded
-      )
+      if (state.mapLayers.allStreets.visible && !state.allStreetsLoaded)
         promises.push(this.fetchAllStreets());
 
       renderStage.update(50, "Loading layer data...");

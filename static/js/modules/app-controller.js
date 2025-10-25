@@ -97,11 +97,14 @@ const AppController = {
         initializeLiveTracker();
         this.setupEventListeners();
         restoreLayerVisibility();
-        
+
         // Restore street view mode if location is selected
-        const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+        const selectedLocationId = utils.getStorage(
+          CONFIG.STORAGE_KEYS.selectedLocation,
+        );
         if (selectedLocationId) {
-          const savedMode = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode) || 'undriven';
+          const savedMode =
+            utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode) || "undriven";
           setTimeout(() => this.handleStreetViewModeChange(savedMode), 500);
         }
 
@@ -165,16 +168,24 @@ const AppController = {
     }
 
     // Street view mode radio buttons
-    const streetModeRadios = document.querySelectorAll('input[name="street-view-mode"]');
+    const streetModeRadios = document.querySelectorAll(
+      'input[name="street-view-mode"]',
+    );
     if (streetModeRadios.length > 0) {
-      const savedMode = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode) || 'undriven';
-      const savedModeRadio = document.querySelector(`input[name="street-view-mode"][value="${savedMode}"]`);
+      const savedMode =
+        utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode) || "undriven";
+      const savedModeRadio = document.querySelector(
+        `input[name="street-view-mode"][value="${savedMode}"]`,
+      );
       if (savedModeRadio) savedModeRadio.checked = true;
-      
-      streetModeRadios.forEach(radio => {
-        radio.addEventListener('change', async (e) => {
+
+      streetModeRadios.forEach((radio) => {
+        radio.addEventListener("change", async (e) => {
           if (e.target.checked) {
-            utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, e.target.value);
+            utils.setStorage(
+              CONFIG.STORAGE_KEYS.streetViewMode,
+              e.target.value,
+            );
             await this.handleStreetViewModeChange(e.target.value);
           }
         });
@@ -311,7 +322,7 @@ const AppController = {
     });
 
     // Basic global error / rejection logging
-  window.addEventListener("error", () => {
+    window.addEventListener("error", () => {
       // Intentionally no-op to avoid unused parameter warnings while preserving handler registration
       // Detailed logging handled elsewhere
     });
@@ -359,9 +370,14 @@ const AppController = {
   },
 
   async handleStreetViewModeChange(mode) {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
     if (!selectedLocationId) {
-      window.notificationManager.show('Please select a location first', 'warning');
+      window.notificationManager.show(
+        "Please select a location first",
+        "warning",
+      );
       return;
     }
 
@@ -376,27 +392,27 @@ const AppController = {
     state.allStreetsLoaded = false;
 
     // Update layer toggles
-    const undrivenToggle = document.getElementById('undrivenStreets-toggle');
-    const drivenToggle = document.getElementById('drivenStreets-toggle');
-    const allToggle = document.getElementById('allStreets-toggle');
-    
+    const undrivenToggle = document.getElementById("undrivenStreets-toggle");
+    const drivenToggle = document.getElementById("drivenStreets-toggle");
+    const allToggle = document.getElementById("allStreets-toggle");
+
     if (undrivenToggle) undrivenToggle.checked = false;
     if (drivenToggle) drivenToggle.checked = false;
     if (allToggle) allToggle.checked = false;
 
     // Show selected layer
-    switch(mode) {
-      case 'undriven':
+    switch (mode) {
+      case "undriven":
         state.mapLayers.undrivenStreets.visible = true;
         if (undrivenToggle) undrivenToggle.checked = true;
         await dataManager.fetchUndrivenStreets();
         break;
-      case 'driven':
+      case "driven":
         state.mapLayers.drivenStreets.visible = true;
         if (drivenToggle) drivenToggle.checked = true;
         await dataManager.fetchDrivenStreets();
         break;
-      case 'all':
+      case "all":
         state.mapLayers.allStreets.visible = true;
         if (allToggle) allToggle.checked = true;
         await dataManager.fetchAllStreets();
@@ -405,7 +421,8 @@ const AppController = {
   },
 
   async refreshStreetLayers() {
-    const mode = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode) || 'undriven';
+    const mode =
+      utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode) || "undriven";
     await this.handleStreetViewModeChange(mode);
   },
 };
