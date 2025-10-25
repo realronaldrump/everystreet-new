@@ -5,6 +5,8 @@ the unified TripProcessor, and stores trips in MongoDB.
 """
 
 import logging
+import os
+import asyncio
 from datetime import datetime, timedelta
 
 import aiohttp
@@ -21,7 +23,7 @@ from config import (
 from date_utils import parse_timestamp
 from config import MAPBOX_ACCESS_TOKEN
 from trip_service import TripService
-from utils import get_session
+from utils import get_session, retry_async
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,7 @@ progress_data = {
 }
 
 
+@retry_async(max_retries=3, retry_delay=1.5)
 async def get_access_token(
     session: aiohttp.ClientSession,
 ) -> str:
@@ -67,6 +70,7 @@ async def get_access_token(
         return None
 
 
+@retry_async(max_retries=3, retry_delay=1.5)
 async def fetch_trips_for_device(
     session: aiohttp.ClientSession,
     token: str,
@@ -123,9 +127,8 @@ async def fetch_bouncie_trips_in_range(
     do_map_match: bool = False,
     task_progress: dict = None,
 ) -> list:
-    # Stream-processing version: process chunks per device and do not accumulate
+    # Parallel chunk processing across devices and 7-day windows
     all_new_trips = []
-    total_devices = len(AUTHORIZED_DEVICES)
     progress_tracker = task_progress if task_progress is not None else progress_data
     if progress_tracker is not None:
         progress_tracker["fetch_and_store_trips"]["status"] = "running"
@@ -143,55 +146,77 @@ async def fetch_bouncie_trips_in_range(
                 ] = "Failed to obtain access token"
             return all_new_trips
 
-        # Pass token explicitly from config (optional; TripService also reads from config)
+        # Initialize TripService once
         trip_service = TripService(MAPBOX_ACCESS_TOKEN)
 
-        for device_index, imei in enumerate(AUTHORIZED_DEVICES, start=1):
-            if progress_tracker is not None:
-                progress_tracker["fetch_and_store_trips"][
-                    "message"
-                ] = f"Fetching trips for device {device_index} of {total_devices}"
-
+        # Build chunk windows (7-day slices per device)
+        chunk_windows: list[tuple[str, datetime, datetime]] = []
+        for imei in AUTHORIZED_DEVICES:
             current_start = start_dt
             while current_start < end_dt:
                 current_end = min(current_start + timedelta(days=7), end_dt)
-                raw_trips_chunk = await fetch_trips_for_device(
-                    session,
-                    token,
-                    imei,
-                    current_start,
-                    current_end,
-                )
-
-                if raw_trips_chunk:
-                    logger.info(
-                        "Processing %s fetched trips for device %s (do_map_match=%s)...",
-                        len(raw_trips_chunk),
-                        imei,
-                        do_map_match,
-                    )
-                    processed_trip_ids = await trip_service.process_bouncie_trips(
-                        raw_trips_chunk,
-                        do_map_match=do_map_match,
-                        progress_tracker=progress_tracker,
-                    )
-                    # Optionally keep a small summary of new trips, not raw chunk
-                    all_new_trips.extend(
-                        [
-                            {"transactionId": t.get("transactionId"), "imei": imei}
-                            for t in raw_trips_chunk
-                            if t.get("transactionId") in processed_trip_ids
-                        ]
-                    )
-
-                # Advance window and release memory by dropping references
-                raw_trips_chunk = None
+                chunk_windows.append((imei, current_start, current_end))
                 current_start = current_end
 
-            if progress_tracker is not None:
-                progress_tracker["fetch_and_store_trips"]["progress"] = (
-                    device_index / total_devices * 100
-                )
+        if not chunk_windows:
+            return all_new_trips
+
+        # Concurrency control
+        max_concurrency = int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12"))
+        semaphore = asyncio.Semaphore(max_concurrency)
+        completed_chunks = 0
+        progress_lock = asyncio.Lock()
+        total_chunks = len(chunk_windows)
+
+        async def process_chunk(imei: str, s: datetime, e: datetime) -> list[dict]:
+            async with semaphore:
+                try:
+                    raw_trips_chunk = await fetch_trips_for_device(
+                        session,
+                        token,
+                        imei,
+                        s,
+                        e,
+                    )
+                    if raw_trips_chunk:
+                        logger.info(
+                            "Processing %s fetched trips for device %s (do_map_match=%s)...",
+                            len(raw_trips_chunk),
+                            imei,
+                            do_map_match,
+                        )
+                        processed_transaction_ids = await trip_service.process_bouncie_trips(
+                            raw_trips_chunk,
+                            do_map_match=do_map_match,
+                            progress_tracker=progress_tracker,
+                        )
+                        return [
+                            {"transactionId": t.get("transactionId"), "imei": imei}
+                            for t in raw_trips_chunk
+                            if t.get("transactionId") in processed_transaction_ids
+                        ]
+                    return []
+                finally:
+                    nonlocal completed_chunks
+                    async with progress_lock:
+                        completed_chunks += 1
+                        if progress_tracker is not None and total_chunks:
+                            pct = (completed_chunks / total_chunks) * 100
+                            progress_tracker["fetch_and_store_trips"]["progress"] = pct
+                            progress_tracker["fetch_and_store_trips"][
+                                "message"
+                            ] = (
+                                f"Processed {completed_chunks}/{total_chunks} chunks"
+                            )
+
+        # Kick off tasks in parallel
+        tasks = [process_chunk(imei, s, e) for (imei, s, e) in chunk_windows]
+        results = await asyncio.gather(*tasks, return_exceptions=False)
+
+        # Flatten results
+        for lst in results:
+            if lst:
+                all_new_trips.extend(lst)
     except Exception as e:
         logger.error(
             "Error in fetch_bouncie_trips_in_range: %s",

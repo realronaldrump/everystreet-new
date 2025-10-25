@@ -6,6 +6,7 @@ determined UTM zone for accuracy, and updates the database.
 """
 
 import asyncio
+import os
 import gc
 import logging
 import math
@@ -27,12 +28,14 @@ from shapely.ops import transform, unary_union
 from db import (
     coverage_metadata_collection,
     delete_many_with_retry,
+    find_one_with_retry,
     find_with_retry,
     progress_collection,
     streets_collection,
     update_many_with_retry,
     update_one_with_retry,
 )
+from db import db_manager
 
 # Import the centralized query builder
 from osm_utils import build_standard_osm_streets_query
@@ -45,7 +48,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Primary endpoint (kept for backward compatibility) and multi-endpoint fallback support
 OVERPASS_URL = "http://overpass-api.de/api/interpreter"
+OVERPASS_URLS_ENV = os.getenv(
+    "OVERPASS_URLS",
+    ",".join(
+        [
+            OVERPASS_URL,
+            "https://overpass.kumi.systems/api/interpreter",
+            "https://overpass.osm.ch/api/interpreter",
+            "https://overpass.nchc.org.tw/api/interpreter",
+        ]
+    ),
+)
+
+# Optional cache TTL (hours) for OSM data; 0 disables TTL (use cache if present)
+OSM_CACHE_TTL_HOURS = float(os.getenv("OSM_CACHE_TTL_HOURS", "24"))
+
+osm_data_collection = db_manager.db["osm_data"]
 WGS84 = pyproj.CRS("EPSG:4326")
 
 SEGMENT_LENGTH_METERS = 100  # Default – can be overridden per-run
@@ -152,16 +172,19 @@ def get_dynamic_utm_crs(latitude: float, longitude: float) -> pyproj.CRS:
 
 
 async def fetch_osm_data(
-    query: str, timeout: int = 300
+    query: str,
+    timeout: int = 300,
+    base_url: str | None = None,
 ) -> dict[str, Any]:  # Increased default timeout
     """Fetch OSM data via Overpass API, with proper cleanup and error propagation."""
     # The timeout here is for the HTTP request itself.
     # The Overpass query itself has its own [timeout:...] directive.
+    target_url = base_url or OVERPASS_URL
     async with aiohttp.ClientSession() as session:
         try:
             logger.debug("Fetching OSM data with query: %s", query)
             async with session.post(
-                OVERPASS_URL,
+                target_url,
                 data=query,
                 timeout=timeout,  # HTTP client timeout
             ) as resp:
@@ -190,6 +213,110 @@ async def fetch_osm_data(
                 e,
             )
             raise
+
+
+async def _fetch_osm_with_fallback(
+    query: str,
+    task_id: str | None,
+    location_name: str,
+    per_attempt_http_timeout: int = 60,
+    per_attempt_overall_timeout: int = 75,
+) -> tuple[dict[str, Any], str]:
+    """Try multiple Overpass endpoints with per-attempt timeouts and progress heartbeats.
+
+    Returns (osm_data, endpoint_url) on success. Raises on total failure.
+    """
+    endpoints = [u.strip() for u in OVERPASS_URLS_ENV.split(",") if u.strip()]
+    total_endpoints = len(endpoints)
+    for idx, endpoint in enumerate(endpoints, start=1):
+        # Announce attempt
+        await _update_task_progress(
+            task_id,
+            "preprocessing",
+            20,
+            "Contacting Overpass {}/{} at {} for {}".format(
+                idx, total_endpoints, endpoint, location_name
+            ),
+        )
+
+        # Start the fetch task
+        fetch_task = asyncio.create_task(
+            fetch_osm_data(
+                query=query,
+                timeout=per_attempt_http_timeout,
+                base_url=endpoint,
+            )
+        )
+
+        attempt_start = asyncio.get_event_loop().time()
+        last_heartbeat = attempt_start
+        try:
+            while True:
+                try:
+                    # Poll completion in small intervals to emit heartbeats
+                    result = await asyncio.wait_for(fetch_task, timeout=5)
+                    # Success
+                    await _update_task_progress(
+                        task_id,
+                        "preprocessing",
+                        35,
+                        "Received OSM data from {} for {}".format(
+                            endpoint, location_name
+                        ),
+                    )
+                    return result, endpoint
+                except asyncio.TimeoutError:
+                    now = asyncio.get_event_loop().time()
+                    elapsed = int(now - attempt_start)
+                    # Heartbeat every ~10s
+                    if now - last_heartbeat >= 10:
+                        last_heartbeat = now
+                        await _update_task_progress(
+                            task_id,
+                            "preprocessing",
+                            20,
+                            "Waiting on Overpass {}/{} ({}s) at {} for {}".format(
+                                idx, total_endpoints, elapsed, endpoint, location_name
+                            ),
+                        )
+                    # Enforce per-attempt overall timeout
+                    if elapsed >= per_attempt_overall_timeout:
+                        logger.warning(
+                            "Overpass attempt %d/%d timed out after %ds at %s for %s",
+                            idx,
+                            total_endpoints,
+                            per_attempt_overall_timeout,
+                            endpoint,
+                            location_name,
+                        )
+                        fetch_task.cancel()
+                        try:
+                            await fetch_task
+                        except Exception:
+                            pass
+                        break  # move to next endpoint
+        except Exception as e:
+            logger.error(
+                "Overpass attempt %d/%d failed at %s for %s: %s",
+                idx,
+                total_endpoints,
+                endpoint,
+                location_name,
+                e,
+                exc_info=True,
+            )
+            # Try next endpoint
+            continue
+
+    # All endpoints failed or timed out
+    await _update_task_progress(
+        task_id,
+        "error",
+        20,
+        "All Overpass endpoints failed or timed out for {}".format(location_name),
+        error="Overpass fetch failed",
+    )
+    raise TimeoutError("All Overpass endpoints failed or timed out")
 
 
 def substring(line: LineString, start: float, end: float) -> LineString | None:
@@ -1283,38 +1410,82 @@ async def preprocess_streets(
             )
             # Decide if this is a fatal error or if we can proceed
 
+        # Build Overpass query
         osm_data = None
+        query_string = None
         try:
             logger.info(
-                "Fetching filtered OSM street data for {} using standard query...".format(
-                    location_name
-                ),
+                "Fetching filtered OSM street data for %s using standard query...",
+                location_name,
             )
-            # Use the _get_query_target_clause_for_bbox to prepare the bbox part of the query
             query_target_clause = _get_query_target_clause_for_bbox(validated_location)
             query_string = build_standard_osm_streets_query(
                 query_target_clause, timeout=300
             )
 
-            osm_data = await asyncio.wait_for(
-                fetch_osm_data(
-                    query=query_string, timeout=360
-                ),  # Increased HTTP timeout
-                timeout=400,  # Overall timeout for the fetch operation
-            )
-        except TimeoutError:  # Catch asyncio.TimeoutError from wait_for
+            # Check cache first (optional TTL)
+            try:
+                cached_doc = await find_one_with_retry(
+                    osm_data_collection,
+                    {"location.display_name": location_name},
+                )
+            except Exception:
+                cached_doc = None
+
+            cache_ok = False
+            if cached_doc and isinstance(cached_doc.get("data"), dict):
+                created_at = cached_doc.get("created_at")
+                if OSM_CACHE_TTL_HOURS <= 0:
+                    cache_ok = True
+                elif created_at and isinstance(created_at, datetime):
+                    age_hours = (
+                        (datetime.now(timezone.utc) - created_at).total_seconds()
+                        / 3600.0
+                    )
+                    cache_ok = age_hours <= OSM_CACHE_TTL_HOURS
+                else:
+                    cache_ok = False
+            if cache_ok:
+                osm_data = cached_doc["data"]
+                await _update_task_progress(
+                    task_id,
+                    "preprocessing",
+                    30,
+                    "Using cached OSM data for {} (<= {}h old)".format(
+                        location_name, int(OSM_CACHE_TTL_HOURS)
+                    ),
+                )
+            else:
+                osm_data, endpoint_used = await _fetch_osm_with_fallback(
+                    query=query_string,
+                    task_id=task_id,
+                    location_name=location_name,
+                )
+                # Store/refresh cache
+                try:
+                    await update_one_with_retry(
+                        osm_data_collection,
+                        {"location.display_name": location_name},
+                        {
+                            "$set": {
+                                "location": validated_location,
+                                "data": osm_data,
+                                "endpoint": endpoint_used,
+                                "created_at": datetime.now(timezone.utc),
+                            }
+                        },
+                        upsert=True,
+                    )
+                except Exception as cache_err:
+                    logger.warning(
+                        "Failed to cache OSM data for %s: %s",
+                        location_name,
+                        cache_err,
+                    )
+        except TimeoutError:
             logger.error(
-                "Timeout fetching OSM data for %s (overall fetch timeout)",
+                "Timeout fetching OSM data for %s (all endpoints)",
                 location_name,
-            )
-            await _update_task_progress(
-                task_id,
-                "error",
-                20,
-                "Timeout fetching OSM data for {}. (Detail: Overpass timeout)".format(
-                    location_name
-                ),
-                error="Timeout fetching OSM data",
             )
             await update_one_with_retry(
                 coverage_metadata_collection,
@@ -1322,7 +1493,7 @@ async def preprocess_streets(
                 {
                     "$set": {
                         "status": "error",
-                        "last_error": "Timeout fetching OSM data",
+                        "last_error": "Timeout fetching OSM data (all endpoints)",
                     },
                 },
             )
@@ -1338,7 +1509,7 @@ async def preprocess_streets(
                 task_id,
                 "error",
                 20,
-                f"OSM Fetch Error for {location_name}: {fetch_err}",
+                "OSM Fetch Error for {}: {}".format(location_name, fetch_err),
                 error=str(fetch_err)[:200],
             )
             await update_one_with_retry(

@@ -292,7 +292,10 @@ class TripService:
         do_map_match: bool = False,
         progress_tracker: dict = None,
     ) -> list[str]:
-        """Process multiple Bouncie trips."""
+        """Process multiple Bouncie trips.
+
+        Returns a list of transactionIds that were successfully saved (not ObjectIds).
+        """
         processed_trip_ids: list[str] = []
         progress_section = None
 
@@ -304,11 +307,40 @@ class TripService:
                 progress_section["message"] = "Starting trip processing"
 
         try:
-            for index, trip in enumerate(trips_data):
+            # Pre-skip duplicates already present in DB and deduplicate inputs
+            unique_trips: list[dict[str, Any]] = []
+            seen_incoming: set[str] = set()
+            for t in trips_data:
+                tx = t.get("transactionId")
+                if not tx or tx in seen_incoming:
+                    continue
+                seen_incoming.add(tx)
+                unique_trips.append(t)
+
+            if unique_trips:
+                incoming_ids = [t.get("transactionId") for t in unique_trips if t.get("transactionId")]
+                existing_docs = await find_with_retry(
+                    self.trips_collection,
+                    {"transactionId": {"$in": incoming_ids}},
+                    projection={"transactionId": 1, "_id": 0},
+                    limit=len(incoming_ids),
+                )
+                existing_ids = {d.get("transactionId") for d in existing_docs}
+                trips_to_process = [t for t in unique_trips if t.get("transactionId") not in existing_ids]
+            else:
+                trips_to_process = []
+
+            skipped_count = len(seen_incoming) - len(trips_to_process)
+            if progress_section is not None:
+                progress_section["message"] = (
+                    f"Starting trip processing (skipped {skipped_count} existing/duplicate trips)"
+                )
+
+            for index, trip in enumerate(trips_to_process):
                 if progress_section is not None and trips_data:
-                    progress_section["progress"] = int((index / len(trips_data)) * 100)
+                    progress_section["progress"] = int((index / max(1, len(trips_to_process))) * 100)
                     progress_section["message"] = (
-                        f"Processing trip {index + 1} of {len(trips_data)}"
+                        f"Processing trip {index + 1} of {len(trips_to_process)}"
                     )
 
                 transaction_id = trip.get("transactionId", "unknown")
@@ -334,7 +366,8 @@ class TripService:
                     )
 
                     if result.get("saved_id"):
-                        processed_trip_ids.append(result["saved_id"])
+                        # Track the trip by its transactionId for callers that expect transaction IDs
+                        processed_trip_ids.append(transaction_id)
 
                 except Exception as trip_error:
                     logger.error(
