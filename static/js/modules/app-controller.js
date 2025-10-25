@@ -8,15 +8,6 @@ import metricsManager from "./metrics-manager.js";
 import dateUtils from "./date-utils.js";
 
 // --- Helper functions --------------------------------------------------
-const initializeDates = () => {
-  const startDateInput = utils.getElement("start-date");
-  const endDateInput = utils.getElement("end-date");
-  if (startDateInput && !startDateInput.value)
-    startDateInput.value = dateUtils.getStartDate();
-  if (endDateInput && !endDateInput.value)
-    endDateInput.value = dateUtils.getEndDate();
-};
-
 const initializeLiveTracker = () => {
   if (window.LiveTripTracker && state.map && !state.liveTracker) {
     // Respect user preference to hide live tracking
@@ -85,8 +76,6 @@ const AppController = {
   async initialize() {
     try {
       window.loadingManager?.show("Initializing application...");
-
-      initializeDates();
 
       if (utils.getElement("map") && !document.getElementById("visits-page")) {
         const ok = await mapManager.initialize();
