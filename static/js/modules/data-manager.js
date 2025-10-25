@@ -136,6 +136,66 @@ const dataManager = {
     }
   },
 
+  async fetchDrivenStreets() {
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.drivenStreetsLoaded
+    )
+      return null;
+
+    window.loadingManager.pulse("Loading driven streets...");
+    try {
+      const data = await utils.fetchWithRetry(
+        `/api/coverage_areas/${selectedLocationId}/streets?driven=true`,
+      );
+      if (data?.type === "FeatureCollection") {
+        state.mapLayers.drivenStreets.layer = data;
+        state.drivenStreetsLoaded = true;
+        await layerManager.updateMapLayer("drivenStreets", data);
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching driven streets:", error);
+      state.drivenStreetsLoaded = false;
+      return null;
+    }
+  },
+
+  async fetchAllStreets() {
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.allStreetsLoaded
+    )
+      return null;
+
+    window.loadingManager.pulse("Loading all streets...");
+    try {
+      const data = await utils.fetchWithRetry(
+        `/api/coverage_areas/${selectedLocationId}/streets`,
+      );
+      if (data?.type === "FeatureCollection") {
+        state.mapLayers.allStreets.layer = data;
+        state.allStreetsLoaded = true;
+        await layerManager.updateMapLayer("allStreets", data);
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching all streets:", error);
+      state.allStreetsLoaded = false;
+      return null;
+    }
+  },
+
   async fetchMetrics() {
     try {
       const { start, end } = dateUtils.getCachedDateRange();
@@ -173,6 +233,16 @@ const dataManager = {
         !state.undrivenStreetsLoaded
       )
         promises.push(this.fetchUndrivenStreets());
+      if (
+        state.mapLayers.drivenStreets.visible &&
+        !state.drivenStreetsLoaded
+      )
+        promises.push(this.fetchDrivenStreets());
+      if (
+        state.mapLayers.allStreets.visible &&
+        !state.allStreetsLoaded
+      )
+        promises.push(this.fetchAllStreets());
 
       renderStage.update(50, "Loading layer data...");
       await Promise.allSettled(promises);

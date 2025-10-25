@@ -928,7 +928,11 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
 
 
 @router.get("/api/coverage_areas/{location_id}/streets")
-async def get_coverage_area_streets(location_id: str, undriven: bool = Query(False)):
+async def get_coverage_area_streets(
+    location_id: str,
+    undriven: bool = Query(False),
+    driven: bool = Query(False)
+):
     """Get updated street GeoJSON for a coverage area, including manual overrides."""
     try:
         obj_location_id = ObjectId(location_id)
@@ -952,6 +956,10 @@ async def get_coverage_area_streets(location_id: str, undriven: bool = Query(Fal
         query["properties.undriveable"] = {
             "$ne": True
         }  # Don't show undriveable streets
+    elif driven:
+        query["properties.driven"] = True
+    # If neither undriven nor driven is specified, return all streets
+    
     cursor = streets_collection.find(
         query,
         {
@@ -977,6 +985,7 @@ async def get_coverage_area_streets_viewport(
     east: float = Query(..., description="Viewport max longitude"),
     north: float = Query(..., description="Viewport max latitude"),
     undriven: bool = Query(False),
+    driven: bool = Query(False),
 ):
     """Return streets intersecting the current map viewport for the location.
 
@@ -1017,6 +1026,8 @@ async def get_coverage_area_streets_viewport(
     if undriven:
         query["properties.driven"] = False
         query["properties.undriveable"] = {"$ne": True}
+    elif driven:
+        query["properties.driven"] = True
 
     projection = {
         "_id": 0,

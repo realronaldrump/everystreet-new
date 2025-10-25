@@ -98,6 +98,10 @@ const layerManager = {
         await dataManager.fetchMatchedTrips();
       } else if (name === "undrivenStreets" && !state.undrivenStreetsLoaded) {
         await dataManager.fetchUndrivenStreets();
+      } else if (name === "drivenStreets" && !state.drivenStreetsLoaded) {
+        await dataManager.fetchDrivenStreets();
+      } else if (name === "allStreets" && !state.allStreetsLoaded) {
+        await dataManager.fetchAllStreets();
       }
     }
 
@@ -328,8 +332,17 @@ const layerManager = {
         },
       };
 
+      // Special handling for different street layers
       if (layerName === "undrivenStreets") {
         layerConfig.paint["line-dasharray"] = [2, 2];
+      } else if (layerName === "allStreets" && layerInfo.colorDriven) {
+        // Use conditional coloring based on driven property
+        layerConfig.paint["line-color"] = [
+          "case",
+          ["==", ["get", "driven"], true],
+          layerInfo.colorDriven,
+          layerInfo.color,
+        ];
       }
 
       state.map.addLayer(layerConfig);
