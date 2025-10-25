@@ -80,7 +80,11 @@ def with_comprehensive_handling(func: Callable) -> Callable:
         try:
             result = await func(*args, **kwargs)
             duration = time.time() - start_time
-            logger.info("Successfully completed %s in %.2fs", func.__name__, duration)
+            # Reduce log noise for very hot paths
+            if func.__name__ in ("process_single_trip",):
+                logger.debug("Successfully completed %s in %.2fs", func.__name__, duration)
+            else:
+                logger.info("Successfully completed %s in %.2fs", func.__name__, duration)
             return result
         except HTTPException:
             raise
@@ -182,8 +186,45 @@ class TripService:
                 "saved_id": saved_id,
             }
 
-        # Full processing
-        await processor.process(do_map_match=options.map_match)
+        # Optimized configurable pipeline
+        await processor.validate()
+
+        if processor.state != TripState.VALIDATED:
+            saved_id = await processor.save(map_match_result=False)
+            processing_status = processor.get_processing_status()
+            return {
+                "status": "success",
+                "processing_status": processing_status,
+                "completed": processing_status["state"] == TripState.COMPLETED.value,
+                "saved_id": saved_id,
+            }
+
+        await processor.process_basic()
+        if processor.state == TripState.FAILED:
+            saved_id = await processor.save(map_match_result=False)
+            processing_status = processor.get_processing_status()
+            return {
+                "status": "success",
+                "processing_status": processing_status,
+                "completed": processing_status["state"] == TripState.COMPLETED.value,
+                "saved_id": saved_id,
+            }
+
+        if options.geocode:
+            await processor.geocode()
+            if processor.state == TripState.FAILED:
+                saved_id = await processor.save(map_match_result=False)
+                processing_status = processor.get_processing_status()
+                return {
+                    "status": "success",
+                    "processing_status": processing_status,
+                    "completed": processing_status["state"] == TripState.COMPLETED.value,
+                    "saved_id": saved_id,
+                }
+
+        if options.map_match:
+            await processor.map_match()
+
         saved_id = await processor.save(map_match_result=options.map_match)
         processing_status = processor.get_processing_status()
 
@@ -339,14 +380,12 @@ class TripService:
             for index, trip in enumerate(trips_to_process):
                 if progress_section is not None and trips_data:
                     progress_section["progress"] = int((index / max(1, len(trips_to_process))) * 100)
-                    progress_section["message"] = (
-                        f"Processing trip {index + 1} of {len(trips_to_process)}"
-                    )
+                    progress_section["message"] = "Processing trips..."
 
                 transaction_id = trip.get("transactionId", "unknown")
 
                 if not trip.get("endTime"):
-                    logger.warning(
+                    logger.debug(
                         "Skipping trip %s because 'endTime' is missing",
                         transaction_id,
                     )
@@ -355,7 +394,7 @@ class TripService:
                 try:
                     options = ProcessingOptions(
                         validate=True,
-                        geocode=True,
+                        geocode=False,
                         map_match=do_map_match,
                     )
 

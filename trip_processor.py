@@ -1671,7 +1671,7 @@ class TripProcessor:
                             matched_save_err,
                         )
 
-            logger.info(
+            logger.debug(
                 "Saved trip %s to %s successfully",
                 transaction_id,
                 collection.name,

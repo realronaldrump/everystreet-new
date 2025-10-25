@@ -327,7 +327,14 @@ def standardize_and_validate_gps(
             _log_debug("Skipping invalid coordinate pair: %s", coord_pair)
 
     if not processed_coords:
-        _log_warning("No valid coordinate pairs found after validation.")
+        # Reduce noise for common invalid GPS cases
+        if transaction_id is not None:
+            logger.debug(
+                "Trip %s: No valid coordinate pairs found after validation.",
+                transaction_id,
+            )
+        else:
+            logger.debug("No valid coordinate pairs found after validation.")
         return None
 
     unique_coords: list[list[float]] = []

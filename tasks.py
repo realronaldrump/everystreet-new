@@ -642,18 +642,17 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
         fetched_trips = await fetch_bouncie_trips_in_range(
             start_date_fetch,
             now_utc,
-            do_map_match=True,
+            do_map_match=False,
         )
         logger.info(
             "fetch_bouncie_trips_in_range returned %d trips",
             len(fetched_trips),
         )
 
-        if fetched_trips:
-            trip_ids = [trip.get("transactionId", "unknown") for trip in fetched_trips]
-            logger.info("Fetched trip IDs: %s", trip_ids)
-        else:
+        if not fetched_trips:
             logger.warning("No trips were fetched in the date range")
+        else:
+            logger.info("Fetched %d trips in the date range", len(fetched_trips))
 
     except Exception as fetch_err:
         logger.exception("Error in fetch_bouncie_trips_in_range: %s", fetch_err)

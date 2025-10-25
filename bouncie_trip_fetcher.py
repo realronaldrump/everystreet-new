@@ -106,11 +106,18 @@ async def fetch_trips_for_device(
                 if "endTime" in trip:
                     trip["endTime"] = parse_timestamp(trip["endTime"])
 
-            logger.info(
-                "Fetched %d trips for device %s",
-                len(trips),
-                imei,
-            )
+            if trips:
+                logger.info(
+                    "Fetched %d trips for device %s",
+                    len(trips),
+                    imei,
+                )
+            else:
+                # Demote noisy 0-trip events to debug to avoid log spam
+                logger.debug(
+                    "Fetched 0 trips for device %s",
+                    imei,
+                )
             return trips
     except Exception as e:
         logger.error(
