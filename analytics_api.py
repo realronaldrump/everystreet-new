@@ -128,9 +128,7 @@ async def get_trip_analytics(request: Request):
                 if day_of_week not in weekday_data:
                     weekday_data[day_of_week] = 0
                 weekday_data[day_of_week] += r["tripCount"]
-            return [
-                {"day": d, "count": c} for d, c in sorted(weekday_data.items())
-            ]
+            return [{"day": d, "count": c} for d, c in sorted(weekday_data.items())]
 
         daily_list = organize_daily_data(results)
         hourly_list = organize_hourly_data(results)
@@ -804,4 +802,3 @@ async def get_metrics(request: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
-
