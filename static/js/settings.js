@@ -1507,9 +1507,11 @@
         );
         const startDateObj = new Date();
         startDateObj.setDate(startDateObj.getDate() - interval_days);
-        start_date = window.DateUtils?.formatDateToString(startDateObj) || 
+        start_date =
+          window.DateUtils?.formatDateToString(startDateObj) ||
           startDateObj.toISOString().split("T")[0];
-        end_date = window.DateUtils?.formatDateToString(new Date()) || 
+        end_date =
+          window.DateUtils?.formatDateToString(new Date()) ||
           new Date().toISOString().split("T")[0];
       }
 

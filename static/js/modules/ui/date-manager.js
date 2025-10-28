@@ -110,32 +110,32 @@ const dateManager = {
 
   detectPreset(start, end) {
     if (!start || !end) return null;
-    
+
     // Use string comparison for date strings (YYYY-MM-DD)
     const today = dateUtils.getCurrentDate();
     const yesterday = dateUtils.getYesterday();
-    
+
     // Check if same day
     if (start === end) {
       if (start === today) return "today";
       if (start === yesterday) return "yesterday";
     }
-    
+
     // For range presets, calculate day difference using string dates
     const startDate = dateUtils.parseDateString(start);
     const endDate = dateUtils.parseDateString(end);
     if (!startDate || !endDate) return null;
-    
+
     const diffDays = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
     const endIsToday = end === today;
-    
+
     if (endIsToday) {
       if (diffDays === 6) return "last-week";
       if (diffDays === 29 || diffDays === 30) return "last-month";
       if (diffDays === 89 || diffDays === 90) return "last-quarter";
       if (diffDays === 364 || diffDays === 365) return "last-year";
     }
-    
+
     return null;
   },
 
