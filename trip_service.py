@@ -16,6 +16,7 @@ from typing import Any
 from fastapi import HTTPException, status
 from pymongo.errors import DuplicateKeyError
 
+from config import MAPBOX_ACCESS_TOKEN
 from db import (
     find_with_retry,
     get_trip_by_id,
@@ -23,7 +24,6 @@ from db import (
     trips_collection,
 )
 from trip_processor import TripProcessor, TripState
-from config import MAPBOX_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +81,13 @@ def with_comprehensive_handling(func: Callable) -> Callable:
             duration = time.time() - start_time
             # Reduce log noise for very hot paths
             if func.__name__ in ("process_single_trip",):
-                logger.debug("Successfully completed %s in %.2fs", func.__name__, duration)
+                logger.debug(
+                    "Successfully completed %s in %.2fs", func.__name__, duration
+                )
             else:
-                logger.info("Successfully completed %s in %.2fs", func.__name__, duration)
+                logger.info(
+                    "Successfully completed %s in %.2fs", func.__name__, duration
+                )
             return result
         except HTTPException:
             raise
@@ -193,7 +197,8 @@ class TripService:
                 return {
                     "status": "success",
                     "processing_status": processing_status,
-                    "completed": processing_status["state"] == TripState.COMPLETED.value,
+                    "completed": processing_status["state"]
+                    == TripState.COMPLETED.value,
                     "saved_id": saved_id,
                 }
 
@@ -334,7 +339,11 @@ class TripService:
                 unique_trips.append(t)
 
             if unique_trips:
-                incoming_ids = [t.get("transactionId") for t in unique_trips if t.get("transactionId")]
+                incoming_ids = [
+                    t.get("transactionId")
+                    for t in unique_trips
+                    if t.get("transactionId")
+                ]
                 existing_docs = await find_with_retry(
                     self.trips_collection,
                     {"transactionId": {"$in": incoming_ids}},
@@ -342,7 +351,11 @@ class TripService:
                     limit=len(incoming_ids),
                 )
                 existing_ids = {d.get("transactionId") for d in existing_docs}
-                trips_to_process = [t for t in unique_trips if t.get("transactionId") not in existing_ids]
+                trips_to_process = [
+                    t
+                    for t in unique_trips
+                    if t.get("transactionId") not in existing_ids
+                ]
             else:
                 trips_to_process = []
 
@@ -354,7 +367,9 @@ class TripService:
 
             for index, trip in enumerate(trips_to_process):
                 if progress_section is not None and trips_data:
-                    progress_section["progress"] = int((index / max(1, len(trips_to_process))) * 100)
+                    progress_section["progress"] = int(
+                        (index / max(1, len(trips_to_process))) * 100
+                    )
                     progress_section["message"] = "Processing trips..."
 
                 transaction_id = trip.get("transactionId", "unknown")
