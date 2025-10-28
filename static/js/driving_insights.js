@@ -1,4 +1,4 @@
-/* global Chart, CountUp, $ */
+/* global Chart, CountUp, $, bootstrap */
 
 "use strict";
 

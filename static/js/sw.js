@@ -1,3 +1,5 @@
+/* global clients */
+
 const CACHE_NAME = "everystreet-ui-v1";
 const API_PATTERN = /\/api\//;
 const TILE_PATTERN = /basemaps\.cartocdn\.com/;

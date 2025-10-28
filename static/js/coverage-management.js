@@ -1,5 +1,5 @@
 /* eslint-disable complexity */
-/* global bootstrap, Chart, mapboxgl, html2canvas, $*/
+/* global bootstrap, Chart, mapboxgl, html2canvas, $, MapboxDraw */
 "use strict";
 
 const STATUS = window.STATUS || {

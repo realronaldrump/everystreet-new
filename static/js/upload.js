@@ -444,7 +444,7 @@ class UploadManager {
 
     fileListBody.innerHTML = "";
 
-    this.state.selectedFiles.forEach((entry) => {
+    this.state.selectedFiles.forEach((entry, index) => {
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${entry.filename}</td>
