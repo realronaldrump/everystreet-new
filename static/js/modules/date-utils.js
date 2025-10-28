@@ -148,7 +148,9 @@ const dateUtils = {
         }
         if (!startDate) {
           // Fallback to 1 year ago if we can't fetch the first trip date
-          console.warn("Could not determine first trip date, using 1 year ago as fallback");
+          console.warn(
+            "Could not determine first trip date, using 1 year ago as fallback",
+          );
           startDate = new Date(today);
           startDate.setFullYear(startDate.getFullYear() - 1);
         }
