@@ -8,7 +8,7 @@ in multiple places.
 from __future__ import annotations
 
 import os
-from typing import Final, List
+from typing import Final
 
 from dotenv import load_dotenv
 
