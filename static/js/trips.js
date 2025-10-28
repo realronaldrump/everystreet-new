@@ -316,17 +316,6 @@ class TripsManager {
             render: () => '<input type="checkbox" class="trip-checkbox">',
           },
           {
-            data: "transactionId",
-            title: "Transaction ID",
-            render: (data, type) =>
-              createEditableCell(data, type, "transactionId"),
-          },
-          {
-            data: "imei",
-            title: "IMEI",
-            render: (data, type) => createEditableCell(data, type, "imei"),
-          },
-          {
             data: "startTime",
             title: "Start Time",
             render: (data, type) =>
@@ -425,7 +414,7 @@ class TripsManager {
           [10, 25, 50, 100],
           [10, 25, 50, 100],
         ],
-        order: [[3, "desc"]], // Sort by start time descending
+        order: [[1, "desc"]], // Sort by start time descending
         drawCallback: () => {
           // Update bulk delete button state
           this.updateBulkDeleteButton();
