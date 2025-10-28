@@ -80,9 +80,8 @@ export const CONFIG = {
     },
     allStreets: {
       order: 2,
-      color: "#00BFFF",
-      colorDriven: "#4CAF50",
-      opacity: 0.8,
+      color: "#9370DB",
+      opacity: 0.7,
       visible: false,
       name: "All Streets",
       weight: 1.5,
