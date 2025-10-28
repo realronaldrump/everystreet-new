@@ -486,31 +486,6 @@ async def create_export_response(
     raise ValueError(f"Unsupported export format: {fmt}")
 
 
-def extract_date_range_string(
-    query: dict[str, Any],
-) -> str:
-    """Extract a date range string from a query dictionary for use in
-    filenames.
-
-    Args:
-        query: MongoDB query dictionary
-
-    Returns:
-        str: Formatted date range string (YYYYMMDD-YYYYMMDD)
-
-    """
-    start_date = (
-        query["startTime"].get("$gte") if isinstance(query["startTime"], dict) else None
-    )
-    end_date = (
-        query["startTime"].get("$lte") if isinstance(query["startTime"], dict) else None
-    )
-
-    if start_date and end_date:
-        return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
-    return datetime.now().strftime("%Y%m%d")
-
-
 def get_location_filename(
     location: dict[str, Any],
 ) -> str:

@@ -45,9 +45,6 @@ class TripUpdateRequest(BaseModel):
     geometry: dict | str | None = None
     properties: dict | None = None
 
-    class Config:
-        extra = "allow"
-
 
 # ==============================================================================
 # Page Rendering

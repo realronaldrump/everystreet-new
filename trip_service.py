@@ -23,7 +23,6 @@ from db import (
     trips_collection,
 )
 from trip_processor import TripProcessor, TripState
-from utils import haversine, validate_trip_data, standardize_and_validate_gps
 from config import MAPBOX_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
@@ -117,30 +116,6 @@ class TripService:
         """Initialize database collections."""
         self.trips_collection = trips_collection
         self.matched_trips_collection = matched_trips_collection
-
-    @staticmethod
-    def standardize_gps_data(gps_input: Any, transaction_id: str) -> dict | None:
-        """Standardize GPS data into consistent GeoJSON format using utils."""
-        return standardize_and_validate_gps(gps_input, transaction_id)
-
-    @staticmethod
-    def calculate_trip_distance(coordinates: list[list[float]]) -> float:
-        """Calculate total distance of a trip in miles."""
-        if len(coordinates) < 2:
-            return 0.0
-
-        total_distance_meters = 0.0
-        for i in range(len(coordinates) - 1):
-            lon1, lat1 = coordinates[i]
-            lon2, lat2 = coordinates[i + 1]
-            total_distance_meters += haversine(lon1, lat1, lon2, lat2, unit="meters")
-
-        return total_distance_meters * 0.000621371  # Convert to miles
-
-    @staticmethod
-    def validate_trip_structure(trip_data: dict[str, Any]) -> tuple[bool, str | None]:
-        """Validate trip data structure and required fields."""
-        return validate_trip_data(trip_data)
 
     @with_comprehensive_handling
     async def get_trip_by_id(self, trip_id: str) -> dict[str, Any] | None:

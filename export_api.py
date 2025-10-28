@@ -6,7 +6,7 @@ from typing import Any
 
 import geojson as geojson_module
 from fastapi import APIRouter, Body, HTTPException, Query, Request, status
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 
 from db import (
     build_query_from_request,
@@ -19,7 +19,6 @@ from export_helpers import (
     create_export_response,
     default_serializer,
     export_gpx_response,
-    extract_date_range_string,
     get_location_filename,
     process_trip_for_export,
 )
@@ -30,24 +29,6 @@ router = APIRouter()
 
 trips_collection = db_manager.db["trips"]
 matched_trips_collection = db_manager.db["matched_trips"]
-
-
-async def _load_trips_for_export(
-    request: Request,
-    not_found_message: str,
-) -> list[dict[str, Any]]:
-    """Fetch trips for export, raising a 404 if none are found."""
-    query = await build_query_from_request(request)
-    # Switch to streaming approach; this function is retained for back-compat
-    # but now only validates there are any results.
-    doc = await trips_collection.find_one(query, {"_id": 1})
-    if not doc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=not_found_message,
-        )
-    # Caller should stream from a cursor instead of using this result
-    return []
 
 
 # ----------------------------- Streaming helpers -----------------------------
@@ -181,9 +162,6 @@ async def _stream_csv_from_cursor(cursor, include_gps_in_csv: bool, flatten_loca
 
     # Determine header once using a sample doc if available
     sample_doc = await cursor.to_list(length=1)
-    async def rebuild_cursor_after_sample():
-        # Rebuild cursor since we consumed one
-        return trips_collection.find(cursor._Cursor__spec)  # type: ignore[attr-defined]
 
     fieldnames = set()
     if sample_doc:
