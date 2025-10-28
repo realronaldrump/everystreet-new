@@ -132,6 +132,7 @@ async def get_background_tasks_config():
                 try:
                     if isinstance(last_run, str):
                         from date_utils import parse_timestamp
+
                         last_run_dt = parse_timestamp(last_run)
                     else:
                         last_run_dt = last_run
@@ -490,6 +491,7 @@ async def reset_task_states():
                 start_time = start_time_any
             elif isinstance(start_time_any, str):
                 from date_utils import parse_timestamp
+
                 start_time = parse_timestamp(start_time_any)
                 if not start_time:
                     logger.warning(

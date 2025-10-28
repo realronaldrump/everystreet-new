@@ -1,9 +1,8 @@
-import logging
 import asyncio
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
-import geojson as geojson_module
 from fastapi import APIRouter, Body, HTTPException, status
 
 from db import (
@@ -212,7 +211,7 @@ async def validate_location(
             ),
             timeout=12.0,
         )
-    except asyncio.TimeoutError as exc:
+    except TimeoutError as exc:
         logger.warning(
             "Location validation timed out for location=%s type=%s",
             data.location,

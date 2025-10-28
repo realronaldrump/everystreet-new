@@ -3,11 +3,11 @@ import logging
 from datetime import datetime, timezone
 
 import gpxpy
-from date_utils import parse_timestamp
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
-from trip_service import TripService
 from config import MAPBOX_ACCESS_TOKEN
+from date_utils import parse_timestamp
+from trip_service import TripService
 from utils import calculate_distance
 
 # Setup
@@ -55,7 +55,9 @@ async def process_geojson_trip(
                 "transaction_id",
                 f"geojson-{int(datetime.now().timestamp())}",
             )
-            stime_parsed = parse_timestamp(stime_str) if stime_str else datetime.now(timezone.utc)
+            stime_parsed = (
+                parse_timestamp(stime_str) if stime_str else datetime.now(timezone.utc)
+            )
             etime_parsed = parse_timestamp(etime_str) if etime_str else stime_parsed
             trip_geo = {
                 "type": geom.get("type"),

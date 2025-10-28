@@ -6,11 +6,11 @@ determined UTM zone for accuracy, and updates the database.
 """
 
 import asyncio
-import os
 import gc
 import logging
 import math
 import multiprocessing
+import os
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
@@ -27,6 +27,7 @@ from shapely.ops import transform, unary_union
 
 from db import (
     coverage_metadata_collection,
+    db_manager,
     delete_many_with_retry,
     find_one_with_retry,
     find_with_retry,
@@ -35,7 +36,6 @@ from db import (
     update_many_with_retry,
     update_one_with_retry,
 )
-from db import db_manager
 
 # Import the centralized query builder
 from osm_utils import build_standard_osm_streets_query
@@ -265,7 +265,7 @@ async def _fetch_osm_with_fallback(
                         ),
                     )
                     return result, endpoint
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     now = asyncio.get_event_loop().time()
                     elapsed = int(now - attempt_start)
                     # Heartbeat every ~10s
@@ -313,7 +313,7 @@ async def _fetch_osm_with_fallback(
         task_id,
         "error",
         20,
-        "All Overpass endpoints failed or timed out for {}".format(location_name),
+        f"All Overpass endpoints failed or timed out for {location_name}",
         error="Overpass fetch failed",
     )
     raise TimeoutError("All Overpass endpoints failed or timed out")
@@ -1439,9 +1439,8 @@ async def preprocess_streets(
                     cache_ok = True
                 elif created_at and isinstance(created_at, datetime):
                     age_hours = (
-                        (datetime.now(timezone.utc) - created_at).total_seconds()
-                        / 3600.0
-                    )
+                        datetime.now(timezone.utc) - created_at
+                    ).total_seconds() / 3600.0
                     cache_ok = age_hours <= OSM_CACHE_TTL_HOURS
                 else:
                     cache_ok = False
@@ -1509,7 +1508,7 @@ async def preprocess_streets(
                 task_id,
                 "error",
                 20,
-                "OSM Fetch Error for {}: {}".format(location_name, fetch_err),
+                f"OSM Fetch Error for {location_name}: {fetch_err}",
                 error=str(fetch_err)[:200],
             )
             await update_one_with_retry(

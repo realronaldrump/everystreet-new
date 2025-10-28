@@ -12,7 +12,6 @@ from typing import Final, List
 
 from dotenv import load_dotenv
 
-
 # Load environment variables from .env if present
 load_dotenv()
 
@@ -28,7 +27,7 @@ AUTH_URL: Final[str] = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL: Final[str] = "https://api.bouncie.dev/v1"
 
 # Authorized devices (IMEIs) allowed to fetch trips for
-AUTHORIZED_DEVICES: Final[List[str]] = [
+AUTHORIZED_DEVICES: Final[list[str]] = [
     d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
 ]
 
@@ -47,5 +46,3 @@ __all__ = [
     "AUTHORIZED_DEVICES",
     "MAPBOX_ACCESS_TOKEN",
 ]
-
-

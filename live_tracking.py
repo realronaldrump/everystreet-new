@@ -9,8 +9,8 @@ from bson import ObjectId
 from pymongo.collection import Collection
 from pymongo.results import UpdateResult
 
-from db import SerializationHelper, run_transaction
 from date_utils import parse_timestamp
+from db import SerializationHelper, run_transaction
 from utils import haversine
 
 logger = logging.getLogger(__name__)

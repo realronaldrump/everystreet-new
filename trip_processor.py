@@ -21,11 +21,7 @@ from shapely.geometry import Point
 
 from date_utils import get_current_utc_time, parse_timestamp
 from db import matched_trips_collection, places_collection, trips_collection
-from utils import (
-    haversine,
-    reverse_geocode_nominatim,
-    standardize_and_validate_gps,
-)
+from utils import haversine, reverse_geocode_nominatim, standardize_and_validate_gps
 
 logger = logging.getLogger(__name__)
 
@@ -1567,9 +1563,9 @@ class TripProcessor:
                     trip_to_save["gps"] = None
 
             # Final validation check after any potential parsing
-            if trip_to_save.get("gps") is not None and not self._is_valid_geojson_object(
-                trip_to_save["gps"]
-            ):
+            if trip_to_save.get(
+                "gps"
+            ) is not None and not self._is_valid_geojson_object(trip_to_save["gps"]):
                 logger.error(
                     "Trip %s: 'gps' field is invalid at save time. Value: %s. Setting to null.",
                     trip_to_save.get("transactionId", "unknown"),
