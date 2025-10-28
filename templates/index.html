@@ -63,12 +63,6 @@ block content %}
                   <i class="fas fa-times" aria-hidden="true"></i>
                 </button>
               </div>
-              <div
-                id="search-results"
-                class="search-results-dropdown d-none mt-1"
-                role="listbox"
-                aria-label="Search results"
-              ></div>
               <div id="search-help" class="form-text text-tertiary mt-1 small">
                 Find places, addresses, or specific streets
               </div>
@@ -383,6 +377,14 @@ block content %}
         </div>
       </div>
     </div>
+
+    <!-- Search Results Dropdown (positioned outside control panel to avoid clipping) -->
+    <div
+      id="search-results"
+      class="search-results-dropdown d-none"
+      role="listbox"
+      aria-label="Search results"
+    ></div>
   </div>
 </div>
 

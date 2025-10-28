@@ -280,12 +280,6 @@ class LiveTripTracker {
   }
 
   async fetchTripUpdates() {
-    window.handleError(
-      `Fetching trip updates with last_sequence=${this.lastSequence}`,
-      "fetchTripUpdates",
-      "info",
-    );
-
     const response = await fetch(
       `/api/trip_updates?last_sequence=${this.lastSequence}`,
     );
@@ -296,19 +290,9 @@ class LiveTripTracker {
     }
 
     const data = await response.json();
-    window.handleError(
-      `Trip update response: ${JSON.stringify(data)}`,
-      "fetchTripUpdates",
-      "info",
-    );
 
     if (data.status === "success") {
       if (data.has_update && data.trip) {
-        window.handleError(
-          `Received trip update with sequence: ${data.trip.sequence}`,
-          "fetchTripUpdates",
-          "info",
-        );
         this.setActiveTrip(data.trip);
         this.updateActiveTripsCount(1);
         this.updateTripMetrics(data.trip);
@@ -318,16 +302,10 @@ class LiveTripTracker {
 
         this.setAdaptivePollingInterval(data.trip, true);
       } else if (this.activeTrip && !data.has_update) {
-        window.handleError(
-          "No new updates for current trip",
-          "fetchTripUpdates",
-          "info",
-        );
         this.updateStatus(true);
 
         this.setAdaptivePollingInterval(this.activeTrip, false);
       } else if (!this.activeTrip && !data.has_update) {
-        window.handleError("No active trips found", "fetchTripUpdates", "info");
         this.clearActiveTrip();
         this.updateActiveTripsCount(0);
         this.updateStatus(true, "No active trips");

@@ -34,7 +34,7 @@ async def geocode_search(
     query: str = Query(..., description="Search query (place, address, or street)"),
     limit: int = Query(5, ge=1, le=20, description="Maximum number of results"),
     use_mapbox: bool = Query(
-        False, description="Use Mapbox geocoding instead of Nominatim"
+        None, description="Force Mapbox geocoding (True) or Nominatim (False). Default prefers Mapbox if configured."
     ),
 ):
     """Search for places, addresses, or streets using geocoding services.
@@ -51,10 +51,12 @@ async def geocode_search(
     if not query or len(query.strip()) < 2:
         raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
 
-    logger.info("Geocoding search for: %s (use_mapbox=%s)", query, use_mapbox)
+    logger.debug("Geocoding search for: %s (use_mapbox=%s)", query, use_mapbox)
 
     try:
-        if use_mapbox and MAPBOX_ACCESS_TOKEN:
+        # Prefer Mapbox if token is configured unless explicitly disabled
+        prefer_mapbox = MAPBOX_ACCESS_TOKEN and (use_mapbox is None or use_mapbox is True)
+        if prefer_mapbox:
             results = await _search_mapbox(query, limit)
         else:
             results = await _search_nominatim(query, limit)
@@ -95,52 +97,74 @@ async def search_streets(
         raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
 
     query_lower = query.strip().lower()
-    logger.info(
+    logger.debug(
         "Street search for: %s (location_id=%s)", query_lower, location_id
     )
 
     try:
         features: list[dict] = []
 
-        # If location_id provided, search within that coverage area
+        # If location_id provided, search within that coverage area ONLY
         if location_id:
             features = await _search_streets_in_coverage(
                 query_lower, location_id, limit
             )
-
-        # If no results from coverage area search, try geocoding for street
-        if not features:
-            geocode_results = await _search_nominatim(
-                query, limit, addressdetails=True
-            )
-
-            # Filter for street-like results and return simple points
-            for result in geocode_results:
-                place_type = result.get("type", "")
-                if place_type in {"residential", "road", "highway", "street"}:
-                    try:
+        else:
+            # No location: use geocoding fallback (prefer Mapbox)
+            try:
+                if MAPBOX_ACCESS_TOKEN:
+                    geo_results = await _search_mapbox(query, limit)
+                    for r in geo_results:
+                        if not r.get("center"):
+                            continue
                         features.append(
                             {
                                 "type": "Feature",
                                 "geometry": {
                                     "type": "Point",
-                                    "coordinates": [
-                                        float(result["lon"]),
-                                        float(result["lat"]),
-                                    ],
+                                    "coordinates": r["center"],
                                 },
                                 "properties": {
-                                    "name": result.get("display_name", ""),
-                                    "osm_id": result.get("osm_id"),
-                                    "osm_type": result.get("osm_type"),
-                                    "type": result.get("type"),
-                                    "address": result.get("address", {}),
+                                    "name": r.get("place_name", r.get("text", "")),
+                                    "type": (r.get("place_type") or ["place"])[0],
                                     "search_result": True,
                                 },
                             }
                         )
-                    except Exception:
-                        continue
+                else:
+                    geocode_results = await _search_nominatim(
+                        query, limit, addressdetails=True
+                    )
+                    for result in geocode_results:
+                        try:
+                            features.append(
+                                {
+                                    "type": "Feature",
+                                    "geometry": {
+                                        "type": "Point",
+                                        "coordinates": [
+                                            float(result["lon"]),
+                                            float(result["lat"]),
+                                        ],
+                                    },
+                                    "properties": {
+                                        "name": result.get("display_name", ""),
+                                        "osm_id": result.get("osm_id"),
+                                        "osm_type": result.get("osm_type"),
+                                        "type": result.get("type"),
+                                        "address": result.get("address", {}),
+                                        "search_result": True,
+                                    },
+                                }
+                            )
+                        except Exception:
+                            continue
+            except Exception as ge_err:
+                logger.warning(
+                    "Street geocode fallback failed for '%s': %s",
+                    query,
+                    ge_err,
+                )
 
         logger.info("Found %d street results for: %s", len(features), query)
 
@@ -151,8 +175,9 @@ async def search_streets(
         }
 
     except Exception as e:
-        logger.error("Error searching streets: %s", str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        # Never fail the endpoint due to upstream errors – return empty results
+        logger.error("Street search unexpected error: %s", str(e), exc_info=True)
+        return {"type": "FeatureCollection", "features": [], "query": query}
 
 
 @router.get("/streets/{location_id}/{street_name}")
@@ -167,7 +192,7 @@ async def get_street_geometry(location_id: str, street_name: str):
         GeoJSON FeatureCollection with matching street geometries
 
     """
-    logger.info(
+    logger.debug(
         "Getting street geometry for: %s in location %s",
         street_name,
         location_id,
@@ -347,7 +372,7 @@ async def _search_streets_in_coverage(
 
     features = await cursor.to_list(length=limit)
 
-    logger.info(
+    logger.debug(
         "Found %d streets matching '%s' in location %s",
         len(features),
         query,

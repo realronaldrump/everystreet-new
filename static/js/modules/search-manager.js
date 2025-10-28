@@ -29,6 +29,24 @@ const searchManager = {
     }
 
     this.setupEventListeners();
+    
+    // Reposition dropdown on window resize or scroll
+    window.addEventListener("resize", utils.debounce(() => {
+      if (!this.searchResults.classList.contains("d-none")) {
+        this.positionDropdown();
+      }
+    }, 100));
+
+    // Reposition on scroll of parent containers
+    const controlPanel = document.getElementById("map-controls");
+    if (controlPanel) {
+      controlPanel.addEventListener("scroll", () => {
+        if (!this.searchResults.classList.contains("d-none")) {
+          this.positionDropdown();
+        }
+      });
+    }
+
     console.log("Search manager initialized");
   },
 
@@ -61,8 +79,12 @@ const searchManager = {
         this.navigateResults(-1);
       } else if (e.key === "Enter") {
         e.preventDefault();
-        if (this.selectedIndex >= 0 && this.currentResults[this.selectedIndex]) {
-          this.selectResult(this.currentResults[this.selectedIndex]);
+        const index =
+          this.selectedIndex >= 0 ? this.selectedIndex : (this.currentResults.length > 0 ? 0 : -1);
+        if (index >= 0 && this.currentResults[index]) {
+          this.selectResult(this.currentResults[index]);
+        } else {
+          window.notificationManager?.show("No results to select", "warning", 2000);
         }
       } else if (e.key === "Escape") {
         this.hideResults();
@@ -90,6 +112,7 @@ const searchManager = {
     // Focus event to reshow results if they exist
     this.searchInput.addEventListener("focus", () => {
       if (this.currentResults.length > 0) {
+        this.positionDropdown();
         this.searchResults.classList.remove("d-none");
       }
     });
@@ -120,9 +143,15 @@ const searchManager = {
 
       this.currentResults = results;
       this.displayResults(results);
+
+      // Immediate feedback if no results
+      if (!results || results.length === 0) {
+        window.notificationManager?.show("No results found", "info", 2000);
+      }
     } catch (error) {
       console.error("Search error:", error);
       this.showError("Search failed. Please try again.");
+      window.notificationManager?.show("Search failed. Please try again.", "danger", 2500);
     }
   },
 
@@ -166,10 +195,13 @@ const searchManager = {
       const data = await response.json();
       const features = data.features || [];
 
-      // Convert to result format
+      // Convert to result format (use street_name if present, fallback to name)
       return features.map((feature) => ({
         type: "street",
-        name: feature.properties.name || "Unnamed Street",
+        name:
+          feature.properties.street_name ||
+          feature.properties.name ||
+          "Unnamed Street",
         subtitle: `Street in ${locationId}`,
         geometry: feature.geometry,
         feature: feature,
@@ -259,13 +291,61 @@ const searchManager = {
       this.searchResults.appendChild(item);
     });
 
+    this.positionDropdown();
     this.searchResults.classList.remove("d-none");
     this.selectedIndex = -1;
+  },
+
+  positionDropdown() {
+    if (!this.searchInput || !this.searchResults) return;
+
+    const inputRect = this.searchInput.getBoundingClientRect();
+    const dropdownHeight = this.searchResults.offsetHeight || 300;
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const spaceBelow = viewportHeight - inputRect.bottom;
+    const spaceAbove = inputRect.top;
+
+    // Determine if dropdown should appear above or below
+    const showAbove = spaceBelow < Math.min(dropdownHeight + 20, 200) && spaceAbove > spaceBelow;
+
+    if (showAbove) {
+      // Position above the input
+      this.searchResults.style.top = "auto";
+      this.searchResults.style.bottom = `${viewportHeight - inputRect.top + 8}px`;
+      this.searchResults.classList.add("above");
+    } else {
+      // Position below the input
+      this.searchResults.style.top = `${inputRect.bottom + 8}px`;
+      this.searchResults.style.bottom = "auto";
+      this.searchResults.classList.remove("above");
+    }
+
+    // Horizontal positioning with boundary checks
+    const minWidth = 280;
+    const preferredWidth = Math.max(inputRect.width, minWidth);
+    let leftPosition = inputRect.left;
+
+    // Ensure dropdown doesn't go off-screen on the right
+    if (leftPosition + preferredWidth > viewportWidth - 20) {
+      leftPosition = Math.max(20, viewportWidth - preferredWidth - 20);
+    }
+
+    // Ensure dropdown doesn't go off-screen on the left
+    if (leftPosition < 20) {
+      leftPosition = 20;
+    }
+
+    this.searchResults.style.left = `${leftPosition}px`;
+    this.searchResults.style.width = `${Math.min(preferredWidth, viewportWidth - 40)}px`;
   },
 
   navigateResults(direction) {
     if (this.currentResults.length === 0) return;
 
+    // Remove previous selection
+    const previousIndex = this.selectedIndex;
+    
     this.selectedIndex += direction;
 
     if (this.selectedIndex < 0) {
@@ -275,6 +355,12 @@ const searchManager = {
     }
 
     this.updateSelectedItem();
+    
+    // Announce to screen readers
+    if (this.selectedIndex !== previousIndex && this.currentResults[this.selectedIndex]) {
+      const result = this.currentResults[this.selectedIndex];
+      utils.announce(`${result.type}: ${result.name}`, 'polite');
+    }
   },
 
   updateSelectedItem() {
@@ -489,17 +575,20 @@ const searchManager = {
 
   showLoading() {
     this.searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
+    this.positionDropdown();
     this.searchResults.classList.remove("d-none");
   },
 
   showNoResults() {
     this.searchResults.innerHTML =
       '<div class="search-no-results">No results found</div>';
+    this.positionDropdown();
     this.searchResults.classList.remove("d-none");
   },
 
   showError(message) {
     this.searchResults.innerHTML = `<div class="search-error">${message}</div>`;
+    this.positionDropdown();
     this.searchResults.classList.remove("d-none");
   },
 

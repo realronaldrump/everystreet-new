@@ -217,7 +217,7 @@ async def trip_updates_endpoint(last_sequence: int = Query(0, ge=0)):
 
     """
     try:
-        logger.info(
+        logger.debug(
             "Fetching trip updates since sequence %d",
             last_sequence,
         )
@@ -243,7 +243,7 @@ async def trip_updates_endpoint(last_sequence: int = Query(0, ge=0)):
                 updates.get("trip", {}).get("sequence", 0),
             )
         else:
-            logger.info(
+            logger.debug(
                 "No trip updates found since sequence %d",
                 last_sequence,
             )
