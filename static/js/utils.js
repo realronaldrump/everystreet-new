@@ -454,14 +454,25 @@ const DateUtils = {
           const response = await fetch("/api/first_trip_date");
           if (response.ok) {
             const data = await response.json();
-            startDate =
-              this.parseDate(data.first_trip_date) || new Date("2000-01-01");
+            // API returns ISO datetime (e.g., "2024-01-15T12:30:45Z")
+            // parseDate can handle full ISO strings via new Date()
+            const parsedDate = this.parseDate(data.first_trip_date);
+            if (parsedDate) {
+              startDate = parsedDate;
+            } else {
+              console.warn("Failed to parse first trip date, using 1 year ago as fallback");
+              startDate = new Date(today);
+              startDate.setFullYear(startDate.getFullYear() - 1);
+            }
           } else {
-            startDate = new Date("2000-01-01");
+            console.warn(`API error fetching first trip date: ${response.status}, using 1 year ago as fallback`);
+            startDate = new Date(today);
+            startDate.setFullYear(startDate.getFullYear() - 1);
           }
         } catch (error) {
-          console.warn("Error fetching first trip date:", error);
-          startDate = new Date("2000-01-01");
+          console.warn("Error fetching first trip date:", error, "- using 1 year ago as fallback");
+          startDate = new Date(today);
+          startDate.setFullYear(startDate.getFullYear() - 1);
         }
         break;
       default:

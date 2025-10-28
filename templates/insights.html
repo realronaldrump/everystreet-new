@@ -156,6 +156,7 @@ endblock %} {% block extra_css %}
   
   .chart-container.time-dist-container canvas {
     max-height: 380px !important;
+    cursor: pointer;
   }
 
   .chart-container:hover {
@@ -798,6 +799,42 @@ endblock %} {% block extra_css %}
 
   <!-- Custom tooltip -->
   <div class="custom-tooltip" id="custom-tooltip"></div>
+
+  <!-- Trip Details Modal -->
+  <div class="modal fade" id="tripDetailsModal" tabindex="-1" aria-labelledby="tripDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="tripDetailsModalLabel">Trips</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-striped" id="modal-trips-table">
+              <thead>
+                <tr>
+                  <th>Start Time</th>
+                  <th>End Time</th>
+                  <th>Duration</th>
+                  <th>Distance</th>
+                  <th>Start Location</th>
+                  <th>Destination</th>
+                  <th>Max Speed</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Dynamic content -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %} {% block extra_js %}
 <!-- Chart.js and dependencies -->

@@ -135,14 +135,22 @@ const dateUtils = {
           if (res.ok) {
             const data = await res.json();
             if (data.first_trip_date) {
-              startDate = this.parseDateString(data.first_trip_date);
+              // API returns ISO datetime (e.g., "2024-01-15T12:30:45Z")
+              // Extract just the date part (YYYY-MM-DD) for parseDateString
+              const dateOnly = data.first_trip_date.split("T")[0];
+              startDate = this.parseDateString(dateOnly);
             }
+          } else {
+            console.warn(`API error fetching first trip date: ${res.status}`);
           }
         } catch (error) {
-          void error;
+          console.warn("Error fetching first trip date:", error);
         }
         if (!startDate) {
-          startDate = new Date(2000, 0, 1);
+          // Fallback to 1 year ago if we can't fetch the first trip date
+          console.warn("Could not determine first trip date, using 1 year ago as fallback");
+          startDate = new Date(today);
+          startDate.setFullYear(startDate.getFullYear() - 1);
         }
         endDate = new Date(today);
         break;

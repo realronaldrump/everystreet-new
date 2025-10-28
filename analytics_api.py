@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytz
+from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
@@ -16,13 +17,15 @@ trips_collection = db_manager.db["trips"]
 
 
 def convert_datetimes_to_isoformat(item: Any) -> Any:
-    """Recursively convert datetime objects in a dictionary or list to ISO format strings."""
+    """Recursively convert datetime and ObjectId objects in a dictionary or list to JSON-serializable format."""
     if isinstance(item, dict):
         return {k: convert_datetimes_to_isoformat(v) for k, v in item.items()}
     if isinstance(item, list):
         return [convert_datetimes_to_isoformat(elem) for elem in item]
     if isinstance(item, datetime):
         return item.isoformat()
+    if isinstance(item, ObjectId):
+        return str(item)
     return item
 
 
@@ -146,6 +149,102 @@ async def get_trip_analytics(request: Request):
 
     except Exception as e:
         logger.exception("Error trip analytics: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/api/time-period-trips")
+async def get_time_period_trips(request: Request):
+    """Get trips for a specific time period (hour or day of week)."""
+    try:
+        query = await build_query_from_request(request)
+        
+        time_type = request.query_params.get("time_type")  # "hour" or "day"
+        time_value = request.query_params.get("time_value")  # hour (0-23) or day (0-6)
+        
+        if not time_type or time_value is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing time_type or time_value parameter",
+            )
+        
+        try:
+            time_value = int(time_value)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="time_value must be an integer",
+            )
+        
+        # Build timezone expression
+        tz_expr = {
+            "$switch": {
+                "branches": [
+                    {"case": {"$in": ["$timeZone", ["", "0000"]]}, "then": "UTC"}
+                ],
+                "default": {"$ifNull": ["$timeZone", "UTC"]},
+            }
+        }
+        
+        # Add time-specific filter
+        if time_type == "hour":
+            query["$expr"] = {
+                "$and": [
+                    query.get("$expr", {"$literal": True}),
+                    {
+                        "$eq": [
+                            {"$hour": {"date": "$startTime", "timezone": tz_expr}},
+                            time_value,
+                        ]
+                    },
+                ]
+            }
+        elif time_type == "day":
+            # MongoDB returns 1-7 (1=Sunday), we get 0-6 (0=Sunday) from frontend
+            mongo_day = time_value + 1
+            query["$expr"] = {
+                "$and": [
+                    query.get("$expr", {"$literal": True}),
+                    {
+                        "$eq": [
+                            {"$dayOfWeek": {"date": "$startTime", "timezone": tz_expr}},
+                            mongo_day,
+                        ]
+                    },
+                ]
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="time_type must be 'hour' or 'day'",
+            )
+        
+        # Fetch trips with relevant fields
+        trips = await trips_collection.find(
+            query,
+            {
+                "transactionId": 1,
+                "startTime": 1,
+                "endTime": 1,
+                "duration": 1,
+                "distance": 1,
+                "startLocation": 1,
+                "destination": 1,
+                "maxSpeed": 1,
+                "totalIdleDuration": 1,
+                "fuelConsumed": 1,
+                "timeZone": 1,
+            }
+        ).sort("startTime", -1).limit(100).to_list(length=100)
+        
+        return JSONResponse(content=convert_datetimes_to_isoformat(trips))
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error fetching time period trips: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
