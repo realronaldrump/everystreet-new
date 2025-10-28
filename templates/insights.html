@@ -153,7 +153,7 @@ endblock %} {% block extra_css %}
     max-height: 500px;
     min-height: 400px;
   }
-  
+
   .chart-container.time-dist-container canvas {
     max-height: 380px !important;
   }
@@ -730,7 +730,14 @@ endblock %} {% block extra_css %}
               <tr>
                 <th>Location</th>
                 <th>Visits</th>
-                <th data-bs-toggle="tooltip" title="Sum of miles driven to this location during the selected date range">Total Distance&nbsp;<i class="fas fa-question-circle text-muted"></i></th>
+                <th
+                  data-bs-toggle="tooltip"
+                  title="Sum of miles driven to this location during the selected date range"
+                >
+                  Total Distance&nbsp;<i
+                    class="fas fa-question-circle text-muted"
+                  ></i>
+                </th>
                 <th>Avg Duration</th>
                 <th>Last Visit</th>
               </tr>
