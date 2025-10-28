@@ -46,6 +46,16 @@ async def get_trip_analytics(request: Request):
                 detail="Missing date range",
             )
 
+        # Build timezone expression (same logic used elsewhere in the app)
+        tz_expr = {
+            "$switch": {
+                "branches": [
+                    {"case": {"$in": ["$timeZone", ["", "0000"]]}, "then": "UTC"}
+                ],
+                "default": {"$ifNull": ["$timeZone", "UTC"]},
+            }
+        }
+
         pipeline = [
             {"$match": query},
             {
@@ -55,9 +65,21 @@ async def get_trip_analytics(request: Request):
                             "$dateToString": {
                                 "format": "%Y-%m-%d",
                                 "date": "$startTime",
+                                "timezone": tz_expr,
                             },
                         },
-                        "hour": {"$hour": "$startTime"},
+                        "hour": {
+                            "$hour": {
+                                "date": "$startTime",
+                                "timezone": tz_expr,
+                            }
+                        },
+                        "dayOfWeek": {
+                            "$dayOfWeek": {
+                                "date": "$startTime",
+                                "timezone": tz_expr,
+                            }
+                        },
                     },
                     "totalDistance": {"$sum": "$distance"},
                     "tripCount": {"$sum": 1},
@@ -96,13 +118,29 @@ async def get_trip_analytics(request: Request):
                 hourly_data[hr] += r["tripCount"]
             return [{"hour": h, "count": c} for h, c in sorted(hourly_data.items())]
 
+        def organize_weekday_data(res):
+            """Organize data by day of week (MongoDB returns 1=Sunday, 7=Saturday)."""
+            weekday_data = {}
+            for r in res:
+                # MongoDB $dayOfWeek returns 1-7 (1=Sunday, 2=Monday, ..., 7=Saturday)
+                # Convert to JavaScript 0-6 (0=Sunday, 1=Monday, ..., 6=Saturday)
+                day_of_week = r["_id"]["dayOfWeek"] - 1
+                if day_of_week not in weekday_data:
+                    weekday_data[day_of_week] = 0
+                weekday_data[day_of_week] += r["tripCount"]
+            return [
+                {"day": d, "count": c} for d, c in sorted(weekday_data.items())
+            ]
+
         daily_list = organize_daily_data(results)
         hourly_list = organize_hourly_data(results)
+        weekday_list = organize_weekday_data(results)
 
         return JSONResponse(
             content={
                 "daily_distances": daily_list,
                 "time_distribution": hourly_list,
+                "weekday_distribution": weekday_list,
             },
         )
 
@@ -766,3 +804,4 @@ async def get_metrics(request: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+

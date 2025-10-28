@@ -398,13 +398,13 @@ if (typeof window !== "undefined") {
 
     const labels =
       state.currentTimeView === "hour"
-        ? Array.from({ length: 24 }, (_, i) => `${i}:00`)
+        ? Array.from({ length: 24 }, (_, i) => formatHourLabel(i))
         : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     const data =
       state.currentTimeView === "hour"
         ? processHourlyData(analytics.time_distribution)
-        : processDailyData(analytics.time_distribution);
+        : processDailyData(analytics.weekday_distribution);
 
     state.charts.timeDist.data.labels = labels;
     state.charts.timeDist.data.datasets[0].data = data;
@@ -777,15 +777,25 @@ if (typeof window !== "undefined") {
     return hourly;
   }
 
-  function processDailyData(timeData) {
-    // Aggregate counts by weekday (0–6) if such info exists in timeData
+  function processDailyData(weekdayData) {
+    // Organize data by weekday (0=Sun, 1=Mon, ..., 6=Sat)
     const byDay = new Array(7).fill(0);
-    timeData.forEach((d) => {
-      if (d.day !== undefined && d.day >= 0 && d.day <= 6) {
-        byDay[d.day] += d.count || 0;
-      }
-    });
+    if (weekdayData && Array.isArray(weekdayData)) {
+      weekdayData.forEach((d) => {
+        if (d.day !== undefined && d.day >= 0 && d.day <= 6) {
+          byDay[d.day] = d.count || 0;
+        }
+      });
+    }
     return byDay;
+  }
+
+  function formatHourLabel(hour) {
+    // Convert 24-hour format to 12-hour format with AM/PM
+    if (hour === 0) return "12 AM";
+    if (hour === 12) return "12 PM";
+    if (hour < 12) return `${hour} AM`;
+    return `${hour - 12} PM`;
   }
 
   function calculateFuelEfficiency(insights, behavior) {
