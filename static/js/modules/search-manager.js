@@ -122,21 +122,18 @@ const searchManager = {
     try {
       this.showLoading();
 
-      // Determine if this is a street search or general geocoding
-      const isStreetQuery = this.isStreetQuery(query);
       const selectedLocationId = utils.getStorage(
         CONFIG.STORAGE_KEYS.selectedLocation
       );
 
       let results = [];
 
-      // If it looks like a street query and we have a location selected, try street search first
-      if (isStreetQuery && selectedLocationId) {
-        const streetResults = await this.searchStreets(query, selectedLocationId);
-        results = streetResults;
-      }
+      // ALWAYS try street search first (database search)
+      // Search within selected location if available, otherwise search all locations
+      const streetResults = await this.searchStreets(query, selectedLocationId);
+      results = streetResults;
 
-      // If no street results, fall back to geocoding
+      // Only fall back to geocoding if no street results found
       if (results.length === 0) {
         results = await this.geocodeSearch(query);
       }
@@ -155,38 +152,15 @@ const searchManager = {
     }
   },
 
-  isStreetQuery(query) {
-    // Simple heuristic: if query contains street-like words
-    const streetKeywords = [
-      "street",
-      "st",
-      "avenue",
-      "ave",
-      "road",
-      "rd",
-      "boulevard",
-      "blvd",
-      "lane",
-      "ln",
-      "drive",
-      "dr",
-      "way",
-      "circle",
-      "court",
-      "ct",
-      "place",
-      "pl",
-    ];
-
-    const lowerQuery = query.toLowerCase();
-    return streetKeywords.some((keyword) => lowerQuery.includes(keyword));
-  },
-
   async searchStreets(query, locationId) {
     try {
-      const response = await fetch(
-        `/api/search/streets?query=${encodeURIComponent(query)}&location_id=${locationId}&limit=10`
-      );
+      // Build URL with optional location_id parameter
+      let url = `/api/search/streets?query=${encodeURIComponent(query)}&limit=10`;
+      if (locationId) {
+        url += `&location_id=${locationId}`;
+      }
+
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -196,17 +170,21 @@ const searchManager = {
       const features = data.features || [];
 
       // Convert to result format (use street_name if present, fallback to name)
-      return features.map((feature) => ({
-        type: "street",
-        name:
-          feature.properties.street_name ||
+      return features.map((feature) => {
+        const locationName = feature.properties.location || (locationId ? `Location ${locationId}` : "Unknown location");
+        const streetName = feature.properties.street_name ||
           feature.properties.name ||
-          "Unnamed Street",
-        subtitle: `Street in ${locationId}`,
-        geometry: feature.geometry,
-        feature: feature,
-        locationId: locationId,
-      }));
+          "Unnamed Street";
+        
+        return {
+          type: "street",
+          name: streetName,
+          subtitle: `${locationName}`,
+          geometry: feature.geometry,
+          feature: feature,
+          locationId: locationId,
+        };
+      });
     } catch (error) {
       console.warn("Street search failed:", error);
       return [];
@@ -215,8 +193,15 @@ const searchManager = {
 
   async geocodeSearch(query) {
     try {
+      // Get map center to bias results toward user's current view
+      let proximityParams = "";
+      if (state.map) {
+        const center = state.map.getCenter();
+        proximityParams = `&proximity_lon=${center.lng}&proximity_lat=${center.lat}`;
+      }
+
       const response = await fetch(
-        `/api/search/geocode?query=${encodeURIComponent(query)}&limit=5`
+        `/api/search/geocode?query=${encodeURIComponent(query)}&limit=5${proximityParams}`
       );
 
       if (!response.ok) {

@@ -36,6 +36,8 @@ async def geocode_search(
     use_mapbox: bool = Query(
         None, description="Force Mapbox geocoding (True) or Nominatim (False). Default prefers Mapbox if configured."
     ),
+    proximity_lon: float = Query(None, description="Longitude to bias results toward"),
+    proximity_lat: float = Query(None, description="Latitude to bias results toward"),
 ):
     """Search for places, addresses, or streets using geocoding services.
 
@@ -43,6 +45,8 @@ async def geocode_search(
         query: Search query string
         limit: Maximum number of results to return
         use_mapbox: Use Mapbox Geocoding API instead of Nominatim
+        proximity_lon: Longitude to bias results toward (optional)
+        proximity_lat: Latitude to bias results toward (optional)
 
     Returns:
         List of geocoding results with coordinates and metadata
@@ -54,12 +58,17 @@ async def geocode_search(
     logger.debug("Geocoding search for: %s (use_mapbox=%s)", query, use_mapbox)
 
     try:
+        # Prepare proximity parameter if provided
+        proximity = None
+        if proximity_lon is not None and proximity_lat is not None:
+            proximity = (proximity_lon, proximity_lat)
+        
         # Prefer Mapbox if token is configured unless explicitly disabled
         prefer_mapbox = MAPBOX_ACCESS_TOKEN and (use_mapbox is None or use_mapbox is True)
         if prefer_mapbox:
-            results = await _search_mapbox(query, limit)
+            results = await _search_mapbox(query, limit, proximity=proximity)
         else:
-            results = await _search_nominatim(query, limit)
+            results = await _search_nominatim(query, limit, proximity=proximity)
 
         logger.info("Found %d results for query: %s", len(results), query)
         return {"results": results, "query": query}
@@ -110,61 +119,8 @@ async def search_streets(
                 query_lower, location_id, limit
             )
         else:
-            # No location: use geocoding fallback (prefer Mapbox)
-            try:
-                if MAPBOX_ACCESS_TOKEN:
-                    geo_results = await _search_mapbox(query, limit)
-                    for r in geo_results:
-                        if not r.get("center"):
-                            continue
-                        features.append(
-                            {
-                                "type": "Feature",
-                                "geometry": {
-                                    "type": "Point",
-                                    "coordinates": r["center"],
-                                },
-                                "properties": {
-                                    "name": r.get("place_name", r.get("text", "")),
-                                    "type": (r.get("place_type") or ["place"])[0],
-                                    "search_result": True,
-                                },
-                            }
-                        )
-                else:
-                    geocode_results = await _search_nominatim(
-                        query, limit, addressdetails=True
-                    )
-                    for result in geocode_results:
-                        try:
-                            features.append(
-                                {
-                                    "type": "Feature",
-                                    "geometry": {
-                                        "type": "Point",
-                                        "coordinates": [
-                                            float(result["lon"]),
-                                            float(result["lat"]),
-                                        ],
-                                    },
-                                    "properties": {
-                                        "name": result.get("display_name", ""),
-                                        "osm_id": result.get("osm_id"),
-                                        "osm_type": result.get("osm_type"),
-                                        "type": result.get("type"),
-                                        "address": result.get("address", {}),
-                                        "search_result": True,
-                                    },
-                                }
-                            )
-                        except Exception:
-                            continue
-            except Exception as ge_err:
-                logger.warning(
-                    "Street geocode fallback failed for '%s': %s",
-                    query,
-                    ge_err,
-                )
+            # No location: search ALL coverage areas for streets first
+            features = await _search_streets_all_locations(query_lower, limit)
 
         logger.info("Found %d street results for: %s", len(features), query)
 
@@ -222,7 +178,7 @@ async def get_street_geometry(location_id: str, street_name: str):
 
 
 async def _search_nominatim(
-    query: str, limit: int = 5, addressdetails: bool = True
+    query: str, limit: int = 5, addressdetails: bool = True, proximity: tuple[float, float] | None = None
 ) -> list[dict[str, Any]]:
     """Search using Nominatim (OpenStreetMap) geocoding API.
 
@@ -230,6 +186,7 @@ async def _search_nominatim(
         query: Search query
         limit: Maximum results
         addressdetails: Include address details in results
+        proximity: Optional (longitude, latitude) tuple to bias results toward
 
     Returns:
         List of geocoding results
@@ -240,7 +197,18 @@ async def _search_nominatim(
         "format": "json",
         "limit": limit,
         "addressdetails": 1 if addressdetails else 0,
+        "countrycodes": "us",  # Limit to United States
     }
+    
+    # Add viewbox to bias toward US/Texas region
+    if proximity:
+        # Create a viewbox around the proximity point (approximately 200km radius)
+        lon, lat = proximity
+        params["viewbox"] = f"{lon-2},{lat+2},{lon+2},{lat-2}"
+        params["bounded"] = 1
+    else:
+        # Default viewbox covering United States
+        params["viewbox"] = "-125,49,-66,24"  # US bounding box (west, north, east, south)
 
     async with aiohttp.ClientSession() as session:
         async with session.get(
@@ -273,12 +241,13 @@ async def _search_nominatim(
             return normalized
 
 
-async def _search_mapbox(query: str, limit: int = 5) -> list[dict[str, Any]]:
+async def _search_mapbox(query: str, limit: int = 5, proximity: tuple[float, float] | None = None) -> list[dict[str, Any]]:
     """Search using Mapbox Geocoding API.
 
     Args:
         query: Search query
         limit: Maximum results
+        proximity: Optional (longitude, latitude) tuple to bias results toward
 
     Returns:
         List of geocoding results
@@ -286,11 +255,22 @@ async def _search_mapbox(query: str, limit: int = 5) -> list[dict[str, Any]]:
     """
     if not MAPBOX_ACCESS_TOKEN:
         logger.warning("Mapbox token not configured, falling back to Nominatim")
-        return await _search_nominatim(query, limit)
+        return await _search_nominatim(query, limit, proximity=proximity)
 
     url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{query}.json"
-    params = {"access_token": MAPBOX_ACCESS_TOKEN, "limit": limit}
-
+    params = {
+        "access_token": MAPBOX_ACCESS_TOKEN,
+        "limit": limit,
+        "country": "US",  # Limit to United States
+    }
+    
+    # Add proximity parameter to bias toward user's location (e.g., Texas)
+    if proximity:
+        params["proximity"] = f"{proximity[0]},{proximity[1]}"
+    else:
+        # Default to Texas center if no proximity provided
+        params["proximity"] = "-99.9018,31.9686"  # Texas center coordinates
+    
     async with aiohttp.ClientSession() as session:
         async with session.get(url, params=params, timeout=10) as response:
             response.raise_for_status()
@@ -311,6 +291,49 @@ async def _search_mapbox(query: str, limit: int = 5) -> list[dict[str, Any]]:
                 )
 
             return results
+
+
+async def _search_streets_all_locations(
+    query: str, limit: int = 10
+) -> list[dict[str, Any]]:
+    """Search for streets across all coverage areas.
+
+    Args:
+        query: Street name query (lowercase)
+        limit: Maximum results
+
+    Returns:
+        List of GeoJSON features for matching streets
+
+    """
+    # Query streets collection for matching street_name across ALL locations
+    # Use case-insensitive regex match, limit fields for efficiency
+    cursor = streets_collection.find(
+        {
+            "properties.street_name": {"$regex": query, "$options": "i"},
+        },
+        {
+            "_id": 0,
+            "geometry": 1,
+            "properties.segment_id": 1,
+            "properties.street_name": 1,
+            "properties.highway": 1,
+            "properties.segment_length": 1,
+            "properties.driven": 1,
+            "properties.undriveable": 1,
+            "properties.location": 1,
+        },
+    ).limit(limit)
+
+    features = await cursor.to_list(length=limit)
+
+    logger.debug(
+        "Found %d streets matching '%s' across all locations",
+        len(features),
+        query,
+    )
+
+    return features
 
 
 async def _search_streets_in_coverage(

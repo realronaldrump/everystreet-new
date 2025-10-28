@@ -154,6 +154,12 @@ const AppController = {
         utils.setStorage(CONFIG.STORAGE_KEYS.selectedLocation, e.target.value);
         if (e.target.value) {
           await this.refreshStreetLayers();
+        } else {
+          // Clear selection - hide all street layers and reset to "none"
+          utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, "none");
+          const noneRadio = document.querySelector('input[name="street-view-mode"][value="none"]');
+          if (noneRadio) noneRadio.checked = true;
+          await this.handleStreetViewModeChange("none");
         }
       });
     }
@@ -364,7 +370,7 @@ const AppController = {
     const selectedLocationId = utils.getStorage(
       CONFIG.STORAGE_KEYS.selectedLocation,
     );
-    if (!selectedLocationId) {
+    if (!selectedLocationId && mode !== "none") {
       window.notificationManager.show(
         "Please select a location first",
         "warning",
@@ -384,6 +390,11 @@ const AppController = {
         state.map.setLayoutProperty(layerId, 'visibility', 'none');
       }
     });
+
+    // Handle "none" mode - hide all streets
+    if (mode === "none") {
+      return; // All layers already hidden above
+    }
 
     // Show selected layer and fetch data if needed
     switch (mode) {

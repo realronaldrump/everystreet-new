@@ -213,6 +213,11 @@ block content %}
                   
                   <!-- Street View Mode Selector -->
                   <div class="btn-group w-100 mb-2" role="group" aria-label="Street view mode">
+                    <input type="radio" class="btn-check" name="street-view-mode" id="street-mode-none" value="none">
+                    <label class="btn btn-outline-secondary btn-sm" for="street-mode-none" title="Hide all streets">
+                      <i class="fas fa-eye-slash"></i> None
+                    </label>
+                    
                     <input type="radio" class="btn-check" name="street-view-mode" id="street-mode-undriven" value="undriven" checked>
                     <label class="btn btn-outline-primary btn-sm" for="street-mode-undriven" title="Undriven streets only (dashed blue lines)">
                       <i class="fas fa-road"></i> Undriven
