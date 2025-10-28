@@ -378,10 +378,14 @@ const AppController = {
     state.mapLayers.allStreets.visible = false;
 
     // Hide existing street layers on map
-    const streetLayerIds = ['undrivenStreets-layer', 'drivenStreets-layer', 'allStreets-layer'];
-    streetLayerIds.forEach(layerId => {
+    const streetLayerIds = [
+      "undrivenStreets-layer",
+      "drivenStreets-layer",
+      "allStreets-layer",
+    ];
+    streetLayerIds.forEach((layerId) => {
       if (state.map?.getLayer(layerId)) {
-        state.map.setLayoutProperty(layerId, 'visibility', 'none');
+        state.map.setLayoutProperty(layerId, "visibility", "none");
       }
     });
 
@@ -390,22 +394,34 @@ const AppController = {
       case "undriven":
         state.mapLayers.undrivenStreets.visible = true;
         await dataManager.fetchUndrivenStreets();
-        if (state.map?.getLayer('undrivenStreets-layer')) {
-          state.map.setLayoutProperty('undrivenStreets-layer', 'visibility', 'visible');
+        if (state.map?.getLayer("undrivenStreets-layer")) {
+          state.map.setLayoutProperty(
+            "undrivenStreets-layer",
+            "visibility",
+            "visible",
+          );
         }
         break;
       case "driven":
         state.mapLayers.drivenStreets.visible = true;
         await dataManager.fetchDrivenStreets();
-        if (state.map?.getLayer('drivenStreets-layer')) {
-          state.map.setLayoutProperty('drivenStreets-layer', 'visibility', 'visible');
+        if (state.map?.getLayer("drivenStreets-layer")) {
+          state.map.setLayoutProperty(
+            "drivenStreets-layer",
+            "visibility",
+            "visible",
+          );
         }
         break;
       case "all":
         state.mapLayers.allStreets.visible = true;
         await dataManager.fetchAllStreets();
-        if (state.map?.getLayer('allStreets-layer')) {
-          state.map.setLayoutProperty('allStreets-layer', 'visibility', 'visible');
+        if (state.map?.getLayer("allStreets-layer")) {
+          state.map.setLayoutProperty(
+            "allStreets-layer",
+            "visibility",
+            "visible",
+          );
         }
         break;
     }
@@ -438,4 +454,3 @@ window.EveryStreet.App = {
 };
 
 export default AppController;
-

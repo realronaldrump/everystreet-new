@@ -56,7 +56,7 @@ block content %}
                 <button
                   id="clear-search-btn"
                   class="btn btn-sm btn-link position-absolute top-50 end-0 translate-middle-y d-none"
-                  style="padding: 0.25rem 0.5rem; z-index: 10;"
+                  style="padding: 0.25rem 0.5rem; z-index: 10"
                   aria-label="Clear search"
                   title="Clear search"
                 >
@@ -216,37 +216,92 @@ block content %}
                     <option value="">Select a location...</option>
                     <!-- Coverage areas will be loaded here -->
                   </select>
-                  
+
                   <!-- Street View Mode Selector -->
-                  <div class="btn-group w-100 mb-2" role="group" aria-label="Street view mode">
-                    <input type="radio" class="btn-check" name="street-view-mode" id="street-mode-undriven" value="undriven" checked>
-                    <label class="btn btn-outline-primary btn-sm" for="street-mode-undriven" title="Undriven streets only (dashed blue lines)">
+                  <div
+                    class="btn-group w-100 mb-2"
+                    role="group"
+                    aria-label="Street view mode"
+                  >
+                    <input
+                      type="radio"
+                      class="btn-check"
+                      name="street-view-mode"
+                      id="street-mode-undriven"
+                      value="undriven"
+                      checked
+                    />
+                    <label
+                      class="btn btn-outline-primary btn-sm"
+                      for="street-mode-undriven"
+                      title="Undriven streets only (dashed blue lines)"
+                    >
                       <i class="fas fa-road"></i> Undriven
                     </label>
-                    
-                    <input type="radio" class="btn-check" name="street-view-mode" id="street-mode-driven" value="driven">
-                    <label class="btn btn-outline-success btn-sm" for="street-mode-driven" title="Driven streets only (solid green lines)">
+
+                    <input
+                      type="radio"
+                      class="btn-check"
+                      name="street-view-mode"
+                      id="street-mode-driven"
+                      value="driven"
+                    />
+                    <label
+                      class="btn btn-outline-success btn-sm"
+                      for="street-mode-driven"
+                      title="Driven streets only (solid green lines)"
+                    >
                       <i class="fas fa-check-circle"></i> Driven
                     </label>
-                    
-                    <input type="radio" class="btn-check" name="street-view-mode" id="street-mode-all" value="all">
-                    <label class="btn btn-outline-info btn-sm" for="street-mode-all" title="All streets (green = driven, blue = undriven)">
+
+                    <input
+                      type="radio"
+                      class="btn-check"
+                      name="street-view-mode"
+                      id="street-mode-all"
+                      value="all"
+                    />
+                    <label
+                      class="btn btn-outline-info btn-sm"
+                      for="street-mode-all"
+                      title="All streets (green = driven, blue = undriven)"
+                    >
                       <i class="fas fa-layer-group"></i> All
                     </label>
                   </div>
-                  
+
                   <!-- Color legend for street view modes -->
-                  <div class="small text-secondary mt-1 d-flex align-items-center justify-content-center gap-3" style="font-size: 0.75rem;">
+                  <div
+                    class="small text-secondary mt-1 d-flex align-items-center justify-content-center gap-3"
+                    style="font-size: 0.75rem"
+                  >
                     <span class="d-flex align-items-center">
-                      <span style="display: inline-block; width: 20px; height: 3px; background-color: #00BFFF; margin-right: 4px; border: 1px dashed rgba(255,255,255,0.3);"></span>
+                      <span
+                        style="
+                          display: inline-block;
+                          width: 20px;
+                          height: 3px;
+                          background-color: #00bfff;
+                          margin-right: 4px;
+                          border: 1px dashed rgba(255, 255, 255, 0.3);
+                        "
+                      ></span>
                       Undriven
                     </span>
                     <span class="d-flex align-items-center">
-                      <span style="display: inline-block; width: 20px; height: 3px; background-color: #4CAF50; margin-right: 4px;"></span>
+                      <span
+                        style="
+                          display: inline-block;
+                          width: 20px;
+                          height: 3px;
+                          background-color: #4caf50;
+                          margin-right: 4px;
+                        "
+                      ></span>
                       Driven
                     </span>
                   </div>
-                  
+
                   <div id="location-help" class="form-text text-tertiary mt-1">
                     Select a coverage area and view mode for streets.
                   </div>
@@ -440,7 +495,8 @@ block content %}
       const liveTrackingPanel = document.getElementById("live-tracking-panel");
       function updateLiveTrackingVisibility() {
         if (!liveTrackingPanel) return;
-        const showLiveTracking = window.localStorage.getItem("showLiveTracking");
+        const showLiveTracking =
+          window.localStorage.getItem("showLiveTracking");
         // Default: show panel unless setting exists and is explicitly "false"
         const shouldShow = showLiveTracking !== "false";
         liveTrackingPanel.classList.toggle("d-none", !shouldShow);
