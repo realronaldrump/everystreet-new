@@ -24,7 +24,13 @@ const layerManager = {
     container.innerHTML = "";
     const fragment = document.createDocumentFragment();
 
+    // Exclude street layers - they're controlled by radio buttons
+    const streetLayers = ['undrivenStreets', 'drivenStreets', 'allStreets'];
+
     Object.entries(state.mapLayers).forEach(([name, info]) => {
+      // Skip street layers as they have dedicated radio button controls
+      if (streetLayers.includes(name)) return;
+
       const div = document.createElement("div");
       div.className =
         "layer-control d-flex align-items-center mb-2 p-2 rounded";
@@ -148,9 +154,12 @@ const layerManager = {
     const container = utils.getElement("layer-order-list");
     if (!container) return;
 
-    const sortedLayers = Object.entries(state.mapLayers).sort(
-      ([, a], [, b]) => (a.order || 0) - (b.order || 0),
-    );
+    // Exclude street layers - they're controlled by radio buttons
+    const streetLayers = ['undrivenStreets', 'drivenStreets', 'allStreets'];
+
+    const sortedLayers = Object.entries(state.mapLayers)
+      .filter(([name]) => !streetLayers.includes(name))
+      .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
 
     container.innerHTML = sortedLayers
       .map(
@@ -418,3 +427,4 @@ if (!window.EveryStreet) window.EveryStreet = {};
 window.EveryStreet.LayerManager = layerManager;
 
 export default layerManager;
+

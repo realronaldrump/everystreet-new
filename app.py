@@ -21,6 +21,7 @@ from live_tracking_api import router as live_tracking_api_router
 from matched_trips_api import router as matched_trips_api_router
 from pages import router as pages_router
 from processing_api import router as processing_api_router
+from search_api import router as search_api_router
 from tasks_api import router as tasks_api_router
 from trip_processor import TripProcessor
 from trips import router as trips_router
@@ -69,6 +70,7 @@ app.include_router(export_api_router)
 app.include_router(live_tracking_api_router)
 app.include_router(matched_trips_api_router)
 app.include_router(processing_api_router)
+app.include_router(search_api_router)
 app.include_router(tasks_api_router)
 app.include_router(trips_router)
 app.include_router(upload_api_router)

@@ -300,6 +300,32 @@ const utils = {
     window.addEventListener("offline", handleConnectionChange);
     handleConnectionChange();
   },
+
+  // Accessibility announcements for screen readers
+  announce(message, priority = "polite") {
+    const announcer =
+      document.getElementById("map-announcements") ||
+      document.querySelector('[aria-live="polite"]');
+
+    if (!announcer) {
+      console.warn("No aria-live region found for announcements");
+      return;
+    }
+
+    // Clear previous announcement and set priority
+    announcer.setAttribute("aria-live", priority);
+    announcer.textContent = "";
+
+    // Brief delay to ensure screen readers pick up the change
+    requestAnimationFrame(() => {
+      announcer.textContent = message;
+
+      // Auto-clear after announcement
+      setTimeout(() => {
+        announcer.textContent = "";
+      }, 3000);
+    });
+  },
 };
 
 // Enhanced DateUtils with additional methods

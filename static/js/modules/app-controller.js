@@ -6,6 +6,7 @@ import layerManager from "./layer-manager.js";
 import dataManager from "./data-manager.js";
 import metricsManager from "./metrics-manager.js";
 import dateUtils from "./date-utils.js";
+import searchManager from "./search-manager.js";
 
 // --- Helper functions --------------------------------------------------
 const initializeLiveTracker = () => {
@@ -84,6 +85,7 @@ const AppController = {
         layerManager.initializeControls();
         await initializeLocationDropdown();
         initializeLiveTracker();
+        searchManager.initialize();
         this.setupEventListeners();
         restoreLayerVisibility();
 
@@ -375,36 +377,36 @@ const AppController = {
     state.mapLayers.drivenStreets.visible = false;
     state.mapLayers.allStreets.visible = false;
 
-    // Reset loaded flags
-    state.undrivenStreetsLoaded = false;
-    state.drivenStreetsLoaded = false;
-    state.allStreetsLoaded = false;
+    // Hide existing street layers on map
+    const streetLayerIds = ['undrivenStreets-layer', 'drivenStreets-layer', 'allStreets-layer'];
+    streetLayerIds.forEach(layerId => {
+      if (state.map?.getLayer(layerId)) {
+        state.map.setLayoutProperty(layerId, 'visibility', 'none');
+      }
+    });
 
-    // Update layer toggles
-    const undrivenToggle = document.getElementById("undrivenStreets-toggle");
-    const drivenToggle = document.getElementById("drivenStreets-toggle");
-    const allToggle = document.getElementById("allStreets-toggle");
-
-    if (undrivenToggle) undrivenToggle.checked = false;
-    if (drivenToggle) drivenToggle.checked = false;
-    if (allToggle) allToggle.checked = false;
-
-    // Show selected layer
+    // Show selected layer and fetch data if needed
     switch (mode) {
       case "undriven":
         state.mapLayers.undrivenStreets.visible = true;
-        if (undrivenToggle) undrivenToggle.checked = true;
         await dataManager.fetchUndrivenStreets();
+        if (state.map?.getLayer('undrivenStreets-layer')) {
+          state.map.setLayoutProperty('undrivenStreets-layer', 'visibility', 'visible');
+        }
         break;
       case "driven":
         state.mapLayers.drivenStreets.visible = true;
-        if (drivenToggle) drivenToggle.checked = true;
         await dataManager.fetchDrivenStreets();
+        if (state.map?.getLayer('drivenStreets-layer')) {
+          state.map.setLayoutProperty('drivenStreets-layer', 'visibility', 'visible');
+        }
         break;
       case "all":
         state.mapLayers.allStreets.visible = true;
-        if (allToggle) allToggle.checked = true;
         await dataManager.fetchAllStreets();
+        if (state.map?.getLayer('allStreets-layer')) {
+          state.map.setLayoutProperty('allStreets-layer', 'visibility', 'visible');
+        }
         break;
     }
   },
@@ -436,3 +438,4 @@ window.EveryStreet.App = {
 };
 
 export default AppController;
+
