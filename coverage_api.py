@@ -613,8 +613,6 @@ async def delete_coverage_area(
             "message": "Coverage area and all associated data deleted successfully",
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception(
             "Error deleting coverage area: %s",
@@ -915,8 +913,6 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
         # Fallback to direct streets
         streets_data = await get_coverage_area_streets(location_id)
         return JSONResponse(content=streets_data, media_type="application/json")
-    except HTTPException:  # Re-raise HTTPExceptions explicitly
-        raise
     except Exception as e:  # Catch other potential errors
         logger.error(
             f"[{location_id}] General error streaming GridFS file {gridfs_id} for {location_name}: {e}",
@@ -1152,9 +1148,6 @@ async def get_undriven_streets(
             content=json.loads(bson.json_util.dumps(content_to_return)),
         )
 
-    except HTTPException:
-        # logger.warning already handled by FastAPI for HTTPExceptions
-        raise
     except Exception as e:
         logger.error(
             "Unexpected error getting undriven streets for '%s': %s",
@@ -1306,9 +1299,6 @@ async def mark_street_segment_as_driven(
             updates,
             "driven",
         )
-    except HTTPException as http_exc:
-        # logger.error already handled by FastAPI
-        raise http_exc
     except Exception as e:
         logger.error(
             "Error marking street segment as driven: %s",
@@ -1341,8 +1331,6 @@ async def mark_street_segment_as_undriven(
             updates,
             "undriven",
         )
-    except HTTPException as http_exc:
-        raise http_exc
     except Exception as e:
         logger.error(
             "Error marking street segment as undriven: %s",
@@ -1377,8 +1365,6 @@ async def mark_street_segment_as_undriveable(
             updates,
             "undriveable",
         )
-    except HTTPException as http_exc:
-        raise http_exc
     except Exception as e:
         logger.error(
             "Error marking street segment as undriveable: %s",
@@ -1411,8 +1397,6 @@ async def mark_street_segment_as_driveable(
             updates,
             "driveable",
         )
-    except HTTPException as http_exc:
-        raise http_exc
     except Exception as e:
         logger.error(
             "Error marking street segment as driveable: %s",
@@ -1610,10 +1594,7 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
 
     # Build location-like dict compatible with existing preprocessing pipeline
     geom_dict = data.geometry
-    try:
-        bbox = _bbox_from_geometry(geom_dict)
-    except HTTPException as e:
-        raise e
+    bbox = _bbox_from_geometry(geom_dict)
 
     location_dict: dict[str, Any] = {
         "display_name": display_name,

@@ -478,8 +478,6 @@ async def regeocode_single_trip(trip_id: str):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to re-geocode trip {trip_id}. Check logs for details.",
             )
-    except HTTPException:
-        raise  # Bubble up intact so FastAPI handles
     except Exception as e:
         logger.exception("Error in regeocode_single_trip: %s", str(e))
         raise HTTPException(

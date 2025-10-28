@@ -173,8 +173,6 @@ async def get_street_geometry(location_id: str, street_name: str):
 
         return {"type": "FeatureCollection", "features": features}
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error("Error getting street geometry: %s", str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e

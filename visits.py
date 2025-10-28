@@ -711,9 +711,6 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
         ]
 
         return places_data
-    except HTTPException:
-        # Already well-formed – just bubble up
-        raise
     except Exception as e:
         logger.exception("Error getting non-custom places visits: %s", str(e))
         raise HTTPException(
@@ -941,8 +938,6 @@ async def get_visit_suggestions(
 
         return suggestions
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error generating visit suggestions: %s", str(e))
         raise HTTPException(

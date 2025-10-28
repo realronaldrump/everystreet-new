@@ -387,8 +387,6 @@ async def export_coverage_route_endpoint(
 
         return await create_export_response(data_to_export, fmt, filename_base)
 
-    except HTTPException as http_exc:
-        raise http_exc
     except ValueError as ve:
         logger.error(f"ValueError in export_coverage_route_endpoint: {str(ve)}")
         raise HTTPException(status_code=400, detail=str(ve))
@@ -417,8 +415,6 @@ async def export_geojson(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.geojson"',
             },
         )
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error exporting GeoJSON: %s", str(e))
         raise HTTPException(
@@ -442,8 +438,6 @@ async def export_gpx(request: Request):
                 "Content-Disposition": f'attachment; filename="{filename_base}.gpx"',
             },
         )
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error exporting GPX: %s", str(e))
         raise HTTPException(

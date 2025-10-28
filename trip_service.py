@@ -89,8 +89,6 @@ def with_comprehensive_handling(func: Callable) -> Callable:
                     "Successfully completed %s in %.2fs", func.__name__, duration
                 )
             return result
-        except HTTPException:
-            raise
         except DuplicateKeyError as e:
             logger.warning("Duplicate key error in %s: %s", func.__name__, e)
             raise HTTPException(
