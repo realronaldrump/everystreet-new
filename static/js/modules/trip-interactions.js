@@ -1,3 +1,4 @@
+/* global mapboxgl */
 import utils from "./utils.js";
 import state from "./state.js";
 import metricsManager from "./metrics-manager.js";

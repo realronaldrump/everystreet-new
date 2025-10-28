@@ -2,6 +2,7 @@
  * Search Manager Module
  * Handles geocoding search for places, addresses, and streets with map highlighting
  */
+/* global mapboxgl */
 
 import utils from "./utils.js";
 import state from "./state.js";

@@ -1,3 +1,4 @@
+/* global mapboxgl */
 import utils from "./utils.js";
 import { CONFIG } from "./config.js";
 import state from "./state.js";
