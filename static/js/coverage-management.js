@@ -976,8 +976,7 @@ const STATUS = window.STATUS || {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const dateStr = window.DateUtils?.formatDateToString(new Date()) || 
-        new Date().toISOString().split("T")[0];
+      const dateStr = window.DateUtils.formatDateToString(new Date());
       a.download = `coverage_export_${dateStr}.json`;
       document.body.appendChild(a);
       a.click();
@@ -4819,8 +4818,7 @@ const STATUS = window.STATUS || {
                 const locationName =
                   this.selectedLocation?.location?.display_name ||
                   "coverage_map";
-                const dateStr = window.DateUtils?.formatDateToString(new Date()) || 
-                  new Date().toISOString().split("T")[0];
+                const dateStr = window.DateUtils.formatDateToString(new Date());
                 a.download = `${locationName
                   .replace(/[^a-z0-9]/gi, "_")
                   .toLowerCase()}_${dateStr}.png`;

@@ -784,17 +784,8 @@
     }
 
     formatDuration(ms) {
-      const seconds = Math.floor(ms / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-
-      if (isNaN(seconds)) return "Unknown";
-
-      return hours > 0
-        ? `${hours}h ${minutes % 60}m ${seconds % 60}s`
-        : minutes > 0
-          ? `${minutes}m ${seconds % 60}s`
-          : `${seconds}s`;
+      // Use DateUtils for consistent formatting across the app
+      return window.DateUtils?.formatDuration(ms) || "Unknown";
     }
 
     gatherTaskConfigFromUI() {
@@ -1507,10 +1498,8 @@
         );
         const startDateObj = new Date();
         startDateObj.setDate(startDateObj.getDate() - interval_days);
-        start_date = window.DateUtils?.formatDateToString(startDateObj) || 
-          startDateObj.toISOString().split("T")[0];
-        end_date = window.DateUtils?.formatDateToString(new Date()) || 
-          new Date().toISOString().split("T")[0];
+        start_date = window.DateUtils.formatDateToString(startDateObj);
+        end_date = window.DateUtils.formatDateToString(new Date());
       }
 
       try {
