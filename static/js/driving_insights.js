@@ -319,6 +319,12 @@ if (typeof window !== "undefined") {
           },
         },
         scales: {
+          x: {
+            ticks: {
+              maxRotation: 45,
+              minRotation: 0,
+            },
+          },
           y: {
             beginAtZero: true,
             ticks: {
