@@ -89,14 +89,31 @@ const AppController = {
         this.setupEventListeners();
         restoreLayerVisibility();
 
-        // Restore street view mode if location is selected
+        // Restore street view modes if location is selected
         const selectedLocationId = utils.getStorage(
           CONFIG.STORAGE_KEYS.selectedLocation,
         );
         if (selectedLocationId) {
-          const savedMode =
-            utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode) || "undriven";
-          setTimeout(() => this.handleStreetViewModeChange(savedMode), 500);
+          let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+          // Handle migration from old string format
+          if (typeof savedStates === 'string') {
+            const oldMode = savedStates;
+            savedStates = {};
+            if (oldMode && oldMode !== 'none') {
+              savedStates[oldMode] = true;
+            }
+            utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
+          } else if (!savedStates || typeof savedStates !== 'object') {
+            savedStates = {};
+          }
+          
+          setTimeout(() => {
+            Object.entries(savedStates).forEach(([mode, isActive]) => {
+              if (isActive) {
+                this.handleStreetViewModeChange(mode, false);
+              }
+            });
+          }, 500);
         }
 
         const mapStage = window.loadingManager.startStage(
@@ -155,38 +172,53 @@ const AppController = {
         if (e.target.value) {
           await this.refreshStreetLayers();
         } else {
-          // Clear selection - hide all street layers and reset to "none"
-          utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, "none");
-          const noneRadio = document.querySelector(
-            'input[name="street-view-mode"][value="none"]',
-          );
-          if (noneRadio) noneRadio.checked = true;
-          await this.handleStreetViewModeChange("none");
+          // Clear selection - hide all street layers
+          await this.handleStreetViewModeChange("undriven", true);
+          await this.handleStreetViewModeChange("driven", true);
+          await this.handleStreetViewModeChange("all", true);
         }
       });
     }
 
-    // Street view mode radio buttons
-    const streetModeRadios = document.querySelectorAll(
-      'input[name="street-view-mode"]',
-    );
-    if (streetModeRadios.length > 0) {
-      const savedMode =
-        utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode) || "undriven";
-      const savedModeRadio = document.querySelector(
-        `input[name="street-view-mode"][value="${savedMode}"]`,
-      );
-      if (savedModeRadio) savedModeRadio.checked = true;
-
-      streetModeRadios.forEach((radio) => {
-        radio.addEventListener("change", async (e) => {
-          if (e.target.checked) {
-            utils.setStorage(
-              CONFIG.STORAGE_KEYS.streetViewMode,
-              e.target.value,
-            );
-            await this.handleStreetViewModeChange(e.target.value);
+    // Street view mode toggle buttons
+    const streetToggleButtons = document.querySelectorAll('.street-toggle-btn');
+    if (streetToggleButtons.length > 0) {
+      // Restore saved states - handle migration from old string format
+      let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+      if (typeof savedStates === 'string') {
+        // Migrate from old format (single string) to new format (object)
+        const oldMode = savedStates;
+        savedStates = {};
+        if (oldMode && oldMode !== 'none') {
+          savedStates[oldMode] = true;
+        }
+        utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
+      } else if (!savedStates || typeof savedStates !== 'object') {
+        savedStates = {};
+      }
+      
+      streetToggleButtons.forEach((btn) => {
+        const mode = btn.dataset.streetMode;
+        const isActive = savedStates[mode] === true;
+        
+        if (isActive) {
+          btn.classList.add('active');
+        }
+        
+        btn.addEventListener('click', async () => {
+          const isCurrentlyActive = btn.classList.contains('active');
+          btn.classList.toggle('active');
+          
+          // Save state - ensure we always work with an object
+          let currentStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+          if (typeof currentStates !== 'object' || currentStates === null) {
+            currentStates = {};
           }
+          currentStates[mode] = !isCurrentlyActive;
+          utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, currentStates);
+          
+          // Toggle the layer
+          await this.handleStreetViewModeChange(mode, isCurrentlyActive);
         });
       });
     }
@@ -368,11 +400,11 @@ const AppController = {
     }
   },
 
-  async handleStreetViewModeChange(mode) {
+  async handleStreetViewModeChange(mode, shouldHide = false) {
     const selectedLocationId = utils.getStorage(
       CONFIG.STORAGE_KEYS.selectedLocation,
     );
-    if (!selectedLocationId && mode !== "none") {
+    if (!selectedLocationId && !shouldHide) {
       window.notificationManager.show(
         "Please select a location first",
         "warning",
@@ -380,70 +412,51 @@ const AppController = {
       return;
     }
 
-    // Hide all street layers first
-    state.mapLayers.undrivenStreets.visible = false;
-    state.mapLayers.drivenStreets.visible = false;
-    state.mapLayers.allStreets.visible = false;
+    // Map mode to layer names
+    const layerMap = {
+      undriven: { layer: 'undrivenStreets', layerId: 'undrivenStreets-layer', fetch: dataManager.fetchUndrivenStreets },
+      driven: { layer: 'drivenStreets', layerId: 'drivenStreets-layer', fetch: dataManager.fetchDrivenStreets },
+      all: { layer: 'allStreets', layerId: 'allStreets-layer', fetch: dataManager.fetchAllStreets }
+    };
 
-    // Hide existing street layers on map
-    const streetLayerIds = [
-      "undrivenStreets-layer",
-      "drivenStreets-layer",
-      "allStreets-layer",
-    ];
-    streetLayerIds.forEach((layerId) => {
-      if (state.map?.getLayer(layerId)) {
-        state.map.setLayoutProperty(layerId, "visibility", "none");
+    const config = layerMap[mode];
+    if (!config) return;
+
+    if (shouldHide) {
+      // Hide the layer
+      state.mapLayers[config.layer].visible = false;
+      if (state.map?.getLayer(config.layerId)) {
+        state.map.setLayoutProperty(config.layerId, "visibility", "none");
       }
-    });
-
-    // Handle "none" mode - hide all streets
-    if (mode === "none") {
-      return; // All layers already hidden above
-    }
-
-    // Show selected layer and fetch data if needed
-    switch (mode) {
-      case "undriven":
-        state.mapLayers.undrivenStreets.visible = true;
-        await dataManager.fetchUndrivenStreets();
-        if (state.map?.getLayer("undrivenStreets-layer")) {
-          state.map.setLayoutProperty(
-            "undrivenStreets-layer",
-            "visibility",
-            "visible",
-          );
-        }
-        break;
-      case "driven":
-        state.mapLayers.drivenStreets.visible = true;
-        await dataManager.fetchDrivenStreets();
-        if (state.map?.getLayer("drivenStreets-layer")) {
-          state.map.setLayoutProperty(
-            "drivenStreets-layer",
-            "visibility",
-            "visible",
-          );
-        }
-        break;
-      case "all":
-        state.mapLayers.allStreets.visible = true;
-        await dataManager.fetchAllStreets();
-        if (state.map?.getLayer("allStreets-layer")) {
-          state.map.setLayoutProperty(
-            "allStreets-layer",
-            "visibility",
-            "visible",
-          );
-        }
-        break;
+    } else {
+      // Show the layer and fetch data if needed
+      state.mapLayers[config.layer].visible = true;
+      await config.fetch.call(dataManager);
+      if (state.map?.getLayer(config.layerId)) {
+        state.map.setLayoutProperty(config.layerId, "visibility", "visible");
+      }
     }
   },
 
   async refreshStreetLayers() {
-    const mode =
-      utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode) || "undriven";
-    await this.handleStreetViewModeChange(mode);
+    let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+    // Handle migration from old string format
+    if (typeof savedStates === 'string') {
+      const oldMode = savedStates;
+      savedStates = {};
+      if (oldMode && oldMode !== 'none') {
+        savedStates[oldMode] = true;
+      }
+      utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
+    } else if (!savedStates || typeof savedStates !== 'object') {
+      savedStates = {};
+    }
+    
+    for (const [mode, isActive] of Object.entries(savedStates)) {
+      if (isActive) {
+        await this.handleStreetViewModeChange(mode, false);
+      }
+    }
   },
 };
 
