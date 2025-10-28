@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from config import MAPBOX_ACCESS_TOKEN
 from db import (
     SerializationHelper,
     build_query_from_request,
@@ -20,7 +21,6 @@ from db import (
     trips_collection,
 )
 from trip_service import TripService
-from config import MAPBOX_ACCESS_TOKEN
 
 # ==============================================================================
 # Setup

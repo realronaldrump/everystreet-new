@@ -33,6 +33,7 @@ matched_trips_collection = db_manager.db["matched_trips"]
 
 # ----------------------------- Streaming helpers -----------------------------
 
+
 def _date_range_filename_component(request: Request) -> str:
     start = request.query_params.get("start_date")
     end = request.query_params.get("end_date")
@@ -58,7 +59,9 @@ async def _stream_geojson_from_cursor(cursor) -> Any:
                     continue
                 props = {k: v for k, v in trip.items() if k != "gps"}
                 feature = {"type": "Feature", "geometry": geom, "properties": props}
-                chunk = json.dumps(feature, default=default_serializer, separators=(",", ":"))
+                chunk = json.dumps(
+                    feature, default=default_serializer, separators=(",", ":")
+                )
                 if not first:
                     yield ","
                 yield chunk
@@ -77,7 +80,9 @@ async def _stream_json_array_from_cursor(cursor) -> Any:
         first = True
         async for doc in cursor:
             try:
-                chunk = json.dumps(doc, default=default_serializer, separators=(",", ":"))
+                chunk = json.dumps(
+                    doc, default=default_serializer, separators=(",", ":")
+                )
                 if not first:
                     yield ","
                 yield chunk
@@ -102,8 +107,8 @@ def _xml_escape(text: str) -> str:
 
 async def _stream_gpx_from_cursor(cursor) -> Any:
     async def generator():
-        yield "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-        yield "<gpx version=\"1.1\" creator=\"EveryStreet\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n"
+        yield '<?xml version="1.0" encoding="UTF-8"?>\n'
+        yield '<gpx version="1.1" creator="EveryStreet" xmlns="http://www.topografix.com/GPX/1/1">\n'
         async for trip in cursor:
             try:
                 geom = trip.get("gps")
@@ -116,12 +121,12 @@ async def _stream_gpx_from_cursor(cursor) -> Any:
                     for c in coords:
                         if isinstance(c, (list, tuple)) and len(c) >= 2:
                             lon, lat = c[0], c[1]
-                            yield f"    <trkpt lat=\"{lat}\" lon=\"{lon}\"/>\n"
+                            yield f'    <trkpt lat="{lat}" lon="{lon}"/>\n'
                 elif geom.get("type") == "Point":
                     coords = geom.get("coordinates", [])
                     if isinstance(coords, (list, tuple)) and len(coords) >= 2:
                         lon, lat = coords[0], coords[1]
-                        yield f"    <trkpt lat=\"{lat}\" lon=\"{lon}\"/>\n"
+                        yield f'    <trkpt lat="{lat}" lon="{lon}"/>\n'
                 yield "  </trkseg></trk>\n"
             except Exception as e:
                 logger.warning("Skipping trip in GPX stream: %s", e)
@@ -131,7 +136,9 @@ async def _stream_gpx_from_cursor(cursor) -> Any:
     return generator()
 
 
-async def _stream_csv_from_cursor(cursor, include_gps_in_csv: bool, flatten_location_fields: bool) -> Any:
+async def _stream_csv_from_cursor(
+    cursor, include_gps_in_csv: bool, flatten_location_fields: bool
+) -> Any:
     import csv
     from io import StringIO
 
@@ -171,7 +178,14 @@ async def _stream_csv_from_cursor(cursor, include_gps_in_csv: bool, flatten_loca
         fieldnames.discard("startLocation")
         fieldnames.discard("destination")
     fieldnames = sorted(fieldnames)
-    priority = ["_id", "transactionId", "trip_id", "trip_type", "startTime", "endTime"] + location_fields
+    priority = [
+        "_id",
+        "transactionId",
+        "trip_id",
+        "trip_type",
+        "startTime",
+        "endTime",
+    ] + location_fields
     for f in reversed(priority):
         if f in fieldnames:
             fieldnames.remove(f)
@@ -194,7 +208,10 @@ async def _stream_csv_from_cursor(cursor, include_gps_in_csv: bool, flatten_loca
                         flat[key] = json.dumps(value, default=default_serializer)
                     else:
                         flat[key] = "[Geometry data not included in CSV format]"
-                elif flatten_location_fields and key in ["startLocation", "destination"]:
+                elif flatten_location_fields and key in [
+                    "startLocation",
+                    "destination",
+                ]:
                     continue
                 elif isinstance(value, (dict, list)):
                     flat[key] = json.dumps(value, default=default_serializer)
@@ -202,6 +219,7 @@ async def _stream_csv_from_cursor(cursor, include_gps_in_csv: bool, flatten_loca
                     flat[key] = value
 
             if flatten_location_fields:
+
                 def normalize(obj):
                     if isinstance(obj, str):
                         try:
@@ -213,8 +231,14 @@ async def _stream_csv_from_cursor(cursor, include_gps_in_csv: bool, flatten_loca
                 start_loc = normalize(trip.get("startLocation", {}))
                 dest = normalize(trip.get("destination", {}))
 
-                flat["startLocation_formatted_address"] = start_loc.get("formatted_address", "")
-                addr = start_loc.get("address_components", {}) if isinstance(start_loc, dict) else {}
+                flat["startLocation_formatted_address"] = start_loc.get(
+                    "formatted_address", ""
+                )
+                addr = (
+                    start_loc.get("address_components", {})
+                    if isinstance(start_loc, dict)
+                    else {}
+                )
                 flat["startLocation_street_number"] = addr.get("street_number", "")
                 flat["startLocation_street"] = addr.get("street", "")
                 flat["startLocation_city"] = addr.get("city", "")
@@ -222,12 +246,20 @@ async def _stream_csv_from_cursor(cursor, include_gps_in_csv: bool, flatten_loca
                 flat["startLocation_state"] = addr.get("state", "")
                 flat["startLocation_postal_code"] = addr.get("postal_code", "")
                 flat["startLocation_country"] = addr.get("country", "")
-                coords = start_loc.get("coordinates", {}) if isinstance(start_loc, dict) else {}
+                coords = (
+                    start_loc.get("coordinates", {})
+                    if isinstance(start_loc, dict)
+                    else {}
+                )
                 flat["startLocation_lat"] = coords.get("lat", "")
                 flat["startLocation_lng"] = coords.get("lng", "")
 
-                flat["destination_formatted_address"] = dest.get("formatted_address", "")
-                addr = dest.get("address_components", {}) if isinstance(dest, dict) else {}
+                flat["destination_formatted_address"] = dest.get(
+                    "formatted_address", ""
+                )
+                addr = (
+                    dest.get("address_components", {}) if isinstance(dest, dict) else {}
+                )
                 flat["destination_street_number"] = addr.get("street_number", "")
                 flat["destination_street"] = addr.get("street", "")
                 flat["destination_city"] = addr.get("city", "")
@@ -255,7 +287,11 @@ async def _stream_csv_from_cursor(cursor, include_gps_in_csv: bool, flatten_loca
         # Skip first document to avoid duplication
         skipped_first = False
         async for doc in new_cursor:
-            if not skipped_first and sample_doc and doc.get("_id") == sample_doc[0].get("_id"):
+            if (
+                not skipped_first
+                and sample_doc
+                and doc.get("_id") == sample_doc[0].get("_id")
+            ):
                 skipped_first = True
                 continue
             async for chunk in write_trip(doc):
@@ -500,7 +536,9 @@ async def export_all_trips(
                 },
             )
         if fmt.lower() == "csv":
-            stream = await _stream_csv_from_cursor(cursor, include_gps_in_csv=False, flatten_location_fields=True)
+            stream = await _stream_csv_from_cursor(
+                cursor, include_gps_in_csv=False, flatten_location_fields=True
+            )
             return StreamingResponse(
                 stream,
                 media_type="text/csv",
@@ -541,16 +579,42 @@ async def export_trips_within_range(
 
         if fmt.lower() == "json":
             stream = await _stream_json_array_from_cursor(cursor)
-            return StreamingResponse(stream, media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{filename_base}.json"'})
+            return StreamingResponse(
+                stream,
+                media_type="application/json",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.json"'
+                },
+            )
         if fmt.lower() == "geojson":
             stream = await _stream_geojson_from_cursor(cursor)
-            return StreamingResponse(stream, media_type="application/geo+json", headers={"Content-Disposition": f'attachment; filename="{filename_base}.geojson"'})
+            return StreamingResponse(
+                stream,
+                media_type="application/geo+json",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
+                },
+            )
         if fmt.lower() == "gpx":
             stream = await _stream_gpx_from_cursor(cursor)
-            return StreamingResponse(stream, media_type="application/gpx+xml", headers={"Content-Disposition": f'attachment; filename="{filename_base}.gpx"'})
+            return StreamingResponse(
+                stream,
+                media_type="application/gpx+xml",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
+                },
+            )
         if fmt.lower() == "csv":
-            stream = await _stream_csv_from_cursor(cursor, include_gps_in_csv=False, flatten_location_fields=True)
-            return StreamingResponse(stream, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{filename_base}.csv"'})
+            stream = await _stream_csv_from_cursor(
+                cursor, include_gps_in_csv=False, flatten_location_fields=True
+            )
+            return StreamingResponse(
+                stream,
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.csv"'
+                },
+            )
 
         # Fallback
         trips_list = await trips_collection.find(query).to_list(length=1000)
@@ -586,16 +650,42 @@ async def export_matched_trips_within_range(
 
         if fmt.lower() == "json":
             stream = await _stream_json_array_from_cursor(cursor)
-            return StreamingResponse(stream, media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{filename_base}.json"'})
+            return StreamingResponse(
+                stream,
+                media_type="application/json",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.json"'
+                },
+            )
         if fmt.lower() == "geojson":
             stream = await _stream_geojson_from_cursor(cursor)
-            return StreamingResponse(stream, media_type="application/geo+json", headers={"Content-Disposition": f'attachment; filename="{filename_base}.geojson"'})
+            return StreamingResponse(
+                stream,
+                media_type="application/geo+json",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.geojson"'
+                },
+            )
         if fmt.lower() == "gpx":
             stream = await _stream_gpx_from_cursor(cursor)
-            return StreamingResponse(stream, media_type="application/gpx+xml", headers={"Content-Disposition": f'attachment; filename="{filename_base}.gpx"'})
+            return StreamingResponse(
+                stream,
+                media_type="application/gpx+xml",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.gpx"'
+                },
+            )
         if fmt.lower() == "csv":
-            stream = await _stream_csv_from_cursor(cursor, include_gps_in_csv=False, flatten_location_fields=True)
-            return StreamingResponse(stream, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{filename_base}.csv"'})
+            stream = await _stream_csv_from_cursor(
+                cursor, include_gps_in_csv=False, flatten_location_fields=True
+            )
+            return StreamingResponse(
+                stream,
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_base}.csv"'
+                },
+            )
 
         matched_list = await matched_trips_collection.find(query).to_list(length=1000)
         return await create_export_response(matched_list, fmt, filename_base)
@@ -901,11 +991,14 @@ async def export_advanced(
             )
 
         if fmt == "json":
+
             async def json_generator():
                 yield "["
                 first = True
                 async for item in processed_docs_cursor():
-                    chunk = json.dumps(item, default=default_serializer, separators=(",", ":"))
+                    chunk = json.dumps(
+                        item, default=default_serializer, separators=(",", ":")
+                    )
                     if not first:
                         yield ","
                     yield chunk
