@@ -69,32 +69,38 @@ const dateUtils = {
 
   async getDateRangePreset(range) {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     let startDate, endDate;
 
     switch (range) {
       case "today":
-        startDate = endDate = today;
+        startDate = new Date(today);
+        endDate = new Date(today);
         break;
       case "yesterday":
-        startDate = endDate = new Date(today.setDate(today.getDate() - 1));
+        startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - 1);
+        endDate = new Date(startDate);
         break;
       case "last-week":
-        endDate = new Date();
-        startDate = new Date(new Date().setDate(new Date().getDate() - 6));
+        endDate = new Date(today);
+        startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - 6);
         break;
       case "last-month":
-        endDate = new Date();
-        startDate = new Date(new Date().setMonth(new Date().getMonth() - 1));
+        endDate = new Date(today);
+        startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - 29);
         break;
       case "last-quarter":
-        endDate = new Date();
-        startDate = new Date(new Date().setMonth(new Date().getMonth() - 3));
+        endDate = new Date(today);
+        startDate = new Date(today);
+        startDate.setMonth(startDate.getMonth() - 3);
         break;
       case "last-year":
-        endDate = new Date();
-        startDate = new Date(
-          new Date().setFullYear(new Date().getFullYear() - 1),
-        );
+        endDate = new Date(today);
+        startDate = new Date(today);
+        startDate.setFullYear(startDate.getFullYear() - 1);
         break;
       case "all-time":
         try {
@@ -102,15 +108,15 @@ const dateUtils = {
           if (res.ok) {
             const data = await res.json();
             startDate = new Date(data.first_trip_date || "2000-01-01");
-            endDate = new Date();
+            endDate = new Date(today);
           } else {
             startDate = new Date("2000-01-01");
-            endDate = new Date();
+            endDate = new Date(today);
           }
         } catch (error) {
           void error;
           startDate = new Date("2000-01-01");
-          endDate = new Date();
+          endDate = new Date(today);
         }
         break;
       default:

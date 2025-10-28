@@ -85,9 +85,6 @@ const dateManager = {
       const { startDate, endDate } = await dateUtils.getDateRangePreset(range);
       if (startDate && endDate) {
         this.updateInputs(startDate, endDate);
-        utils.setStorage(CONFIG.storage.startDate, startDate);
-        utils.setStorage(CONFIG.storage.endDate, endDate);
-        this.updateIndicator();
         uiState
           .getAllElements(".quick-select-btn")
           .forEach((b) =>
@@ -98,6 +95,7 @@ const dateManager = {
           );
         uiState.uiState.lastFilterPreset = range;
         uiState.saveUIState();
+        await this.applyFilters();
       } else throw new Error("Invalid date range");
     } catch (err) {
       console.error("Error setting date range:", err);

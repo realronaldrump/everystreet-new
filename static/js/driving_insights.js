@@ -294,52 +294,6 @@ if (typeof window !== "undefined") {
       },
     });
 
-    // Behavior Chart
-    const behaviorCtx = document
-      .getElementById("behaviorChart")
-      .getContext("2d");
-    state.charts.behavior = new Chart(behaviorCtx, {
-      type: "radar",
-      data: {
-        labels: [
-          "Speed Control",
-          "Smooth Driving",
-          "Fuel Economy",
-          "Time Management",
-          "Safety",
-        ],
-        datasets: [
-          {
-            label: "Current Period",
-            data: [0, 0, 0, 0, 0],
-            backgroundColor: "rgba(255, 99, 132, 0.2)",
-            borderColor: "rgba(255, 99, 132, 1)",
-            pointBackgroundColor: "rgba(255, 99, 132, 1)",
-          },
-          {
-            label: "Previous Period",
-            data: [0, 0, 0, 0, 0],
-            backgroundColor: "rgba(54, 162, 235, 0.2)",
-            borderColor: "rgba(54, 162, 235, 1)",
-            pointBackgroundColor: "rgba(54, 162, 235, 1)",
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          r: {
-            beginAtZero: true,
-            max: 100,
-            ticks: {
-              display: false,
-            },
-          },
-        },
-      },
-    });
-
     // Time Distribution Chart
     const timeDistCtx = document
       .getElementById("timeDistChart")
@@ -407,7 +361,6 @@ if (typeof window !== "undefined") {
   function updateAllCharts() {
     updateTrendsChart();
     updateEfficiencyChart();
-    updateBehaviorChart();
     updateTimeDistChart();
   }
 
@@ -437,17 +390,6 @@ if (typeof window !== "undefined") {
       speedEfficiency,
     ];
     state.charts.efficiency.update();
-  }
-
-  function updateBehaviorChart() {
-    const { behavior } = state.data;
-
-    // Calculate behavior scores (0-100)
-    const scores = calculateBehaviorScores(behavior);
-
-    state.charts.behavior.data.datasets[0].data = scores.current;
-    state.charts.behavior.data.datasets[1].data = scores.previous;
-    state.charts.behavior.update();
   }
 
   function updateTimeDistChart() {
@@ -870,76 +812,6 @@ if (typeof window !== "undefined") {
     } else {
       return Math.max(100 - (avgSpeed - 65) * 2, 0);
     }
-  }
-
-  function calculateBehaviorScores(behavior) {
-    const totalEvents =
-      behavior.hardBrakingCounts + behavior.hardAccelerationCounts;
-    const eventsPerTrip =
-      behavior.totalTrips > 0 ? totalEvents / behavior.totalTrips : 0;
-
-    const currentScores = [
-      calculateSpeedControl(behavior),
-      calculateSmoothDriving(eventsPerTrip),
-      calculateFuelEconomy(behavior),
-      calculateTimeManagement(behavior),
-      calculateSafety(behavior),
-    ];
-
-    let previousScores = currentScores;
-    if (state.prevRange?.behavior) {
-      const prevBh = state.prevRange.behavior;
-      const prevEvents =
-        prevBh.hardBrakingCounts + prevBh.hardAccelerationCounts;
-      const prevEventsPerTrip =
-        prevBh.totalTrips > 0 ? prevEvents / prevBh.totalTrips : 0;
-      previousScores = [
-        calculateSpeedControl(prevBh),
-        calculateSmoothDriving(prevEventsPerTrip),
-        calculateFuelEconomy(prevBh),
-        calculateTimeManagement(prevBh),
-        calculateSafety(prevBh),
-      ];
-    }
-
-    return {
-      current: currentScores,
-      previous: previousScores,
-    };
-  }
-
-  function calculateSpeedControl(behavior) {
-    const speedVariance = behavior.maxSpeed - behavior.avgSpeed;
-    return Math.max(100 - speedVariance, 0);
-  }
-
-  function calculateSmoothDriving(eventsPerTrip) {
-    return Math.max(100 - eventsPerTrip * 20, 0);
-  }
-
-  function calculateFuelEconomy(behavior) {
-    const mpg =
-      behavior.totalDistance > 0 && behavior.fuelConsumed > 0
-        ? behavior.totalDistance / behavior.fuelConsumed
-        : 0;
-    return Math.min((mpg / 30) * 100, 100);
-  }
-
-  function calculateTimeManagement(behavior) {
-    const idlePercent =
-      behavior.totalTrips > 0
-        ? (behavior.totalIdlingTime / (behavior.totalTrips * 30 * 60)) * 100
-        : 0;
-    return Math.max(100 - idlePercent * 2, 0);
-  }
-
-  function calculateSafety(behavior) {
-    const safetyScore =
-      100 -
-      behavior.hardBrakingCounts * 2 -
-      behavior.hardAccelerationCounts * 2 -
-      Math.max(behavior.maxSpeed - 70, 0) * 3;
-    return Math.max(safetyScore, 0);
   }
 
   // Loading States
