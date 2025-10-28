@@ -8,6 +8,7 @@ import logging
 from typing import Any
 
 import aiohttp
+from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
 
 from config import MAPBOX_ACCESS_TOKEN
@@ -16,7 +17,6 @@ from db import (
     find_one_with_retry,
     streets_collection,
 )
-from bson import ObjectId
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,8 @@ async def geocode_search(
     query: str = Query(..., description="Search query (place, address, or street)"),
     limit: int = Query(5, ge=1, le=20, description="Maximum number of results"),
     use_mapbox: bool = Query(
-        None, description="Force Mapbox geocoding (True) or Nominatim (False). Default prefers Mapbox if configured."
+        None,
+        description="Force Mapbox geocoding (True) or Nominatim (False). Default prefers Mapbox if configured.",
     ),
 ):
     """Search for places, addresses, or streets using geocoding services.
@@ -49,13 +50,17 @@ async def geocode_search(
 
     """
     if not query or len(query.strip()) < 2:
-        raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
+        raise HTTPException(
+            status_code=400, detail="Query must be at least 2 characters"
+        )
 
     logger.debug("Geocoding search for: %s (use_mapbox=%s)", query, use_mapbox)
 
     try:
         # Prefer Mapbox if token is configured unless explicitly disabled
-        prefer_mapbox = MAPBOX_ACCESS_TOKEN and (use_mapbox is None or use_mapbox is True)
+        prefer_mapbox = MAPBOX_ACCESS_TOKEN and (
+            use_mapbox is None or use_mapbox is True
+        )
         if prefer_mapbox:
             results = await _search_mapbox(query, limit)
         else:
@@ -94,12 +99,12 @@ async def search_streets(
 
     """
     if not query or len(query.strip()) < 2:
-        raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
+        raise HTTPException(
+            status_code=400, detail="Query must be at least 2 characters"
+        )
 
     query_lower = query.strip().lower()
-    logger.debug(
-        "Street search for: %s (location_id=%s)", query_lower, location_id
-    )
+    logger.debug("Street search for: %s (location_id=%s)", query_lower, location_id)
 
     try:
         features: list[dict] = []
@@ -346,9 +351,7 @@ async def _search_streets_in_coverage(
 
     location_name = coverage_area["location"].get("display_name")
     if not location_name:
-        logger.warning(
-            "Coverage area %s missing display_name in location", location_id
-        )
+        logger.warning("Coverage area %s missing display_name in location", location_id)
         return []
 
     # Query streets collection for matching street_name within this location
@@ -380,4 +383,3 @@ async def _search_streets_in_coverage(
     )
 
     return features
-
