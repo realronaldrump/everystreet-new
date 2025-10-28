@@ -681,7 +681,7 @@ if (typeof window !== "undefined") {
   function formatWeekRange(weekStr) {
     // Convert "2024-W10" to "Mar 4-10, 2024"
     if (!weekStr) return "N/A";
-    
+
     const [year, week] = weekStr.split("-W");
     const simple = new Date(year, 0, 1 + (week - 1) * 7);
     const dow = simple.getDay();
@@ -699,7 +699,7 @@ if (typeof window !== "undefined") {
   function formatMonth(monthStr) {
     // Convert "2024-03" to "March 2024"
     if (!monthStr) return "N/A";
-    
+
     const [year, month] = monthStr.split("-");
     const date = new Date(year, month - 1);
     return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
