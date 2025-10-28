@@ -131,9 +131,7 @@ async def get_trip_analytics(request: Request):
                 if day_of_week not in weekday_data:
                     weekday_data[day_of_week] = 0
                 weekday_data[day_of_week] += r["tripCount"]
-            return [
-                {"day": d, "count": c} for d, c in sorted(weekday_data.items())
-            ]
+            return [{"day": d, "count": c} for d, c in sorted(weekday_data.items())]
 
         daily_list = organize_daily_data(results)
         hourly_list = organize_hourly_data(results)
@@ -160,16 +158,16 @@ async def get_time_period_trips(request: Request):
     """Get trips for a specific time period (hour or day of week)."""
     try:
         query = await build_query_from_request(request)
-        
+
         time_type = request.query_params.get("time_type")  # "hour" or "day"
         time_value = request.query_params.get("time_value")  # hour (0-23) or day (0-6)
-        
+
         if not time_type or time_value is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Missing time_type or time_value parameter",
             )
-        
+
         try:
             time_value = int(time_value)
         except ValueError:
@@ -177,7 +175,7 @@ async def get_time_period_trips(request: Request):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="time_value must be an integer",
             )
-        
+
         # Build timezone expression
         tz_expr = {
             "$switch": {
@@ -187,7 +185,7 @@ async def get_time_period_trips(request: Request):
                 "default": {"$ifNull": ["$timeZone", "UTC"]},
             }
         }
-        
+
         # Add time-specific filter
         if time_type == "hour":
             query["$expr"] = {
@@ -220,7 +218,7 @@ async def get_time_period_trips(request: Request):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="time_type must be 'hour' or 'day'",
             )
-        
+
         # Fetch trips with relevant fields, calculating duration if needed
         pipeline = [
             {"$match": query},
@@ -264,11 +262,11 @@ async def get_time_period_trips(request: Request):
             {"$sort": {"startTime": -1}},
             {"$limit": 100},
         ]
-        
+
         trips = await aggregate_with_retry(trips_collection, pipeline)
-        
+
         return JSONResponse(content=convert_datetimes_to_isoformat(trips))
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -931,4 +929,3 @@ async def get_metrics(request: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
-
