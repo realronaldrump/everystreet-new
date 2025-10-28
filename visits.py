@@ -426,7 +426,7 @@ async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:
                     "previous_departure_time": {
                         "$shift": {
                             "output": "$departure_time",
-                            "by": 1,
+                            "by": -1,
                             "default": None,
                         }
                     }
