@@ -8,6 +8,7 @@ import logging
 from typing import Any
 
 import aiohttp
+from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
 
 from config import MAPBOX_ACCESS_TOKEN
@@ -16,7 +17,6 @@ from db import (
     find_one_with_retry,
     streets_collection,
 )
-from bson import ObjectId
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,9 @@ async def geocode_search(
 
     """
     if not query or len(query.strip()) < 2:
-        raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
+        raise HTTPException(
+            status_code=400, detail="Query must be at least 2 characters"
+        )
 
     logger.info("Geocoding search for: %s (use_mapbox=%s)", query, use_mapbox)
 
@@ -92,12 +94,12 @@ async def search_streets(
 
     """
     if not query or len(query.strip()) < 2:
-        raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
+        raise HTTPException(
+            status_code=400, detail="Query must be at least 2 characters"
+        )
 
     query_lower = query.strip().lower()
-    logger.info(
-        "Street search for: %s (location_id=%s)", query_lower, location_id
-    )
+    logger.info("Street search for: %s (location_id=%s)", query_lower, location_id)
 
     try:
         features: list[dict] = []
@@ -110,9 +112,7 @@ async def search_streets(
 
         # If no results from coverage area search, try geocoding for street
         if not features:
-            geocode_results = await _search_nominatim(
-                query, limit, addressdetails=True
-            )
+            geocode_results = await _search_nominatim(query, limit, addressdetails=True)
 
             # Filter for street-like results and return simple points
             for result in geocode_results:
@@ -321,9 +321,7 @@ async def _search_streets_in_coverage(
 
     location_name = coverage_area["location"].get("display_name")
     if not location_name:
-        logger.warning(
-            "Coverage area %s missing display_name in location", location_id
-        )
+        logger.warning("Coverage area %s missing display_name in location", location_id)
         return []
 
     # Query streets collection for matching street_name within this location
@@ -355,4 +353,3 @@ async def _search_streets_in_coverage(
     )
 
     return features
-

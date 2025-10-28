@@ -25,7 +25,7 @@ const layerManager = {
     const fragment = document.createDocumentFragment();
 
     // Exclude street layers - they're controlled by radio buttons
-    const streetLayers = ['undrivenStreets', 'drivenStreets', 'allStreets'];
+    const streetLayers = ["undrivenStreets", "drivenStreets", "allStreets"];
 
     Object.entries(state.mapLayers).forEach(([name, info]) => {
       // Skip street layers as they have dedicated radio button controls
@@ -155,7 +155,7 @@ const layerManager = {
     if (!container) return;
 
     // Exclude street layers - they're controlled by radio buttons
-    const streetLayers = ['undrivenStreets', 'drivenStreets', 'allStreets'];
+    const streetLayers = ["undrivenStreets", "drivenStreets", "allStreets"];
 
     const sortedLayers = Object.entries(state.mapLayers)
       .filter(([name]) => !streetLayers.includes(name))
@@ -427,4 +427,3 @@ if (!window.EveryStreet) window.EveryStreet = {};
 window.EveryStreet.LayerManager = layerManager;
 
 export default layerManager;
-

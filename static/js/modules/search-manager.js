@@ -48,7 +48,7 @@ const searchManager = {
             this.hideClearButton();
           }
         }
-      }, 300)
+      }, 300),
     );
 
     // Keyboard navigation
@@ -61,7 +61,10 @@ const searchManager = {
         this.navigateResults(-1);
       } else if (e.key === "Enter") {
         e.preventDefault();
-        if (this.selectedIndex >= 0 && this.currentResults[this.selectedIndex]) {
+        if (
+          this.selectedIndex >= 0 &&
+          this.currentResults[this.selectedIndex]
+        ) {
           this.selectResult(this.currentResults[this.selectedIndex]);
         }
       } else if (e.key === "Escape") {
@@ -102,14 +105,17 @@ const searchManager = {
       // Determine if this is a street search or general geocoding
       const isStreetQuery = this.isStreetQuery(query);
       const selectedLocationId = utils.getStorage(
-        CONFIG.STORAGE_KEYS.selectedLocation
+        CONFIG.STORAGE_KEYS.selectedLocation,
       );
 
       let results = [];
 
       // If it looks like a street query and we have a location selected, try street search first
       if (isStreetQuery && selectedLocationId) {
-        const streetResults = await this.searchStreets(query, selectedLocationId);
+        const streetResults = await this.searchStreets(
+          query,
+          selectedLocationId,
+        );
         results = streetResults;
       }
 
@@ -156,7 +162,7 @@ const searchManager = {
   async searchStreets(query, locationId) {
     try {
       const response = await fetch(
-        `/api/search/streets?query=${encodeURIComponent(query)}&location_id=${locationId}&limit=10`
+        `/api/search/streets?query=${encodeURIComponent(query)}&location_id=${locationId}&limit=10`,
       );
 
       if (!response.ok) {
@@ -184,7 +190,7 @@ const searchManager = {
   async geocodeSearch(query) {
     try {
       const response = await fetch(
-        `/api/search/geocode?query=${encodeURIComponent(query)}&limit=5`
+        `/api/search/geocode?query=${encodeURIComponent(query)}&limit=5`,
       );
 
       if (!response.ok) {
@@ -200,14 +206,17 @@ const searchManager = {
           ? result.place_type[0]
           : result.type || "place";
         const isStreet = ["road", "street", "highway", "residential"].includes(
-          placeType
+          placeType,
         );
 
         return {
           type: isStreet ? "street" : "place",
           name: result.text || result.place_name || "Unknown",
           subtitle: result.place_name || result.display_name || "",
-          center: result.center || [parseFloat(result.lon), parseFloat(result.lat)],
+          center: result.center || [
+            parseFloat(result.lon),
+            parseFloat(result.lat),
+          ],
           bbox: result.bbox,
           osm_id: result.osm_id,
           osm_type: result.osm_type,
@@ -376,7 +385,7 @@ const searchManager = {
         const coordinates = geometry.coordinates;
         const bounds = coordinates.reduce(
           (bounds, coord) => bounds.extend(coord),
-          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
         );
 
         state.map.fitBounds(bounds, {
@@ -395,14 +404,14 @@ const searchManager = {
       window.notificationManager.show(
         `Highlighted: ${result.name}`,
         "success",
-        3000
+        3000,
       );
     } catch (error) {
       console.error("Error highlighting street:", error);
       window.notificationManager.show(
         "Failed to highlight street",
         "warning",
-        3000
+        3000,
       );
     }
   },
@@ -426,8 +435,8 @@ const searchManager = {
       .setLngLat([lng, lat])
       .setPopup(
         new mapboxgl.Popup({ offset: 25 }).setHTML(
-          `<strong>${result.name}</strong><br>${result.subtitle}`
-        )
+          `<strong>${result.name}</strong><br>${result.subtitle}`,
+        ),
       )
       .addTo(state.map);
 
@@ -444,7 +453,7 @@ const searchManager = {
           padding: 50,
           maxZoom: 15,
           duration: 1000,
-        }
+        },
       );
     } else {
       state.map.flyTo({
@@ -457,7 +466,7 @@ const searchManager = {
     window.notificationManager.show(
       `Navigated to: ${result.name}`,
       "success",
-      3000
+      3000,
     );
   },
 
@@ -488,7 +497,8 @@ const searchManager = {
   },
 
   showLoading() {
-    this.searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
+    this.searchResults.innerHTML =
+      '<div class="search-loading">Searching...</div>';
     this.searchResults.classList.remove("d-none");
   },
 
@@ -526,4 +536,3 @@ if (!window.EveryStreet) window.EveryStreet = {};
 window.EveryStreet.SearchManager = searchManager;
 
 export default searchManager;
-
