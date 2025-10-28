@@ -2,6 +2,28 @@ import { CONFIG } from "./config.js";
 import utils from "./utils.js";
 
 const dateUtils = {
+  /**
+   * Parse a date string (YYYY-MM-DD) into local midnight Date object
+   * This avoids timezone issues by explicitly setting to local midnight
+   */
+  parseDateString(dateStr) {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  },
+
+  /**
+   * Format a Date object to YYYY-MM-DD string in local timezone
+   */
+  formatDateToString(date) {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  },
+
   getStartDate() {
     return (
       utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate()
@@ -15,8 +37,7 @@ const dateUtils = {
   },
 
   getCurrentDate() {
-    const now = new Date();
-    return now.toISOString().split("T")[0];
+    return this.formatDateToString(new Date());
   },
 
   formatTimeFromHours(hours) {
@@ -35,21 +56,22 @@ const dateUtils = {
     if (cached && cached.start === currentStart && cached.end === currentEnd) {
       return {
         ...cached,
-        startDate: new Date(cached.start),
-        endDate: new Date(cached.end),
+        startDate: this.parseDateString(cached.start),
+        endDate: this.parseDateString(cached.end),
       };
     }
 
+    const startDate = this.parseDateString(currentStart);
+    const endDate = this.parseDateString(currentEnd);
     const range = {
       start: currentStart,
       end: currentEnd,
-      startDate: new Date(currentStart),
-      endDate: new Date(currentEnd),
+      startDate,
+      endDate,
       days:
-        Math.ceil(
-          (new Date(currentEnd) - new Date(currentStart)) /
-            (1000 * 60 * 60 * 24),
-        ) + 1,
+        startDate && endDate
+          ? Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
+          : 0,
     };
 
     utils.setStorage(cacheKey, range);
@@ -57,14 +79,14 @@ const dateUtils = {
   },
 
   formatForDisplay(dateString, options = { dateStyle: "medium" }) {
-    const date = new Date(dateString);
+    const date = this.parseDateString(dateString);
+    if (!date) return dateString;
     return date.toLocaleDateString(undefined, options);
   },
 
   isValidDateRange(start, end) {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    return startDate <= endDate;
+    if (!start || !end) return false;
+    return start <= end; // String comparison works for YYYY-MM-DD format
   },
 
   async getDateRangePreset(range) {
