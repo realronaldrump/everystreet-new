@@ -221,23 +221,51 @@ async def get_time_period_trips(request: Request):
                 detail="time_type must be 'hour' or 'day'",
             )
         
-        # Fetch trips with relevant fields
-        trips = await trips_collection.find(
-            query,
+        # Fetch trips with relevant fields, calculating duration if needed
+        pipeline = [
+            {"$match": query},
             {
-                "transactionId": 1,
-                "startTime": 1,
-                "endTime": 1,
-                "duration": 1,
-                "distance": 1,
-                "startLocation": 1,
-                "destination": 1,
-                "maxSpeed": 1,
-                "totalIdleDuration": 1,
-                "fuelConsumed": 1,
-                "timeZone": 1,
-            }
-        ).sort("startTime", -1).limit(100).to_list(length=100)
+                "$addFields": {
+                    "duration_seconds": {
+                        "$cond": {
+                            "if": {
+                                "$and": [
+                                    {"$ifNull": ["$startTime", False]},
+                                    {"$ifNull": ["$endTime", False]},
+                                    {"$lt": ["$startTime", "$endTime"]},
+                                ]
+                            },
+                            "then": {
+                                "$divide": [
+                                    {"$subtract": ["$endTime", "$startTime"]},
+                                    1000.0,
+                                ]
+                            },
+                            "else": {"$ifNull": ["$duration", 0]},
+                        }
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "transactionId": 1,
+                    "startTime": 1,
+                    "endTime": 1,
+                    "duration": "$duration_seconds",
+                    "distance": 1,
+                    "startLocation": 1,
+                    "destination": 1,
+                    "maxSpeed": 1,
+                    "totalIdleDuration": 1,
+                    "fuelConsumed": 1,
+                    "timeZone": 1,
+                }
+            },
+            {"$sort": {"startTime": -1}},
+            {"$limit": 100},
+        ]
+        
+        trips = await aggregate_with_retry(trips_collection, pipeline)
         
         return JSONResponse(content=convert_datetimes_to_isoformat(trips))
         
