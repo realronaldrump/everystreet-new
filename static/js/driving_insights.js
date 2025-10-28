@@ -698,7 +698,7 @@ if (typeof window !== "undefined") {
   function formatWeekRange(weekStr) {
     // Convert "2024-W10" to "Mar 4-10, 2024"
     if (!weekStr) return "N/A";
-    
+
     const [year, week] = weekStr.split("-W");
     const simple = new Date(year, 0, 1 + (week - 1) * 7);
     const dow = simple.getDay();
@@ -716,7 +716,7 @@ if (typeof window !== "undefined") {
   function formatMonth(monthStr) {
     // Convert "2024-03" to "March 2024"
     if (!monthStr) return "N/A";
-    
+
     const [year, month] = monthStr.split("-");
     const date = new Date(year, month - 1);
     return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -970,7 +970,15 @@ if (typeof window !== "undefined") {
     if (timeType === "hour") {
       modalTitle.textContent = `Trips at ${formatHourLabel(timeValue)} (${trips.length} trips)`;
     } else {
-      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const days = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ];
       modalTitle.textContent = `Trips on ${days[timeValue]} (${trips.length} trips)`;
     }
 
@@ -989,7 +997,9 @@ if (typeof window !== "undefined") {
             ? new Date(trip.endTime).toLocaleString()
             : "-";
           const duration = formatDuration(trip.duration || 0);
-          const distance = trip.distance ? `${trip.distance.toFixed(1)} mi` : "-";
+          const distance = trip.distance
+            ? `${trip.distance.toFixed(1)} mi`
+            : "-";
           const startLoc =
             trip.startLocation?.formatted_address ||
             trip.startLocation?.name ||
@@ -998,8 +1008,11 @@ if (typeof window !== "undefined") {
             trip.destination?.formatted_address ||
             trip.destination?.name ||
             "Unknown";
-          const maxSpeed = trip.maxSpeed ? `${trip.maxSpeed.toFixed(1)} mph` : "-";
-          const tripId = trip.transactionId || trip._id?.$oid || trip._id || "-";
+          const maxSpeed = trip.maxSpeed
+            ? `${trip.maxSpeed.toFixed(1)} mph`
+            : "-";
+          const tripId =
+            trip.transactionId || trip._id?.$oid || trip._id || "-";
 
           return `
           <tr>
@@ -1022,7 +1035,9 @@ if (typeof window !== "undefined") {
     }
 
     // Show the modal
-    const modal = new bootstrap.Modal(document.getElementById("tripDetailsModal"));
+    const modal = new bootstrap.Modal(
+      document.getElementById("tripDetailsModal"),
+    );
     modal.show();
   }
 

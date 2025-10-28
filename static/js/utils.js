@@ -360,7 +360,10 @@ const DateUtils = {
     if (dateValue instanceof Date) return new Date(dateValue);
 
     // Try parsing as YYYY-MM-DD string first (timezone-safe)
-    if (typeof dateValue === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    if (
+      typeof dateValue === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(dateValue)
+    ) {
       const parsed = this.parseDateString(dateValue);
       if (parsed && endOfDay) parsed.setHours(23, 59, 59, 999);
       return parsed;
@@ -383,7 +386,7 @@ const DateUtils = {
 
   formatDate(date, format = this.DEFAULT_FORMAT) {
     if (!date) return null;
-    
+
     if (format === this.DEFAULT_FORMAT) {
       // Use timezone-safe formatting for YYYY-MM-DD
       if (date instanceof Date) {
@@ -394,10 +397,10 @@ const DateUtils = {
         return date;
       }
     }
-    
+
     const parsedDate = this.parseDate(date);
     if (!parsedDate) return null;
-    
+
     return format === this.DEFAULT_FORMAT
       ? this.formatDateToString(parsedDate)
       : parsedDate.toISOString();
@@ -460,17 +463,25 @@ const DateUtils = {
             if (parsedDate) {
               startDate = parsedDate;
             } else {
-              console.warn("Failed to parse first trip date, using 1 year ago as fallback");
+              console.warn(
+                "Failed to parse first trip date, using 1 year ago as fallback",
+              );
               startDate = new Date(today);
               startDate.setFullYear(startDate.getFullYear() - 1);
             }
           } else {
-            console.warn(`API error fetching first trip date: ${response.status}, using 1 year ago as fallback`);
+            console.warn(
+              `API error fetching first trip date: ${response.status}, using 1 year ago as fallback`,
+            );
             startDate = new Date(today);
             startDate.setFullYear(startDate.getFullYear() - 1);
           }
         } catch (error) {
-          console.warn("Error fetching first trip date:", error, "- using 1 year ago as fallback");
+          console.warn(
+            "Error fetching first trip date:",
+            error,
+            "- using 1 year ago as fallback",
+          );
           startDate = new Date(today);
           startDate.setFullYear(startDate.getFullYear() - 1);
         }
