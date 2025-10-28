@@ -203,7 +203,7 @@ const mapManager = {
       }
 
       if (highlightRecent) {
-        colorExpr.push(["get", "isRecent"]);
+        colorExpr.push(["==", ["get", "isRecent"], true]);
         colorExpr.push(layerInfo.colorRecent || "#FFB703");
       }
 
@@ -229,7 +229,7 @@ const mapManager = {
         ]);
         widthExpr.push(baseWeight * 2);
       }
-      widthExpr.push(["get", "isRecent"]);
+      widthExpr.push(["==", ["get", "isRecent"], true]);
       widthExpr.push(baseWeight * 1.5);
       widthExpr.push(baseWeight);
 

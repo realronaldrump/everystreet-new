@@ -1220,6 +1220,81 @@ const STATUS = window.STATUS || {
 
       // Drag and drop for file imports
       this.setupDragAndDrop();
+
+      // Listen for theme changes
+      this.setupThemeListener();
+    }
+
+    setupThemeListener() {
+      // Use MutationObserver to watch for theme changes
+      if (typeof MutationObserver !== "undefined") {
+        const themeObserver = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (
+              mutation.type === "attributes" &&
+              mutation.attributeName === "data-bs-theme"
+            ) {
+              const newTheme =
+                document.documentElement.getAttribute("data-bs-theme");
+              this.updateCoverageMapTheme(newTheme);
+            }
+          });
+        });
+
+        themeObserver.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-bs-theme"],
+        });
+      }
+    }
+
+    updateCoverageMapTheme(theme) {
+      const styleUrl =
+        theme === "light"
+          ? "mapbox://styles/mapbox/light-v11"
+          : "mapbox://styles/mapbox/dark-v11";
+
+      // Update main coverage map
+      if (this.coverageMap && this.coverageMap.setStyle) {
+        // Preserve map view state
+        const center = this.coverageMap.getCenter();
+        const zoom = this.coverageMap.getZoom();
+        const bearing = this.coverageMap.getBearing();
+        const pitch = this.coverageMap.getPitch();
+
+        // Update style and restore view
+        this.coverageMap.once("styledata", () => {
+          this.coverageMap.jumpTo({ center, zoom, bearing, pitch });
+          setTimeout(() => this.coverageMap.resize(), 100);
+
+          // Re-add any custom layers if they exist
+          if (this.showTripsActive) {
+            this.setupTripLayers();
+          }
+        });
+
+        this.coverageMap.setStyle(styleUrl);
+      }
+
+      // Update drawing map if it exists
+      if (this.drawingMap && this.drawingMap.setStyle) {
+        const drawCenter = this.drawingMap.getCenter();
+        const drawZoom = this.drawingMap.getZoom();
+        const drawBearing = this.drawingMap.getBearing();
+        const drawPitch = this.drawingMap.getPitch();
+
+        this.drawingMap.once("styledata", () => {
+          this.drawingMap.jumpTo({
+            center: drawCenter,
+            zoom: drawZoom,
+            bearing: drawBearing,
+            pitch: drawPitch,
+          });
+          setTimeout(() => this.drawingMap.resize(), 100);
+        });
+
+        this.drawingMap.setStyle(styleUrl);
+      }
     }
 
     handleTableAction(button) {
@@ -3738,9 +3813,17 @@ const STATUS = window.STATUS || {
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
       try {
+        // Get current theme
+        const theme =
+          document.documentElement.getAttribute("data-bs-theme") || "dark";
+        const mapStyle =
+          theme === "light"
+            ? "mapbox://styles/mapbox/light-v11"
+            : "mapbox://styles/mapbox/dark-v11";
+
         const mapOptions = {
           container: "coverage-map",
-          style: "mapbox://styles/mapbox/dark-v11",
+          style: mapStyle,
           center: [0, 0],
           zoom: 1,
           minZoom: 0,
@@ -5307,9 +5390,17 @@ const STATUS = window.STATUS || {
       try {
         mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
+        // Get current theme
+        const theme =
+          document.documentElement.getAttribute("data-bs-theme") || "dark";
+        const mapStyle =
+          theme === "light"
+            ? "mapbox://styles/mapbox/light-v11"
+            : "mapbox://styles/mapbox/dark-v11";
+
         this.drawingMap = new mapboxgl.Map({
           container: "drawing-map",
-          style: "mapbox://styles/mapbox/dark-v11",
+          style: mapStyle,
           center: [-97.1467, 31.5494], // Default to Waco, TX
           zoom: 10,
           attributionControl: false,

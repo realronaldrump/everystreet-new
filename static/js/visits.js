@@ -2719,19 +2719,42 @@
     }
 
     updateMapTheme(theme) {
-      if (!this.map) return;
-
       const styleUrl =
         theme === "light"
           ? "mapbox://styles/mapbox/light-v11"
           : "mapbox://styles/mapbox/dark-v11";
 
-      this.map.setStyle(styleUrl);
+      // Update main map
+      if (this.map) {
+        const center = this.map.getCenter();
+        const zoom = this.map.getZoom();
+        const bearing = this.map.getBearing();
+        const pitch = this.map.getPitch();
 
-      // After style reload we need to re-add our custom places source/layers
-      this.map.once("styledata", () => {
-        this.reloadCustomPlacesLayers();
-      });
+        this.map.setStyle(styleUrl);
+
+        // After style reload we need to re-add our custom places source/layers
+        this.map.once("styledata", () => {
+          this.map.jumpTo({ center, zoom, bearing, pitch });
+          setTimeout(() => this.map.resize(), 100);
+          this.reloadCustomPlacesLayers();
+        });
+      }
+
+      // Update trip view map
+      if (this.tripViewMap) {
+        const center = this.tripViewMap.getCenter();
+        const zoom = this.tripViewMap.getZoom();
+        const bearing = this.tripViewMap.getBearing();
+        const pitch = this.tripViewMap.getPitch();
+
+        this.tripViewMap.once("styledata", () => {
+          this.tripViewMap.jumpTo({ center, zoom, bearing, pitch });
+          setTimeout(() => this.tripViewMap.resize(), 100);
+        });
+
+        this.tripViewMap.setStyle(styleUrl);
+      }
     }
 
     async loadSuggestions() {

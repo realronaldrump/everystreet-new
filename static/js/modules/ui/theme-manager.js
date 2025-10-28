@@ -1,4 +1,5 @@
 import { UI_CONFIG as CONFIG } from "../ui-config.js";
+import { CONFIG as MAP_CONFIG } from "../config.js";
 import uiState from "../ui-state.js";
 import utils from "../ui-utils.js";
 import eventManager from "./event-manager.js";
@@ -67,8 +68,8 @@ const themeManager = {
     const bearing = window.map.getBearing();
     const pitch = window.map.getPitch();
 
-    if (window.CONFIG?.MAP?.styles?.[theme]) {
-      const styleUrl = window.CONFIG.MAP.styles[theme];
+    if (MAP_CONFIG?.MAP?.styles?.[theme]) {
+      const styleUrl = MAP_CONFIG.MAP.styles[theme];
       const restoreState = () => {
         window.map.jumpTo({ center, zoom, bearing, pitch });
         setTimeout(() => window.map.resize(), 100);
