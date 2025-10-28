@@ -1505,10 +1505,12 @@
           document.getElementById("remap-interval-select").value,
           10,
         );
-        start_date = new Date();
-        start_date.setDate(start_date.getDate() - interval_days);
-        start_date = start_date.toISOString().split("T")[0];
-        end_date = new Date().toISOString().split("T")[0];
+        const startDateObj = new Date();
+        startDateObj.setDate(startDateObj.getDate() - interval_days);
+        start_date = window.DateUtils?.formatDateToString(startDateObj) || 
+          startDateObj.toISOString().split("T")[0];
+        end_date = window.DateUtils?.formatDateToString(new Date()) || 
+          new Date().toISOString().split("T")[0];
       }
 
       try {

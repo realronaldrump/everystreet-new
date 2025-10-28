@@ -333,9 +333,38 @@ const DateUtils = {
   DEFAULT_FORMAT: "YYYY-MM-DD",
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 
+  /**
+   * Parse a date string (YYYY-MM-DD) into local midnight Date object
+   * This avoids timezone issues by explicitly using local timezone
+   */
+  parseDateString(dateStr) {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  },
+
+  /**
+   * Format a Date object to YYYY-MM-DD string in local timezone
+   */
+  formatDateToString(date) {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  },
+
   parseDate(dateValue, endOfDay = false) {
     if (!dateValue) return null;
     if (dateValue instanceof Date) return new Date(dateValue);
+
+    // Try parsing as YYYY-MM-DD string first (timezone-safe)
+    if (typeof dateValue === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      const parsed = this.parseDateString(dateValue);
+      if (parsed && endOfDay) parsed.setHours(23, 59, 59, 999);
+      return parsed;
+    }
 
     try {
       const date = new Date(dateValue);
@@ -353,16 +382,35 @@ const DateUtils = {
   },
 
   formatDate(date, format = this.DEFAULT_FORMAT) {
+    if (!date) return null;
+    
+    if (format === this.DEFAULT_FORMAT) {
+      // Use timezone-safe formatting for YYYY-MM-DD
+      if (date instanceof Date) {
+        return this.formatDateToString(date);
+      }
+      // If it's already a string in correct format, return as-is
+      if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return date;
+      }
+    }
+    
     const parsedDate = this.parseDate(date);
     if (!parsedDate) return null;
-
+    
     return format === this.DEFAULT_FORMAT
-      ? parsedDate.toISOString().split("T")[0]
+      ? this.formatDateToString(parsedDate)
       : parsedDate.toISOString();
   },
 
   getCurrentDate(format = this.DEFAULT_FORMAT) {
-    return this.formatDate(new Date(), format);
+    return this.formatDateToString(new Date());
+  },
+
+  getYesterday(format = this.DEFAULT_FORMAT) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return this.formatDateToString(yesterday);
   },
 
   async getDateRangePreset(preset) {
@@ -544,6 +592,11 @@ const DateUtils = {
   },
 
   isValidDateRange(startDate, endDate) {
+    if (!startDate || !endDate) return false;
+    // String comparison works correctly for YYYY-MM-DD format
+    if (typeof startDate === "string" && typeof endDate === "string") {
+      return startDate <= endDate;
+    }
     const start = this.parseDate(startDate);
     const end = this.parseDate(endDate);
     return start && end && start <= end;

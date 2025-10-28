@@ -675,7 +675,14 @@ if (typeof window !== "undefined") {
   }
 
   function formatDate(date) {
-    return date.toISOString().split("T")[0];
+    if (window.DateUtils && window.DateUtils.formatDateToString) {
+      return window.DateUtils.formatDateToString(date);
+    }
+    // Fallback to manual formatting (timezone-safe)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   function formatWeekRange(weekStr) {
@@ -743,7 +750,7 @@ if (typeof window !== "undefined") {
       if (state.currentView === "weekly") {
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
-        key = weekStart.toISOString().split("T")[0];
+        key = formatDate(weekStart);
       } else {
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       }
@@ -844,7 +851,7 @@ if (typeof window !== "undefined") {
     const url = canvas.toDataURL("image/png");
     const a = document.createElement("a");
     a.href = url;
-    a.download = `driving-trends-${new Date().toISOString().split("T")[0]}.png`;
+    a.download = `driving-trends-${formatDate(new Date())}.png`;
     a.click();
   }
 
@@ -861,7 +868,7 @@ if (typeof window !== "undefined") {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `driving-analytics-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `driving-analytics-${formatDate(new Date())}.csv`;
     a.click();
   }
 

@@ -40,6 +40,12 @@ const dateUtils = {
     return this.formatDateToString(new Date());
   },
 
+  getYesterday() {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return this.formatDateToString(yesterday);
+  },
+
   formatTimeFromHours(hours) {
     if (hours === null || typeof hours === "undefined") return "0h 0m";
     const h = Math.floor(hours);
@@ -91,7 +97,6 @@ const dateUtils = {
 
   async getDateRangePreset(range) {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
     let startDate, endDate;
 
     switch (range) {
@@ -129,25 +134,25 @@ const dateUtils = {
           const res = await fetch("/api/first_trip_date");
           if (res.ok) {
             const data = await res.json();
-            startDate = new Date(data.first_trip_date || "2000-01-01");
-            endDate = new Date(today);
-          } else {
-            startDate = new Date("2000-01-01");
-            endDate = new Date(today);
+            if (data.first_trip_date) {
+              startDate = this.parseDateString(data.first_trip_date);
+            }
           }
         } catch (error) {
           void error;
-          startDate = new Date("2000-01-01");
-          endDate = new Date(today);
         }
+        if (!startDate) {
+          startDate = new Date(2000, 0, 1);
+        }
+        endDate = new Date(today);
         break;
       default:
         return {};
     }
 
     return {
-      startDate: startDate.toISOString().split("T")[0],
-      endDate: endDate.toISOString().split("T")[0],
+      startDate: this.formatDateToString(startDate),
+      endDate: this.formatDateToString(endDate),
     };
   },
 
