@@ -8,6 +8,7 @@ import logging
 from typing import Any
 
 import aiohttp
+from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
 
 from config import MAPBOX_ACCESS_TOKEN
@@ -16,7 +17,6 @@ from db import (
     find_one_with_retry,
     streets_collection,
 )
-from bson import ObjectId
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,8 @@ async def geocode_search(
     query: str = Query(..., description="Search query (place, address, or street)"),
     limit: int = Query(5, ge=1, le=20, description="Maximum number of results"),
     use_mapbox: bool = Query(
-        None, description="Force Mapbox geocoding (True) or Nominatim (False). Default prefers Mapbox if configured."
+        None,
+        description="Force Mapbox geocoding (True) or Nominatim (False). Default prefers Mapbox if configured.",
     ),
     proximity_lon: float = Query(None, description="Longitude to bias results toward"),
     proximity_lat: float = Query(None, description="Latitude to bias results toward"),
@@ -53,7 +54,9 @@ async def geocode_search(
 
     """
     if not query or len(query.strip()) < 2:
-        raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
+        raise HTTPException(
+            status_code=400, detail="Query must be at least 2 characters"
+        )
 
     logger.debug("Geocoding search for: %s (use_mapbox=%s)", query, use_mapbox)
 
@@ -62,9 +65,11 @@ async def geocode_search(
         proximity = None
         if proximity_lon is not None and proximity_lat is not None:
             proximity = (proximity_lon, proximity_lat)
-        
+
         # Prefer Mapbox if token is configured unless explicitly disabled
-        prefer_mapbox = MAPBOX_ACCESS_TOKEN and (use_mapbox is None or use_mapbox is True)
+        prefer_mapbox = MAPBOX_ACCESS_TOKEN and (
+            use_mapbox is None or use_mapbox is True
+        )
         if prefer_mapbox:
             results = await _search_mapbox(query, limit, proximity=proximity)
         else:
@@ -103,12 +108,12 @@ async def search_streets(
 
     """
     if not query or len(query.strip()) < 2:
-        raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
+        raise HTTPException(
+            status_code=400, detail="Query must be at least 2 characters"
+        )
 
     query_lower = query.strip().lower()
-    logger.debug(
-        "Street search for: %s (location_id=%s)", query_lower, location_id
-    )
+    logger.debug("Street search for: %s (location_id=%s)", query_lower, location_id)
 
     try:
         features: list[dict] = []
@@ -178,7 +183,10 @@ async def get_street_geometry(location_id: str, street_name: str):
 
 
 async def _search_nominatim(
-    query: str, limit: int = 5, addressdetails: bool = True, proximity: tuple[float, float] | None = None
+    query: str,
+    limit: int = 5,
+    addressdetails: bool = True,
+    proximity: tuple[float, float] | None = None,
 ) -> list[dict[str, Any]]:
     """Search using Nominatim (OpenStreetMap) geocoding API.
 
@@ -199,7 +207,7 @@ async def _search_nominatim(
         "addressdetails": 1 if addressdetails else 0,
         "countrycodes": "us",  # Limit to United States
     }
-    
+
     # Add viewbox to bias toward US/Texas region
     if proximity:
         # Create a viewbox around the proximity point (approximately 200km radius)
@@ -208,7 +216,9 @@ async def _search_nominatim(
         params["bounded"] = 1
     else:
         # Default viewbox covering United States
-        params["viewbox"] = "-125,49,-66,24"  # US bounding box (west, north, east, south)
+        params["viewbox"] = (
+            "-125,49,-66,24"  # US bounding box (west, north, east, south)
+        )
 
     async with aiohttp.ClientSession() as session:
         async with session.get(
@@ -241,7 +251,9 @@ async def _search_nominatim(
             return normalized
 
 
-async def _search_mapbox(query: str, limit: int = 5, proximity: tuple[float, float] | None = None) -> list[dict[str, Any]]:
+async def _search_mapbox(
+    query: str, limit: int = 5, proximity: tuple[float, float] | None = None
+) -> list[dict[str, Any]]:
     """Search using Mapbox Geocoding API.
 
     Args:
@@ -263,14 +275,14 @@ async def _search_mapbox(query: str, limit: int = 5, proximity: tuple[float, flo
         "limit": limit,
         "country": "US",  # Limit to United States
     }
-    
+
     # Add proximity parameter to bias toward user's location (e.g., Texas)
     if proximity:
         params["proximity"] = f"{proximity[0]},{proximity[1]}"
     else:
         # Default to Texas center if no proximity provided
         params["proximity"] = "-99.9018,31.9686"  # Texas center coordinates
-    
+
     async with aiohttp.ClientSession() as session:
         async with session.get(url, params=params, timeout=10) as response:
             response.raise_for_status()
@@ -369,9 +381,7 @@ async def _search_streets_in_coverage(
 
     location_name = coverage_area["location"].get("display_name")
     if not location_name:
-        logger.warning(
-            "Coverage area %s missing display_name in location", location_id
-        )
+        logger.warning("Coverage area %s missing display_name in location", location_id)
         return []
 
     # Query streets collection for matching street_name within this location
@@ -403,4 +413,3 @@ async def _search_streets_in_coverage(
     )
 
     return features
-
