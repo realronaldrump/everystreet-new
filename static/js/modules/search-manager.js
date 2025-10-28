@@ -176,10 +176,14 @@ const searchManager = {
           feature.properties.name ||
           "Unnamed Street";
         
+        // Add segment count to subtitle if available
+        const segmentCount = feature.properties.segment_count;
+        const segmentInfo = segmentCount ? ` • ${segmentCount} segment${segmentCount > 1 ? 's' : ''}` : '';
+        
         return {
           type: "street",
           name: streetName,
-          subtitle: `${locationName}`,
+          subtitle: `${locationName}${segmentInfo}`,
           geometry: feature.geometry,
           feature: feature,
           locationId: locationId,
@@ -442,7 +446,7 @@ const searchManager = {
         });
       }
 
-      // Fit bounds to the street
+      // Fit bounds to the street - handle both LineString and MultiLineString
       if (geometry.type === "LineString") {
         const coordinates = geometry.coordinates;
         const bounds = coordinates.reduce(
@@ -455,6 +459,21 @@ const searchManager = {
           maxZoom: 16,
           duration: 1000,
         });
+      } else if (geometry.type === "MultiLineString") {
+        // For MultiLineString, flatten all coordinates and compute bounds
+        const allCoordinates = geometry.coordinates.flat();
+        if (allCoordinates.length > 0) {
+          const bounds = allCoordinates.reduce(
+            (bounds, coord) => bounds.extend(coord),
+            new mapboxgl.LngLatBounds(allCoordinates[0], allCoordinates[0])
+          );
+
+          state.map.fitBounds(bounds, {
+            padding: 100,
+            maxZoom: 16,
+            duration: 1000,
+          });
+        }
       } else if (geometry.type === "Point") {
         state.map.flyTo({
           center: geometry.coordinates,
@@ -463,8 +482,13 @@ const searchManager = {
         });
       }
 
+      // Show additional info if available
+      const segmentInfo = result.feature?.properties?.segment_count 
+        ? ` (${result.feature.properties.segment_count} segments)` 
+        : '';
+      
       window.notificationManager.show(
-        `Highlighted: ${result.name}`,
+        `Highlighted: ${result.name}${segmentInfo}`,
         "success",
         3000
       );

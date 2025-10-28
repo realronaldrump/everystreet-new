@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from config import MAPBOX_ACCESS_TOKEN
 from db import (
+    aggregate_with_retry,
     coverage_metadata_collection,
     find_one_with_retry,
     streets_collection,
@@ -296,39 +297,86 @@ async def _search_mapbox(query: str, limit: int = 5, proximity: tuple[float, flo
 async def _search_streets_all_locations(
     query: str, limit: int = 10
 ) -> list[dict[str, Any]]:
-    """Search for streets across all coverage areas.
+    """Search for streets across all coverage areas, grouping segments by street name.
 
     Args:
         query: Street name query (lowercase)
-        limit: Maximum results
+        limit: Maximum results (applies to unique street names, not segments)
 
     Returns:
-        List of GeoJSON features for matching streets
+        List of GeoJSON features with combined geometries per street name
 
     """
-    # Query streets collection for matching street_name across ALL locations
-    # Use case-insensitive regex match, limit fields for efficiency
-    cursor = streets_collection.find(
+    # Use aggregation to group segments by street_name and location
+    pipeline = [
         {
-            "properties.street_name": {"$regex": query, "$options": "i"},
+            "$match": {
+                "properties.street_name": {"$regex": query, "$options": "i"},
+            }
         },
         {
-            "_id": 0,
-            "geometry": 1,
-            "properties.segment_id": 1,
-            "properties.street_name": 1,
-            "properties.highway": 1,
-            "properties.segment_length": 1,
-            "properties.driven": 1,
-            "properties.undriveable": 1,
-            "properties.location": 1,
+            "$group": {
+                "_id": {
+                    "street_name": "$properties.street_name",
+                    "location": "$properties.location",
+                },
+                "geometries": {"$push": "$geometry"},
+                "highway": {"$first": "$properties.highway"},
+                "total_length": {"$sum": "$properties.segment_length"},
+                "segment_count": {"$sum": 1},
+                "driven_count": {
+                    "$sum": {"$cond": ["$properties.driven", 1, 0]}
+                },
+            }
         },
-    ).limit(limit)
+        {"$limit": limit},
+        {
+            "$project": {
+                "street_name": "$_id.street_name",
+                "location": "$_id.location",
+                "geometries": 1,
+                "highway": 1,
+                "total_length": 1,
+                "segment_count": 1,
+                "driven_count": 1,
+            }
+        },
+    ]
 
-    features = await cursor.to_list(length=limit)
+    grouped_streets = await aggregate_with_retry(
+        streets_collection, pipeline, batch_size=limit
+    )
+
+    # Convert to GeoJSON features with MultiLineString geometries
+    features = []
+    for street in grouped_streets:
+        # Combine all LineString geometries into a MultiLineString
+        coordinates = []
+        for geom in street.get("geometries", []):
+            if geom.get("type") == "LineString":
+                coordinates.append(geom.get("coordinates", []))
+
+        if coordinates:
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "MultiLineString",
+                        "coordinates": coordinates,
+                    },
+                    "properties": {
+                        "street_name": street.get("street_name"),
+                        "location": street.get("location"),
+                        "highway": street.get("highway"),
+                        "segment_count": street.get("segment_count", 0),
+                        "total_length": street.get("total_length", 0),
+                        "driven_count": street.get("driven_count", 0),
+                    },
+                }
+            )
 
     logger.debug(
-        "Found %d streets matching '%s' across all locations",
+        "Found %d unique streets (from segments) matching '%s' across all locations",
         len(features),
         query,
     )
@@ -339,15 +387,15 @@ async def _search_streets_all_locations(
 async def _search_streets_in_coverage(
     query: str, location_id: str, limit: int = 10
 ) -> list[dict[str, Any]]:
-    """Search for streets within a specific coverage area.
+    """Search for streets within a specific coverage area, grouping segments by street name.
 
     Args:
         query: Street name query (lowercase)
         location_id: Coverage area ID
-        limit: Maximum results
+        limit: Maximum results (applies to unique street names, not segments)
 
     Returns:
-        List of GeoJSON features for matching streets
+        List of GeoJSON features with combined geometries per street name
 
     """
     # First, verify the coverage area exists and get its display name
@@ -374,29 +422,73 @@ async def _search_streets_in_coverage(
         )
         return []
 
-    # Query streets collection for matching street_name within this location
-    # Use case-insensitive regex match, limit fields for efficiency
-    cursor = streets_collection.find(
+    # Use aggregation to group segments by street_name
+    pipeline = [
         {
-            "properties.location": location_name,
-            "properties.street_name": {"$regex": query, "$options": "i"},
+            "$match": {
+                "properties.location": location_name,
+                "properties.street_name": {"$regex": query, "$options": "i"},
+            }
         },
         {
-            "_id": 0,
-            "geometry": 1,
-            "properties.segment_id": 1,
-            "properties.street_name": 1,
-            "properties.highway": 1,
-            "properties.segment_length": 1,
-            "properties.driven": 1,
-            "properties.undriveable": 1,
+            "$group": {
+                "_id": "$properties.street_name",
+                "geometries": {"$push": "$geometry"},
+                "highway": {"$first": "$properties.highway"},
+                "total_length": {"$sum": "$properties.segment_length"},
+                "segment_count": {"$sum": 1},
+                "driven_count": {
+                    "$sum": {"$cond": ["$properties.driven", 1, 0]}
+                },
+            }
         },
-    ).limit(limit)
+        {"$limit": limit},
+        {
+            "$project": {
+                "street_name": "$_id",
+                "geometries": 1,
+                "highway": 1,
+                "total_length": 1,
+                "segment_count": 1,
+                "driven_count": 1,
+            }
+        },
+    ]
 
-    features = await cursor.to_list(length=limit)
+    grouped_streets = await aggregate_with_retry(
+        streets_collection, pipeline, batch_size=limit
+    )
+
+    # Convert to GeoJSON features with MultiLineString geometries
+    features = []
+    for street in grouped_streets:
+        # Combine all LineString geometries into a MultiLineString
+        coordinates = []
+        for geom in street.get("geometries", []):
+            if geom.get("type") == "LineString":
+                coordinates.append(geom.get("coordinates", []))
+
+        if coordinates:
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "MultiLineString",
+                        "coordinates": coordinates,
+                    },
+                    "properties": {
+                        "street_name": street.get("street_name"),
+                        "location": location_name,
+                        "highway": street.get("highway"),
+                        "segment_count": street.get("segment_count", 0),
+                        "total_length": street.get("total_length", 0),
+                        "driven_count": street.get("driven_count", 0),
+                    },
+                }
+            )
 
     logger.debug(
-        "Found %d streets matching '%s' in location %s",
+        "Found %d unique streets (from segments) matching '%s' in location %s",
         len(features),
         query,
         location_id,
