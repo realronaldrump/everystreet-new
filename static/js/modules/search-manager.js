@@ -29,13 +29,16 @@ const searchManager = {
     }
 
     this.setupEventListeners();
-    
+
     // Reposition dropdown on window resize or scroll
-    window.addEventListener("resize", utils.debounce(() => {
-      if (!this.searchResults.classList.contains("d-none")) {
-        this.positionDropdown();
-      }
-    }, 100));
+    window.addEventListener(
+      "resize",
+      utils.debounce(() => {
+        if (!this.searchResults.classList.contains("d-none")) {
+          this.positionDropdown();
+        }
+      }, 100),
+    );
 
     // Reposition on scroll of parent containers
     const controlPanel = document.getElementById("map-controls");
@@ -66,7 +69,7 @@ const searchManager = {
             this.hideClearButton();
           }
         }
-      }, 300)
+      }, 300),
     );
 
     // Keyboard navigation
@@ -80,11 +83,19 @@ const searchManager = {
       } else if (e.key === "Enter") {
         e.preventDefault();
         const index =
-          this.selectedIndex >= 0 ? this.selectedIndex : (this.currentResults.length > 0 ? 0 : -1);
+          this.selectedIndex >= 0
+            ? this.selectedIndex
+            : this.currentResults.length > 0
+              ? 0
+              : -1;
         if (index >= 0 && this.currentResults[index]) {
           this.selectResult(this.currentResults[index]);
         } else {
-          window.notificationManager?.show("No results to select", "warning", 2000);
+          window.notificationManager?.show(
+            "No results to select",
+            "warning",
+            2000,
+          );
         }
       } else if (e.key === "Escape") {
         this.hideResults();
@@ -123,7 +134,7 @@ const searchManager = {
       this.showLoading();
 
       const selectedLocationId = utils.getStorage(
-        CONFIG.STORAGE_KEYS.selectedLocation
+        CONFIG.STORAGE_KEYS.selectedLocation,
       );
 
       let results = [];
@@ -148,7 +159,11 @@ const searchManager = {
     } catch (error) {
       console.error("Search error:", error);
       this.showError("Search failed. Please try again.");
-      window.notificationManager?.show("Search failed. Please try again.", "danger", 2500);
+      window.notificationManager?.show(
+        "Search failed. Please try again.",
+        "danger",
+        2500,
+      );
     }
   },
 
@@ -171,11 +186,14 @@ const searchManager = {
 
       // Convert to result format (use street_name if present, fallback to name)
       return features.map((feature) => {
-        const locationName = feature.properties.location || (locationId ? `Location ${locationId}` : "Unknown location");
-        const streetName = feature.properties.street_name ||
+        const locationName =
+          feature.properties.location ||
+          (locationId ? `Location ${locationId}` : "Unknown location");
+        const streetName =
+          feature.properties.street_name ||
           feature.properties.name ||
           "Unnamed Street";
-        
+
         return {
           type: "street",
           name: streetName,
@@ -201,7 +219,7 @@ const searchManager = {
       }
 
       const response = await fetch(
-        `/api/search/geocode?query=${encodeURIComponent(query)}&limit=5${proximityParams}`
+        `/api/search/geocode?query=${encodeURIComponent(query)}&limit=5${proximityParams}`,
       );
 
       if (!response.ok) {
@@ -217,14 +235,17 @@ const searchManager = {
           ? result.place_type[0]
           : result.type || "place";
         const isStreet = ["road", "street", "highway", "residential"].includes(
-          placeType
+          placeType,
         );
 
         return {
           type: isStreet ? "street" : "place",
           name: result.text || result.place_name || "Unknown",
           subtitle: result.place_name || result.display_name || "",
-          center: result.center || [parseFloat(result.lon), parseFloat(result.lat)],
+          center: result.center || [
+            parseFloat(result.lon),
+            parseFloat(result.lat),
+          ],
           bbox: result.bbox,
           osm_id: result.osm_id,
           osm_type: result.osm_type,
@@ -292,7 +313,9 @@ const searchManager = {
     const spaceAbove = inputRect.top;
 
     // Determine if dropdown should appear above or below
-    const showAbove = spaceBelow < Math.min(dropdownHeight + 20, 200) && spaceAbove > spaceBelow;
+    const showAbove =
+      spaceBelow < Math.min(dropdownHeight + 20, 200) &&
+      spaceAbove > spaceBelow;
 
     if (showAbove) {
       // Position above the input
@@ -330,7 +353,7 @@ const searchManager = {
 
     // Remove previous selection
     const previousIndex = this.selectedIndex;
-    
+
     this.selectedIndex += direction;
 
     if (this.selectedIndex < 0) {
@@ -340,11 +363,14 @@ const searchManager = {
     }
 
     this.updateSelectedItem();
-    
+
     // Announce to screen readers
-    if (this.selectedIndex !== previousIndex && this.currentResults[this.selectedIndex]) {
+    if (
+      this.selectedIndex !== previousIndex &&
+      this.currentResults[this.selectedIndex]
+    ) {
       const result = this.currentResults[this.selectedIndex];
-      utils.announce(`${result.type}: ${result.name}`, 'polite');
+      utils.announce(`${result.type}: ${result.name}`, "polite");
     }
   },
 
@@ -447,7 +473,7 @@ const searchManager = {
         const coordinates = geometry.coordinates;
         const bounds = coordinates.reduce(
           (bounds, coord) => bounds.extend(coord),
-          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
         );
 
         state.map.fitBounds(bounds, {
@@ -466,14 +492,14 @@ const searchManager = {
       window.notificationManager.show(
         `Highlighted: ${result.name}`,
         "success",
-        3000
+        3000,
       );
     } catch (error) {
       console.error("Error highlighting street:", error);
       window.notificationManager.show(
         "Failed to highlight street",
         "warning",
-        3000
+        3000,
       );
     }
   },
@@ -497,8 +523,8 @@ const searchManager = {
       .setLngLat([lng, lat])
       .setPopup(
         new mapboxgl.Popup({ offset: 25 }).setHTML(
-          `<strong>${result.name}</strong><br>${result.subtitle}`
-        )
+          `<strong>${result.name}</strong><br>${result.subtitle}`,
+        ),
       )
       .addTo(state.map);
 
@@ -515,7 +541,7 @@ const searchManager = {
           padding: 50,
           maxZoom: 15,
           duration: 1000,
-        }
+        },
       );
     } else {
       state.map.flyTo({
@@ -528,7 +554,7 @@ const searchManager = {
     window.notificationManager.show(
       `Navigated to: ${result.name}`,
       "success",
-      3000
+      3000,
     );
   },
 
@@ -559,7 +585,8 @@ const searchManager = {
   },
 
   showLoading() {
-    this.searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
+    this.searchResults.innerHTML =
+      '<div class="search-loading">Searching...</div>';
     this.positionDropdown();
     this.searchResults.classList.remove("d-none");
   },
@@ -600,4 +627,3 @@ if (!window.EveryStreet) window.EveryStreet = {};
 window.EveryStreet.SearchManager = searchManager;
 
 export default searchManager;
-
