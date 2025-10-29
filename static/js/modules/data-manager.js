@@ -6,7 +6,193 @@ import metricsManager from "./metrics-manager.js";
 import mapManager from "./map-manager.js";
 import { CONFIG } from "./config.js";
 
+const DEFAULT_HEATMAP_STOPS = CONFIG.LAYER_DEFAULTS?.trips?.heatmapStops || [
+  [0, "#331107"],
+  [0.08, "#651500"],
+  [0.2, "#A23403"],
+  [0.45, "#E04B12"],
+  [0.7, "#F67E26"],
+  [1, "#FFEFA0"],
+];
+
+const DEFAULT_HEATMAP_PRECISION =
+  CONFIG.LAYER_DEFAULTS?.trips?.heatmapPrecision ?? 5;
+
+const makeSegmentKey = (a, b, precision = DEFAULT_HEATMAP_PRECISION) => {
+  if (!Array.isArray(a) || !Array.isArray(b)) return null;
+  if (a.length < 2 || b.length < 2) return null;
+  const factor = 10 ** precision;
+  const ax = Math.round(Number(a[0]) * factor) / factor;
+  const ay = Math.round(Number(a[1]) * factor) / factor;
+  const bx = Math.round(Number(b[0]) * factor) / factor;
+  const by = Math.round(Number(b[1]) * factor) / factor;
+  if (!Number.isFinite(ax) || !Number.isFinite(ay)) return null;
+  if (!Number.isFinite(bx) || !Number.isFinite(by)) return null;
+  const keyA = `${ax.toFixed(precision)}:${ay.toFixed(precision)}`;
+  const keyB = `${bx.toFixed(precision)}:${by.toFixed(precision)}`;
+  return keyA <= keyB ? `${keyA}|${keyB}` : `${keyB}|${keyA}`;
+};
+
+const getGeometryCoordinateSets = (geometry) => {
+  if (!geometry) return [];
+  if (geometry.type === "LineString") {
+    return [Array.isArray(geometry.coordinates) ? geometry.coordinates : []];
+  }
+  if (geometry.type === "MultiLineString") {
+    return Array.isArray(geometry.coordinates) ? geometry.coordinates : [];
+  }
+  return [];
+};
+
+const normalizeHeatValue = (value, maxValue) => {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  if (!Number.isFinite(maxValue) || maxValue <= 0) return 0;
+  if (maxValue === 1) return Math.min(1, value);
+  const numerator = Math.log(value + 1);
+  const denominator = Math.log(maxValue + 1);
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) {
+    return Math.min(1, value / maxValue);
+  }
+  return Math.min(1, numerator / denominator);
+};
+
+const buildHeatmapExpression = (stops) => {
+  if (!Array.isArray(stops) || stops.length === 0) return null;
+  const sanitizedStops = stops
+    .filter((stop) =>
+      Array.isArray(stop) && stop.length >= 2 && Number.isFinite(stop[0]) && typeof stop[1] === "string",
+    )
+    .map(([value, color]) => [Math.max(0, Math.min(1, value)), color])
+    .sort((a, b) => a[0] - b[0]);
+
+  if (sanitizedStops.length < 2) return null;
+
+  const flattenedStops = sanitizedStops.flat();
+
+  return [
+    "interpolate",
+    ["linear"],
+    ["coalesce", ["get", "heatIntensity"], 0],
+    ...flattenedStops,
+  ];
+};
+
+const ensureFeatureProperties = (feature) => {
+  if (!feature) return {};
+  if (!feature.properties || typeof feature.properties !== "object") {
+    // eslint-disable-next-line no-param-reassign
+    feature.properties = {};
+  }
+  return feature.properties;
+};
+
 const dataManager = {
+  applyTripHeatmap(collection) {
+    const features = Array.isArray(collection?.features)
+      ? collection.features
+      : Array.isArray(collection)
+        ? collection
+        : [];
+
+    if (!features.length) return null;
+
+    const precision =
+      state.mapLayers?.trips?.heatmapPrecision ?? DEFAULT_HEATMAP_PRECISION;
+
+    const segmentCounts = new Map();
+
+    features.forEach((feature) => {
+      const coordinateSets = getGeometryCoordinateSets(feature.geometry);
+      coordinateSets.forEach((coords) => {
+        if (!Array.isArray(coords) || coords.length < 2) return;
+        for (let i = 0; i < coords.length - 1; i += 1) {
+          const key = makeSegmentKey(coords[i], coords[i + 1], precision);
+          if (!key) continue;
+          segmentCounts.set(key, (segmentCounts.get(key) || 0) + 1);
+        }
+      });
+    });
+
+    if (segmentCounts.size === 0) {
+      features.forEach((feature) => {
+        const props = ensureFeatureProperties(feature);
+        props.heatIntensity = 0;
+        props.heatWeight = 0;
+      });
+      return null;
+    }
+
+    let maxCount = 0;
+    let minCount = Number.POSITIVE_INFINITY;
+
+    segmentCounts.forEach((count) => {
+      if (!Number.isFinite(count)) return;
+      if (count > maxCount) maxCount = count;
+      if (count < minCount) minCount = count;
+    });
+
+    if (!Number.isFinite(maxCount) || maxCount <= 0) {
+      features.forEach((feature) => {
+        const props = ensureFeatureProperties(feature);
+        props.heatIntensity = 0;
+        props.heatWeight = 0;
+      });
+      return null;
+    }
+
+    features.forEach((feature) => {
+      const coordinateSets = getGeometryCoordinateSets(feature.geometry);
+      let featureMax = 0;
+      let featureSum = 0;
+      let segmentCounter = 0;
+
+      coordinateSets.forEach((coords) => {
+        if (!Array.isArray(coords) || coords.length < 2) return;
+        for (let i = 0; i < coords.length - 1; i += 1) {
+          const key = makeSegmentKey(coords[i], coords[i + 1], precision);
+          if (!key) continue;
+          const value = segmentCounts.get(key) || 0;
+          featureMax = Math.max(featureMax, value);
+          featureSum += value;
+          segmentCounter += 1;
+        }
+      });
+
+      const average = segmentCounter > 0 ? featureSum / segmentCounter : 0;
+      const intensitySource = featureMax || average;
+      const normalized = normalizeHeatValue(intensitySource, maxCount);
+      const props = ensureFeatureProperties(feature);
+      props.heatIntensity = Number.isFinite(normalized)
+        ? Number(normalized.toFixed(4))
+        : 0;
+      props.heatWeight = intensitySource;
+    });
+
+    const stops =
+      (state.mapLayers?.trips?.heatmapStops &&
+        state.mapLayers.trips.heatmapStops.length > 0
+        ? state.mapLayers.trips.heatmapStops
+        : DEFAULT_HEATMAP_STOPS);
+    const colorExpression = buildHeatmapExpression(stops);
+
+    if (colorExpression && state.mapLayers?.trips) {
+      state.mapLayers.trips.color = colorExpression;
+      state.mapLayers.trips.colorStops = stops;
+    }
+
+    const stats = {
+      maxCount,
+      minCount: Number.isFinite(minCount) ? minCount : 0,
+      totalSegments: segmentCounts.size,
+      precision,
+    };
+
+    if (state.mapLayers?.trips) {
+      state.mapLayers.trips.heatmapStats = stats;
+    }
+
+    return stats;
+  },
   async fetchTrips() {
     if (!state.mapInitialized) return null;
 
@@ -50,6 +236,12 @@ const dataManager = {
         });
       } catch (err) {
         console.warn("Failed to tag recent trips:", err);
+      }
+
+      try {
+        this.applyTripHeatmap(fullCollection);
+      } catch (err) {
+        console.warn("Failed to apply trip heatmap:", err);
       }
 
       metricsManager.updateTripsTable(fullCollection);

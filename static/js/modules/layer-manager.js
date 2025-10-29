@@ -37,6 +37,38 @@ const layerManager = {
       div.dataset.layerName = name;
 
       const checkboxId = `${name}-toggle`;
+      const supportsColorPicker =
+        info.supportsColorPicker !== false && name !== "customPlaces";
+      const supportsOpacitySlider =
+        info.supportsOpacitySlider !== false && name !== "customPlaces";
+      const colorValue =
+        typeof info.color === "string" ? info.color : "#ffffff";
+
+      const controls = [];
+
+      if (supportsColorPicker) {
+        controls.push(`
+            <input type="color" id="${name}-color" value="${colorValue}"
+                   class="form-control form-control-color me-2"
+                   style="width: 30px; height: 30px; padding: 2px;"
+                   title="Layer color">
+          `);
+      }
+
+      if (supportsOpacitySlider) {
+        controls.push(`
+            <input type="range" id="${name}-opacity" min="0" max="1" step="0.1"
+                   value="${info.opacity}" class="form-range" style="width: 80px;"
+                   title="Layer opacity">
+          `);
+      }
+
+      const controlsMarkup = controls.join("");
+      const badgeMarkup =
+        !supportsColorPicker && name !== "customPlaces"
+          ? '<span class="badge bg-warning-subtle text-warning-emphasis ms-2 text-uppercase" style="font-size: 0.65rem;">Heatmap</span>'
+          : "";
+
       div.innerHTML = `
           <div class="form-check form-switch me-auto">
             <input class="form-check-input" type="checkbox" id="${checkboxId}"
@@ -44,21 +76,10 @@ const layerManager = {
             <label class="form-check-label" for="${checkboxId}">
               ${info.name || name}
               <span class="layer-loading d-none" id="${name}-loading"></span>
+              ${badgeMarkup}
             </label>
           </div>
-          ${
-            name !== "customPlaces"
-              ? `
-            <input type="color" id="${name}-color" value="${info.color}"
-                   class="form-control form-control-color me-2"
-                   style="width: 30px; height: 30px; padding: 2px;"
-                   title="Layer color">
-            <input type="range" id="${name}-opacity" min="0" max="1" step="0.1"
-                   value="${info.opacity}" class="form-range" style="width: 80px;"
-                   title="Layer opacity">
-          `
-              : ""
-          }
+          ${controlsMarkup}
         `;
 
       fragment.appendChild(div);

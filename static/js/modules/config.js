@@ -38,14 +38,25 @@ export const CONFIG = {
   LAYER_DEFAULTS: {
     trips: {
       order: 1,
-      color: "#BB86FC",
+      color: "#331107",
       opacity: 0.6,
       visible: true,
       highlightColor: "#FFD700",
+      colorRecent: "#FFB703",
       name: "Trips",
       weight: 2,
       minzoom: 0,
       maxzoom: 22,
+      supportsColorPicker: false,
+      heatmapStops: [
+        [0, "#331107"],
+        [0.08, "#651500"],
+        [0.2, "#A23403"],
+        [0.45, "#E04B12"],
+        [0.7, "#F67E26"],
+        [1, "#FFEFA0"],
+      ],
+      heatmapPrecision: 5,
     },
     matchedTrips: {
       order: 3,

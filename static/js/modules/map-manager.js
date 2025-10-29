@@ -184,6 +184,9 @@ const mapManager = {
       // Build dynamic color expression
       // Priority: selected trip > recent trip > default
       const colorExpr = ["case"];
+      const baseColor = layerInfo.color || "#331107";
+      const intensityProperty = ["coalesce", ["get", "heatIntensity"], 0];
+      const clampedIntensity = ["max", 0, ["min", 1, intensityProperty]];
 
       if (selectedId) {
         colorExpr.push([
@@ -204,14 +207,33 @@ const mapManager = {
 
       if (highlightRecent) {
         colorExpr.push(["==", ["get", "isRecent"], true]);
-        colorExpr.push(layerInfo.colorRecent || "#FFB703");
+        const recentColor =
+          layerInfo.colorRecentExpression || [
+            "interpolate",
+            ["linear"],
+            intensityProperty,
+            0,
+            "#FFEFC1",
+            1,
+            layerInfo.colorRecent || "#FFB703",
+          ];
+        colorExpr.push(recentColor);
       }
 
       // Default color
-      colorExpr.push(layerInfo.color);
+      colorExpr.push(baseColor);
 
       // Build width expression (slightly thicker for selected)
       const baseWeight = layerInfo.weight || 2;
+      const intensityWidthExpr = [
+        "*",
+        baseWeight,
+        [
+          "+",
+          0.6,
+          ["*", 1.4, clampedIntensity],
+        ],
+      ];
       const widthExpr = ["case"];
       if (selectedId) {
         widthExpr.push([
@@ -231,7 +253,7 @@ const mapManager = {
       }
       widthExpr.push(["==", ["get", "isRecent"], true]);
       widthExpr.push(baseWeight * 1.5);
-      widthExpr.push(baseWeight);
+      widthExpr.push(intensityWidthExpr);
 
       // Apply paint updates
       try {
