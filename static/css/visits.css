@@ -603,3 +603,29 @@
   background: linear-gradient(90deg, transparent, var(--primary), transparent);
   opacity: 0.3;
 }
+
+/* Fix for toggle switch to prevent cutoff */
+.place-management-panel .form-check.form-switch {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.place-management-panel .form-check.form-switch .form-check-input {
+  flex-shrink: 0;
+  margin-right: var(--space-2);
+  /* Add small left margin to prevent knob cutoff */
+  margin-left: 0.25em;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.place-management-panel .form-check.form-switch .form-check-label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+  margin: 0;
+  /* Ensure text wraps properly */
+  word-break: break-word;
+}
