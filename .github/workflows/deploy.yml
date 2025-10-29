@@ -1,0 +1,16 @@
+name: Deploy to Mini PC
+
+# This action runs on every push to the 'main' branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    # This tells GitHub to run this job on your self-hosted runner
+    runs-on: self-hosted
+
+    steps:
+      - name: Deploy Application
+        run: /home/davis/app/deploy.sh
