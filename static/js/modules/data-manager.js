@@ -50,7 +50,11 @@ const normalizeHeatValue = (value, maxValue) => {
   if (maxValue === 1) return Math.min(1, value);
   const numerator = Math.log(value + 1);
   const denominator = Math.log(maxValue + 1);
-  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) {
+  if (
+    !Number.isFinite(numerator) ||
+    !Number.isFinite(denominator) ||
+    denominator === 0
+  ) {
     return Math.min(1, value / maxValue);
   }
   return Math.min(1, numerator / denominator);
@@ -59,8 +63,12 @@ const normalizeHeatValue = (value, maxValue) => {
 const buildHeatmapExpression = (stops) => {
   if (!Array.isArray(stops) || stops.length === 0) return null;
   const sanitizedStops = stops
-    .filter((stop) =>
-      Array.isArray(stop) && stop.length >= 2 && Number.isFinite(stop[0]) && typeof stop[1] === "string",
+    .filter(
+      (stop) =>
+        Array.isArray(stop) &&
+        stop.length >= 2 &&
+        Number.isFinite(stop[0]) &&
+        typeof stop[1] === "string",
     )
     .map(([value, color]) => [Math.max(0, Math.min(1, value)), color])
     .sort((a, b) => a[0] - b[0]);
@@ -169,10 +177,10 @@ const dataManager = {
     });
 
     const stops =
-      (state.mapLayers?.trips?.heatmapStops &&
-        state.mapLayers.trips.heatmapStops.length > 0
+      state.mapLayers?.trips?.heatmapStops &&
+      state.mapLayers.trips.heatmapStops.length > 0
         ? state.mapLayers.trips.heatmapStops
-        : DEFAULT_HEATMAP_STOPS);
+        : DEFAULT_HEATMAP_STOPS;
     const colorExpression = buildHeatmapExpression(stops);
 
     if (colorExpression && state.mapLayers?.trips) {
