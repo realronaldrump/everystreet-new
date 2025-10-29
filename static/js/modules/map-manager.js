@@ -207,16 +207,15 @@ const mapManager = {
 
       if (highlightRecent) {
         colorExpr.push(["==", ["get", "isRecent"], true]);
-        const recentColor =
-          layerInfo.colorRecentExpression || [
-            "interpolate",
-            ["linear"],
-            intensityProperty,
-            0,
-            "#FFEFC1",
-            1,
-            layerInfo.colorRecent || "#FFB703",
-          ];
+        const recentColor = layerInfo.colorRecentExpression || [
+          "interpolate",
+          ["linear"],
+          intensityProperty,
+          0,
+          "#FFEFC1",
+          1,
+          layerInfo.colorRecent || "#FFB703",
+        ];
         colorExpr.push(recentColor);
       }
 
@@ -228,11 +227,7 @@ const mapManager = {
       const intensityWidthExpr = [
         "*",
         baseWeight,
-        [
-          "+",
-          0.6,
-          ["*", 1.4, clampedIntensity],
-        ],
+        ["+", 0.6, ["*", 1.4, clampedIntensity]],
       ];
       const widthExpr = ["case"];
       if (selectedId) {
