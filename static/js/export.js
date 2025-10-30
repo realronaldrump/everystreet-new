@@ -1040,7 +1040,7 @@
 
   // Simple GeoJSON to GPX converter for LineStrings (for demo purposes)
   function geojsonToGpx(geojson) {
-    let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="EveryStreet" xmlns="http://www.topografix.com/GPX/1/1">\n`;
+    let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="EveryStreet" xmlns="http://www.topografix.com/GPX/1/1">\n';
     if (geojson && Array.isArray(geojson.features)) {
       geojson.features.forEach((f, i) => {
         if (
@@ -1052,7 +1052,7 @@
           f.geometry.coordinates.forEach(([lon, lat]) => {
             gpx += `<trkpt lat="${lat}" lon="${lon}"></trkpt>`;
           });
-          gpx += `</trkseg></trk>\n`;
+          gpx += "</trkseg></trk>\n";
         }
       });
     }

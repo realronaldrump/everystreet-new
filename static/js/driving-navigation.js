@@ -974,7 +974,7 @@ class DrivingNavigation {
     const format = this.coverageRouteFormatSelect.value;
     const originalBtnText = this.exportCoverageRouteBtn.innerHTML;
     this.exportCoverageRouteBtn.disabled = true;
-    this.exportCoverageRouteBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Exporting...`;
+    this.exportCoverageRouteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
 
     try {
       const response = await fetch("/api/export/coverage-route", {
@@ -1442,7 +1442,7 @@ class DrivingNavigation {
           </div>
         </div>`;
     });
-    html += `</div></div>`;
+    html += "</div></div>";
     this.targetInfo.innerHTML = html;
 
     document
