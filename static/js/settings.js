@@ -527,24 +527,27 @@
       // Update mobile list
       const mobileList = document.getElementById("mobile-history-list");
       if (mobileList) {
-        mobileList.querySelectorAll(".mobile-history-card[data-is-running='true']").forEach((card) => {
-          const startTimeStr = card.dataset.startTime;
-          if (startTimeStr) {
-            try {
-              const startTime = new Date(startTimeStr);
-              const now = new Date();
-              const elapsedMs = now - startTime;
-              if (!isNaN(elapsedMs) && elapsedMs >= 0) {
-                const durationElement = card.querySelector(".task-duration");
-                if (durationElement) {
-                  durationElement.textContent = this.formatDuration(elapsedMs);
+        mobileList
+          .querySelectorAll(".mobile-history-card[data-is-running='true']")
+          .forEach((card) => {
+            const startTimeStr = card.dataset.startTime;
+            if (startTimeStr) {
+              try {
+                const startTime = new Date(startTimeStr);
+                const now = new Date();
+                const elapsedMs = now - startTime;
+                if (!isNaN(elapsedMs) && elapsedMs >= 0) {
+                  const durationElement = card.querySelector(".task-duration");
+                  if (durationElement) {
+                    durationElement.textContent =
+                      this.formatDuration(elapsedMs);
+                  }
                 }
+              } catch (e) {
+                console.error("Error updating duration:", e);
               }
-            } catch (e) {
-              console.error("Error updating duration:", e);
             }
-          }
-        });
+          });
       }
     }
 
@@ -1497,7 +1500,12 @@
       const startDate = new Date(startValue);
       const endDate = new Date(endValue);
 
-      if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      if (
+        !startDate ||
+        !endDate ||
+        isNaN(startDate.getTime()) ||
+        isNaN(endDate.getTime())
+      ) {
         if (statusEl) statusEl.textContent = "Invalid date selection.";
         return;
       }
