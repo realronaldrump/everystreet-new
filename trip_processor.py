@@ -1148,7 +1148,9 @@ class TripProcessor:
                 if len(coordinates) > 1:
                     for i in range(len(coordinates)):
                         # Linear interpolation
-                        ratio = i / (len(coordinates) - 1) if len(coordinates) > 1 else 0
+                        ratio = (
+                            i / (len(coordinates) - 1) if len(coordinates) > 1 else 0
+                        )
                         ts = start_ts + int(duration * ratio)
                         timestamps.append(ts)
                 else:
@@ -1235,7 +1237,7 @@ class TripProcessor:
             ) -> dict[str, Any]:
                 """Call Mapbox Map Matching API using GET request with optimal parameters."""
                 base_url = "https://api.mapbox.com/matching/v5/mapbox/driving"
-                
+
                 # Build coordinate string with optional timestamps
                 # Mapbox format: lon,lat;lon,lat;lon,lat or lon,lat,timestamp;lon,lat,timestamp
                 coord_parts = []
@@ -1244,17 +1246,17 @@ class TripProcessor:
                     if timestamps and i < len(timestamps) and timestamps[i] is not None:
                         coord_str += f",{timestamps[i]}"
                     coord_parts.append(coord_str)
-                
+
                 coords_str = ";".join(coord_parts)
                 url = f"{base_url}/{coords_str}"
-                
+
                 # Calculate adaptive radiuses based on GPS precision
                 # Default: 25m for urban, 50m for highway speeds
                 radiuses = []
                 for i, coord in enumerate(coords):
                     # Check if we can estimate speed from timestamps
-                    if timestamps and i > 0 and timestamps[i] and timestamps[i-1]:
-                        time_diff = abs(timestamps[i] - timestamps[i-1])
+                    if timestamps and i > 0 and timestamps[i] and timestamps[i - 1]:
+                        time_diff = abs(timestamps[i] - timestamps[i - 1])
                         if time_diff > 0:
                             # Estimate if this might be highway (high speed)
                             # Use larger radius for potential highway segments
@@ -1265,17 +1267,19 @@ class TripProcessor:
                         # Default radius based on coordinate density
                         # Dense points = urban (25m), sparse = highway (50m)
                         if i > 0:
-                            prev_coord = coords[i-1]
+                            prev_coord = coords[i - 1]
                             distance = haversine(
-                                prev_coord[0], prev_coord[1],
-                                coord[0], coord[1],
-                                unit="meters"
+                                prev_coord[0],
+                                prev_coord[1],
+                                coord[0],
+                                coord[1],
+                                unit="meters",
                             )
                             # If points are far apart, likely highway
                             radiuses.append("50" if distance > 100 else "25")
                         else:
                             radiuses.append("25")
-                
+
                 # Add accuracy parameters for maximum quality
                 params = {
                     "access_token": config.mapbox_access_token,
@@ -1284,7 +1288,7 @@ class TripProcessor:
                     "tidy": "true",  # Remove redundant points
                     "steps": "false",  # We don't need step-by-step directions
                 }
-                
+
                 # Add radiuses as query parameter
                 if radiuses:
                     params["radiuses"] = ";".join(radiuses)
@@ -1458,7 +1462,11 @@ class TripProcessor:
                                         filtered_indices.add(original_idx)
                                     original_idx += 1
                                 filtered_timestamps = [
-                                    chunk_timestamps[i] if i in filtered_indices else None
+                                    (
+                                        chunk_timestamps[i]
+                                        if i in filtered_indices
+                                        else None
+                                    )
                                     for i in range(len(chunk_coords))
                                     if i in filtered_indices
                                 ]
@@ -1634,9 +1642,7 @@ class TripProcessor:
                     # Note: Jump detection operates on matched coords, not original,
                     # so we can't use original timestamps. Pass None for re-matching.
                     sub_timestamps = None
-                    local_match = await match_chunk(
-                        sub_coords, sub_timestamps, depth=0
-                    )
+                    local_match = await match_chunk(sub_coords, sub_timestamps, depth=0)
                     if local_match and len(local_match) >= 2:
                         logger.info(
                             "Re-matched sub-segment around index %d, replaced %d points",
