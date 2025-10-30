@@ -406,6 +406,11 @@ class LiveTripTracker {
 
     this.statusText.textContent =
       message || (connected ? "Connected" : "Disconnected");
+
+    this.emitLiveTrackingUpdate({
+      connected,
+      statusText: this.statusText.textContent,
+    });
   }
 
   showError(message) {
@@ -413,12 +418,42 @@ class LiveTripTracker {
 
     this.errorMessageElem.textContent = message;
     this.errorMessageElem.classList.remove("d-none");
+
+    this.emitLiveTrackingUpdate({
+      errorVisible: true,
+      errorMessage: message,
+    });
   }
 
   hideError() {
     if (!this.errorMessageElem) return;
 
     this.errorMessageElem.classList.add("d-none");
+
+    this.emitLiveTrackingUpdate({ errorVisible: false });
+  }
+
+  emitLiveTrackingUpdate(extraDetail = {}) {
+    try {
+      const detail = {
+        activeTrips: Number.parseInt(
+          this.activeTripsCountElem?.textContent || "0",
+          10,
+        ),
+        connected:
+          this.statusIndicator?.classList.contains("connected") ?? undefined,
+        statusText: this.statusText?.textContent?.trim() || "",
+        metricsHtml: this.tripMetricsElem?.innerHTML || "",
+        errorVisible: this.errorMessageElem
+          ? !this.errorMessageElem.classList.contains("d-none")
+          : false,
+        ...extraDetail,
+      };
+
+      document.dispatchEvent(new CustomEvent("liveTrackingUpdated", { detail }));
+    } catch (err) {
+      console.warn("Failed to dispatch liveTrackingUpdated event", err);
+    }
   }
 
   // Helper for trip completion logic
@@ -658,6 +693,8 @@ class LiveTripTracker {
         `${count} active trips`,
       );
     }
+
+    this.emitLiveTrackingUpdate({ activeTrips: count });
   }
 
   // CLEANED UP: Compute trip metrics from trip data - only show meaningful metrics during live tracking
@@ -816,6 +853,10 @@ class LiveTripTracker {
       </div>
       ${advancedSection}
     `;
+
+    this.emitLiveTrackingUpdate({
+      metricsHtml: this.tripMetricsElem.innerHTML,
+    });
   }
 
   updateTripMetrics(trip) {

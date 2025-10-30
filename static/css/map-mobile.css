@@ -67,6 +67,9 @@
     display: flex;
     flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom, 0);
+    --sheet-offset: calc(100% - 180px);
+    transform: translateY(var(--sheet-offset));
+    will-change: transform;
   }
 
   .mobile-bottom-sheet:active,
@@ -76,19 +79,19 @@
 
   /* Sheet states */
   .mobile-bottom-sheet.collapsed {
-    transform: translateY(calc(100% - 180px)); /* Show more by default */
+    --sheet-offset: calc(100% - 180px); /* Show more by default */
   }
 
   .mobile-bottom-sheet.peek {
-    transform: translateY(calc(100% - 280px));
+    --sheet-offset: calc(100% - 280px);
   }
 
   .mobile-bottom-sheet.half {
-    transform: translateY(45%);
+    --sheet-offset: 45vh;
   }
 
   .mobile-bottom-sheet.expanded {
-    transform: translateY(0);
+    --sheet-offset: 0;
   }
 
   /* iOS-style handle - with larger touch area */
