@@ -284,7 +284,8 @@
   }
 
   @keyframes mobile-pulse {
-    0%, 100% {
+    0%,
+    100% {
       opacity: 1;
       transform: scale(1);
     }
@@ -483,7 +484,9 @@
     z-index: calc(var(--z-drawer) - 1);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s, visibility 0.3s;
+    transition:
+      opacity 0.3s,
+      visibility 0.3s;
   }
 
   .mobile-sheet-backdrop.visible {
@@ -596,4 +599,3 @@
     font-size: var(--font-size-lg);
   }
 }
-
