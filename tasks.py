@@ -1035,7 +1035,8 @@ async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
 
     return {
         "status": "success",
-        "message": "Processed %d trips, marked %d as potentially invalid" % (processed_count, modified_count),
+        "message": "Processed %d trips, marked %d as potentially invalid"
+        % (processed_count, modified_count),
         "processed_count": processed_count,
         "modified_count": modified_count,
     }
@@ -1223,7 +1224,9 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
                         f"Bulk write error during validation update: {bwe.details}",
                     )
                 except Exception as bulk_err:
-                    logger.error("Error executing validation update batch: %s", bulk_err)
+                    logger.error(
+                        "Error executing validation update batch: %s", bulk_err
+                    )
             batch_updates = []
             await asyncio.sleep(0.1)
 
@@ -1242,7 +1245,9 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
 
     logger.info(
         "Validation attempt finished. Processed: %d, Marked Invalid: %d, Failed Processing: %d",
-        processed_count, modified_count, failed_count
+        processed_count,
+        modified_count,
+        failed_count,
     )
 
     return {

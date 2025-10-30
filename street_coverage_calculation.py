@@ -979,7 +979,9 @@ class CoverageCalculator:
                 ):  # Lon, Lat check
                     valid_coords_list.append(coord_pair)
                 else:
-                    logger.debug("Invalid coordinate pair in LineString: %s", coord_pair)
+                    logger.debug(
+                        "Invalid coordinate pair in LineString: %s", coord_pair
+                    )
                     return (
                         False,
                         [],
