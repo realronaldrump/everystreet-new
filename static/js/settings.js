@@ -1397,10 +1397,12 @@
         return;
       }
 
-      const startDate = window.DateUtils.parseDateString(startValue);
-      const endDate = window.DateUtils.parseDateString(endValue);
+      // Inputs are type="datetime-local" (e.g., 2025-10-30T13:34),
+      // so parse using native Date which treats them as local time
+      const startDate = new Date(startValue);
+      const endDate = new Date(endValue);
 
-      if (!startDate || !endDate) {
+      if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         if (statusEl) statusEl.textContent = "Invalid date selection.";
         return;
       }
@@ -1962,10 +1964,17 @@
         return;
       }
 
-      const startDate = window.DateUtils.parseDateString(startValue);
-      const endDate = window.DateUtils.parseDateString(endValue);
+      // Inputs are type="datetime-local" (e.g., 2025-10-30T13:34),
+      // so parse using native Date which treats them as local time
+      const startDate = new Date(startValue);
+      const endDate = new Date(endValue);
 
-      if (!startDate || !endDate) {
+      if (
+        !startDate ||
+        !endDate ||
+        isNaN(startDate.getTime()) ||
+        isNaN(endDate.getTime())
+      ) {
         if (statusEl) {
           statusEl.classList.add("error");
           statusEl.textContent = "Invalid date selection.";
