@@ -356,9 +356,7 @@ class TripService:
                     projection={"transactionId": 1, "matchedGps": 1, "_id": 0},
                     limit=len(incoming_ids),
                 )
-                existing_by_id = {
-                    d.get("transactionId"): d for d in existing_docs
-                }
+                existing_by_id = {d.get("transactionId"): d for d in existing_docs}
 
                 # Determine which trips need processing:
                 # - If map matching is enabled: process trips that don't exist OR
@@ -485,7 +483,7 @@ class TripService:
         progress_callback: callable = None,
     ) -> dict[str, Any]:
         """Refresh geocoding for specified trips.
-        
+
         Args:
             trip_ids: List of trip IDs to geocode
             skip_if_exists: If True, skip geocoding if address already exists
@@ -506,7 +504,7 @@ class TripService:
                         await progress_callback(idx + 1, len(trip_ids), trip_id)
                     else:
                         progress_callback(idx + 1, len(trip_ids), trip_id)
-                
+
                 trip = await self.get_trip_by_id(trip_id)
                 if not trip:
                     results["failed"] += 1
@@ -515,8 +513,14 @@ class TripService:
 
                 # Skip if addresses already exist and skip_if_exists is True
                 if skip_if_exists:
-                    has_start = bool(trip.get("startLocation") and trip.get("startLocation").get("formatted_address"))
-                    has_destination = bool(trip.get("destination") and trip.get("destination").get("formatted_address"))
+                    has_start = bool(
+                        trip.get("startLocation")
+                        and trip.get("startLocation").get("formatted_address")
+                    )
+                    has_destination = bool(
+                        trip.get("destination")
+                        and trip.get("destination").get("formatted_address")
+                    )
                     if has_start and has_destination:
                         results["skipped"] += 1
                         continue
