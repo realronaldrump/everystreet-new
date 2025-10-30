@@ -55,7 +55,6 @@ def parse_timestamp(ts: str | datetime) -> datetime | None:
         if ts.tzinfo is None:
             return ts.replace(tzinfo=timezone.utc)
         return ts
-
     try:
         # Use dateutil.parser for robust parsing of various ISO 8601 formats.
         parsed_time = parser.isoparse(ts)
