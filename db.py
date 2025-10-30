@@ -1518,7 +1518,7 @@ async def ensure_archived_trip_indexes() -> None:
         name="archived_endTime_idx",
         background=True,
     )
-    logger.info(f"Indexes ensured for '{collection_name}'.")
+    logger.info("Indexes ensured for '%s'.", collection_name)
 
 
 async def init_database() -> None:

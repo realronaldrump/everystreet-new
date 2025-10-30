@@ -389,12 +389,12 @@ async def export_coverage_route_endpoint(
         return await create_export_response(data_to_export, fmt, filename_base)
 
     except ValueError as ve:
-        logger.error(f"ValueError in export_coverage_route_endpoint: {str(ve)}")
+        logger.error("ValueError in export_coverage_route_endpoint: %s", str(ve))
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        logger.exception(f"Error exporting coverage route: {str(e)}")
+        logger.exception("Error exporting coverage route: %s", str(e))
         raise HTTPException(
-            status_code=500, detail=f"Failed to export coverage route: {str(e)}"
+            status_code=500, detail="Failed to export coverage route: %s" % str(e)
         )
 
 

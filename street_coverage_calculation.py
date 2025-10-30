@@ -979,7 +979,7 @@ class CoverageCalculator:
                 ):  # Lon, Lat check
                     valid_coords_list.append(coord_pair)
                 else:
-                    logger.debug(f"Invalid coordinate pair in LineString: {coord_pair}")
+                    logger.debug("Invalid coordinate pair in LineString: %s", coord_pair)
                     return (
                         False,
                         [],
@@ -1001,13 +1001,13 @@ class CoverageCalculator:
                 and all(isinstance(c, (int, float)) for c in coordinates)
                 and (-180 <= coordinates[0] <= 180 and -90 <= coordinates[1] <= 90)
             ):  # Lon, Lat check
-                logger.debug(f"Invalid Point coordinates: {coordinates}")
+                logger.debug("Invalid Point coordinates: %s", coordinates)
                 return False, []
             # For coverage, simulate a very short line segment from a Point
             return True, [coordinates, coordinates]
 
         else:
-            logger.debug(f"Unsupported GeoJSON type for trip: {trip_type}")
+            logger.debug("Unsupported GeoJSON type for trip: %s", trip_type)
             return False, []
 
     async def process_trips(self, processed_trip_ids_set: set[str]) -> bool:

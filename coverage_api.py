@@ -756,7 +756,7 @@ async def get_coverage_area_details(location_id: str):
 @router.get("/api/coverage_areas/{location_id}/geojson/gridfs")
 async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Response):
     """Stream raw GeoJSON from GridFS for a given coverage area."""
-    logger.info(f"[{location_id}] Request received for GridFS GeoJSON stream.")
+    logger.info("[%s] Request received for GridFS GeoJSON stream.", location_id)
     try:
         obj_location_id = ObjectId(location_id)
     except Exception:
@@ -772,7 +772,7 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
     )
 
     if not coverage_doc:
-        logger.warning(f"[{location_id}] Coverage area metadata not found for ID.")
+        logger.warning("[%s] Coverage area metadata not found for ID.", location_id)
         raise HTTPException(
             status_code=404,
             detail="Coverage area metadata not found",
@@ -800,7 +800,7 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
         try:
             gridfs_id = ObjectId(gridfs_id)
         except Exception:
-            logger.error(f"[{location_id}] Invalid GridFS ID format: {gridfs_id}")
+            logger.error("[%s] Invalid GridFS ID format: %s", location_id, gridfs_id)
             raise HTTPException(status_code=400, detail="Invalid GridFS ID format.")
 
     try:
@@ -1491,9 +1491,9 @@ async def _regenerate_streets_geojson(location_id: ObjectId):
     if isinstance(old_id, ObjectId):
         try:
             await bucket.delete(old_id)
-            logger.info(f"Deleted old GridFS geojson {old_id} for {location_name}")
+            logger.info("Deleted old GridFS geojson %s for %s", old_id, location_name)
         except Exception as e:
-            logger.warning(f"Error deleting old GridFS file {old_id}: {e}")
+            logger.warning("Error deleting old GridFS file %s: %s", old_id, e)
     # Serialize using FastAPI encoder to handle datetime conversion
     safe_geojson = jsonable_encoder(geojson)
     data_bytes = json.dumps(safe_geojson).encode("utf-8")
@@ -1505,7 +1505,7 @@ async def _regenerate_streets_geojson(location_id: ObjectId):
         {"_id": location_id},
         {"$set": {"streets_geojson_gridfs_id": new_id}},
     )
-    logger.info(f"Regenerated GridFS geojson {new_id} for {location_name}")
+    logger.info("Regenerated GridFS geojson %s for %s", new_id, location_name)
 
 
 # Helper function to compute bounding box (south, north, west, east)

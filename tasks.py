@@ -205,7 +205,7 @@ class TaskStatusManager:
             return result.modified_count > 0 or result.upserted_id is not None
 
         except Exception as e:
-            logger.exception(f"Error updating task status for {task_id}: {e}")
+            logger.exception("Error updating task status for %s: %s", task_id, e)
             return False
 
 
@@ -285,7 +285,7 @@ async def get_task_config() -> dict[str, Any]:
                 )
         return cfg
     except Exception as e:
-        logger.exception(f"Error getting task config: {e!s}")
+        logger.exception("Error getting task config: %s", e)
         return {
             "_id": "global_background_task_config",
             "disabled": False,
@@ -367,7 +367,7 @@ async def check_dependencies(
         return {"can_run": True}
 
     except Exception as e:
-        logger.exception(f"Error checking dependencies for {task_id}: {e}")
+        logger.exception("Error checking dependencies for %s: %s", task_id, e)
         return {
             "can_run": False,
             "reason": f"Error checking dependencies: {e!s}",
@@ -610,7 +610,7 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
             )
 
     except Exception as e:
-        logger.exception(f"Error finding latest trip: {e}")
+        logger.exception("Error finding latest trip: %s", e)
         start_date_fetch = now_utc - timedelta(hours=48)
         logger.info(
             f"Using fallback start date after error (48 hours ago): {start_date_fetch.isoformat()}"
@@ -687,7 +687,7 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
             f"Trips with source='bouncie' since {start_date_fetch.isoformat()}: {trips_recent}"
         )
     except Exception as count_err:
-        logger.exception(f"Error counting trips in database: {count_err}")
+        logger.exception("Error counting trips in database: %s", count_err)
 
     return {
         "status": "success",
@@ -956,7 +956,7 @@ async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
 
     query = {"invalid": {"$ne": True}}
     total_docs_to_process = await trips_collection.count_documents(query)
-    logger.info(f"Found {total_docs_to_process} trips to validate.")
+    logger.info("Found %d trips to validate.", total_docs_to_process)
 
     if total_docs_to_process == 0:
         return {
@@ -1031,11 +1031,11 @@ async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
                 f"Bulk write error during final validation batch: {bwe.details}",
             )
         except Exception as bulk_err:
-            logger.error(f"Error executing final validation batch: {bulk_err}")
+            logger.error("Error executing final validation batch: %s", bulk_err)
 
     return {
         "status": "success",
-        "message": f"Processed {processed_count} trips, marked {modified_count} as potentially invalid",
+        "message": "Processed %d trips, marked %d as potentially invalid" % (processed_count, modified_count),
         "processed_count": processed_count,
         "modified_count": modified_count,
     }
@@ -1159,7 +1159,7 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
     batch_updates = []
     for trip in trips_to_process:
         trip_id = str(trip.get("_id"))
-        logger.debug(f"Validating trip {trip_id}")
+        logger.debug("Validating trip %s", trip_id)
         processed_count += 1
 
         try:
@@ -1223,7 +1223,7 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
                         f"Bulk write error during validation update: {bwe.details}",
                     )
                 except Exception as bulk_err:
-                    logger.error(f"Error executing validation update batch: {bulk_err}")
+                    logger.error("Error executing validation update batch: %s", bulk_err)
             batch_updates = []
             await asyncio.sleep(0.1)
 
@@ -1238,10 +1238,11 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
                 f"Bulk write error during final validation update: {bwe.details}",
             )
         except Exception as bulk_err:
-            logger.error(f"Error executing final validation update batch: {bulk_err}")
+            logger.error("Error executing final validation update batch: %s", bulk_err)
 
     logger.info(
-        f"Validation attempt finished. Processed: {processed_count}, Marked Invalid: {modified_count}, Failed Processing: {failed_count}",
+        "Validation attempt finished. Processed: %d, Marked Invalid: %d, Failed Processing: %d",
+        processed_count, modified_count, failed_count
     )
 
     return {
@@ -1315,15 +1316,15 @@ async def run_task_scheduler_async(self) -> None:
             interval_minutes = task_config.get("interval_minutes")
 
             if not is_enabled:
-                logger.debug(f"Task '{task_id}' skipped (disabled).")
+                logger.debug("Task '%s' skipped (disabled).", task_id)
                 skipped_count += 1
                 continue
             if current_status == TaskStatus.RUNNING.value:
-                logger.debug(f"Task '{task_id}' skipped (already running).")
+                logger.debug("Task '%s' skipped (already running).", task_id)
                 skipped_count += 1
                 continue
             if current_status == TaskStatus.PENDING.value:
-                logger.debug(f"Task '{task_id}' skipped (already pending).")
+                logger.debug("Task '%s' skipped (already pending).", task_id)
                 skipped_count += 1
                 continue
             if interval_minutes is None or interval_minutes <= 0:
@@ -1352,7 +1353,7 @@ async def run_task_scheduler_async(self) -> None:
             is_due = False
             if last_run is None:
                 is_due = True
-                logger.debug(f"Task '{task_id}' is due (never run).")
+                logger.debug("Task '%s' is due (never run).", task_id)
             else:
                 next_due_time = last_run + timedelta(minutes=interval_minutes)
                 if now_utc >= next_due_time:
@@ -1440,7 +1441,7 @@ async def run_task_scheduler_async(self) -> None:
         return
 
     except Exception as e:
-        logger.exception(f"CRITICAL ERROR in run_task_scheduler_async: {e}")
+        logger.exception("CRITICAL ERROR in run_task_scheduler_async: %s", e)
         raise
 
 
@@ -1529,7 +1530,7 @@ async def get_all_task_metadata() -> dict[str, Any]:
 
         return task_metadata_with_status
     except Exception as e:
-        logger.exception(f"Error getting all task metadata: {e}")
+        logger.exception("Error getting all task metadata: %s", e)
         fallback_metadata = {}
         for task_id, metadata in TASK_METADATA.items():
             priority_enum = metadata.get("priority", TaskPriority.MEDIUM)
@@ -1581,7 +1582,7 @@ async def manual_run_task(task_id: str) -> dict[str, Any]:
             for t_name, t_config in config.get("tasks", {}).items()
             if t_config.get("enabled", True) and t_name in task_mapping
         ]
-        logger.info(f"Manual run requested for ALL enabled tasks: {enabled_tasks}")
+        logger.info("Manual run requested for ALL enabled tasks: %s", enabled_tasks)
         results = []
         for task_name in enabled_tasks:
             single_result = await _send_manual_task(task_name, task_mapping[task_name])
@@ -1673,7 +1674,7 @@ async def _send_manual_task(
             "task_id": result.id,
         }
     except Exception as e:
-        logger.exception(f"Error sending manual task {task_name}")
+        logger.exception("Error sending manual task %s", task_name)
         await status_manager.update_status(
             task_name,
             TaskStatus.FAILED.value,
@@ -1922,7 +1923,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
             "message": "No changes applied to task configuration (values may already match).",
         }
     except Exception as e:
-        logger.exception(f"Error updating task schedule: {e}")
+        logger.exception("Error updating task schedule: %s", e)
         return {
             "status": "error",
             "message": f"Error updating task schedule: {e!s}",

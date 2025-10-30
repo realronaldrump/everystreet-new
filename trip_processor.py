@@ -1905,7 +1905,7 @@ class TripProcessor:
 
         # Example: If matched_trips_collection *must* contain LineStrings only:
         # if geojson_data.get("type") != "LineString":
-        #     logger.debug(f"Data for matched_trips_collection is not a LineString: type {geojson_data.get('type')}")
+        #     logger.debug("Data for matched_trips_collection is not a LineString: type %s", geojson_data.get('type'))
         #     return False
         return True
 
