@@ -94,19 +94,21 @@ const AppController = {
           CONFIG.STORAGE_KEYS.selectedLocation,
         );
         if (selectedLocationId) {
-          let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+          let savedStates = utils.getStorage(
+            CONFIG.STORAGE_KEYS.streetViewMode,
+          );
           // Handle migration from old string format
-          if (typeof savedStates === 'string') {
+          if (typeof savedStates === "string") {
             const oldMode = savedStates;
             savedStates = {};
-            if (oldMode && oldMode !== 'none') {
+            if (oldMode && oldMode !== "none") {
               savedStates[oldMode] = true;
             }
             utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
-          } else if (!savedStates || typeof savedStates !== 'object') {
+          } else if (!savedStates || typeof savedStates !== "object") {
             savedStates = {};
           }
-          
+
           setTimeout(() => {
             Object.entries(savedStates).forEach(([mode, isActive]) => {
               if (isActive) {
@@ -181,42 +183,44 @@ const AppController = {
     }
 
     // Street view mode toggle buttons
-    const streetToggleButtons = document.querySelectorAll('.street-toggle-btn');
+    const streetToggleButtons = document.querySelectorAll(".street-toggle-btn");
     if (streetToggleButtons.length > 0) {
       // Restore saved states - handle migration from old string format
       let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
-      if (typeof savedStates === 'string') {
+      if (typeof savedStates === "string") {
         // Migrate from old format (single string) to new format (object)
         const oldMode = savedStates;
         savedStates = {};
-        if (oldMode && oldMode !== 'none') {
+        if (oldMode && oldMode !== "none") {
           savedStates[oldMode] = true;
         }
         utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
-      } else if (!savedStates || typeof savedStates !== 'object') {
+      } else if (!savedStates || typeof savedStates !== "object") {
         savedStates = {};
       }
-      
+
       streetToggleButtons.forEach((btn) => {
         const mode = btn.dataset.streetMode;
         const isActive = savedStates[mode] === true;
-        
+
         if (isActive) {
-          btn.classList.add('active');
+          btn.classList.add("active");
         }
-        
-        btn.addEventListener('click', async () => {
-          const isCurrentlyActive = btn.classList.contains('active');
-          btn.classList.toggle('active');
-          
+
+        btn.addEventListener("click", async () => {
+          const isCurrentlyActive = btn.classList.contains("active");
+          btn.classList.toggle("active");
+
           // Save state - ensure we always work with an object
-          let currentStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
-          if (typeof currentStates !== 'object' || currentStates === null) {
+          let currentStates = utils.getStorage(
+            CONFIG.STORAGE_KEYS.streetViewMode,
+          );
+          if (typeof currentStates !== "object" || currentStates === null) {
             currentStates = {};
           }
           currentStates[mode] = !isCurrentlyActive;
           utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, currentStates);
-          
+
           // Toggle the layer
           await this.handleStreetViewModeChange(mode, isCurrentlyActive);
         });
@@ -414,9 +418,21 @@ const AppController = {
 
     // Map mode to layer names
     const layerMap = {
-      undriven: { layer: 'undrivenStreets', layerId: 'undrivenStreets-layer', fetch: dataManager.fetchUndrivenStreets },
-      driven: { layer: 'drivenStreets', layerId: 'drivenStreets-layer', fetch: dataManager.fetchDrivenStreets },
-      all: { layer: 'allStreets', layerId: 'allStreets-layer', fetch: dataManager.fetchAllStreets }
+      undriven: {
+        layer: "undrivenStreets",
+        layerId: "undrivenStreets-layer",
+        fetch: dataManager.fetchUndrivenStreets,
+      },
+      driven: {
+        layer: "drivenStreets",
+        layerId: "drivenStreets-layer",
+        fetch: dataManager.fetchDrivenStreets,
+      },
+      all: {
+        layer: "allStreets",
+        layerId: "allStreets-layer",
+        fetch: dataManager.fetchAllStreets,
+      },
     };
 
     const config = layerMap[mode];
@@ -441,17 +457,17 @@ const AppController = {
   async refreshStreetLayers() {
     let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
     // Handle migration from old string format
-    if (typeof savedStates === 'string') {
+    if (typeof savedStates === "string") {
       const oldMode = savedStates;
       savedStates = {};
-      if (oldMode && oldMode !== 'none') {
+      if (oldMode && oldMode !== "none") {
         savedStates[oldMode] = true;
       }
       utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
-    } else if (!savedStates || typeof savedStates !== 'object') {
+    } else if (!savedStates || typeof savedStates !== "object") {
       savedStates = {};
     }
-    
+
     for (const [mode, isActive] of Object.entries(savedStates)) {
       if (isActive) {
         await this.handleStreetViewModeChange(mode, false);

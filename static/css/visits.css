@@ -614,11 +614,9 @@
 
 .place-management-panel .form-check.form-switch .form-check-input {
   flex-shrink: 0;
-  margin-right: var(--space-2);
+  margin: 0 var(--space-2) 0 0.25em;
+
   /* Add small left margin to prevent knob cutoff */
-  margin-left: 0.25em;
-  margin-top: 0;
-  margin-bottom: 0;
 }
 
 .place-management-panel .form-check.form-switch .form-check-label {
@@ -626,6 +624,7 @@
   min-width: 0;
   overflow-wrap: break-word;
   margin: 0;
+
   /* Ensure text wraps properly */
   word-break: break-word;
 }
