@@ -93,9 +93,10 @@ endblock %} {% block content %}
                   >Enable WebSocket Updates (recommended)</label
                 >
                 <small class="form-text text-muted d-block mt-1"
-                  >If disabled, the application will rely on frequent HTTP polling for
-                  live-tracking updates. This can increase network usage and add
-                  latency but may help on restrictive networks.</small
+                  >If disabled, the application will rely on frequent HTTP
+                  polling for live-tracking updates. This can increase network
+                  usage and add latency but may help on restrictive
+                  networks.</small
                 >
               </div>
 
@@ -141,10 +142,10 @@ endblock %} {% block content %}
                   >Geocode Trips on Fetch</label
                 >
                 <small class="form-text text-muted d-block mt-1"
-                  >When enabled, trips fetched from Bouncie will be automatically
-                  geocoded (reverse geocoded to get start and end locations).
-                  Disable this to reduce processing time if you don't need location
-                  data immediately.
+                  >When enabled, trips fetched from Bouncie will be
+                  automatically geocoded (reverse geocoded to get start and end
+                  locations). Disable this to reduce processing time if you
+                  don't need location data immediately.
                 </small>
               </div>
             </div>
@@ -201,7 +202,9 @@ endblock %} {% block content %}
     const themeToggleCheckbox = document.getElementById(
       "theme-toggle-checkbox",
     );
-    const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
+    const geocodeTripsOnFetch = document.getElementById(
+      "geocode-trips-on-fetch",
+    );
 
     // Function to init UI with settings object
     function applySettings(settings = {}) {
@@ -227,8 +230,10 @@ endblock %} {% block content %}
 
       geocodeTripsOnFetch.checked = gtof !== false;
 
-      polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
-      polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
+      polylineColor.value =
+        pc || localStorage.getItem("polylineColor") || "#00FF00";
+      polylineOpacity.value =
+        po || localStorage.getItem("polylineOpacity") || "0.8";
       opacityValue.textContent = polylineOpacity.value;
     }
 
@@ -295,7 +300,10 @@ endblock %} {% block content %}
       }
 
       // Mirror to localStorage for quick access
-      localStorage.setItem("highlightRecentTrips", payload.highlightRecentTrips);
+      localStorage.setItem(
+        "highlightRecentTrips",
+        payload.highlightRecentTrips,
+      );
       localStorage.setItem("autoCenter", payload.autoCenter);
       localStorage.setItem("showLiveTracking", payload.showLiveTracking);
       localStorage.setItem("polylineColor", payload.polylineColor);
