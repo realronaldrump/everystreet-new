@@ -89,7 +89,7 @@ class TripsManager {
     window.addEventListener("resize", () => {
       const wasMobile = this.isMobile;
       this.isMobile = window.innerWidth <= 768;
-      
+
       // If we switched between mobile and desktop, reload
       if (wasMobile !== this.isMobile) {
         this.fetchTrips();
@@ -525,8 +525,8 @@ class TripsManager {
         }
         return;
       }
-      tripIds = Array.from(checkedCheckboxes).map((checkbox) => 
-        checkbox.getAttribute("data-trip-id")
+      tripIds = Array.from(checkedCheckboxes).map((checkbox) =>
+        checkbox.getAttribute("data-trip-id"),
       );
     } else {
       const checkedCheckboxes = document.querySelectorAll(
@@ -725,7 +725,9 @@ class TripsManager {
       return;
     }
 
-    mobileList.innerHTML = this.mobileTrips.map((trip) => this.renderMobileTripCard(trip)).join("");
+    mobileList.innerHTML = this.mobileTrips
+      .map((trip) => this.renderMobileTripCard(trip))
+      .join("");
   }
 
   renderMobileTripCard(trip) {
@@ -741,20 +743,24 @@ class TripsManager {
     const duration = TripsManager.formatDuration(trip.duration);
     const distance = parseFloat(trip.distance || 0).toFixed(2);
     const maxSpeed = parseFloat(trip.maxSpeed || 0).toFixed(1);
-    const idleDuration = trip.totalIdleDuration != null 
-      ? (trip.totalIdleDuration / 60).toFixed(2) 
-      : "N/A";
-    const fuelConsumed = trip.fuelConsumed != null 
-      ? parseFloat(trip.fuelConsumed).toFixed(2) 
-      : "N/A";
+    const idleDuration =
+      trip.totalIdleDuration != null
+        ? (trip.totalIdleDuration / 60).toFixed(2)
+        : "N/A";
+    const fuelConsumed =
+      trip.fuelConsumed != null
+        ? parseFloat(trip.fuelConsumed).toFixed(2)
+        : "N/A";
 
-    const startLocation = typeof trip.startLocation === "object" && trip.startLocation !== null
-      ? trip.startLocation.formatted_address || "Unknown"
-      : trip.startLocation || "Unknown";
+    const startLocation =
+      typeof trip.startLocation === "object" && trip.startLocation !== null
+        ? trip.startLocation.formatted_address || "Unknown"
+        : trip.startLocation || "Unknown";
 
-    const destination = typeof trip.destination === "object" && trip.destination !== null
-      ? trip.destination.formatted_address || "Unknown"
-      : trip.destination || "Unknown";
+    const destination =
+      typeof trip.destination === "object" && trip.destination !== null
+        ? trip.destination.formatted_address || "Unknown"
+        : trip.destination || "Unknown";
 
     return `
       <div class="trip-card" data-trip-id="${transactionId}">
@@ -836,7 +842,10 @@ class TripsManager {
     pagination.style.display = "flex";
 
     const start = this.mobileCurrentPage * this.mobilePageSize + 1;
-    const end = Math.min((this.mobileCurrentPage + 1) * this.mobilePageSize, this.mobileTotalTrips);
+    const end = Math.min(
+      (this.mobileCurrentPage + 1) * this.mobilePageSize,
+      this.mobileTotalTrips,
+    );
     pageInfo.textContent = `Showing ${start}-${end} of ${this.mobileTotalTrips} trips`;
 
     prevBtn.disabled = this.mobileCurrentPage === 0;
@@ -872,7 +881,9 @@ class TripsManager {
     });
 
     // Mobile bulk delete
-    const bulkDeleteMobile = document.getElementById("bulk-delete-trips-mobile-btn");
+    const bulkDeleteMobile = document.getElementById(
+      "bulk-delete-trips-mobile-btn",
+    );
     if (bulkDeleteMobile) {
       bulkDeleteMobile.addEventListener("click", () => {
         this.bulkDeleteTrips(true);
@@ -880,7 +891,9 @@ class TripsManager {
     }
 
     // Mobile refresh geocoding
-    const refreshMobile = document.getElementById("refresh-geocoding-mobile-btn");
+    const refreshMobile = document.getElementById(
+      "refresh-geocoding-mobile-btn",
+    );
     if (refreshMobile) {
       refreshMobile.addEventListener("click", () => {
         this.refreshGeocoding();
@@ -902,7 +915,8 @@ class TripsManager {
 
     if (nextBtn) {
       nextBtn.addEventListener("click", () => {
-        const maxPage = Math.ceil(this.mobileTotalTrips / this.mobilePageSize) - 1;
+        const maxPage =
+          Math.ceil(this.mobileTotalTrips / this.mobilePageSize) - 1;
         if (this.mobileCurrentPage < maxPage) {
           this.mobileCurrentPage++;
           this.fetchMobileTrips();
@@ -912,8 +926,11 @@ class TripsManager {
   }
 
   updateMobileBulkDeleteButton() {
-    const anyChecked = document.querySelectorAll(".trip-card-checkbox:checked").length > 0;
-    const bulkDeleteBtn = document.getElementById("bulk-delete-trips-mobile-btn");
+    const anyChecked =
+      document.querySelectorAll(".trip-card-checkbox:checked").length > 0;
+    const bulkDeleteBtn = document.getElementById(
+      "bulk-delete-trips-mobile-btn",
+    );
     if (bulkDeleteBtn) {
       bulkDeleteBtn.disabled = !anyChecked;
     }
