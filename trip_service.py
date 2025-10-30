@@ -16,6 +16,7 @@ from typing import Any
 from fastapi import HTTPException, status
 from pymongo.errors import DuplicateKeyError
 
+from admin_api import get_persisted_app_settings
 from config import MAPBOX_ACCESS_TOKEN
 from db import (
     find_with_retry,
@@ -326,6 +327,10 @@ class TripService:
                 progress_section["message"] = "Starting trip processing"
 
         try:
+            # Get app settings to check geocoding preference
+            app_settings = await get_persisted_app_settings()
+            geocode_enabled = app_settings.get("geocodeTripsOnFetch", True)
+
             # Pre-skip duplicates already present in DB and deduplicate inputs
             unique_trips: list[dict[str, Any]] = []
             seen_incoming: set[str] = set()
@@ -404,7 +409,7 @@ class TripService:
                 try:
                     options = ProcessingOptions(
                         validate=True,
-                        geocode=False,
+                        geocode=geocode_enabled,
                         map_match=do_map_match,
                     )
 

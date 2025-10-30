@@ -1759,8 +1759,3 @@ class TripProcessor:
         except (TypeError, ValueError):
             logger.error("Invalid input for format_idle_time: %s", seconds)
             return "00:00:00"
-
-
-# REMOVED: process_from_coordinates class method
-# This functionality has been moved to TripService to consolidate
-# trip processing logic and eliminate duplications

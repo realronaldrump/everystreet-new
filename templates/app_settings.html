@@ -125,6 +125,30 @@ endblock %} {% block content %}
               </div>
             </div>
 
+            <!-- Trip Processing Settings -->
+            <div class="mb-4">
+              <h3 class="h6">Trip Processing</h3>
+
+              <div class="form-check form-switch mb-2">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="geocode-trips-on-fetch"
+                  checked
+                />
+                <label class="form-check-label" for="geocode-trips-on-fetch"
+                  >Geocode Trips on Fetch</label
+                >
+                <small class="form-text text-muted d-block mt-1"
+                  >When enabled, trips fetched from Bouncie will be automatically
+                  geocoded (reverse geocoded to get start and end locations).
+                  Disable this to reduce processing time if you don't need location
+                  data immediately.
+                </small>
+              </div>
+            </div>
+
             <!-- Storage Quota Settings -->
             <div class="mb-4">
               <h3 class="h6">Database Storage</h3>
@@ -199,6 +223,7 @@ endblock %} {% block content %}
       "theme-toggle-checkbox",
     );
     const storageLimitInput = document.getElementById("storage-limit-mb");
+    const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
 
     // Function to init UI with settings object
     function applySettings(settings = {}) {
@@ -210,6 +235,7 @@ endblock %} {% block content %}
         polylineOpacity: po,
         disableWebSockets,
         storageLimitMb,
+        geocodeTripsOnFetch: gtof,
       } = settings;
 
       const isDarkMode =
@@ -221,6 +247,8 @@ endblock %} {% block content %}
       showLiveTracking.checked = slt !== false;
 
       useWebSocketToggle.checked = disableWebSockets !== true;
+
+      geocodeTripsOnFetch.checked = gtof !== false;
 
       polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
       polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
@@ -277,6 +305,7 @@ endblock %} {% block content %}
         polylineOpacity: polylineOpacity.value,
         disableWebSockets: !useWebSocketToggle.checked,
         storageLimitMb: parseFloat(storageLimitInput.value) || undefined,
+        geocodeTripsOnFetch: geocodeTripsOnFetch.checked,
       };
 
       // Persist to server
