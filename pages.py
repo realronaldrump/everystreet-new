@@ -91,9 +91,7 @@ async def database_management_page(request: Request):
     try:
         db_stats = await db_manager.db.command("dbStats")
         storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
-        collection_names = [
-            name for name in await db_manager.db.list_collection_names()
-        ]
+        collection_names = list(await db_manager.db.list_collection_names())
         collections_info = []
         for collection_name in collection_names:
             stats = await db_manager.db.command("collStats", collection_name)
