@@ -1397,18 +1397,15 @@
         return;
       }
 
-      const startDate = new Date(startValue);
-      const endDate = new Date(endValue);
+      const startDate = window.DateUtils.parseDateString(startValue);
+      const endDate = window.DateUtils.parseDateString(endValue);
 
-      if (
-        Number.isNaN(startDate.getTime()) ||
-        Number.isNaN(endDate.getTime())
-      ) {
+      if (!startDate || !endDate) {
         if (statusEl) statusEl.textContent = "Invalid date selection.";
         return;
       }
 
-      if (endDate <= startDate) {
+      if (endDate.getTime() <= startDate.getTime()) {
         if (statusEl)
           statusEl.textContent = "End date must be after the start date.";
         return;
@@ -1965,13 +1962,10 @@
         return;
       }
 
-      const startDate = new Date(startValue);
-      const endDate = new Date(endValue);
+      const startDate = window.DateUtils.parseDateString(startValue);
+      const endDate = window.DateUtils.parseDateString(endValue);
 
-      if (
-        Number.isNaN(startDate.getTime()) ||
-        Number.isNaN(endDate.getTime())
-      ) {
+      if (!startDate || !endDate) {
         if (statusEl) {
           statusEl.classList.add("error");
           statusEl.textContent = "Invalid date selection.";
@@ -1980,7 +1974,7 @@
         return;
       }
 
-      if (endDate <= startDate) {
+      if (endDate.getTime() <= startDate.getTime()) {
         if (statusEl) {
           statusEl.classList.add("error");
           statusEl.textContent = "End date must be after the start date.";

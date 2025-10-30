@@ -8,6 +8,7 @@ from fastapi import APIRouter, Body, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
 from db import (
+    build_calendar_date_expr,
     build_query_from_request,
     db_manager,
     find_one_with_retry,
@@ -831,25 +832,23 @@ async def export_advanced(
         start_date_str = request.query_params.get("start_date")
         end_date_str = request.query_params.get("end_date")
 
-        date_filter = None
+        range_expr = None
         if start_date_str and end_date_str:
-            start_date = parse_query_date(start_date_str)
-            end_date = parse_query_date(end_date_str, end_of_day=True)
-            if start_date and end_date:
-                date_filter = {
-                    "startTime": {
-                        "$gte": start_date,
-                        "$lte": end_date,
-                    },
-                }
+            range_expr = build_calendar_date_expr(start_date_str, end_date_str)
+            if not range_expr:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid date range",
+                )
+
+        date_filter = {"$expr": range_expr} if range_expr else {}
 
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"trips_export_{current_time}"
 
         async def processed_docs_cursor():
             if include_trips:
-                query = date_filter or {}
-                async for trip in trips_collection.find(query).batch_size(500):
+                async for trip in trips_collection.find(date_filter).batch_size(500):
                     processed = await process_trip_for_export(
                         trip,
                         include_basic_info,
@@ -863,8 +862,7 @@ async def export_advanced(
                         processed["trip_type"] = trip.get("source", "unknown")
                         yield processed
             if include_matched_trips:
-                query = date_filter or {}
-                async for trip in matched_trips_collection.find(query).batch_size(500):
+                async for trip in matched_trips_collection.find(date_filter).batch_size(500):
                     processed = await process_trip_for_export(
                         trip,
                         include_basic_info,

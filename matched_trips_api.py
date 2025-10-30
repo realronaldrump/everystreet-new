@@ -1,5 +1,5 @@
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import geojson as geojson_module
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -7,14 +7,16 @@ from fastapi.responses import JSONResponse
 
 from db import (
     SerializationHelper,
+    build_calendar_date_expr,
     build_query_from_request,
     db_manager,
     delete_many_with_retry,
     delete_one_with_retry,
     find_with_retry,
-    parse_query_date,
 )
 from models import DateRangeModel
+
+from date_utils import normalize_calendar_date
 
 # Setup
 logger = logging.getLogger(__name__)
@@ -109,11 +111,18 @@ async def delete_matched_trips(
 ):
     """Delete matched trips within a date range."""
     try:
-        start_date = parse_query_date(data.start_date)
-        end_date = parse_query_date(data.end_date, end_of_day=True)
+        start_iso = normalize_calendar_date(data.start_date)
+        end_iso = normalize_calendar_date(data.end_date)
         interval_days = data.interval_days
 
-        if not start_date or not end_date:
+        if not start_iso or not end_iso:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid date range",
+            )
+
+        range_expr = build_calendar_date_expr(start_iso, end_iso)
+        if not range_expr:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid date range",
@@ -121,32 +130,30 @@ async def delete_matched_trips(
 
         total_deleted_count = 0
         if interval_days > 0:
-            current_start = start_date
-            while current_start < end_date:
+            chunk_size = max(1, interval_days)
+            current_start = datetime.strptime(start_iso, "%Y-%m-%d").date()
+            final_end = datetime.strptime(end_iso, "%Y-%m-%d").date()
+
+            while current_start <= final_end:
                 current_end = min(
-                    current_start + timedelta(days=interval_days),
-                    end_date,
+                    current_start + timedelta(days=chunk_size - 1),
+                    final_end,
                 )
-                result = await delete_many_with_retry(
-                    matched_trips_collection,
-                    {
-                        "startTime": {
-                            "$gte": current_start,
-                            "$lt": current_end,
-                        },
-                    },
+                chunk_expr = build_calendar_date_expr(
+                    current_start.isoformat(),
+                    current_end.isoformat(),
                 )
-                total_deleted_count += result.deleted_count
-                current_start = current_end
+                if chunk_expr:
+                    result = await delete_many_with_retry(
+                        matched_trips_collection,
+                        {"$expr": chunk_expr},
+                    )
+                    total_deleted_count += result.deleted_count
+                current_start = current_end + timedelta(days=1)
         else:
             result = await delete_many_with_retry(
                 matched_trips_collection,
-                {
-                    "startTime": {
-                        "$gte": start_date,
-                        "$lte": end_date,
-                    },
-                },
+                {"$expr": range_expr},
             )
             total_deleted_count = result.deleted_count
 

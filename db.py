@@ -36,6 +36,8 @@ from pymongo.errors import (
 )
 from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
+from date_utils import normalize_calendar_date, normalize_to_utc_datetime
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -807,56 +809,75 @@ def parse_query_date(
     date_str: str | None,
     end_of_day: bool = False,
 ) -> datetime | None:
-    """Parse a date string into a timezone-aware UTC datetime object. Handles
-    ISO formats (including 'Z') and 'YYYY-MM-DD'.
+    """Parse a query date into a UTC-aware datetime with unified handling."""
 
-    Args:
-        date_str: Date string to parse
-        end_of_day: If True, set time to end of day (23:59:59.999999 UTC)
-
-    Returns:
-        Timezone-aware UTC datetime object or None if parsing fails
-
-    """
     if not date_str:
         return None
 
-    try:
-        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.astimezone(timezone.utc)
-        dt = dt.astimezone(timezone.utc)
+    dt = normalize_to_utc_datetime(date_str)
+    if dt is None:
+        logger.warning("Unable to parse date string '%s'; returning None.", date_str)
+        return None
 
+    is_date_only = isinstance(date_str, str) and "T" not in date_str and "t" not in date_str
+
+    if is_date_only:
         if end_of_day:
-            dt = dt.replace(
-                hour=23,
-                minute=59,
-                second=59,
-                microsecond=999999,
-            )
-        return dt
-    except ValueError:
-        try:
-            dt_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            if end_of_day:
-                dt = datetime.combine(
-                    dt_date,
-                    datetime.max.time(),
-                    tzinfo=timezone.utc,
-                )
-            else:
-                dt = datetime.combine(
-                    dt_date,
-                    datetime.min.time(),
-                    tzinfo=timezone.utc,
-                )
-            return dt
-        except ValueError:
-            logger.warning(
-                "Unable to parse date string '%s'; returning None.",
-                date_str,
-            )
-            return None
+            return dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    return dt
+
+
+def build_calendar_date_expr(
+    start_date: str | datetime | None,
+    end_date: str | datetime | None,
+    *,
+    date_field: str = "startTime",
+) -> dict[str, Any] | None:
+    """Build a Mongo `$expr` that filters by calendar date using trip timezones."""
+
+    start_str = normalize_calendar_date(start_date)
+    end_str = normalize_calendar_date(end_date)
+
+    if start_date and not start_str:
+        logger.warning("Invalid start date provided for filtering: %s", start_date)
+    if end_date and not end_str:
+        logger.warning("Invalid end date provided for filtering: %s", end_date)
+
+    if not start_str and not end_str:
+        return None
+
+    tz_expr: dict[str, Any] = {
+        "$switch": {
+            "branches": [
+                {
+                    "case": {"$in": ["$timeZone", ["", "0000"]]},
+                    "then": "UTC",
+                }
+            ],
+            "default": {"$ifNull": ["$timeZone", "UTC"]},
+        }
+    }
+
+    date_expr: dict[str, Any] = {
+        "$dateToString": {
+            "format": "%Y-%m-%d",
+            "date": f"${date_field}",
+            "timezone": tz_expr,
+        }
+    }
+
+    clauses: list[dict[str, Any]] = []
+    if start_str:
+        clauses.append({"$gte": [date_expr, start_str]})
+    if end_str:
+        clauses.append({"$lte": [date_expr, end_str]})
+
+    if not clauses:
+        return None
+
+    return {"$and": clauses} if len(clauses) > 1 else clauses[0]
 
 
 async def build_query_from_request(
@@ -887,37 +908,14 @@ async def build_query_from_request(
     start_date_str = request.query_params.get("start_date")
     end_date_str = request.query_params.get("end_date")
 
-    if start_date_str or end_date_str:
-        tz_expr = {
-            "$switch": {
-                "branches": [
-                    {
-                        "case": {"$in": ["$timeZone", ["", "0000"]]},
-                        "then": "UTC",
-                    }
-                ],
-                "default": {"$ifNull": ["$timeZone", "UTC"]},
-            }
-        }
+    date_expr = build_calendar_date_expr(
+        start_date_str,
+        end_date_str,
+        date_field=date_field,
+    )
 
-        date_expr = {
-            "$dateToString": {
-                "format": "%Y-%m-%d",
-                "date": f"${date_field}",
-                "timezone": tz_expr,
-            }
-        }
-
-        expr_clauses = []
-        if start_date_str:
-            expr_clauses.append({"$gte": [date_expr, start_date_str]})
-        if end_date_str:
-            expr_clauses.append({"$lte": [date_expr, end_date_str]})
-
-        if expr_clauses:
-            query["$expr"] = (
-                {"$and": expr_clauses} if len(expr_clauses) > 1 else expr_clauses[0]
-            )
+    if date_expr:
+        query["$expr"] = date_expr
 
     # IMEI filter
     imei_param = request.query_params.get("imei")

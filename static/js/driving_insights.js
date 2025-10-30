@@ -106,9 +106,9 @@ if (typeof window !== "undefined") {
 
       // Update current period length (in days) for metrics that rely on it
       try {
-        const startDateObj = new Date(dateRange.start);
-        const endDateObj = new Date(dateRange.end);
-        if (!isNaN(startDateObj) && !isNaN(endDateObj)) {
+        const startDateObj = window.DateUtils.parseDateString(dateRange.start);
+        const endDateObj = window.DateUtils.parseDateString(dateRange.end);
+        if (startDateObj && endDateObj) {
           const diffTime = endDateObj - startDateObj;
           const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
           state.currentPeriod = Math.max(diffDays, 1);
@@ -123,7 +123,10 @@ if (typeof window !== "undefined") {
       });
 
       // Calculate previous-period date range for trend comparisons
-      const prevEndDateObj = new Date(dateRange.start);
+      const prevEndDateObj = window.DateUtils.parseDateString(dateRange.start);
+      if (!prevEndDateObj) {
+        throw new Error("Invalid date range");
+      }
       prevEndDateObj.setDate(prevEndDateObj.getDate() - 1);
       const prevStartDateObj = new Date(prevEndDateObj);
       prevStartDateObj.setDate(

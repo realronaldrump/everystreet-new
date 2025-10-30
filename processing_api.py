@@ -5,13 +5,14 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from config import MAPBOX_ACCESS_TOKEN
+from date_utils import normalize_calendar_date
 from db import (
     SerializationHelper,
+    build_calendar_date_expr,
     db_manager,
     delete_many_with_retry,
     find_with_retry,
     get_trip_by_id,
-    parse_query_date,
 )
 from models import BulkProcessModel, DateRangeModel
 from trip_service import ProcessingOptions, TripService
@@ -167,17 +168,13 @@ async def map_match_trips_endpoint(
         if trip_id:
             query["transactionId"] = trip_id
         elif start_date and end_date:
-            parsed_start = parse_query_date(start_date)
-            parsed_end = parse_query_date(end_date, end_of_day=True)
-            if not parsed_start or not parsed_end:
+            date_expr = build_calendar_date_expr(start_date, end_date)
+            if not date_expr:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid date format",
+                    detail="Invalid date range",
                 )
-            query["startTime"] = {
-                "$gte": parsed_start,
-                "$lte": parsed_end,
-            }
+            query["$expr"] = date_expr
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -229,42 +226,66 @@ async def remap_matched_trips(
             )
 
         if data.interval_days > 0:
-            start_date = datetime.now(timezone.utc) - timedelta(
-                days=data.interval_days,
-            )
-            end_date = datetime.now(timezone.utc)
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(days=data.interval_days)
+            start_iso = start_dt.date().isoformat()
+            end_iso = end_dt.date().isoformat()
         else:
-            start_date = parse_query_date(data.start_date)
-            end_date = parse_query_date(data.end_date, end_of_day=True)
+            start_iso = normalize_calendar_date(data.start_date)
+            end_iso = normalize_calendar_date(data.end_date)
 
-            if not start_date or not end_date:
+            if not start_iso or not end_iso:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid date range",
                 )
 
-        await delete_many_with_retry(
-            matched_trips_collection,
-            {
-                "startTime": {
-                    "$gte": start_date,
-                    "$lte": end_date,
-                },
-            },
+        range_expr = build_calendar_date_expr(start_iso, end_iso)
+        if not range_expr:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid date range",
+            )
+
+        total_deleted_count = 0
+
+        if data.interval_days > 0:
+            chunk_size = max(1, data.interval_days)
+            current_start = datetime.strptime(start_iso, "%Y-%m-%d").date()
+            final_end = datetime.strptime(end_iso, "%Y-%m-%d").date()
+
+            while current_start <= final_end:
+                chunk_end = min(
+                    current_start + timedelta(days=chunk_size - 1),
+                    final_end,
+                )
+                chunk_expr = build_calendar_date_expr(
+                    current_start.isoformat(),
+                    chunk_end.isoformat(),
+                )
+                if chunk_expr:
+                    result = await delete_many_with_retry(
+                        matched_trips_collection,
+                        {"$expr": chunk_expr},
+                    )
+                    total_deleted_count += result.deleted_count
+                current_start = chunk_end + timedelta(days=1)
+        else:
+            delete_result = await delete_many_with_retry(
+                matched_trips_collection,
+                {"$expr": range_expr},
+            )
+            total_deleted_count = delete_result.deleted_count
+
+        result = await trip_service.remap_trips(
+            query={"$expr": range_expr},
+            limit=1000,
         )
-
-        query = {
-            "startTime": {
-                "$gte": start_date,
-                "$lte": end_date,
-            },
-        }
-
-        result = await trip_service.remap_trips(query=query, limit=1000)
 
         return {
             "status": "success",
             "message": f"Re-matching completed. Processed {result['map_matched']} trips.",
+            "deleted_count": total_deleted_count,
         }
 
     except Exception as e:

@@ -18,7 +18,7 @@ operations used throughout the codebase.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from dateutil import parser
 
@@ -66,3 +66,59 @@ def parse_timestamp(ts: str | datetime) -> datetime | None:
     except (ValueError, TypeError) as e:
         logger.warning("Failed to parse timestamp '%s': %s", ts, e)
         return None
+
+
+def ensure_utc(dt: datetime | None) -> datetime | None:
+    """Return the datetime as an explicit UTC-aware value."""
+
+    if dt is None:
+        return None
+
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+
+    return dt.astimezone(timezone.utc)
+
+
+def normalize_to_utc_datetime(value: str | datetime | date | None) -> datetime | None:
+    """Normalize arbitrary date/datetime inputs to a UTC-aware datetime."""
+
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        return ensure_utc(value)
+
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
+
+    if isinstance(value, str):
+        parsed = parse_timestamp(value)
+        if parsed:
+            return ensure_utc(parsed)
+
+        try:
+            parsed_date = datetime.strptime(value, "%Y-%m-%d").date()
+        except ValueError:
+            logger.warning(
+                "Unable to interpret value '%s' as datetime; returning None.", value
+            )
+            return None
+
+        return datetime.combine(parsed_date, datetime.min.time(), tzinfo=timezone.utc)
+
+    logger.warning("Unsupported datetime input type '%s'", type(value))
+    return None
+
+
+def normalize_calendar_date(value: str | datetime | date | None) -> str | None:
+    """Normalize a date-like input to a YYYY-MM-DD string."""
+
+    normalized_dt = normalize_to_utc_datetime(value)
+    if normalized_dt:
+        return normalized_dt.date().isoformat()
+
+    if isinstance(value, date):
+        return value.isoformat()
+
+    return None
