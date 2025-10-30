@@ -1403,7 +1403,12 @@
       const startDate = new Date(startValue);
       const endDate = new Date(endValue);
 
-      if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      if (
+        !startDate ||
+        !endDate ||
+        isNaN(startDate.getTime()) ||
+        isNaN(endDate.getTime())
+      ) {
         if (statusEl) statusEl.textContent = "Invalid date selection.";
         return;
       }
