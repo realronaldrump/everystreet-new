@@ -862,7 +862,9 @@ async def export_advanced(
                         processed["trip_type"] = trip.get("source", "unknown")
                         yield processed
             if include_matched_trips:
-                async for trip in matched_trips_collection.find(date_filter).batch_size(500):
+                async for trip in matched_trips_collection.find(date_filter).batch_size(
+                    500
+                ):
                     processed = await process_trip_for_export(
                         trip,
                         include_basic_info,

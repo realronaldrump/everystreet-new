@@ -5,6 +5,7 @@ import geojson as geojson_module
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 
+from date_utils import normalize_calendar_date
 from db import (
     SerializationHelper,
     build_calendar_date_expr,
@@ -15,8 +16,6 @@ from db import (
     find_with_retry,
 )
 from models import DateRangeModel
-
-from date_utils import normalize_calendar_date
 
 # Setup
 logger = logging.getLogger(__name__)
