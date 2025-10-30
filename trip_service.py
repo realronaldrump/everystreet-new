@@ -355,9 +355,7 @@ class TripService:
                     projection={"transactionId": 1, "matchedGps": 1, "_id": 0},
                     limit=len(incoming_ids),
                 )
-                existing_by_id = {
-                    d.get("transactionId"): d for d in existing_docs
-                }
+                existing_by_id = {d.get("transactionId"): d for d in existing_docs}
 
                 # Determine which trips need processing:
                 # - If map matching is enabled: process trips that don't exist OR
