@@ -28,10 +28,12 @@
       this.pollingInterval = null;
       this.configRefreshTimeout = null;
       this.eventSource = null;
+      this.durationUpdateInterval = null;
 
       this.setupEventSource();
 
       this.setupPolling();
+      this.setupDurationUpdates();
     }
 
     setupEventSource() {
@@ -426,6 +428,32 @@
           if (!isNaN(runtimeMs)) {
             durationText = this.formatDuration(runtimeMs);
           }
+        } else if (entry.status === "RUNNING" && entry.timestamp) {
+          // Calculate elapsed time for running tasks
+          try {
+            const startTime = new Date(entry.timestamp);
+            const now = new Date();
+            const elapsedMs = now - startTime;
+            if (!isNaN(elapsedMs) && elapsedMs >= 0) {
+              durationText = this.formatDuration(elapsedMs);
+              // Store the timestamp for real-time updates
+              row.dataset.startTime = entry.timestamp;
+              row.dataset.isRunning = "true";
+            }
+          } catch (e) {
+            console.error("Error calculating elapsed time:", e);
+          }
+        }
+
+        let resultText = "N/A";
+        if (entry.status === "RUNNING") {
+          resultText = "Running";
+        } else if (entry.status === "COMPLETED") {
+          resultText = entry.result ? "Success" : "Completed";
+        } else if (entry.status === "FAILED") {
+          resultText = "Failed";
+        } else {
+          resultText = entry.result ? "Success" : "Failed";
         }
 
         let detailsContent = "N/A";
@@ -453,8 +481,8 @@
               </span>
             </td>
             <td>${this.formatDateTime(entry.timestamp)}</td>
-            <td>${durationText}</td>
-            <td>${entry.result ? "Success" : "Failed"}</td>
+            <td class="task-duration">${durationText}</td>
+            <td>${resultText}</td>
             <td>${detailsContent}</td>
           `;
         tbody.appendChild(row);
@@ -467,6 +495,67 @@
           this.showErrorModal(errorMessage);
         });
       });
+
+      // Update durations for running tasks
+      this.updateRunningTaskDurations();
+    }
+
+    updateRunningTaskDurations() {
+      // Update desktop table
+      const tbody = document.querySelector("#taskHistoryTable tbody");
+      if (tbody) {
+        tbody.querySelectorAll("tr[data-is-running='true']").forEach((row) => {
+          const startTimeStr = row.dataset.startTime;
+          if (startTimeStr) {
+            try {
+              const startTime = new Date(startTimeStr);
+              const now = new Date();
+              const elapsedMs = now - startTime;
+              if (!isNaN(elapsedMs) && elapsedMs >= 0) {
+                const durationCell = row.querySelector(".task-duration");
+                if (durationCell) {
+                  durationCell.textContent = this.formatDuration(elapsedMs);
+                }
+              }
+            } catch (e) {
+              console.error("Error updating duration:", e);
+            }
+          }
+        });
+      }
+
+      // Update mobile list
+      const mobileList = document.getElementById("mobile-history-list");
+      if (mobileList) {
+        mobileList.querySelectorAll(".mobile-history-card[data-is-running='true']").forEach((card) => {
+          const startTimeStr = card.dataset.startTime;
+          if (startTimeStr) {
+            try {
+              const startTime = new Date(startTimeStr);
+              const now = new Date();
+              const elapsedMs = now - startTime;
+              if (!isNaN(elapsedMs) && elapsedMs >= 0) {
+                const durationElement = card.querySelector(".task-duration");
+                if (durationElement) {
+                  durationElement.textContent = this.formatDuration(elapsedMs);
+                }
+              }
+            } catch (e) {
+              console.error("Error updating duration:", e);
+            }
+          }
+        });
+      }
+    }
+
+    setupDurationUpdates() {
+      if (this.durationUpdateInterval) {
+        clearInterval(this.durationUpdateInterval);
+      }
+      // Update durations every second for running tasks
+      this.durationUpdateInterval = setInterval(() => {
+        this.updateRunningTaskDurations();
+      }, 1000);
     }
 
     escapeHtml(str) {
@@ -1074,6 +1163,11 @@
       if (this.configRefreshTimeout) {
         clearTimeout(this.configRefreshTimeout);
         this.configRefreshTimeout = null;
+      }
+
+      if (this.durationUpdateInterval) {
+        clearInterval(this.durationUpdateInterval);
+        this.durationUpdateInterval = null;
       }
 
       if (this.eventSource) {
@@ -1783,6 +1877,32 @@
         if (!isNaN(runtimeMs)) {
           durationText = window.taskManager.formatDuration(runtimeMs);
         }
+      } else if (entry.status === "RUNNING" && entry.timestamp) {
+        // Calculate elapsed time for running tasks
+        try {
+          const startTime = new Date(entry.timestamp);
+          const now = new Date();
+          const elapsedMs = now - startTime;
+          if (!isNaN(elapsedMs) && elapsedMs >= 0) {
+            durationText = window.taskManager.formatDuration(elapsedMs);
+            // Store the timestamp for real-time updates
+            card.dataset.startTime = entry.timestamp;
+            card.dataset.isRunning = "true";
+          }
+        } catch (e) {
+          console.error("Error calculating elapsed time:", e);
+        }
+      }
+
+      let resultText = "N/A";
+      if (entry.status === "RUNNING") {
+        resultText = "Running";
+      } else if (entry.status === "COMPLETED") {
+        resultText = entry.result ? "Success" : "Completed";
+      } else if (entry.status === "FAILED") {
+        resultText = "Failed";
+      } else {
+        resultText = entry.result ? "Success" : "Failed";
       }
 
       const statusClass = window.taskManager.getStatusColor(entry.status);
@@ -1798,11 +1918,11 @@
         <div class="mobile-history-info">
           <div class="mobile-history-info-item">
             <span class="mobile-task-info-label">Duration</span>
-            <span class="mobile-task-info-value">${durationText}</span>
+            <span class="mobile-task-info-value task-duration">${durationText}</span>
           </div>
           <div class="mobile-history-info-item">
             <span class="mobile-task-info-label">Result</span>
-            <span class="mobile-task-info-value">${entry.result ? "Success" : "Failed"}</span>
+            <span class="mobile-task-info-value">${resultText}</span>
           </div>
         </div>
         ${
