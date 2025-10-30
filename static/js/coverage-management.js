@@ -1315,7 +1315,7 @@ const STATUS = window.STATUS || {
           locationData = JSON.parse(locationStr);
         } catch (parseError) {
           this.notificationManager.show(
-            `Action failed: Invalid location data.`,
+            "Action failed: Invalid location data.",
             "danger",
           );
           return;
@@ -1723,7 +1723,7 @@ const STATUS = window.STATUS || {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.detail || `Validation failed`);
+          throw new Error(data.detail || "Validation failed");
         }
 
         if (!data || !data.osm_id || !data.display_name) {
@@ -1993,7 +1993,7 @@ const STATUS = window.STATUS || {
               : data.detail;
             throw new Error(`Validation error: ${errorMsg}`);
           }
-          throw new Error(data.detail || `Failed to start update`);
+          throw new Error(data.detail || "Failed to start update");
         }
 
         if (data.task_id) {
@@ -2411,7 +2411,7 @@ const STATUS = window.STATUS || {
               data.error || data.message || "Coverage calculation failed",
             );
           } else if (data.stage === STATUS.CANCELED) {
-            this.notificationManager.show(`Task was canceled.`, "warning");
+            this.notificationManager.show("Task was canceled.", "warning");
             this.activeTaskIds.delete(taskId);
             this._removeBeforeUnloadListener(); // Task finished due to cancel
             this.hideProgressModal();
@@ -3200,10 +3200,12 @@ const STATUS = window.STATUS || {
 
       if (currentlyActive) {
         activityIndicator.classList.add("pulsing");
-        activityIndicator.innerHTML = `<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active`;
+        activityIndicator.innerHTML =
+          '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
       } else {
         activityIndicator.classList.remove("pulsing");
-        activityIndicator.innerHTML = `<i class="fas fa-hourglass-half text-secondary me-1"></i>Idle`;
+        activityIndicator.innerHTML =
+          '<i class="fas fa-hourglass-half text-secondary me-1"></i>Idle';
       }
 
       if (this.lastActivityTime) {
@@ -3426,7 +3428,8 @@ const STATUS = window.STATUS || {
       dashboardElement.style.display = "block";
       dashboardElement.classList.add("fade-in-up");
 
-      locationNameElement.innerHTML = `<span class="loading-skeleton" style="width: 150px; display: inline-block;"></span>`;
+      locationNameElement.innerHTML =
+        '<span class="loading-skeleton" style="width: 150px; display: inline-block;"></span>';
 
       if (streetTypeChartElement)
         streetTypeChartElement.innerHTML =
@@ -4128,7 +4131,7 @@ const STATUS = window.STATUS || {
           }">${status}</span></div>
           ${
             isUndriveable
-              ? `<div class="popup-detail"><span class="popup-label">Marked as:</span> <span class="popup-value status-undriveable">Undriveable</span></div>`
+              ? '<div class="popup-detail"><span class="popup-label">Marked as:</span> <span class="popup-value status-undriveable">Undriveable</span></div>'
               : ""
           }
           <div class="popup-detail"><span class="popup-label">ID:</span><span class="popup-value segment-id">${segmentId}</span></div>
@@ -4620,7 +4623,7 @@ const STATUS = window.STATUS || {
         } me-1"></i>${status}</span></div>
         ${
           isUndriveable
-            ? `<div class="d-flex justify-content-between small"><span class="text-muted">Marked:</span><span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Undriveable</span></div>`
+            ? '<div class="d-flex justify-content-between small"><span class="text-muted">Marked:</span><span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Undriveable</span></div>'
             : ""
         }
         ${
@@ -5767,7 +5770,7 @@ const STATUS = window.STATUS || {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.detail || `Validation failed`);
+          throw new Error(data.detail || "Validation failed");
         }
 
         if (!data || !data.valid) {
