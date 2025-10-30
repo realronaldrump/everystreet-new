@@ -66,4 +66,3 @@ def parse_timestamp(ts: str | datetime) -> datetime | None:
     except (ValueError, TypeError) as e:
         logger.warning("Failed to parse timestamp '%s': %s", ts, e)
         return None
-
