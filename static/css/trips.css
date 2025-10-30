@@ -131,7 +131,7 @@
     font-size: var(--font-size-sm);
     color: var(--text-primary);
     line-height: var(--line-height-normal);
-    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   .trip-card-actions {
