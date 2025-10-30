@@ -108,62 +108,64 @@ class DatabaseManager:
             )
 
     def _initialize_client(self) -> None:
-            """Initialize the MongoDB client with proper connection settings."""
-            try:
-                # Try to get the full URI first, which is best for flexibility (e.g., local development)
-                mongo_uri = os.getenv("MONGO_URI")
+        """Initialize the MongoDB client with proper connection settings."""
+        try:
+            # Try to get the full URI first, which is best for flexibility (e.g., local development)
+            mongo_uri = os.getenv("MONGO_URI")
 
-                # If the full URI isn't provided, fall back to constructing it (for Docker Compose)
-                if not mongo_uri:
-                    mongo_host = os.getenv("MONGO_HOST", "mongo")  # Default to 'mongo' for Docker
-                    mongo_port = os.getenv("MONGO_PORT", "27017")
-                    db_name = os.getenv("MONGODB_DATABASE", "every_street")
-                    mongo_uri = f"mongodb://{mongo_host}:{mongo_port}/{db_name}"
-                    logger.warning(
-                        "MONGO_URI not set, constructing from components: %s",
-                        mongo_uri,
-                    )
-
-                logger.debug("Initializing MongoDB client with URI: %s", mongo_uri)
-
-                client_kwargs: dict[str, Any] = {
-                    "tz_aware": True,
-                    "tzinfo": timezone.utc,
-                    "maxPoolSize": self._max_pool_size,
-                    "minPoolSize": 0,
-                    "maxIdleTimeMS": 60000,
-                    "connectTimeoutMS": self._connection_timeout_ms,
-                    "serverSelectionTimeoutMS": self._server_selection_timeout_ms,
-                    "socketTimeoutMS": self._socket_timeout_ms,
-                    "retryWrites": True,
-                    "retryReads": True,
-                    "waitQueueTimeoutMS": 10000,
-                    "appname": "EveryStreet",
-                }
-
-                if mongo_uri.startswith("mongodb+srv://"):
-                    client_kwargs.update(
-                        tls=True,
-                        tlsAllowInvalidCertificates=True,
-                        tlsCAFile=certifi.where(),
-                    )
-
-                self._client = AsyncIOMotorClient(
+            # If the full URI isn't provided, fall back to constructing it (for Docker Compose)
+            if not mongo_uri:
+                mongo_host = os.getenv(
+                    "MONGO_HOST", "mongo"
+                )  # Default to 'mongo' for Docker
+                mongo_port = os.getenv("MONGO_PORT", "27017")
+                db_name = os.getenv("MONGODB_DATABASE", "every_street")
+                mongo_uri = f"mongodb://{mongo_host}:{mongo_port}/{db_name}"
+                logger.warning(
+                    "MONGO_URI not set, constructing from components: %s",
                     mongo_uri,
-                    **client_kwargs,
                 )
-                self._db = self._client[self._db_name]
-                self._connection_healthy = True
-                self._collections = {}
-                self._gridfs_bucket_instance = None
-                logger.info("MongoDB client initialized successfully")
-            except Exception as e:
-                self._connection_healthy = False
-                logger.error(
-                    "Failed to initialize MongoDB client: %s",
-                    str(e),
+
+            logger.debug("Initializing MongoDB client with URI: %s", mongo_uri)
+
+            client_kwargs: dict[str, Any] = {
+                "tz_aware": True,
+                "tzinfo": timezone.utc,
+                "maxPoolSize": self._max_pool_size,
+                "minPoolSize": 0,
+                "maxIdleTimeMS": 60000,
+                "connectTimeoutMS": self._connection_timeout_ms,
+                "serverSelectionTimeoutMS": self._server_selection_timeout_ms,
+                "socketTimeoutMS": self._socket_timeout_ms,
+                "retryWrites": True,
+                "retryReads": True,
+                "waitQueueTimeoutMS": 10000,
+                "appname": "EveryStreet",
+            }
+
+            if mongo_uri.startswith("mongodb+srv://"):
+                client_kwargs.update(
+                    tls=True,
+                    tlsAllowInvalidCertificates=True,
+                    tlsCAFile=certifi.where(),
                 )
-                raise
+
+            self._client = AsyncIOMotorClient(
+                mongo_uri,
+                **client_kwargs,
+            )
+            self._db = self._client[self._db_name]
+            self._connection_healthy = True
+            self._collections = {}
+            self._gridfs_bucket_instance = None
+            logger.info("MongoDB client initialized successfully")
+        except Exception as e:
+            self._connection_healthy = False
+            logger.error(
+                "Failed to initialize MongoDB client: %s",
+                str(e),
+            )
+            raise
 
     @property
     def db(self) -> AsyncIOMotorDatabase:
