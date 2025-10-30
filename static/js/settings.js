@@ -1177,12 +1177,17 @@
 
           if (!response.ok) throw new Error("Failed to pause tasks");
 
-          window.notificationManager.show(`Tasks paused for ${duration} minutes`, "success");
-          
+          window.notificationManager.show(
+            `Tasks paused for ${duration} minutes`,
+            "success",
+          );
+
           // Close the modal
-          const modal = bootstrap.Modal.getInstance(document.getElementById("pauseModal"));
+          const modal = bootstrap.Modal.getInstance(
+            document.getElementById("pauseModal"),
+          );
           if (modal) modal.hide();
-          
+
           taskManager.loadTaskConfig();
         } catch (error) {
           hideLoadingOverlay();
@@ -1572,7 +1577,9 @@
   // Mobile-specific functions
   function setupMobileUI() {
     // Check if mobile container exists
-    const mobileContainer = document.querySelector(".settings-mobile-container");
+    const mobileContainer = document.querySelector(
+      ".settings-mobile-container",
+    );
     if (!mobileContainer) return;
 
     setupMobileAccordions();
@@ -1585,8 +1592,10 @@
   }
 
   function setupMobileAccordions() {
-    const headers = document.querySelectorAll(".mobile-settings-section-header");
-    
+    const headers = document.querySelectorAll(
+      ".mobile-settings-section-header",
+    );
+
     headers.forEach((header) => {
       header.addEventListener("click", function () {
         const content = this.nextElementSibling;
@@ -1632,7 +1641,7 @@
       card.dataset.taskId = taskId;
 
       const statusClass = taskStatus.toLowerCase();
-      
+
       card.innerHTML = `
         <div class="mobile-task-card-header">
           <div class="mobile-task-name">${task.display_name || taskId}</div>
@@ -1930,7 +1939,9 @@
 
     const startInput = document.getElementById("mobile-manual-fetch-start");
     const endInput = document.getElementById("mobile-manual-fetch-end");
-    const mapMatchInput = document.getElementById("mobile-manual-fetch-map-match");
+    const mapMatchInput = document.getElementById(
+      "mobile-manual-fetch-map-match",
+    );
     const statusEl = document.getElementById("mobile-manual-fetch-status");
 
     form.addEventListener("submit", async (event) => {
@@ -2010,12 +2021,14 @@
     // GeoPoints Update
     const geoBtn = document.getElementById("mobile-update-geo-points");
     const geoSelect = document.getElementById("mobile-collection-select");
-    const geoStatus = document.getElementById("mobile-update-geo-points-status");
+    const geoStatus = document.getElementById(
+      "mobile-update-geo-points-status",
+    );
 
     if (geoBtn && geoSelect) {
       geoBtn.addEventListener("click", async () => {
         const collection = geoSelect.value;
-        
+
         if (geoStatus) {
           geoStatus.classList.remove("d-none", "success", "error");
           geoStatus.classList.add("info");
@@ -2047,14 +2060,19 @@
             geoStatus.classList.add("error");
             geoStatus.textContent = "Failed to update GeoPoints";
           }
-          window.notificationManager.show("Failed to update GeoPoints", "danger");
+          window.notificationManager.show(
+            "Failed to update GeoPoints",
+            "danger",
+          );
         }
       });
     }
 
     // Re-geocode
     const regeocodeBtn = document.getElementById("mobile-re-geocode-all-trips");
-    const regeocodeStatus = document.getElementById("mobile-re-geocode-all-trips-status");
+    const regeocodeStatus = document.getElementById(
+      "mobile-re-geocode-all-trips-status",
+    );
 
     if (regeocodeBtn) {
       regeocodeBtn.addEventListener("click", async () => {
@@ -2087,14 +2105,21 @@
             regeocodeStatus.classList.add("error");
             regeocodeStatus.textContent = "Error re-geocoding trips.";
           }
-          window.notificationManager.show("Failed to re-geocode trips", "danger");
+          window.notificationManager.show(
+            "Failed to re-geocode trips",
+            "danger",
+          );
         }
       });
     }
 
     // Remap trips - method tabs
-    const dateTab = document.querySelector('.mobile-date-method-tab[data-method="date"]');
-    const intervalTab = document.querySelector('.mobile-date-method-tab[data-method="interval"]');
+    const dateTab = document.querySelector(
+      '.mobile-date-method-tab[data-method="date"]',
+    );
+    const intervalTab = document.querySelector(
+      '.mobile-date-method-tab[data-method="interval"]',
+    );
     const dateRange = document.getElementById("mobile-remap-date-range");
     const intervalDiv = document.getElementById("mobile-remap-interval");
 
@@ -2120,8 +2145,12 @@
 
     if (remapBtn) {
       remapBtn.addEventListener("click", async () => {
-        const method = document.querySelector('.mobile-date-method-tab.active')?.dataset.method || 'date';
-        let start_date, end_date, interval_days = 0;
+        const method =
+          document.querySelector(".mobile-date-method-tab.active")?.dataset
+            .method || "date";
+        let start_date,
+          end_date,
+          interval_days = 0;
 
         if (method === "date") {
           start_date = document.getElementById("mobile-remap-start").value;
@@ -2199,7 +2228,9 @@
       if (!window.taskManager) return;
 
       // Gather mobile config
-      const mobileGlobalSwitch = document.getElementById("mobile-globalDisableSwitch");
+      const mobileGlobalSwitch = document.getElementById(
+        "mobile-globalDisableSwitch",
+      );
       const tasks = {};
 
       document.querySelectorAll(".mobile-task-card").forEach((card) => {

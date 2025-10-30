@@ -10,7 +10,7 @@
 }
 
 /* Mobile: Hide table, show cards */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .trips-desktop-container {
     display: none !important;
   }
@@ -32,7 +32,7 @@
 
   .trip-card.selected {
     border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+    box-shadow: 0 0 0 2px rgb(var(--primary-rgb), 0.2);
   }
 
   .trip-card-header {
@@ -283,7 +283,7 @@
     align-items: center;
     gap: var(--space-1);
     padding: var(--space-1) var(--space-2);
-    background-color: rgba(var(--primary-rgb), 0.1);
+    background-color: rgb(var(--primary-rgb), 0.1);
     color: var(--primary);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-xs);
@@ -310,7 +310,7 @@
 }
 
 /* Very small mobile devices */
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .trip-info-grid {
     grid-template-columns: 1fr !important;
   }
@@ -323,4 +323,3 @@
     width: 100%;
   }
 }
-

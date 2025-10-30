@@ -10,7 +10,7 @@
 }
 
 /* Mobile: Hide desktop, show mobile UI */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .settings-desktop-container {
     display: none !important;
   }
@@ -131,7 +131,7 @@
     top: 2px;
     left: 2px;
     transition: transform 0.3s;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
   }
 
   .mobile-switch:checked {
@@ -238,32 +238,32 @@
   }
 
   .mobile-task-badge.manual {
-    background: rgba(var(--info-rgb), 0.15);
+    background: rgb(var(--info-rgb), 0.15);
     color: var(--info);
   }
 
   .mobile-task-badge.status {
-    background: rgba(var(--primary-rgb), 0.15);
+    background: rgb(var(--primary-rgb), 0.15);
     color: var(--primary);
   }
 
   .mobile-task-badge.status.running {
-    background: rgba(var(--primary-rgb), 0.15);
+    background: rgb(var(--primary-rgb), 0.15);
     color: var(--primary);
   }
 
   .mobile-task-badge.status.completed {
-    background: rgba(var(--success-rgb), 0.15);
+    background: rgb(var(--success-rgb), 0.15);
     color: var(--success);
   }
 
   .mobile-task-badge.status.failed {
-    background: rgba(var(--danger-rgb), 0.15);
+    background: rgb(var(--danger-rgb), 0.15);
     color: var(--danger);
   }
 
   .mobile-task-badge.status.paused {
-    background: rgba(var(--warning-rgb), 0.15);
+    background: rgb(var(--warning-rgb), 0.15);
     color: var(--warning);
   }
 
@@ -446,17 +446,17 @@
   }
 
   .mobile-form-status.success {
-    background: rgba(var(--success-rgb), 0.15);
+    background: rgb(var(--success-rgb), 0.15);
     color: var(--success);
   }
 
   .mobile-form-status.error {
-    background: rgba(var(--danger-rgb), 0.15);
+    background: rgb(var(--danger-rgb), 0.15);
     color: var(--danger);
   }
 
   .mobile-form-status.info {
-    background: rgba(var(--info-rgb), 0.15);
+    background: rgb(var(--info-rgb), 0.15);
     color: var(--info);
   }
 
@@ -589,7 +589,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
     border: none;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -642,7 +642,7 @@
   }
 
   /* Responsive adjustments */
-  @media (max-width: 480px) {
+  @media (width <= 480px) {
     .mobile-action-grid {
       grid-template-columns: 1fr;
     }
@@ -660,4 +660,3 @@
     }
   }
 }
-

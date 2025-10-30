@@ -1,7 +1,7 @@
 /* Mobile Map - iOS Native App Feel */
 
 /* Desktop: Use existing layout */
-@media (min-width: 769px) {
+@media (width >= 769px) {
   .mobile-map-overlay,
   .mobile-fab-container,
   .mobile-bottom-sheet,
@@ -11,7 +11,7 @@
 }
 
 /* Mobile: iOS-native feel */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   /* Hide desktop controls on mobile */
   .control-panel#map-controls {
     display: none !important;
@@ -26,10 +26,7 @@
     padding: 0 !important;
     height: 100vh;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
   }
 
   #map {
@@ -45,11 +42,11 @@
     background: transparent;
     backdrop-filter: blur(10px);
     box-shadow: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgb(255 255 255 / 10%);
   }
 
   body.light-mode.map-page .app-header {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid rgb(0 0 0 / 10%);
   }
 
   /* Mobile Bottom Sheet - iOS Style */
@@ -60,21 +57,29 @@
     right: 0;
     background: var(--surface-1);
     border-radius: 20px 20px 0 0;
-    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 -4px 30px rgb(0 0 0 / 40%),
+      0 -1px 0 rgb(255 255 255 / 10%);
     z-index: var(--z-drawer);
-    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s;
+    transition:
+      transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+      box-shadow 0.3s;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom, 0);
+
     --sheet-offset: calc(100% - 180px);
+
     transform: translateY(var(--sheet-offset));
     will-change: transform;
   }
 
   .mobile-bottom-sheet:active,
   .mobile-bottom-sheet.dragging {
-    box-shadow: 0 -6px 40px rgba(0, 0, 0, 0.5), 0 -1px 0 rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 -6px 40px rgb(0 0 0 / 50%),
+      0 -1px 0 rgb(255 255 255 / 10%);
   }
 
   /* Sheet states */
@@ -159,7 +164,10 @@
   .mobile-fab-container {
     position: fixed;
     right: var(--space-3);
-    bottom: calc(200px + env(safe-area-inset-bottom, 0)); /* Adjusted for taller collapsed state */
+    bottom: calc(
+      200px + env(safe-area-inset-bottom, 0)
+    ); /* Adjusted for taller collapsed state */
+
     z-index: calc(var(--z-drawer) - 1);
     display: flex;
     flex-direction: column;
@@ -175,7 +183,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
     border: none;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -283,7 +291,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    background: rgba(var(--success-rgb), 0.15);
+    background: rgb(var(--success-rgb), 0.15);
     color: var(--success);
     padding: var(--space-1) var(--space-3);
     border-radius: 20px;
@@ -292,7 +300,7 @@
   }
 
   .mobile-live-badge.disconnected {
-    background: rgba(var(--danger-rgb), 0.15);
+    background: rgb(var(--danger-rgb), 0.15);
     color: var(--danger);
   }
 
@@ -300,15 +308,17 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: currentColor;
+    background: currentcolor;
     animation: mobile-pulse 2s infinite;
   }
 
   @keyframes mobile-pulse {
-    0%, 100% {
+    0%,
+    100% {
       opacity: 1;
       transform: scale(1);
     }
+
     50% {
       opacity: 0.6;
       transform: scale(0.9);
@@ -378,7 +388,7 @@
     top: 2px;
     left: 2px;
     transition: transform 0.3s;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
   }
 
   .mobile-toggle input[type="checkbox"]:checked {
@@ -500,11 +510,13 @@
   .mobile-sheet-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.3);
+    background: rgb(0 0 0 / 30%);
     z-index: calc(var(--z-drawer) - 1);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s, visibility 0.3s;
+    transition:
+      opacity 0.3s,
+      visibility 0.3s;
   }
 
   .mobile-sheet-backdrop.visible {
@@ -519,7 +531,9 @@
   }
 
   .mapboxgl-ctrl-bottom-right {
-    bottom: calc(200px + env(safe-area-inset-bottom, 0)) !important; /* Adjusted for taller collapsed state */
+    bottom: calc(
+      200px + env(safe-area-inset-bottom, 0)
+    ) !important; /* Adjusted for taller collapsed state */
   }
 
   /* Safe area support */
@@ -550,9 +564,11 @@
   }
 
   @keyframes mobile-bounce {
-    0%, 100% {
+    0%,
+    100% {
       transform: translateY(0);
     }
+
     50% {
       transform: translateY(-4px);
     }
@@ -631,7 +647,7 @@
 }
 
 /* Very small devices */
-@media (max-width: 375px) {
+@media (width <= 375px) {
   .mobile-fab {
     width: 50px;
     height: 50px;
@@ -651,4 +667,3 @@
     font-size: var(--font-size-lg);
   }
 }
-

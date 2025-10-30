@@ -548,7 +548,9 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 /* === Responsive Adjustments for Map Elements === */
+
 /* Note: Control panel mobile styles moved to map-mobile.css */
+
 /* Desktop control panel is hidden on mobile, replaced with bottom sheet */
 
 @media (width <= 768px) {
