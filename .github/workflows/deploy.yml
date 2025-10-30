@@ -1,6 +1,5 @@
 name: Deploy to Mini PC
 
-# This action runs on every push to the 'main' branch
 on:
   push:
     branches:
@@ -8,9 +7,17 @@ on:
 
 jobs:
   deploy:
-    # This tells GitHub to run this job on your self-hosted runner
     runs-on: self-hosted
 
     steps:
+      - name: Force Clean and Reset Git Repository
+        run: |
+          echo "--- Force cleaning the repository on the runner ---"
+          cd /home/davis/app
+          git fetch origin
+          git reset --hard origin/main
+          git clean -fd
+          echo "--- Repository has been reset to match origin/main ---"
+
       - name: Deploy Application
         run: /home/davis/app/deploy.sh
