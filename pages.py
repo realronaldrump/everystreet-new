@@ -91,11 +91,6 @@ async def database_management_page(request: Request):
     try:
         db_stats = await db_manager.db.command("dbStats")
         storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
-        storage_limit_mb = db_manager.limit_mb
-        storage_usage_percent = round(
-            (storage_used_mb / storage_limit_mb) * 100,
-            2,
-        )
         collection_names = [
             name for name in await db_manager.db.list_collection_names()
         ]
@@ -113,8 +108,6 @@ async def database_management_page(request: Request):
             "database_management.html",
             request,
             storage_used_mb=storage_used_mb,
-            storage_limit_mb=storage_limit_mb,
-            storage_usage_percent=storage_usage_percent,
             collections=collections_info,
         )
     except Exception as e:

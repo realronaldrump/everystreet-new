@@ -2,7 +2,6 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   const refreshStorageBtn = document.getElementById("refresh-storage");
-  const progressBar = document.querySelector(".progress-bar");
   const storageText = document.querySelector(".storage-text");
 
   let currentAction = null;
@@ -56,24 +55,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateStorageDisplay(data) {
     if (!data) return;
 
-    if (progressBar) {
-      progressBar.style.width = `${data.usage_percent}%`;
-      progressBar.setAttribute("aria-valuenow", data.usage_percent);
-      progressBar.textContent = `${data.usage_percent}%`;
-
-      progressBar.classList.remove("bg-danger", "bg-warning", "bg-success");
-
-      if (data.usage_percent > 95) {
-        progressBar.classList.add("bg-danger");
-      } else if (data.usage_percent > 80) {
-        progressBar.classList.add("bg-warning");
-      } else {
-        progressBar.classList.add("bg-success");
-      }
-    }
-
     if (storageText) {
-      storageText.textContent = `Using ${data.used_mb}MB of ${data.limit_mb}MB`;
+      storageText.textContent = `Using ${data.used_mb}MB`;
     }
   }
 

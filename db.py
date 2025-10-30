@@ -63,7 +63,6 @@ class DatabaseManager:
             self._client: AsyncIOMotorClient | None = None
             self._db: AsyncIOMotorDatabase | None = None
             self._gridfs_bucket_instance: None | (AsyncIOMotorGridFSBucket) = None
-            self._quota_exceeded = False
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
             self._collections: dict[str, AsyncIOMotorCollection] = {}
@@ -102,7 +101,6 @@ class DatabaseManager:
                 ),
             )
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
-            self._limit_mb: float = float(os.getenv("STORAGE_LIMIT_MB", 512))
 
             logger.debug(
                 "Database configuration initialized with pool size %s",
@@ -198,32 +196,6 @@ class DatabaseManager:
                 db_instance,
             )
         return self._gridfs_bucket_instance
-
-    @property
-    def quota_exceeded(self) -> bool:
-        """Check if the database quota is exceeded."""
-        return self._quota_exceeded
-
-    @property
-    def limit_mb(self) -> float:
-        """Return current storage limit in MB."""
-        return self._limit_mb
-
-    def set_limit_mb(self, value: float | int | None) -> None:
-        """Update the in-memory storage limit.
-
-        Args:
-            value: New limit in megabytes. If None or invalid, the previous value is kept.
-        """
-        if value is None:
-            return
-        try:
-            numeric = float(value)
-            if numeric > 0:
-                self._limit_mb = numeric
-        except Exception:
-            # Ignore invalid inputs – keep current limit
-            pass
 
     def get_collection(self, collection_name: str) -> AsyncIOMotorCollection:
         """Get a collection by name, cached for efficiency.
@@ -356,45 +328,13 @@ class DatabaseManager:
             f"All {max_attempts} retry attempts failed for {operation_name}",
         )
 
-    async def check_quota(
-        self,
-    ) -> tuple[float | None, float | None]:
-        """Check if the database quota is exceeded.
-
-        Returns:
-            Tuple of (used_mb, limit_mb) or (None, None) on error
-
-        """
-        try:
-
-            async def _check_quota() -> tuple[float, float]:
-                stats = await self.db.command("dbStats")
-                data_size = stats.get("dataSize", 0)
-                used_mb = data_size / (1024 * 1024)
-                limit_mb = self._limit_mb
-                self._quota_exceeded = used_mb > limit_mb
-                return used_mb, limit_mb
-
-            return await self.execute_with_retry(
-                _check_quota,
-                operation_name="quota check",
-            )
-        except Exception as e:
-            if "over your space quota" in str(e).lower():
-                self._quota_exceeded = True
-            logger.error(
-                "Error checking database quota: %s",
-                str(e),
-            )
-            return None, None
-
     async def safe_create_index(
         self,
         collection_name: str,
         keys: str | list[tuple[str, int]],
         **kwargs: Any,
     ) -> str | None:
-        """Create an index on a collection if quota is not exceeded.
+        """Create an index on a collection.
 
         Args:
             collection_name: Name of the collection
@@ -405,13 +345,6 @@ class DatabaseManager:
             Name of the created index or None
 
         """
-        if self._quota_exceeded:
-            logger.warning(
-                "Skipping index creation for %s due to quota exceeded",
-                collection_name,
-            )
-            return None
-
         try:
             collection = self.get_collection(collection_name)
 
@@ -487,10 +420,7 @@ class DatabaseManager:
                 pass
             return None
         except OperationFailure as e:
-            if "over your space quota" in str(e).lower():
-                self._quota_exceeded = True
-                logger.warning("Cannot create index due to quota exceeded")
-            elif e.code == 85:  # IndexOptionsConflict
+            if e.code == 85:  # IndexOptionsConflict
                 # Check if the conflict is due to an index with the same name but different options
                 index_name_to_create = kwargs.get("name")
                 if index_name_to_create and index_name_to_create in str(
@@ -1590,14 +1520,6 @@ async def ensure_archived_trip_indexes() -> None:
 async def init_database() -> None:
     """Initialize the database by ensuring all collections and indexes exist."""
     logger.info("Initializing database...")
-
-    used_mb, limit_mb = await db_manager.check_quota()
-    if db_manager.quota_exceeded:
-        logger.warning(
-            "Storage quota exceeded (%.2f MB / %d MB). Database operations may fail.",
-            used_mb,
-            limit_mb,
-        )
 
     await init_task_history_collection()
 

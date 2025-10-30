@@ -33,7 +33,6 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "showLiveTracking": True,
     "polylineColor": "#00FF00",
     "polylineOpacity": 0.8,
-    "storageLimitMb": 512,
     "geocodeTripsOnFetch": True,
 }
 
@@ -92,15 +91,6 @@ async def update_app_settings_endpoint(settings: dict = Body(...)):
             upsert=True,
         )
 
-        # Update in-memory storage limit if provided
-        if "storageLimitMb" in settings:
-            db_manager.set_limit_mb(settings["storageLimitMb"])
-            # Recalculate quota status immediately
-            try:
-                await db_manager.check_quota()
-            except Exception:
-                logger.exception("Failed to refresh quota after storageLimitMb update")
-
         updated_settings = await get_persisted_app_settings()
         return updated_settings
     except Exception as e:
@@ -144,19 +134,12 @@ async def clear_collection(data: CollectionModel):
 async def get_storage_info():
     """Get database storage usage information."""
     try:
-        used_mb, limit_mb = await db_manager.check_quota()
-
-        if used_mb is None or limit_mb is None:
-            used_mb = 0
-            limit_mb = db_manager.limit_mb
-            storage_usage_percent = 0
-        else:
-            storage_usage_percent = round((used_mb / limit_mb) * 100, 2)
+        stats = await db_manager.db.command("dbStats")
+        data_size = stats.get("dataSize", 0)
+        used_mb = round(data_size / (1024 * 1024), 2)
 
         return {
             "used_mb": used_mb,
-            "limit_mb": limit_mb,
-            "usage_percent": storage_usage_percent,
         }
     except Exception as e:
         logger.exception(
@@ -165,8 +148,6 @@ async def get_storage_info():
         )
         return {
             "used_mb": 0,
-            "limit_mb": db_manager.limit_mb,
-            "usage_percent": 0,
             "error": str(e),
         }
 

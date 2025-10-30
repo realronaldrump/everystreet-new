@@ -149,27 +149,6 @@ endblock %} {% block content %}
               </div>
             </div>
 
-            <!-- Storage Quota Settings -->
-            <div class="mb-4">
-              <h3 class="h6">Database Storage</h3>
-              <label for="storage-limit-mb" class="form-label"
-                >Quota Threshold (MB)</label
-              >
-              <input
-                type="number"
-                id="storage-limit-mb"
-                class="form-control"
-                min="100"
-                step="10"
-              />
-              <small class="form-text text-muted d-block mt-1"
-                >When the database grows larger than this value, the
-                application will automatically switch to read-only (limited)
-                mode to protect stability. Lower the number to be more
-                conservative, or raise it if you have upgraded your plan.
-              </small>
-            </div>
-
             <div class="d-grid gap-2 d-md-flex justify-content-md-end">
               <button type="submit" class="btn btn-primary">
                 Save Settings
@@ -222,7 +201,6 @@ endblock %} {% block content %}
     const themeToggleCheckbox = document.getElementById(
       "theme-toggle-checkbox",
     );
-    const storageLimitInput = document.getElementById("storage-limit-mb");
     const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
 
     // Function to init UI with settings object
@@ -234,7 +212,6 @@ endblock %} {% block content %}
         polylineColor: pc,
         polylineOpacity: po,
         disableWebSockets,
-        storageLimitMb,
         geocodeTripsOnFetch: gtof,
       } = settings;
 
@@ -253,15 +230,6 @@ endblock %} {% block content %}
       polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
       polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
       opacityValue.textContent = polylineOpacity.value;
-
-      if (storageLimitMb) {
-        storageLimitInput.value = storageLimitMb;
-      } else {
-        const stored = localStorage.getItem("storageLimitMb");
-        if (stored) {
-          storageLimitInput.value = stored;
-        }
-      }
     }
 
     // Initial load: fetch settings from server
@@ -304,7 +272,6 @@ endblock %} {% block content %}
         polylineColor: polylineColor.value,
         polylineOpacity: polylineOpacity.value,
         disableWebSockets: !useWebSocketToggle.checked,
-        storageLimitMb: parseFloat(storageLimitInput.value) || undefined,
         geocodeTripsOnFetch: geocodeTripsOnFetch.checked,
       };
 
@@ -337,11 +304,6 @@ endblock %} {% block content %}
         localStorage.setItem("disableWebSockets", "true");
       } else {
         localStorage.removeItem("disableWebSockets");
-      }
-      if (payload.storageLimitMb) {
-        localStorage.setItem("storageLimitMb", payload.storageLimitMb);
-      } else {
-        localStorage.removeItem("storageLimitMb");
       }
 
       // Show success notification

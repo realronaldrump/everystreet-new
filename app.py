@@ -92,26 +92,6 @@ app_settings_collection = db_manager.db["app_settings"]
 async def startup_event():
     """Initialize database indexes and components on application startup."""
     try:
-        # Configure storage limit early using persisted settings so index creation uses correct quota
-        try:
-            # This logic is now in admin_api.py, but we need it at startup.
-            # A small, self-contained version is fine here.
-            settings_doc = await db_manager.execute_with_retry(
-                lambda: app_settings_collection.find_one({"_id": "default"}),
-                operation_name="get persisted app settings at startup",
-            )
-            if settings_doc and "storageLimitMb" in settings_doc:
-                storage_limit_mb = settings_doc.get("storageLimitMb")
-                db_manager.set_limit_mb(storage_limit_mb)
-                logger.info(
-                    "Storage limit set to %.2f MB from app settings (pre-init)",
-                    storage_limit_mb,
-                )
-        except Exception:
-            logger.exception(
-                "Failed to read storageLimitMb from app settings at startup; using default limit"
-            )
-
         await init_database()  # This already creates many indexes
         logger.info("Core database initialized successfully (indexes, etc.).")
 
@@ -129,17 +109,7 @@ async def startup_event():
         )  # Initializes the class, not an instance for immediate use
         logger.info("TripProcessor class initialized (available for use).")
 
-        used_mb, limit_mb = await db_manager.check_quota()
-        if not db_manager.quota_exceeded:
-            logger.info("Application startup completed successfully.")
-        else:
-            logger.warning(
-                "Application started in limited mode due to exceeded storage quota (%.2f MB / %d MB)",
-                (
-                    used_mb if used_mb is not None else -1.0
-                ),  # Ensure float for formatting
-                (limit_mb if limit_mb is not None else -1),
-            )
+        logger.info("Application startup completed successfully.")
 
     except Exception as e:
         logger.critical(
