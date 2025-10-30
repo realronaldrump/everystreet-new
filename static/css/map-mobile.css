@@ -60,9 +60,13 @@
     right: 0;
     background: var(--surface-1);
     border-radius: 20px 20px 0 0;
-    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 -4px 30px rgba(0, 0, 0, 0.4),
+      0 -1px 0 rgba(255, 255, 255, 0.1);
     z-index: var(--z-drawer);
-    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s;
+    transition:
+      transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+      box-shadow 0.3s;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
@@ -74,7 +78,9 @@
 
   .mobile-bottom-sheet:active,
   .mobile-bottom-sheet.dragging {
-    box-shadow: 0 -6px 40px rgba(0, 0, 0, 0.5), 0 -1px 0 rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 -6px 40px rgba(0, 0, 0, 0.5),
+      0 -1px 0 rgba(255, 255, 255, 0.1);
   }
 
   /* Sheet states */
@@ -159,7 +165,9 @@
   .mobile-fab-container {
     position: fixed;
     right: var(--space-3);
-    bottom: calc(200px + env(safe-area-inset-bottom, 0)); /* Adjusted for taller collapsed state */
+    bottom: calc(
+      200px + env(safe-area-inset-bottom, 0)
+    ); /* Adjusted for taller collapsed state */
     z-index: calc(var(--z-drawer) - 1);
     display: flex;
     flex-direction: column;
@@ -305,7 +313,8 @@
   }
 
   @keyframes mobile-pulse {
-    0%, 100% {
+    0%,
+    100% {
       opacity: 1;
       transform: scale(1);
     }
@@ -504,7 +513,9 @@
     z-index: calc(var(--z-drawer) - 1);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s, visibility 0.3s;
+    transition:
+      opacity 0.3s,
+      visibility 0.3s;
   }
 
   .mobile-sheet-backdrop.visible {
@@ -519,7 +530,9 @@
   }
 
   .mapboxgl-ctrl-bottom-right {
-    bottom: calc(200px + env(safe-area-inset-bottom, 0)) !important; /* Adjusted for taller collapsed state */
+    bottom: calc(
+      200px + env(safe-area-inset-bottom, 0)
+    ) !important; /* Adjusted for taller collapsed state */
   }
 
   /* Safe area support */
@@ -550,7 +563,8 @@
   }
 
   @keyframes mobile-bounce {
-    0%, 100% {
+    0%,
+    100% {
       transform: translateY(0);
     }
     50% {
@@ -651,4 +665,3 @@
     font-size: var(--font-size-lg);
   }
 }
-

@@ -450,7 +450,9 @@ class LiveTripTracker {
         ...extraDetail,
       };
 
-      document.dispatchEvent(new CustomEvent("liveTrackingUpdated", { detail }));
+      document.dispatchEvent(
+        new CustomEvent("liveTrackingUpdated", { detail }),
+      );
     } catch (err) {
       console.warn("Failed to dispatch liveTrackingUpdated event", err);
     }

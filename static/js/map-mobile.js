@@ -59,7 +59,8 @@ class MobileMapInterface {
   }
 
   detectMobileViewport() {
-    const touchCapable = "ontouchstart" in window || navigator.maxTouchPoints > 1;
+    const touchCapable =
+      "ontouchstart" in window || navigator.maxTouchPoints > 1;
     const narrowScreen = window.matchMedia
       ? window.matchMedia("(max-width: 768px)").matches
       : window.innerWidth <= 768;
@@ -85,7 +86,9 @@ class MobileMapInterface {
     this.syncAll();
 
     window.addEventListener("resize", this.resizeHandler);
-    this.cleanupCallbacks.push(() => window.removeEventListener("resize", this.resizeHandler));
+    this.cleanupCallbacks.push(() =>
+      window.removeEventListener("resize", this.resizeHandler),
+    );
   }
 
   cacheElements() {
@@ -115,7 +118,8 @@ class MobileMapInterface {
       const onHeaderClick = (event) => {
         if (event.target.closest("button, a")) return;
         const collapsedState = this.sortedStates[0]?.state || "collapsed";
-        const expandedState = this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
+        const expandedState =
+          this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
 
         if (this.currentState === collapsedState) {
           this.setState(this.getNextStateUp(collapsedState));
@@ -134,10 +138,14 @@ class MobileMapInterface {
     });
 
     const centerBtn = document.getElementById("mobile-center-location");
-    this.bind(centerBtn, "click", () => document.getElementById("center-on-location")?.click());
+    this.bind(centerBtn, "click", () =>
+      document.getElementById("center-on-location")?.click(),
+    );
 
     const fitBtn = document.getElementById("mobile-fit-bounds");
-    this.bind(fitBtn, "click", () => document.getElementById("fit-bounds")?.click());
+    this.bind(fitBtn, "click", () =>
+      document.getElementById("fit-bounds")?.click(),
+    );
 
     const refreshBtn = document.getElementById("mobile-refresh");
     this.bind(refreshBtn, "click", () => {
@@ -165,7 +173,8 @@ class MobileMapInterface {
     const dragTargets = [this.handle, this.header];
     dragTargets.forEach((target) => {
       if (!target) return;
-      const start = (event) => this.beginDrag(event, target === this.header ? "header" : "handle");
+      const start = (event) =>
+        this.beginDrag(event, target === this.header ? "header" : "handle");
       const move = (event) => this.continueDrag(event);
       const end = (event) => this.finishDrag(event);
 
@@ -189,8 +198,12 @@ class MobileMapInterface {
       const onContentMove = (event) => this.handleContentDrag(event);
       const onContentEnd = (event) => this.finishDrag(event);
 
-      this.sheetContent.addEventListener("touchstart", onContentStart, { passive: true });
-      this.sheetContent.addEventListener("touchmove", onContentMove, { passive: false });
+      this.sheetContent.addEventListener("touchstart", onContentStart, {
+        passive: true,
+      });
+      this.sheetContent.addEventListener("touchmove", onContentMove, {
+        passive: false,
+      });
       this.sheetContent.addEventListener("touchend", onContentEnd);
       this.sheetContent.addEventListener("touchcancel", onContentEnd);
       this.cleanupCallbacks.push(() => {
@@ -228,7 +241,8 @@ class MobileMapInterface {
   }
 
   handleContentDrag(event) {
-    if (!this.sheetContent || !event.touches || event.touches.length > 1) return;
+    if (!this.sheetContent || !event.touches || event.touches.length > 1)
+      return;
 
     const touch = event.touches[0];
     const deltaY = touch.clientY - this.dragCandidateStartY;
@@ -278,17 +292,21 @@ class MobileMapInterface {
     this.currentOffset = this.clampOffset(this.dragStartOffset + deltaY);
     this.applySheetOffset(this.currentOffset, { immediate: false });
 
-    const targetState = Math.abs(deltaY) > this.flingThreshold
-      ? deltaY > 0
-        ? this.getNextStateDown(this.currentState)
-        : this.getNextStateUp(this.currentState)
-      : this.getNearestState(this.currentOffset);
+    const targetState =
+      Math.abs(deltaY) > this.flingThreshold
+        ? deltaY > 0
+          ? this.getNextStateDown(this.currentState)
+          : this.getNextStateUp(this.currentState)
+        : this.getNearestState(this.currentOffset);
 
     this.setState(targetState);
   }
 
   clampOffset(offset) {
-    const maxOffset = this.sortedStates.length > 0 ? this.sortedStates[0].offset : this.stateOffsets.collapsed;
+    const maxOffset =
+      this.sortedStates.length > 0
+        ? this.sortedStates[0].offset
+        : this.stateOffsets.collapsed;
     const clampedMax = Number.isFinite(maxOffset) ? maxOffset : 0;
     return Math.min(Math.max(offset, 0), clampedMax);
   }
@@ -310,13 +328,19 @@ class MobileMapInterface {
 
   updateBackdropForOffset(offset) {
     if (!this.backdrop) return;
-    const maxOffset = this.sortedStates.length > 0 ? this.sortedStates[0].offset : this.stateOffsets.collapsed;
-    const denominator = Number.isFinite(maxOffset) && maxOffset > 0 ? maxOffset : 1;
+    const maxOffset =
+      this.sortedStates.length > 0
+        ? this.sortedStates[0].offset
+        : this.stateOffsets.collapsed;
+    const denominator =
+      Number.isFinite(maxOffset) && maxOffset > 0 ? maxOffset : 1;
     const progress = 1 - offset / denominator;
     const normalized = Math.max(0, Math.min(1, progress));
     const visible = normalized > 0.05;
     this.backdrop.classList.toggle("visible", visible);
-    this.backdrop.style.opacity = visible ? String(Number((normalized * 0.6).toFixed(3))) : "";
+    this.backdrop.style.opacity = visible
+      ? String(Number((normalized * 0.6).toFixed(3)))
+      : "";
   }
 
   setState(state, options = {}) {
@@ -345,7 +369,8 @@ class MobileMapInterface {
   getNextStateUp(state = this.currentState) {
     if (!this.sortedStates.length) return state;
     const index = this.sortedStates.findIndex((item) => item.state === state);
-    if (index === -1) return this.sortedStates[this.sortedStates.length - 1].state;
+    if (index === -1)
+      return this.sortedStates[this.sortedStates.length - 1].state;
     const nextIndex = Math.min(this.sortedStates.length - 1, index + 1);
     return this.sortedStates[nextIndex].state;
   }
@@ -380,13 +405,23 @@ class MobileMapInterface {
   calculateSheetMetrics() {
     if (!this.sheet) return;
 
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const viewportHeight =
+      window.innerHeight || document.documentElement.clientHeight || 0;
     const sheetRect = this.sheet.getBoundingClientRect();
     const sheetHeight = sheetRect.height || viewportHeight * 0.85 || 0;
 
-    const collapsedVisible = Math.min(sheetHeight, Math.max(150, Math.round(viewportHeight * 0.25)));
-    let peekVisible = Math.min(sheetHeight, Math.max(collapsedVisible + 80, Math.round(viewportHeight * 0.45)));
-    let halfVisible = Math.min(sheetHeight, Math.max(peekVisible + 80, Math.round(viewportHeight * 0.65)));
+    const collapsedVisible = Math.min(
+      sheetHeight,
+      Math.max(150, Math.round(viewportHeight * 0.25)),
+    );
+    let peekVisible = Math.min(
+      sheetHeight,
+      Math.max(collapsedVisible + 80, Math.round(viewportHeight * 0.45)),
+    );
+    let halfVisible = Math.min(
+      sheetHeight,
+      Math.max(peekVisible + 80, Math.round(viewportHeight * 0.65)),
+    );
 
     const offsets = {
       collapsed: Math.max(0, Math.round(sheetHeight - collapsedVisible)),
@@ -473,8 +508,14 @@ class MobileMapInterface {
       const assignments = [
         ["mobile-total-trips", totals.totalTrips ?? totals.trips],
         ["mobile-quick-trips", totals.totalTrips ?? totals.trips],
-        ["mobile-total-distance", this.formatNumber(totals.totalDistanceMiles ?? totals.totalDistance)],
-        ["mobile-quick-distance", this.formatNumber(totals.totalDistanceMiles ?? totals.totalDistance)],
+        [
+          "mobile-total-distance",
+          this.formatNumber(totals.totalDistanceMiles ?? totals.totalDistance),
+        ],
+        [
+          "mobile-quick-distance",
+          this.formatNumber(totals.totalDistanceMiles ?? totals.totalDistance),
+        ],
         ["mobile-avg-speed", this.formatNumber(totals.avgSpeed, 1)],
         ["mobile-quick-speed", this.formatNumber(totals.avgSpeed, 1)],
         ["mobile-max-speed", this.formatNumber(totals.maxSpeed, 1)],
@@ -501,7 +542,9 @@ class MobileMapInterface {
     this.resetLayerBindings();
     this.mobileLayerContainer.innerHTML = "";
 
-    const checkboxes = this.desktopLayerContainer.querySelectorAll('input[type="checkbox"]');
+    const checkboxes = this.desktopLayerContainer.querySelectorAll(
+      'input[type="checkbox"]',
+    );
     checkboxes.forEach((checkbox) => {
       const label = checkbox.closest(".form-check")?.querySelector("label");
       if (!label) return;
@@ -522,7 +565,8 @@ class MobileMapInterface {
       };
       checkbox.addEventListener("change", listener);
 
-      const bindingKey = checkbox.id || checkbox.name || label.textContent.trim();
+      const bindingKey =
+        checkbox.id || checkbox.name || label.textContent.trim();
       this.layerBindings.set(bindingKey, { checkbox, listener });
 
       this.mobileLayerContainer.appendChild(btn);
@@ -589,7 +633,9 @@ class MobileMapInterface {
     const statusBadge = document.getElementById("mobile-live-status");
     const statusText = document.querySelector(".live-status-text");
     if (statusBadge) {
-      let connected = statusText?.textContent?.toLowerCase().includes("connected");
+      let connected = statusText?.textContent
+        ?.toLowerCase()
+        .includes("connected");
       if (detail && typeof detail.connected === "boolean") {
         connected = detail.connected;
       }
@@ -605,7 +651,9 @@ class MobileMapInterface {
       if (detail && typeof detail.metricsHtml === "string") {
         mobileMetrics.innerHTML = detail.metricsHtml;
       } else {
-        const desktopMetrics = document.querySelector("#live-tracking-panel .live-trip-metrics");
+        const desktopMetrics = document.querySelector(
+          "#live-tracking-panel .live-trip-metrics",
+        );
         if (desktopMetrics) {
           mobileMetrics.innerHTML = desktopMetrics.innerHTML;
         }
@@ -623,11 +671,15 @@ class MobileMapInterface {
 
     const metricsHandler = (event) => this.syncMetrics(event?.detail);
     document.addEventListener("metricsUpdated", metricsHandler);
-    this.cleanupCallbacks.push(() => document.removeEventListener("metricsUpdated", metricsHandler));
+    this.cleanupCallbacks.push(() =>
+      document.removeEventListener("metricsUpdated", metricsHandler),
+    );
 
     const liveTrackingHandler = (event) => this.syncLiveTracking(event?.detail);
     document.addEventListener("liveTrackingUpdated", liveTrackingHandler);
-    this.cleanupCallbacks.push(() => document.removeEventListener("liveTrackingUpdated", liveTrackingHandler));
+    this.cleanupCallbacks.push(() =>
+      document.removeEventListener("liveTrackingUpdated", liveTrackingHandler),
+    );
 
     const appReadyHandler = () => this.syncAll();
     document.addEventListener("appReady", appReadyHandler, { once: true });
@@ -655,8 +707,12 @@ class MobileMapInterface {
 
     this.mobileSearch.addEventListener("input", mobileHandler);
     this.desktopSearch.addEventListener("input", desktopHandler);
-    this.cleanupCallbacks.push(() => this.mobileSearch.removeEventListener("input", mobileHandler));
-    this.cleanupCallbacks.push(() => this.desktopSearch.removeEventListener("input", desktopHandler));
+    this.cleanupCallbacks.push(() =>
+      this.mobileSearch.removeEventListener("input", mobileHandler),
+    );
+    this.cleanupCallbacks.push(() =>
+      this.desktopSearch.removeEventListener("input", desktopHandler),
+    );
 
     if (this.mobileClearBtn) {
       const clearHandler = () => {
@@ -670,7 +726,9 @@ class MobileMapInterface {
         });
       };
       this.mobileClearBtn.addEventListener("click", clearHandler);
-      this.cleanupCallbacks.push(() => this.mobileClearBtn.removeEventListener("click", clearHandler));
+      this.cleanupCallbacks.push(() =>
+        this.mobileClearBtn.removeEventListener("click", clearHandler),
+      );
     }
   }
 
@@ -681,7 +739,9 @@ class MobileMapInterface {
     const mobileHandler = (event) => {
       this.syncGuards[key] = "mobile";
       this.desktopHighlight.checked = event.target.checked;
-      this.desktopHighlight.dispatchEvent(new Event("change", { bubbles: true }));
+      this.desktopHighlight.dispatchEvent(
+        new Event("change", { bubbles: true }),
+      );
       requestAnimationFrame(() => {
         this.syncGuards[key] = null;
       });
@@ -694,8 +754,12 @@ class MobileMapInterface {
 
     this.mobileHighlight.addEventListener("change", mobileHandler);
     this.desktopHighlight.addEventListener("change", desktopHandler);
-    this.cleanupCallbacks.push(() => this.mobileHighlight.removeEventListener("change", mobileHandler));
-    this.cleanupCallbacks.push(() => this.desktopHighlight.removeEventListener("change", desktopHandler));
+    this.cleanupCallbacks.push(() =>
+      this.mobileHighlight.removeEventListener("change", mobileHandler),
+    );
+    this.cleanupCallbacks.push(() =>
+      this.desktopHighlight.removeEventListener("change", desktopHandler),
+    );
   }
 
   setupLocationBridge() {
@@ -705,7 +769,9 @@ class MobileMapInterface {
     const mobileHandler = (event) => {
       this.syncGuards[key] = "mobile";
       this.desktopLocation.value = event.target.value;
-      this.desktopLocation.dispatchEvent(new Event("change", { bubbles: true }));
+      this.desktopLocation.dispatchEvent(
+        new Event("change", { bubbles: true }),
+      );
       requestAnimationFrame(() => {
         this.syncGuards[key] = null;
       });
@@ -718,14 +784,21 @@ class MobileMapInterface {
 
     this.mobileLocation.addEventListener("change", mobileHandler);
     this.desktopLocation.addEventListener("change", desktopHandler);
-    this.cleanupCallbacks.push(() => this.mobileLocation.removeEventListener("change", mobileHandler));
-    this.cleanupCallbacks.push(() => this.desktopLocation.removeEventListener("change", desktopHandler));
+    this.cleanupCallbacks.push(() =>
+      this.mobileLocation.removeEventListener("change", mobileHandler),
+    );
+    this.cleanupCallbacks.push(() =>
+      this.desktopLocation.removeEventListener("change", desktopHandler),
+    );
   }
 
   attachLayerObserver() {
     if (!this.desktopLayerContainer || !("MutationObserver" in window)) return;
     const observer = new MutationObserver(() => this.syncLayers());
-    observer.observe(this.desktopLayerContainer, { childList: true, subtree: true });
+    observer.observe(this.desktopLayerContainer, {
+      childList: true,
+      subtree: true,
+    });
     this.observers.push(observer);
   }
 
@@ -743,7 +816,9 @@ class MobileMapInterface {
     desktopButtons.forEach((btn) => {
       const handler = () => requestAnimationFrame(() => this.syncStreetModes());
       btn.addEventListener("click", handler);
-      this.cleanupCallbacks.push(() => btn.removeEventListener("click", handler));
+      this.cleanupCallbacks.push(() =>
+        btn.removeEventListener("click", handler),
+      );
     });
 
     this.syncStreetModes();
@@ -754,7 +829,9 @@ class MobileMapInterface {
     const mode = button.dataset.mode;
     if (!mode) return;
 
-    const desktopBtn = document.querySelector(`.street-toggle-btn[data-street-mode="${mode}"]`);
+    const desktopBtn = document.querySelector(
+      `.street-toggle-btn[data-street-mode="${mode}"]`,
+    );
     if (!desktopBtn) return;
 
     const willActivate = !button.classList.contains("active");
@@ -775,7 +852,9 @@ class MobileMapInterface {
   bind(target, event, handler) {
     if (!target) return;
     target.addEventListener(event, handler);
-    this.cleanupCallbacks.push(() => target.removeEventListener(event, handler));
+    this.cleanupCallbacks.push(() =>
+      target.removeEventListener(event, handler),
+    );
   }
 
   showFeedback(message) {
@@ -820,4 +899,3 @@ if (document.readyState === "loading") {
 } else {
   window.mobileMapInterface = new MobileMapInterface();
 }
-
