@@ -1587,6 +1587,8 @@
         progressBar.style.width = "0%";
         progressBar.textContent = "0%";
         progressBar.setAttribute("aria-valuenow", "0");
+        progressBar.classList.remove("bg-success", "bg-danger");
+        progressBar.classList.add("bg-primary", "progress-bar-animated", "progress-bar-striped");
         progressMessage.textContent = "Initializing...";
         progressMetrics.textContent = "";
 
@@ -1611,6 +1613,16 @@
             );
             if (!progressResponse.ok) {
               clearInterval(pollInterval);
+              geocodeBtn.disabled = false;
+              const errorMessage =
+                progressResponse.status === 404
+                  ? "Geocoding task not found."
+                  : "Unable to retrieve geocoding progress.";
+              if (statusEl) {
+                statusEl.textContent = errorMessage;
+                statusEl.className = "mt-2 text-danger";
+              }
+              window.notificationManager?.show(errorMessage, "danger");
               return;
             }
 
@@ -1639,7 +1651,12 @@
               geocodeBtn.disabled = false;
               
               if (stage === "completed") {
-                progressBar.classList.remove("progress-bar-animated");
+                progressBar.classList.remove(
+                  "progress-bar-animated",
+                  "progress-bar-striped",
+                  "bg-primary",
+                  "bg-danger",
+                );
                 progressBar.classList.add("bg-success");
                 if (statusEl) {
                   statusEl.textContent = `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`;
@@ -1650,7 +1667,12 @@
                   "success",
                 );
               } else {
-                progressBar.classList.remove("progress-bar-animated");
+                progressBar.classList.remove(
+                  "progress-bar-animated",
+                  "progress-bar-striped",
+                  "bg-primary",
+                  "bg-success",
+                );
                 progressBar.classList.add("bg-danger");
                 if (statusEl) {
                   statusEl.textContent = `Error: ${progressData.error || "Unknown error"}`;
@@ -1666,6 +1688,14 @@
             console.error("Error polling progress:", pollErr);
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
+            if (statusEl) {
+              statusEl.textContent = "Lost connection while monitoring progress.";
+              statusEl.className = "mt-2 text-warning";
+            }
+            window.notificationManager?.show(
+              "Lost connection while monitoring geocoding progress",
+              "warning",
+            );
           }
         }, 1000); // Poll every second
       } catch (err) {
@@ -2320,6 +2350,8 @@
           progressBar.style.width = "0%";
           progressBar.textContent = "0%";
           progressBar.setAttribute("aria-valuenow", "0");
+          progressBar.classList.remove("bg-success", "bg-danger");
+          progressBar.classList.add("bg-primary", "progress-bar-animated", "progress-bar-striped");
         }
         if (progressMessage) progressMessage.textContent = "Initializing...";
         if (progressMetrics) progressMetrics.textContent = "";
@@ -2345,6 +2377,17 @@
             );
             if (!progressResponse.ok) {
               clearInterval(pollInterval);
+              geocodeBtn.disabled = false;
+              const errorMessage =
+                progressResponse.status === 404
+                  ? "Geocoding task not found."
+                  : "Unable to retrieve geocoding progress.";
+              if (statusEl) {
+                statusEl.textContent = errorMessage;
+                statusEl.classList.remove("info", "success");
+                statusEl.classList.add("error");
+              }
+              window.notificationManager?.show(errorMessage, "danger");
               return;
             }
 
@@ -2376,7 +2419,12 @@
               
               if (stage === "completed") {
                 if (progressBar) {
-                  progressBar.classList.remove("progress-bar-animated");
+                  progressBar.classList.remove(
+                    "progress-bar-animated",
+                    "progress-bar-striped",
+                    "bg-primary",
+                    "bg-danger",
+                  );
                   progressBar.classList.add("bg-success");
                 }
                 if (statusEl) {
@@ -2390,7 +2438,12 @@
                 );
               } else {
                 if (progressBar) {
-                  progressBar.classList.remove("progress-bar-animated");
+                  progressBar.classList.remove(
+                    "progress-bar-animated",
+                    "progress-bar-striped",
+                    "bg-primary",
+                    "bg-success",
+                  );
                   progressBar.classList.add("bg-danger");
                 }
                 if (statusEl) {
@@ -2408,6 +2461,15 @@
             console.error("Error polling progress:", pollErr);
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
+            if (statusEl) {
+              statusEl.textContent = "Lost connection while monitoring progress.";
+              statusEl.classList.remove("info", "success");
+              statusEl.classList.add("error");
+            }
+            window.notificationManager?.show(
+              "Lost connection while monitoring geocoding progress",
+              "warning",
+            );
           }
         }, 1000); // Poll every second
       } catch (err) {

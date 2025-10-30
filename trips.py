@@ -18,6 +18,7 @@ from db import (
     build_query_from_request,
     delete_many_with_retry,
     delete_one_with_retry,
+    find_one_with_retry,
     find_with_retry,
     get_trip_by_id,
     matched_trips_collection,
@@ -634,7 +635,7 @@ async def geocode_trips(data: DateRangeModel | None = None):
 async def get_geocode_progress(task_id: str):
     """Get progress for a geocoding task."""
     try:
-        progress = await find_with_retry(
+        progress = await find_one_with_retry(
             progress_collection,
             {"_id": task_id, "task_type": "geocoding"},
         )
