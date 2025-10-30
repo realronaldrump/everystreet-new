@@ -527,24 +527,27 @@
       // Update mobile list
       const mobileList = document.getElementById("mobile-history-list");
       if (mobileList) {
-        mobileList.querySelectorAll(".mobile-history-card[data-is-running='true']").forEach((card) => {
-          const startTimeStr = card.dataset.startTime;
-          if (startTimeStr) {
-            try {
-              const startTime = new Date(startTimeStr);
-              const now = new Date();
-              const elapsedMs = now - startTime;
-              if (!isNaN(elapsedMs) && elapsedMs >= 0) {
-                const durationElement = card.querySelector(".task-duration");
-                if (durationElement) {
-                  durationElement.textContent = this.formatDuration(elapsedMs);
+        mobileList
+          .querySelectorAll(".mobile-history-card[data-is-running='true']")
+          .forEach((card) => {
+            const startTimeStr = card.dataset.startTime;
+            if (startTimeStr) {
+              try {
+                const startTime = new Date(startTimeStr);
+                const now = new Date();
+                const elapsedMs = now - startTime;
+                if (!isNaN(elapsedMs) && elapsedMs >= 0) {
+                  const durationElement = card.querySelector(".task-duration");
+                  if (durationElement) {
+                    durationElement.textContent =
+                      this.formatDuration(elapsedMs);
+                  }
                 }
+              } catch (e) {
+                console.error("Error updating duration:", e);
               }
-            } catch (e) {
-              console.error("Error updating duration:", e);
             }
-          }
-        });
+          });
       }
     }
 
@@ -1496,7 +1499,12 @@
       const startDate = new Date(startValue);
       const endDate = new Date(endValue);
 
-      if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      if (
+        !startDate ||
+        !endDate ||
+        isNaN(startDate.getTime()) ||
+        isNaN(endDate.getTime())
+      ) {
         if (statusEl) statusEl.textContent = "Invalid date selection.";
         return;
       }
@@ -1588,7 +1596,11 @@
         progressBar.textContent = "0%";
         progressBar.setAttribute("aria-valuenow", "0");
         progressBar.classList.remove("bg-success", "bg-danger");
-        progressBar.classList.add("bg-primary", "progress-bar-animated", "progress-bar-striped");
+        progressBar.classList.add(
+          "bg-primary",
+          "progress-bar-animated",
+          "progress-bar-striped",
+        );
         progressMessage.textContent = "Initializing...";
         progressMetrics.textContent = "";
 
@@ -1649,7 +1661,7 @@
             if (stage === "completed" || stage === "error") {
               clearInterval(pollInterval);
               geocodeBtn.disabled = false;
-              
+
               if (stage === "completed") {
                 progressBar.classList.remove(
                   "progress-bar-animated",
@@ -1689,7 +1701,8 @@
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
             if (statusEl) {
-              statusEl.textContent = "Lost connection while monitoring progress.";
+              statusEl.textContent =
+                "Lost connection while monitoring progress.";
               statusEl.className = "mt-2 text-warning";
             }
             window.notificationManager?.show(
@@ -2281,25 +2294,35 @@
 
   function setupMobileGeocodeTrips() {
     // Handle method tabs
-    const geocodeTabs = document.querySelectorAll('.mobile-date-method-tab[data-target="geocode"]');
-    const geocodeDateRange = document.getElementById("mobile-geocode-date-range");
+    const geocodeTabs = document.querySelectorAll(
+      '.mobile-date-method-tab[data-target="geocode"]',
+    );
+    const geocodeDateRange = document.getElementById(
+      "mobile-geocode-date-range",
+    );
     const geocodeInterval = document.getElementById("mobile-geocode-interval");
     const geocodeBtn = document.getElementById("mobile-geocode-trips-btn");
-    const progressPanel = document.getElementById("mobile-geocode-progress-panel");
+    const progressPanel = document.getElementById(
+      "mobile-geocode-progress-panel",
+    );
     const progressBar = document.getElementById("mobile-geocode-progress-bar");
-    const progressMessage = document.getElementById("mobile-geocode-progress-message");
-    const progressMetrics = document.getElementById("mobile-geocode-progress-metrics");
+    const progressMessage = document.getElementById(
+      "mobile-geocode-progress-message",
+    );
+    const progressMetrics = document.getElementById(
+      "mobile-geocode-progress-metrics",
+    );
     const statusEl = document.getElementById("mobile-geocode-trips-status");
 
     if (!geocodeBtn) return;
 
     // Handle tab clicks
-    geocodeTabs.forEach(tab => {
+    geocodeTabs.forEach((tab) => {
       tab.addEventListener("click", () => {
-        geocodeTabs.forEach(t => t.classList.remove("active"));
+        geocodeTabs.forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
         const method = tab.dataset.method;
-        
+
         if (method === "date") {
           geocodeDateRange.style.display = "block";
           geocodeInterval.style.display = "none";
@@ -2315,14 +2338,17 @@
 
     // Handle button click
     geocodeBtn.addEventListener("click", async () => {
-      const activeTab = document.querySelector('.mobile-date-method-tab[data-target="geocode"].active');
+      const activeTab = document.querySelector(
+        '.mobile-date-method-tab[data-target="geocode"].active',
+      );
       const method = activeTab?.dataset.method || "date";
       let start_date = "";
       let end_date = "";
       let interval_days = 0;
 
       if (method === "date") {
-        start_date = document.getElementById("mobile-geocode-start")?.value || "";
+        start_date =
+          document.getElementById("mobile-geocode-start")?.value || "";
         end_date = document.getElementById("mobile-geocode-end")?.value || "";
         if (!start_date || !end_date) {
           window.notificationManager.show(
@@ -2333,7 +2359,8 @@
         }
       } else if (method === "interval") {
         interval_days = parseInt(
-          document.getElementById("mobile-geocode-interval-select")?.value || "0",
+          document.getElementById("mobile-geocode-interval-select")?.value ||
+            "0",
           10,
         );
       }
@@ -2351,7 +2378,11 @@
           progressBar.textContent = "0%";
           progressBar.setAttribute("aria-valuenow", "0");
           progressBar.classList.remove("bg-success", "bg-danger");
-          progressBar.classList.add("bg-primary", "progress-bar-animated", "progress-bar-striped");
+          progressBar.classList.add(
+            "bg-primary",
+            "progress-bar-animated",
+            "progress-bar-striped",
+          );
         }
         if (progressMessage) progressMessage.textContent = "Initializing...";
         if (progressMetrics) progressMetrics.textContent = "";
@@ -2416,7 +2447,7 @@
             if (stage === "completed" || stage === "error") {
               clearInterval(pollInterval);
               geocodeBtn.disabled = false;
-              
+
               if (stage === "completed") {
                 if (progressBar) {
                   progressBar.classList.remove(
@@ -2462,7 +2493,8 @@
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
             if (statusEl) {
-              statusEl.textContent = "Lost connection while monitoring progress.";
+              statusEl.textContent =
+                "Lost connection while monitoring progress.";
               statusEl.classList.remove("info", "success");
               statusEl.classList.add("error");
             }
