@@ -10,14 +10,10 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Force Clean and Reset Git Repository
-        run: |
-          echo "--- Force cleaning the repository on the runner ---"
-          cd /home/davis/app
-          git fetch origin
-          git reset --hard origin/main
-          git clean -fd
-          echo "--- Repository has been reset to match origin/main ---"
+      - name: Check out the repo on the runner
+        uses: actions/checkout@v4
+        with:
+          path: '/home/davis/app' # Explicitly check out to your app directory
 
       - name: Make deploy script executable
         run: chmod +x /home/davis/app/deploy.sh
