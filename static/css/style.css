@@ -2582,14 +2582,7 @@ body.light-mode .btn-close-white {
     --font-size-md: 0.9375rem; /* 15px */
   }
 
-  .control-panel {
-    /* Example for a map control panel, adjust as needed */
-    bottom: var(--space-2) !important;
-    left: var(--space-2) !important;
-    right: var(--space-2) !important;
-    max-width: calc(100% - var(--space-4)) !important;
-    max-height: 40vh !important;
-  }
+  /* Note: .control-panel mobile styles removed - handled by map-mobile.css */
 
   .notification-container {
     left: var(--space-2);

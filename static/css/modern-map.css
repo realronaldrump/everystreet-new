@@ -548,20 +548,11 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 /* === Responsive Adjustments for Map Elements === */
+/* Note: Control panel mobile styles moved to map-mobile.css */
+/* Desktop control panel is hidden on mobile, replaced with bottom sheet */
+
 @media (width <= 768px) {
-  .control-panel#map-controls {
-    left: var(--space-2);
-    right: var(--space-2);
-    bottom: var(--space-2);
-    max-width: calc(100% - (2 * var(--space-2)));
-    max-height: 50vh; /* More space on smaller screens */
-  }
-
-  .control-panel#map-controls.minimized {
-    max-height: 45px; /* Adjust for smaller screens */
-    transform: translateY(calc(100% - 45px));
-  }
-
+  /* Keep Mapbox control adjustments as they're still visible on mobile */
   .mapboxgl-ctrl-group {
     margin: var(--space-2) !important;
   }
@@ -573,7 +564,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   }
 
   .mapboxgl-popup-content {
-    max-width: 280px !important; /* Adjust popup width */
+    max-width: 280px !important;
   }
 
   .coverage-popup-content {
@@ -588,10 +579,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 @media (width <= 576px) {
-  .control-panel#map-controls {
-    border-radius: var(--radius-md); /* Slightly smaller radius */
-  }
-
+  /* Keep Mapbox control adjustments for very small screens */
   .mapboxgl-ctrl-group button {
     width: 28px !important;
     height: 28px !important;
@@ -599,15 +587,12 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   }
 
   .mapboxgl-popup-content {
-    max-width: calc(
-      100vw - (2 * var(--space-3))
-    ) !important; /* Full width minus padding */
-
+    max-width: calc(100vw - (2 * var(--space-3))) !important;
     font-size: var(--font-size-sm);
   }
 
   .coverage-popup-content .popup-actions {
-    flex-direction: column; /* Stack action buttons */
+    flex-direction: column;
   }
 
   .coverage-popup-content .popup-actions .btn {
