@@ -1,6 +1,12 @@
-{% extends "base.html" %} {% block title %}Settings{% endblock %} {% block
-content %}
-<div class="container-fluid">
+{% extends "base.html" %} {% block title %}Settings{% endblock %} 
+{% block extra_css %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/settings-mobile.css') | replace('http://', '//') }}"
+/>
+{% endblock %}
+{% block content %}
+<div class="container-fluid settings-desktop-container">
   <div class="row">
     <div class="col-12">
       <h2>Background Task Management</h2>
@@ -260,6 +266,258 @@ content %}
   </div>
 </div>
 
+<!-- Mobile Container -->
+<div class="container-fluid settings-mobile-container">
+  <!-- Mobile: Global Controls Section -->
+  <div class="mobile-settings-section">
+    <div class="mobile-settings-section-header" data-section="global-controls">
+      <h2 class="mobile-settings-section-title">
+        <i class="fas fa-sliders-h"></i>
+        Global Controls
+      </h2>
+      <i class="fas fa-chevron-down mobile-settings-section-chevron"></i>
+    </div>
+    <div class="mobile-settings-section-content" id="mobile-global-controls">
+      <div class="mobile-settings-section-body">
+        <div class="mobile-global-controls">
+          <div class="mobile-control-item">
+            <span class="mobile-control-label">Globally Disable Tasks</span>
+            <input type="checkbox" class="mobile-switch" id="mobile-globalDisableSwitch" />
+          </div>
+        </div>
+        
+        <div class="mobile-action-grid mt-3">
+          <button class="mobile-action-btn warning" id="mobile-pauseBtn">
+            <i class="fas fa-pause"></i>
+            <span>Pause Tasks</span>
+          </button>
+          <button class="mobile-action-btn success" id="mobile-resumeBtn">
+            <i class="fas fa-play"></i>
+            <span>Resume Tasks</span>
+          </button>
+          <button class="mobile-action-btn danger" id="mobile-stopAllBtn">
+            <i class="fas fa-stop"></i>
+            <span>Stop All</span>
+          </button>
+          <button class="mobile-action-btn warning" id="mobile-resetTasksBtn">
+            <i class="fas fa-sync"></i>
+            <span>Reset Tasks</span>
+          </button>
+          <button class="mobile-action-btn primary" id="mobile-enableAllBtn">
+            <i class="fas fa-check"></i>
+            <span>Enable All</span>
+          </button>
+          <button class="mobile-action-btn" id="mobile-disableAllBtn">
+            <i class="fas fa-times"></i>
+            <span>Disable All</span>
+          </button>
+          <button class="mobile-action-btn info" id="mobile-manualRunAllBtn">
+            <i class="fas fa-play-circle"></i>
+            <span>Run All Now</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile: Task Configuration Section -->
+  <div class="mobile-settings-section">
+    <div class="mobile-settings-section-header expanded" data-section="task-config">
+      <h2 class="mobile-settings-section-title">
+        <i class="fas fa-tasks"></i>
+        Task Configuration
+      </h2>
+      <i class="fas fa-chevron-down mobile-settings-section-chevron"></i>
+    </div>
+    <div class="mobile-settings-section-content expanded" id="mobile-task-config">
+      <div class="mobile-settings-section-body">
+        <div id="mobile-task-list">
+          <!-- Task cards will be populated by JavaScript -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile: Manual Trip Fetch Section -->
+  <div class="mobile-settings-section" id="mobile-manual-fetch-section">
+    <div class="mobile-settings-section-header" data-section="manual-fetch">
+      <h2 class="mobile-settings-section-title">
+        <i class="fas fa-cloud-download-alt"></i>
+        Manual Trip Fetch
+      </h2>
+      <i class="fas fa-chevron-down mobile-settings-section-chevron"></i>
+    </div>
+    <div class="mobile-settings-section-content" id="mobile-manual-fetch">
+      <div class="mobile-settings-section-body">
+        <form id="mobile-manualFetchTripsForm">
+          <div class="mobile-form-group">
+            <label class="mobile-form-label" for="mobile-manual-fetch-start">Start Date & Time</label>
+            <input type="datetime-local" class="mobile-form-input" id="mobile-manual-fetch-start" required />
+          </div>
+          
+          <div class="mobile-form-group">
+            <label class="mobile-form-label" for="mobile-manual-fetch-end">End Date & Time</label>
+            <input type="datetime-local" class="mobile-form-input" id="mobile-manual-fetch-end" required />
+          </div>
+          
+          <div class="mobile-form-group">
+            <div class="mobile-form-checkbox-wrapper">
+              <input type="checkbox" id="mobile-manual-fetch-map-match" />
+              <label class="mobile-form-checkbox-label" for="mobile-manual-fetch-map-match">
+                Enable map matching
+              </label>
+            </div>
+          </div>
+          
+          <button type="submit" class="mobile-submit-btn success">
+            <i class="fas fa-cloud-download-alt"></i>
+            Fetch Trips
+          </button>
+          
+          <div id="mobile-manual-fetch-status" class="mobile-form-status d-none"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile: Task History Section -->
+  <div class="mobile-settings-section">
+    <div class="mobile-settings-section-header" data-section="task-history">
+      <h2 class="mobile-settings-section-title">
+        <i class="fas fa-history"></i>
+        Task History
+      </h2>
+      <i class="fas fa-chevron-down mobile-settings-section-chevron"></i>
+    </div>
+    <div class="mobile-settings-section-content" id="mobile-task-history">
+      <div class="mobile-settings-section-body">
+        <button class="mobile-submit-btn danger mb-3" id="mobile-clearHistoryBtn">
+          <i class="fas fa-trash"></i>
+          Clear History
+        </button>
+        
+        <div id="mobile-history-list">
+          <!-- History cards will be populated by JavaScript -->
+        </div>
+        
+        <div class="mobile-pagination" id="mobile-history-pagination" style="display: none;">
+          <button class="mobile-pagination-btn" id="mobile-history-prev" disabled>
+            <i class="fas fa-chevron-left"></i> Previous
+          </button>
+          <span class="mobile-pagination-info" id="mobile-history-page-info"></span>
+          <button class="mobile-pagination-btn" id="mobile-history-next">
+            Next <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile: Data Management Section -->
+  <div class="mobile-settings-section">
+    <div class="mobile-settings-section-header" data-section="data-management">
+      <h2 class="mobile-settings-section-title">
+        <i class="fas fa-database"></i>
+        Data Management
+      </h2>
+      <i class="fas fa-chevron-down mobile-settings-section-chevron"></i>
+    </div>
+    <div class="mobile-settings-section-content" id="mobile-data-management">
+      <div class="mobile-settings-section-body">
+        <!-- GeoPoint Update -->
+        <div class="mb-4">
+          <h3 class="mobile-form-label">GeoPoint Update</h3>
+          <p class="mobile-form-hint mb-3">Ensure trips contain start and destination GeoPoints.</p>
+          
+          <div class="mobile-form-group">
+            <label class="mobile-form-label" for="mobile-collection-select">Select Collection</label>
+            <select class="mobile-form-select" id="mobile-collection-select">
+              <option value="trips">Trips</option>
+              <option value="uploaded_trips">Uploaded Trips</option>
+            </select>
+          </div>
+          
+          <button class="mobile-submit-btn" id="mobile-update-geo-points">
+            <i class="fas fa-map-marker-alt"></i>
+            Update GeoPoints
+          </button>
+          
+          <div id="mobile-update-geo-points-status" class="mobile-form-status d-none"></div>
+        </div>
+
+        <!-- Re-geocode Trips -->
+        <div class="mb-4">
+          <h3 class="mobile-form-label">Re-geocode All Trips</h3>
+          <p class="mobile-form-hint mb-3">Re-run geocoding for all trips to check against custom places.</p>
+          
+          <button class="mobile-submit-btn warning" id="mobile-re-geocode-all-trips">
+            <i class="fas fa-sync-alt"></i>
+            Re-geocode All Trips
+          </button>
+          
+          <div id="mobile-re-geocode-all-trips-status" class="mobile-form-status d-none"></div>
+        </div>
+
+        <!-- Remap Matched Trips -->
+        <div>
+          <h3 class="mobile-form-label">Remap Matched Trips</h3>
+          <p class="mobile-form-hint mb-3">Re-match trips to the street network within a specific date range.</p>
+          
+          <div class="mobile-date-method-tabs mb-3">
+            <button type="button" class="mobile-date-method-tab active" data-method="date">
+              Date Range
+            </button>
+            <button type="button" class="mobile-date-method-tab" data-method="interval">
+              Interval
+            </button>
+          </div>
+
+          <div id="mobile-remap-date-range">
+            <div class="mobile-form-group">
+              <label class="mobile-form-label" for="mobile-remap-start">Start Date</label>
+              <input type="text" class="mobile-form-input datepicker" id="mobile-remap-start" />
+            </div>
+            
+            <div class="mobile-form-group">
+              <label class="mobile-form-label" for="mobile-remap-end">End Date</label>
+              <input type="text" class="mobile-form-input datepicker" id="mobile-remap-end" />
+            </div>
+          </div>
+
+          <div id="mobile-remap-interval" style="display: none;">
+            <div class="mobile-form-group">
+              <label class="mobile-form-label" for="mobile-remap-interval-select">Select Interval</label>
+              <select class="mobile-form-select" id="mobile-remap-interval-select">
+                <option value="1">Last Day</option>
+                <option value="3">Last 3 Days</option>
+                <option value="7">Last Week</option>
+                <option value="30">Last Month</option>
+                <option value="90">Last 3 Months</option>
+                <option value="180">Last 6 Months</option>
+                <option value="365">Last Year</option>
+                <option value="730">Last 2 Years</option>
+                <option value="0">All Time</option>
+              </select>
+            </div>
+          </div>
+          
+          <button class="mobile-submit-btn warning" id="mobile-remap-btn">
+            <i class="fas fa-route"></i>
+            Re-Match Trips
+          </button>
+          
+          <div id="mobile-remap-status" class="mobile-form-status d-none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Save Button -->
+  <button class="mobile-save-fab" id="mobile-save-config-fab" title="Save Configuration">
+    <i class="fas fa-save"></i>
+  </button>
+</div>
+
 <!-- Task Details Modal -->
 <div class="modal fade" id="taskDetailsModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
@@ -281,6 +539,40 @@ content %}
         </button>
         <button type="button" class="btn btn-primary run-task-btn">
           <i class="fas fa-play"></i> Run Now
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pause Tasks Modal -->
+<div class="modal fade" id="pauseModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title">Pause Tasks</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <p>
+          Pausing tasks will temporarily stop scheduled task execution.
+          Running tasks will complete, but no new tasks will start.
+        </p>
+        <div class="mb-3">
+          <label for="pauseDuration" class="form-label">Pause Duration (minutes):</label>
+          <input type="number" class="form-control" id="pauseDuration" min="1" value="60" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-warning" id="confirmPause">
+          Pause Tasks
         </button>
       </div>
     </div>
