@@ -88,7 +88,6 @@ const buildHeatmapExpression = (stops) => {
 const ensureFeatureProperties = (feature) => {
   if (!feature) return {};
   if (!feature.properties || typeof feature.properties !== "object") {
-     
     feature.properties = {};
   }
   return feature.properties;
