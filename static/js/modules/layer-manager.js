@@ -121,6 +121,7 @@ const layerManager = {
     if (loadingEl) loadingEl.classList.remove("d-none");
 
     if (visible) {
+      // Fetch data if needed
       if (name === "matchedTrips" && !layerInfo.layer) {
         await dataManager.fetchMatchedTrips();
       } else if (name === "undrivenStreets" && !state.undrivenStreetsLoaded) {
@@ -132,6 +133,7 @@ const layerManager = {
       }
     }
 
+    // Apply visibility - ensure map is ready and layer exists
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
       state.map.setLayoutProperty(
@@ -139,6 +141,9 @@ const layerManager = {
         "visibility",
         visible ? "visible" : "none",
       );
+    } else if (visible && layerInfo.layer) {
+      // If layer data exists but layer isn't on map yet, update it
+      await this.updateMapLayer(name, layerInfo.layer);
     }
 
     if (loadingEl) loadingEl.classList.add("d-none");
@@ -313,6 +318,15 @@ const layerManager = {
     const layerInfo = state.mapLayers[layerName];
 
     try {
+      // Wait for map to be fully ready
+      if (!state.map.isStyleLoaded()) {
+        await new Promise((resolve) => {
+          state.map.once("styledata", resolve);
+          // Fallback timeout
+          setTimeout(resolve, 1000);
+        });
+      }
+
       // Clean up existing layer and source completely
       if (state.map.getLayer(layerId)) {
         const events = ["click", "mouseenter", "mouseleave"];
@@ -369,6 +383,15 @@ const layerManager = {
       // allStreets uses single color - no conditional coloring
 
       state.map.addLayer(layerConfig);
+
+      // Ensure visibility is correctly applied after layer is added
+      if (state.map.getLayer(layerId)) {
+        state.map.setLayoutProperty(
+          layerId,
+          "visibility",
+          layerInfo.visible ? "visible" : "none",
+        );
+      }
 
       if (layerName === "trips" || layerName === "matchedTrips") {
         const tripInteractions = (await import("./trip-interactions.js"))

@@ -63,12 +63,15 @@ const restoreLayerVisibility = () => {
   Object.keys(state.mapLayers).forEach((layerName) => {
     const toggle = document.getElementById(`${layerName}-toggle`);
     if (layerName === "trips") {
+      // Trips layer is always visible by default
       state.mapLayers[layerName].visible = true;
       if (toggle) toggle.checked = true;
     } else if (saved[layerName] !== undefined) {
+      // Restore saved visibility state
       state.mapLayers[layerName].visible = saved[layerName];
       if (toggle) toggle.checked = saved[layerName];
     }
+    // Note: Visibility will be applied after data is loaded in initialize()
   });
 };
 
@@ -122,11 +125,39 @@ const AppController = {
           "map",
           "Loading map data...",
         );
-        await Promise.all([
+        
+        // Fetch all visible layers during initialization
+        const fetchPromises = [
           dataManager.fetchTrips(),
           dataManager.fetchMetrics(),
-        ]);
+        ];
+        
+        // Fetch matched trips if visible
+        if (state.mapLayers.matchedTrips.visible) {
+          fetchPromises.push(dataManager.fetchMatchedTrips());
+        }
+        
+        await Promise.all(fetchPromises);
         mapStage.complete();
+
+        // Ensure all visible layers have their visibility applied after data loads
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            Object.entries(state.mapLayers).forEach(([name, info]) => {
+              if (info.visible && info.layer) {
+                const layerId = `${name}-layer`;
+                if (state.map?.getLayer(layerId)) {
+                  state.map.setLayoutProperty(
+                    layerId,
+                    "visibility",
+                    "visible",
+                  );
+                }
+              }
+            });
+            resolve();
+          });
+        });
 
         if (state.mapLayers.trips?.layer?.features?.length) {
           requestAnimationFrame(() => mapManager.zoomToLastTrip());
@@ -267,6 +298,18 @@ const AppController = {
     document.addEventListener("mapStyleLoaded", async () => {
       if (!state.map || !state.mapInitialized) return;
       window.loadingManager.pulse("Applying new map style...");
+      
+      // Wait for map style to be fully loaded
+      await new Promise((resolve) => {
+        if (state.map.isStyleLoaded()) {
+          resolve();
+        } else {
+          state.map.once("styledata", resolve);
+          setTimeout(resolve, 2000); // Fallback timeout
+        }
+      });
+      
+      // Re-apply all visible layers with their data
       for (const [name, info] of Object.entries(state.mapLayers)) {
         if (info.visible && info.layer) {
           await layerManager.updateMapLayer(name, info.layer);

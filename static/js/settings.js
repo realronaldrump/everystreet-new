@@ -784,8 +784,9 @@
     }
 
     formatDuration(ms) {
-      // Use DateUtils for consistent formatting across the app
-      return window.DateUtils?.formatDuration(ms) || "Unknown";
+      if (typeof ms !== "number" || isNaN(ms)) return "Unknown";
+      const seconds = Math.max(0, Math.floor(ms / 1000));
+      return window.DateUtils?.formatDuration(seconds) || "Unknown";
     }
 
     gatherTaskConfigFromUI() {

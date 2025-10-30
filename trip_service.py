@@ -342,18 +342,40 @@ class TripService:
                     for t in unique_trips
                     if t.get("transactionId")
                 ]
+
+                # Query existing trips to check their status
                 existing_docs = await find_with_retry(
                     self.trips_collection,
                     {"transactionId": {"$in": incoming_ids}},
-                    projection={"transactionId": 1, "_id": 0},
+                    projection={"transactionId": 1, "matchedGps": 1, "_id": 0},
                     limit=len(incoming_ids),
                 )
-                existing_ids = {d.get("transactionId") for d in existing_docs}
-                trips_to_process = [
-                    t
-                    for t in unique_trips
-                    if t.get("transactionId") not in existing_ids
-                ]
+                existing_by_id = {
+                    d.get("transactionId"): d for d in existing_docs
+                }
+
+                # Determine which trips need processing:
+                # - If map matching is enabled: process trips that don't exist OR
+                #   exist but don't have matchedGps yet
+                # - If map matching is disabled: only process trips that don't exist
+                trips_to_process = []
+                for trip in unique_trips:
+                    transaction_id = trip.get("transactionId")
+                    if not transaction_id:
+                        continue
+
+                    existing_trip = existing_by_id.get(transaction_id)
+
+                    if not existing_trip:
+                        # New trip - always process
+                        trips_to_process.append(trip)
+                    elif do_map_match:
+                        # Map matching requested - check if trip already has matched data
+                        if not existing_trip.get("matchedGps"):
+                            # Trip exists but lacks matchedGps - process for map matching
+                            trips_to_process.append(trip)
+                        # else: trip already has matchedGps - skip to avoid redundant processing
+                    # else: trip exists and map matching not requested - skip to avoid duplicates
             else:
                 trips_to_process = []
 

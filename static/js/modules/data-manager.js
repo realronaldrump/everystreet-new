@@ -264,8 +264,7 @@ const dataManager = {
   },
 
   async fetchMatchedTrips() {
-    if (!state.mapInitialized || !state.mapLayers.matchedTrips.visible)
-      return null;
+    if (!state.mapInitialized) return null;
     window.loadingManager.pulse("Loading matched trips...");
 
     try {
@@ -420,9 +419,11 @@ const dataManager = {
       state.cancelAllRequests();
 
       const promises = [];
+      // Always fetch visible trip layers (they may need refresh after date range changes)
       if (state.mapLayers.trips.visible) promises.push(this.fetchTrips());
       if (state.mapLayers.matchedTrips.visible)
         promises.push(this.fetchMatchedTrips());
+      // Street layers only fetch if not already loaded (they're location-specific)
       if (
         state.mapLayers.undrivenStreets.visible &&
         !state.undrivenStreetsLoaded
@@ -437,6 +438,26 @@ const dataManager = {
       await Promise.allSettled(promises);
 
       renderStage.update(80, "Rendering layers...");
+      
+      // Ensure visibility is correctly applied for all layers after refresh
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          Object.entries(state.mapLayers).forEach(([name, info]) => {
+            if (info.layer) {
+              const layerId = `${name}-layer`;
+              if (state.map?.getLayer(layerId)) {
+                state.map.setLayoutProperty(
+                  layerId,
+                  "visibility",
+                  info.visible ? "visible" : "none",
+                );
+              }
+            }
+          });
+          resolve();
+        });
+      });
+      
       if (fitBounds) await mapManager.fitBounds();
 
       renderStage.complete();
