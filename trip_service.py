@@ -6,6 +6,7 @@ TripProcessor and provides batch processing, validation, geocoding, and
 map matching capabilities for both Bouncie and uploaded trips.
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -480,22 +481,45 @@ class TripService:
     async def refresh_geocoding(
         self,
         trip_ids: list[str],
+        skip_if_exists: bool = True,
+        progress_callback: callable = None,
     ) -> dict[str, Any]:
-        """Refresh geocoding for specified trips."""
+        """Refresh geocoding for specified trips.
+        
+        Args:
+            trip_ids: List of trip IDs to geocode
+            skip_if_exists: If True, skip geocoding if address already exists
+            progress_callback: Optional callback function(current, total, trip_id) for progress updates
+        """
         results = {
             "total": len(trip_ids),
             "updated": 0,
+            "skipped": 0,
             "failed": 0,
             "errors": [],
         }
 
-        for trip_id in trip_ids:
+        for idx, trip_id in enumerate(trip_ids):
             try:
+                if progress_callback:
+                    if asyncio.iscoroutinefunction(progress_callback):
+                        await progress_callback(idx + 1, len(trip_ids), trip_id)
+                    else:
+                        progress_callback(idx + 1, len(trip_ids), trip_id)
+                
                 trip = await self.get_trip_by_id(trip_id)
                 if not trip:
                     results["failed"] += 1
                     results["errors"].append(f"Trip {trip_id} not found")
                     continue
+
+                # Skip if addresses already exist and skip_if_exists is True
+                if skip_if_exists:
+                    has_start = bool(trip.get("startLocation") and trip.get("startLocation").get("formatted_address"))
+                    has_destination = bool(trip.get("destination") and trip.get("destination").get("formatted_address"))
+                    if has_start and has_destination:
+                        results["skipped"] += 1
+                        continue
 
                 options = ProcessingOptions(
                     validate=False,

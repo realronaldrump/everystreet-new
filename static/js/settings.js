@@ -1184,8 +1184,7 @@
 
     setupTaskConfigEventListeners();
     setupManualFetchTripsForm();
-    setupGeoPointsUpdate();
-    setupRegeocode();
+    setupGeocodeTrips();
     setupRemapMatchedTrips();
 
     taskManager.loadTaskConfig();
@@ -1524,70 +1523,171 @@
     });
   }
 
-  function setupGeoPointsUpdate() {
-    const btn = document.getElementById("update-geo-points");
-    const select = document.getElementById("collection-select");
-    if (!btn || !select) return;
+  function setupGeocodeTrips() {
+    const geocodeType = document.getElementById("geocode-type");
+    const dateRangeDiv = document.getElementById("geocode-date-range");
+    const intervalDiv = document.getElementById("geocode-interval");
+    const geocodeBtn = document.getElementById("geocode-trips-btn");
+    const progressPanel = document.getElementById("geocode-progress-panel");
+    const progressBar = document.getElementById("geocode-progress-bar");
+    const progressMessage = document.getElementById("geocode-progress-message");
+    const progressMetrics = document.getElementById("geocode-progress-metrics");
+    const statusEl = document.getElementById("geocode-trips-status");
 
-    btn.addEventListener("mousedown", async (e) => {
+    if (!geocodeType || !geocodeBtn) return;
+
+    // Handle method selection
+    geocodeType.addEventListener("change", function () {
+      const method = this.value;
+      if (method === "date") {
+        dateRangeDiv.style.display = "block";
+        intervalDiv.style.display = "none";
+      } else if (method === "interval") {
+        dateRangeDiv.style.display = "none";
+        intervalDiv.style.display = "block";
+      } else {
+        dateRangeDiv.style.display = "none";
+        intervalDiv.style.display = "none";
+      }
+    });
+
+    // Handle button click
+    geocodeBtn.addEventListener("mousedown", async function (e) {
       if (e.button !== 0) return;
-      const collection = select.value;
-      document.getElementById("update-geo-points-status").textContent =
-        "Updating...";
+
+      const method = geocodeType.value;
+      let start_date = "";
+      let end_date = "";
+      let interval_days = 0;
+
+      if (method === "date") {
+        start_date = document.getElementById("geocode-start").value;
+        end_date = document.getElementById("geocode-end").value;
+        if (!start_date || !end_date) {
+          window.notificationManager.show(
+            "Please select both start and end dates",
+            "danger",
+          );
+          return;
+        }
+      } else if (method === "interval") {
+        interval_days = parseInt(
+          document.getElementById("geocode-interval-select").value,
+          10,
+        );
+      }
 
       try {
-        showLoadingOverlay();
-        const response = await fetch("/update_geo_points", {
+        geocodeBtn.disabled = true;
+        if (statusEl) {
+          statusEl.textContent = "Starting geocoding...";
+          statusEl.className = "mt-2 text-info";
+        }
+        progressPanel.style.display = "block";
+        progressBar.style.width = "0%";
+        progressBar.textContent = "0%";
+        progressBar.setAttribute("aria-valuenow", "0");
+        progressMessage.textContent = "Initializing...";
+        progressMetrics.textContent = "";
+
+        const response = await fetch("/api/geocode_trips", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ collection }),
+          body: JSON.stringify({ start_date, end_date, interval_days }),
         });
 
-        hideLoadingOverlay();
+        if (!response.ok) {
+          throw new Error("Failed to start geocoding");
+        }
 
         const data = await response.json();
+        const taskId = data.task_id;
 
-        document.getElementById("update-geo-points-status").textContent =
-          data.message;
-        window.notificationManager.show(data.message, "success");
+        // Start polling for progress
+        const pollInterval = setInterval(async () => {
+          try {
+            const progressResponse = await fetch(
+              `/api/geocode_trips/progress/${taskId}`,
+            );
+            if (!progressResponse.ok) {
+              clearInterval(pollInterval);
+              return;
+            }
+
+            const progressData = await progressResponse.json();
+            const progress = progressData.progress || 0;
+            const stage = progressData.stage || "unknown";
+            const message = progressData.message || "";
+            const metrics = progressData.metrics || {};
+
+            // Update progress bar
+            progressBar.style.width = `${progress}%`;
+            progressBar.textContent = `${progress}%`;
+            progressBar.setAttribute("aria-valuenow", progress);
+
+            // Update message
+            progressMessage.textContent = message;
+
+            // Update metrics
+            if (metrics.total > 0) {
+              progressMetrics.textContent = `Total: ${metrics.total} | Updated: ${metrics.updated || 0} | Skipped: ${metrics.skipped || 0} | Failed: ${metrics.failed || 0}`;
+            }
+
+            // Check if completed
+            if (stage === "completed" || stage === "error") {
+              clearInterval(pollInterval);
+              geocodeBtn.disabled = false;
+              
+              if (stage === "completed") {
+                progressBar.classList.remove("progress-bar-animated");
+                progressBar.classList.add("bg-success");
+                if (statusEl) {
+                  statusEl.textContent = `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`;
+                  statusEl.className = "mt-2 text-success";
+                }
+                window.notificationManager.show(
+                  `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
+                  "success",
+                );
+              } else {
+                progressBar.classList.remove("progress-bar-animated");
+                progressBar.classList.add("bg-danger");
+                if (statusEl) {
+                  statusEl.textContent = `Error: ${progressData.error || "Unknown error"}`;
+                  statusEl.className = "mt-2 text-danger";
+                }
+                window.notificationManager.show(
+                  `Geocoding failed: ${progressData.error || "Unknown error"}`,
+                  "danger",
+                );
+              }
+            }
+          } catch (pollErr) {
+            console.error("Error polling progress:", pollErr);
+            clearInterval(pollInterval);
+            geocodeBtn.disabled = false;
+          }
+        }, 1000); // Poll every second
       } catch (err) {
-        hideLoadingOverlay();
-        console.error("Error updating GeoPoints:", err);
-        window.notificationManager.show("Failed to update GeoPoints", "danger");
+        console.error("Error starting geocoding:", err);
+        geocodeBtn.disabled = false;
+        if (statusEl) {
+          statusEl.textContent = "Error starting geocoding. See console.";
+          statusEl.className = "mt-2 text-danger";
+        }
+        window.notificationManager.show("Failed to start geocoding", "danger");
       }
     });
-  }
 
-  function setupRegeocode() {
-    const btn = document.getElementById("re-geocode-all-trips");
-    if (!btn) return;
-
-    btn.addEventListener("mousedown", async (e) => {
-      if (e.button !== 0) return;
-      document.getElementById("re-geocode-all-trips-status").textContent =
-        "Re-geocoding all trips...";
-
-      try {
-        showLoadingOverlay();
-        const response = await fetch("/api/regeocode_all_trips", {
-          method: "POST",
-        });
-
-        hideLoadingOverlay();
-
-        const data = await response.json();
-
-        document.getElementById("re-geocode-all-trips-status").textContent =
-          "All trips have been re-geocoded.";
-        window.notificationManager.show(data.message, "success");
-      } catch (err) {
-        hideLoadingOverlay();
-        console.error("Error re-geocoding trips:", err);
-        document.getElementById("re-geocode-all-trips-status").textContent =
-          "Error re-geocoding trips. See console.";
-        window.notificationManager.show("Failed to re-geocode trips", "danger");
-      }
-    });
+    // Initialize date pickers
+    if (window.DateUtils?.initDatePicker) {
+      window.DateUtils.initDatePicker(".datepicker");
+    } else {
+      flatpickr(".datepicker", {
+        enableTime: false,
+        dateFormat: "Y-m-d",
+      });
+    }
   }
 
   function setupRemapMatchedTrips() {
@@ -2142,101 +2242,198 @@
   }
 
   function setupMobileDataManagement() {
-    // GeoPoints Update
-    const geoBtn = document.getElementById("mobile-update-geo-points");
-    const geoSelect = document.getElementById("mobile-collection-select");
-    const geoStatus = document.getElementById(
-      "mobile-update-geo-points-status",
-    );
+    // Unified Geocoding
+    setupMobileGeocodeTrips();
 
-    if (geoBtn && geoSelect) {
-      geoBtn.addEventListener("click", async () => {
-        const collection = geoSelect.value;
+    // Remap trips - method tabs (keep existing remap functionality)
+    setupMobileRemapTrips();
+  }
 
-        if (geoStatus) {
-          geoStatus.classList.remove("d-none", "success", "error");
-          geoStatus.classList.add("info");
-          geoStatus.textContent = "Updating...";
-        }
+  function setupMobileGeocodeTrips() {
+    // Handle method tabs
+    const geocodeTabs = document.querySelectorAll('.mobile-date-method-tab[data-target="geocode"]');
+    const geocodeDateRange = document.getElementById("mobile-geocode-date-range");
+    const geocodeInterval = document.getElementById("mobile-geocode-interval");
+    const geocodeBtn = document.getElementById("mobile-geocode-trips-btn");
+    const progressPanel = document.getElementById("mobile-geocode-progress-panel");
+    const progressBar = document.getElementById("mobile-geocode-progress-bar");
+    const progressMessage = document.getElementById("mobile-geocode-progress-message");
+    const progressMetrics = document.getElementById("mobile-geocode-progress-metrics");
+    const statusEl = document.getElementById("mobile-geocode-trips-status");
 
-        try {
-          showLoadingOverlay();
-          const response = await fetch("/update_geo_points", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ collection }),
-          });
+    if (!geocodeBtn) return;
 
-          hideLoadingOverlay();
-          const data = await response.json();
-
-          if (geoStatus) {
-            geoStatus.classList.remove("info");
-            geoStatus.classList.add("success");
-            geoStatus.textContent = data.message;
-          }
-          window.notificationManager.show(data.message, "success");
-        } catch (err) {
-          hideLoadingOverlay();
-          console.error("Error updating GeoPoints:", err);
-          if (geoStatus) {
-            geoStatus.classList.remove("info");
-            geoStatus.classList.add("error");
-            geoStatus.textContent = "Failed to update GeoPoints";
-          }
-          window.notificationManager.show(
-            "Failed to update GeoPoints",
-            "danger",
-          );
+    // Handle tab clicks
+    geocodeTabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        geocodeTabs.forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        const method = tab.dataset.method;
+        
+        if (method === "date") {
+          geocodeDateRange.style.display = "block";
+          geocodeInterval.style.display = "none";
+        } else if (method === "interval") {
+          geocodeDateRange.style.display = "none";
+          geocodeInterval.style.display = "block";
+        } else {
+          geocodeDateRange.style.display = "none";
+          geocodeInterval.style.display = "none";
         }
       });
-    }
+    });
 
-    // Re-geocode
-    const regeocodeBtn = document.getElementById("mobile-re-geocode-all-trips");
-    const regeocodeStatus = document.getElementById(
-      "mobile-re-geocode-all-trips-status",
-    );
+    // Handle button click
+    geocodeBtn.addEventListener("click", async () => {
+      const activeTab = document.querySelector('.mobile-date-method-tab[data-target="geocode"].active');
+      const method = activeTab?.dataset.method || "date";
+      let start_date = "";
+      let end_date = "";
+      let interval_days = 0;
 
-    if (regeocodeBtn) {
-      regeocodeBtn.addEventListener("click", async () => {
-        if (regeocodeStatus) {
-          regeocodeStatus.classList.remove("d-none", "success", "error");
-          regeocodeStatus.classList.add("info");
-          regeocodeStatus.textContent = "Re-geocoding all trips...";
-        }
-
-        try {
-          showLoadingOverlay();
-          const response = await fetch("/api/regeocode_all_trips", {
-            method: "POST",
-          });
-
-          hideLoadingOverlay();
-          const data = await response.json();
-
-          if (regeocodeStatus) {
-            regeocodeStatus.classList.remove("info");
-            regeocodeStatus.classList.add("success");
-            regeocodeStatus.textContent = "All trips have been re-geocoded.";
-          }
-          window.notificationManager.show(data.message, "success");
-        } catch (err) {
-          hideLoadingOverlay();
-          console.error("Error re-geocoding trips:", err);
-          if (regeocodeStatus) {
-            regeocodeStatus.classList.remove("info");
-            regeocodeStatus.classList.add("error");
-            regeocodeStatus.textContent = "Error re-geocoding trips.";
-          }
+      if (method === "date") {
+        start_date = document.getElementById("mobile-geocode-start")?.value || "";
+        end_date = document.getElementById("mobile-geocode-end")?.value || "";
+        if (!start_date || !end_date) {
           window.notificationManager.show(
-            "Failed to re-geocode trips",
+            "Please select both start and end dates",
             "danger",
           );
+          return;
         }
+      } else if (method === "interval") {
+        interval_days = parseInt(
+          document.getElementById("mobile-geocode-interval-select")?.value || "0",
+          10,
+        );
+      }
+
+      try {
+        geocodeBtn.disabled = true;
+        if (statusEl) {
+          statusEl.textContent = "Starting geocoding...";
+          statusEl.classList.remove("d-none", "success", "error");
+          statusEl.classList.add("info");
+        }
+        if (progressPanel) progressPanel.style.display = "block";
+        if (progressBar) {
+          progressBar.style.width = "0%";
+          progressBar.textContent = "0%";
+          progressBar.setAttribute("aria-valuenow", "0");
+        }
+        if (progressMessage) progressMessage.textContent = "Initializing...";
+        if (progressMetrics) progressMetrics.textContent = "";
+
+        const response = await fetch("/api/geocode_trips", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ start_date, end_date, interval_days }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to start geocoding");
+        }
+
+        const data = await response.json();
+        const taskId = data.task_id;
+
+        // Start polling for progress
+        const pollInterval = setInterval(async () => {
+          try {
+            const progressResponse = await fetch(
+              `/api/geocode_trips/progress/${taskId}`,
+            );
+            if (!progressResponse.ok) {
+              clearInterval(pollInterval);
+              return;
+            }
+
+            const progressData = await progressResponse.json();
+            const progress = progressData.progress || 0;
+            const stage = progressData.stage || "unknown";
+            const message = progressData.message || "";
+            const metrics = progressData.metrics || {};
+
+            // Update progress bar
+            if (progressBar) {
+              progressBar.style.width = `${progress}%`;
+              progressBar.textContent = `${progress}%`;
+              progressBar.setAttribute("aria-valuenow", progress);
+            }
+
+            // Update message
+            if (progressMessage) progressMessage.textContent = message;
+
+            // Update metrics
+            if (progressMetrics && metrics.total > 0) {
+              progressMetrics.textContent = `Total: ${metrics.total} | Updated: ${metrics.updated || 0} | Skipped: ${metrics.skipped || 0} | Failed: ${metrics.failed || 0}`;
+            }
+
+            // Check if completed
+            if (stage === "completed" || stage === "error") {
+              clearInterval(pollInterval);
+              geocodeBtn.disabled = false;
+              
+              if (stage === "completed") {
+                if (progressBar) {
+                  progressBar.classList.remove("progress-bar-animated");
+                  progressBar.classList.add("bg-success");
+                }
+                if (statusEl) {
+                  statusEl.textContent = `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`;
+                  statusEl.classList.remove("info");
+                  statusEl.classList.add("success");
+                }
+                window.notificationManager.show(
+                  `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
+                  "success",
+                );
+              } else {
+                if (progressBar) {
+                  progressBar.classList.remove("progress-bar-animated");
+                  progressBar.classList.add("bg-danger");
+                }
+                if (statusEl) {
+                  statusEl.textContent = `Error: ${progressData.error || "Unknown error"}`;
+                  statusEl.classList.remove("info");
+                  statusEl.classList.add("error");
+                }
+                window.notificationManager.show(
+                  `Geocoding failed: ${progressData.error || "Unknown error"}`,
+                  "danger",
+                );
+              }
+            }
+          } catch (pollErr) {
+            console.error("Error polling progress:", pollErr);
+            clearInterval(pollInterval);
+            geocodeBtn.disabled = false;
+          }
+        }, 1000); // Poll every second
+      } catch (err) {
+        console.error("Error starting geocoding:", err);
+        geocodeBtn.disabled = false;
+        if (statusEl) {
+          statusEl.textContent = "Error starting geocoding. See console.";
+          statusEl.classList.remove("info");
+          statusEl.classList.add("error");
+        }
+        window.notificationManager.show("Failed to start geocoding", "danger");
+      }
+    });
+
+    // Initialize date pickers
+    if (window.DateUtils?.initDatePicker) {
+      window.DateUtils.initDatePicker(".datepicker");
+    } else {
+      flatpickr(".datepicker", {
+        enableTime: false,
+        dateFormat: "Y-m-d",
       });
     }
+  }
 
+  function setupMobileRemapTrips() {
     // Remap trips - method tabs
     const dateTab = document.querySelector(
       '.mobile-date-method-tab[data-method="date"]',

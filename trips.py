@@ -2,7 +2,8 @@
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import uuid
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -10,16 +11,21 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from config import MAPBOX_ACCESS_TOKEN
+from date_utils import normalize_calendar_date
 from db import (
     SerializationHelper,
+    build_calendar_date_expr,
     build_query_from_request,
     delete_many_with_retry,
     delete_one_with_retry,
     find_with_retry,
     get_trip_by_id,
     matched_trips_collection,
+    progress_collection,
     trips_collection,
+    update_one_with_retry,
 )
+from models import DateRangeModel
 from trip_service import TripService
 
 # ==============================================================================
@@ -426,30 +432,247 @@ async def update_trip(trip_id: str, update_data: TripUpdateRequest):
         )
 
 
-@router.post("/api/regeocode_all_trips", tags=["Trips API"])
-async def regeocode_all_trips():
-    """Re-run geocoding for all trips to check against custom places."""
+@router.post("/api/geocode_trips", tags=["Trips API"])
+async def geocode_trips(data: DateRangeModel | None = None):
+    """Unified endpoint to re-geocode trips within a date range with progress tracking.
+    
+    This replaces the old "GeoPoint Update", "Re-geocode All Trips", and "Update Geocoding" functionality.
+    Only geocodes trips that don't already have addresses, and checks against custom places efficiently.
+    """
+    task_id = str(uuid.uuid4())
+    
     try:
-        trips_list = await find_with_retry(trips_collection, {})
+        # Determine date range
+        if not data or (not data.start_date and not data.end_date and data.interval_days == 0):
+            # Default to all trips
+            query = {}
+            start_iso = None
+            end_iso = None
+        elif data.interval_days > 0:
+            end_dt = datetime.now(timezone.utc)
+            start_dt = end_dt - timedelta(days=data.interval_days)
+            start_iso = start_dt.date().isoformat()
+            end_iso = end_dt.date().isoformat()
+            range_expr = build_calendar_date_expr(start_iso, end_iso)
+            if not range_expr:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid date range",
+                )
+            query = {"$expr": range_expr}
+        else:
+            start_iso = normalize_calendar_date(data.start_date)
+            end_iso = normalize_calendar_date(data.end_date)
+            
+            if not start_iso or not end_iso:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid date range",
+                )
+            
+            range_expr = build_calendar_date_expr(start_iso, end_iso)
+            if not range_expr:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid date range",
+                )
+            query = {"$expr": range_expr}
+        
+        # Initialize progress tracking
+        await update_one_with_retry(
+            progress_collection,
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "initializing",
+                    "progress": 0,
+                    "message": "Finding trips to geocode...",
+                    "updated_at": datetime.now(timezone.utc),
+                    "task_type": "geocoding",
+                    "metrics": {
+                        "total": 0,
+                        "processed": 0,
+                        "updated": 0,
+                        "skipped": 0,
+                        "failed": 0,
+                    },
+                }
+            },
+            upsert=True,
+        )
+        
+        # Find trips matching query
+        trips_list = await find_with_retry(trips_collection, query)
         trip_ids = [
             trip.get("transactionId")
             for trip in trips_list
             if trip.get("transactionId")
         ]
-
-        result = await trip_service.refresh_geocoding(trip_ids)
-
+        
+        total_trips = len(trip_ids)
+        
+        # Update progress with total count
+        await update_one_with_retry(
+            progress_collection,
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "processing",
+                    "progress": 0,
+                    "message": f"Found {total_trips} trips to process",
+                    "metrics.total": total_trips,
+                }
+            },
+        )
+        
+        if total_trips == 0:
+            await update_one_with_retry(
+                progress_collection,
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "completed",
+                        "progress": 100,
+                        "message": "No trips found matching criteria",
+                    }
+                },
+            )
+            return {
+                "task_id": task_id,
+                "message": "No trips found matching criteria",
+                "total": 0,
+            }
+        
+        # Define progress callback
+        async def progress_callback(current: int, total: int, trip_id: str):
+            progress_pct = int((current / total) * 100) if total > 0 else 0
+            await update_one_with_retry(
+                progress_collection,
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "progress": progress_pct,
+                        "message": f"Geocoding trip {current} of {total}",
+                        "current_trip_id": trip_id,
+                        "updated_at": datetime.now(timezone.utc),
+                    },
+                    "$inc": {
+                        "metrics.processed": 1,
+                    }
+                },
+            )
+        
+        # Process geocoding
+        result = await trip_service.refresh_geocoding(
+            trip_ids,
+            skip_if_exists=True,
+            progress_callback=progress_callback,
+        )
+        
+        # Update final progress
+        await update_one_with_retry(
+            progress_collection,
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "completed",
+                    "progress": 100,
+                    "message": (
+                        f"Completed: {result['updated']} updated, "
+                        f"{result['skipped']} skipped, "
+                        f"{result['failed']} failed"
+                    ),
+                    "metrics": {
+                        "total": result["total"],
+                        "processed": result["total"],
+                        "updated": result["updated"],
+                        "skipped": result["skipped"],
+                        "failed": result["failed"],
+                    },
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+        
         return {
-            "message": f"Re-geocoded {result['updated']} trips successfully. Failed: {result['failed']}",
-            "updated_count": result["updated"],
-            "failed_count": result["failed"],
+            "task_id": task_id,
+            "message": (
+                f"Geocoding completed: {result['updated']} updated, "
+                f"{result['skipped']} skipped, {result['failed']} failed"
+            ),
+            "total": result["total"],
+            "updated": result["updated"],
+            "skipped": result["skipped"],
+            "failed": result["failed"],
         }
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception("Error in regeocode_all_trips: %s", str(e))
+        logger.exception("Error in geocode_trips: %s", str(e))
+        # Update progress with error
+        await update_one_with_retry(
+            progress_collection,
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "error",
+                    "progress": 0,
+                    "message": f"Error: {str(e)}",
+                    "error": str(e),
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error re-geocoding trips: {e}",
+            detail=f"Error geocoding trips: {e}",
         )
+
+
+@router.get("/api/geocode_trips/progress/{task_id}", tags=["Trips API"])
+async def get_geocode_progress(task_id: str):
+    """Get progress for a geocoding task."""
+    try:
+        progress = await find_with_retry(
+            progress_collection,
+            {"_id": task_id, "task_type": "geocoding"},
+        )
+        
+        if not progress:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found",
+            )
+        
+        return {
+            "task_id": task_id,
+            "stage": progress.get("stage", "unknown"),
+            "progress": progress.get("progress", 0),
+            "message": progress.get("message", ""),
+            "metrics": progress.get("metrics", {}),
+            "current_trip_id": progress.get("current_trip_id"),
+            "error": progress.get("error"),
+            "updated_at": SerializationHelper.serialize_datetime(
+                progress.get("updated_at")
+            ),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error getting geocoding progress: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting progress: {e}",
+        )
+
+
+@router.post("/api/regeocode_all_trips", tags=["Trips API"])
+async def regeocode_all_trips():
+    """DEPRECATED: Use /api/geocode_trips instead. Re-run geocoding for all trips."""
+    # Redirect to new endpoint for backward compatibility
+    from models import DateRangeModel
+    return await geocode_trips(DateRangeModel(start_date="", end_date="", interval_days=0))
 
 
 @router.post("/api/trips/{trip_id}/regeocode", tags=["Trips API"])

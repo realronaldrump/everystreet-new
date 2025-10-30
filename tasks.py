@@ -109,13 +109,6 @@ TASK_METADATA = {
         "dependencies": [],
         "description": "Identifies and marks invalid trip records",
     },
-    "update_geocoding": {
-        "display_name": "Update Geocoding",
-        "default_interval_minutes": 720,
-        "priority": TaskPriority.LOW,
-        "dependencies": [],
-        "description": "Updates reverse geocoding for trips missing location data",
-    },
     "remap_unmatched_trips": {
         "display_name": "Remap Unmatched Trips",
         "default_interval_minutes": 360,
@@ -1063,74 +1056,6 @@ def cleanup_invalid_trips(self, *args, **kwargs):
 
 
 @task_runner
-async def update_geocoding_async(self) -> dict[str, Any]:
-    """Async logic for updating geocoding for trips missing location data."""
-    # We now refresh geocoding for *all* trips so that newly-created custom
-    # places are picked up.  To avoid hammering the DB we still process in
-    # batches of `limit`, choosing the oldest `geocoded_at` first so that we
-    # eventually cycle through the entire dataset across multiple task runs.
-
-    limit = 100
-
-    query = {}
-    sort = [("geocoded_at", 1)]  # oldest first (nulls come first)
-
-    trips_to_process = await find_with_retry(
-        trips_collection, query, sort=sort, limit=limit
-    )
-    logger.info(
-        "Queued %d trip(s) for geocoding refresh (batch limit %d).",
-        len(trips_to_process),
-        limit,
-    )
-
-    mapbox_token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
-    if not mapbox_token:
-        logger.warning("MAPBOX_ACCESS_TOKEN not set, cannot perform geocoding.")
-        raise ValueError("MAPBOX_ACCESS_TOKEN is not configured.")
-
-    trip_service = TripService(mapbox_token)
-    trip_ids = [
-        trip.get("transactionId")
-        for trip in trips_to_process
-        if trip.get("transactionId")
-    ]
-
-    result = await trip_service.refresh_geocoding(trip_ids)
-
-    geocoded_count = result["updated"]
-    failed_count = result["failed"]
-
-    logger.info(
-        f"Geocoding attempt finished. Succeeded: {geocoded_count}, Failed: {failed_count}",
-    )
-
-    return {
-        "status": "success",
-        "geocoded_count": geocoded_count,
-        "failed_count": failed_count,
-        "message": (
-            f"Attempted geocoding for {len(trips_to_process)} trips. "
-            f"Succeeded: {geocoded_count}, Failed: {failed_count}"
-        ),
-    }
-
-
-@shared_task(
-    bind=True,
-    max_retries=3,
-    default_retry_delay=300,
-    time_limit=7200,
-    soft_time_limit=7000,
-    name="tasks.update_geocoding",
-    queue="default",
-)
-def update_geocoding(self, *args, **kwargs):
-    """Celery task wrapper for updating trip geocoding."""
-    return run_async_from_sync(update_geocoding_async(self))
-
-
-@task_runner
 async def remap_unmatched_trips_async(self) -> dict[str, Any]:
     """Async logic for attempting to map-match trips that previously failed."""
     remap_count = 0
@@ -1371,7 +1296,6 @@ async def run_task_scheduler_async(self) -> None:
             "periodic_fetch_trips": "tasks.periodic_fetch_trips",
             "cleanup_stale_trips": "tasks.cleanup_stale_trips",
             "cleanup_invalid_trips": "tasks.cleanup_invalid_trips",
-            "update_geocoding": "tasks.update_geocoding",
             "remap_unmatched_trips": "tasks.remap_unmatched_trips",
             "validate_trip_data": "tasks.validate_trip_data",
             "update_coverage_for_new_trips": "tasks.update_coverage_for_new_trips",
@@ -1645,7 +1569,6 @@ async def manual_run_task(task_id: str) -> dict[str, Any]:
         "periodic_fetch_trips": "tasks.periodic_fetch_trips",
         "cleanup_stale_trips": "tasks.cleanup_stale_trips",
         "cleanup_invalid_trips": "tasks.cleanup_invalid_trips",
-        "update_geocoding": "tasks.update_geocoding",
         "remap_unmatched_trips": "tasks.remap_unmatched_trips",
         "validate_trip_data": "tasks.validate_trip_data",
         "update_coverage_for_new_trips": "tasks.update_coverage_for_new_trips",
