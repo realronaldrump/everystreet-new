@@ -19,5 +19,8 @@ jobs:
           git clean -fd
           echo "--- Repository has been reset to match origin/main ---"
 
+      - name: Make deploy script executable
+        run: chmod +x /home/davis/app/deploy.sh
+
       - name: Deploy Application
         run: /home/davis/app/deploy.sh
