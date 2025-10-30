@@ -3200,10 +3200,12 @@ const STATUS = window.STATUS || {
 
       if (currentlyActive) {
         activityIndicator.classList.add("pulsing");
-        activityIndicator.innerHTML = '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
+        activityIndicator.innerHTML =
+          '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
       } else {
         activityIndicator.classList.remove("pulsing");
-        activityIndicator.innerHTML = '<i class="fas fa-hourglass-half text-secondary me-1"></i>Idle';
+        activityIndicator.innerHTML =
+          '<i class="fas fa-hourglass-half text-secondary me-1"></i>Idle';
       }
 
       if (this.lastActivityTime) {
@@ -3426,7 +3428,8 @@ const STATUS = window.STATUS || {
       dashboardElement.style.display = "block";
       dashboardElement.classList.add("fade-in-up");
 
-      locationNameElement.innerHTML = '<span class="loading-skeleton" style="width: 150px; display: inline-block;"></span>';
+      locationNameElement.innerHTML =
+        '<span class="loading-skeleton" style="width: 150px; display: inline-block;"></span>';
 
       if (streetTypeChartElement)
         streetTypeChartElement.innerHTML =
