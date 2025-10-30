@@ -69,8 +69,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db
+      - /home/davis/database/mongo:/data/db
 
 volumes:
   redis_data:
-  mongo_data:
