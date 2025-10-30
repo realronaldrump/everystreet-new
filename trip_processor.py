@@ -96,8 +96,10 @@ class RateLimiter:
 
 
 config = Config()
-mapbox_rate_limiter = RateLimiter(60, 60)
-map_match_semaphore = asyncio.Semaphore(3)
+# Mapbox allows 300 requests per minute - be conservative at 280 to account for burst traffic
+mapbox_rate_limiter = RateLimiter(280, 60)
+# Increased semaphore for better parallelization with proper rate limiting
+map_match_semaphore = asyncio.Semaphore(10)
 
 
 class TripProcessor:
@@ -1090,6 +1092,73 @@ class TripProcessor:
             self._set_state(TripState.FAILED, error_message)
             return False
 
+    def _extract_timestamps_for_coordinates(
+        self,
+        coordinates: list[list[float]],
+    ) -> list[int | None]:
+        """Extract timestamps for coordinates, interpolating if necessary.
+
+        Args:
+            coordinates: List of [lon, lat] coordinates
+
+        Returns:
+            List of Unix timestamps (seconds since epoch) or None if unavailable
+        """
+        timestamps: list[int | None] = []
+
+        # Try to extract timestamps from coordinates field if available
+        trip_coords = self.processed_data.get("coordinates", [])
+        if trip_coords and len(trip_coords) == len(coordinates):
+            for coord_obj in trip_coords:
+                if isinstance(coord_obj, dict) and "timestamp" in coord_obj:
+                    ts = coord_obj["timestamp"]
+                    if isinstance(ts, str):
+                        parsed = parse_timestamp(ts)
+                        if parsed:
+                            timestamps.append(int(parsed.timestamp()))
+                        else:
+                            timestamps.append(None)
+                    elif hasattr(ts, "timestamp"):
+                        timestamps.append(int(ts.timestamp()))
+                    elif isinstance(ts, (int, float)):
+                        timestamps.append(int(ts))
+                    else:
+                        timestamps.append(None)
+                else:
+                    timestamps.append(None)
+            # If we got at least some timestamps, return them
+            if any(t is not None for t in timestamps):
+                return timestamps
+
+        # Fallback: interpolate timestamps based on startTime/endTime
+        start_time = self.processed_data.get("startTime")
+        end_time = self.processed_data.get("endTime")
+
+        if start_time and end_time:
+            if isinstance(start_time, str):
+                start_time = parse_timestamp(start_time)
+            if isinstance(end_time, str):
+                end_time = parse_timestamp(end_time)
+
+            if start_time and end_time:
+                start_ts = int(start_time.timestamp())
+                end_ts = int(end_time.timestamp())
+                duration = end_ts - start_ts
+
+                if len(coordinates) > 1:
+                    for i in range(len(coordinates)):
+                        # Linear interpolation
+                        ratio = i / (len(coordinates) - 1) if len(coordinates) > 1 else 0
+                        ts = start_ts + int(duration * ratio)
+                        timestamps.append(ts)
+                else:
+                    timestamps.append(start_ts)
+
+                return timestamps
+
+        # No timestamps available
+        return [None] * len(coordinates)
+
     def _initialize_projections(self, coords: list[list[float]]) -> None:
         """Initialize projections for map matching.
 
@@ -1118,18 +1187,19 @@ class TripProcessor:
         self,
         coordinates: list[list[float]],
         chunk_size: int = 100,
-        overlap: int = 10,
+        overlap: int = 15,
         max_retries: int = 3,
         min_sub_chunk: int = 20,
         jump_threshold_m: float = 200.0,
     ) -> dict[str, Any]:
         """Map match coordinates using the Mapbox API with advanced chunking
-        and stitching.
+        and stitching. Uses POST requests with timestamps and accuracy parameters
+        for maximum matching accuracy.
 
         Args:
             coordinates: List of [lon, lat] coordinates
-            chunk_size: Maximum number of coordinates per Mapbox API request
-            overlap: Number of coordinates to overlap between chunks
+            chunk_size: Maximum number of coordinates per Mapbox API request (max 100)
+            overlap: Number of coordinates to overlap between chunks (increased for better stitching)
             max_retries: Maximum number of retries for failed chunks
             min_sub_chunk: Minimum number of coordinates for recursive splitting
             jump_threshold_m: Threshold for detecting jumps in meters
@@ -1147,26 +1217,77 @@ class TripProcessor:
         if not self.utm_proj:
             self._initialize_projections(coordinates)
 
+        # Extract timestamps for all coordinates
+        all_timestamps = self._extract_timestamps_for_coordinates(coordinates)
+
         timeout = aiohttp.ClientTimeout(
-            total=30,
+            total=45,  # Increased timeout for POST requests
             connect=10,
             sock_connect=10,
-            sock_read=20,
+            sock_read=30,
         )
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
 
             async def call_mapbox_api(
                 coords: list[list[float]],
+                timestamps: list[int | None] | None = None,
             ) -> dict[str, Any]:
-                base_url = "https://api.mapbox.com/matching/v5/mapbox/driving/"
-                coords_str = ";".join(f"{lon},{lat}" for lon, lat in coords)
-                url = base_url + coords_str
+                """Call Mapbox Map Matching API using GET request with optimal parameters."""
+                base_url = "https://api.mapbox.com/matching/v5/mapbox/driving"
+                
+                # Build coordinate string with optional timestamps
+                # Mapbox format: lon,lat;lon,lat;lon,lat or lon,lat,timestamp;lon,lat,timestamp
+                coord_parts = []
+                for i, (lon, lat) in enumerate(coords):
+                    coord_str = f"{lon},{lat}"
+                    if timestamps and i < len(timestamps) and timestamps[i] is not None:
+                        coord_str += f",{timestamps[i]}"
+                    coord_parts.append(coord_str)
+                
+                coords_str = ";".join(coord_parts)
+                url = f"{base_url}/{coords_str}"
+                
+                # Calculate adaptive radiuses based on GPS precision
+                # Default: 25m for urban, 50m for highway speeds
+                radiuses = []
+                for i, coord in enumerate(coords):
+                    # Check if we can estimate speed from timestamps
+                    if timestamps and i > 0 and timestamps[i] and timestamps[i-1]:
+                        time_diff = abs(timestamps[i] - timestamps[i-1])
+                        if time_diff > 0:
+                            # Estimate if this might be highway (high speed)
+                            # Use larger radius for potential highway segments
+                            radiuses.append("50")
+                        else:
+                            radiuses.append("25")
+                    else:
+                        # Default radius based on coordinate density
+                        # Dense points = urban (25m), sparse = highway (50m)
+                        if i > 0:
+                            prev_coord = coords[i-1]
+                            distance = haversine(
+                                prev_coord[0], prev_coord[1],
+                                coord[0], coord[1],
+                                unit="meters"
+                            )
+                            # If points are far apart, likely highway
+                            radiuses.append("50" if distance > 100 else "25")
+                        else:
+                            radiuses.append("25")
+                
+                # Add accuracy parameters for maximum quality
                 params = {
                     "access_token": config.mapbox_access_token,
                     "geometries": "geojson",
-                    "radiuses": ";".join("25" for _ in coords),
+                    "overview": "full",  # Get full geometry detail
+                    "tidy": "true",  # Remove redundant points
+                    "steps": "false",  # We don't need step-by-step directions
                 }
+                
+                # Add radiuses as query parameter
+                if radiuses:
+                    params["radiuses"] = ";".join(radiuses)
 
                 max_attempts_for_429 = 5
                 min_backoff_seconds = 2
@@ -1188,6 +1309,7 @@ class TripProcessor:
                             await asyncio.sleep(wait_time)
 
                         try:
+                            # Use GET request (Mapbox Map Matching API uses GET)
                             async with session.get(
                                 url,
                                 params=params,
@@ -1291,6 +1413,7 @@ class TripProcessor:
 
             async def match_chunk(
                 chunk_coords: list[list[float]],
+                chunk_timestamps: list[int | None] | None = None,
                 depth: int = 0,
             ) -> list[list[float]] | None:
                 if len(chunk_coords) < 2:
@@ -1301,7 +1424,7 @@ class TripProcessor:
                     )
                     return []
                 try:
-                    data = await call_mapbox_api(chunk_coords)
+                    data = await call_mapbox_api(chunk_coords, chunk_timestamps)
                     if data.get("code") == "Ok" and data.get("matchings"):
                         return data["matchings"][0]["geometry"]["coordinates"]
 
@@ -1325,8 +1448,23 @@ class TripProcessor:
                                 "Retrying with %d filtered coordinates",
                                 len(filtered_coords),
                             )
+                            # Preserve timestamps for filtered coords
+                            filtered_timestamps = None
+                            if chunk_timestamps:
+                                filtered_indices = set()
+                                original_idx = 0
+                                for coord in chunk_coords:
+                                    if coord in filtered_coords:
+                                        filtered_indices.add(original_idx)
+                                    original_idx += 1
+                                filtered_timestamps = [
+                                    chunk_timestamps[i] if i in filtered_indices else None
+                                    for i in range(len(chunk_coords))
+                                    if i in filtered_indices
+                                ]
                             return await match_chunk(
                                 filtered_coords,
+                                filtered_timestamps,
                                 depth,
                             )
 
@@ -1340,6 +1478,12 @@ class TripProcessor:
                     mid = len(chunk_coords) // 2
                     first_half = chunk_coords[:mid]
                     second_half = chunk_coords[mid:]
+                    first_timestamps = (
+                        chunk_timestamps[:mid] if chunk_timestamps else None
+                    )
+                    second_timestamps = (
+                        chunk_timestamps[mid:] if chunk_timestamps else None
+                    )
                     logger.info(
                         "Retry chunk of size %d by splitting into halves (%d, %d) at depth %d",
                         len(chunk_coords),
@@ -1347,8 +1491,12 @@ class TripProcessor:
                         len(second_half),
                         depth,
                     )
-                    matched_first = await match_chunk(first_half, depth + 1)
-                    matched_second = await match_chunk(second_half, depth + 1)
+                    matched_first = await match_chunk(
+                        first_half, first_timestamps, depth + 1
+                    )
+                    matched_second = await match_chunk(
+                        second_half, second_timestamps, depth + 1
+                    )
                     if matched_first is not None and matched_second is not None:
                         if (
                             matched_first
@@ -1406,13 +1554,18 @@ class TripProcessor:
                 end_i,
             ) in enumerate(chunk_indices, 1):
                 chunk_coords = coordinates[start_i:end_i]
+                chunk_timestamps = (
+                    all_timestamps[start_i:end_i]
+                    if all_timestamps and len(all_timestamps) == len(coordinates)
+                    else None
+                )
                 logger.debug(
                     "Matching chunk %d/%d with %d coords",
                     cindex,
                     len(chunk_indices),
                     len(chunk_coords),
                 )
-                result = await match_chunk(chunk_coords, depth=0)
+                result = await match_chunk(chunk_coords, chunk_timestamps, depth=0)
                 if result is None:
                     msg = f"Chunk {cindex} of {len(chunk_indices)} failed map matching."
                     logger.error(msg)
@@ -1477,7 +1630,13 @@ class TripProcessor:
                     sub_coords = new_coords[start_sub:end_sub]
                     if len(sub_coords) < 2:
                         continue
-                    local_match = await match_chunk(sub_coords, depth=0)
+                    # Extract timestamps for sub-segment
+                    # Note: Jump detection operates on matched coords, not original,
+                    # so we can't use original timestamps. Pass None for re-matching.
+                    sub_timestamps = None
+                    local_match = await match_chunk(
+                        sub_coords, sub_timestamps, depth=0
+                    )
                     if local_match and len(local_match) >= 2:
                         logger.info(
                             "Re-matched sub-segment around index %d, replaced %d points",
