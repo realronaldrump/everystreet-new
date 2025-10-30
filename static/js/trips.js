@@ -1096,9 +1096,36 @@ class TripsManager {
     }
   }
 
-  static formatDuration(seconds) {
-    // Delegate to metricsManager for consistent formatting
-    return window.metricsManager?.formatDuration(seconds) || "N/A";
+  static formatDuration(rawValue) {
+    const metricsManager =
+      window.metricsManager ||
+      window.EveryStreet?.MetricsManager ||
+      window.EveryStreet?.metricsManager;
+
+    const parsedSeconds = Number(rawValue);
+
+    if (metricsManager?.formatDuration && !Number.isNaN(parsedSeconds)) {
+      return metricsManager.formatDuration(parsedSeconds);
+    }
+
+    if (typeof rawValue === "string" && rawValue.includes(":")) {
+      return rawValue.trim() || "N/A";
+    }
+
+    if (Number.isNaN(parsedSeconds) || parsedSeconds == null) {
+      return "N/A";
+    }
+
+    const safeSeconds = Math.max(0, Math.floor(parsedSeconds));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+
+    return hours > 0
+      ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
+          .toString()
+          .padStart(2, "0")}`
+      : `${minutes}:${seconds.toString().padStart(2, "0")}`;
   }
 }
 
