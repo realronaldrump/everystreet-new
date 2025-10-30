@@ -125,18 +125,18 @@ const AppController = {
           "map",
           "Loading map data...",
         );
-        
+
         // Fetch all visible layers during initialization
         const fetchPromises = [
           dataManager.fetchTrips(),
           dataManager.fetchMetrics(),
         ];
-        
+
         // Fetch matched trips if visible
         if (state.mapLayers.matchedTrips.visible) {
           fetchPromises.push(dataManager.fetchMatchedTrips());
         }
-        
+
         await Promise.all(fetchPromises);
         mapStage.complete();
 
@@ -147,11 +147,7 @@ const AppController = {
               if (info.visible && info.layer) {
                 const layerId = `${name}-layer`;
                 if (state.map?.getLayer(layerId)) {
-                  state.map.setLayoutProperty(
-                    layerId,
-                    "visibility",
-                    "visible",
-                  );
+                  state.map.setLayoutProperty(layerId, "visibility", "visible");
                 }
               }
             });
@@ -298,7 +294,7 @@ const AppController = {
     document.addEventListener("mapStyleLoaded", async () => {
       if (!state.map || !state.mapInitialized) return;
       window.loadingManager.pulse("Applying new map style...");
-      
+
       // Wait for map style to be fully loaded
       await new Promise((resolve) => {
         if (state.map.isStyleLoaded()) {
@@ -308,7 +304,7 @@ const AppController = {
           setTimeout(resolve, 2000); // Fallback timeout
         }
       });
-      
+
       // Re-apply all visible layers with their data
       for (const [name, info] of Object.entries(state.mapLayers)) {
         if (info.visible && info.layer) {

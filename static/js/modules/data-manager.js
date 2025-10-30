@@ -438,7 +438,7 @@ const dataManager = {
       await Promise.allSettled(promises);
 
       renderStage.update(80, "Rendering layers...");
-      
+
       // Ensure visibility is correctly applied for all layers after refresh
       await new Promise((resolve) => {
         requestAnimationFrame(() => {
@@ -457,7 +457,7 @@ const dataManager = {
           resolve();
         });
       });
-      
+
       if (fitBounds) await mapManager.fitBounds();
 
       renderStage.complete();
