@@ -34,10 +34,11 @@ class MobileMapInterface {
     // Get DOM elements
     this.sheet = document.querySelector('.mobile-bottom-sheet');
     this.backdrop = document.querySelector('.mobile-sheet-backdrop');
-    this.handle = document.querySelector('.mobile-sheet-handle');
+    this.handle = document.querySelector('.mobile-sheet-handle-container');
+    this.header = document.querySelector('.mobile-sheet-header');
     this.sheetContent = document.querySelector('.mobile-sheet-content');
 
-    if (!this.sheet || !this.backdrop || !this.handle) {
+    if (!this.sheet || !this.backdrop) {
       console.warn('Mobile sheet elements not found');
       return;
     }
@@ -52,10 +53,33 @@ class MobileMapInterface {
   }
 
   setupEventListeners() {
-    // Handle dragging
-    this.handle.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
-    this.handle.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
-    this.handle.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+    // Handle dragging on handle
+    if (this.handle) {
+      this.handle.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+      this.handle.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+      this.handle.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+    }
+
+    // Make header tappable to expand/collapse
+    if (this.header) {
+      this.header.addEventListener('click', (e) => {
+        // Don't trigger if clicking on a button/link in the header
+        if (e.target.closest('button, a')) return;
+        
+        if (this.currentState === 'collapsed') {
+          this.setState('half');
+        } else if (this.currentState === 'expanded') {
+          this.setState('collapsed');
+        } else {
+          this.setState('expanded');
+        }
+      });
+
+      // Also allow dragging from header
+      this.header.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+      this.header.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+      this.header.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+    }
 
     // Prevent content scrolling when at top and trying to expand
     this.sheetContent.addEventListener('touchstart', (e) => {
@@ -179,6 +203,7 @@ class MobileMapInterface {
     this.isDragging = true;
     this.startY = e.touches[0].clientY;
     this.sheet.style.transition = 'none';
+    this.sheet.classList.add('dragging');
   }
 
   handleTouchMove(e) {
@@ -212,6 +237,7 @@ class MobileMapInterface {
     
     this.isDragging = false;
     this.sheet.style.transition = '';
+    this.sheet.classList.remove('dragging');
     
     const deltaY = this.currentY - this.startY;
     const velocity = Math.abs(deltaY);
@@ -239,21 +265,15 @@ class MobileMapInterface {
   }
 
   getTransformValue(state) {
-    const transform = this.states[state].transform;
-    if (transform === '0') return 0;
+    // Updated to match new state values
+    const stateValues = {
+      collapsed: window.innerHeight - 180,
+      peek: window.innerHeight - 280,
+      half: window.innerHeight * 0.45,
+      expanded: 0
+    };
     
-    // Parse calc expression
-    const match = transform.match(/calc\(100% - (\d+)px\)/);
-    if (match) {
-      return window.innerHeight - parseInt(match[1]);
-    }
-    
-    const percentMatch = transform.match(/(\d+)%/);
-    if (percentMatch) {
-      return window.innerHeight * (parseInt(percentMatch[1]) / 100);
-    }
-    
-    return 0;
+    return stateValues[state] || 0;
   }
 
   getNextStateUp() {
@@ -327,7 +347,7 @@ class MobileMapInterface {
   }
 
   syncMetrics() {
-    // Sync trip metrics
+    // Sync full trip metrics
     const metrics = {
       'mobile-total-trips': 'total-trips',
       'mobile-total-distance': 'total-distance',
@@ -336,6 +356,22 @@ class MobileMapInterface {
     };
 
     Object.entries(metrics).forEach(([mobileId, desktopId]) => {
+      const desktopEl = document.getElementById(desktopId);
+      const mobileEl = document.getElementById(mobileId);
+      
+      if (desktopEl && mobileEl) {
+        mobileEl.textContent = desktopEl.textContent;
+      }
+    });
+
+    // Sync quick/compact metrics
+    const quickMetrics = {
+      'mobile-quick-trips': 'total-trips',
+      'mobile-quick-distance': 'total-distance',
+      'mobile-quick-speed': 'avg-speed'
+    };
+
+    Object.entries(quickMetrics).forEach(([mobileId, desktopId]) => {
       const desktopEl = document.getElementById(desktopId);
       const mobileEl = document.getElementById(mobileId);
       

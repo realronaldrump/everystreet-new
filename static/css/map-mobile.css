@@ -60,45 +60,57 @@
     right: 0;
     background: var(--surface-1);
     border-radius: 20px 20px 0 0;
-    box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(255, 255, 255, 0.1);
     z-index: var(--z-drawer);
-    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
+  .mobile-bottom-sheet:active,
+  .mobile-bottom-sheet.dragging {
+    box-shadow: 0 -6px 40px rgba(0, 0, 0, 0.5), 0 -1px 0 rgba(255, 255, 255, 0.1);
+  }
+
   /* Sheet states */
   .mobile-bottom-sheet.collapsed {
-    transform: translateY(calc(100% - 120px));
+    transform: translateY(calc(100% - 180px)); /* Show more by default */
   }
 
   .mobile-bottom-sheet.peek {
-    transform: translateY(calc(100% - 200px));
+    transform: translateY(calc(100% - 280px));
   }
 
   .mobile-bottom-sheet.half {
-    transform: translateY(50%);
+    transform: translateY(45%);
   }
 
   .mobile-bottom-sheet.expanded {
     transform: translateY(0);
   }
 
-  /* iOS-style handle */
-  .mobile-sheet-handle {
-    width: 40px;
-    height: 4px;
-    background: var(--text-tertiary);
-    border-radius: 2px;
-    margin: 12px auto 8px;
-    opacity: 0.5;
+  /* iOS-style handle - with larger touch area */
+  .mobile-sheet-handle-container {
+    padding: var(--space-3) 0; /* Larger touch target */
     cursor: grab;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
-  .mobile-sheet-handle:active {
+  .mobile-sheet-handle-container:active {
     cursor: grabbing;
+  }
+
+  .mobile-sheet-handle {
+    width: 40px;
+    height: 5px;
+    background: var(--text-secondary);
+    border-radius: 3px;
+    opacity: 0.6;
+    pointer-events: none; /* Let container handle clicks */
   }
 
   /* Sheet header */
@@ -112,6 +124,12 @@
     top: 0;
     background: var(--surface-1);
     z-index: 10;
+    cursor: pointer; /* Make entire header tappable */
+    user-select: none;
+  }
+
+  .mobile-sheet-header:active {
+    background: var(--surface-2);
   }
 
   .mobile-sheet-title {
@@ -138,7 +156,7 @@
   .mobile-fab-container {
     position: fixed;
     right: var(--space-3);
-    bottom: calc(140px + env(safe-area-inset-bottom, 0));
+    bottom: calc(200px + env(safe-area-inset-bottom, 0)); /* Adjusted for taller collapsed state */
     z-index: calc(var(--z-drawer) - 1);
     display: flex;
     flex-direction: column;
@@ -498,7 +516,7 @@
   }
 
   .mapboxgl-ctrl-bottom-right {
-    bottom: calc(140px + env(safe-area-inset-bottom, 0)) !important;
+    bottom: calc(200px + env(safe-area-inset-bottom, 0)) !important; /* Adjusted for taller collapsed state */
   }
 
   /* Safe area support */
@@ -508,8 +526,37 @@
     }
 
     .mobile-fab-container {
-      bottom: calc(140px + env(safe-area-inset-bottom));
+      bottom: calc(200px + env(safe-area-inset-bottom));
     }
+  }
+
+  /* Expand hint in collapsed state */
+  .mobile-sheet-expand-hint {
+    text-align: center;
+    padding: var(--space-2) 0;
+    color: var(--text-tertiary);
+    font-size: var(--font-size-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+  }
+
+  .mobile-sheet-expand-hint i {
+    animation: mobile-bounce 2s infinite;
+  }
+
+  @keyframes mobile-bounce {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
+  .mobile-bottom-sheet:not(.collapsed) .mobile-sheet-expand-hint {
+    display: none;
   }
 
   /* Compact metrics for mobile */
@@ -519,17 +566,22 @@
     gap: var(--space-2);
     font-size: var(--font-size-xs);
     text-align: center;
+    padding: var(--space-2) 0;
   }
 
   .mobile-compact-metric {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
+    padding: var(--space-2);
+    background: var(--surface-2);
+    border-radius: var(--radius-md);
   }
 
   .mobile-compact-metric-value {
     font-weight: var(--font-weight-bold);
-    color: var(--text-primary);
+    color: var(--primary);
+    font-size: var(--font-size-lg);
   }
 
   .mobile-compact-metric-label {

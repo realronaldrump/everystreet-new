@@ -411,7 +411,9 @@ block content %}
     <!-- Mobile Bottom Sheet -->
     <div class="mobile-sheet-backdrop"></div>
     <div class="mobile-bottom-sheet collapsed">
-      <div class="mobile-sheet-handle"></div>
+      <div class="mobile-sheet-handle-container">
+        <div class="mobile-sheet-handle"></div>
+      </div>
       
       <div class="mobile-sheet-header">
         <h2 class="mobile-sheet-title">Map Controls</h2>
@@ -423,7 +425,31 @@ block content %}
         </div>
       </div>
 
+      <!-- Quick preview in collapsed state -->
+      <div class="mobile-sheet-expand-hint">
+        <i class="fas fa-chevron-up"></i>
+        <span>Tap to expand controls</span>
+      </div>
+
       <div class="mobile-sheet-content">
+        <!-- Quick Stats - Visible in collapsed state -->
+        <div class="mobile-section">
+          <div class="mobile-compact-metrics">
+            <div class="mobile-compact-metric">
+              <div class="mobile-compact-metric-value" id="mobile-quick-trips">0</div>
+              <div class="mobile-compact-metric-label">Trips</div>
+            </div>
+            <div class="mobile-compact-metric">
+              <div class="mobile-compact-metric-value" id="mobile-quick-distance">0</div>
+              <div class="mobile-compact-metric-label">Miles</div>
+            </div>
+            <div class="mobile-compact-metric">
+              <div class="mobile-compact-metric-value" id="mobile-quick-speed">0</div>
+              <div class="mobile-compact-metric-label">Avg MPH</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Search Section -->
         <div class="mobile-section">
           <div class="mobile-search">
@@ -440,7 +466,7 @@ block content %}
           </div>
         </div>
 
-        <!-- Quick Stats -->
+        <!-- Full Stats -->
         <div class="mobile-section">
           <div class="mobile-section-header">
             <h3 class="mobile-section-title">Quick Stats</h3>
