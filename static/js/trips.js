@@ -62,6 +62,13 @@ class TripsManager {
     this.tripsCache = new Map();
     this.isInitialized = false;
 
+    // Mobile-specific state
+    this.isMobile = window.innerWidth <= 768;
+    this.mobileTrips = [];
+    this.mobileCurrentPage = 0;
+    this.mobilePageSize = 10;
+    this.mobileTotalTrips = 0;
+
     this.config = {
       tables: {
         order: [[3, "desc"]],
@@ -77,6 +84,17 @@ class TripsManager {
         },
       },
     };
+
+    // Listen for window resize
+    window.addEventListener("resize", () => {
+      const wasMobile = this.isMobile;
+      this.isMobile = window.innerWidth <= 768;
+      
+      // If we switched between mobile and desktop, reload
+      if (wasMobile !== this.isMobile) {
+        this.fetchTrips();
+      }
+    });
   }
 
   async init() {
@@ -88,6 +106,7 @@ class TripsManager {
 
       this.initializeTripsTable();
       this.initializeEventListeners();
+      this.initializeMobileEventListeners();
       this.isInitialized = true;
 
       // Initial load
@@ -490,25 +509,44 @@ class TripsManager {
     }
   }
 
-  async bulkDeleteTrips() {
-    const checkedCheckboxes = document.querySelectorAll(
-      ".trip-checkbox:checked",
-    );
-    if (checkedCheckboxes.length === 0) {
-      if (window.notificationManager) {
-        window.notificationManager.show(
-          "Please select trips to delete.",
-          "info",
-        );
-      }
-      return;
-    }
+  async bulkDeleteTrips(fromMobile = false) {
+    let tripIds;
 
-    const tripIds = Array.from(checkedCheckboxes).map((checkbox) => {
-      const row = checkbox.closest("tr");
-      const rowData = this.tripsTable.row(row).data();
-      return rowData.transactionId;
-    });
+    if (fromMobile) {
+      const checkedCheckboxes = document.querySelectorAll(
+        ".trip-card-checkbox:checked",
+      );
+      if (checkedCheckboxes.length === 0) {
+        if (window.notificationManager) {
+          window.notificationManager.show(
+            "Please select trips to delete.",
+            "info",
+          );
+        }
+        return;
+      }
+      tripIds = Array.from(checkedCheckboxes).map((checkbox) => 
+        checkbox.getAttribute("data-trip-id")
+      );
+    } else {
+      const checkedCheckboxes = document.querySelectorAll(
+        ".trip-checkbox:checked",
+      );
+      if (checkedCheckboxes.length === 0) {
+        if (window.notificationManager) {
+          window.notificationManager.show(
+            "Please select trips to delete.",
+            "info",
+          );
+        }
+        return;
+      }
+      tripIds = Array.from(checkedCheckboxes).map((checkbox) => {
+        const row = checkbox.closest("tr");
+        const rowData = this.tripsTable.row(row).data();
+        return rowData.transactionId;
+      });
+    }
 
     if (
       typeof window.confirmationDialog === "object" &&
@@ -603,8 +641,281 @@ class TripsManager {
   }
 
   fetchTrips() {
-    if (this.tripsTable) {
+    if (this.isMobile) {
+      this.fetchMobileTrips();
+    } else if (this.tripsTable) {
       this.tripsTable.ajax.reload(null, false);
+    }
+  }
+
+  async fetchMobileTrips() {
+    const mobileList = document.getElementById("trips-mobile-list");
+    if (!mobileList) return;
+
+    // Show loading state
+    mobileList.innerHTML = `
+      <div class="trips-mobile-loading">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="trips-mobile-loading-text">Loading trips...</div>
+      </div>
+    `;
+
+    try {
+      const startDate =
+        window.utils.getStorage("startDate") || DateUtils.getCurrentDate();
+      const endDate =
+        window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
+
+      const requestData = {
+        start: this.mobileCurrentPage * this.mobilePageSize,
+        length: this.mobilePageSize,
+        order: [{ column: 1, dir: "desc" }],
+        start_date: startDate,
+        end_date: endDate,
+      };
+
+      const response = await fetch("/api/trips/datatable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch trips");
+      }
+
+      const data = await response.json();
+      this.mobileTrips = data.data || [];
+      this.mobileTotalTrips = data.recordsFiltered || 0;
+
+      // Cache the data
+      this.tripsCache.clear();
+      this.mobileTrips.forEach((trip) => {
+        this.tripsCache.set(trip.transactionId, trip);
+      });
+
+      this.renderMobileTrips();
+      this.updateMobilePagination();
+    } catch (error) {
+      console.error("Error fetching mobile trips:", error);
+      mobileList.innerHTML = `
+        <div class="trips-mobile-empty">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div class="trips-mobile-empty-title">Error Loading Trips</div>
+          <div class="trips-mobile-empty-text">${error.message}</div>
+        </div>
+      `;
+    }
+  }
+
+  renderMobileTrips() {
+    const mobileList = document.getElementById("trips-mobile-list");
+    if (!mobileList) return;
+
+    if (this.mobileTrips.length === 0) {
+      mobileList.innerHTML = `
+        <div class="trips-mobile-empty">
+          <i class="fas fa-car"></i>
+          <div class="trips-mobile-empty-title">No Trips Found</div>
+          <div class="trips-mobile-empty-text">No trips found in the selected date range</div>
+        </div>
+      `;
+      return;
+    }
+
+    mobileList.innerHTML = this.mobileTrips.map((trip) => this.renderMobileTripCard(trip)).join("");
+  }
+
+  renderMobileTripCard(trip) {
+    const transactionId = trip.transactionId || "";
+    const startTime = DateUtils.formatForDisplay(trip.startTime, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+    const endTime = DateUtils.formatForDisplay(trip.endTime, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+    const duration = TripsManager.formatDuration(trip.duration);
+    const distance = parseFloat(trip.distance || 0).toFixed(2);
+    const maxSpeed = parseFloat(trip.maxSpeed || 0).toFixed(1);
+    const idleDuration = trip.totalIdleDuration != null 
+      ? (trip.totalIdleDuration / 60).toFixed(2) 
+      : "N/A";
+    const fuelConsumed = trip.fuelConsumed != null 
+      ? parseFloat(trip.fuelConsumed).toFixed(2) 
+      : "N/A";
+
+    const startLocation = typeof trip.startLocation === "object" && trip.startLocation !== null
+      ? trip.startLocation.formatted_address || "Unknown"
+      : trip.startLocation || "Unknown";
+
+    const destination = typeof trip.destination === "object" && trip.destination !== null
+      ? trip.destination.formatted_address || "Unknown"
+      : trip.destination || "Unknown";
+
+    return `
+      <div class="trip-card" data-trip-id="${transactionId}">
+        <div class="trip-card-header">
+          <input type="checkbox" class="trip-card-checkbox" data-trip-id="${transactionId}">
+          <div class="trip-card-time">
+            <div class="trip-card-start-time">${startTime}</div>
+            <div class="trip-card-end-time">to ${endTime}</div>
+          </div>
+        </div>
+        <div class="trip-card-body">
+          <div class="trip-info-grid">
+            <div class="trip-info-item">
+              <div class="trip-info-label">Duration</div>
+              <div class="trip-info-value">${duration}</div>
+            </div>
+            <div class="trip-info-item">
+              <div class="trip-info-label">Distance</div>
+              <div class="trip-info-value">${distance} mi</div>
+            </div>
+            <div class="trip-info-item">
+              <div class="trip-info-label">Max Speed</div>
+              <div class="trip-info-value">${maxSpeed} mph</div>
+            </div>
+            <div class="trip-info-item">
+              <div class="trip-info-label">Idle Time</div>
+              <div class="trip-info-value">${idleDuration} min</div>
+            </div>
+            <div class="trip-info-item">
+              <div class="trip-info-label">Fuel</div>
+              <div class="trip-info-value">${fuelConsumed} gal</div>
+            </div>
+          </div>
+          <div class="trip-location">
+            <div class="trip-location-item">
+              <i class="fas fa-map-marker-alt trip-location-icon"></i>
+              <div class="trip-location-text">${startLocation}</div>
+            </div>
+            <div class="trip-location-item">
+              <i class="fas fa-flag-checkered trip-location-icon"></i>
+              <div class="trip-location-text">${destination}</div>
+            </div>
+          </div>
+          <div class="trip-card-actions">
+            <button class="btn btn-sm btn-outline-info refresh-geocoding-trip-btn" data-id="${transactionId}">
+              <i class="fas fa-sync"></i> Refresh
+            </button>
+            <button class="btn btn-sm btn-outline-danger delete-trip-btn" data-id="${transactionId}">
+              <i class="fas fa-trash"></i> Delete
+            </button>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-download"></i> Export
+              </button>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item export-trip-btn" href="#" data-format="gpx" data-id="${transactionId}">GPX</a></li>
+                <li><a class="dropdown-item export-trip-btn" href="#" data-format="geojson" data-id="${transactionId}">GeoJSON</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  updateMobilePagination() {
+    const pagination = document.getElementById("trips-mobile-pagination");
+    const pageInfo = document.getElementById("trips-mobile-page-info");
+    const prevBtn = document.getElementById("trips-mobile-prev-btn");
+    const nextBtn = document.getElementById("trips-mobile-next-btn");
+
+    if (!pagination || !pageInfo || !prevBtn || !nextBtn) return;
+
+    if (this.mobileTotalTrips === 0) {
+      pagination.style.display = "none";
+      return;
+    }
+
+    pagination.style.display = "flex";
+
+    const start = this.mobileCurrentPage * this.mobilePageSize + 1;
+    const end = Math.min((this.mobileCurrentPage + 1) * this.mobilePageSize, this.mobileTotalTrips);
+    pageInfo.textContent = `Showing ${start}-${end} of ${this.mobileTotalTrips} trips`;
+
+    prevBtn.disabled = this.mobileCurrentPage === 0;
+    nextBtn.disabled = end >= this.mobileTotalTrips;
+  }
+
+  initializeMobileEventListeners() {
+    // Mobile select all
+    const selectAllMobile = document.getElementById("select-all-trips-mobile");
+    if (selectAllMobile) {
+      selectAllMobile.addEventListener("change", (e) => {
+        const checkboxes = document.querySelectorAll(".trip-card-checkbox");
+        checkboxes.forEach((cb) => {
+          cb.checked = e.target.checked;
+          const card = cb.closest(".trip-card");
+          if (card) {
+            card.classList.toggle("selected", e.target.checked);
+          }
+        });
+        this.updateMobileBulkDeleteButton();
+      });
+    }
+
+    // Mobile individual checkboxes (delegated)
+    document.addEventListener("change", (e) => {
+      if (e.target.classList.contains("trip-card-checkbox")) {
+        const card = e.target.closest(".trip-card");
+        if (card) {
+          card.classList.toggle("selected", e.target.checked);
+        }
+        this.updateMobileBulkDeleteButton();
+      }
+    });
+
+    // Mobile bulk delete
+    const bulkDeleteMobile = document.getElementById("bulk-delete-trips-mobile-btn");
+    if (bulkDeleteMobile) {
+      bulkDeleteMobile.addEventListener("click", () => {
+        this.bulkDeleteTrips(true);
+      });
+    }
+
+    // Mobile refresh geocoding
+    const refreshMobile = document.getElementById("refresh-geocoding-mobile-btn");
+    if (refreshMobile) {
+      refreshMobile.addEventListener("click", () => {
+        this.refreshGeocoding();
+      });
+    }
+
+    // Mobile pagination
+    const prevBtn = document.getElementById("trips-mobile-prev-btn");
+    const nextBtn = document.getElementById("trips-mobile-next-btn");
+
+    if (prevBtn) {
+      prevBtn.addEventListener("click", () => {
+        if (this.mobileCurrentPage > 0) {
+          this.mobileCurrentPage--;
+          this.fetchMobileTrips();
+        }
+      });
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener("click", () => {
+        const maxPage = Math.ceil(this.mobileTotalTrips / this.mobilePageSize) - 1;
+        if (this.mobileCurrentPage < maxPage) {
+          this.mobileCurrentPage++;
+          this.fetchMobileTrips();
+        }
+      });
+    }
+  }
+
+  updateMobileBulkDeleteButton() {
+    const anyChecked = document.querySelectorAll(".trip-card-checkbox:checked").length > 0;
+    const bulkDeleteBtn = document.getElementById("bulk-delete-trips-mobile-btn");
+    if (bulkDeleteBtn) {
+      bulkDeleteBtn.disabled = !anyChecked;
     }
   }
 
