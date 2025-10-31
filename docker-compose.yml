@@ -1,6 +1,10 @@
+# /home/davis/app/docker-compose.yml
+version: '3.8'
+
 services:
   web:
     build: .
+    restart: unless-stopped # Added for better reliability
     ports:
       - "8080:8080"
     environment:
@@ -12,15 +16,20 @@ services:
       - AUTHORIZATION_CODE=${AUTHORIZATION_CODE}
       - AUTHORIZED_DEVICES=${AUTHORIZED_DEVICES}
       - MAPBOX_ACCESS_TOKEN=${MAPBOX_ACCESS_TOKEN}
-    command: uvicorn app:app --host 0.0.0.0 --port 8080 --reload
+    # NOTE: --reload flag removed. It's for development and not ideal for a 24/7 server.
+    command: uvicorn app:app --host 0.0.0.0 --port 8080
     volumes:
       - .:/app
     depends_on:
       - mongo
       - redis
+    networks:
+      - default     # Connects to the private, internal network for this app
+      - web-proxy   # Connects to the shared network for NPM to access it
 
   worker:
     build: .
+    restart: unless-stopped # Added for better reliability
     command: sh -c "celery -A celery_app worker --loglevel=info --pool=${CELERY_WORKER_POOL:-solo} --concurrency=${CELERY_WORKER_CONCURRENCY:-1}"
     environment:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
@@ -38,9 +47,12 @@ services:
     depends_on:
       - mongo
       - redis
+    networks:
+      - default # This service does not need to be exposed to the proxy
 
   beat:
     build: .
+    restart: unless-stopped # Added for better reliability
     command: celery -A celery_app beat --loglevel=info
     environment:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
@@ -56,20 +68,36 @@ services:
     depends_on:
       - mongo
       - redis
+    networks:
+      - default # This service does not need to be exposed to the proxy
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped # Added for better reliability
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - default # This service does not need to be exposed to the proxy
 
   mongo:
     image: mongo:7
+    restart: unless-stopped # Added for better reliability
     ports:
       - "27017:27017"
     volumes:
       - /home/davis/database/mongo:/data/db
+    networks:
+      - default # This service does not need to be exposed to the proxy
 
 volumes:
   redis_data:
+
+# This bottom section defines the networks used in this file.
+networks:
+  default:
+    # This is the private network for this stack, created automatically.
+  web-proxy:
+    # This tells Docker Compose to use a pre-existing network, not create a new one.
+    external: true
