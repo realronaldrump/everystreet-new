@@ -43,10 +43,10 @@ MAPBOX_ACCESS_TOKEN: Final[str] = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 async def get_bouncie_config() -> dict[str, Any]:
     """Get Bouncie API configuration from database or environment variables.
-    
+
     This function retrieves Bouncie credentials from MongoDB if available,
     otherwise falls back to environment variables.
-    
+
     Returns:
         Dictionary containing:
             - client_id: str
@@ -57,6 +57,7 @@ async def get_bouncie_config() -> dict[str, Any]:
     """
     try:
         from bouncie_credentials import get_bouncie_credentials
+
         return await get_bouncie_credentials()
     except Exception:
         # Fallback to module-level constants

@@ -43,10 +43,10 @@ async def get_access_token(
     credentials: dict,
 ) -> str:
     """Get an access token from the Bouncie API using OAuth.
-    
+
     Args:
         session: aiohttp session to use for the request
-        credentials: Dictionary containing client_id, client_secret, 
+        credentials: Dictionary containing client_id, client_secret,
                     authorization_code, and redirect_uri
     """
     payload = {
@@ -146,7 +146,7 @@ async def fetch_bouncie_trips_in_range(
         # Get Bouncie credentials from database or environment
         credentials = await get_bouncie_config()
         authorized_devices = credentials.get("authorized_devices", [])
-        
+
         if not authorized_devices:
             logger.error("No authorized devices configured; aborting fetch")
             if progress_tracker is not None:
@@ -155,7 +155,7 @@ async def fetch_bouncie_trips_in_range(
                     "message"
                 ] = "No authorized devices configured"
             return all_new_trips
-        
+
         session = await get_session()
         token = await get_access_token(session, credentials)
         if not token:
