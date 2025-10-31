@@ -114,7 +114,7 @@ class LiveTripTracker {
       await this.loadInitialTripData();
       // Try WebSocket first; fallback to polling if not available
       this.initWebSocket();
-      
+
       document.addEventListener("mapUpdated", () => {
         this.bringLiveTripToFront();
       });
@@ -449,27 +449,29 @@ class LiveTripTracker {
 
     // First try to use coordinates array directly
     if (Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
-      coordinates = trip.coordinates.map((coord) => {
-        // Handle both object format {lon, lat, timestamp} and array format
-        if (typeof coord === "object" && coord !== null) {
-          if (coord.lon !== undefined && coord.lat !== undefined) {
-            return {
-              lon: coord.lon,
-              lat: coord.lat,
-              timestamp: coord.timestamp || trip.startTime || trip.lastUpdate,
-            };
-          } else if (Array.isArray(coord) && coord.length >= 2) {
-            return {
-              lon: coord[0],
-              lat: coord[1],
-              timestamp: coord.timestamp || trip.startTime || trip.lastUpdate,
-            };
+      coordinates = trip.coordinates
+        .map((coord) => {
+          // Handle both object format {lon, lat, timestamp} and array format
+          if (typeof coord === "object" && coord !== null) {
+            if (coord.lon !== undefined && coord.lat !== undefined) {
+              return {
+                lon: coord.lon,
+                lat: coord.lat,
+                timestamp: coord.timestamp || trip.startTime || trip.lastUpdate,
+              };
+            } else if (Array.isArray(coord) && coord.length >= 2) {
+              return {
+                lon: coord[0],
+                lat: coord[1],
+                timestamp: coord.timestamp || trip.startTime || trip.lastUpdate,
+              };
+            }
           }
-        }
-        return null;
-      }).filter(Boolean);
+          return null;
+        })
+        .filter(Boolean);
     }
-    
+
     // Fallback to GPS GeoJSON format
     if (coordinates.length === 0 && trip.gps) {
       const gps = trip.gps;
@@ -490,8 +492,12 @@ class LiveTripTracker {
           .filter((coord) => Array.isArray(coord) && coord.length >= 2)
           .map((coord, index) => {
             // Try to estimate timestamp based on trip duration and point index
-            const startTime = trip.startTime ? new Date(trip.startTime) : new Date();
-            const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : new Date();
+            const startTime = trip.startTime
+              ? new Date(trip.startTime)
+              : new Date();
+            const lastUpdate = trip.lastUpdate
+              ? new Date(trip.lastUpdate)
+              : new Date();
             const duration = (lastUpdate - startTime) / gps.coordinates.length;
             return {
               lon: coord[0],
@@ -641,7 +647,12 @@ class LiveTripTracker {
     }
 
     // Animate marker smoothly to latest position
-    if (startPoint && lastPoint && startPoint[0] !== lastPoint[0] && startPoint[1] !== lastPoint[1]) {
+    if (
+      startPoint &&
+      lastPoint &&
+      startPoint[0] !== lastPoint[0] &&
+      startPoint[1] !== lastPoint[1]
+    ) {
       this.animateMarkerMovement(startPoint, lastPoint, trip);
     }
 
@@ -653,7 +664,7 @@ class LiveTripTracker {
 
     // Store last position
     this.lastMarkerLatLng = lastPoint;
-    
+
     // Update active trips count
     this.updateActiveTripsCount(1);
   }
@@ -696,12 +707,12 @@ class LiveTripTracker {
         features: [],
       });
     }
-    
+
     // Clear metrics
     if (this.tripMetricsElem) {
       this.tripMetricsElem.innerHTML = "";
     }
-    
+
     // Update counts
     this.updateActiveTripsCount(0);
   }
@@ -1100,7 +1111,6 @@ class LiveTripTracker {
 
     this.markerAnimationId = requestAnimationFrame(step);
   }
-
 }
 
 window.LiveTripTracker = LiveTripTracker;
