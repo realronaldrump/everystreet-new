@@ -26,8 +26,7 @@ from pymongo.errors import BulkWriteError, ConnectionFailure
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from celery_app import app as celery_app
-from config import AUTHORIZATION_CODE as AUTH_CODE
-from config import AUTHORIZED_DEVICES, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
+from config import get_bouncie_config
 from db import (
     SerializationHelper,
     count_documents_with_retry,
@@ -557,13 +556,15 @@ def task_runner(func: Callable) -> Callable:
 @task_runner
 async def periodic_fetch_trips_async(self) -> dict[str, Any]:
     """Async logic for fetching periodic trips since the last stored trip."""
+    # Get current Bouncie credentials from database or environment
+    bouncie_config = await get_bouncie_config()
     logger.info(
-        "Environment variables: CLIENT_ID=%s, CLIENT_SECRET=%s, REDIRECT_URI=%s, AUTH_CODE=%s, AUTHORIZED_DEVICES count: %d",
-        "set" if CLIENT_ID else "NOT SET",
-        "set" if CLIENT_SECRET else "NOT SET",
-        "set" if REDIRECT_URI else "NOT SET",
-        "set" if AUTH_CODE else "NOT SET",
-        len(AUTHORIZED_DEVICES),
+        "Bouncie credentials: CLIENT_ID=%s, CLIENT_SECRET=%s, REDIRECT_URI=%s, AUTH_CODE=%s, AUTHORIZED_DEVICES count: %d",
+        "set" if bouncie_config.get("client_id") else "NOT SET",
+        "set" if bouncie_config.get("client_secret") else "NOT SET",
+        "set" if bouncie_config.get("redirect_uri") else "NOT SET",
+        "set" if bouncie_config.get("authorization_code") else "NOT SET",
+        len(bouncie_config.get("authorized_devices", [])),
     )
 
     logger.info("Determining date range for fetching trips...")

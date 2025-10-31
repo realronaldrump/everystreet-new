@@ -14,20 +14,14 @@ import aiohttp
 from config import (
     API_BASE_URL,
     AUTH_URL,
-    AUTHORIZATION_CODE,
-    AUTHORIZED_DEVICES,
-    CLIENT_ID,
-    CLIENT_SECRET,
     MAPBOX_ACCESS_TOKEN,
-    REDIRECT_URI,
+    get_bouncie_config,
 )
 from date_utils import parse_timestamp
 from trip_service import TripService
 from utils import get_session, retry_async
 
 logger = logging.getLogger(__name__)
-
-AUTH_CODE = AUTHORIZATION_CODE
 
 progress_data = {
     "fetch_and_store_trips": {
@@ -46,14 +40,21 @@ progress_data = {
 @retry_async(max_retries=3, retry_delay=1.5)
 async def get_access_token(
     session: aiohttp.ClientSession,
+    credentials: dict,
 ) -> str:
-    """Get an access token from the Bouncie API using OAuth."""
+    """Get an access token from the Bouncie API using OAuth.
+    
+    Args:
+        session: aiohttp session to use for the request
+        credentials: Dictionary containing client_id, client_secret, 
+                    authorization_code, and redirect_uri
+    """
     payload = {
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
+        "client_id": credentials.get("client_id"),
+        "client_secret": credentials.get("client_secret"),
         "grant_type": "authorization_code",
-        "code": AUTH_CODE,
-        "redirect_uri": REDIRECT_URI,
+        "code": credentials.get("authorization_code"),
+        "redirect_uri": credentials.get("redirect_uri"),
     }
 
     try:
@@ -142,8 +143,21 @@ async def fetch_bouncie_trips_in_range(
         progress_tracker["fetch_and_store_trips"]["progress"] = 0
         progress_tracker["fetch_and_store_trips"]["message"] = "Starting trip fetch"
     try:
+        # Get Bouncie credentials from database or environment
+        credentials = await get_bouncie_config()
+        authorized_devices = credentials.get("authorized_devices", [])
+        
+        if not authorized_devices:
+            logger.error("No authorized devices configured; aborting fetch")
+            if progress_tracker is not None:
+                progress_tracker["fetch_and_store_trips"]["status"] = "failed"
+                progress_tracker["fetch_and_store_trips"][
+                    "message"
+                ] = "No authorized devices configured"
+            return all_new_trips
+        
         session = await get_session()
-        token = await get_access_token(session)
+        token = await get_access_token(session, credentials)
         if not token:
             logger.error("Failed to obtain access token; aborting fetch")
             if progress_tracker is not None:
@@ -158,7 +172,7 @@ async def fetch_bouncie_trips_in_range(
 
         # Build chunk windows (7-day slices per device)
         chunk_windows: list[tuple[str, datetime, datetime]] = []
-        for imei in AUTHORIZED_DEVICES:
+        for imei in authorized_devices:
             current_start = start_dt
             while current_start < end_dt:
                 current_end = min(current_start + timedelta(days=7), end_dt)

@@ -332,6 +332,17 @@
                       App Settings
                     </a>
                   </li>
+                  <li role="none">
+                    <a
+                      class="dropdown-item {% if request.url.path == '/profile' %}active{% endif %}"
+                      href="/profile"
+                      role="menuitem"
+                      {% if request.url.path == '/profile' %}aria-current="page"{% endif %}
+                    >
+                      <i class="fas fa-user-circle me-2" aria-hidden="true"></i>
+                      Profile
+                    </a>
+                  </li>
                 </ul>
               </li>
             </ul>
@@ -492,6 +503,15 @@
               >
                 <i class="fas fa-sliders-h me-2" aria-hidden="true"></i> App
                 Settings
+              </a>
+            </li>
+            <li role="none">
+              <a
+                href="/profile"
+                class="{% if request.url.path == '/profile' %}active{% endif %}"
+                {% if request.url.path == '/profile' %}aria-current="page"{% endif %}
+              >
+                <i class="fas fa-user-circle me-2" aria-hidden="true"></i> Profile
               </a>
             </li>
           </ul>

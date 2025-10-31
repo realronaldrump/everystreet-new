@@ -49,6 +49,12 @@ async def settings_page(request: Request):
     return _render_page("settings.html", request)
 
 
+@router.get("/profile", response_class=HTMLResponse)
+async def profile_page(request: Request):
+    """Render profile settings page."""
+    return _render_page("profile.html", request)
+
+
 @router.get("/insights")
 async def insights_page(request: Request):
     return _render_page("insights.html", request)

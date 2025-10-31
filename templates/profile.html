@@ -1,0 +1,401 @@
+{% extends "base.html" %} {% block title %}Profile Settings{% endblock %}
+{% block extra_css %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/settings-mobile.css') | replace('http://', '//') }}"
+/>
+<style>
+  .credential-input {
+    font-family: 'Monaco', 'Consolas', monospace;
+  }
+  .credential-masked {
+    letter-spacing: 0.1em;
+  }
+  .device-list-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+  }
+  .device-list-item input {
+    flex: 1;
+  }
+  .device-list-item button {
+    flex-shrink: 0;
+  }
+  .credentials-status {
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+  }
+  .credentials-status.success {
+    background: rgba(40, 167, 69, 0.2);
+    border: 1px solid #28a745;
+    color: #28a745;
+  }
+  .credentials-status.warning {
+    background: rgba(255, 193, 7, 0.2);
+    border: 1px solid #ffc107;
+    color: #ffc107;
+  }
+  .credentials-status.error {
+    background: rgba(220, 53, 69, 0.2);
+    border: 1px solid #dc3545;
+    color: #dc3545;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid settings-desktop-container">
+  <div class="row">
+    <div class="col-12">
+      <h2><i class="fas fa-user-circle"></i> Profile Settings</h2>
+      
+      <!-- Credentials Status Banner -->
+      <div id="credentials-status-banner" class="credentials-status" style="display: none;">
+        <i class="fas fa-info-circle"></i>
+        <span id="credentials-status-text"></span>
+      </div>
+
+      <!-- Bouncie API Credentials -->
+      <div class="card bg-dark text-white mb-4">
+        <div class="card-body">
+          <h3 class="h5">
+            <i class="fas fa-key"></i> Bouncie API Credentials
+          </h3>
+          <p class="text-muted small">
+            Configure your Bouncie API credentials for trip fetching. These credentials
+            are stored securely in the database and will be used for all API requests.
+          </p>
+
+          <form id="bouncieCredentialsForm">
+            <!-- Client ID -->
+            <div class="mb-3">
+              <label for="clientId" class="form-label">
+                Client ID <span class="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                class="form-control credential-input"
+                id="clientId"
+                placeholder="Enter your Bouncie Client ID"
+                required
+              />
+              <div class="form-text">
+                Your Bouncie application's client identifier
+              </div>
+            </div>
+
+            <!-- Client Secret -->
+            <div class="mb-3">
+              <label for="clientSecret" class="form-label">
+                Client Secret <span class="text-danger">*</span>
+              </label>
+              <div class="input-group">
+                <input
+                  type="password"
+                  class="form-control credential-input"
+                  id="clientSecret"
+                  placeholder="Enter your Bouncie Client Secret"
+                  required
+                />
+                <button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  id="toggleClientSecret"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+              <div class="form-text">
+                Your Bouncie application's client secret (kept secure)
+              </div>
+            </div>
+
+            <!-- Redirect URI -->
+            <div class="mb-3">
+              <label for="redirectUri" class="form-label">
+                Redirect URI <span class="text-danger">*</span>
+              </label>
+              <input
+                type="url"
+                class="form-control credential-input"
+                id="redirectUri"
+                placeholder="https://your-domain.com/callback"
+                required
+              />
+              <div class="form-text">
+                The OAuth callback URL configured in your Bouncie application
+              </div>
+            </div>
+
+            <!-- Authorization Code -->
+            <div class="mb-3">
+              <label for="authorizationCode" class="form-label">
+                Authorization Code <span class="text-danger">*</span>
+              </label>
+              <div class="input-group">
+                <input
+                  type="password"
+                  class="form-control credential-input"
+                  id="authorizationCode"
+                  placeholder="Enter your Bouncie Authorization Code"
+                  required
+                />
+                <button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  id="toggleAuthCode"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+              <div class="form-text">
+                The authorization code obtained from Bouncie OAuth flow
+              </div>
+            </div>
+
+            <!-- Authorized Devices -->
+            <div class="mb-3">
+              <label class="form-label">
+                Authorized Devices (IMEIs) <span class="text-danger">*</span>
+              </label>
+              <div id="devicesList">
+                <!-- Device inputs will be added here dynamically -->
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="addDeviceBtn">
+                <i class="fas fa-plus"></i> Add Device
+              </button>
+              <div class="form-text">
+                IMEI numbers of devices authorized to fetch trip data from
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary" id="saveCredentialsBtn">
+                <i class="fas fa-save"></i> Save Credentials
+              </button>
+              <button type="button" class="btn btn-secondary" id="loadCredentialsBtn">
+                <i class="fas fa-sync"></i> Reload
+              </button>
+              <button type="button" class="btn btn-info" id="unmaskCredentialsBtn">
+                <i class="fas fa-eye"></i> Unmask All
+              </button>
+            </div>
+
+            <div id="credentialsSaveStatus" class="mt-3" style="display: none;"></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Help/Documentation -->
+      <div class="card bg-dark text-white mb-4">
+        <div class="card-body">
+          <h3 class="h5">
+            <i class="fas fa-question-circle"></i> How to Get Your Credentials
+          </h3>
+          <ol>
+            <li>
+              <strong>Create a Bouncie Developer Account:</strong> Visit the
+              <a href="https://developer.bouncie.com" target="_blank" rel="noopener">
+                Bouncie Developer Portal
+              </a>
+              and sign up for an account.
+            </li>
+            <li>
+              <strong>Create an Application:</strong> Once logged in, create a new
+              application to get your Client ID and Client Secret.
+            </li>
+            <li>
+              <strong>Configure Redirect URI:</strong> Set your redirect URI in the
+              Bouncie application settings (e.g., https://your-domain.com/callback).
+            </li>
+            <li>
+              <strong>Complete OAuth Flow:</strong> Use the OAuth 2.0 authorization
+              flow to obtain an authorization code.
+            </li>
+            <li>
+              <strong>Find Device IMEIs:</strong> Your device IMEI numbers can be found
+              in your Bouncie account settings or on the physical device.
+            </li>
+          </ol>
+          <p class="text-muted small mb-0">
+            <i class="fas fa-info-circle"></i>
+            <strong>Note:</strong> These credentials are stored securely in your database
+            and are never exposed in logs or error messages.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile Container -->
+<div class="container-fluid settings-mobile-container">
+  <!-- Mobile: Bouncie Credentials Section -->
+  <div class="mobile-settings-section">
+    <div class="mobile-settings-section-header expanded" data-section="bouncie-credentials">
+      <h2 class="mobile-settings-section-title">
+        <i class="fas fa-key"></i>
+        Bouncie API Credentials
+      </h2>
+      <i class="fas fa-chevron-down mobile-settings-section-chevron"></i>
+    </div>
+    <div class="mobile-settings-section-content expanded" id="mobile-bouncie-credentials">
+      <div class="mobile-settings-section-body">
+        <!-- Credentials Status Banner -->
+        <div id="mobile-credentials-status-banner" class="credentials-status mb-3" style="display: none;">
+          <i class="fas fa-info-circle"></i>
+          <span id="mobile-credentials-status-text"></span>
+        </div>
+
+        <form id="mobile-bouncieCredentialsForm">
+          <div class="mobile-form-group">
+            <label class="mobile-form-label" for="mobile-clientId">
+              Client ID <span class="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              class="mobile-form-input credential-input"
+              id="mobile-clientId"
+              placeholder="Bouncie Client ID"
+              required
+            />
+          </div>
+
+          <div class="mobile-form-group">
+            <label class="mobile-form-label" for="mobile-clientSecret">
+              Client Secret <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <input
+                type="password"
+                class="mobile-form-input credential-input"
+                id="mobile-clientSecret"
+                placeholder="Client Secret"
+                required
+                style="flex: 1;"
+              />
+              <button
+                class="btn btn-outline-secondary"
+                type="button"
+                id="mobile-toggleClientSecret"
+                style="margin-left: 5px;"
+              >
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="mobile-form-group">
+            <label class="mobile-form-label" for="mobile-redirectUri">
+              Redirect URI <span class="text-danger">*</span>
+            </label>
+            <input
+              type="url"
+              class="mobile-form-input credential-input"
+              id="mobile-redirectUri"
+              placeholder="https://your-domain.com/callback"
+              required
+            />
+          </div>
+
+          <div class="mobile-form-group">
+            <label class="mobile-form-label" for="mobile-authorizationCode">
+              Authorization Code <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <input
+                type="password"
+                class="mobile-form-input credential-input"
+                id="mobile-authorizationCode"
+                placeholder="Authorization Code"
+                required
+                style="flex: 1;"
+              />
+              <button
+                class="btn btn-outline-secondary"
+                type="button"
+                id="mobile-toggleAuthCode"
+                style="margin-left: 5px;"
+              >
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="mobile-form-group">
+            <label class="mobile-form-label">
+              Authorized Devices (IMEIs) <span class="text-danger">*</span>
+            </label>
+            <div id="mobile-devicesList">
+              <!-- Device inputs will be added here dynamically -->
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="mobile-addDeviceBtn">
+              <i class="fas fa-plus"></i> Add Device
+            </button>
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="mobile-submit-btn success flex-fill" id="mobile-saveCredentialsBtn">
+              <i class="fas fa-save"></i> Save Credentials
+            </button>
+            <button type="button" class="mobile-submit-btn flex-fill" id="mobile-loadCredentialsBtn">
+              <i class="fas fa-sync"></i> Reload
+            </button>
+          </div>
+
+          <div id="mobile-credentialsSaveStatus" class="mobile-form-status mt-3" style="display: none;"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile: Help Section -->
+  <div class="mobile-settings-section">
+    <div class="mobile-settings-section-header" data-section="help">
+      <h2 class="mobile-settings-section-title">
+        <i class="fas fa-question-circle"></i>
+        Getting Your Credentials
+      </h2>
+      <i class="fas fa-chevron-down mobile-settings-section-chevron"></i>
+    </div>
+    <div class="mobile-settings-section-content" id="mobile-help">
+      <div class="mobile-settings-section-body">
+        <ol class="small">
+          <li class="mb-2">
+            <strong>Create a Bouncie Developer Account:</strong> Visit the
+            <a href="https://developer.bouncie.com" target="_blank" rel="noopener">
+              Bouncie Developer Portal
+            </a>
+            and sign up.
+          </li>
+          <li class="mb-2">
+            <strong>Create an Application:</strong> Get your Client ID and Client Secret.
+          </li>
+          <li class="mb-2">
+            <strong>Configure Redirect URI:</strong> Set your callback URL in Bouncie settings.
+          </li>
+          <li class="mb-2">
+            <strong>Complete OAuth Flow:</strong> Obtain an authorization code.
+          </li>
+          <li class="mb-2">
+            <strong>Find Device IMEIs:</strong> Check your Bouncie account or physical device.
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', path='js/profile.js') | replace('http://', '//') }}"></script>
+{% endblock %}
+
