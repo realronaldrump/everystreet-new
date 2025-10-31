@@ -3,23 +3,6 @@
 class LiveTripTracker {
   static instance = null; // Singleton pattern
 
-  // ADD: user preference flag to disable WebSocket
-  static isWebSocketDisabledByUser() {
-    try {
-      // 1) URL param ?disable_ws=true or =1
-      const urlParams = new URLSearchParams(window.location.search);
-      const qpFlag = urlParams.get("disable_ws");
-      if (qpFlag === "1" || qpFlag?.toLowerCase() === "true") return true;
-
-      // 2) localStorage key 'disableWebSockets' set to 'true'
-      const lsFlag = window.localStorage.getItem("disableWebSockets");
-      if (lsFlag === "true") return true;
-    } catch (e) {
-      // Silently ignore parsing/localStorage errors
-    }
-    return false;
-  }
-
   constructor(map) {
     // Enforce singleton
     if (LiveTripTracker.instance) {
@@ -65,11 +48,6 @@ class LiveTripTracker {
     this.activeTripsCountElem = document.querySelector("#active-trips-count");
     this.tripMetricsElem = document.querySelector(".live-trip-metrics");
     this.errorMessageElem = document.querySelector(".error-message");
-
-    this.websocketDisabled = LiveTripTracker.isWebSocketDisabledByUser();
-
-    // Fetch server-side setting asynchronously and reconcile
-    this.syncWebSocketPreference();
 
     this.initialize();
   }
@@ -134,12 +112,9 @@ class LiveTripTracker {
   async initialize() {
     try {
       await this.loadInitialTripData();
-      if (this.websocketDisabled) {
-        // User preference: skip WebSocket, go straight to polling
-        this.startPolling();
-      } else {
-        this.initWebSocket(); // WebSocket first; fallback to polling if not available
-      }
+      // Try WebSocket first; fallback to polling if not available
+      this.initWebSocket();
+      
       document.addEventListener("mapUpdated", () => {
         this.bringLiveTripToFront();
       });
@@ -198,15 +173,15 @@ class LiveTripTracker {
           this.updateActiveTripsCount(1);
           this.updateTripMetrics(data.trip);
           this.lastSequence = data.trip.sequence || 0;
-          this.updateStatus(true);
+          this.updateStatus(true, "Connected");
         } else {
           window.handleError(
             "No active trips found during initialization",
             "loadInitialTripData",
             "info",
           );
-          this.updateStatus(true, "No active trips");
-          this.updateActiveTripsCount(0);
+          this.clearActiveTrip();
+          this.updateStatus(true);
         }
       } else {
         throw new Error(data.message || "Error loading initial trip data");
@@ -297,19 +272,18 @@ class LiveTripTracker {
         this.updateActiveTripsCount(1);
         this.updateTripMetrics(data.trip);
         this.lastSequence = data.trip.sequence || this.lastSequence;
-        this.updateStatus(true);
+        this.updateStatus(true, "Connected");
         this.hideError();
 
         this.setAdaptivePollingInterval(data.trip, true);
       } else if (this.activeTrip && !data.has_update) {
-        this.updateStatus(true);
-
+        // Still have active trip, just no new updates
+        this.updateStatus(true, "Connected");
         this.setAdaptivePollingInterval(this.activeTrip, false);
       } else if (!this.activeTrip && !data.has_update) {
+        // No active trip
         this.clearActiveTrip();
-        this.updateActiveTripsCount(0);
-        this.updateStatus(true, "No active trips");
-
+        this.updateStatus(true);
         this.increasePollingInterval(1.2);
       }
     } else {
@@ -335,10 +309,6 @@ class LiveTripTracker {
         "info",
       );
     }
-
-    if (this.pollingInterval >= this.maxPollingInterval && !this.activeTrip) {
-      this.updateStatus(true, "Standby mode - waiting for trips");
-    }
   }
 
   decreasePollingInterval(factor = 0.7, forceMinimum = false) {
@@ -359,10 +329,6 @@ class LiveTripTracker {
         "decreasePollingInterval",
         "info",
       );
-    }
-
-    if (this.activeTrip) {
-      this.updateStatus(true, "Connected - tracking active");
     }
   }
 
@@ -404,8 +370,13 @@ class LiveTripTracker {
       connected ? "Connected" : "Disconnected",
     );
 
-    this.statusText.textContent =
-      message || (connected ? "Connected" : "Disconnected");
+    // Consistent status messages: only show "Connected" or "Disconnected"
+    // Trip count is shown separately
+    if (!message) {
+      message = connected ? "Connected" : "Disconnected";
+    }
+
+    this.statusText.textContent = message;
 
     this.emitLiveTrackingUpdate({
       connected,
@@ -467,8 +438,6 @@ class LiveTripTracker {
         "info",
       );
       this.clearActiveTrip();
-      this.updateActiveTripsCount(0);
-      this.updateStatus(true, "No active trips");
       return true;
     }
     return false;
@@ -478,9 +447,31 @@ class LiveTripTracker {
   extractCoordinates(trip) {
     let coordinates = [];
 
+    // First try to use coordinates array directly
     if (Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
-      coordinates = trip.coordinates;
-    } else if (trip.gps) {
+      coordinates = trip.coordinates.map((coord) => {
+        // Handle both object format {lon, lat, timestamp} and array format
+        if (typeof coord === "object" && coord !== null) {
+          if (coord.lon !== undefined && coord.lat !== undefined) {
+            return {
+              lon: coord.lon,
+              lat: coord.lat,
+              timestamp: coord.timestamp || trip.startTime || trip.lastUpdate,
+            };
+          } else if (Array.isArray(coord) && coord.length >= 2) {
+            return {
+              lon: coord[0],
+              lat: coord[1],
+              timestamp: coord.timestamp || trip.startTime || trip.lastUpdate,
+            };
+          }
+        }
+        return null;
+      }).filter(Boolean);
+    }
+    
+    // Fallback to GPS GeoJSON format
+    if (coordinates.length === 0 && trip.gps) {
       const gps = trip.gps;
       if (
         gps.type === "Point" &&
@@ -491,15 +482,23 @@ class LiveTripTracker {
           {
             lon: gps.coordinates[0],
             lat: gps.coordinates[1],
-            timestamp: trip.startTime,
+            timestamp: trip.startTime || trip.lastUpdate || new Date(),
           },
         ];
       } else if (gps.type === "LineString" && Array.isArray(gps.coordinates)) {
-        coordinates = gps.coordinates.map((coord) => ({
-          lon: coord[0],
-          lat: coord[1],
-          timestamp: trip.startTime, // This is approximate
-        }));
+        coordinates = gps.coordinates
+          .filter((coord) => Array.isArray(coord) && coord.length >= 2)
+          .map((coord, index) => {
+            // Try to estimate timestamp based on trip duration and point index
+            const startTime = trip.startTime ? new Date(trip.startTime) : new Date();
+            const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : new Date();
+            const duration = (lastUpdate - startTime) / gps.coordinates.length;
+            return {
+              lon: coord[0],
+              lat: coord[1],
+              timestamp: new Date(startTime.getTime() + duration * index),
+            };
+          });
       }
     }
 
@@ -594,14 +593,25 @@ class LiveTripTracker {
       !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
     // Handle trip completion
-    if (this.handleTripCompletion(trip)) return;
+    if (this.handleTripCompletion(trip)) {
+      this.updateActiveTripsCount(0);
+      this.updateStatus(true);
+      return;
+    }
 
-    // FIXED: Always update activeTrip to ensure real-time data is current
+    // Always update activeTrip to ensure real-time data is current
     this.activeTrip = trip;
 
     // Extract and process coordinates
     const coordinates = this.extractCoordinates(trip);
-    if (!coordinates) return;
+    if (!coordinates || coordinates.length === 0) {
+      window.handleError(
+        "No coordinates to display for trip",
+        "setActiveTrip",
+        "warn",
+      );
+      return;
+    }
 
     // Create GeoJSON features
     const { features, mapboxCoords, lastPoint } =
@@ -621,7 +631,7 @@ class LiveTripTracker {
       geometry: { type: "Point", coordinates: startPoint },
     };
 
-    // Update map source with initial positions only once
+    // Update map source with initial positions
     const source = this.map.getSource(this.liveSourceId);
     if (source) {
       const initialFeatures = lineFeature
@@ -631,7 +641,7 @@ class LiveTripTracker {
     }
 
     // Animate marker smoothly to latest position
-    if (startPoint && lastPoint) {
+    if (startPoint && lastPoint && startPoint[0] !== lastPoint[0] && startPoint[1] !== lastPoint[1]) {
       this.animateMarkerMovement(startPoint, lastPoint, trip);
     }
 
@@ -641,8 +651,11 @@ class LiveTripTracker {
     // Update map view (camera follow, etc.)
     this.updateMapView(mapboxCoords, lastPoint, isNewTrip);
 
-    // Store last position (will be true final point after animation)
+    // Store last position
     this.lastMarkerLatLng = lastPoint;
+    
+    // Update active trips count
+    this.updateActiveTripsCount(1);
   }
 
   updateMarkerStyle(speed) {
@@ -672,6 +685,8 @@ class LiveTripTracker {
 
   clearActiveTrip() {
     this.activeTrip = null;
+    this.lastMarkerLatLng = null;
+    this.currentLineCoords = [];
 
     // Clear Mapbox source data
     const source = this.map.getSource(this.liveSourceId);
@@ -681,6 +696,14 @@ class LiveTripTracker {
         features: [],
       });
     }
+    
+    // Clear metrics
+    if (this.tripMetricsElem) {
+      this.tripMetricsElem.innerHTML = "";
+    }
+    
+    // Update counts
+    this.updateActiveTripsCount(0);
   }
 
   updateActiveTripsCount(count) {
@@ -949,11 +972,6 @@ class LiveTripTracker {
    * Falls back to polling when socket closes or errors.
    */
   initWebSocket() {
-    // Add early return respecting user preference
-    if (this.websocketDisabled) {
-      return this.startPolling();
-    }
-
     // Clean up any existing connection
     if (this.ws) {
       this.ws.close();
@@ -994,6 +1012,7 @@ class LiveTripTracker {
         if (needsUpdate && latestTrip) {
           this.setActiveTrip(latestTrip);
           this.updateTripMetrics(latestTrip);
+          this.lastSequence = latestTrip.sequence || this.lastSequence;
           needsUpdate = false;
         }
         this.animationFrameId = requestAnimationFrame(updateLoop);
@@ -1082,42 +1101,6 @@ class LiveTripTracker {
     this.markerAnimationId = requestAnimationFrame(step);
   }
 
-  async syncWebSocketPreference() {
-    try {
-      const res = await fetch("/api/app_settings");
-      if (!res.ok) return;
-      const data = await res.json();
-      const serverDisable = Boolean(data.disableWebSockets);
-
-      if (serverDisable && !this.websocketDisabled) {
-        // Need to switch to polling
-        this.websocketDisabled = true;
-        if (this.ws) {
-          try {
-            this.ws.close();
-          } catch {}
-          this.ws = null;
-        }
-        if (!this.isPolling) {
-          this.startPolling();
-        }
-        window.localStorage.setItem("disableWebSockets", "true");
-      } else if (!serverDisable && this.websocketDisabled) {
-        // Server allows websockets; if user hadn't explicitly disabled via URL/localStorage we re-enable
-        if (window.localStorage.getItem("disableWebSockets") === "true") {
-          // Respect explicit local override
-          return;
-        }
-        this.websocketDisabled = false;
-        if (!this.ws) {
-          this.initWebSocket();
-        }
-        window.localStorage.removeItem("disableWebSockets");
-      }
-    } catch (e) {
-      console.warn("LiveTripTracker: unable to sync WS preference", e);
-    }
-  }
 }
 
 window.LiveTripTracker = LiveTripTracker;
