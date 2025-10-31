@@ -147,7 +147,7 @@
       }
     } catch (error) {
       console.error("Error loading credentials:", error);
-      showStatus(`Error loading credentials: ${  error.message}`, "error");
+      showStatus(`Error loading credentials: ${error.message}`, "error");
     }
   }
 
@@ -170,7 +170,7 @@
       }
     } catch (error) {
       console.error("Error unmasking credentials:", error);
-      showStatus(`Error unmasking credentials: ${  error.message}`, "error");
+      showStatus(`Error unmasking credentials: ${error.message}`, "error");
     }
   }
 
@@ -331,15 +331,15 @@
     const prefix = isMobile ? "mobile-" : "";
 
     // Collect form data
-    const clientId = document.getElementById(`${prefix  }clientId`).value.trim();
+    const clientId = document.getElementById(`${prefix}clientId`).value.trim();
     const clientSecret = document
-      .getElementById(`${prefix  }clientSecret`)
+      .getElementById(`${prefix}clientSecret`)
       .value.trim();
     const redirectUri = document
-      .getElementById(`${prefix  }redirectUri`)
+      .getElementById(`${prefix}redirectUri`)
       .value.trim();
     const authorizationCode = document
-      .getElementById(`${prefix  }authorizationCode`)
+      .getElementById(`${prefix}authorizationCode`)
       .value.trim();
 
     // Collect devices
@@ -394,8 +394,9 @@
         }, 1500);
       } else {
         showStatus(
-          `Error saving credentials: ${ 
-            data.detail || data.message || "Unknown error"}`,
+          `Error saving credentials: ${
+            data.detail || data.message || "Unknown error"
+          }`,
           "error",
           isMobile,
         );
@@ -403,7 +404,7 @@
     } catch (error) {
       console.error("Error saving credentials:", error);
       showStatus(
-        `Error saving credentials: ${  error.message}`,
+        `Error saving credentials: ${error.message}`,
         "error",
         isMobile,
       );
