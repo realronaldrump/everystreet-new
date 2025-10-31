@@ -138,10 +138,17 @@
     {% block extra_css %}{% endblock %} {% block head_content %}{% endblock %}
 
     <script type="text/javascript">
-      (function(c, l, a, r, i, t, y) {
-        c[a] = c[a] || function() { (c[a].q = c[a].q || []).push(arguments); };
-        t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i;
-        y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
+      (function (c, l, a, r, i, t, y) {
+        c[a] =
+          c[a] ||
+          function () {
+            (c[a].q = c[a].q || []).push(arguments);
+          };
+        t = l.createElement(r);
+        t.async = 1;
+        t.src = "https://www.clarity.ms/tag/" + i;
+        y = l.getElementsByTagName(r)[0];
+        y.parentNode.insertBefore(t, y);
       })(window, document, "clarity", "script", "tycphl8jze");
     </script>
   </head>
@@ -182,7 +189,14 @@
                 <a
                   href="/"
                   title="Map"
-                  {% if request.url.path == '/' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-map" aria-hidden="true"></i> <span>Map</span>
                 </a>
@@ -193,7 +207,14 @@
                 <a
                   href="/trips"
                   title="Trips"
-                  {% if request.url.path == '/trips' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/trips"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-road" aria-hidden="true"></i>
                   <span>Trips</span>
@@ -205,7 +226,14 @@
                 <a
                   href="/insights"
                   title="Insights"
-                  {% if request.url.path == '/insights' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/insights"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-chart-line" aria-hidden="true"></i>
                   <span>Insights</span>
@@ -217,7 +245,14 @@
                 <a
                   href="/driving-navigation"
                   title="Driving Navigation"
-                  {% if request.url.path == '/driving-navigation' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/driving-navigation"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-car" aria-hidden="true"></i>
                   <span>Driving Navigation</span>
@@ -242,7 +277,14 @@
                       class="dropdown-item {% if request.url.path == '/edit_trips' %}active{% endif %}"
                       href="/edit_trips"
                       role="menuitem"
-                      {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/edit_trips"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-edit me-2" aria-hidden="true"></i> Edit
                       Trips
@@ -253,7 +295,14 @@
                       class="dropdown-item {% if request.url.path == '/visits' %}active{% endif %}"
                       href="/visits"
                       role="menuitem"
-                      {% if request.url.path == '/visits' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/visits"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i
                         class="fas fa-map-marker-alt me-2"
@@ -267,7 +316,14 @@
                       class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
                       href="/coverage-management"
                       role="menuitem"
-                      {% if request.url.path == '/coverage-management' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/coverage-management"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i
                         class="fas fa-map-marked-alt me-2"
@@ -281,7 +337,14 @@
                       class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
                       href="/export"
                       role="menuitem"
-                      {% if request.url.path == '/export' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/export"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-file-export me-2" aria-hidden="true"></i>
                       Export Data
@@ -292,7 +355,14 @@
                       class="dropdown-item {% if request.url.path == '/upload' %}active{% endif %}"
                       href="/upload"
                       role="menuitem"
-                      {% if request.url.path == '/upload' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/upload"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-upload me-2" aria-hidden="true"></i>
                       Upload GPX
@@ -304,7 +374,14 @@
                       class="dropdown-item {% if request.url.path == '/database-management' %}active{% endif %}"
                       href="/database-management"
                       role="menuitem"
-                      {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/database-management"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-database me-2" aria-hidden="true"></i>
                       Database
@@ -315,7 +392,14 @@
                       class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
                       href="/settings"
                       role="menuitem"
-                      {% if request.url.path == '/settings' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/settings"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-cog me-2" aria-hidden="true"></i>
                       Settings
@@ -326,7 +410,14 @@
                       class="dropdown-item {% if request.url.path == '/app-settings' %}active{% endif %}"
                       href="/app-settings"
                       role="menuitem"
-                      {% if request.url.path == '/app-settings' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/app-settings"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-sliders-h me-2" aria-hidden="true"></i>
                       App Settings
@@ -337,7 +428,14 @@
                       class="dropdown-item {% if request.url.path == '/profile' %}active{% endif %}"
                       href="/profile"
                       role="menuitem"
-                      {% if request.url.path == '/profile' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/profile"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-user-circle me-2" aria-hidden="true"></i>
                       Profile
@@ -395,7 +493,14 @@
               <a
                 href="/"
                 class="{% if request.url.path == '/' %}active{% endif %}"
-                {% if request.url.path == '/' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-map me-2" aria-hidden="true"></i> Map
               </a>
@@ -404,7 +509,14 @@
               <a
                 href="/trips"
                 class="{% if request.url.path == '/trips' %}active{% endif %}"
-                {% if request.url.path == '/trips' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/trips"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-road me-2" aria-hidden="true"></i> Trips
               </a>
@@ -413,7 +525,14 @@
               <a
                 href="/driving-navigation"
                 class="{% if request.url.path == '/driving-navigation' %}active{% endif %}"
-                {% if request.url.path == '/driving-navigation' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/driving-navigation"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-car me-2" aria-hidden="true"></i> Driving
                 Navigation
@@ -423,7 +542,14 @@
               <a
                 href="/edit_trips"
                 class="{% if request.url.path == '/edit_trips' %}active{% endif %}"
-                {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/edit_trips"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-edit me-2" aria-hidden="true"></i> Edit Trips
               </a>
@@ -432,7 +558,14 @@
               <a
                 href="/insights"
                 class="{% if request.url.path == '/insights' %}active{% endif %}"
-                {% if request.url.path == '/insights' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/insights"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-chart-line me-2" aria-hidden="true"></i>
                 Driving Insights
@@ -442,7 +575,14 @@
               <a
                 href="/export"
                 class="{% if request.url.path == '/export' %}active{% endif %}"
-                {% if request.url.path == '/export' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/export"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-file-export me-2" aria-hidden="true"></i>
                 Export Data
@@ -452,7 +592,14 @@
               <a
                 href="/coverage-management"
                 class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
-                {% if request.url.path == '/coverage-management' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/coverage-management"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
                 Coverage Areas
@@ -462,7 +609,14 @@
               <a
                 href="/upload"
                 class="{% if request.url.path == '/upload' %}active{% endif %}"
-                {% if request.url.path == '/upload' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/upload"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-upload me-2" aria-hidden="true"></i> Upload GPX
               </a>
@@ -471,7 +625,14 @@
               <a
                 href="/visits"
                 class="{% if request.url.path == '/visits' %}active{% endif %}"
-                {% if request.url.path == '/visits' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/visits"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
                 Visits
@@ -481,7 +642,14 @@
               <a
                 href="/database-management"
                 class="{% if request.url.path == '/database-management' %}active{% endif %}"
-                {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/database-management"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-database me-2" aria-hidden="true"></i> Database
               </a>
@@ -490,7 +658,14 @@
               <a
                 href="/settings"
                 class="{% if request.url.path == '/settings' %}active{% endif %}"
-                {% if request.url.path == '/settings' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/settings"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-cog me-2" aria-hidden="true"></i> Settings
               </a>
@@ -499,7 +674,14 @@
               <a
                 href="/app-settings"
                 class="{% if request.url.path == '/app-settings' %}active{% endif %}"
-                {% if request.url.path == '/app-settings' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/app-settings"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
                 <i class="fas fa-sliders-h me-2" aria-hidden="true"></i> App
                 Settings
@@ -509,9 +691,17 @@
               <a
                 href="/profile"
                 class="{% if request.url.path == '/profile' %}active{% endif %}"
-                {% if request.url.path == '/profile' %}aria-current="page"{% endif %}
+                {%
+                if
+                request.url.path=""
+                ="/profile"
+                %}aria-current="page"
+                {%
+                endif
+                %}
               >
-                <i class="fas fa-user-circle me-2" aria-hidden="true"></i> Profile
+                <i class="fas fa-user-circle me-2" aria-hidden="true"></i>
+                Profile
               </a>
             </li>
           </ul>
