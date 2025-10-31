@@ -27,7 +27,6 @@ app_settings_collection = db_manager.db["app_settings"]
 # Default settings if none stored
 DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "_id": "default",
-    "disableWebSockets": False,
     "highlightRecentTrips": True,
     "autoCenter": True,
     "showLiveTracking": True,
@@ -57,7 +56,7 @@ async def get_persisted_app_settings() -> dict[str, Any]:
     "/api/app_settings",
     response_model=dict,
     summary="Get Application Settings",
-    description="Retrieve persisted application-wide settings such as WebSocket preference.",
+    description="Retrieve persisted application-wide settings.",
 )
 async def get_app_settings_endpoint():
     try:

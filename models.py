@@ -179,17 +179,24 @@ ActiveTripResponseUnion = Union[
 class AppSettingsModel(BaseModel):
     """Persistent application settings stored on the server.
 
-    Currently only stores the WebSocket preference but can be extended.
     """
 
-    disableWebSockets: bool = Field(
-        False, description="Disable WebSocket live updates and use polling instead."
-    )
+    highlightRecentTrips: bool = True
+    autoCenter: bool = True
+    showLiveTracking: bool = True
+    polylineColor: str = "#00FF00"
+    polylineOpacity: float = 0.8
+    geocodeTripsOnFetch: bool = True
 
     class Config:
         extra = "allow"
         json_schema_extra = {
             "example": {
-                "disableWebSockets": False,
+                "highlightRecentTrips": True,
+                "autoCenter": True,
+                "showLiveTracking": True,
+                "polylineColor": "#00FF00",
+                "polylineOpacity": 0.8,
+                "geocodeTripsOnFetch": True,
             },
         }

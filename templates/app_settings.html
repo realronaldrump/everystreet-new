@@ -80,25 +80,6 @@ endblock %} {% block content %}
                 >
               </div>
 
-              <!-- WebSocket preference toggle -->
-              <div class="form-check form-switch mb-2">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  role="switch"
-                  id="use-websocket-toggle"
-                  checked
-                />
-                <label class="form-check-label" for="use-websocket-toggle"
-                  >Enable WebSocket Updates (recommended)</label
-                >
-                <small class="form-text text-muted d-block mt-1"
-                  >If disabled, the application will rely on frequent HTTP polling for
-                  live-tracking updates. This can increase network usage and add
-                  latency but may help on restrictive networks.</small
-                >
-              </div>
-
               <div class="form-group mb-2">
                 <label for="polyline-color" class="form-label"
                   >Tracking Path Color</label
@@ -193,7 +174,6 @@ endblock %} {% block content %}
     );
     const autoCenterToggle = document.getElementById("auto-center-toggle");
     const showLiveTracking = document.getElementById("show-live-tracking");
-    const useWebSocketToggle = document.getElementById("use-websocket-toggle");
     const polylineColor = document.getElementById("polyline-color");
     const polylineOpacity = document.getElementById("polyline-opacity");
     const opacityValue = document.getElementById("opacity-value");
@@ -211,7 +191,6 @@ endblock %} {% block content %}
         showLiveTracking: slt,
         polylineColor: pc,
         polylineOpacity: po,
-        disableWebSockets,
         geocodeTripsOnFetch: gtof,
       } = settings;
 
@@ -222,8 +201,6 @@ endblock %} {% block content %}
       highlightRecentTrips.checked = hrt !== false;
       autoCenterToggle.checked = autoCenter !== false;
       showLiveTracking.checked = slt !== false;
-
-      useWebSocketToggle.checked = disableWebSockets !== true;
 
       geocodeTripsOnFetch.checked = gtof !== false;
 
@@ -239,13 +216,6 @@ endblock %} {% block content %}
         if (res.ok) {
           const data = await res.json();
           applySettings(data);
-
-          // Mirror to localStorage for quick access
-          if (data.disableWebSockets) {
-            localStorage.setItem("disableWebSockets", "true");
-          } else {
-            localStorage.removeItem("disableWebSockets");
-          }
         } else {
           console.warn("Failed to fetch app settings. HTTP", res.status);
           applySettings(); // Fallback to existing localStorage
@@ -271,7 +241,6 @@ endblock %} {% block content %}
         showLiveTracking: showLiveTracking.checked,
         polylineColor: polylineColor.value,
         polylineOpacity: polylineOpacity.value,
-        disableWebSockets: !useWebSocketToggle.checked,
         geocodeTripsOnFetch: geocodeTripsOnFetch.checked,
       };
 
@@ -300,11 +269,6 @@ endblock %} {% block content %}
       localStorage.setItem("showLiveTracking", payload.showLiveTracking);
       localStorage.setItem("polylineColor", payload.polylineColor);
       localStorage.setItem("polylineOpacity", payload.polylineOpacity);
-      if (payload.disableWebSockets) {
-        localStorage.setItem("disableWebSockets", "true");
-      } else {
-        localStorage.removeItem("disableWebSockets");
-      }
 
       // Show success notification
       if (window.notificationManager) {
@@ -314,14 +278,6 @@ endblock %} {% block content %}
         );
       } else {
         window.handleError("Settings saved successfully");
-      }
-
-      // Encourage page reload to apply WebSocket change if any
-      if (window.LiveTripTracker?.instance) {
-        window.notificationManager?.show(
-          "WebSocket preference will take effect on the next page reload.",
-          "info",
-        );
       }
 
       // Update any active elements
