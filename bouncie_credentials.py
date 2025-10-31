@@ -10,8 +10,7 @@ import logging
 import os
 from typing import Any
 
-from db import find_one_with_retry, update_one_with_retry
-from db import db_manager
+from db import db_manager, find_one_with_retry, update_one_with_retry
 
 logger = logging.getLogger(__name__)
 

@@ -11,12 +11,7 @@ from datetime import datetime, timedelta
 
 import aiohttp
 
-from config import (
-    API_BASE_URL,
-    AUTH_URL,
-    MAPBOX_ACCESS_TOKEN,
-    get_bouncie_config,
-)
+from config import API_BASE_URL, AUTH_URL, MAPBOX_ACCESS_TOKEN, get_bouncie_config
 from date_utils import parse_timestamp
 from trip_service import TripService
 from utils import get_session, retry_async
