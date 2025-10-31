@@ -5326,7 +5326,7 @@ const STATUS = window.STATUS || {
                     "efficientRank",
                   );
                 } catch (e) {
-                  // console.warn(`Could not remove feature state for segment ${segmentId}: ${e.message}`);
+                  // Silently ignore feature state removal errors
                 }
               }
             });

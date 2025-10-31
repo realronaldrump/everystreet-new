@@ -13,7 +13,7 @@ trap cleanup EXIT INT TERM
 PID_FILE=".service_pids"
 > $PID_FILE  # Clear the file
 
-# Placeholder for Docker Compose command detection
+# Docker Compose command will be detected below
 DOCKER_COMPOSE_CMD=()
 
 # Track Docker-managed services so we can stop them during cleanup

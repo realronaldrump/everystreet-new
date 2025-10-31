@@ -2,7 +2,6 @@
 import utils from "./utils.js";
 import { CONFIG } from "./config.js";
 import state from "./state.js";
-// dateUtils currently unused in this module
 
 // NOTE: this is extracted verbatim from `app.js` to keep behaviour identical.
 // Future refactors can safely trim dependencies now that the code is isolated.
