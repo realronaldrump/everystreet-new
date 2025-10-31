@@ -177,9 +177,7 @@ ActiveTripResponseUnion = Union[
 
 
 class AppSettingsModel(BaseModel):
-    """Persistent application settings stored on the server.
-
-    """
+    """Persistent application settings stored on the server."""
 
     highlightRecentTrips: bool = True
     autoCenter: bool = True
