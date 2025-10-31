@@ -35,7 +35,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "geocodeTripsOnFetch": True,
 }
 
-
+ 
 async def get_persisted_app_settings() -> dict[str, Any]:
     """Retrieve persisted application settings (creates defaults if missing)."""
 
