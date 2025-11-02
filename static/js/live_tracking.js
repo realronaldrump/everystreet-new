@@ -30,12 +30,8 @@ class LiveTripTracker {
     this.initializeMapboxLayers();
 
     this.lastSequence = 0;
-    this.pollingInterval = 500;
-    this.maxPollingInterval = 1000;
-    this.minPollingInterval = 10;
+    this.pollingInterval = 2000; // Fixed 2-second interval for fallback polling
     this.pollingTimerId = null;
-    this.consecutiveErrors = 0;
-    this.maxConsecutiveErrors = 5;
     this.isPolling = false;
     this.lastMarkerLatLng = null; // For animating marker
 
@@ -121,10 +117,7 @@ class LiveTripTracker {
 
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
-          this.decreasePollingInterval();
           this.bringLiveTripToFront();
-        } else {
-          this.increasePollingInterval();
         }
       });
 
@@ -232,21 +225,10 @@ class LiveTripTracker {
         "info",
       );
       await this.fetchTripUpdates();
-
-      this.consecutiveErrors = 0;
-
-      if (this.activeTrip) {
-        this.decreasePollingInterval();
-      }
     } catch (error) {
       window.handleError(`Error polling trip updates: ${error}`, "poll");
-      this.consecutiveErrors++;
-
-      if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
-        this.updateStatus(false, "Connection lost");
-        this.showError("Connection lost. Retrying...");
-        this.increasePollingInterval();
-      }
+      this.updateStatus(false, "Connection lost");
+      this.showError("Connection lost. Retrying...");
     } finally {
       this.pollingTimerId = setTimeout(() => {
         this.poll();
@@ -274,17 +256,13 @@ class LiveTripTracker {
         this.lastSequence = data.trip.sequence || this.lastSequence;
         this.updateStatus(true, "Connected");
         this.hideError();
-
-        this.setAdaptivePollingInterval(data.trip, true);
       } else if (this.activeTrip && !data.has_update) {
         // Still have active trip, just no new updates
         this.updateStatus(true, "Connected");
-        this.setAdaptivePollingInterval(this.activeTrip, false);
       } else if (!this.activeTrip && !data.has_update) {
         // No active trip
         this.clearActiveTrip();
         this.updateStatus(true);
-        this.increasePollingInterval(1.2);
       }
     } else {
       window.handleError(
@@ -292,71 +270,6 @@ class LiveTripTracker {
         "fetchTripUpdates",
       );
       throw new Error(data.message || "Unknown error fetching trip updates");
-    }
-  }
-
-  increasePollingInterval(factor = 1.5) {
-    const oldInterval = this.pollingInterval;
-    this.pollingInterval = Math.min(
-      this.pollingInterval * factor,
-      this.maxPollingInterval,
-    );
-
-    if (this.pollingInterval !== oldInterval) {
-      window.handleError(
-        `LiveTripTracker: Increased polling interval to ${Math.round(this.pollingInterval)}ms`,
-        "increasePollingInterval",
-        "info",
-      );
-    }
-  }
-
-  decreasePollingInterval(factor = 0.7, forceMinimum = false) {
-    const oldInterval = this.pollingInterval;
-
-    if (forceMinimum) {
-      this.pollingInterval = this.minPollingInterval;
-    } else {
-      this.pollingInterval = Math.max(
-        this.pollingInterval * factor,
-        this.activeTrip ? this.minPollingInterval : this.minPollingInterval * 2,
-      );
-    }
-
-    if (this.pollingInterval !== oldInterval) {
-      window.handleError(
-        `LiveTripTracker: Decreased polling interval to ${Math.round(this.pollingInterval)}ms`,
-        "decreasePollingInterval",
-        "info",
-      );
-    }
-  }
-
-  setAdaptivePollingInterval(trip, hasNewData) {
-    if (!trip) {
-      this.increasePollingInterval(1.2);
-      return;
-    }
-
-    const isMoving = trip.currentSpeed > 2;
-    const isFastMoving = trip.currentSpeed > 15;
-
-    if (isFastMoving && hasNewData) {
-      this.decreasePollingInterval(0.5, true);
-    } else if (isMoving && hasNewData) {
-      this.decreasePollingInterval(0.8);
-    } else if (isMoving) {
-      this.pollingInterval = Math.max(
-        this.minPollingInterval * 1.5,
-        Math.min(this.pollingInterval, this.maxPollingInterval / 2),
-      );
-    } else if (hasNewData) {
-      this.pollingInterval = Math.max(
-        this.minPollingInterval * 1.5,
-        Math.min(this.pollingInterval, this.maxPollingInterval / 2),
-      );
-    } else {
-      this.increasePollingInterval(1.1);
     }
   }
 
@@ -896,28 +809,6 @@ class LiveTripTracker {
 
     const metrics = this.computeTripMetrics(trip);
     this.renderTripMetrics(metrics);
-  }
-
-  updatePolylineStyle(color, opacity) {
-    if (!this.map || !this.map.getLayer(this.liveLineLayerId)) return;
-
-    // Update line paint properties in Mapbox
-    this.map.setPaintProperty(
-      this.liveLineLayerId,
-      "line-color",
-      color || "#00FF00",
-    );
-    this.map.setPaintProperty(
-      this.liveLineLayerId,
-      "line-opacity",
-      parseFloat(opacity) || 0.8,
-    );
-
-    window.handleError(
-      "LiveTripTracker: Line style updated",
-      "updatePolylineStyle",
-      "info",
-    );
   }
 
   bringLiveTripToFront() {
