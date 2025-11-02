@@ -16,7 +16,7 @@ pyproj
 python-dotenv
 python_dateutil
 pytz
-redis
+redis[hiredis]>=5.0.0
 rtree
 scikit_learn
 Shapely

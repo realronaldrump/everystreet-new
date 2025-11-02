@@ -895,31 +895,30 @@ class LiveTripTracker {
         cancelAnimationFrame(this.animationFrameId);
       }
 
-      let needsUpdate = false;
-      let latestTrip = null;
-
       this.ws.addEventListener("message", (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data?.trip) {
-            latestTrip = data.trip;
-            needsUpdate = true;
+          const messageType = data.type;
+
+          if (messageType === "trip_update" && data.trip) {
+            // Full trip snapshot (initial load or trip start)
+            this.setActiveTrip(data.trip);
+            this.updateTripMetrics(data.trip);
+            this.lastSequence = data.trip.sequence || this.lastSequence;
+          } else if (messageType === "trip_delta" && data.delta) {
+            // Delta update - apply incremental changes
+            this.applyTripDelta(data.delta, data.sequence);
+            this.lastSequence = data.sequence || this.lastSequence;
+          } else if (messageType === "trip_end") {
+            // Trip ended - clear from map
+            this.clearActiveTrip();
+            this.updateStatus(true);
+            this.lastSequence = data.sequence || this.lastSequence;
           }
         } catch (err) {
           console.warn("LiveTripTracker WebSocket parse error:", err);
         }
       });
-
-      const updateLoop = () => {
-        if (needsUpdate && latestTrip) {
-          this.setActiveTrip(latestTrip);
-          this.updateTripMetrics(latestTrip);
-          this.lastSequence = latestTrip.sequence || this.lastSequence;
-          needsUpdate = false;
-        }
-        this.animationFrameId = requestAnimationFrame(updateLoop);
-      };
-      updateLoop();
 
       this.ws.addEventListener("open", () => {
         console.info("LiveTripTracker: WebSocket connected – stopping poller");
@@ -948,6 +947,87 @@ class LiveTripTracker {
       console.warn("Failed to establish WebSocket:", e);
       this.startPolling();
     }
+  }
+
+  /**
+   * Apply a delta update to the current trip state.
+   * Appends new coordinates and updates metrics incrementally.
+   */
+  applyTripDelta(delta, sequence) {
+    if (!this.activeTrip) {
+      window.handleError(
+        "Received delta update but no active trip exists",
+        "applyTripDelta",
+        "warn",
+      );
+      return;
+    }
+
+    // Append new coordinates
+    if (delta.new_coordinates && Array.isArray(delta.new_coordinates)) {
+      const existingCoords = this.activeTrip.coordinates || [];
+      // Merge new coordinates, avoiding duplicates
+      const existingTimestampSet = new Set(
+        existingCoords.filter((c) => c && c.timestamp).map((c) => c.timestamp),
+      );
+
+      const newCoords = delta.new_coordinates.filter(
+        (c) => c && c.timestamp && !existingTimestampSet.has(c.timestamp),
+      );
+
+      if (newCoords.length > 0) {
+        this.activeTrip.coordinates = [...existingCoords, ...newCoords];
+        // Re-render the trip with updated coordinates
+        this.setActiveTrip(this.activeTrip);
+      }
+    }
+
+    // Update metrics incrementally
+    if (delta.updated_metrics) {
+      const metrics = delta.updated_metrics;
+
+      // Update metrics (replace values, as backend sends absolute metrics)
+      if (typeof metrics.currentSpeed === "number") {
+        this.activeTrip.currentSpeed = metrics.currentSpeed;
+      }
+      if (typeof metrics.maxSpeed === "number") {
+        this.activeTrip.maxSpeed = Math.max(
+          this.activeTrip.maxSpeed || 0,
+          metrics.maxSpeed,
+        );
+      }
+      if (typeof metrics.avgSpeed === "number") {
+        this.activeTrip.avgSpeed = metrics.avgSpeed;
+      }
+      if (typeof metrics.duration === "number") {
+        this.activeTrip.duration = metrics.duration;
+      }
+      if (typeof metrics.pointsRecorded === "number") {
+        this.activeTrip.pointsRecorded =
+          (this.activeTrip.pointsRecorded || 0) + metrics.pointsRecorded;
+      }
+      if (typeof metrics.totalIdlingTime === "number") {
+        this.activeTrip.totalIdlingTime = metrics.totalIdlingTime;
+      }
+      if (typeof metrics.hardBrakingCounts === "number") {
+        this.activeTrip.hardBrakingCounts = metrics.hardBrakingCounts;
+      }
+      if (typeof metrics.hardAccelerationCounts === "number") {
+        this.activeTrip.hardAccelerationCounts = metrics.hardAccelerationCounts;
+      }
+      // Note: distance from updated_metrics is absolute (not incremental)
+      if (typeof metrics.distance === "number") {
+        this.activeTrip.distance = metrics.distance;
+      }
+    }
+
+    // Update lastUpdate timestamp
+    if (delta.lastUpdate) {
+      this.activeTrip.lastUpdate = delta.lastUpdate;
+    }
+
+    // Update trip metrics display
+    this.updateTripMetrics(this.activeTrip);
   }
 
   /**

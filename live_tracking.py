@@ -11,6 +11,11 @@ from pymongo.results import UpdateResult
 
 from date_utils import parse_timestamp
 from db import SerializationHelper, run_transaction
+from trip_event_publisher import (
+    publish_trip_delta,
+    publish_trip_end,
+    publish_trip_start,
+)
 from utils import haversine
 
 logger = logging.getLogger(__name__)
@@ -160,6 +165,17 @@ async def process_trip_start(
             transaction_id,
             sequence,
         )
+        # Publish trip start event
+        try:
+            # Serialize the trip data for publishing
+            trip_for_publish = SerializationHelper.serialize_document(new_trip)
+            publish_trip_start(transaction_id, trip_for_publish, sequence)
+        except Exception as pub_err:
+            logger.warning(
+                "Failed to publish trip start event for %s: %s",
+                transaction_id,
+                pub_err,
+            )
     else:
         logger.error(
             "Failed to start trip %s due to database transaction failure.",
@@ -509,6 +525,41 @@ async def process_trip_data(
             len(unique_new_coords),
             sequence,
         )
+
+        # Publish delta update with only new data
+        try:
+            # Serialize coordinates for publishing
+            serialized_new_coords = [
+                SerializationHelper.serialize_document(coord)
+                for coord in unique_new_coords
+            ]
+
+            delta = {
+                "new_coordinates": serialized_new_coords,
+                "updated_metrics": {
+                    "distance": existing_distance
+                    + incremental_distance,  # Absolute distance
+                    "currentSpeed": current_speed,
+                    "maxSpeed": new_max_speed,
+                    "avgSpeed": new_avg_speed,
+                    "duration": duration_seconds,
+                    "pointsRecorded": trip_doc.get("pointsRecorded", 0)
+                    + len(unique_new_coords),
+                },
+                "lastUpdate": (
+                    last_point_time.isoformat()
+                    if isinstance(last_point_time, datetime)
+                    else last_point_time
+                ),
+            }
+
+            publish_trip_delta(transaction_id, delta, sequence)
+        except Exception as pub_err:
+            logger.warning(
+                "Failed to publish trip delta for %s: %s",
+                transaction_id,
+                pub_err,
+            )
     except Exception as update_err:
         logger.error(
             "Database error updating trip %s: %s",
@@ -663,6 +714,27 @@ async def process_trip_metrics(
                 transaction_id,
                 updated_trip_doc.get("sequence"),
             )
+            # Publish delta update with metrics changes
+            try:
+                delta = {
+                    "updated_metrics": {
+                        k: v
+                        for k, v in update_fields.items()
+                        if k not in ("sequence", "lastUpdate")
+                    },
+                    "lastUpdate": update_fields.get("lastUpdate"),
+                }
+                # Convert datetime to ISO string if needed
+                if isinstance(delta["lastUpdate"], datetime):
+                    delta["lastUpdate"] = delta["lastUpdate"].isoformat()
+
+                publish_trip_delta(transaction_id, delta, sequence)
+            except Exception as pub_err:
+                logger.warning(
+                    "Failed to publish trip metrics delta for %s: %s",
+                    transaction_id,
+                    pub_err,
+                )
         else:
             logger.warning(
                 "Failed to find active trip %s (_id: %s) for metrics find_one_and_update. It might have been archived/deleted or status changed concurrently.",
@@ -1032,6 +1104,15 @@ async def process_trip_end(
             action,
             trip_to_archive["sequence"],
         )
+        # Publish trip end event
+        try:
+            publish_trip_end(transaction_id, trip_to_archive["sequence"])
+        except Exception as pub_err:
+            logger.warning(
+                "Failed to publish trip end event for %s: %s",
+                transaction_id,
+                pub_err,
+            )
     else:
         logger.error(
             "Failed to process tripEnd for %s due to transaction failure.",

@@ -1,9 +1,10 @@
-import asyncio
 import json
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 
+import redis.asyncio as aioredis
 from fastapi import (
     APIRouter,
     HTTPException,
@@ -23,10 +24,29 @@ from models import (
     NoActiveTripResponse,
 )
 from tasks import process_webhook_event_task
+from trip_event_publisher import TRIP_UPDATES_CHANNEL
 
 # Setup
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def get_redis_url() -> str:
+    """Get Redis URL from environment (same logic as celery_app.py)."""
+    redis_url = os.getenv("REDIS_URL")
+    if not redis_url:
+        redis_host = os.getenv("REDISHOST") or os.getenv("RAILWAY_PRIVATE_DOMAIN")
+        redis_port = os.getenv("REDISPORT", "6379")
+        redis_password = os.getenv("REDISPASSWORD") or os.getenv("REDIS_PASSWORD")
+        redis_user = os.getenv("REDISUSER", "default")
+
+        if redis_host and redis_password:
+            redis_url = (
+                f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
+            )
+        else:
+            redis_url = "redis://localhost:6379"
+    return redis_url
 
 
 # WebSocket Connection Manager
@@ -39,7 +59,8 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
 
 manager = ConnectionManager()
@@ -50,28 +71,95 @@ manager = ConnectionManager()
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     last_sequence = 0
+    redis_client = None
+    pubsub = None
 
     try:
-        while True:
-            # Check for updates ~4× per second for near-real-time push
-            active_trip = await get_active_trip(since_sequence=last_sequence)
+        # Load initial trip state on connection
+        initial_trip = await get_active_trip()
+        if initial_trip:
+            serialized_trip = SerializationHelper.serialize_document(initial_trip)
+            last_sequence = initial_trip.get("sequence", 0)
+            await websocket.send_json({"type": "trip_update", "trip": serialized_trip})
 
-            if active_trip:
-                # Serialize the trip data properly
-                serialized_trip = SerializationHelper.serialize_document(active_trip)
-                last_sequence = active_trip.get("sequence", last_sequence)
+        # Connect to Redis and subscribe to trip updates channel
+        redis_url = get_redis_url()
+        redis_client = await aioredis.from_url(redis_url, decode_responses=True)
+        pubsub = redis_client.pubsub()
+        await pubsub.subscribe(TRIP_UPDATES_CHANNEL)
 
-                await websocket.send_json(
-                    {"type": "trip_update", "trip": serialized_trip}
-                )
+        logger.info("WebSocket connected and subscribed to Redis channel")
 
-            await asyncio.sleep(0.25)
+        # Listen for messages from Redis Pub/Sub
+        async for message in pubsub.listen():
+            if message["type"] != "message":
+                continue
+
+            try:
+                event_data = json.loads(message["data"])
+
+                # Check if this update is newer than what the client has
+                event_sequence = event_data.get("sequence", 0)
+                if event_sequence <= last_sequence:
+                    continue
+
+                transaction_id = event_data.get("transaction_id")
+                event_type = event_data.get("event_type")
+
+                if event_type == "trip_start":
+                    # Full trip data for new trips
+                    await websocket.send_json(
+                        {
+                            "type": "trip_update",
+                            "trip": event_data.get("trip"),
+                        }
+                    )
+                    last_sequence = event_sequence
+                elif event_type == "trip_end":
+                    # Send trip end notification
+                    await websocket.send_json(
+                        {
+                            "type": "trip_end",
+                            "transaction_id": transaction_id,
+                            "sequence": event_sequence,
+                        }
+                    )
+                    last_sequence = event_sequence
+                else:
+                    # Delta update for ongoing trips
+                    delta = event_data.get("delta", {})
+                    await websocket.send_json(
+                        {
+                            "type": "trip_delta",
+                            "transaction_id": transaction_id,
+                            "delta": delta,
+                            "sequence": event_sequence,
+                        }
+                    )
+                    last_sequence = event_sequence
+
+            except json.JSONDecodeError as e:
+                logger.warning("Failed to parse Redis message: %s", e)
+            except Exception as e:
+                logger.error("Error processing Redis message: %s", e, exc_info=True)
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        logger.info("WebSocket disconnected")
     except Exception as e:
-        logger.error("WebSocket error: %s", e)
+        logger.error("WebSocket error: %s", e, exc_info=True)
+    finally:
         manager.disconnect(websocket)
+        if pubsub:
+            try:
+                await pubsub.unsubscribe(TRIP_UPDATES_CHANNEL)
+                await pubsub.close()
+            except Exception as e:
+                logger.warning("Error closing Redis pubsub: %s", e)
+        if redis_client:
+            try:
+                await redis_client.close()
+            except Exception as e:
+                logger.warning("Error closing Redis client: %s", e)
 
 
 # API Endpoints
