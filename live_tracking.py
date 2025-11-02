@@ -169,7 +169,7 @@ async def process_trip_start(
         try:
             # Serialize the trip data for publishing
             trip_for_publish = SerializationHelper.serialize_document(new_trip)
-            publish_trip_start(transaction_id, trip_for_publish, sequence)
+            await publish_trip_start(transaction_id, trip_for_publish, sequence)
         except Exception as pub_err:
             logger.warning(
                 "Failed to publish trip start event for %s: %s",
@@ -728,7 +728,7 @@ async def process_trip_metrics(
                 if isinstance(delta["lastUpdate"], datetime):
                     delta["lastUpdate"] = delta["lastUpdate"].isoformat()
 
-                publish_trip_delta(transaction_id, delta, sequence)
+                await publish_trip_delta(transaction_id, delta, sequence)
             except Exception as pub_err:
                 logger.warning(
                     "Failed to publish trip metrics delta for %s: %s",
@@ -1106,7 +1106,7 @@ async def process_trip_end(
         )
         # Publish trip end event
         try:
-            publish_trip_end(transaction_id, trip_to_archive["sequence"])
+            await publish_trip_end(transaction_id, trip_to_archive["sequence"])
         except Exception as pub_err:
             logger.warning(
                 "Failed to publish trip end event for %s: %s",

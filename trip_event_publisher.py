@@ -24,11 +24,11 @@ TRIP_UPDATES_CHANNEL = "trip_updates"
 _redis_client: aioredis.Redis | None = None
 
 
-def get_redis_client() -> redis.Redis:
-    """Get or create a singleton Redis client instance.
+async def get_redis_client() -> aioredis.Redis:
+    """Get or create a singleton async Redis client instance.
 
     Returns:
-        Redis client instance configured for Pub/Sub.
+        Async Redis client instance configured for Pub/Sub.
 
     Raises:
         RedisConnectionError: If unable to connect to Redis.
@@ -37,7 +37,7 @@ def get_redis_client() -> redis.Redis:
 
     if _redis_client is not None:
         try:
-            _redis_client.ping()
+            await _redis_client.ping()
             return _redis_client
         except (RedisConnectionError, AttributeError):
             logger.warning("Redis client connection lost, reconnecting...")
@@ -59,8 +59,8 @@ def get_redis_client() -> redis.Redis:
             redis_url = "redis://localhost:6379"
 
     try:
-        _redis_client = redis.from_url(redis_url, decode_responses=True)
-        _redis_client.ping()
+        _redis_client = await aioredis.from_url(redis_url, decode_responses=True)
+        await _redis_client.ping()
         logger.info("Connected to Redis for trip event publishing")
         return _redis_client
     except RedisConnectionError as e:
@@ -68,7 +68,7 @@ def get_redis_client() -> redis.Redis:
         raise
 
 
-def publish_trip_delta(
+async def publish_trip_delta(
     transaction_id: str,
     delta: dict[str, Any],
     sequence: int,
@@ -89,7 +89,7 @@ def publish_trip_delta(
         True if published successfully, False otherwise.
     """
     try:
-        client = get_redis_client()
+        client = await get_redis_client()
 
         event_data = {
             "transaction_id": transaction_id,
@@ -99,7 +99,7 @@ def publish_trip_delta(
         }
 
         message = json.dumps(event_data)
-        subscribers = client.publish(TRIP_UPDATES_CHANNEL, message)
+        subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
 
         logger.debug(
             "Published trip delta for %s (seq=%d) to %d subscribers",
@@ -120,7 +120,7 @@ def publish_trip_delta(
         return False
 
 
-def publish_trip_start(
+async def publish_trip_start(
     transaction_id: str,
     trip_data: dict[str, Any],
     sequence: int,
@@ -136,7 +136,7 @@ def publish_trip_start(
         True if published successfully, False otherwise.
     """
     try:
-        client = get_redis_client()
+        client = await get_redis_client()
 
         event_data = {
             "transaction_id": transaction_id,
@@ -147,7 +147,7 @@ def publish_trip_start(
         }
 
         message = json.dumps(event_data)
-        subscribers = client.publish(TRIP_UPDATES_CHANNEL, message)
+        subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
 
         logger.debug(
             "Published trip start for %s (seq=%d) to %d subscribers",
@@ -168,7 +168,7 @@ def publish_trip_start(
         return False
 
 
-def publish_trip_end(
+async def publish_trip_end(
     transaction_id: str,
     sequence: int,
 ) -> bool:
@@ -182,7 +182,7 @@ def publish_trip_end(
         True if published successfully, False otherwise.
     """
     try:
-        client = get_redis_client()
+        client = await get_redis_client()
 
         event_data = {
             "transaction_id": transaction_id,
@@ -192,7 +192,7 @@ def publish_trip_end(
         }
 
         message = json.dumps(event_data)
-        subscribers = client.publish(TRIP_UPDATES_CHANNEL, message)
+        subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
 
         logger.debug(
             "Published trip end for %s (seq=%d) to %d subscribers",
