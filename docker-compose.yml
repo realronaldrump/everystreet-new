@@ -28,6 +28,8 @@ services:
     depends_on:
       - mongo
       - redis
+    # Run as a non-root user for better security
+    user: "nobody"
     networks:
       - default
 
@@ -41,6 +43,8 @@ services:
     depends_on:
       - mongo
       - redis
+    # Run as a non-root user for better security
+    user: "nobody"
     networks:
       - default
 
@@ -51,6 +55,9 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    # Apply kernel settings to fix memory overcommit warning
+    sysctls:
+      - vm.overcommit_memory=1
     networks:
       - default
 
@@ -61,6 +68,37 @@ services:
       - "27017:27017"
     volumes:
       - /home/davis/database/mongo:/data/db
+    # Increase file descriptor limit to recommended value
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
+    # Command to start MongoDB as a replica set named 'rs0'
+    command: mongod --replSet rs0 --bind_ip_all
+    networks:
+      - default
+
+  # This new service runs only once to initialize the replica set
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      - mongo
+    command: >
+      sh -c "
+        mongosh --host mongo:27017 --eval '
+          try {
+            rs.status();
+            print(\"Replica set already initialized.\");
+          } catch (e) {
+            rs.initiate({
+              _id: \"rs0\",
+              members: [{ _id: 0, host: \"mongo:27017\" }]
+            });
+            print(\"Replica set initialized.\");
+          }
+        '
+      "
+    restart: on-failure
     networks:
       - default
 
