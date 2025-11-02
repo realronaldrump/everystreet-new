@@ -324,14 +324,17 @@ async def process_trip_data(
         # Find the last coordinate by timestamp
         # Handle cases where coordinates might not be sorted or have invalid timestamps
         valid_coords_with_ts = [
-            c for c in existing_coords
+            c
+            for c in existing_coords
             if isinstance(c, dict) and isinstance(c.get("timestamp"), datetime)
         ]
         if valid_coords_with_ts:
             last_coord = max(valid_coords_with_ts, key=lambda c: c["timestamp"])
         elif existing_coords:
             # Fallback: use the last coordinate in the array if no valid timestamps
-            last_coord = existing_coords[-1] if isinstance(existing_coords[-1], dict) else None
+            last_coord = (
+                existing_coords[-1] if isinstance(existing_coords[-1], dict) else None
+            )
 
     # Calculate incremental metrics only for new segments
     incremental_distance = 0.0
@@ -404,11 +407,11 @@ async def process_trip_data(
                 if isinstance(start_time, dict)
                 else None
             )
-        last_point_time = new_coords[-1]["timestamp"] if new_coords else datetime.now(timezone.utc)
+        last_point_time = (
+            new_coords[-1]["timestamp"] if new_coords else datetime.now(timezone.utc)
+        )
         if start_time and isinstance(last_point_time, datetime):
-            duration_seconds = max(
-                0.0, (last_point_time - start_time).total_seconds()
-            )
+            duration_seconds = max(0.0, (last_point_time - start_time).total_seconds())
             if duration_seconds > 0:
                 total_distance = existing_distance + incremental_distance
                 new_avg_speed = total_distance / (duration_seconds / 3600)
@@ -441,9 +444,7 @@ async def process_trip_data(
         for coord in existing_coords:
             if isinstance(coord, dict) and "timestamp" in coord:
                 ts = coord["timestamp"]
-                ts_key = (
-                    ts.isoformat() if isinstance(ts, datetime) else str(ts)
-                )
+                ts_key = ts.isoformat() if isinstance(ts, datetime) else str(ts)
                 seen_timestamps.add(ts_key)
 
     unique_new_coords = []
