@@ -498,10 +498,12 @@ async def process_trip_data(
         "$set": {
             "lastUpdate": last_point_time,
             "currentSpeed": current_speed,
-            "maxSpeed": new_max_speed,
             "avgSpeed": new_avg_speed,
             "duration": duration_seconds,
             "sequence": sequence,
+        },
+        "$max": {
+            "maxSpeed": incremental_max_speed,
         },
     }
 
