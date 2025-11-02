@@ -677,7 +677,6 @@ async def process_trip_metrics(
                     )
 
         _safe_update_float("currentSpeed", "speed")
-        _safe_update_float("maxSpeed", "maxSpeed")  # Bouncie might send this
         _safe_update_float("avgSpeed", "averageSpeed")
         _safe_update_float("totalIdlingTime", "idlingTime")
         _safe_update_int("hardBrakingCounts", "hardBraking")
@@ -688,6 +687,18 @@ async def process_trip_metrics(
         _safe_update_float("distance", "distance")
         _safe_update_float("fuelConsumed", "fuelConsumed")
 
+        # Handle maxSpeed separately using $max for atomic updates
+        max_speed_from_bouncie = None
+        if "maxSpeed" in metrics_data and metrics_data["maxSpeed"] is not None:
+            try:
+                max_speed_from_bouncie = float(metrics_data["maxSpeed"])
+            except (ValueError, TypeError):
+                logger.warning(
+                    "Invalid maxSpeed value in metrics for %s: %s",
+                    transaction_id,
+                    metrics_data["maxSpeed"],
+                )
+
         # Always update sequence number
         sequence = max(
             initial_trip_doc.get("sequence", 0) + 1,
@@ -695,18 +706,23 @@ async def process_trip_metrics(
         )
         update_fields["sequence"] = sequence
 
-        if not update_fields:
+        if not update_fields and max_speed_from_bouncie is None:
             logger.info("No fields to update from tripMetrics for %s.", transaction_id)
             return
 
         trip_id_to_update = initial_trip_doc["_id"]
+
+        # Build update operation with $set and optional $max
+        update_operation = {"$set": update_fields}
+        if max_speed_from_bouncie is not None:
+            update_operation["$max"] = {"maxSpeed": max_speed_from_bouncie}
 
         updated_trip_doc = await live_collection.find_one_and_update(
             {
                 "_id": trip_id_to_update,
                 "status": "active",
             },  # Ensure still active
-            {"$set": update_fields},
+            update_operation,
             return_document=pymongo.ReturnDocument.AFTER,
         )
 
@@ -718,12 +734,17 @@ async def process_trip_metrics(
             )
             # Publish delta update with metrics changes
             try:
+                delta_metrics = {
+                    k: v
+                    for k, v in update_fields.items()
+                    if k not in ("sequence", "lastUpdate")
+                }
+                # Include maxSpeed if it was updated from Bouncie
+                if max_speed_from_bouncie is not None:
+                    delta_metrics["maxSpeed"] = updated_trip_doc.get("maxSpeed")
+
                 delta = {
-                    "updated_metrics": {
-                        k: v
-                        for k, v in update_fields.items()
-                        if k not in ("sequence", "lastUpdate")
-                    },
+                    "updated_metrics": delta_metrics,
                     "lastUpdate": update_fields.get("lastUpdate"),
                 }
                 # Convert datetime to ISO string if needed
