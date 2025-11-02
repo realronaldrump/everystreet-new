@@ -553,7 +553,7 @@ async def process_trip_data(
                 ),
             }
 
-            publish_trip_delta(transaction_id, delta, sequence)
+            await publish_trip_delta(transaction_id, delta, sequence)
         except Exception as pub_err:
             logger.warning(
                 "Failed to publish trip delta for %s: %s",
