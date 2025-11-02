@@ -207,7 +207,9 @@
     const mobileAuthCodeInput = document.getElementById(
       "mobile-authorizationCode",
     );
-    const mobileFetchConcurrencyInput = document.getElementById("mobile-fetchConcurrency");
+    const mobileFetchConcurrencyInput = document.getElementById(
+      "mobile-fetchConcurrency",
+    );
 
     if (mobileClientIdInput)
       mobileClientIdInput.value = credentials.client_id || "";
@@ -347,9 +349,9 @@
     const authorizationCode = document
       .getElementById(`${prefix}authorizationCode`)
       .value.trim();
-    const fetchConcurrency = document
-      .getElementById(`${prefix}fetchConcurrency`)
-      ?.value.trim() || "12";
+    const fetchConcurrency =
+      document.getElementById(`${prefix}fetchConcurrency`)?.value.trim() ||
+      "12";
 
     // Collect devices
     const deviceInputs = document.querySelectorAll(
