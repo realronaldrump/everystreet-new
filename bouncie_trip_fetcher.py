@@ -177,8 +177,10 @@ async def fetch_bouncie_trips_in_range(
         if not chunk_windows:
             return all_new_trips
 
-        # Concurrency control
-        max_concurrency = int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12"))
+        # Concurrency control - get from credentials config
+        max_concurrency = credentials.get("fetch_concurrency", 12)
+        if not isinstance(max_concurrency, int) or max_concurrency < 1:
+            max_concurrency = 12
         semaphore = asyncio.Semaphore(max_concurrency)
         completed_chunks = 0
         progress_lock = asyncio.Lock()

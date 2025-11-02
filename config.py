@@ -54,6 +54,7 @@ async def get_bouncie_config() -> dict[str, Any]:
             - redirect_uri: str
             - authorization_code: str
             - authorized_devices: list[str]
+            - fetch_concurrency: int (defaults to 12)
     """
     try:
         from bouncie_credentials import get_bouncie_credentials
@@ -67,6 +68,7 @@ async def get_bouncie_config() -> dict[str, Any]:
             "redirect_uri": REDIRECT_URI or "",
             "authorization_code": AUTHORIZATION_CODE or "",
             "authorized_devices": AUTHORIZED_DEVICES,
+            "fetch_concurrency": int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12")),
         }
 
 

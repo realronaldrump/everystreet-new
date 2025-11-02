@@ -30,6 +30,7 @@ class BouncieCredentials(BaseModel):
     redirect_uri: str
     authorization_code: str
     authorized_devices: list[str] | str
+    fetch_concurrency: int | None = None
 
 
 @router.get("/api/profile/bouncie-credentials")

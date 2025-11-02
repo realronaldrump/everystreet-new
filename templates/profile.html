@@ -175,6 +175,25 @@
               </div>
             </div>
 
+            <!-- Fetch Concurrency -->
+            <div class="mb-3">
+              <label for="fetchConcurrency" class="form-label">
+                Fetch Concurrency
+              </label>
+              <input
+                type="number"
+                class="form-control"
+                id="fetchConcurrency"
+                placeholder="12"
+                min="1"
+                max="50"
+                value="12"
+              />
+              <div class="form-text">
+                Maximum number of concurrent API requests when fetching trips (1-50, default: 12)
+              </div>
+            </div>
+
             <!-- Action Buttons -->
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary" id="saveCredentialsBtn">
@@ -339,6 +358,24 @@
             <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="mobile-addDeviceBtn">
               <i class="fas fa-plus"></i> Add Device
             </button>
+          </div>
+
+          <div class="mobile-form-group">
+            <label class="mobile-form-label" for="mobile-fetchConcurrency">
+              Fetch Concurrency
+            </label>
+            <input
+              type="number"
+              class="mobile-form-input"
+              id="mobile-fetchConcurrency"
+              placeholder="12"
+              min="1"
+              max="50"
+              value="12"
+            />
+            <small class="form-text text-muted">
+              Max concurrent API requests (1-50, default: 12)
+            </small>
           </div>
 
           <div class="d-flex gap-2 flex-wrap">

@@ -32,6 +32,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             - redirect_uri: str
             - authorization_code: str
             - authorized_devices: list[str]
+            - fetch_concurrency: int (defaults to 12)
     """
     try:
         collection = await get_bouncie_credentials_collection()
@@ -42,12 +43,23 @@ async def get_bouncie_credentials() -> dict[str, Any]:
 
         if credentials:
             logger.debug("Retrieved Bouncie credentials from database")
+            # Handle fetch_concurrency - convert to int, default to 12
+            fetch_concurrency = credentials.get("fetch_concurrency")
+            if fetch_concurrency is None:
+                fetch_concurrency = int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12"))
+            else:
+                try:
+                    fetch_concurrency = int(fetch_concurrency)
+                except (ValueError, TypeError):
+                    fetch_concurrency = 12
+            
             return {
                 "client_id": credentials.get("client_id", ""),
                 "client_secret": credentials.get("client_secret", ""),
                 "redirect_uri": credentials.get("redirect_uri", ""),
                 "authorization_code": credentials.get("authorization_code", ""),
                 "authorized_devices": credentials.get("authorized_devices", []),
+                "fetch_concurrency": fetch_concurrency,
             }
 
         # Fallback to environment variables
@@ -62,6 +74,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             "authorized_devices": [
                 d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
             ],
+            "fetch_concurrency": int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12")),
         }
     except Exception as e:
         logger.exception("Error retrieving Bouncie credentials: %s", e)
@@ -74,6 +87,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             "authorized_devices": [
                 d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
             ],
+            "fetch_concurrency": int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12")),
         }
 
 
@@ -83,7 +97,8 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
     Args:
         credentials: Dictionary containing credential fields to update.
             Can include: client_id, client_secret, redirect_uri,
-            authorization_code, authorized_devices (list or comma-separated string)
+            authorization_code, authorized_devices (list or comma-separated string),
+            fetch_concurrency (int, optional, defaults to 12)
 
     Returns:
         True if update was successful, False otherwise.
@@ -98,6 +113,33 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
         elif not isinstance(devices, list):
             devices = []
 
+        # Process fetch_concurrency - convert to int, validate range (1-50)
+        # Only update if explicitly provided
+        if "fetch_concurrency" in credentials:
+            fetch_concurrency = credentials.get("fetch_concurrency")
+            try:
+                fetch_concurrency = int(fetch_concurrency)
+                # Validate reasonable range
+                if fetch_concurrency < 1:
+                    fetch_concurrency = 1
+                elif fetch_concurrency > 50:
+                    fetch_concurrency = 50
+            except (ValueError, TypeError):
+                # If invalid, keep existing or use default
+                existing = await find_one_with_retry(
+                    collection,
+                    {"_id": "bouncie_credentials"},
+                )
+                fetch_concurrency = (
+                    existing.get("fetch_concurrency")
+                    if existing
+                    else int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12"))
+                )
+                try:
+                    fetch_concurrency = int(fetch_concurrency) if fetch_concurrency else 12
+                except (ValueError, TypeError):
+                    fetch_concurrency = 12
+
         update_data = {
             "client_id": credentials.get("client_id", ""),
             "client_secret": credentials.get("client_secret", ""),
@@ -105,6 +147,10 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
             "authorization_code": credentials.get("authorization_code", ""),
             "authorized_devices": devices,
         }
+        
+        # Only include fetch_concurrency if it was provided in the update
+        if "fetch_concurrency" in credentials:
+            update_data["fetch_concurrency"] = fetch_concurrency
 
         result = await update_one_with_retry(
             collection,

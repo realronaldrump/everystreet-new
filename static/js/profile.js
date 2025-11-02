@@ -185,6 +185,7 @@
     const clientSecretInput = document.getElementById("clientSecret");
     const redirectUriInput = document.getElementById("redirectUri");
     const authCodeInput = document.getElementById("authorizationCode");
+    const fetchConcurrencyInput = document.getElementById("fetchConcurrency");
 
     if (clientIdInput) clientIdInput.value = credentials.client_id || "";
     if (clientSecretInput)
@@ -193,6 +194,8 @@
       redirectUriInput.value = credentials.redirect_uri || "";
     if (authCodeInput)
       authCodeInput.value = credentials.authorization_code || "";
+    if (fetchConcurrencyInput)
+      fetchConcurrencyInput.value = credentials.fetch_concurrency || "12";
 
     // Mobile form
     const mobileClientIdInput = document.getElementById("mobile-clientId");
@@ -204,6 +207,7 @@
     const mobileAuthCodeInput = document.getElementById(
       "mobile-authorizationCode",
     );
+    const mobileFetchConcurrencyInput = document.getElementById("mobile-fetchConcurrency");
 
     if (mobileClientIdInput)
       mobileClientIdInput.value = credentials.client_id || "";
@@ -213,6 +217,8 @@
       mobileRedirectUriInput.value = credentials.redirect_uri || "";
     if (mobileAuthCodeInput)
       mobileAuthCodeInput.value = credentials.authorization_code || "";
+    if (mobileFetchConcurrencyInput)
+      mobileFetchConcurrencyInput.value = credentials.fetch_concurrency || "12";
 
     // Handle devices
     currentDevices = credentials.authorized_devices || [];
@@ -341,6 +347,9 @@
     const authorizationCode = document
       .getElementById(`${prefix}authorizationCode`)
       .value.trim();
+    const fetchConcurrency = document
+      .getElementById(`${prefix}fetchConcurrency`)
+      ?.value.trim() || "12";
 
     // Collect devices
     const deviceInputs = document.querySelectorAll(
@@ -379,6 +388,7 @@
           redirect_uri: redirectUri,
           authorization_code: authorizationCode,
           authorized_devices: devices,
+          fetch_concurrency: parseInt(fetchConcurrency, 10) || 12,
         }),
       });
 
