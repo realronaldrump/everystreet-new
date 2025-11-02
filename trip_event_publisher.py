@@ -211,4 +211,3 @@ def publish_trip_end(
             exc_info=True,
         )
         return False
-
