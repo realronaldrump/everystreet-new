@@ -338,7 +338,9 @@ async def check_dependencies(
             ]:
                 return {
                     "can_run": False,
-                    "reason": "Dependency '{}' is currently {}".format(dep_id, dep_status),
+                    "reason": "Dependency '{}' is currently {}".format(
+                        dep_id, dep_status
+                    ),
                 }
 
             if dep_status == TaskStatus.FAILED.value:
