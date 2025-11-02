@@ -341,7 +341,7 @@ const STATUS = window.STATUS || {
       });
 
       document.addEventListener("keydown", (e) => {
-        const key = `${e.ctrlKey ? "ctrl+" : ""}${e.key.toLowerCase()}`;
+        const key = `${e.ctrlKey ? "ctrl+" : ""}${e.key?.toLowerCase() || ""}`;
         const handler = this.keyboardShortcuts.get(key);
         if (handler && !e.target.matches("input, textarea, select")) {
           e.preventDefault();
