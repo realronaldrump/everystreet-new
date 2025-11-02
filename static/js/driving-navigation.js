@@ -5,7 +5,6 @@
 class DrivingNavigation {
   constructor() {
     this.map = null;
-    this.liveTracker = null;
 
     // DOM Elements
     this.areaSelect = document.getElementById("area-select");
@@ -95,12 +94,8 @@ class DrivingNavigation {
           this.setStatus("Map initialized. Select an area.");
           this.setupMapLayers();
 
-          // Initialize Live Tracker now that the map is ready
-          if (typeof LiveTripTracker !== "undefined") {
-            this.liveTracker = new LiveTripTracker(this.map);
-          } else {
-            console.error("LiveTripTracker class not found.");
-          }
+          // Note: LiveTripTracker is instantiated centrally in app-controller.js
+          // This page listens for liveTrackingUpdated events instead of creating its own instance
 
           resolve();
         });
