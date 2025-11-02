@@ -1,4 +1,4 @@
-/* global L, notificationManager, LiveTripTracker */
+/* global L, notificationManager */
 
 "use strict";
 
@@ -46,11 +46,9 @@ class DrivingNavigation {
     this.efficientClustersLayer = L.layerGroup();
     this.targetStreetLayer = null;
 
-    this.liveTracker = null;
     this.lastKnownLocation = null;
     this.isFetchingRoute = false;
     this.isFetchingCoverageRoute = false;
-    this.clearTripTimeout = null;
     this.currentStep = null;
     this.clusterColors = [
       "#ff6b6b",
@@ -78,7 +76,6 @@ class DrivingNavigation {
     this.initMap();
     this.setupEventListeners();
     await this.loadCoverageAreas();
-    this.initLiveTracking();
     this.loadAutoFollowState();
     this.setupMapInteractivity();
   }
@@ -128,142 +125,6 @@ class DrivingNavigation {
     }
   }
 
-  initLiveTracking() {
-    if (typeof LiveTripTracker === "undefined") {
-      console.error("LiveTripTracker class not found.");
-      this.setStatus("Live tracking unavailable (script missing).", true);
-      return;
-    }
-
-    // Respect user preference to hide live tracking
-    try {
-      const show = window.localStorage.getItem("showLiveTracking") !== "false";
-      if (!show) {
-        console.info(
-          "Live tracking disabled by user setting (navigation page)",
-        );
-        return;
-      }
-    } catch (error) {
-      void error;
-    }
-
-    this.liveTracker = new LiveTripTracker(this.map);
-
-    this.liveTracker.setActiveTrip = (trip) => {
-      this.handleLiveTripUpdate(trip);
-    };
-    this.liveTracker.clearActiveTrip = () => {
-      this.handleLiveTripClear();
-    };
-
-    if (window.handleError) {
-      window.handleError(
-        "Live tracking initialized for navigation.",
-        "initLiveTracking",
-        "info",
-      );
-    }
-  }
-
-  handleLiveTripUpdate(trip) {
-    if (this.clearTripTimeout) {
-      clearTimeout(this.clearTripTimeout);
-      this.clearTripTimeout = null;
-    }
-
-    if (!trip || !trip.coordinates || trip.coordinates.length === 0) {
-      this.handleLiveTripClear();
-      return;
-    }
-
-    const sortedCoords = [...trip.coordinates].sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
-    );
-    const latLngs = sortedCoords.map((coord) => [coord.lat, coord.lon]);
-    const latestCoord = sortedCoords[sortedCoords.length - 1];
-    const latLng = [latestCoord.lat, latestCoord.lon];
-
-    this.lastKnownLocation = { lat: latestCoord.lat, lon: latestCoord.lon };
-
-    if (this.liveTracker?.polyline) {
-      this.liveTracker.polyline.setLatLngs(latLngs);
-      this.liveTracker.polyline.bringToFront();
-    }
-
-    if (this.liveTracker?.marker) {
-      if (!this.map.hasLayer(this.liveTracker.marker)) {
-        this.liveTracker.marker.addTo(this.map);
-      }
-
-      this.liveTracker.marker.setLatLng(latLng);
-
-      if (trip.currentSpeed !== undefined) {
-        const speed = trip.currentSpeed;
-        let markerClass = "live-location-marker";
-
-        if (speed === 0) markerClass += " vehicle-stopped";
-        else if (speed < 10) markerClass += " vehicle-slow";
-        else if (speed < 35) markerClass += " vehicle-medium";
-        else markerClass += " vehicle-fast";
-
-        this.liveTracker.marker.setIcon(
-          L.divIcon({
-            className: markerClass,
-            iconSize: [16, 16],
-            html: `<div class="vehicle-marker-inner" data-speed="${Math.round(speed)}"></div>`,
-            iconAnchor: [8, 8],
-          }),
-        );
-      }
-
-      if (this.liveTracker.marker.options.opacity === 0) {
-        this.liveTracker.marker.setOpacity(1);
-        if (this.map && this.getAutoFollowState()) {
-          this.map.setView(latLng, 16);
-        }
-      } else if (this.map && this.getAutoFollowState()) {
-        this.map.panTo(latLng, { animate: true, duration: 0.5 });
-      }
-    }
-
-    this.setStatus(
-      `Live tracking active. Speed: ${Math.round(trip.currentSpeed ?? 0)} mph`,
-    );
-
-    const buttonsToEnable = [
-      this.findBtn,
-      this.calcCoverageBtn,
-      this.findEfficientBtn,
-    ];
-    buttonsToEnable.forEach((btn) => {
-      if (
-        btn?.disabled &&
-        btn.dataset.disabledReason === "no-location" &&
-        this.selectedArea
-      ) {
-        btn.disabled = false;
-        delete btn.dataset.disabledReason;
-      }
-    });
-  }
-
-  handleLiveTripClear() {
-    if (this.clearTripTimeout) return;
-    const CLEAR_DELAY_MS = 7000;
-
-    this.clearTripTimeout = setTimeout(() => {
-      this.lastKnownLocation = null;
-      if (this.liveTracker?.marker) this.liveTracker.marker.setOpacity(0);
-      if (this.liveTracker?.polyline) this.liveTracker.polyline.setLatLngs([]);
-      this.clearTripTimeout = null;
-      this.setStatus(
-        "Live tracking signal lost. Using last known trip end for routing.",
-        true,
-      );
-    }, CLEAR_DELAY_MS);
-  }
-
   setupEventListeners() {
     this.areaSelect?.addEventListener("change", () => this.handleAreaChange());
     this.findBtn?.addEventListener("click", () => this.findAndDisplayRoute());
@@ -295,15 +156,6 @@ class DrivingNavigation {
         this.openInAppleMaps(),
       );
     }
-
-    this.map?.on("layeradd", () =>
-      setTimeout(() => this.bringLiveElementsToFront(), 50),
-    );
-    this.map?.on("zoomend", () => this.bringLiveElementsToFront());
-    this.map?.on("moveend", () => this.bringLiveElementsToFront());
-    document.addEventListener("mapUpdated", () =>
-      this.bringLiveElementsToFront(),
-    );
   }
 
   loadAutoFollowState() {
@@ -706,8 +558,6 @@ class DrivingNavigation {
       distance: data.route_distance_meters,
     });
 
-    this.bringLiveElementsToFront();
-
     let boundsToFit;
     if (this.lastKnownLocation && data.target_street.start_coords) {
       const routeStart = [
@@ -719,9 +569,6 @@ class DrivingNavigation {
         data.target_street.start_coords[0],
       ];
       boundsToFit = L.latLngBounds([routeStart, targetStart]);
-      if (this.liveTracker?.marker?.getLatLng()) {
-        boundsToFit.extend(this.liveTracker.marker.getLatLng());
-      }
     } else if (routeLayer?.getBounds) {
       boundsToFit = routeLayer.getBounds();
     }
@@ -770,11 +617,6 @@ class DrivingNavigation {
       });
       this.targetStreetLayer = null;
     }
-  }
-
-  bringLiveElementsToFront() {
-    this.liveTracker?.polyline?.bringToFront();
-    this.liveTracker?.marker?.bringToFront();
   }
 
   setStatus(message, isError = false) {
@@ -932,7 +774,6 @@ class DrivingNavigation {
           duration: data.total_duration_seconds,
           distance: data.total_distance_meters,
         });
-        this.bringLiveElementsToFront();
       } else {
         throw new Error(
           data.message ||

@@ -6,7 +6,6 @@ the unified TripProcessor, and stores trips in MongoDB.
 
 import asyncio
 import logging
-import os
 from datetime import datetime, timedelta
 
 import aiohttp

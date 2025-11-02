@@ -52,7 +52,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
                     fetch_concurrency = int(fetch_concurrency)
                 except (ValueError, TypeError):
                     fetch_concurrency = 12
-            
+
             return {
                 "client_id": credentials.get("client_id", ""),
                 "client_secret": credentials.get("client_secret", ""),
@@ -136,7 +136,9 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     else int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12"))
                 )
                 try:
-                    fetch_concurrency = int(fetch_concurrency) if fetch_concurrency else 12
+                    fetch_concurrency = (
+                        int(fetch_concurrency) if fetch_concurrency else 12
+                    )
                 except (ValueError, TypeError):
                     fetch_concurrency = 12
 
@@ -147,7 +149,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
             "authorization_code": credentials.get("authorization_code", ""),
             "authorized_devices": devices,
         }
-        
+
         # Only include fetch_concurrency if it was provided in the update
         if "fetch_concurrency" in credentials:
             update_data["fetch_concurrency"] = fetch_concurrency
