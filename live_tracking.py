@@ -126,6 +126,8 @@ async def process_trip_start(
         "duration": 0.0,
         "pointsRecorded": 0,
         "sequence": sequence,
+        "speedSum": 0.0,  # For incremental average speed calculation
+        "speedCount": 0,  # For incremental average speed calculation
         "totalIdlingTime": 0.0,
         "hardBrakingCounts": 0,
         "hardAccelerationCounts": 0,
@@ -169,7 +171,6 @@ async def process_trip_start(
         )
 
 
-# In live_tracking.py - Replace the entire process_trip_data function
 async def process_trip_data(
     data: dict[str, Any],
     live_collection: Collection,
@@ -177,7 +178,8 @@ async def process_trip_data(
 ) -> None:
     """Process a tripData event from the Bouncie webhook.
 
-    Updates coordinates and recalculates live metrics for an active trip.
+    Updates coordinates and recalculates live metrics incrementally for an active trip.
+    Uses MongoDB atomic operators to avoid reading and rewriting entire arrays.
 
     Args:
         data: The webhook payload conforming to Bouncie API spec.
@@ -207,6 +209,18 @@ async def process_trip_data(
             {
                 "transactionId": transaction_id,
                 "status": "active",
+            },
+            projection={
+                "_id": 1,
+                "coordinates": 1,
+                "startTime": 1,
+                "distance": 1,
+                "maxSpeed": 1,
+                "avgSpeed": 1,
+                "speedSum": 1,
+                "speedCount": 1,
+                "sequence": 1,
+                "gps": 1,
             },
         )
     except Exception as find_err:
@@ -300,80 +314,43 @@ async def process_trip_data(
         )
         return
 
-    # Sort by timestamp
+    # Sort new coordinates by timestamp
     new_coords.sort(key=lambda x: x["timestamp"])
 
-    # Get existing coordinates from trip document
+    # Get the last known coordinate to calculate incremental metrics
     existing_coords = trip_doc.get("coordinates", [])
+    last_coord = None
+    if existing_coords:
+        # Find the last coordinate by timestamp
+        # Handle cases where coordinates might not be sorted or have invalid timestamps
+        valid_coords_with_ts = [
+            c for c in existing_coords
+            if isinstance(c, dict) and isinstance(c.get("timestamp"), datetime)
+        ]
+        if valid_coords_with_ts:
+            last_coord = max(valid_coords_with_ts, key=lambda c: c["timestamp"])
+        elif existing_coords:
+            # Fallback: use the last coordinate in the array if no valid timestamps
+            last_coord = existing_coords[-1] if isinstance(existing_coords[-1], dict) else None
 
-    # Merge with existing coordinates
-    all_coords_map = {}
-
-    # Add existing coordinates to map
-    for coord in existing_coords:
-        if isinstance(coord, dict) and "timestamp" in coord:
-            ts_key = (
-                coord["timestamp"].isoformat()
-                if isinstance(coord["timestamp"], datetime)
-                else str(coord["timestamp"])
-            )
-            all_coords_map[ts_key] = coord
-
-    # Add new coordinates, potentially overwriting duplicates
-    for coord in new_coords:
-        ts_key = coord["timestamp"].isoformat()
-        all_coords_map[ts_key] = coord
-
-    # Sort all coordinates by timestamp
-    sorted_coords = sorted(all_coords_map.values(), key=lambda x: x["timestamp"])
-
-    # Build GeoJSON representation
-    geojson_coords = []
-    for coord in sorted_coords:
-        if "lon" in coord and "lat" in coord:
-            geojson_coords.append([coord["lon"], coord["lat"]])
-
-    # Determine GeoJSON type
-    if len(geojson_coords) == 0:
-        updated_gps = {"type": "Point", "coordinates": []}
-    elif len(geojson_coords) == 1:
-        updated_gps = {"type": "Point", "coordinates": geojson_coords[0]}
-    else:
-        # Remove consecutive duplicates
-        unique_coords = [geojson_coords[0]]
-        for i in range(1, len(geojson_coords)):
-            if geojson_coords[i] != geojson_coords[i - 1]:
-                unique_coords.append(geojson_coords[i])
-
-        if len(unique_coords) == 1:
-            updated_gps = {"type": "Point", "coordinates": unique_coords[0]}
-        else:
-            updated_gps = {"type": "LineString", "coordinates": unique_coords}
-
-    # Calculate metrics
-    start_time = trip_doc.get("startTime")
-    if not isinstance(start_time, datetime):
-        start_time = (
-            _parse_mongo_date_dict(start_time) if isinstance(start_time, dict) else None
-        )
-
-    last_point_time = (
-        sorted_coords[-1]["timestamp"] if sorted_coords else datetime.now(timezone.utc)
-    )
-    duration_seconds = 0.0
-    if start_time and isinstance(last_point_time, datetime):
-        duration_seconds = max(0.0, (last_point_time - start_time).total_seconds())
-
-    # Calculate distance and speeds
-    total_distance = 0.0
-    max_speed = 0.0
+    # Calculate incremental metrics only for new segments
+    incremental_distance = 0.0
+    incremental_max_speed = 0.0
     current_speed = 0.0
-    speeds = []
+    speed_values = []  # For calculating average speed incrementally
+    start_point = last_coord if last_coord else None
 
-    if len(sorted_coords) >= 2:
-        for i in range(1, len(sorted_coords)):
-            prev = sorted_coords[i - 1]
-            curr = sorted_coords[i]
+    # Build list of points to process (last point + new points)
+    points_to_process = []
+    if start_point:
+        points_to_process.append(start_point)
+    points_to_process.extend(new_coords)
+
+    # Calculate metrics for new segments only
+    if len(points_to_process) >= 2:
+        for i in range(1, len(points_to_process)):
+            prev = points_to_process[i - 1]
+            curr = points_to_process[i]
 
             if all(k in prev for k in ["lon", "lat"]) and all(
                 k in curr for k in ["lon", "lat"]
@@ -385,7 +362,7 @@ async def process_trip_data(
                     curr["lat"],
                     unit="miles",
                 )
-                total_distance += segment_distance
+                incremental_distance += segment_distance
 
                 # Calculate speed if we have timestamps
                 if "timestamp" in prev and "timestamp" in curr:
@@ -393,63 +370,181 @@ async def process_trip_data(
                     if time_diff > 0.5:
                         segment_speed = (segment_distance / time_diff) * 3600
                         if 0 <= segment_speed < 200:  # Reasonable speed range
-                            speeds.append(segment_speed)
-                            max_speed = max(max_speed, segment_speed)
-                            if i == len(sorted_coords) - 1:
+                            speed_values.append(segment_speed)
+                            incremental_max_speed = max(
+                                incremental_max_speed, segment_speed
+                            )
+                            if i == len(points_to_process) - 1:
                                 current_speed = segment_speed
 
     # Use speed from data if available and no calculated speed
-    if current_speed == 0 and sorted_coords and "speed" in sorted_coords[-1]:
-        current_speed = sorted_coords[-1]["speed"]
+    if current_speed == 0 and new_coords and "speed" in new_coords[-1]:
+        current_speed = new_coords[-1]["speed"]
 
-    # Calculate average speed
-    avg_speed = 0.0
-    if speeds:
-        avg_speed = sum(speeds) / len(speeds)
-    elif duration_seconds > 0:
-        avg_speed = total_distance / (duration_seconds / 3600)
+    # Get current values for incremental updates
+    existing_distance = trip_doc.get("distance", 0.0)
+    existing_max_speed = trip_doc.get("maxSpeed", 0.0)
+    existing_speed_sum = trip_doc.get("speedSum", 0.0)
+    existing_speed_count = trip_doc.get("speedCount", 0)
 
-    # Preserve maximum speed
-    max_speed = max(max_speed, trip_doc.get("maxSpeed", 0.0))
+    # Update speed sum and count for average speed calculation
+    new_speed_sum = existing_speed_sum + sum(speed_values)
+    new_speed_count = existing_speed_count + len(speed_values)
+
+    # Calculate new average speed
+    new_avg_speed = 0.0
+    if new_speed_count > 0:
+        new_avg_speed = new_speed_sum / new_speed_count
+    else:
+        # Fallback: calculate from distance/duration
+        start_time = trip_doc.get("startTime")
+        if not isinstance(start_time, datetime):
+            start_time = (
+                _parse_mongo_date_dict(start_time)
+                if isinstance(start_time, dict)
+                else None
+            )
+        last_point_time = new_coords[-1]["timestamp"] if new_coords else datetime.now(timezone.utc)
+        if start_time and isinstance(last_point_time, datetime):
+            duration_seconds = max(
+                0.0, (last_point_time - start_time).total_seconds()
+            )
+            if duration_seconds > 0:
+                total_distance = existing_distance + incremental_distance
+                new_avg_speed = total_distance / (duration_seconds / 3600)
+
+    # Determine new max speed
+    new_max_speed = max(existing_max_speed, incremental_max_speed)
+
+    # Get last point timestamp for duration calculation
+    last_point_time = (
+        new_coords[-1]["timestamp"] if new_coords else datetime.now(timezone.utc)
+    )
+    start_time = trip_doc.get("startTime")
+    if not isinstance(start_time, datetime):
+        start_time = (
+            _parse_mongo_date_dict(start_time) if isinstance(start_time, dict) else None
+        )
+    duration_seconds = 0.0
+    if start_time and isinstance(last_point_time, datetime):
+        duration_seconds = max(0.0, (last_point_time - start_time).total_seconds())
 
     sequence = max(
         trip_doc.get("sequence", 0) + 1,
         int(time.time_ns() / 1000),
     )
 
-    update_payload = {
-        "gps": updated_gps,
-        "coordinates": sorted_coords,  # Keep for frontend compatibility
-        "lastUpdate": last_point_time,
-        "distance": total_distance,
-        "currentSpeed": current_speed,
-        "maxSpeed": max_speed,
-        "avgSpeed": avg_speed,
-        "duration": duration_seconds,
-        "sequence": sequence,
-        "pointsRecorded": len(sorted_coords),
+    # Remove duplicates from new_coords based on timestamp before pushing
+    # Use a set to track seen timestamps (as ISO strings for hashing)
+    seen_timestamps = set()
+    if existing_coords:
+        for coord in existing_coords:
+            if isinstance(coord, dict) and "timestamp" in coord:
+                ts = coord["timestamp"]
+                ts_key = (
+                    ts.isoformat() if isinstance(ts, datetime) else str(ts)
+                )
+                seen_timestamps.add(ts_key)
+
+    unique_new_coords = []
+    for coord in new_coords:
+        ts_key = coord["timestamp"].isoformat()
+        if ts_key not in seen_timestamps:
+            unique_new_coords.append(coord)
+            seen_timestamps.add(ts_key)
+
+    if not unique_new_coords:
+        logger.debug(
+            "All new coordinates were duplicates for %s. Updating sequence only.",
+            transaction_id,
+        )
+        await live_collection.update_one(
+            {"_id": trip_doc["_id"]},
+            {
+                "$set": {
+                    "sequence": sequence,
+                    "lastUpdate": last_point_time,
+                },
+            },
+        )
+        return
+
+    # Use MongoDB atomic operators for incremental updates
+    update_ops = {
+        "$push": {
+            "coordinates": {
+                "$each": unique_new_coords,
+                "$sort": {"timestamp": 1},
+            },
+        },
+        "$inc": {
+            "distance": incremental_distance,
+            "pointsRecorded": len(unique_new_coords),
+            "speedSum": sum(speed_values),
+            "speedCount": len(speed_values),
+        },
+        "$set": {
+            "lastUpdate": last_point_time,
+            "currentSpeed": current_speed,
+            "maxSpeed": new_max_speed,
+            "avgSpeed": new_avg_speed,
+            "duration": duration_seconds,
+            "sequence": sequence,
+        },
     }
 
     try:
+        # First, update with atomic operators
         update_result = await live_collection.find_one_and_update(
             {"_id": trip_doc["_id"], "status": "active"},
-            {"$set": update_payload},
+            update_ops,
             return_document=pymongo.ReturnDocument.AFTER,
         )
 
-        if update_result:
-            logger.info(
-                "Updated trip data for %s: %d new points processed, total points: %d (seq=%d)",
-                transaction_id,
-                len(new_coords),
-                len(sorted_coords),
-                sequence,
-            )
-        else:
+        if not update_result:
             logger.warning(
                 "Failed to find active trip %s for update. May have been archived.",
                 transaction_id,
             )
+            return
+
+        # After updating coordinates, rebuild GeoJSON LineString
+        # This is still needed but only happens after the incremental update
+        updated_coords = update_result.get("coordinates", [])
+        geojson_coords = []
+        for coord in updated_coords:
+            if isinstance(coord, dict) and "lon" in coord and "lat" in coord:
+                geojson_coords.append([coord["lon"], coord["lat"]])
+
+        # Determine GeoJSON type and deduplicate consecutive points
+        if len(geojson_coords) == 0:
+            updated_gps = {"type": "Point", "coordinates": []}
+        elif len(geojson_coords) == 1:
+            updated_gps = {"type": "Point", "coordinates": geojson_coords[0]}
+        else:
+            # Remove consecutive duplicates
+            unique_coords = [geojson_coords[0]]
+            for i in range(1, len(geojson_coords)):
+                if geojson_coords[i] != geojson_coords[i - 1]:
+                    unique_coords.append(geojson_coords[i])
+
+            if len(unique_coords) == 1:
+                updated_gps = {"type": "Point", "coordinates": unique_coords[0]}
+            else:
+                updated_gps = {"type": "LineString", "coordinates": unique_coords}
+
+        # Update GeoJSON separately (this is the only non-incremental part)
+        await live_collection.update_one(
+            {"_id": trip_doc["_id"]},
+            {"$set": {"gps": updated_gps}},
+        )
+
+        logger.info(
+            "Updated trip data for %s: %d new points processed (seq=%d)",
+            transaction_id,
+            len(unique_new_coords),
+            sequence,
+        )
     except Exception as update_err:
         logger.error(
             "Database error updating trip %s: %s",
