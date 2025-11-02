@@ -311,7 +311,7 @@ async def check_dependencies(
         if task_id not in TASK_METADATA:
             return {
                 "can_run": False,
-                "reason": f"Unknown task: {task_id}",
+                "reason": "Unknown task: %s" % task_id,
             }
 
         dependencies = TASK_METADATA[task_id].get("dependencies", [])
@@ -324,7 +324,9 @@ async def check_dependencies(
         for dep_id in dependencies:
             if dep_id not in tasks_config:
                 logger.warning(
-                    f"Task {task_id} dependency {dep_id} not found in configuration.",
+                    "Task %s dependency %s not found in configuration.",
+                    task_id,
+                    dep_id,
                 )
                 continue
 
@@ -336,7 +338,7 @@ async def check_dependencies(
             ]:
                 return {
                     "can_run": False,
-                    "reason": f"Dependency '{dep_id}' is currently {dep_status}",
+                    "reason": "Dependency '{}' is currently {}".format(dep_id, dep_status),
                 }
 
             if dep_status == TaskStatus.FAILED.value:
@@ -360,7 +362,7 @@ async def check_dependencies(
                 ):
                     return {
                         "can_run": False,
-                        "reason": f"Dependency '{dep_id}' failed recently",
+                        "reason": "Dependency '%s' failed recently" % dep_id,
                     }
 
         return {"can_run": True}
@@ -369,7 +371,7 @@ async def check_dependencies(
         logger.exception("Error checking dependencies for %s: %s", task_id, e)
         return {
             "can_run": False,
-            "reason": f"Error checking dependencies: {e!s}",
+            "reason": "Error checking dependencies: %s" % e,
         }
 
 
@@ -417,7 +419,9 @@ async def update_task_history_entry(
                 update_fields["runtime"] = float(runtime_ms)
             except (ValueError, TypeError):
                 logger.warning(
-                    f"Could not convert runtime {runtime_ms} to float for {celery_task_id}",
+                    "Could not convert runtime %s to float for %s",
+                    runtime_ms,
+                    celery_task_id,
                 )
                 update_fields["runtime"] = None
 
@@ -429,10 +433,13 @@ async def update_task_history_entry(
                 update_fields["result"] = serialized_result
             except Exception as ser_err:
                 logger.warning(
-                    f"Could not serialize result for {task_name} ({celery_task_id}) history: {ser_err}",
+                    "Could not serialize result for %s (%s) history: %s",
+                    task_name,
+                    celery_task_id,
+                    ser_err,
                 )
                 update_fields["result"] = (
-                    f"<Unserializable Result: {type(result).__name__}>"
+                    "<Unserializable Result: %s>" % type(result).__name__
                 )
         if error is not None:
             update_fields["error"] = str(error)
@@ -445,7 +452,10 @@ async def update_task_history_entry(
         )
     except Exception as e:
         logger.exception(
-            f"Error updating task history for {celery_task_id} ({task_name}): {e}",
+            "Error updating task history for %s (%s): %s",
+            celery_task_id,
+            task_name,
+            e,
         )
 
 
@@ -470,7 +480,11 @@ def task_runner(func: Callable) -> Callable:
         status_manager = TaskStatusManager.get_instance()
         start_time = datetime.now(timezone.utc)
         celery_task_id = self.request.id
-        manual_run = self.request.get("manual_run", False)
+        manual_run = (
+            kwargs.get("manual_run", False)
+            or getattr(self.request, "kwargs", {}).get("manual_run", False)
+            or getattr(self.request, "manual_run", False)
+        )
 
         try:
             # Task startup: update status to RUNNING
@@ -498,7 +512,10 @@ def task_runner(func: Callable) -> Callable:
             runtime = (end_time - start_time).total_seconds() * 1000
 
             logger.info(
-                f"Task {task_name} ({celery_task_id}) completed successfully. Runtime: {runtime:.0f}ms",
+                "Task %s (%s) completed successfully. Runtime: %.0fms",
+                task_name,
+                celery_task_id,
+                runtime,
             )
 
             await status_manager.update_status(task_name, TaskStatus.COMPLETED.value)
@@ -517,10 +534,12 @@ def task_runner(func: Callable) -> Callable:
             # Task completion on failure
             end_time = datetime.now(timezone.utc)
             runtime = (end_time - start_time).total_seconds() * 1000
-            error_msg = f"Error in {task_name}: {e}"
-
             logger.exception(
-                f"Task {task_name} ({celery_task_id}) failed: {error_msg}",
+                "Task %s (%s) failed: Error in %s: %s",
+                task_name,
+                celery_task_id,
+                task_name,
+                e,
             )
 
             await status_manager.update_status(
@@ -584,9 +603,10 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
             latest_trip_end = latest_trip.get("endTime")
 
             logger.info(
-                f"Found most recent trip: id={latest_trip_id}, "
-                f"source={latest_trip_source}, "
-                f"endTime={latest_trip_end}",
+                "Found most recent trip: id=%s, source=%s, endTime=%s",
+                latest_trip_id,
+                latest_trip_source,
+                latest_trip_end,
             )
 
             if latest_trip_end:
@@ -595,26 +615,30 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
 
                 start_date_fetch = latest_trip_end
                 logger.info(
-                    f"Using latest trip endTime as start_date_fetch: {start_date_fetch.isoformat()}"
+                    "Using latest trip endTime as start_date_fetch: %s",
+                    start_date_fetch.isoformat(),
                 )
             else:
                 logger.warning("Latest trip has no endTime, using fallback")
                 start_date_fetch = now_utc - timedelta(hours=48)
                 logger.info(
-                    f"Using fallback start date (48 hours ago): {start_date_fetch.isoformat()}"
+                    "Using fallback start date (48 hours ago): %s",
+                    start_date_fetch.isoformat(),
                 )
         else:
             logger.warning("No trips found in database, using fallback date range")
             start_date_fetch = now_utc - timedelta(hours=48)
             logger.info(
-                f"Using fallback start date (48 hours ago): {start_date_fetch.isoformat()}"
+                "Using fallback start date (48 hours ago): %s",
+                start_date_fetch.isoformat(),
             )
 
     except Exception as e:
         logger.exception("Error finding latest trip: %s", e)
         start_date_fetch = now_utc - timedelta(hours=48)
         logger.info(
-            f"Using fallback start date after error (48 hours ago): {start_date_fetch.isoformat()}"
+            "Using fallback start date after error (48 hours ago): %s",
+            start_date_fetch.isoformat(),
         )
 
     max_lookback = now_utc - timedelta(days=7)
@@ -622,7 +646,9 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
         old_start = start_date_fetch
         start_date_fetch = max_lookback
         logger.info(
-            f"Limited start date from {old_start.isoformat()} to {start_date_fetch.isoformat()} (7 day max)"
+            "Limited start date from %s to %s (7 day max)",
+            old_start.isoformat(),
+            start_date_fetch.isoformat(),
         )
 
     logger.info(
@@ -674,7 +700,8 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
             {"source": "bouncie"},
         )
         logger.info(
-            f"Total trips with source='bouncie' after fetch: {trips_after_fetch}",
+            "Total trips with source='bouncie' after fetch: %d",
+            trips_after_fetch,
         )
 
         trips_recent = await count_documents_with_retry(
@@ -685,14 +712,16 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
             },
         )
         logger.info(
-            f"Trips with source='bouncie' since {start_date_fetch.isoformat()}: {trips_recent}"
+            "Trips with source='bouncie' since %s: %d",
+            start_date_fetch.isoformat(),
+            trips_recent,
         )
     except Exception as count_err:
         logger.exception("Error counting trips in database: %s", count_err)
 
     return {
         "status": "success",
-        "message": f"Fetched {len(fetched_trips)} trips successfully",
+        "message": "Fetched %d trips successfully" % len(fetched_trips),
         "trips_fetched": len(fetched_trips),
         "date_range": {
             "start": start_date_fetch.isoformat(),
@@ -730,7 +759,7 @@ async def manual_fetch_trips_range_async(
     def _parse_iso(dt_str: str) -> datetime:
         parsed = parse_timestamp(dt_str)
         if not parsed:
-            raise ValueError(f"Invalid date value: {dt_str}")
+            raise ValueError("Invalid date value: %s" % dt_str)
         return parsed
 
     start_dt = _parse_iso(start_iso)
@@ -779,9 +808,10 @@ def manual_fetch_trips_range(
     start_iso: str,
     end_iso: str,
     map_match: bool = False,
-    manual_run: bool = True,
+    **kwargs,
 ):
     """Celery task wrapper for manual date-range trip fetches."""
+    manual_run = kwargs.get("manual_run", True)
 
     return run_async_from_sync(
         manual_fetch_trips_range_async(
@@ -803,7 +833,8 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
 
     coverage_areas = await find_with_retry(coverage_metadata_collection, {})
     logger.info(
-        f"Found {len(coverage_areas)} coverage areas to check for incremental updates."
+        "Found %d coverage areas to check for incremental updates.",
+        len(coverage_areas),
     )
 
     for area in coverage_areas:
@@ -812,19 +843,22 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
         display_name = (
             location.get("display_name", "Unknown")
             if location
-            else f"Unknown (ID: {area_id_str})"
+            else "Unknown (ID: %s)" % area_id_str
         )
 
         if not location:
             logger.warning(
-                f"Skipping area {area_id_str} due to missing location data.",
+                "Skipping area %s due to missing location data.",
+                area_id_str,
             )
             skipped_areas += 1
             continue
 
-        sub_task_id = f"incr_update_{area_id_str}_{uuid.uuid4()}"
+        sub_task_id = "incr_update_{}_{}".format(area_id_str, uuid.uuid4())
         logger.info(
-            f"Processing incremental update for '{display_name}' (SubTask: {sub_task_id})",
+            "Processing incremental update for '%s' (SubTask: %s)",
+            display_name,
+            sub_task_id,
         )
 
         try:
@@ -832,12 +866,16 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
 
             if result:
                 logger.info(
-                    f"Successfully updated coverage for '{display_name}'. New coverage: {result.get('coverage_percentage', 0):.2f}%"
+                    "Successfully updated coverage for '%s'. New coverage: %.2f%%",
+                    display_name,
+                    result.get("coverage_percentage", 0),
                 )
                 processed_areas += 1
             else:
                 logger.warning(
-                    f"Incremental update failed or returned no result for '{display_name}' (SubTask: {sub_task_id}). Check previous logs.",
+                    "Incremental update failed or returned no result for '%s' (SubTask: %s). Check previous logs.",
+                    display_name,
+                    sub_task_id,
                 )
                 failed_areas += 1
 
@@ -845,7 +883,9 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
 
         except Exception as inner_e:
             logger.error(
-                f"Error during incremental update for '{display_name}': {inner_e}",
+                "Error during incremental update for '%s': %s",
+                display_name,
+                inner_e,
                 exc_info=True,
             )
             failed_areas += 1
@@ -864,12 +904,17 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
                 )
             except Exception as prog_err:
                 logger.error(
-                    f"Failed to update progress status for failed sub-task {sub_task_id}: {prog_err}",
+                    "Failed to update progress status for failed sub-task %s: %s",
+                    sub_task_id,
+                    prog_err,
                 )
             continue
 
     logger.info(
-        f"Completed automated incremental updates. Processed: {processed_areas}, Failed: {failed_areas}, Skipped: {skipped_areas}",
+        "Completed automated incremental updates. Processed: %d, Failed: %d, Skipped: %d",
+        processed_areas,
+        failed_areas,
+        skipped_areas,
     )
 
     return {
@@ -877,7 +922,8 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
         "areas_processed": processed_areas,
         "areas_failed": failed_areas,
         "areas_skipped": skipped_areas,
-        "message": f"Completed incremental updates. Processed: {processed_areas}, Failed: {failed_areas}, Skipped: {skipped_areas}",
+        "message": "Completed incremental updates. Processed: %d, Failed: %d, Skipped: %d"
+        % (processed_areas, failed_areas, skipped_areas),
     }
 
 
@@ -924,12 +970,15 @@ async def cleanup_stale_trips_async(self) -> dict[str, Any]:
     stale_archived_count = cleanup_result.get("stale_trips_archived", 0)
     old_removed_count = cleanup_result.get("old_archives_removed", 0)
     logger.info(
-        f"Cleanup logic completed: Archived {stale_archived_count} stale live trips, removed {old_removed_count} old archives.",
+        "Cleanup logic completed: Archived %d stale live trips, removed %d old archives.",
+        stale_archived_count,
+        old_removed_count,
     )
 
     return {
         "status": "success",
-        "message": f"Cleaned up {stale_archived_count} stale trips, removed {old_removed_count} old archives.",
+        "message": "Cleaned up %d stale trips, removed %d old archives."
+        % (stale_archived_count, old_removed_count),
         "details": cleanup_result,
     }
 
@@ -1005,19 +1054,25 @@ async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
                         ordered=False,
                     )
                     logger.info(
-                        f"Executed validation batch: Matched={result.matched_count}, Modified={result.modified_count}",
+                        "Executed validation batch: Matched=%d, Modified=%d",
+                        result.matched_count,
+                        result.modified_count,
                     )
                 except BulkWriteError as bwe:
                     logger.error(
-                        f"Bulk write error during validation: {bwe.details}",
+                        "Bulk write error during validation: %s",
+                        bwe.details,
                     )
                 except Exception as bulk_err:
                     logger.error(
-                        f"Error executing validation batch: {bulk_err}",
+                        "Error executing validation batch: %s",
+                        bulk_err,
                     )
             batch_updates = []
             logger.info(
-                f"Processed {processed_count}/{total_docs_to_process} trips for validation.",
+                "Processed %d/%d trips for validation.",
+                processed_count,
+                total_docs_to_process,
             )
             await asyncio.sleep(0.1)
 
@@ -1025,11 +1080,14 @@ async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
         try:
             result = await trips_collection.bulk_write(batch_updates, ordered=False)
             logger.info(
-                f"Executed final validation batch: Matched={result.matched_count}, Modified={result.modified_count}",
+                "Executed final validation batch: Matched=%d, Modified=%d",
+                result.matched_count,
+                result.modified_count,
             )
         except BulkWriteError as bwe:
             logger.error(
-                f"Bulk write error during final validation batch: {bwe.details}",
+                "Bulk write error during final validation batch: %s",
+                bwe.details,
             )
         except Exception as bulk_err:
             logger.error("Error executing final validation batch: %s", bulk_err)
@@ -1086,7 +1144,9 @@ async def remap_unmatched_trips_async(self) -> dict[str, Any]:
     query = {"transactionId": {"$nin": list(matched_ids)}}
     trips_to_process = await find_with_retry(trips_collection, query, limit=limit)
     logger.info(
-        f"Found {len(trips_to_process)} trips to attempt remapping (limit {limit})."
+        "Found %d trips to attempt remapping (limit %d).",
+        len(trips_to_process),
+        limit,
     )
 
     mapbox_token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
@@ -1107,17 +1167,17 @@ async def remap_unmatched_trips_async(self) -> dict[str, Any]:
     failed_count = result["failed"]
 
     logger.info(
-        f"Remapping attempt finished. Succeeded: {remap_count}, Failed: {failed_count}",
+        "Remapping attempt finished. Succeeded: %d, Failed: %d",
+        remap_count,
+        failed_count,
     )
 
     return {
         "status": "success",
         "remapped_count": remap_count,
         "failed_count": failed_count,
-        "message": (
-            f"Attempted remapping for {len(trips_to_process)} trips. "
-            f"Succeeded: {remap_count}, Failed: {failed_count}"
-        ),
+        "message": "Attempted remapping for %d trips. Succeeded: %d, Failed: %d"
+        % (len(trips_to_process), remap_count, failed_count),
     }
 
 
@@ -1153,7 +1213,9 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
 
     trips_to_process = await find_with_retry(trips_collection, query, limit=limit)
     logger.info(
-        f"Found {len(trips_to_process)} trips needing validation (limit {limit})."
+        "Found %d trips needing validation (limit %d).",
+        len(trips_to_process),
+        limit,
     )
 
     mapbox_token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
@@ -1192,7 +1254,9 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
 
         except Exception as e:
             logger.error(
-                f"Unexpected error validating trip {trip_id}: {e}",
+                "Unexpected error validating trip %s: %s",
+                trip_id,
+                e,
                 exc_info=False,
             )
             failed_count += 1
@@ -1204,7 +1268,7 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
                             "validated_at": datetime.now(timezone.utc),
                             "validation_status": TaskStatus.FAILED.value,
                             "invalid": True,
-                            "validation_message": f"Task Error: {e!s}",
+                            "validation_message": "Task Error: %s" % e,
                         },
                     },
                 ),
@@ -1218,11 +1282,14 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
                         batch_updates, ordered=False
                     )
                     logger.debug(
-                        f"Executed validation update batch: Matched={result.matched_count}, Modified={result.modified_count}",
+                        "Executed validation update batch: Matched=%d, Modified=%d",
+                        result.matched_count,
+                        result.modified_count,
                     )
                 except BulkWriteError as bwe:
                     logger.error(
-                        f"Bulk write error during validation update: {bwe.details}",
+                        "Bulk write error during validation update: %s",
+                        bwe.details,
                     )
                 except Exception as bulk_err:
                     logger.error(
@@ -1235,11 +1302,14 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
         try:
             result = await trips_collection.bulk_write(batch_updates, ordered=False)
             logger.debug(
-                f"Executed final validation update batch: Matched={result.matched_count}, Modified={result.modified_count}",
+                "Executed final validation update batch: Matched=%d, Modified=%d",
+                result.matched_count,
+                result.modified_count,
             )
         except BulkWriteError as bwe:
             logger.error(
-                f"Bulk write error during final validation update: {bwe.details}",
+                "Bulk write error during final validation update: %s",
+                bwe.details,
             )
         except Exception as bulk_err:
             logger.error("Error executing final validation update batch: %s", bulk_err)
@@ -1256,7 +1326,8 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
         "processed_count": processed_count,
         "marked_invalid_count": modified_count,
         "failed_count": failed_count,
-        "message": f"Validated {processed_count} trips. Marked {modified_count} as invalid, {failed_count} failed processing.",
+        "message": "Validated %d trips. Marked %d as invalid, %d failed processing."
+        % (processed_count, modified_count, failed_count),
     }
 
 
@@ -1274,7 +1345,7 @@ def validate_trip_data(self, *args, **kwargs):
     return run_async_from_sync(validate_trip_data_async(self))
 
 
-async def run_task_scheduler_async(self) -> None:
+async def run_task_scheduler_async() -> None:
     """Async logic for the main task scheduler.
     This task runs periodically (e.g., every minute) and triggers other tasks
     based on their configured schedules and dependencies.
@@ -1313,7 +1384,8 @@ async def run_task_scheduler_async(self) -> None:
         for task_id, task_config in tasks_to_check.items():
             if task_id not in task_name_mapping:
                 logger.debug(
-                    f"Skipping unknown task_id '{task_id}' found in config during scheduling.",
+                    "Skipping unknown task_id '%s' found in config during scheduling.",
+                    task_id,
                 )
                 continue
 
@@ -1335,7 +1407,9 @@ async def run_task_scheduler_async(self) -> None:
                 continue
             if interval_minutes is None or interval_minutes <= 0:
                 logger.debug(
-                    f"Task '{task_id}' skipped (invalid or zero interval: {interval_minutes}).",
+                    "Task '%s' skipped (invalid or zero interval: %s).",
+                    task_id,
+                    interval_minutes,
                 )
                 skipped_count += 1
                 continue
@@ -1350,7 +1424,9 @@ async def run_task_scheduler_async(self) -> None:
                 last_run = parse_timestamp(last_run_any)
                 if not last_run:
                     logger.warning(
-                        f"Could not parse last_run timestamp '{last_run_any}' for task '{task_id}'.",
+                        "Could not parse last_run timestamp '%s' for task '%s'.",
+                        last_run_any,
+                        task_id,
                     )
 
             if last_run and last_run.tzinfo is None:
@@ -1365,7 +1441,11 @@ async def run_task_scheduler_async(self) -> None:
                 if now_utc >= next_due_time:
                     is_due = True
                     logger.debug(
-                        f"Task '{task_id}' is due (Last run: {last_run.isoformat()}, Interval: {interval_minutes}m, Due: {next_due_time.isoformat()})"
+                        "Task '%s' is due (Last run: %s, Interval: %dm, Due: %s)",
+                        task_id,
+                        last_run.isoformat(),
+                        interval_minutes,
+                        next_due_time.isoformat(),
                     )
 
             if is_due:
@@ -1374,7 +1454,9 @@ async def run_task_scheduler_async(self) -> None:
                     tasks_to_trigger.append(task_id)
                 else:
                     logger.warning(
-                        f"Task '{task_id}' is due but dependencies not met: {dependency_check.get('reason')}"
+                        "Task '%s' is due but dependencies not met: %s",
+                        task_id,
+                        dependency_check.get("reason"),
                     )
                     skipped_count += 1
             else:
@@ -1385,7 +1467,9 @@ async def run_task_scheduler_async(self) -> None:
             return
 
         logger.info(
-            f"Scheduler identified {len(tasks_to_trigger)} tasks to trigger: {', '.join(tasks_to_trigger)}"
+            "Scheduler identified %d tasks to trigger: %s",
+            len(tasks_to_trigger),
+            ", ".join(tasks_to_trigger),
         )
 
         for task_id_to_run in tasks_to_trigger:
@@ -1398,12 +1482,12 @@ async def run_task_scheduler_async(self) -> None:
                 )
                 priority_name = priority_enum.name.lower()
                 queue = (
-                    f"{priority_name}_priority"
+                    "%s_priority" % priority_name
                     if priority_name in ["high", "low"]
                     else "default"
                 )
 
-                celery_task_id = f"{task_id_to_run}_scheduled_{uuid.uuid4()}"
+                celery_task_id = "{}_scheduled_{}".format(task_id_to_run, uuid.uuid4())
 
                 celery_app.send_task(
                     celery_task_name,
@@ -1425,24 +1509,32 @@ async def run_task_scheduler_async(self) -> None:
 
                 triggered_count += 1
                 logger.info(
-                    f"Triggered task '{task_id_to_run}' -> Celery task '{celery_task_name}' (ID: {celery_task_id}) on queue '{queue}'",
+                    "Triggered task '%s' -> Celery task '%s' (ID: %s) on queue '%s'",
+                    task_id_to_run,
+                    celery_task_name,
+                    celery_task_id,
+                    queue,
                 )
 
                 await asyncio.sleep(0.1)
 
             except Exception as trigger_err:
                 logger.error(
-                    f"Failed to trigger task '{task_id_to_run}': {trigger_err}",
+                    "Failed to trigger task '%s': %s",
+                    task_id_to_run,
+                    trigger_err,
                     exc_info=True,
                 )
                 await status_manager.update_status(
                     task_id_to_run,
                     TaskStatus.FAILED.value,
-                    error=f"Scheduler trigger failed: {trigger_err}",
+                    error="Scheduler trigger failed: %s" % trigger_err,
                 )
 
         logger.info(
-            f"Scheduler finished. Triggered: {triggered_count}, Skipped: {skipped_count}",
+            "Scheduler finished. Triggered: %d, Skipped: %d",
+            triggered_count,
+            skipped_count,
         )
         return
 
@@ -1461,7 +1553,7 @@ async def run_task_scheduler_async(self) -> None:
 )
 def run_task_scheduler(self, *args, **kwargs):
     """Celery task wrapper for the main task scheduler."""
-    run_async_from_sync(run_task_scheduler_async(self))
+    run_async_from_sync(run_task_scheduler_async())
 
 
 async def get_all_task_metadata() -> dict[str, Any]:
@@ -1598,7 +1690,7 @@ async def manual_run_task(task_id: str) -> dict[str, Any]:
         success = all(r.get("success", False) for r in results)
         return {
             "status": ("success" if success else "partial_error"),
-            "message": f"Triggered {len(results)} tasks.",
+            "message": "Triggered %d tasks." % len(results),
             "results": results,
         }
 
@@ -1607,14 +1699,14 @@ async def manual_run_task(task_id: str) -> dict[str, Any]:
         result = await _send_manual_task(task_id, task_mapping[task_id])
         return {
             "status": ("success" if result.get("success") else "error"),
-            "message": result.get("message", f"Failed to schedule task {task_id}"),
+            "message": result.get("message", "Failed to schedule task %s" % task_id),
             "task_id": result.get("task_id"),
         }
 
     logger.error("Manual run requested for unknown task: %s", task_id)
     return {
         "status": "error",
-        "message": f"Unknown or non-runnable task ID: {task_id}",
+        "message": "Unknown or non-runnable task ID: %s" % task_id,
     }
 
 
@@ -1647,12 +1739,12 @@ async def _send_manual_task(
         priority_enum = TASK_METADATA[task_name].get("priority", TaskPriority.MEDIUM)
         priority_name = priority_enum.name.lower()
         queue = (
-            f"{priority_name}_priority"
+            "%s_priority" % priority_name
             if priority_name in ["high", "low"]
             else "default"
         )
 
-        celery_task_id = f"{task_name}_manual_{uuid.uuid4()}"
+        celery_task_id = "{}_manual_{}".format(task_name, uuid.uuid4())
 
         result = celery_app.send_task(
             celery_task_string_name,
@@ -1671,12 +1763,16 @@ async def _send_manual_task(
         )
 
         logger.info(
-            f"Manually triggered task '{task_name}' -> Celery task '{celery_task_string_name}' (ID: {celery_task_id}) on queue '{queue}'",
+            "Manually triggered task '%s' -> Celery task '%s' (ID: %s) on queue '%s'",
+            task_name,
+            celery_task_string_name,
+            celery_task_id,
+            queue,
         )
         return {
             "task": task_name,
             "success": True,
-            "message": f"Task {task_name} scheduled successfully.",
+            "message": "Task %s scheduled successfully." % task_name,
             "task_id": result.id,
         }
     except Exception as e:
@@ -1684,7 +1780,7 @@ async def _send_manual_task(
         await status_manager.update_status(
             task_name,
             TaskStatus.FAILED.value,
-            error=f"Manual trigger failed: {e}",
+            error="Manual trigger failed: %s" % e,
         )
         return {
             "task": task_name,
@@ -1714,7 +1810,7 @@ async def trigger_manual_fetch_trips_range(
     if end_utc <= start_utc:
         raise ValueError("End date must be after start date")
 
-    celery_task_id = f"manual_fetch_trips_range_{uuid.uuid4()}"
+    celery_task_id = "manual_fetch_trips_range_%s" % uuid.uuid4()
     kwargs = {
         "start_iso": start_utc.isoformat(),
         "end_iso": end_utc.isoformat(),
@@ -1770,7 +1866,7 @@ async def force_reset_task(
     """Forcefully reset a task's status to IDLE for manual recovery."""
 
     if task_id not in TASK_METADATA:
-        raise ValueError(f"Unknown task_id: {task_id}")
+        raise ValueError("Unknown task_id: %s" % task_id)
 
     now = datetime.now(timezone.utc)
     message = reason or "Task force-stopped by user"
@@ -1790,7 +1886,7 @@ async def force_reset_task(
         upsert=True,
     )
 
-    history_id = f"{task_id}_force_stop_{uuid.uuid4()}"
+    history_id = "{}_force_stop_{}".format(task_id, uuid.uuid4())
     await update_task_history_entry(
         celery_task_id=history_id,
         task_name=task_id,
@@ -1806,7 +1902,7 @@ async def force_reset_task(
 
     return {
         "status": "success",
-        "message": f"Task {task_id} was force reset.",
+        "message": "Task %s was force reset." % task_id,
         "task_id": task_id,
     }
 
@@ -1835,11 +1931,12 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
             if isinstance(global_disable_update, bool):
                 update_payload["disabled"] = global_disable_update
                 changes.append(
-                    f"Global scheduling disable set to {global_disable_update}"
+                    "Global scheduling disable set to %s" % global_disable_update
                 )
             else:
                 logger.warning(
-                    f"Ignoring non-boolean value for globalDisable: {global_disable_update}",
+                    "Ignoring non-boolean value for globalDisable: %s",
+                    global_disable_update,
                 )
 
         if tasks_update:
@@ -1857,11 +1954,14 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
                             if new_val != old_val:
                                 update_payload[f"tasks.{task_id}.enabled"] = new_val
                                 changes.append(
-                                    f"Task '{task_id}' enabled status: {old_val} -> {new_val}",
+                                    "Task '%s' enabled status: %s -> %s"
+                                    % (task_id, old_val, new_val),
                                 )
                         else:
                             logger.warning(
-                                f"Ignoring non-boolean value for enabled status of task '{task_id}': {new_val}",
+                                "Ignoring non-boolean value for enabled status of task '%s': %s",
+                                task_id,
+                                new_val,
                             )
 
                     if "interval_minutes" in settings:
@@ -1869,12 +1969,16 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
                             new_val = int(settings["interval_minutes"])
                             if new_val <= 0:
                                 logger.warning(
-                                    f"Ignoring invalid interval <= 0 for task '{task_id}': {new_val}",
+                                    "Ignoring invalid interval <= 0 for task '%s': %s",
+                                    task_id,
+                                    new_val,
                                 )
                                 continue
                         except (ValueError, TypeError):
                             logger.warning(
-                                f"Ignoring non-integer interval for task '{task_id}': {settings['interval_minutes']}",
+                                "Ignoring non-integer interval for task '%s': %s",
+                                task_id,
+                                settings["interval_minutes"],
                             )
                             continue
 
@@ -1887,11 +1991,13 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
                                 new_val
                             )
                             changes.append(
-                                f"Task '{task_id}' interval: {old_val} -> {new_val} mins",
+                                "Task '%s' interval: %s -> %s mins"
+                                % (task_id, old_val, new_val),
                             )
                 else:
                     logger.warning(
-                        f"Attempted to update configuration for unknown task: {task_id}",
+                        "Attempted to update configuration for unknown task: %s",
+                        task_id,
                     )
 
         if not update_payload:
@@ -1910,7 +2016,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
 
         if result.modified_count > 0 or result.upserted_id is not None:
             log_msg = (
-                f"Task configuration updated: {'; '.join(changes)}"
+                "Task configuration updated: %s" % "; ".join(changes)
                 if changes
                 else "Task configuration updated (specific changes not detailed)."
             )
@@ -1932,7 +2038,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
         logger.exception("Error updating task schedule: %s", e)
         return {
             "status": "error",
-            "message": f"Error updating task schedule: {e!s}",
+            "message": "Error updating task schedule: %s" % e,
         }
 
 
@@ -2022,7 +2128,7 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
             )
             return {
                 "status": "error",
-                "message": f"Missing transactionId for {event_type}",
+                "message": "Missing transactionId for %s" % event_type,
             }
 
         if event_type == "tripStart":
@@ -2104,7 +2210,10 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
-        error_msg = f"Unhandled error processing webhook event {event_type or 'Unknown'} (TxID: {transaction_id or 'N/A'})"
+        error_msg = "Unhandled error processing webhook event {} (TxID: {})".format(
+            event_type or "Unknown",
+            transaction_id or "N/A",
+        )
         logger.exception(
             "Celery Task %s (%s) FAILED processing webhook: %s. Runtime: %.0fms",
             task_name,
