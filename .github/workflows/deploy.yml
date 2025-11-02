@@ -1,3 +1,4 @@
+# .github/workflows/deploy.yml
 name: Deploy to Mini PC
 
 on:
@@ -8,10 +9,8 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
-
     steps:
-      - name: Make deploy script executable
-        run: chmod +x /home/davis/app/deploy.sh
-
       - name: Deploy Application
-        run: /home/davis/app/deploy.sh
+        run: |
+          cd /home/davis/app
+          bash deploy.sh

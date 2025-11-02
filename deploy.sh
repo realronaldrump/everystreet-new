@@ -1,23 +1,20 @@
 #!/bin/bash
+# /home/davis/app/deploy.sh
+# Simple deployment script - just pull and restart
 
-echo ">>> Navigating to the application directory..."
+set -e
+
 cd /home/davis/app
 
-# Pull the latest code from the main branch
-echo ">>> Pulling latest changes from the 'main' branch..."
+echo "Pulling latest code..."
 git pull origin main
 
-# Create the permanent database directory if it doesn't exist
-echo ">>> Ensuring database directory exists..."
-mkdir -p /home/davis/database/mongo
+echo "Rebuilding and restarting containers..."
+docker compose down
+docker compose up -d --build
 
-echo ">>> Stopping and removing old containers..."
-docker-compose down
-
-echo ">>> Building and starting new containers in the background..."
-docker-compose up -d --build
-
-echo ">>> Pruning old, unused Docker images to save space..."
+echo "Cleaning up old images..."
 docker image prune -f
 
-echo ">>> Deployment finished successfully!"
+echo "Deployment complete!"
+docker compose ps
