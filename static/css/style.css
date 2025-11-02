@@ -2586,6 +2586,7 @@ body.light-mode .btn-close-white {
   }
 
   /* Mobile Map - iOS Native App Feel */
+
   /* Hide desktop controls on mobile */
   .control-panel#map-controls {
     display: none !important;

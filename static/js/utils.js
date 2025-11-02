@@ -410,12 +410,6 @@ const DateUtils = {
     return this.formatDateToString(new Date());
   },
 
-  getYesterday(format = this.DEFAULT_FORMAT) {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    return this.formatDateToString(yesterday);
-  },
-
   async getDateRangePreset(preset) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
