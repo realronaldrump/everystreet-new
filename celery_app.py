@@ -27,8 +27,10 @@ from live_tracking import initialize_db as initialize_live_tracking_db
 
 logger = get_task_logger(__name__)
 
+# Load environment variables FIRST
 load_dotenv()
 
+# Get REDIS_URL from environment (with fallback logic)
 REDIS_URL = os.getenv("REDIS_URL")
 if not REDIS_URL:
     redis_host = os.getenv("REDISHOST") or os.getenv("RAILWAY_PRIVATE_DOMAIN")
@@ -40,11 +42,15 @@ if not REDIS_URL:
         REDIS_URL = f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
         logger.info("Constructed REDIS_URL from component variables.")
     else:
+        # Default to localhost only if nothing else is configured
         REDIS_URL = "redis://localhost:6379"
         logger.warning(
             "REDIS_URL not provided; defaulting to local Redis at %s.",
             REDIS_URL,
         )
+else:
+    logger.info("Using REDIS_URL from environment: %s", 
+                REDIS_URL.split("@")[-1] if "@" in REDIS_URL else REDIS_URL)
 
 logger.info(
     "Configuring Celery with broker: %s",
