@@ -1,5 +1,4 @@
 # /home/davis/app/docker-compose.yml
-version: '3.8'
 
 services:
   web:
