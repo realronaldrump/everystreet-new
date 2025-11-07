@@ -559,176 +559,56 @@ task_history_collection = _get_collection("task_history")
 progress_collection = _get_collection("progress_status")
 
 
-def post_process_deserialize(obj):
-    """Recursively convert Mongo Extended JSON types ($date, $oid) to Python types."""
-    if isinstance(obj, dict):
-        if "$oid" in obj and len(obj) == 1:
-            try:
-                return str(ObjectId(obj["$oid"]))
-            except Exception as oid_err:
-                logger.warning(
-                    "Could not convert $oid value '%s' to ObjectId: %s",
-                    obj["$oid"],
-                    oid_err,
-                )
-                return obj
-        elif "$date" in obj and len(obj) == 1:
-            try:
-                date_val = obj["$date"]
-                if isinstance(date_val, dict) and "$numberLong" in date_val:
-                    ms_epoch = int(date_val["$numberLong"])
-                    return datetime.fromtimestamp(
-                        ms_epoch / 1000.0,
-                        tz=timezone.utc,
-                    )
-                if isinstance(date_val, str):
-                    dt = datetime.fromisoformat(
-                        date_val.replace("Z", "+00:00"),
-                    )
-                    if dt.tzinfo is None:
-                        dt = dt.astimezone(timezone.utc)
-                    return dt.astimezone(timezone.utc)
-                if isinstance(date_val, (int, float)):
-                    if abs(date_val) > 2e9:
-                        return datetime.fromtimestamp(
-                            date_val / 1000.0,
-                            tz=timezone.utc,
-                        )
-                    return datetime.fromtimestamp(
-                        date_val,
-                        tz=timezone.utc,
-                    )
-                logger.warning(
-                    "Unexpected value type within $date dict: %s - Value: %s",
-                    type(date_val),
-                    date_val,
-                )
-                return obj
-            except (
-                ValueError,
-                TypeError,
-                KeyError,
-            ) as dt_err:
-                logger.error(
-                    "Error parsing $date object %s: %s",
-                    obj,
-                    dt_err,
-                )
-                return obj
-        else:
-            return {k: post_process_deserialize(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [post_process_deserialize(item) for item in obj]
-    else:
-        return obj
+def serialize_datetime(
+    dt: datetime | None,
+) -> str | None:
+    """Return ISO formatted datetime string if dt is not None.
+
+    Args:
+        dt: Datetime to serialize
+
+    Returns:
+        ISO formatted string or None
+
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.astimezone(timezone.utc)
+    return dt.isoformat().replace("+00:00", "Z")
 
 
-class SerializationHelper:
-    """Helper class for serializing MongoDB documents to JSON."""
+def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
+    """Convert MongoDB document to JSON-serializable dictionary using bson.json_util.
 
-    @staticmethod
-    def serialize_datetime(
-        dt: datetime | None,
-    ) -> str | None:
-        """Return ISO formatted datetime string if dt is not None.
+    This function uses the battle-tested bson.json_util library for efficient
+    and reliable BSON type conversion.
 
-        Args:
-            dt: Datetime to serialize
+    Args:
+        doc: MongoDB document (dictionary)
 
-        Returns:
-            ISO formatted string or None
+    Returns:
+        Dictionary with standard Python types suitable for JSON serialization.
 
-        """
-        if dt is None:
-            return None
-        if dt.tzinfo is None:
-            dt = dt.astimezone(timezone.utc)
-        return dt.isoformat().replace("+00:00", "Z")
+    """
+    if not doc:
+        return {}
 
-    @staticmethod
-    def serialize_document(
-        doc: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Convert MongoDB document to a dictionary suitable for internal use,
-        ensuring BSON types like dates and ObjectIds are converted to
-        standard Python types.
-
-        This method directly processes the document recursively without intermediate
-        JSON serialization for better performance.
-
-        Args:
-            doc: MongoDB document (dictionary)
-
-        Returns:
-            Dictionary with standard Python types (datetime, str for ObjectId).
-
-        """
-        if not doc:
-            return {}
-        try:
-
-            def convert_value(val: Any) -> Any:
-                """Recursively convert BSON types to standard Python types."""
-                if isinstance(val, ObjectId):
-                    return str(val)
-                elif isinstance(val, datetime):
-                    # Ensure datetime is timezone-aware (UTC)
-                    if val.tzinfo is None:
-                        return val.replace(tzinfo=timezone.utc)
-                    return val.astimezone(timezone.utc)
-                elif isinstance(val, dict):
-                    return {k: convert_value(v) for k, v in val.items()}
-                elif isinstance(val, list):
-                    return [convert_value(item) for item in val]
-                elif isinstance(val, (bson.int64.Int64, bson.decimal128.Decimal128)):
-                    # Convert BSON numeric types to Python types
-                    return (
-                        int(val)
-                        if isinstance(val, bson.int64.Int64)
-                        else float(val.to_decimal())
-                    )
-                else:
-                    return val
-
-            return convert_value(doc)
-
-        except (TypeError, ValueError) as e:
-            logger.error(
-                "Error serializing/processing document: %s. Document snippet: %s",
-                e,
-                str(doc)[:200],
-            )
-            fallback_result = {}
-            for key, value in doc.items():
-                if isinstance(value, ObjectId):
-                    fallback_result[key] = value
-                elif isinstance(value, datetime):
-                    fallback_result[key] = SerializationHelper.serialize_datetime(value)
-                elif isinstance(value, (dict, list)):
-                    fallback_result[key] = f"<Complex Type: {type(value).__name__}>"
-                else:
-                    try:
-                        json.dumps(value)
-                        fallback_result[key] = value
-                    except TypeError:
-                        fallback_result[key] = str(value)
-            return fallback_result
-
-    @staticmethod
-    def serialize_trip(
-        trip: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Convert trip document to JSON serializable dictionary. Handles
-        special fields specific to trip documents. (Relies on serialize_document)
-
-        Args:
-            trip: Trip document
-
-        Returns:
-            JSON serializable trip dictionary
-
-        """
-        return SerializationHelper.serialize_document(trip)
+    try:
+        # Use bson.json_util for robust serialization/deserialization
+        # This handles ObjectId, datetime, and other BSON types correctly
+        json_str = json_util.dumps(doc)
+        result = json.loads(json_str, object_hook=json_util.object_hook)
+        return result
+    except (TypeError, ValueError) as e:
+        logger.error(
+            "Error serializing document with json_util: %s. Document snippet: %s",
+            e,
+            str(doc)[:200],
+        )
+        # Fallback to simple conversion
+        return {k: str(v) if isinstance(v, (ObjectId, datetime)) else v
+                for k, v in doc.items()}
 
 
 async def batch_cursor(

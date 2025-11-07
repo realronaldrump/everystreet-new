@@ -344,7 +344,7 @@ async def get_task_details(task_id: str):
             entry["_id"] = str(entry["_id"])
             history.append(
                 {
-                    "timestamp": SerializationHelper.serialize_datetime(
+                    "timestamp": serialize_datetime(
                         entry.get("timestamp"),
                     ),
                     "status": entry["status"],
@@ -369,16 +369,16 @@ async def get_task_details(task_id: str):
                 "interval_minutes",
                 task_def["default_interval_minutes"],
             ),
-            "last_run": SerializationHelper.serialize_datetime(
+            "last_run": serialize_datetime(
                 task_config.get("last_run"),
             ),
-            "next_run": SerializationHelper.serialize_datetime(
+            "next_run": serialize_datetime(
                 task_config.get("next_run"),
             ),
-            "start_time": SerializationHelper.serialize_datetime(
+            "start_time": serialize_datetime(
                 task_config.get("start_time"),
             ),
-            "end_time": SerializationHelper.serialize_datetime(
+            "end_time": serialize_datetime(
                 task_config.get("end_time"),
             ),
             "last_error": task_config.get("last_error"),
@@ -417,7 +417,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
         history = []
         for entry in entries:
             entry["_id"] = str(entry["_id"])
-            entry["timestamp"] = SerializationHelper.serialize_datetime(
+            entry["timestamp"] = serialize_datetime(
                 entry.get("timestamp"),
             )
             if "runtime" in entry:
@@ -603,13 +603,13 @@ async def background_tasks_sse(request: Request):
                     status = task_config.get("status", "IDLE")
                     updates[task_id] = {
                         "status": status,
-                        "last_updated": SerializationHelper.serialize_datetime(
+                        "last_updated": serialize_datetime(
                             task_config.get("last_updated"),
                         ),
-                        "last_run": SerializationHelper.serialize_datetime(
+                        "last_run": serialize_datetime(
                             task_config.get("last_run"),
                         ),
-                        "next_run": SerializationHelper.serialize_datetime(
+                        "next_run": serialize_datetime(
                             task_config.get("next_run"),
                         ),
                         "last_error": task_config.get("last_error"),

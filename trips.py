@@ -13,7 +13,8 @@ from pydantic import BaseModel
 from config import MAPBOX_ACCESS_TOKEN
 from date_utils import normalize_calendar_date
 from db import (
-    SerializationHelper,
+    serialize_datetime,
+    serialize_document,
     build_calendar_date_expr,
     build_query_from_request,
     delete_many_with_retry,
@@ -260,8 +261,8 @@ async def get_trips_datatable(request: Request):
             formatted_trip = {
                 "transactionId": trip.get("transactionId", ""),
                 "imei": trip.get("imei", ""),
-                "startTime": SerializationHelper.serialize_datetime(start_time),
-                "endTime": SerializationHelper.serialize_datetime(end_time),
+                "startTime": serialize_datetime(start_time),
+                "endTime": serialize_datetime(end_time),
                 "duration": duration,
                 "distance": float(trip.get("distance", 0)),
                 "startLocation": start_location,
@@ -327,7 +328,7 @@ async def get_single_trip(trip_id: str):
             )
         return {
             "status": "success",
-            "trip": SerializationHelper.serialize_trip(trip),
+            "trip": serialize_document(trip),
         }
     except Exception as e:
         logger.exception("get_single_trip error: %s", str(e))
@@ -656,7 +657,7 @@ async def get_geocode_progress(task_id: str):
             "metrics": progress.get("metrics", {}),
             "current_trip_id": progress.get("current_trip_id"),
             "error": progress.get("error"),
-            "updated_at": SerializationHelper.serialize_datetime(
+            "updated_at": serialize_datetime(
                 progress.get("updated_at")
             ),
         }

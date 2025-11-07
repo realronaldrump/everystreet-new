@@ -6,7 +6,8 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException, status
 
 from db import (
-    SerializationHelper,
+    serialize_datetime,
+    serialize_document,
     db_manager,
     delete_many_with_retry,
     find_one_with_retry,
@@ -287,7 +288,7 @@ async def get_first_trip_date():
             )
 
         return {
-            "first_trip_date": SerializationHelper.serialize_datetime(
+            "first_trip_date": serialize_datetime(
                 earliest_trip_date,
             ),
         }

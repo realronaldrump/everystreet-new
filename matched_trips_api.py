@@ -47,11 +47,11 @@ async def get_matched_trips(request: Request):
                     properties={
                         "transactionId": trip["transactionId"],
                         "imei": trip.get("imei", ""),
-                        "startTime": SerializationHelper.serialize_datetime(
+                        "startTime": serialize_datetime(
                             trip.get("startTime"),
                         )
                         or "",
-                        "endTime": SerializationHelper.serialize_datetime(
+                        "endTime": serialize_datetime(
                             trip.get("endTime"),
                         )
                         or "",
