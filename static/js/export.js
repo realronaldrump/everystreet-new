@@ -714,7 +714,7 @@
   }
 
   async function downloadFile(url, exportName, signal) {
-    const urlWithTimestamp = `${url}${url.includes("?") ? "&" : "?"}timestamp=${new Date().getTime()}`;
+    const urlWithTimestamp = `${url}${url.includes("?") ? "&" : "?"}timestamp=${Date.now()}`;
     try {
       window.notificationManager.show(
         `Requesting ${exportName} data...`,
@@ -800,7 +800,15 @@
       }
     }
     if (!filename) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      // Use DateUtils for consistent date formatting
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const seconds = String(now.getSeconds()).padStart(2, "0");
+      const timestamp = `${year}-${month}-${day}-${hours}-${minutes}-${seconds}`;
       const extension = getExtensionForFormat(format);
       filename = `${exportName}-${timestamp}${extension}`;
     }
@@ -998,8 +1006,12 @@
         const displayName = area.display_name || "undriven_streets";
         const sanitizedName = displayName.replace(/[^a-zA-Z0-9]/g, "_");
         const now = new Date();
-        const pad = (n) => n.toString().padStart(2, "0");
-        const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        const dateStr = `${year}-${month}-${day}_${hours}-${minutes}`;
         let filename = `${sanitizedName}_undriven_${dateStr}`;
         if (format === "gpx") {
           // Convert GeoJSON to GPX client-side (simple, for LineStrings)
