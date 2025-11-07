@@ -108,7 +108,7 @@ async def process_coverage_calculation(
                 upsert=True,
             )
             await update_one_with_retry(
-            progress_collection,
+                progress_collection,
                 {"_id": task_id},
                 {
                     "$set": {
@@ -206,7 +206,7 @@ async def process_incremental_coverage_calculation(
                 upsert=True,
             )
             await update_one_with_retry(
-            progress_collection,
+                progress_collection,
                 {"_id": task_id},
                 {
                     "$set": {
@@ -329,7 +329,7 @@ async def process_area(
             )
             overall_status = "error"
             await update_one_with_retry(
-            progress_collection,
+                progress_collection,
                 {"_id": task_id},
                 {
                     "$set": {
@@ -415,7 +415,7 @@ async def process_area(
                 upsert=True,
             )
             await update_one_with_retry(
-            progress_collection,
+                progress_collection,
                 {"_id": task_id},
                 {
                     "$set": {

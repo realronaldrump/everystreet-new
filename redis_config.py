@@ -47,7 +47,9 @@ def get_redis_url() -> str:
         # URL-encode username and password to handle special characters
         encoded_user = quote_plus(redis_user)
         encoded_password = quote_plus(redis_password)
-        redis_url = f"redis://{encoded_user}:{encoded_password}@{redis_host}:{redis_port}"
+        redis_url = (
+            f"redis://{encoded_user}:{encoded_password}@{redis_host}:{redis_port}"
+        )
         logger.info(
             "Constructed REDIS_URL from environment variables: redis://%s@%s:%s",
             encoded_user,

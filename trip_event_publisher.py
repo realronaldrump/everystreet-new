@@ -8,7 +8,6 @@ This module uses async Redis operations to avoid blocking the event loop.
 
 import json
 import logging
-import os
 from datetime import datetime, timezone
 from typing import Any
 
