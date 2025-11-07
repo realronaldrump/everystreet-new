@@ -16,7 +16,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse
 
-from db import SerializationHelper, db_manager
+from db import serialize_document, db_manager
 from live_tracking import get_active_trip, get_trip_updates
 from models import (
     ActiveTripResponseUnion,
@@ -78,7 +78,7 @@ async def websocket_endpoint(websocket: WebSocket):
         # Load initial trip state on connection
         initial_trip = await get_active_trip()
         if initial_trip:
-            serialized_trip = SerializationHelper.serialize_document(initial_trip)
+            serialized_trip = serialize_document(initial_trip)
             last_sequence = initial_trip.get("sequence", 0)
             await websocket.send_json({"type": "trip_update", "trip": serialized_trip})
 

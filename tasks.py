@@ -28,7 +28,8 @@ from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from celery_app import app as celery_app
 from config import get_bouncie_config
 from db import (
-    SerializationHelper,
+    serialize_datetime,
+    serialize_document,
     count_documents_with_retry,
     coverage_metadata_collection,
     db_manager,
@@ -427,7 +428,7 @@ async def update_task_history_entry(
 
         if result is not None:
             try:
-                serialized_result = SerializationHelper.serialize_document(
+                serialized_result = serialize_document(
                     {"result": result},
                 )["result"]
                 update_fields["result"] = serialized_result
@@ -1606,18 +1607,18 @@ async def get_all_task_metadata() -> dict[str, Any]:
                     "enabled": config_data.get("enabled", True),
                     "interval_minutes": interval_minutes,
                     "status": config_data.get("status", TaskStatus.IDLE.value),
-                    "last_run": SerializationHelper.serialize_datetime(last_run),
-                    "next_run": SerializationHelper.serialize_datetime(
+                    "last_run": serialize_datetime(last_run),
+                    "next_run": serialize_datetime(
                         estimated_next_run
                     ),
                     "last_error": config_data.get("last_error"),
-                    "start_time": SerializationHelper.serialize_datetime(
+                    "start_time": serialize_datetime(
                         config_data.get("start_time"),
                     ),
-                    "end_time": SerializationHelper.serialize_datetime(
+                    "end_time": serialize_datetime(
                         config_data.get("end_time"),
                     ),
-                    "last_updated": SerializationHelper.serialize_datetime(
+                    "last_updated": serialize_datetime(
                         config_data.get("last_updated"),
                     ),
                     "priority": priority_name,

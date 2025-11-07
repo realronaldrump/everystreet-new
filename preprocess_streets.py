@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from pymongo.errors import BulkWriteError
 from shapely.geometry import LineString, mapping, shape
 from shapely.geometry.base import BaseGeometry
-from shapely.ops import transform, unary_union
+from shapely.ops import substring as shapely_substring, transform, unary_union
 
 from db import (
     coverage_metadata_collection,
@@ -319,110 +319,8 @@ async def _fetch_osm_with_fallback(
     raise TimeoutError("All Overpass endpoints failed or timed out")
 
 
-def substring(line: LineString, start: float, end: float) -> LineString | None:
-    """Return a sub-linestring from 'start' to 'end' along the line (UTM
-    coords).
-    """
-    if start < 0 or end > line.length or start >= end or abs(line.length) < 1e-6:
-        return None
-
-    coords = list(line.coords)
-    if start <= 1e-6 and end >= line.length - 1e-6:
-        return line
-
-    segment_coords = []
-    accumulated = 0.0
-
-    start_point = None
-    for i in range(len(coords) - 1):
-        p0, p1 = coords[i], coords[i + 1]
-        seg = LineString([p0, p1])
-        seg_length = seg.length
-        if seg_length < 1e-6:
-            continue
-
-        if accumulated <= start < accumulated + seg_length:
-            fraction = (start - accumulated) / seg_length
-            start_point = (
-                p0[0] + fraction * (p1[0] - p0[0]),
-                p0[1] + fraction * (p1[1] - p0[1]),
-            )
-            break
-        accumulated += seg_length
-    else:
-        if abs(start - line.length) < 1e-6:
-            start_point = coords[-1]
-        else:
-            return None
-
-    if start_point:
-        segment_coords.append(start_point)
-
-    accumulated = 0.0
-    for i in range(len(coords) - 1):
-        p0, p1 = coords[i], coords[i + 1]
-        seg = LineString([p0, p1])
-        seg_length = seg.length
-        if seg_length < 1e-6:
-            continue
-
-        current_end_accum = accumulated + seg_length
-
-        if accumulated >= start:
-            if not segment_coords or segment_coords[-1] != p0:
-                if (
-                    segment_coords
-                    and LineString([segment_coords[-1], p0]).length > 1e-6
-                ) or not segment_coords:
-                    segment_coords.append(p0)
-
-        if accumulated < end <= current_end_accum:
-            fraction = (end - accumulated) / seg_length
-            end_point = (
-                p0[0] + fraction * (p1[0] - p0[0]),
-                p0[1] + fraction * (p1[1] - p0[1]),
-            )
-            if (
-                not segment_coords
-                or LineString(
-                    [
-                        segment_coords[-1],
-                        end_point,
-                    ],
-                ).length
-                > 1e-6
-            ):
-                segment_coords.append(end_point)
-            break
-
-        if start <= accumulated and current_end_accum <= end:
-            if not segment_coords or LineString([segment_coords[-1], p1]).length > 1e-6:
-                segment_coords.append(p1)
-
-        accumulated += seg_length
-
-    if len(segment_coords) >= 2:
-        if (
-            LineString(
-                [
-                    segment_coords[0],
-                    segment_coords[-1],
-                ],
-            ).length
-            < 1e-6
-            and len(segment_coords) == 2
-        ):
-            return None
-        try:
-            return LineString(segment_coords)
-        except Exception:
-            logger.warning(
-                "Failed to create LineString from segment coords: %s",
-                segment_coords,
-            )
-            return None
-    else:
-        return None
+# Custom substring function replaced with shapely.ops.substring
+# The shapely library provides a battle-tested, optimized implementation
 
 
 def segment_street(
@@ -430,7 +328,7 @@ def segment_street(
     segment_length_meters: float = SEGMENT_LENGTH_METERS,
 ) -> list[LineString]:
     """Split a linestring (in UTM) into segments of approximately
-    segment_length_meters.
+    segment_length_meters using shapely.ops.substring.
     """
     segments = []
     total_length = line.length
@@ -443,9 +341,18 @@ def segment_street(
             start_distance + segment_length_meters,
             total_length,
         )
-        seg = substring(line, start_distance, end_distance)
-        if seg is not None and seg.length > 1e-6:  # Ensure segment has some length
-            segments.append(seg)
+        try:
+            # Use shapely's built-in, optimized substring function
+            seg = shapely_substring(line, start_distance, end_distance, normalized=False)
+            if seg is not None and seg.length > 1e-6:  # Ensure segment has some length
+                segments.append(seg)
+        except Exception as e:
+            logger.warning(
+                "Failed to create segment from %.2f to %.2f: %s",
+                start_distance,
+                end_distance,
+                e,
+            )
         start_distance = end_distance
 
     if not segments and total_length > 1e-6:

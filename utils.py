@@ -25,83 +25,76 @@ EARTH_RADIUS_KM = 6371.0
 
 T = TypeVar("T")
 
+# NOTE: Consider migrating to httpx in the future for simpler session lifecycle
+# management. httpx provides better support for both sync and async operations
+# and eliminates the need for complex PID tracking across process boundaries.
+
 _SESSION: aiohttp.ClientSession | None = None
 _SESSION_OWNER_PID: int | None = None
-_SESSION_LOCK: asyncio.Lock | None = None
-_SESSION_LOCK_OWNER_PID: int | None = None
-
-
-def _ensure_session_lock() -> asyncio.Lock:
-    """Return a process-local asyncio lock for session management."""
-
-    global _SESSION_LOCK, _SESSION_LOCK_OWNER_PID
-
-    current_pid = os.getpid()
-    if _SESSION_LOCK is None or _SESSION_LOCK_OWNER_PID != current_pid:
-        _SESSION_LOCK = asyncio.Lock()
-        _SESSION_LOCK_OWNER_PID = current_pid
-
-    return _SESSION_LOCK
 
 
 async def get_session() -> aiohttp.ClientSession:
-    """Get or create a shared aiohttp ClientSession."""
+    """Get or create a shared aiohttp ClientSession with simplified lifecycle management.
+
+    This function creates a per-process session and handles fork scenarios cleanly.
+    Sessions are not shared across processes to avoid concurrency issues.
+    """
     global _SESSION, _SESSION_OWNER_PID
 
-    session_lock = _ensure_session_lock()
-    async with session_lock:
-        current_pid = os.getpid()
+    current_pid = os.getpid()
 
-        if _SESSION is not None and _SESSION_OWNER_PID != current_pid:
-            try:
+    # Handle fork scenario: close inherited session from parent process
+    if _SESSION is not None and _SESSION_OWNER_PID != current_pid:
+        try:
+            if not _SESSION.closed:
                 await _SESSION.close()
-                logger.debug(
-                    "Closed inherited aiohttp session from parent process %s",
-                    _SESSION_OWNER_PID,
-                )
-            except Exception:
-                logger.warning(
-                    "Failed to close inherited aiohttp session from parent process %s",
-                    _SESSION_OWNER_PID,
-                    exc_info=True,
-                )
-            finally:
-                _SESSION = None
-                _SESSION_OWNER_PID = None
-
-        if _SESSION is None or _SESSION.closed:
-            timeout = aiohttp.ClientTimeout(total=30, connect=10, sock_read=20)
-            headers = {
-                "User-Agent": "EveryStreet/1.0",
-                "Accept": "application/json",
-            }
-            connector = aiohttp.TCPConnector(
-                limit=20,
-                force_close=False,
-                enable_cleanup_closed=True,
+            logger.debug(
+                "Closed inherited session from parent process %s in child process %s",
+                _SESSION_OWNER_PID,
+                current_pid,
             )
-            _SESSION = aiohttp.ClientSession(
-                timeout=timeout,
-                headers=headers,
-                connector=connector,
+        except Exception as e:
+            logger.warning(
+                "Failed to close inherited session: %s",
+                e,
+                exc_info=False,
             )
-            _SESSION_OWNER_PID = current_pid
-            logger.debug("Created new aiohttp session")
+        finally:
+            _SESSION = None
+            _SESSION_OWNER_PID = None
 
-        return _SESSION
+    # Create new session if needed
+    if _SESSION is None or _SESSION.closed:
+        timeout = aiohttp.ClientTimeout(total=30, connect=10, sock_read=20)
+        headers = {
+            "User-Agent": "EveryStreet/1.0",
+            "Accept": "application/json",
+        }
+        connector = aiohttp.TCPConnector(
+            limit=20,
+            force_close=False,
+            enable_cleanup_closed=True,
+        )
+        _SESSION = aiohttp.ClientSession(
+            timeout=timeout,
+            headers=headers,
+            connector=connector,
+        )
+        _SESSION_OWNER_PID = current_pid
+        logger.debug("Created new aiohttp session for process %s", current_pid)
+
+    return _SESSION
 
 
 async def cleanup_session():
-    """Close the shared session."""
+    """Close the shared session for the current process."""
     global _SESSION, _SESSION_OWNER_PID
 
-    session_lock = _ensure_session_lock()
-    async with session_lock:
-        if _SESSION and not _SESSION.closed:
-            await _SESSION.close()
-            _SESSION = None
-            _SESSION_OWNER_PID = None
-            logger.info("Closed aiohttp session")
+    if _SESSION and not _SESSION.closed:
+        await _SESSION.close()
+        logger.info("Closed aiohttp session for process %s", os.getpid())
+    _SESSION = None
+    _SESSION_OWNER_PID = None
 
 
 def retry_async(

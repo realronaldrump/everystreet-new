@@ -137,8 +137,28 @@ async def _stream_gpx_from_cursor(cursor) -> Any:
 async def _stream_csv_from_cursor(
     cursor, include_gps_in_csv: bool, flatten_location_fields: bool
 ) -> Any:
+    """Stream CSV data from cursor with predefined headers for efficiency.
+
+    Uses the csv module with a predefined set of headers based on export options,
+    which is simpler and more robust than introspecting the first document.
+    """
     import csv
     from io import StringIO
+
+    # Define expected headers upfront based on export options
+    base_fields = [
+        "_id",
+        "transactionId",
+        "trip_id",
+        "trip_type",
+        "startTime",
+        "endTime",
+        "duration",
+        "distance",
+        "imei",
+        "source",
+        "completed",
+    ]
 
     location_fields = []
     if flatten_location_fields:
@@ -164,125 +184,99 @@ async def _stream_csv_from_cursor(
             "destination_lat",
             "destination_lng",
         ]
+    else:
+        # Include location objects as JSON if not flattening
+        base_fields.extend(["startLocation", "destination"])
+
+    geometry_fields = ["gps", "geometry", "path", "simplified_path", "route"]
+
+    # Combine all fields in priority order
+    fieldnames = base_fields + location_fields + geometry_fields
 
     async def generator():
         buf = StringIO()
+        writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction='ignore')
 
-        # Helper function to process a single trip
-        def process_trip(trip: dict[str, Any]) -> dict[str, Any]:
-            """Process and flatten a single trip document."""
-            flat = {}
-            for key, value in trip.items():
-                if key in ["gps", "geometry", "path", "simplified_path", "route"]:
-                    if include_gps_in_csv:
-                        flat[key] = json.dumps(value, default=default_serializer)
-                    else:
-                        flat[key] = "[Geometry data not included in CSV format]"
-                elif flatten_location_fields and key in [
-                    "startLocation",
-                    "destination",
-                ]:
-                    continue
-                elif isinstance(value, (dict, list)):
-                    flat[key] = json.dumps(value, default=default_serializer)
-                else:
-                    flat[key] = value
+        # Write header immediately
+        writer.writeheader()
+        yield buf.getvalue()
+        buf.seek(0)
+        buf.truncate(0)
 
-            if flatten_location_fields:
-
-                def normalize(obj):
-                    if isinstance(obj, str):
-                        try:
-                            return json.loads(obj)
-                        except json.JSONDecodeError:
-                            return {}
-                    return obj if isinstance(obj, dict) else {}
-
-                start_loc = normalize(trip.get("startLocation", {}))
-                dest = normalize(trip.get("destination", {}))
-
-                flat["startLocation_formatted_address"] = start_loc.get(
-                    "formatted_address", ""
-                )
-                addr = (
-                    start_loc.get("address_components", {})
-                    if isinstance(start_loc, dict)
-                    else {}
-                )
-                flat["startLocation_street_number"] = addr.get("street_number", "")
-                flat["startLocation_street"] = addr.get("street", "")
-                flat["startLocation_city"] = addr.get("city", "")
-                flat["startLocation_county"] = addr.get("county", "")
-                flat["startLocation_state"] = addr.get("state", "")
-                flat["startLocation_postal_code"] = addr.get("postal_code", "")
-                flat["startLocation_country"] = addr.get("country", "")
-                coords = (
-                    start_loc.get("coordinates", {})
-                    if isinstance(start_loc, dict)
-                    else {}
-                )
-                flat["startLocation_lat"] = coords.get("lat", "")
-                flat["startLocation_lng"] = coords.get("lng", "")
-
-                flat["destination_formatted_address"] = dest.get(
-                    "formatted_address", ""
-                )
-                addr = (
-                    dest.get("address_components", {}) if isinstance(dest, dict) else {}
-                )
-                flat["destination_street_number"] = addr.get("street_number", "")
-                flat["destination_street"] = addr.get("street", "")
-                flat["destination_city"] = addr.get("city", "")
-                flat["destination_county"] = addr.get("county", "")
-                flat["destination_state"] = addr.get("state", "")
-                flat["destination_postal_code"] = addr.get("postal_code", "")
-                flat["destination_country"] = addr.get("country", "")
-                coords = dest.get("coordinates", {}) if isinstance(dest, dict) else {}
-                flat["destination_lat"] = coords.get("lat", "")
-                flat["destination_lng"] = coords.get("lng", "")
-
-            return flat
-
-        # Process documents in a single pass
-        writer = None
-        first_doc = True
+        # Process each document
         async for doc in cursor:
-            flat = process_trip(doc)
+            try:
+                flat = {}
 
-            # Initialize writer with fieldnames from first document
-            if first_doc:
-                fieldnames = set(flat.keys())
+                # Handle geometry fields
+                for key in geometry_fields:
+                    if key in doc:
+                        if include_gps_in_csv:
+                            flat[key] = json.dumps(doc[key], default=default_serializer)
+                        else:
+                            flat[key] = "[Geometry data not included]"
+
+                # Handle location flattening
                 if flatten_location_fields:
-                    fieldnames.update(location_fields)
-                fieldnames = sorted(fieldnames)
+                    def normalize(obj):
+                        if isinstance(obj, str):
+                            try:
+                                return json.loads(obj)
+                            except json.JSONDecodeError:
+                                return {}
+                        return obj if isinstance(obj, dict) else {}
 
-                # Prioritize certain fields at the start
-                priority = [
-                    "_id",
-                    "transactionId",
-                    "trip_id",
-                    "trip_type",
-                    "startTime",
-                    "endTime",
-                ] + location_fields
-                for f in reversed(priority):
-                    if f in fieldnames:
-                        fieldnames.remove(f)
-                        fieldnames.insert(0, f)
+                    start_loc = normalize(doc.get("startLocation", {}))
+                    dest = normalize(doc.get("destination", {}))
 
-                writer = csv.DictWriter(buf, fieldnames=fieldnames)
-                writer.writeheader()
-                yield buf.getvalue()
-                buf.seek(0)
-                buf.truncate(0)
-                first_doc = False
+                    flat["startLocation_formatted_address"] = start_loc.get("formatted_address", "")
+                    addr = start_loc.get("address_components", {}) if isinstance(start_loc, dict) else {}
+                    flat["startLocation_street_number"] = addr.get("street_number", "")
+                    flat["startLocation_street"] = addr.get("street", "")
+                    flat["startLocation_city"] = addr.get("city", "")
+                    flat["startLocation_county"] = addr.get("county", "")
+                    flat["startLocation_state"] = addr.get("state", "")
+                    flat["startLocation_postal_code"] = addr.get("postal_code", "")
+                    flat["startLocation_country"] = addr.get("country", "")
+                    coords = start_loc.get("coordinates", {}) if isinstance(start_loc, dict) else {}
+                    flat["startLocation_lat"] = coords.get("lat", "")
+                    flat["startLocation_lng"] = coords.get("lng", "")
 
-            # Write the row
-            if writer:
+                    flat["destination_formatted_address"] = dest.get("formatted_address", "")
+                    addr = dest.get("address_components", {}) if isinstance(dest, dict) else {}
+                    flat["destination_street_number"] = addr.get("street_number", "")
+                    flat["destination_street"] = addr.get("street", "")
+                    flat["destination_city"] = addr.get("city", "")
+                    flat["destination_county"] = addr.get("county", "")
+                    flat["destination_state"] = addr.get("state", "")
+                    flat["destination_postal_code"] = addr.get("postal_code", "")
+                    flat["destination_country"] = addr.get("country", "")
+                    coords = dest.get("coordinates", {}) if isinstance(dest, dict) else {}
+                    flat["destination_lat"] = coords.get("lat", "")
+                    flat["destination_lng"] = coords.get("lng", "")
+                else:
+                    # Include locations as JSON strings
+                    if "startLocation" in doc:
+                        flat["startLocation"] = json.dumps(doc["startLocation"], default=default_serializer)
+                    if "destination" in doc:
+                        flat["destination"] = json.dumps(doc["destination"], default=default_serializer)
+
+                # Handle all other base fields
+                for key in base_fields:
+                    if key in doc and key not in flat:
+                        value = doc[key]
+                        if isinstance(value, (dict, list)):
+                            flat[key] = json.dumps(value, default=default_serializer)
+                        else:
+                            flat[key] = value
+
                 writer.writerow(flat)
                 yield buf.getvalue()
                 buf.seek(0)
                 buf.truncate(0)
+            except Exception as e:
+                logger.warning("Skipping document in CSV stream due to error: %s", e)
+                continue
 
     return generator()
 

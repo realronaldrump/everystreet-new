@@ -528,8 +528,8 @@ async def get_place_statistics(place_id: str):
         return {
             "totalVisits": total_visits,
             "averageTimeSpent": format_duration(avg_duration),
-            "firstVisit": SerializationHelper.serialize_datetime(first_visit),
-            "lastVisit": SerializationHelper.serialize_datetime(last_visit),
+            "firstVisit": serialize_datetime(first_visit),
+            "lastVisit": serialize_datetime(last_visit),
             "averageTimeSinceLastVisit": format_duration(avg_time_between),
             "name": place["name"],
         }
@@ -577,11 +577,11 @@ async def get_trips_for_place(place_id: str):
                 {
                     "id": arrival_trip_id,
                     "transactionId": transaction_id,
-                    "endTime": SerializationHelper.serialize_datetime(
+                    "endTime": serialize_datetime(
                         visit["arrival_time"]
                     ),
                     "departureTime": (
-                        SerializationHelper.serialize_datetime(visit["departure_time"])
+                        serialize_datetime(visit["departure_time"])
                         if visit["departure_time"]
                         else None
                     ),
@@ -704,8 +704,8 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
             {
                 "name": doc["_id"],
                 "totalVisits": doc["totalVisits"],
-                "firstVisit": SerializationHelper.serialize_datetime(doc["firstVisit"]),
-                "lastVisit": SerializationHelper.serialize_datetime(doc["lastVisit"]),
+                "firstVisit": serialize_datetime(doc["firstVisit"]),
+                "lastVisit": serialize_datetime(doc["lastVisit"]),
             }
             for doc in results
         ]
@@ -750,8 +750,8 @@ async def get_all_places_statistics():
                     "name": place["name"],
                     "totalVisits": total_visits,
                     "averageTimeSpent": format_duration(avg_duration),
-                    "firstVisit": SerializationHelper.serialize_datetime(first_visit),
-                    "lastVisit": SerializationHelper.serialize_datetime(last_visit),
+                    "firstVisit": serialize_datetime(first_visit),
+                    "lastVisit": serialize_datetime(last_visit),
                 }
             )
         return results
@@ -927,10 +927,10 @@ async def get_visit_suggestions(
                 {
                     "suggestedName": f"Area near {round(center_lat,3)}, {round(center_lng,3)}",
                     "totalVisits": c["totalVisits"],
-                    "firstVisit": SerializationHelper.serialize_datetime(
+                    "firstVisit": serialize_datetime(
                         c["firstVisit"]
                     ),
-                    "lastVisit": SerializationHelper.serialize_datetime(c["lastVisit"]),
+                    "lastVisit": serialize_datetime(c["lastVisit"]),
                     "centroid": [center_lng, center_lat],
                     "boundary": boundary,
                 }

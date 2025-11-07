@@ -7,7 +7,8 @@ from pydantic import BaseModel
 from config import MAPBOX_ACCESS_TOKEN
 from date_utils import normalize_calendar_date
 from db import (
-    SerializationHelper,
+    serialize_datetime,
+    serialize_document,
     build_calendar_date_expr,
     db_manager,
     delete_many_with_retry,
@@ -121,16 +122,16 @@ async def get_trip_status(trip_id: str):
             "processing_history": trip.get("processing_history", []),
             "validation_status": trip.get("validation_status", "unknown"),
             "validation_message": trip.get("validation_message", ""),
-            "validated_at": SerializationHelper.serialize_datetime(
+            "validated_at": serialize_datetime(
                 trip.get("validated_at"),
             ),
-            "geocoded_at": SerializationHelper.serialize_datetime(
+            "geocoded_at": serialize_datetime(
                 trip.get("geocoded_at"),
             ),
-            "matched_at": SerializationHelper.serialize_datetime(
+            "matched_at": serialize_datetime(
                 trip.get("matched_at"),
             ),
-            "last_processed": SerializationHelper.serialize_datetime(
+            "last_processed": serialize_datetime(
                 trip.get("saved_at"),
             ),
         }
