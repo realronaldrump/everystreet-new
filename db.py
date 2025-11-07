@@ -607,8 +607,10 @@ def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
             str(doc)[:200],
         )
         # Fallback to simple conversion
-        return {k: str(v) if isinstance(v, (ObjectId, datetime)) else v
-                for k, v in doc.items()}
+        return {
+            k: str(v) if isinstance(v, (ObjectId, datetime)) else v
+            for k, v in doc.items()
+        }
 
 
 async def batch_cursor(

@@ -23,7 +23,8 @@ from dotenv import load_dotenv
 from pymongo.errors import BulkWriteError
 from shapely.geometry import LineString, mapping, shape
 from shapely.geometry.base import BaseGeometry
-from shapely.ops import substring as shapely_substring, transform, unary_union
+from shapely.ops import substring as shapely_substring
+from shapely.ops import transform, unary_union
 
 from db import (
     coverage_metadata_collection,
@@ -343,7 +344,9 @@ def segment_street(
         )
         try:
             # Use shapely's built-in, optimized substring function
-            seg = shapely_substring(line, start_distance, end_distance, normalized=False)
+            seg = shapely_substring(
+                line, start_distance, end_distance, normalized=False
+            )
             if seg is not None and seg.length > 1e-6:  # Ensure segment has some length
                 segments.append(seg)
         except Exception as e:

@@ -10,7 +10,7 @@ from pymongo.collection import Collection
 from pymongo.results import UpdateResult
 
 from date_utils import parse_timestamp
-from db import serialize_datetime, serialize_document, run_transaction
+from db import run_transaction, serialize_datetime, serialize_document
 from trip_event_publisher import (
     publish_trip_delta,
     publish_trip_end,
@@ -532,8 +532,7 @@ async def process_trip_data(
         try:
             # Serialize coordinates for publishing
             serialized_new_coords = [
-                serialize_document(coord)
-                for coord in unique_new_coords
+                serialize_document(coord) for coord in unique_new_coords
             ]
 
             delta = {
@@ -1516,9 +1515,7 @@ async def get_trip_updates(
                 client_sequence,
             )
             # Ensure _id is str, and other fields like datetimes are serialized
-            serialized_trip_update = serialize_document(
-                active_trip_update
-            )
+            serialized_trip_update = serialize_document(active_trip_update)
 
             return {
                 "status": "success",

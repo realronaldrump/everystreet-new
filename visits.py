@@ -577,9 +577,7 @@ async def get_trips_for_place(place_id: str):
                 {
                     "id": arrival_trip_id,
                     "transactionId": transaction_id,
-                    "endTime": serialize_datetime(
-                        visit["arrival_time"]
-                    ),
+                    "endTime": serialize_datetime(visit["arrival_time"]),
                     "departureTime": (
                         serialize_datetime(visit["departure_time"])
                         if visit["departure_time"]
@@ -927,9 +925,7 @@ async def get_visit_suggestions(
                 {
                     "suggestedName": f"Area near {round(center_lat,3)}, {round(center_lng,3)}",
                     "totalVisits": c["totalVisits"],
-                    "firstVisit": serialize_datetime(
-                        c["firstVisit"]
-                    ),
+                    "firstVisit": serialize_datetime(c["firstVisit"]),
                     "lastVisit": serialize_datetime(c["lastVisit"]),
                     "centroid": [center_lng, center_lat],
                     "boundary": boundary,

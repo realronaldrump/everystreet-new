@@ -28,8 +28,6 @@ from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from celery_app import app as celery_app
 from config import get_bouncie_config
 from db import (
-    serialize_datetime,
-    serialize_document,
     count_documents_with_retry,
     coverage_metadata_collection,
     db_manager,
@@ -37,6 +35,8 @@ from db import (
     find_with_retry,
     matched_trips_collection,
     progress_collection,
+    serialize_datetime,
+    serialize_document,
     task_config_collection,
     task_history_collection,
     trips_collection,
@@ -339,7 +339,9 @@ async def check_dependencies(
             ]:
                 return {
                     "can_run": False,
-                    "reason": "Dependency '{}' is currently {}".format(dep_id, dep_status),
+                    "reason": "Dependency '{}' is currently {}".format(
+                        dep_id, dep_status
+                    ),
                 }
 
             if dep_status == TaskStatus.FAILED.value:
@@ -1608,9 +1610,7 @@ async def get_all_task_metadata() -> dict[str, Any]:
                     "interval_minutes": interval_minutes,
                     "status": config_data.get("status", TaskStatus.IDLE.value),
                     "last_run": serialize_datetime(last_run),
-                    "next_run": serialize_datetime(
-                        estimated_next_run
-                    ),
+                    "next_run": serialize_datetime(estimated_next_run),
                     "last_error": config_data.get("last_error"),
                     "start_time": serialize_datetime(
                         config_data.get("start_time"),

@@ -16,7 +16,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse
 
-from db import serialize_document, db_manager
+from db import db_manager, serialize_document
 from live_tracking import get_active_trip, get_trip_updates
 from models import (
     ActiveTripResponseUnion,

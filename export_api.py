@@ -195,7 +195,7 @@ async def _stream_csv_from_cursor(
 
     async def generator():
         buf = StringIO()
-        writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction='ignore')
+        writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
 
         # Write header immediately
         writer.writeheader()
@@ -218,6 +218,7 @@ async def _stream_csv_from_cursor(
 
                 # Handle location flattening
                 if flatten_location_fields:
+
                     def normalize(obj):
                         if isinstance(obj, str):
                             try:
@@ -229,8 +230,14 @@ async def _stream_csv_from_cursor(
                     start_loc = normalize(doc.get("startLocation", {}))
                     dest = normalize(doc.get("destination", {}))
 
-                    flat["startLocation_formatted_address"] = start_loc.get("formatted_address", "")
-                    addr = start_loc.get("address_components", {}) if isinstance(start_loc, dict) else {}
+                    flat["startLocation_formatted_address"] = start_loc.get(
+                        "formatted_address", ""
+                    )
+                    addr = (
+                        start_loc.get("address_components", {})
+                        if isinstance(start_loc, dict)
+                        else {}
+                    )
                     flat["startLocation_street_number"] = addr.get("street_number", "")
                     flat["startLocation_street"] = addr.get("street", "")
                     flat["startLocation_city"] = addr.get("city", "")
@@ -238,12 +245,22 @@ async def _stream_csv_from_cursor(
                     flat["startLocation_state"] = addr.get("state", "")
                     flat["startLocation_postal_code"] = addr.get("postal_code", "")
                     flat["startLocation_country"] = addr.get("country", "")
-                    coords = start_loc.get("coordinates", {}) if isinstance(start_loc, dict) else {}
+                    coords = (
+                        start_loc.get("coordinates", {})
+                        if isinstance(start_loc, dict)
+                        else {}
+                    )
                     flat["startLocation_lat"] = coords.get("lat", "")
                     flat["startLocation_lng"] = coords.get("lng", "")
 
-                    flat["destination_formatted_address"] = dest.get("formatted_address", "")
-                    addr = dest.get("address_components", {}) if isinstance(dest, dict) else {}
+                    flat["destination_formatted_address"] = dest.get(
+                        "formatted_address", ""
+                    )
+                    addr = (
+                        dest.get("address_components", {})
+                        if isinstance(dest, dict)
+                        else {}
+                    )
                     flat["destination_street_number"] = addr.get("street_number", "")
                     flat["destination_street"] = addr.get("street", "")
                     flat["destination_city"] = addr.get("city", "")
@@ -251,15 +268,21 @@ async def _stream_csv_from_cursor(
                     flat["destination_state"] = addr.get("state", "")
                     flat["destination_postal_code"] = addr.get("postal_code", "")
                     flat["destination_country"] = addr.get("country", "")
-                    coords = dest.get("coordinates", {}) if isinstance(dest, dict) else {}
+                    coords = (
+                        dest.get("coordinates", {}) if isinstance(dest, dict) else {}
+                    )
                     flat["destination_lat"] = coords.get("lat", "")
                     flat["destination_lng"] = coords.get("lng", "")
                 else:
                     # Include locations as JSON strings
                     if "startLocation" in doc:
-                        flat["startLocation"] = json.dumps(doc["startLocation"], default=default_serializer)
+                        flat["startLocation"] = json.dumps(
+                            doc["startLocation"], default=default_serializer
+                        )
                     if "destination" in doc:
-                        flat["destination"] = json.dumps(doc["destination"], default=default_serializer)
+                        flat["destination"] = json.dumps(
+                            doc["destination"], default=default_serializer
+                        )
 
                 # Handle all other base fields
                 for key in base_fields:
