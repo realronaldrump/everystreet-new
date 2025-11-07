@@ -298,19 +298,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   transform: scale(1.2);
 }
 
-@keyframes pulse-marker {
-  /* Renamed from pulse to avoid conflict */
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-
-  50% {
-    transform: scale(1.1);
-    opacity: 0.8;
-  }
-}
+/* Note: @keyframes pulse-marker moved to animations.css */
 
 /* === Feature Styling (Trips, Streets) === */
 .trip-path {
