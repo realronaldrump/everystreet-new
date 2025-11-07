@@ -114,18 +114,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   animation: fadeInScale 0.2s ease-out; /* From map-enhancements */
 }
 
-@keyframes fadeInScale {
-  /* From map-enhancements */
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
+/* Note: @keyframes fadeInScale moved to animations.css */
 
 .mapboxgl-popup-content {
   font-family: var(--font-family) !important;

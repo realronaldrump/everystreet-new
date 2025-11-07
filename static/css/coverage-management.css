@@ -2,174 +2,135 @@
   animation: pulse 1.5s infinite;
 }
 
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
-  }
-
-  100% {
-    opacity: 1;
-  }
-}
+/* Note: pulse animation moved to animations.css */
 
 .detailed-stage-info {
   font-style: italic;
-  color: #adb5bd;
-  font-size: 0.9em;
-  margin-top: 5px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-2);
 }
 
 .stats-info {
-  font-size: 0.9em;
+  font-size: var(--font-size-sm);
 }
 
 .stats-info small {
-  color: #ced4da;
+  color: var(--text-secondary);
 }
 
 .stats-info .text-info {
-  color: #3db9d5 !important;
+  color: var(--info) !important;
 }
 
 .stats-info .text-success {
-  color: #4caf50 !important;
+  color: var(--success) !important;
 }
 
 .stats-info .text-primary {
-  color: #59a6ff !important;
+  color: var(--primary) !important;
 }
 
 .map-info-panel {
   position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 1000;
-  background: rgb(40 40 40 / 90%);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 12px;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: var(--z-dropdown);
+  background: var(--surface-glass);
+  color: var(--text-on-dark);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
   pointer-events: none;
-  box-shadow: 0 2px 10px rgb(0 0 0 / 40%);
+  box-shadow: var(--shadow-lg);
   max-width: 250px;
-  border-left: 3px solid #007bff;
+  border-left: 3px solid var(--info);
   display: none;
   backdrop-filter: blur(10px);
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 .map-info-panel strong {
-  color: #fff;
+  color: var(--text-on-dark);
 }
 
 .map-info-panel .text-success {
-  color: #4caf50 !important;
+  color: var(--success) !important;
 }
 
 .map-info-panel .text-danger {
-  color: #ff5252 !important;
+  color: var(--danger) !important;
 }
 
 .map-info-panel .text-info {
-  color: #17a2b8 !important;
+  color: var(--info) !important;
 }
 
 .map-info-panel .text-warning {
-  color: #ffc107 !important;
+  color: var(--warning) !important;
 }
 
 .map-info-panel .text-muted {
-  color: #adb5bd !important;
+  color: var(--text-tertiary) !important;
 }
 
 .map-info-panel hr.panel-divider {
-  border-top: 1px solid rgb(255 255 255 / 20%);
-  margin: 5px 0;
+  border-top: 1px solid var(--border-color);
+  margin: var(--space-2) 0;
 }
 
 .coverage-summary-control {
-  background: rgb(40 40 40 / 90%);
-  color: white;
-  padding: 10px;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
-  border: 1px solid rgb(255 255 255 / 10%) !important;
+  background: var(--surface-glass);
+  color: var(--text-on-dark);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color) !important;
   min-width: 150px;
   backdrop-filter: blur(10px);
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 .summary-title {
-  font-size: 12px;
-  font-weight: bold;
-  margin-bottom: 5px;
-  color: #ccc;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-2);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .summary-percentage {
-  font-size: 24px;
-  font-weight: bold;
-  margin-bottom: 5px;
-  color: #fff;
-  transition: all 0.3s ease;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-2);
+  color: var(--text-on-dark);
+  transition: var(--transition-normal);
 }
 
 .summary-progress {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 .summary-details {
-  font-size: 11px;
-  color: #ccc;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
   text-align: right;
 }
 
-/* Enhanced animations */
+/* Enhanced animations - keyframes moved to animations.css */
 .fade-in-up {
   animation: fadeInUp 0.3s ease forwards;
   opacity: 0;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .shake-animation {
   animation: shake 0.3s ease;
 }
 
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  25% {
-    transform: translateX(-5px);
-  }
-
-  75% {
-    transform: translateX(5px);
-  }
-}
-
 /* Enhanced hover states */
 .location-name-link {
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 .location-name-link:hover {
@@ -181,34 +142,23 @@
 .form-control,
 .form-select,
 .progress-bar {
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 /* Enhanced focus states */
 .btn:focus-visible,
 .form-control:focus-visible,
 .form-select:focus-visible {
-  outline: 2px solid #59a6ff;
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
-/* Loading pulse animation */
+/* Loading pulse animation - keyframe moved to animations.css */
 .loading-pulse {
   animation: loadingPulse 1.5s ease-in-out infinite;
 }
 
-@keyframes loadingPulse {
-  0%,
-  100% {
-    opacity: 0.6;
-  }
-
-  50% {
-    opacity: 1;
-  }
-}
-
-/* Skeleton loading enhancement */
+/* Skeleton loading enhancement - keyframe moved to animations.css */
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
@@ -220,41 +170,31 @@
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
-}
-
 /* CSS for the efficient streets panel */
 .efficient-streets-panel-overlay {
   position: absolute;
   top: 80px;
-  right: 10px;
+  right: var(--space-3);
   width: 350px;
   max-height: 400px;
   overflow-y: auto;
-  z-index: 1000;
-  box-shadow: 0 2px 10px rgb(0 0 0 / 30%);
+  z-index: var(--z-dropdown);
+  box-shadow: var(--shadow-lg);
 }
 
 .efficient-street-item {
-  background: rgb(60 60 60 / 80%);
-  border-radius: 4px;
-  transition: background 0.2s;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
 }
 
 .efficient-street-item:hover {
-  background: rgb(80 80 80 / 90%);
+  background: var(--surface-3);
 }
 
 .efficient-street-marker-mapbox {
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: var(--transition-fast);
 }
 
 .efficient-street-marker-mapbox:hover {
@@ -262,53 +202,53 @@
 }
 
 .efficiency-metrics {
-  margin: 8px 0;
+  margin: var(--space-2) 0;
 }
 
 .efficiency-metrics div {
-  margin: 4px 0;
+  margin: var(--space-1) 0;
 }
 
 /* Drawing Interface Styles */
 .drawing-interface {
-  margin-top: 1rem;
+  margin-top: var(--space-4);
 }
 
 #drawing-map {
-  border: 2px solid var(--bs-border-color);
-  border-radius: 8px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
 .mapboxgl-ctrl-draw-btn {
-  background-color: var(--bs-primary) !important;
-  color: white !important;
+  background-color: var(--primary) !important;
+  color: var(--text-on-primary) !important;
 }
 
 .mapboxgl-ctrl-draw-btn:hover {
-  background-color: var(--bs-primary-hover) !important;
+  background-color: var(--primary-light) !important;
 }
 
 .mapboxgl-ctrl-draw-btn.active {
-  background-color: var(--bs-success) !important;
+  background-color: var(--success) !important;
 }
 
 /* Custom draw controls styling */
 .mapboxgl-ctrl-draw {
-  background: rgb(40 40 40 / 90%) !important;
-  border-radius: 4px !important;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 30%) !important;
+  background: var(--surface-glass) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 
 .mapboxgl-ctrl-draw button {
   background-color: transparent !important;
   border: none !important;
-  color: #fff !important;
-  font-size: 16px !important;
-  padding: 8px !important;
-  margin: 2px !important;
-  border-radius: 4px !important;
-  transition: all 0.2s ease !important;
+  color: var(--text-on-dark) !important;
+  font-size: var(--font-size-md) !important;
+  padding: var(--space-2) !important;
+  margin: var(--space-1) !important;
+  border-radius: var(--radius-sm) !important;
+  transition: var(--transition-fast) !important;
 }
 
 .mapboxgl-ctrl-draw button:hover {
@@ -316,49 +256,37 @@
 }
 
 .mapboxgl-ctrl-draw button.active {
-  background-color: var(--bs-primary) !important;
-  color: white !important;
+  background-color: var(--primary) !important;
+  color: var(--text-on-primary) !important;
 }
 
 /* Area type selection */
 .btn-check:checked + .btn-outline-primary {
-  background-color: var(--bs-primary);
-  border-color: var(--bs-primary);
-  color: white;
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-on-primary);
 }
 
-/* Drawing validation styling */
+/* Drawing validation styling - keyframe moved to animations.css */
 #drawing-validation-result {
   animation: slideInUp 0.3s ease-out;
 }
 
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* Custom area form styling */
 #custom-area-name {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 #custom-area-name:focus {
-  border-color: var(--bs-primary);
-  box-shadow: 0 0 0 0.2rem rgb(var(--bs-primary-rgb), 0.25);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 0.2rem rgb(var(--primary-rgb) / 25%);
 }
 
 /* Drawing instructions styling */
 .alert-info {
-  background-color: rgb(var(--info-rgb, 63, 140, 255), 0.12);
-  border-color: rgb(var(--info-rgb, 63, 140, 255), 0.24);
-  color: var(--info, #3f8cff);
+  background-color: rgb(var(--info-rgb) / 12%);
+  border-color: rgb(var(--info-rgb) / 24%);
+  color: var(--info);
 }
 
 /* Modal size adjustment for drawing interface */
@@ -369,9 +297,9 @@
 /* Ensure drawing map container has proper styling */
 .drawing-map-container {
   position: relative;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+  box-shadow: var(--shadow-md);
 }
 
 /* Drawing tools styling */
@@ -379,17 +307,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  border-top: 1px solid var(--bs-border-color);
-  margin-top: 8px;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-color);
+  margin-top: var(--space-2);
 }
 
 .drawing-info {
-  font-size: 0.875rem;
-  color: var(--bs-secondary);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 /* Responsive adjustments */
@@ -420,5 +348,5 @@
     transform 0.4s ease,
     color 0.4s ease;
   transform: scale(1.15);
-  color: var(--bs-info);
+  color: var(--info);
 }
