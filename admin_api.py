@@ -9,7 +9,9 @@ from db import (
     db_manager,
     delete_many_with_retry,
     find_one_with_retry,
+    insert_one_with_retry,
     serialize_datetime,
+    update_one_with_retry,
 )
 from models import CollectionModel, LocationModel, ValidateLocationModel
 from osm_utils import generate_geojson_osm
@@ -43,7 +45,7 @@ async def get_persisted_app_settings() -> dict[str, Any]:
         doc = await find_one_with_retry(app_settings_collection, {"_id": "default"})
         if doc is None:
             # Initialise defaults
-            await app_settings_collection.insert_one(DEFAULT_APP_SETTINGS)
+            await insert_one_with_retry(app_settings_collection, DEFAULT_APP_SETTINGS)
             doc = DEFAULT_APP_SETTINGS.copy()
         return doc
     except Exception as e:
@@ -84,7 +86,8 @@ async def update_app_settings_endpoint(settings: dict = Body(...)):
             raise HTTPException(status_code=400, detail="Invalid payload")
 
         # Upsert merge into single document with _id = default
-        await app_settings_collection.update_one(
+        await update_one_with_retry(
+            app_settings_collection,
             {"_id": "default"},
             {"$set": settings},
             upsert=True,

@@ -101,7 +101,8 @@ async def _update_task_progress(
             # Ensure status is processing if not an error
             update_doc["$set"]["status"] = "processing"
 
-        await progress_collection.update_one(
+        await update_one_with_retry(
+            progress_collection,
             {"_id": task_id},
             update_doc,
             upsert=False,  # Assume progress doc is created by caller task

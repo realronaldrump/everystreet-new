@@ -23,30 +23,13 @@ from models import (
     ActiveTripSuccessResponse,
     NoActiveTripResponse,
 )
+from redis_config import get_redis_url
 from tasks import process_webhook_event_task
 from trip_event_publisher import TRIP_UPDATES_CHANNEL
 
 # Setup
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-def get_redis_url() -> str:
-    """Get Redis URL from environment (same logic as celery_app.py)."""
-    redis_url = os.getenv("REDIS_URL")
-    if not redis_url:
-        redis_host = os.getenv("REDISHOST") or os.getenv("RAILWAY_PRIVATE_DOMAIN")
-        redis_port = os.getenv("REDISPORT", "6379")
-        redis_password = os.getenv("REDISPASSWORD") or os.getenv("REDIS_PASSWORD")
-        redis_user = os.getenv("REDISUSER", "default")
-
-        if redis_host and redis_password:
-            redis_url = (
-                f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
-            )
-        else:
-            redis_url = "redis://localhost:6379"
-    return redis_url
 
 
 # WebSocket Connection Manager

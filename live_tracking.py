@@ -10,7 +10,7 @@ from pymongo.collection import Collection
 from pymongo.results import UpdateResult
 
 from date_utils import parse_timestamp
-from db import run_transaction, serialize_document
+from db import run_transaction, serialize_document, update_one_with_retry
 from trip_event_publisher import (
     publish_trip_delta,
     publish_trip_end,
@@ -314,7 +314,8 @@ async def process_trip_data(
             trip_doc.get("sequence", 0) + 1,
             int(time.time_ns() / 1000),
         )
-        await live_collection.update_one(
+        await update_one_with_retry(
+            live_collection,
             {"_id": trip_doc["_id"]},
             {
                 "$set": {
@@ -470,7 +471,8 @@ async def process_trip_data(
             "All new coordinates were duplicates for %s. Updating sequence only.",
             transaction_id,
         )
-        await live_collection.update_one(
+        await update_one_with_retry(
+            live_collection,
             {"_id": trip_doc["_id"]},
             {
                 "$set": {
@@ -509,7 +511,8 @@ async def process_trip_data(
 
     try:
         # Single atomic update using MongoDB operators
-        update_result = await live_collection.update_one(
+        update_result = await update_one_with_retry(
+            live_collection,
             {"_id": trip_doc["_id"], "status": "active"},
             update_ops,
         )
