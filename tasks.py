@@ -28,8 +28,6 @@ from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from celery_app import app as celery_app
 from config import get_bouncie_config
 from db import (
-    serialize_datetime,
-    serialize_document,
     count_documents_with_retry,
     coverage_metadata_collection,
     db_manager,
@@ -37,6 +35,8 @@ from db import (
     find_with_retry,
     matched_trips_collection,
     progress_collection,
+    serialize_datetime,
+    serialize_document,
     task_config_collection,
     task_history_collection,
     trips_collection,
@@ -339,7 +339,9 @@ async def check_dependencies(
             ]:
                 return {
                     "can_run": False,
-                    "reason": "Dependency '{}' is currently {}".format(dep_id, dep_status),
+                    "reason": "Dependency '{}' is currently {}".format(
+                        dep_id, dep_status
+                    ),
                 }
 
             if dep_status == TaskStatus.FAILED.value:
@@ -855,7 +857,7 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
             skipped_areas += 1
             continue
 
-        sub_task_id = "incr_update_{}_{}".format(area_id_str, uuid.uuid4())
+        sub_task_id = f"incr_update_{area_id_str}_{uuid.uuid4()}"
         logger.info(
             "Processing incremental update for '%s' (SubTask: %s)",
             display_name,
@@ -1488,7 +1490,7 @@ async def run_task_scheduler_async() -> None:
                     else "default"
                 )
 
-                celery_task_id = "{}_scheduled_{}".format(task_id_to_run, uuid.uuid4())
+                celery_task_id = f"{task_id_to_run}_scheduled_{uuid.uuid4()}"
 
                 celery_app.send_task(
                     celery_task_name,
@@ -1608,9 +1610,7 @@ async def get_all_task_metadata() -> dict[str, Any]:
                     "interval_minutes": interval_minutes,
                     "status": config_data.get("status", TaskStatus.IDLE.value),
                     "last_run": serialize_datetime(last_run),
-                    "next_run": serialize_datetime(
-                        estimated_next_run
-                    ),
+                    "next_run": serialize_datetime(estimated_next_run),
                     "last_error": config_data.get("last_error"),
                     "start_time": serialize_datetime(
                         config_data.get("start_time"),
@@ -1745,7 +1745,7 @@ async def _send_manual_task(
             else "default"
         )
 
-        celery_task_id = "{}_manual_{}".format(task_name, uuid.uuid4())
+        celery_task_id = f"{task_name}_manual_{uuid.uuid4()}"
 
         result = celery_app.send_task(
             celery_task_string_name,
@@ -1887,7 +1887,7 @@ async def force_reset_task(
         upsert=True,
     )
 
-    history_id = "{}_force_stop_{}".format(task_id, uuid.uuid4())
+    history_id = f"{task_id}_force_stop_{uuid.uuid4()}"
     await update_task_history_entry(
         celery_task_id=history_id,
         task_name=task_id,

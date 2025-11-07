@@ -7,13 +7,12 @@ from pydantic import BaseModel
 from config import MAPBOX_ACCESS_TOKEN
 from date_utils import normalize_calendar_date
 from db import (
-    serialize_datetime,
-    serialize_document,
     build_calendar_date_expr,
     db_manager,
     delete_many_with_retry,
     find_with_retry,
     get_trip_by_id,
+    serialize_datetime,
 )
 from models import BulkProcessModel, DateRangeModel
 from trip_service import ProcessingOptions, TripService

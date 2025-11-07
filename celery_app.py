@@ -49,8 +49,10 @@ if not REDIS_URL:
             REDIS_URL,
         )
 else:
-    logger.info("Using REDIS_URL from environment: %s", 
-                REDIS_URL.split("@")[-1] if "@" in REDIS_URL else REDIS_URL)
+    logger.info(
+        "Using REDIS_URL from environment: %s",
+        REDIS_URL.split("@")[-1] if "@" in REDIS_URL else REDIS_URL,
+    )
 
 logger.info(
     "Configuring Celery with broker: %s",

@@ -6,11 +6,10 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException, status
 
 from db import (
-    serialize_datetime,
-    serialize_document,
     db_manager,
     delete_many_with_retry,
     find_one_with_retry,
+    serialize_datetime,
 )
 from models import CollectionModel, LocationModel, ValidateLocationModel
 from osm_utils import generate_geojson_osm

@@ -9,7 +9,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from db import (
-    SerializationHelper,
     count_documents_with_retry,
     db_manager,
     delete_many_with_retry,

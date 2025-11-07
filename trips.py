@@ -13,8 +13,6 @@ from pydantic import BaseModel
 from config import MAPBOX_ACCESS_TOKEN
 from date_utils import normalize_calendar_date
 from db import (
-    serialize_datetime,
-    serialize_document,
     build_calendar_date_expr,
     build_query_from_request,
     delete_many_with_retry,
@@ -24,6 +22,8 @@ from db import (
     get_trip_by_id,
     matched_trips_collection,
     progress_collection,
+    serialize_datetime,
+    serialize_document,
     trips_collection,
     update_one_with_retry,
 )
@@ -657,9 +657,7 @@ async def get_geocode_progress(task_id: str):
             "metrics": progress.get("metrics", {}),
             "current_trip_id": progress.get("current_trip_id"),
             "error": progress.get("error"),
-            "updated_at": serialize_datetime(
-                progress.get("updated_at")
-            ),
+            "updated_at": serialize_datetime(progress.get("updated_at")),
         }
     except HTTPException:
         raise

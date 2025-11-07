@@ -7,7 +7,6 @@ from fastapi.responses import JSONResponse
 
 from date_utils import normalize_calendar_date
 from db import (
-    SerializationHelper,
     build_calendar_date_expr,
     build_query_from_request,
     db_manager,
