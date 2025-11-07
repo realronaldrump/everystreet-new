@@ -34,6 +34,20 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             - authorized_devices: list[str]
             - fetch_concurrency: int (defaults to 12)
     """
+
+    def get_env_fallback_credentials() -> dict[str, Any]:
+        """Helper to get credentials from environment variables."""
+        return {
+            "client_id": os.getenv("CLIENT_ID", ""),
+            "client_secret": os.getenv("CLIENT_SECRET", ""),
+            "redirect_uri": os.getenv("REDIRECT_URI", ""),
+            "authorization_code": os.getenv("AUTHORIZATION_CODE", ""),
+            "authorized_devices": [
+                d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
+            ],
+            "fetch_concurrency": int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12")),
+        }
+
     try:
         collection = await get_bouncie_credentials_collection()
         credentials = await find_one_with_retry(
@@ -62,33 +76,15 @@ async def get_bouncie_credentials() -> dict[str, Any]:
                 "fetch_concurrency": fetch_concurrency,
             }
 
-        # Fallback to environment variables
+        # Fallback to environment variables if no database credentials found
         logger.info(
             "No database credentials found, falling back to environment variables"
         )
-        return {
-            "client_id": os.getenv("CLIENT_ID", ""),
-            "client_secret": os.getenv("CLIENT_SECRET", ""),
-            "redirect_uri": os.getenv("REDIRECT_URI", ""),
-            "authorization_code": os.getenv("AUTHORIZATION_CODE", ""),
-            "authorized_devices": [
-                d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
-            ],
-            "fetch_concurrency": int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12")),
-        }
+        return get_env_fallback_credentials()
     except Exception as e:
         logger.exception("Error retrieving Bouncie credentials: %s", e)
         # Fallback to environment variables on error
-        return {
-            "client_id": os.getenv("CLIENT_ID", ""),
-            "client_secret": os.getenv("CLIENT_SECRET", ""),
-            "redirect_uri": os.getenv("REDIRECT_URI", ""),
-            "authorization_code": os.getenv("AUTHORIZATION_CODE", ""),
-            "authorized_devices": [
-                d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
-            ],
-            "fetch_concurrency": int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12")),
-        }
+        return get_env_fallback_credentials()
 
 
 async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:

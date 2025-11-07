@@ -1235,20 +1235,18 @@ class TripProcessor:
                 coords: list[list[float]],
                 timestamps: list[int | None] | None = None,
             ) -> dict[str, Any]:
-                """Call Mapbox Map Matching API using GET request with optimal parameters."""
+                """Call Mapbox Map Matching API using POST for reliability with large coordinate sets."""
                 base_url = "https://api.mapbox.com/matching/v5/mapbox/driving"
 
-                # Build coordinate string with optional timestamps
-                # Mapbox format: lon,lat;lon,lat;lon,lat or lon,lat,timestamp;lon,lat,timestamp
-                coord_parts = []
+                # Build coordinate data with optional timestamps
+                # For POST, we send coordinates as GeoJSON in the request body
+                coordinates_data = []
                 for i, (lon, lat) in enumerate(coords):
-                    coord_str = f"{lon},{lat}"
+                    coord = [lon, lat]
+                    # Add timestamp if available
                     if timestamps and i < len(timestamps) and timestamps[i] is not None:
-                        coord_str += f",{timestamps[i]}"
-                    coord_parts.append(coord_str)
-
-                coords_str = ";".join(coord_parts)
-                url = f"{base_url}/{coords_str}"
+                        coord.append(timestamps[i])
+                    coordinates_data.append(coord)
 
                 # Calculate adaptive radiuses based on GPS precision
                 # Default: 25m for urban, 50m for highway speeds
@@ -1260,9 +1258,9 @@ class TripProcessor:
                         if time_diff > 0:
                             # Estimate if this might be highway (high speed)
                             # Use larger radius for potential highway segments
-                            radiuses.append("50")
+                            radiuses.append(50)
                         else:
-                            radiuses.append("25")
+                            radiuses.append(25)
                     else:
                         # Default radius based on coordinate density
                         # Dense points = urban (25m), sparse = highway (50m)
@@ -1276,11 +1274,17 @@ class TripProcessor:
                                 unit="meters",
                             )
                             # If points are far apart, likely highway
-                            radiuses.append("50" if distance > 100 else "25")
+                            radiuses.append(50 if distance > 100 else 25)
                         else:
-                            radiuses.append("25")
+                            radiuses.append(25)
 
-                # Add accuracy parameters for maximum quality
+                # Build request body for POST
+                request_body = {
+                    "coordinates": coordinates_data,
+                    "radiuses": radiuses,
+                }
+
+                # Add query parameters for maximum quality
                 params = {
                     "access_token": config.mapbox_access_token,
                     "geometries": "geojson",
@@ -1288,10 +1292,6 @@ class TripProcessor:
                     "tidy": "true",  # Remove redundant points
                     "steps": "false",  # We don't need step-by-step directions
                 }
-
-                # Add radiuses as query parameter
-                if radiuses:
-                    params["radiuses"] = ";".join(radiuses)
 
                 max_attempts_for_429 = 5
                 min_backoff_seconds = 2
@@ -1313,10 +1313,11 @@ class TripProcessor:
                             await asyncio.sleep(wait_time)
 
                         try:
-                            # Use GET request (Mapbox Map Matching API uses GET)
-                            async with session.get(
-                                url,
+                            # Use POST request to avoid URL length limitations
+                            async with session.post(
+                                base_url,
                                 params=params,
+                                json=request_body,
                             ) as response:
                                 if response.status == 429:
                                     logger.warning(

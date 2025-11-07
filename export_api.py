@@ -165,40 +165,12 @@ async def _stream_csv_from_cursor(
             "destination_lng",
         ]
 
-    # Determine header once using a sample doc if available
-    sample_doc = await cursor.to_list(length=1)
-
-    fieldnames = set()
-    if sample_doc:
-        fieldnames.update(sample_doc[0].keys())
-    if flatten_location_fields:
-        fieldnames.update(location_fields)
-        fieldnames.discard("startLocation")
-        fieldnames.discard("destination")
-    fieldnames = sorted(fieldnames)
-    priority = [
-        "_id",
-        "transactionId",
-        "trip_id",
-        "trip_type",
-        "startTime",
-        "endTime",
-    ] + location_fields
-    for f in reversed(priority):
-        if f in fieldnames:
-            fieldnames.remove(f)
-            fieldnames.insert(0, f)
-
     async def generator():
         buf = StringIO()
-        writer = csv.DictWriter(buf, fieldnames=fieldnames)
-        writer.writeheader()
-        yield buf.getvalue()
-        buf.seek(0)
-        buf.truncate(0)
 
-        # If we had a sample, write it first
-        async def write_trip(trip: dict[str, Any]):
+        # Helper function to process a single trip
+        def process_trip(trip: dict[str, Any]) -> dict[str, Any]:
+            """Process and flatten a single trip document."""
             flat = {}
             for key, value in trip.items():
                 if key in ["gps", "geometry", "path", "simplified_path", "route"]:
@@ -269,31 +241,48 @@ async def _stream_csv_from_cursor(
                 flat["destination_lat"] = coords.get("lat", "")
                 flat["destination_lng"] = coords.get("lng", "")
 
-            writer.writerow(flat)
-            yield buf.getvalue()
-            buf.seek(0)
-            buf.truncate(0)
+            return flat
 
-        if sample_doc:
-            async for chunk in write_trip(sample_doc[0]):
-                yield chunk
+        # Process documents in a single pass
+        writer = None
+        first_doc = True
+        async for doc in cursor:
+            flat = process_trip(doc)
 
-        # Recreate cursor to continue after the first document
-        query = cursor._Cursor__spec  # type: ignore[attr-defined]
-        projection = cursor._Cursor__fields if hasattr(cursor, "_Cursor__fields") else None  # type: ignore[attr-defined]
-        new_cursor = (trips_collection if cursor.collection.name == "trips" else matched_trips_collection).find(query, projection)  # type: ignore
-        # Skip first document to avoid duplication
-        skipped_first = False
-        async for doc in new_cursor:
-            if (
-                not skipped_first
-                and sample_doc
-                and doc.get("_id") == sample_doc[0].get("_id")
-            ):
-                skipped_first = True
-                continue
-            async for chunk in write_trip(doc):
-                yield chunk
+            # Initialize writer with fieldnames from first document
+            if first_doc:
+                fieldnames = set(flat.keys())
+                if flatten_location_fields:
+                    fieldnames.update(location_fields)
+                fieldnames = sorted(fieldnames)
+
+                # Prioritize certain fields at the start
+                priority = [
+                    "_id",
+                    "transactionId",
+                    "trip_id",
+                    "trip_type",
+                    "startTime",
+                    "endTime",
+                ] + location_fields
+                for f in reversed(priority):
+                    if f in fieldnames:
+                        fieldnames.remove(f)
+                        fieldnames.insert(0, f)
+
+                writer = csv.DictWriter(buf, fieldnames=fieldnames)
+                writer.writeheader()
+                yield buf.getvalue()
+                buf.seek(0)
+                buf.truncate(0)
+                first_doc = False
+
+            # Write the row
+            if writer:
+                writer.writerow(flat)
+                yield buf.getvalue()
+                buf.seek(0)
+                buf.truncate(0)
 
     return generator()
 
