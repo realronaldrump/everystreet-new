@@ -653,6 +653,9 @@ class SerializationHelper:
         ensuring BSON types like dates and ObjectIds are converted to
         standard Python types.
 
+        This method directly processes the document recursively without intermediate
+        JSON serialization for better performance.
+
         Args:
             doc: MongoDB document (dictionary)
 
@@ -663,9 +666,26 @@ class SerializationHelper:
         if not doc:
             return {}
         try:
-            serialized_string = json_util.dumps(doc)
-            loaded_data = json.loads(serialized_string)
-            return post_process_deserialize(loaded_data)
+            def convert_value(val: Any) -> Any:
+                """Recursively convert BSON types to standard Python types."""
+                if isinstance(val, ObjectId):
+                    return str(val)
+                elif isinstance(val, datetime):
+                    # Ensure datetime is timezone-aware (UTC)
+                    if val.tzinfo is None:
+                        return val.replace(tzinfo=timezone.utc)
+                    return val.astimezone(timezone.utc)
+                elif isinstance(val, dict):
+                    return {k: convert_value(v) for k, v in val.items()}
+                elif isinstance(val, list):
+                    return [convert_value(item) for item in val]
+                elif isinstance(val, (bson.int64.Int64, bson.decimal128.Decimal128)):
+                    # Convert BSON numeric types to Python types
+                    return int(val) if isinstance(val, bson.int64.Int64) else float(val.to_decimal())
+                else:
+                    return val
+
+            return convert_value(doc)
 
         except (TypeError, ValueError) as e:
             logger.error(
@@ -1441,17 +1461,63 @@ async def run_transaction(
     max_retries: int = 3,
 ) -> bool:
     """Run a series of operations within a MongoDB transaction with retry logic for write conflicts.
-    Note: Requires replica set or sharded cluster. Standalone instances do not support transactions.
+
+    Automatically detects if transactions are supported (replica sets or sharded clusters).
+    Falls back to sequential execution without transactions for standalone instances.
 
     Args:
         operations: List of async operations to execute
         max_retries: Maximum number of retries for transient errors like write conflicts
 
     Returns:
-        True if transaction succeeded, False otherwise
+        True if operations succeeded, False otherwise
 
     """
     client = db_manager.client
+
+    # Check if transactions are supported by attempting a simple transaction
+    # Standalone MongoDB instances will fail with "Transaction numbers are only allowed on a replica set member or mongos"
+    transactions_supported = True
+    try:
+        async with await client.start_session() as test_session:
+            # Try to start a transaction - this will fail immediately on standalone
+            async with test_session.start_transaction():
+                pass
+    except OperationFailure as e:
+        # Check for specific transaction-not-supported errors
+        if "Transaction numbers" in str(e) or "transactions are only supported" in str(e).lower():
+            transactions_supported = False
+            logger.warning(
+                "MongoDB transactions are not supported (likely standalone instance). "
+                "Falling back to sequential execution without transaction safety."
+            )
+        else:
+            # Some other error - log it but try to proceed
+            logger.warning(f"Error checking transaction support: {e}")
+    except Exception as e:
+        logger.warning(f"Unexpected error checking transaction support: {e}")
+
+    if not transactions_supported:
+        # Fallback: execute operations sequentially without transactions
+        # This loses atomicity but maintains functionality
+        try:
+            logger.debug("Executing operations sequentially (no transaction)...")
+            for i, op in enumerate(operations):
+                logger.debug(
+                    "Executing operation %d (no transaction)...",
+                    i + 1,
+                )
+                await op(session=None)
+            logger.debug("All operations completed (no transaction).")
+            return True
+        except Exception as e:
+            logger.error(
+                f"Sequential operation execution failed: {e}",
+                exc_info=True,
+            )
+            return False
+
+    # Transactions are supported - use them with retry logic
     retry_count = 0
     while retry_count <= max_retries:
         try:

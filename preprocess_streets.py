@@ -691,8 +691,27 @@ async def process_osm_data(
         processed_segments_count = 0
         total_segments_count = 0
 
-        # Use ProcessPoolExecutor for CPU-bound tasks (segmentation, projection)
-        with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # Check if we're in a daemonic process (e.g., Celery worker)
+        # Daemonic processes cannot spawn child processes
+        is_daemon = multiprocessing.current_process().daemon
+        if is_daemon:
+            logger.warning(
+                "Running in daemonic process (likely Celery worker). "
+                "Using sequential processing instead of ProcessPoolExecutor to avoid "
+                "'daemonic processes are not allowed to have children' error."
+            )
+            # Set max_workers to 0 to force sequential processing
+            effective_max_workers = 0
+        else:
+            effective_max_workers = MAX_WORKERS
+
+        # Use ProcessPoolExecutor for CPU-bound tasks (segmentation, projection) if not daemonic
+        if effective_max_workers > 0:
+            executor = ProcessPoolExecutor(max_workers=effective_max_workers)
+        else:
+            executor = None
+
+        try:
             loop = asyncio.get_event_loop()
             tasks = [
                 loop.run_in_executor(
@@ -881,6 +900,10 @@ async def process_osm_data(
                         insert_err,
                         exc_info=True,
                     )
+        finally:
+            # Cleanup executor if it was created
+            if executor is not None:
+                executor.shutdown(wait=True)
 
         # Update coverage metadata
         if total_segments_count > 0:
