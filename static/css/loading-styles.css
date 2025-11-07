@@ -180,11 +180,7 @@ body.light-mode .loading-overlay {
   border-right-color: transparent !important;
 }
 
-@keyframes btn-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* Note: @keyframes btn-spin moved to animations.css */
 
 /* === Skeleton Loading === */
 .skeleton-loader {
@@ -220,15 +216,7 @@ body.light-mode .skeleton-loader::after {
   background-color: var(--surface-4);
 }
 
-@keyframes skeleton-shine {
-  0% {
-    background-position: -200% 0;
-  }
-
-  100% {
-    background-position: 200% 0;
-  }
-}
+/* Note: @keyframes skeleton-shine moved to animations.css */
 
 .skeleton-text {
   /* Apply to text-like skeleton elements */

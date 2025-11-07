@@ -69,16 +69,7 @@
   opacity: 0.15;
 }
 
-@keyframes gradient-shift {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-}
+/* Note: @keyframes gradient-shift moved to animations.css */
 
 /* Enhanced Place Management Panel */
 .place-management-panel {
@@ -108,18 +99,7 @@
   pointer-events: none;
 }
 
-@keyframes pulse-subtle {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-
-  50% {
-    transform: scale(1.1);
-    opacity: 0.3;
-  }
-}
+/* Note: @keyframes pulse-subtle moved to animations.css */
 
 /* Enhanced Form Controls */
 .place-name-input {
@@ -179,16 +159,7 @@
   animation: pulse-draw 2s ease-in-out infinite;
 }
 
-@keyframes pulse-draw {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.02);
-  }
-}
+/* Note: @keyframes pulse-draw moved to animations.css */
 
 /* Enhanced Chart Container */
 .chart-container {
@@ -221,11 +192,7 @@
   pointer-events: none;
 }
 
-@keyframes rotate-slow {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* Note: @keyframes rotate-slow moved to animations.css */
 
 /* Enhanced Table Styles */
 .visits-table {
@@ -465,15 +432,7 @@
   margin-bottom: var(--space-2);
 }
 
-@keyframes loading {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
-}
+/* Note: @keyframes loading moved to animations.css */
 
 /* Responsive Enhancements */
 @media (width <= 992px) {
@@ -571,11 +530,7 @@
   transform-origin: center;
 }
 
-@keyframes progress-fill {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
+/* Note: @keyframes progress-fill moved to animations.css */
 
 /* Divider Gradient (extracted from bottom inline style) */
 .divider-gradient {
