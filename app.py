@@ -56,7 +56,9 @@ templates = Jinja2Templates(directory="templates")
 cors_origins_str = os.getenv("CORS_ALLOWED_ORIGINS", "")
 if cors_origins_str:
     # Parse comma-separated list from environment
-    origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
+    origins = [
+        origin.strip() for origin in cors_origins_str.split(",") if origin.strip()
+    ]
     logger.info("CORS configured with specific origins: %s", origins)
 else:
     # Development fallback - allow localhost and common dev ports
