@@ -1224,20 +1224,7 @@ body.light-mode .form-select {
   display: block;
 }
 
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  25% {
-    transform: translateX(-3px);
-  }
-
-  75% {
-    transform: translateX(3px);
-  }
-}
+/* Note: @keyframes shake moved to animations.css */
 
 /* Quick Selections (for filter panels) */
 .quick-selections {
@@ -1516,17 +1503,7 @@ body.light-mode .table-striped tbody tr:nth-of-type(odd) {
   animation: fadeInMetric 0.3s ease-in-out;
 }
 
-@keyframes fadeInMetric {
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Note: @keyframes fadeInMetric moved to animations.css */
 
 /* Status indicators for different metric types */
 .metric-base::before {
@@ -2292,27 +2269,13 @@ body.light-mode .btn-close-white {
   animation: slideUp 0.4s ease forwards;
 }
 
-@keyframes slideInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Note: @keyframes slideInDown moved to animations.css */
 
 .slide-in-down {
   animation: slideInDown 0.4s ease forwards;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* Note: @keyframes spin moved to animations.css */
 
 .spinner {
   animation: spin 0.8s linear infinite;
