@@ -18,34 +18,38 @@
     .control-panel {
       width: 380px;
       flex-shrink: 0;
-      background: #212529;
-      color: #f8f9fa;
+      background: var(--surface-1);
+      color: var(--text-primary);
       padding: 1rem;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
+      border-right: 1px solid var(--divider-color);
     }
     .map-container {
       flex-grow: 1;
       position: relative;
+      background: var(--surface-0);
     }
     #driving-map {
       height: 100%;
       width: 100%;
-      background: #343a40;
+      background: var(--surface-1);
     }
-  
+
     /* Control Panel Elements */
     .control-section {
-      background: #343a40;
-      border: 1px solid #495057;
-      border-radius: 0.5rem;
+      background: var(--surface-2);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md, 0.5rem);
       padding: 1rem;
       margin-bottom: 1rem;
+      box-shadow: var(--shadow-sm);
     }
     .form-label {
       margin-bottom: 0.5rem;
       font-weight: 600;
+      color: var(--text-secondary);
     }
     .btn i {
       margin-right: 0.5rem;
@@ -53,13 +57,14 @@
     #status-message {
       font-size: 0.9rem;
       padding: 0.75rem;
-      border-radius: 0.25rem;
-      background-color: #343a40;
-      border-left: 4px solid #0dcaf0;
+      border-radius: var(--radius-sm, 0.25rem);
+      background-color: var(--surface-2);
+      border-left: 4px solid var(--info, #3f8cff);
       margin-top: 1rem;
+      box-shadow: var(--shadow-xs);
     }
     #status-message.text-danger {
-      border-left-color: #dc3545;
+      border-left-color: var(--danger, #ff5470);
     }
     #target-info,
     #route-info {
@@ -70,11 +75,13 @@
       flex-wrap: wrap;
       gap: 1rem;
       font-size: 0.9rem;
+      color: var(--text-secondary);
     }
     .form-check-label {
       cursor: pointer;
+      color: var(--text-secondary);
     }
-  
+
     /* Progress Bar */
     #route-progress-container {
       display: none;
@@ -88,11 +95,11 @@
       justify-content: space-between;
       margin-bottom: 0.5rem;
       font-size: 0.8rem;
+      color: var(--text-tertiary);
     }
     .step {
       flex: 1;
       text-align: center;
-      color: #adb5bd;
       position: relative;
     }
     .step:not(:last-child)::after {
@@ -102,33 +109,41 @@
       right: -50%;
       width: 100%;
       height: 2px;
-      background-color: #495057;
+      background-color: var(--divider-color);
       z-index: 1;
     }
     .step.active {
-      color: #0dcaf0;
+      color: var(--primary);
       font-weight: bold;
     }
     .step.completed {
-      color: #198754;
+      color: var(--success);
     }
     .progress {
       height: 10px;
+      background: var(--surface-3);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+    .progress .progress-bar {
+      background: var(--primary-gradient);
     }
     #processing-status {
       font-size: 0.8rem;
       text-align: center;
       margin-top: 0.5rem;
+      color: var(--text-tertiary);
     }
-  
+
     /* Route Details Panel */
     #route-details {
       display: none;
       margin-top: 1rem;
-      background: #343a40;
-      border: 1px solid #495057;
-      border-radius: 0.5rem;
+      background: var(--surface-2);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md, 0.5rem);
       padding: 1rem;
+      box-shadow: var(--shadow-sm);
     }
     #route-stats {
       display: grid;
@@ -136,38 +151,57 @@
       gap: 0.5rem;
       font-size: 0.9rem;
       margin-bottom: 1rem;
+      color: var(--text-secondary);
     }
     #route-legend .legend-item {
       display: flex;
       align-items: center;
       margin-bottom: 0.25rem;
+      color: var(--text-secondary);
     }
     .legend-color {
       width: 15px;
       height: 15px;
       border-radius: 3px;
       margin-right: 0.5rem;
-      border: 1px solid #6c757d;
+      border: 1px solid var(--border-color);
     }
-  
+
     /* Mapbox Customizations */
     .mapboxgl-popup-content {
-      background: #343a40;
-      color: #f8f9fa;
-      border: 1px solid #495057;
-      border-radius: 0.5rem;
+      background: var(--surface-2);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md, 0.5rem);
       padding: 10px;
+      box-shadow: var(--shadow-md);
     }
     .mapboxgl-popup-close-button {
-      color: #f8f9fa;
+      color: var(--text-secondary);
       font-size: 1.5rem;
       padding: 0 5px;
+      transition: color var(--transition-fast);
+    }
+    .mapboxgl-popup-close-button:hover {
+      color: var(--text-primary);
     }
     .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
-      border-top-color: #343a40;
+      border-top-color: var(--surface-2);
     }
     .segment-popup .btn {
       width: 100%;
+    }
+
+    /* Responsive Adjustments */
+    @media (width <= 992px) {
+      .main-container {
+        flex-direction: column;
+      }
+      .control-panel {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--divider-color);
+      }
     }
   </style>
   {% endblock %} {% block content %}

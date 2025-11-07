@@ -5,30 +5,30 @@
 /* === CSS Variables === */
 :root {
   /* Color System */
-  --primary: #ff6b6b;
-  --primary-light: #ff8e8e;
-  --primary-dark: #e84a5f;
-  --primary-rgb: 255, 107, 107;
-  --secondary: #4d79ff;
-  --secondary-light: #829fff;
-  --secondary-dark: #3a5ccc;
-  --secondary-rgb: 77, 121, 255;
-  --success: #4ecca3;
-  --success-light: #7affaa;
-  --success-dark: #3da58a;
-  --success-rgb: 78, 204, 163;
-  --warning: #ffbe0b;
-  --warning-light: #ffcb3b;
-  --warning-dark: #e0a800;
-  --warning-rgb: 255, 190, 11;
-  --danger: #ff5757;
-  --danger-light: #ff7a7a;
-  --danger-dark: #e04343;
-  --danger-rgb: 255, 87, 87;
-  --info: #5bc0de;
-  --info-light: #85d0e6;
-  --info-dark: #46a9c5;
-  --info-rgb: 91, 192, 222;
+  --primary: #7f5af0;
+  --primary-light: #9e8bff;
+  --primary-dark: #5630e6;
+  --primary-rgb: 127, 90, 240;
+  --secondary: #2cb67d;
+  --secondary-light: #52d79b;
+  --secondary-dark: #1d8a5d;
+  --secondary-rgb: 44, 182, 125;
+  --success: #3dd68c;
+  --success-light: #6cf7b1;
+  --success-dark: #22965f;
+  --success-rgb: 61, 214, 140;
+  --warning: #faae2b;
+  --warning-light: #fbd072;
+  --warning-dark: #b7791f;
+  --warning-rgb: 250, 174, 43;
+  --danger: #ff5470;
+  --danger-light: #ff8aa1;
+  --danger-dark: #d12f4a;
+  --danger-rgb: 255, 84, 112;
+  --info: #3f8cff;
+  --info-light: #82b0ff;
+  --info-dark: #2c57d4;
+  --info-rgb: 63, 140, 255;
 
   /* Gradients */
   --primary-gradient: linear-gradient(
@@ -55,25 +55,28 @@
   --info-gradient: linear-gradient(135deg, var(--info), var(--info-dark));
 
   /* Dark Mode Colors (Default) */
-  --surface-0: #121212; /* Base background */
-  --surface-1: #1e1e1e; /* Cards, elevated surfaces */
-  --surface-2: #252525; /* Slightly more elevated, or card headers */
-  --surface-3: #333; /* Inputs, controls */
-  --surface-4: #404040; /* Hover states for controls */
-  --surface-glass: rgb(30 30 30 / 85%); /* For glassmorphism effects */
-  --text-primary: rgb(255 255 255 / 87%);
-  --text-secondary: rgb(255 255 255 / 60%);
-  --text-tertiary: rgb(255 255 255 / 38%);
-  --text-on-primary: #000; /* Text on primary-bg buttons */
-  --text-on-secondary: #fff; /* Text on secondary-bg buttons */
-  --text-on-dark: #fff;
-  --text-on-light: #000;
-  --border-color: rgb(255 255 255 / 12%);
+  --surface-0: #0b1020; /* Base background */
+  --surface-1: #10172a; /* Cards, elevated surfaces */
+  --surface-2: #1b2338; /* Slightly more elevated, or card headers */
+  --surface-3: #22304a; /* Inputs, controls */
+  --surface-4: #2c3c58; /* Hover states for controls */
+  --surface-glass: rgb(17 24 39 / 82%); /* For glassmorphism effects */
+  --text-primary: rgb(241 245 249 / 92%);
+  --text-secondary: rgb(148 163 184 / 85%);
+  --text-tertiary: rgb(148 163 184 / 55%);
+  --text-on-primary: #ffffff; /* Text on primary-bg buttons */
+  --text-on-secondary: #ffffff; /* Text on secondary-bg buttons */
+  --text-on-dark: #ffffff;
+  --text-on-light: #0b1020;
+  --border-color: rgb(148 163 184 / 18%);
   --border-color-light: rgb(
-    255 255 255 / 24%
+    148 163 184 / 35%
   ); /* For focused elements or stronger divisions */
 
-  --divider-color: rgb(255 255 255 / 8%);
+  --divider-color: rgb(148 163 184 / 12%);
+  --surface-rgb: 16, 23, 42;
+  --text-rgb: 226, 232, 240;
+  --border-rgb: 94, 108, 132;
 
   /* Typography */
   --font-family:
@@ -148,34 +151,38 @@
   --z-loading-overlay: 9999;
 
   /* Scrollbar */
-  --scrollbar-thumb-color: rgb(255 255 255 / 30%);
-  --scrollbar-track-color: rgb(0 0 0 / 20%);
-  --scrollbar-thumb-hover-color: rgb(255 255 255 / 50%);
+  --scrollbar-thumb-color: rgb(148 163 184 / 40%);
+  --scrollbar-track-color: rgb(8 12 24 / 35%);
+  --scrollbar-thumb-hover-color: rgb(148 163 184 / 65%);
 }
 
 /* === Light Mode Overrides === */
 body.light-mode {
-  --surface-0: #f8f9fa;
-  --surface-1: #fff;
-  --surface-2: #f1f3f5;
-  --surface-3: #e9ecef;
-  --surface-4: #dee2e6;
-  --surface-glass: rgb(248 249 250 / 85%);
-  --text-primary: rgb(0 0 0 / 87%);
-  --text-secondary: rgb(0 0 0 / 60%);
-  --text-tertiary: rgb(0 0 0 / 38%);
-  --text-on-primary: #fff;
-  --border-color: rgb(0 0 0 / 12%);
-  --border-color-light: rgb(0 0 0 / 24%);
-  --divider-color: rgb(0 0 0 / 8%);
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 3%);
-  --shadow-sm: 0 2px 4px rgb(0 0 0 / 5%);
-  --shadow-md: 0 4px 8px rgb(0 0 0 / 6%);
-  --shadow-lg: 0 10px 20px rgb(0 0 0 / 7%);
-  --shadow-xl: 0 20px 40px rgb(0 0 0 / 7%);
-  --scrollbar-thumb-color: rgb(0 0 0 / 20%);
-  --scrollbar-track-color: rgb(0 0 0 / 5%);
-  --scrollbar-thumb-hover-color: rgb(0 0 0 / 40%);
+  --surface-0: #f5f6fb;
+  --surface-1: #ffffff;
+  --surface-2: #eef1ff;
+  --surface-3: #e2e8f0;
+  --surface-4: #cbd5f5;
+  --surface-glass: rgb(245 246 255 / 85%);
+  --text-primary: rgb(15 23 42 / 92%);
+  --text-secondary: rgb(71 85 105 / 78%);
+  --text-tertiary: rgb(100 116 139 / 55%);
+  --text-on-primary: #ffffff;
+  --text-on-secondary: #ffffff;
+  --border-color: rgb(15 23 42 / 12%);
+  --border-color-light: rgb(15 23 42 / 24%);
+  --divider-color: rgb(15 23 42 / 10%);
+  --shadow-xs: 0 1px 2px rgb(15 23 42 / 6%);
+  --shadow-sm: 0 2px 4px rgb(15 23 42 / 8%);
+  --shadow-md: 0 4px 8px rgb(15 23 42 / 10%);
+  --shadow-lg: 0 10px 20px rgb(15 23 42 / 12%);
+  --shadow-xl: 0 20px 40px rgb(15 23 42 / 12%);
+  --scrollbar-thumb-color: rgb(99 102 241 / 18%);
+  --scrollbar-track-color: rgb(148 163 184 / 18%);
+  --scrollbar-thumb-hover-color: rgb(99 102 241 / 30%);
+  --surface-rgb: 245, 246, 255;
+  --text-rgb: 30, 41, 59;
+  --border-rgb: 148, 163, 184;
 }
 
 /* === Core Reset & Base Styles === */
