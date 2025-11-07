@@ -666,6 +666,7 @@ class SerializationHelper:
         if not doc:
             return {}
         try:
+
             def convert_value(val: Any) -> Any:
                 """Recursively convert BSON types to standard Python types."""
                 if isinstance(val, ObjectId):
@@ -681,7 +682,11 @@ class SerializationHelper:
                     return [convert_value(item) for item in val]
                 elif isinstance(val, (bson.int64.Int64, bson.decimal128.Decimal128)):
                     # Convert BSON numeric types to Python types
-                    return int(val) if isinstance(val, bson.int64.Int64) else float(val.to_decimal())
+                    return (
+                        int(val)
+                        if isinstance(val, bson.int64.Int64)
+                        else float(val.to_decimal())
+                    )
                 else:
                     return val
 
@@ -1485,7 +1490,10 @@ async def run_transaction(
                 pass
     except OperationFailure as e:
         # Check for specific transaction-not-supported errors
-        if "Transaction numbers" in str(e) or "transactions are only supported" in str(e).lower():
+        if (
+            "Transaction numbers" in str(e)
+            or "transactions are only supported" in str(e).lower()
+        ):
             transactions_supported = False
             logger.warning(
                 "MongoDB transactions are not supported (likely standalone instance). "

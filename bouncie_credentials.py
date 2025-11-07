@@ -34,6 +34,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             - authorized_devices: list[str]
             - fetch_concurrency: int (defaults to 12)
     """
+
     def get_env_fallback_credentials() -> dict[str, Any]:
         """Helper to get credentials from environment variables."""
         return {
