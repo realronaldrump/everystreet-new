@@ -417,8 +417,10 @@ async def update_trip(trip_id: str, update_data: TripUpdateRequest):
 
         update_payload["last_modified"] = datetime.now(timezone.utc)
 
-        result = await trips_collection.update_one(
-            {"transactionId": trip_id}, {"$set": update_payload}
+        result = await update_one_with_retry(
+            trips_collection,
+            {"transactionId": trip_id},
+            {"$set": update_payload},
         )
 
         if result.modified_count > 0:

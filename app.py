@@ -52,12 +52,30 @@ app.mount(
 templates = Jinja2Templates(directory="templates")
 
 # CORS Middleware Configuration
-origins = ["*"]
+# Get allowed origins from environment variable or use defaults
+cors_origins_str = os.getenv("CORS_ALLOWED_ORIGINS", "")
+if cors_origins_str:
+    # Parse comma-separated list from environment
+    origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
+    logger.info("CORS configured with specific origins: %s", origins)
+else:
+    # Development fallback - allow localhost and common dev ports
+    origins = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+    ]
+    logger.warning(
+        "CORS_ALLOWED_ORIGINS not set. Using development defaults: %s",
+        origins,
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 

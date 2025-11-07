@@ -15,6 +15,8 @@ from typing import Any
 import redis.asyncio as aioredis
 from redis.exceptions import ConnectionError as RedisConnectionError
 
+from redis_config import get_redis_url
+
 logger = logging.getLogger(__name__)
 
 # Redis channel name for trip updates
@@ -43,20 +45,8 @@ async def get_redis_client() -> aioredis.Redis:
             logger.warning("Redis client connection lost, reconnecting...")
             _redis_client = None
 
-    # Get Redis URL from environment (same logic as celery_app.py)
-    redis_url = os.getenv("REDIS_URL")
-    if not redis_url:
-        redis_host = os.getenv("REDISHOST") or os.getenv("RAILWAY_PRIVATE_DOMAIN")
-        redis_port = os.getenv("REDISPORT", "6379")
-        redis_password = os.getenv("REDISPASSWORD") or os.getenv("REDIS_PASSWORD")
-        redis_user = os.getenv("REDISUSER", "default")
-
-        if redis_host and redis_password:
-            redis_url = (
-                f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
-            )
-        else:
-            redis_url = "redis://localhost:6379"
+    # Get Redis URL using centralized configuration
+    redis_url = get_redis_url()
 
     try:
         _redis_client = await aioredis.from_url(redis_url, decode_responses=True)
