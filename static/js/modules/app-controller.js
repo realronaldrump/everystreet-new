@@ -534,4 +534,7 @@ window.EveryStreet.App = {
   utils,
 };
 
+// Expose dateUtils as global DateUtils for backward compatibility with non-module scripts
+window.DateUtils = dateUtils;
+
 export default AppController;

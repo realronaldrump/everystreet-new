@@ -11,12 +11,18 @@ function createEditableCell(data, type, field, inputType = "text") {
   if (inputType === "number") {
     inputAttributes = 'step="any"';
   } else if (inputType === "datetime-local") {
+    // Parse the date and convert to local datetime format for datetime-local input
     const dateObj = DateUtils.parseDate(value);
-    const localDatetime = dateObj
-      ? new Date(dateObj.getTime() - dateObj.getTimezoneOffset() * 60000)
-          .toISOString()
-          .slice(0, 16)
-      : "";
+    let localDatetime = "";
+    if (dateObj) {
+      // Format as YYYY-MM-DDTHH:mm for datetime-local input (uses local timezone)
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const day = String(dateObj.getDate()).padStart(2, "0");
+      const hours = String(dateObj.getHours()).padStart(2, "0");
+      const minutes = String(dateObj.getMinutes()).padStart(2, "0");
+      localDatetime = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
 
     return `
       <div class="editable-cell" data-field="${field}">
