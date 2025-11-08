@@ -56,8 +56,11 @@ services:
     volumes:
       - redis_data:/data
     # Apply kernel settings to fix memory overcommit warning
-    sysctls:
-      - vm.overcommit_memory=1
+    # ---- CHANGE IS HERE ----
+    # The following lines have been commented out because the setting
+    # has been applied to the host machine directly.
+    # sysctls:
+    #   - vm.overcommit_memory=1
     networks:
       - default
 
