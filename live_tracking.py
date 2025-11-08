@@ -212,7 +212,6 @@ async def process_trip_start(
 async def process_trip_data(
     data: dict[str, Any],
     live_collection: Collection,
-    _archive_collection: Collection,
 ) -> None:
     """Process a tripData event from the Bouncie webhook.
 
@@ -222,7 +221,6 @@ async def process_trip_data(
     Args:
         data: The webhook payload conforming to Bouncie API spec.
         live_collection: The MongoDB collection for active trips.
-        _archive_collection: Unused placeholder for backward compatibility.
     """
     transaction_id = data.get("transactionId")
     trip_data_points = data.get("data")

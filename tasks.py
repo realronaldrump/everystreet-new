@@ -2135,9 +2135,7 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
         if event_type == "tripStart":
             run_async_from_sync(process_trip_start(data, live_collection))
         elif event_type == "tripData":
-            run_async_from_sync(
-                process_trip_data(data, live_collection, archive_collection)
-            )
+            run_async_from_sync(process_trip_data(data, live_collection))
         elif event_type == "tripMetrics":
             run_async_from_sync(
                 process_trip_metrics(data, live_collection, archive_collection)
