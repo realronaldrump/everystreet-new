@@ -606,6 +606,7 @@ def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
             e,
             str(doc)[:200],
         )
+
         # Fallback to recursive conversion
         def _convert_value(v):
             if isinstance(v, ObjectId):
