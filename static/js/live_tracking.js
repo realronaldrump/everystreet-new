@@ -24,7 +24,6 @@ class LiveTripTracker {
     this.liveSourceId = "live-trip-source";
     this.liveLineLayerId = "live-trip-line";
     this.liveMarkerLayerId = "live-trip-marker";
-    this.animationFrameId = null;
 
     // Initialize empty GeoJSON data
     this.initializeMapboxLayers();
@@ -33,11 +32,6 @@ class LiveTripTracker {
     this.pollingInterval = 2000; // Fixed 2-second interval for fallback polling
     this.pollingTimerId = null;
     this.isPolling = false;
-    this.lastMarkerLatLng = null; // For animating marker
-
-    // Store current line coordinates for animation reference
-    this.currentLineCoords = [];
-    this.markerAnimationId = null;
 
     this.statusIndicator = document.querySelector(".status-indicator");
     this.statusText = document.querySelector(".live-status-text");
@@ -163,10 +157,6 @@ class LiveTripTracker {
             "info",
           );
           this.setActiveTrip(data.trip);
-          this.updateActiveTripsCount(1);
-          this.updateTripMetrics(data.trip);
-          this.lastSequence = data.trip.sequence || 0;
-          this.updateStatus(true, "Connected");
         } else {
           window.handleError(
             "No active trips found during initialization",
@@ -251,18 +241,17 @@ class LiveTripTracker {
     if (data.status === "success") {
       if (data.has_update && data.trip) {
         this.setActiveTrip(data.trip);
-        this.updateActiveTripsCount(1);
-        this.updateTripMetrics(data.trip);
-        this.lastSequence = data.trip.sequence || this.lastSequence;
-        this.updateStatus(true, "Connected");
-        this.hideError();
       } else if (this.activeTrip && !data.has_update) {
         // Still have active trip, just no new updates
-        this.updateStatus(true, "Connected");
+        this.updateStatus(true, "Tracking live trip");
       } else if (!this.activeTrip && !data.has_update) {
         // No active trip
         this.clearActiveTrip();
         this.updateStatus(true);
+      }
+
+      if (typeof data.current_sequence === "number") {
+        this.lastSequence = data.current_sequence;
       }
     } else {
       window.handleError(
@@ -506,80 +495,50 @@ class LiveTripTracker {
   }
 
   setActiveTrip(trip) {
-    if (!trip) return;
+    if (!trip) {
+      return;
+    }
+
+    this.lastSequence = trip.sequence || this.lastSequence;
+
+    if (this.handleTripCompletion(trip)) {
+      this.updateActiveTripsCount(0);
+      this.updateStatus(true, "Idle");
+      return;
+    }
 
     const isNewTrip =
       !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
-    // Handle trip completion
-    if (this.handleTripCompletion(trip)) {
-      this.updateActiveTripsCount(0);
-      this.updateStatus(true);
-      return;
-    }
+    this.activeTrip = {
+      ...trip,
+      coordinates: trip.coordinates || [],
+    };
 
-    // Always update activeTrip to ensure real-time data is current
-    this.activeTrip = trip;
-
-    // Extract and process coordinates
-    const coordinates = this.extractCoordinates(trip);
+    const coordinates = this.extractCoordinates(this.activeTrip);
     if (!coordinates || coordinates.length === 0) {
-      window.handleError(
-        "No coordinates to display for trip",
-        "setActiveTrip",
-        "warn",
-      );
+      this.updateStatus(true, "Connected");
+      this.showError("Waiting for live GPS points…");
       return;
     }
 
-    // Create GeoJSON features
     const { features, mapboxCoords, lastPoint } =
       this.createGeoJSONFeatures(coordinates);
 
-    // Persist latest path for animations
-    this.currentLineCoords = mapboxCoords;
-
-    // Prepare starting marker position (previous known or current)
-    const startPoint = this.lastMarkerLatLng || lastPoint;
-
-    // Build initial feature collection: full line + marker at startPoint
-    const lineFeature = features.find((f) => f.properties.type === "line");
-    const markerFeature = {
-      type: "Feature",
-      properties: { type: "marker", speed: trip.currentSpeed || 0 },
-      geometry: { type: "Point", coordinates: startPoint },
-    };
-
-    // Update map source with initial positions
     const source = this.map.getSource(this.liveSourceId);
     if (source) {
-      const initialFeatures = lineFeature
-        ? [lineFeature, markerFeature]
-        : [markerFeature];
-      source.setData({ type: "FeatureCollection", features: initialFeatures });
+      source.setData({
+        type: "FeatureCollection",
+        features,
+      });
     }
 
-    // Animate marker smoothly to latest position
-    if (
-      startPoint &&
-      lastPoint &&
-      startPoint[0] !== lastPoint[0] &&
-      startPoint[1] !== lastPoint[1]
-    ) {
-      this.animateMarkerMovement(startPoint, lastPoint, trip);
-    }
-
-    // Update marker styling (color/size) based on current speed
-    this.updateMarkerStyle(trip.currentSpeed || 0);
-
-    // Update map view (camera follow, etc.)
+    this.updateMarkerStyle(this.activeTrip.currentSpeed || 0);
+    this.updateTripMetrics(this.activeTrip);
     this.updateMapView(mapboxCoords, lastPoint, isNewTrip);
-
-    // Store last position
-    this.lastMarkerLatLng = lastPoint;
-
-    // Update active trips count
     this.updateActiveTripsCount(1);
+    this.updateStatus(true, "Tracking live trip");
+    this.hideError();
   }
 
   updateMarkerStyle(speed) {
@@ -609,8 +568,6 @@ class LiveTripTracker {
 
   clearActiveTrip() {
     this.activeTrip = null;
-    this.lastMarkerLatLng = null;
-    this.currentLineCoords = [];
 
     // Clear Mapbox source data
     const source = this.map.getSource(this.liveSourceId);
@@ -823,11 +780,6 @@ class LiveTripTracker {
   destroy() {
     this.stopPolling();
 
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = null;
-    }
-
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -890,29 +842,13 @@ class LiveTripTracker {
     try {
       this.ws = new WebSocket(url);
 
-      // Prevent multiple animation loops
-      if (this.animationFrameId) {
-        cancelAnimationFrame(this.animationFrameId);
-      }
-
       this.ws.addEventListener("message", (e) => {
         try {
           const data = JSON.parse(e.data);
           const messageType = data.type;
 
-          if (messageType === "trip_update" && data.trip) {
-            // Full trip snapshot (initial load or trip start)
+          if (messageType === "trip_state" && data.trip) {
             this.setActiveTrip(data.trip);
-            this.updateTripMetrics(data.trip);
-            this.lastSequence = data.trip.sequence || this.lastSequence;
-          } else if (messageType === "trip_delta" && data.delta) {
-            // Delta update - apply incremental changes
-            this.applyTripDelta(data.delta, data.sequence);
-            this.lastSequence = data.sequence || this.lastSequence;
-          } else if (messageType === "trip_end") {
-            // Trip ended - clear from map
-            this.clearActiveTrip();
-            this.updateStatus(true);
             this.lastSequence = data.sequence || this.lastSequence;
           }
         } catch (err) {
@@ -949,139 +885,7 @@ class LiveTripTracker {
     }
   }
 
-  /**
-   * Apply a delta update to the current trip state.
-   * Appends new coordinates and updates metrics incrementally.
-   */
-  applyTripDelta(delta, sequence) {
-    if (!this.activeTrip) {
-      window.handleError(
-        "Received delta update but no active trip exists",
-        "applyTripDelta",
-        "warn",
-      );
-      return;
-    }
 
-    // Append new coordinates
-    if (delta.new_coordinates && Array.isArray(delta.new_coordinates)) {
-      const existingCoords = this.activeTrip.coordinates || [];
-      // Merge new coordinates, avoiding duplicates
-      const existingTimestampSet = new Set(
-        existingCoords.filter((c) => c && c.timestamp).map((c) => c.timestamp),
-      );
-
-      const newCoords = delta.new_coordinates.filter(
-        (c) => c && c.timestamp && !existingTimestampSet.has(c.timestamp),
-      );
-
-      if (newCoords.length > 0) {
-        this.activeTrip.coordinates = [...existingCoords, ...newCoords];
-        // Re-render the trip with updated coordinates
-        this.setActiveTrip(this.activeTrip);
-      }
-    }
-
-    // Update metrics incrementally
-    if (delta.updated_metrics) {
-      const metrics = delta.updated_metrics;
-
-      // Update metrics (replace values, as backend sends absolute metrics)
-      if (typeof metrics.currentSpeed === "number") {
-        this.activeTrip.currentSpeed = metrics.currentSpeed;
-      }
-      if (typeof metrics.maxSpeed === "number") {
-        this.activeTrip.maxSpeed = Math.max(
-          this.activeTrip.maxSpeed || 0,
-          metrics.maxSpeed,
-        );
-      }
-      if (typeof metrics.avgSpeed === "number") {
-        this.activeTrip.avgSpeed = metrics.avgSpeed;
-      }
-      if (typeof metrics.duration === "number") {
-        this.activeTrip.duration = metrics.duration;
-      }
-      if (typeof metrics.pointsRecorded === "number") {
-        this.activeTrip.pointsRecorded =
-          (this.activeTrip.pointsRecorded || 0) + metrics.pointsRecorded;
-      }
-      if (typeof metrics.totalIdlingTime === "number") {
-        this.activeTrip.totalIdlingTime = metrics.totalIdlingTime;
-      }
-      if (typeof metrics.hardBrakingCounts === "number") {
-        this.activeTrip.hardBrakingCounts = metrics.hardBrakingCounts;
-      }
-      if (typeof metrics.hardAccelerationCounts === "number") {
-        this.activeTrip.hardAccelerationCounts = metrics.hardAccelerationCounts;
-      }
-      // Note: distance from updated_metrics is absolute (not incremental)
-      if (typeof metrics.distance === "number") {
-        this.activeTrip.distance = metrics.distance;
-      }
-    }
-
-    // Update lastUpdate timestamp
-    if (delta.lastUpdate) {
-      this.activeTrip.lastUpdate = delta.lastUpdate;
-    }
-
-    // Update trip metrics display
-    this.updateTripMetrics(this.activeTrip);
-  }
-
-  /**
-   * Smoothly animates the marker from start -> end over the given duration.
-   * During animation we only update the marker feature to minimise cost.
-   */
-  animateMarkerMovement(start, end, trip, duration = 300) {
-    if (this.markerAnimationId) {
-      cancelAnimationFrame(this.markerAnimationId);
-    }
-
-    const source = this.map.getSource(this.liveSourceId);
-    if (!source) return;
-
-    const lineCoords = this.currentLineCoords || [];
-    const lineFeature = {
-      type: "Feature",
-      properties: { type: "line" },
-      geometry: { type: "LineString", coordinates: lineCoords },
-    };
-
-    const startLng = start[0],
-      startLat = start[1];
-    const deltaLng = end[0] - start[0];
-    const deltaLat = end[1] - start[1];
-
-    const startTime = performance.now();
-    const step = (now) => {
-      const t = Math.min((now - startTime) / duration, 1);
-      const currLng = startLng + deltaLng * t;
-      const currLat = startLat + deltaLat * t;
-
-      // Marker style may change based on speed – interpolate radius/color quickly
-      const markerFeature = {
-        type: "Feature",
-        properties: { type: "marker", speed: trip.currentSpeed || 0 },
-        geometry: { type: "Point", coordinates: [currLng, currLat] },
-      };
-
-      source.setData({
-        type: "FeatureCollection",
-        features:
-          lineCoords.length > 1
-            ? [lineFeature, markerFeature]
-            : [markerFeature],
-      });
-
-      if (t < 1) {
-        this.markerAnimationId = requestAnimationFrame(step);
-      }
-    };
-
-    this.markerAnimationId = requestAnimationFrame(step);
-  }
 }
 
 window.LiveTripTracker = LiveTripTracker;

@@ -57,81 +57,34 @@ async def get_redis_client() -> aioredis.Redis:
         raise
 
 
-async def publish_trip_delta(
-    transaction_id: str,
-    delta: dict[str, Any],
-    sequence: int,
-) -> bool:
-    """Publish a trip delta update to Redis Pub/Sub.
-
-    Args:
-        transaction_id: The trip's transaction ID.
-        delta: Dictionary containing only the changed/new data fields.
-                Should include:
-                - new_coordinates: List of new coordinate points
-                - updated_metrics: Dict with updated metric values
-                - status: Trip status (if changed)
-                - etc.
-        sequence: The sequence number for this update.
-
-    Returns:
-        True if published successfully, False otherwise.
-    """
-    try:
-        client = await get_redis_client()
-
-        event_data = {
-            "transaction_id": transaction_id,
-            "sequence": sequence,
-            "delta": delta,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
-        message = json.dumps(event_data)
-        subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
-
-        logger.debug(
-            "Published trip delta for %s (seq=%d) to %d subscribers",
-            transaction_id,
-            sequence,
-            subscribers,
-        )
-
-        return True
-
-    except Exception as e:
-        logger.error(
-            "Failed to publish trip delta for %s: %s",
-            transaction_id,
-            e,
-            exc_info=True,
-        )
-        return False
-
-
-async def publish_trip_start(
+async def publish_trip_state(
     transaction_id: str,
     trip_data: dict[str, Any],
     sequence: int,
+    *,
+    status: str = "active",
 ) -> bool:
-    """Publish a trip start event to Redis Pub/Sub.
+    """Publish a full trip snapshot to Redis Pub/Sub.
 
     Args:
-        transaction_id: The trip's transaction ID.
-        trip_data: Complete trip data (for new trips, we send full data).
-        sequence: The sequence number for this update.
+        transaction_id: Trip identifier.
+        trip_data: Complete trip payload (already serialized).
+        sequence: Increasing sequence number for consumer dedupe.
+        status: Human friendly status hint (`active`, `completed`, etc.).
 
     Returns:
         True if published successfully, False otherwise.
     """
+
     try:
         client = await get_redis_client()
 
         event_data = {
             "transaction_id": transaction_id,
             "sequence": sequence,
-            "event_type": "trip_start",
-            "trip": trip_data,  # Full trip data for new trips
+            "event_type": "trip_state",
+            "status": status,
+            "trip": trip_data,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -139,9 +92,10 @@ async def publish_trip_start(
         subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
 
         logger.debug(
-            "Published trip start for %s (seq=%d) to %d subscribers",
+            "Published trip state for %s (seq=%d, status=%s) to %d subscriber(s)",
             transaction_id,
             sequence,
+            status,
             subscribers,
         )
 
@@ -149,52 +103,7 @@ async def publish_trip_start(
 
     except Exception as e:
         logger.error(
-            "Failed to publish trip start for %s: %s",
-            transaction_id,
-            e,
-            exc_info=True,
-        )
-        return False
-
-
-async def publish_trip_end(
-    transaction_id: str,
-    sequence: int,
-) -> bool:
-    """Publish a trip end event to Redis Pub/Sub.
-
-    Args:
-        transaction_id: The trip's transaction ID.
-        sequence: The sequence number for this update.
-
-    Returns:
-        True if published successfully, False otherwise.
-    """
-    try:
-        client = await get_redis_client()
-
-        event_data = {
-            "transaction_id": transaction_id,
-            "sequence": sequence,
-            "event_type": "trip_end",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
-        message = json.dumps(event_data)
-        subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
-
-        logger.debug(
-            "Published trip end for %s (seq=%d) to %d subscribers",
-            transaction_id,
-            sequence,
-            subscribers,
-        )
-
-        return True
-
-    except Exception as e:
-        logger.error(
-            "Failed to publish trip end for %s: %s",
+            "Failed to publish trip state for %s: %s",
             transaction_id,
             e,
             exc_info=True,

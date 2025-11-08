@@ -62,7 +62,14 @@ async def websocket_endpoint(websocket: WebSocket):
         if initial_trip:
             serialized_trip = serialize_document(initial_trip)
             last_sequence = initial_trip.get("sequence", 0)
-            await websocket.send_json({"type": "trip_update", "trip": serialized_trip})
+            await websocket.send_json(
+                {
+                    "type": "trip_state",
+                    "trip": serialized_trip,
+                    "sequence": last_sequence,
+                    "status": serialized_trip.get("status", "active"),
+                }
+            )
 
         # Connect to Redis and subscribe to trip updates channel
         redis_url = get_redis_url()
@@ -85,40 +92,32 @@ async def websocket_endpoint(websocket: WebSocket):
                 if event_sequence <= last_sequence:
                     continue
 
-                transaction_id = event_data.get("transaction_id")
                 event_type = event_data.get("event_type")
 
-                if event_type == "trip_start":
-                    # Full trip data for new trips
-                    await websocket.send_json(
-                        {
-                            "type": "trip_update",
-                            "trip": event_data.get("trip"),
-                        }
+                if event_type != "trip_state":
+                    logger.debug(
+                        "Skipping unknown trip event type %s from pubsub",
+                        event_type,
                     )
-                    last_sequence = event_sequence
-                elif event_type == "trip_end":
-                    # Send trip end notification
-                    await websocket.send_json(
-                        {
-                            "type": "trip_end",
-                            "transaction_id": transaction_id,
-                            "sequence": event_sequence,
-                        }
-                    )
-                    last_sequence = event_sequence
-                else:
-                    # Delta update for ongoing trips
-                    delta = event_data.get("delta", {})
-                    await websocket.send_json(
-                        {
-                            "type": "trip_delta",
-                            "transaction_id": transaction_id,
-                            "delta": delta,
-                            "sequence": event_sequence,
-                        }
-                    )
-                    last_sequence = event_sequence
+                    continue
+
+                trip_payload = event_data.get("trip")
+                if not trip_payload:
+                    logger.debug("Trip state event missing payload, skipping.")
+                    continue
+
+                status = event_data.get("status", "active")
+
+                await websocket.send_json(
+                    {
+                        "type": "trip_state",
+                        "trip": trip_payload,
+                        "sequence": event_sequence,
+                        "status": status,
+                        "transaction_id": event_data.get("transaction_id"),
+                    }
+                )
+                last_sequence = event_sequence
 
             except json.JSONDecodeError as e:
                 logger.warning("Failed to parse Redis message: %s", e)

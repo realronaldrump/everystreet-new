@@ -10,12 +10,8 @@ from pymongo.collection import Collection
 from pymongo.results import UpdateResult
 
 from date_utils import parse_timestamp
-from db import run_transaction, serialize_document, update_one_with_retry
-from trip_event_publisher import (
-    publish_trip_delta,
-    publish_trip_end,
-    publish_trip_start,
-)
+from db import run_transaction, serialize_document
+from trip_event_publisher import publish_trip_state
 from utils import haversine
 
 logger = logging.getLogger(__name__)
@@ -30,6 +26,49 @@ def initialize_db(db_live_trips, _db_archived_live_trips=None):
     global live_trips_collection_global
     live_trips_collection_global = db_live_trips
     logger.debug("Live tracking global DB collections initialized/updated")
+
+
+def _next_sequence() -> int:
+    """Generate a monotonically increasing sequence value suitable for dedupe."""
+    return int(time.time_ns() / 1000)
+
+
+async def _publish_trip_snapshot(
+    trip_doc: dict[str, Any],
+    *,
+    status: str = "active",
+) -> None:
+    """Serialize and publish the latest trip snapshot to connected clients."""
+    if not trip_doc:
+        return
+
+    transaction_id = trip_doc.get("transactionId")
+    if not transaction_id:
+        logger.warning(
+            "Skipping trip publish because transactionId is missing: %s",
+            trip_doc,
+        )
+        return
+
+    sequence = trip_doc.get("sequence")
+    if not isinstance(sequence, int):
+        sequence = _next_sequence()
+        trip_doc["sequence"] = sequence
+
+    try:
+        serialized_trip = serialize_document(trip_doc)
+        await publish_trip_state(
+            transaction_id,
+            serialized_trip,
+            sequence,
+            status=status,
+        )
+    except Exception as pub_err:
+        logger.warning(
+            "Failed to publish trip snapshot for %s: %s",
+            transaction_id,
+            pub_err,
+        )
 
 
 def _parse_iso_datetime(
@@ -106,10 +145,10 @@ async def process_trip_start(
         transaction_id,
     )
 
-    sequence = int(time.time_ns() / 1000)
+    sequence = _next_sequence()
 
-    # Note: tripStart doesn't include GPS coordinates according to API spec
-    # Initialize with empty coordinates, will be populated by tripData events
+    # TripStart does not include coordinate data; initialize placeholders that
+    # will be populated as tripData arrives.
     new_trip = {
         "transactionId": transaction_id,
         "vin": vin,
@@ -118,7 +157,7 @@ async def process_trip_start(
         "startTime": start_time,
         "startTimeZone": start_time_zone,
         "startOdometer": start_odometer,
-        "coordinates": [],  # Single source of truth for location data
+        "coordinates": [],
         "lastUpdate": start_time,
         "distance": 0.0,
         "currentSpeed": 0.0,
@@ -126,9 +165,6 @@ async def process_trip_start(
         "avgSpeed": 0.0,
         "duration": 0.0,
         "pointsRecorded": 0,
-        "sequence": sequence,
-        "speedSum": 0.0,  # For incremental average speed calculation
-        "speedCount": 0,  # For incremental average speed calculation
         "totalIdlingTime": 0.0,
         "hardBrakingCounts": 0,
         "hardAccelerationCounts": 0,
@@ -137,56 +173,46 @@ async def process_trip_start(
         "endTimeZone": None,
         "endOdometer": None,
         "closed_reason": None,
+        "sequence": sequence,
     }
 
-    async def delete_existing_op(session=None):
-        result = await live_collection.delete_many(
-            {
-                "transactionId": transaction_id,
-                "status": "active",
-            },
-            session=session,
+    try:
+        result = await live_collection.replace_one(
+            {"transactionId": transaction_id},
+            new_trip,
+            upsert=True,
         )
-        if result.deleted_count > 0:
-            logger.warning(
-                "Deleted %d pre-existing active trip(s) with the same transactionId: %s before inserting new start.",
-                result.deleted_count,
-                transaction_id,
-            )
-
-    async def insert_new_op(session=None):
-        await live_collection.insert_one(new_trip, session=session)
-
-    success = await run_transaction([delete_existing_op, insert_new_op])
-
-    if success:
         logger.info(
-            "Trip started and created in DB: %s (seq=%s)",
+            "Trip %s marked as active (upserted=%s)",
             transaction_id,
-            sequence,
+            bool(result.upserted_id),
         )
-        # Publish trip start event
-        try:
-            # Serialize the trip data for publishing
-            trip_for_publish = serialize_document(new_trip)
-            await publish_trip_start(transaction_id, trip_for_publish, sequence)
-        except Exception as pub_err:
-            logger.warning(
-                "Failed to publish trip start event for %s: %s",
-                transaction_id,
-                pub_err,
-            )
-    else:
+    except Exception as db_err:
         logger.error(
-            "Failed to start trip %s due to database transaction failure.",
+            "Failed to persist tripStart for %s: %s",
             transaction_id,
+            db_err,
+        )
+        return
+
+    try:
+        persisted_trip = await live_collection.find_one(
+            {"transactionId": transaction_id},
+        )
+        if persisted_trip:
+            await _publish_trip_snapshot(persisted_trip, status="active")
+    except Exception as pub_err:
+        logger.warning(
+            "Trip %s started but publish failed: %s",
+            transaction_id,
+            pub_err,
         )
 
 
 async def process_trip_data(
     data: dict[str, Any],
     live_collection: Collection,
-    archive_collection: Collection,
+    _archive_collection: Collection,
 ) -> None:
     """Process a tripData event from the Bouncie webhook.
 
@@ -196,8 +222,7 @@ async def process_trip_data(
     Args:
         data: The webhook payload conforming to Bouncie API spec.
         live_collection: The MongoDB collection for active trips.
-        archive_collection: The MongoDB collection for archived trips.
-
+        _archive_collection: Unused placeholder for backward compatibility.
     """
     transaction_id = data.get("transactionId")
     trip_data_points = data.get("data")
@@ -229,8 +254,6 @@ async def process_trip_data(
                 "distance": 1,
                 "maxSpeed": 1,
                 "avgSpeed": 1,
-                "speedSum": 1,
-                "speedCount": 1,
                 "sequence": 1,
             },
         )
@@ -243,79 +266,89 @@ async def process_trip_data(
         return
 
     if not trip_doc:
-        try:
-            archived_trip = await archive_collection.find_one(
-                {"transactionId": transaction_id},
-            )
-            if archived_trip:
-                logger.info(
-                    "Received tripData for already completed/archived trip: %s. Ignoring.",
-                    transaction_id,
-                )
-            else:
-                logger.warning(
-                    "Received tripData for unknown or inactive trip: %s. Ignoring data.",
-                    transaction_id,
-                )
-        except Exception as find_archive_err:
-            logger.error(
-                "Database error checking archive for trip %s during tripData: %s",
-                transaction_id,
-                find_archive_err,
-            )
+        logger.info(
+            "Received tripData for unknown or inactive trip %s; ignoring payload.",
+            transaction_id,
+        )
         return
 
     logger.info(
-        "Processing tripData event for transactionId: %s with %d points",
+        "Processing tripData event for %s with %d point(s)",
         transaction_id,
         len(trip_data_points),
     )
 
-    # Process and normalize the incoming data points
-    new_coords = []
-    for point in trip_data_points:
-        timestamp = None
-        lat = None
-        lon = None
-        speed = None
+    coords_by_ts: dict[str, dict[str, Any]] = {}
 
-        # Parse timestamp
-        if "timestamp" in point:
-            timestamp = _parse_iso_datetime(point["timestamp"])
+    def _coerce_timestamp(value: Any) -> datetime | None:
+        if isinstance(value, datetime):
+            return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        if isinstance(value, dict):
+            return _parse_mongo_date_dict(value)
+        if isinstance(value, str):
+            return _parse_iso_datetime(value)
+        return None
 
-        # Parse GPS data - handle nested structure
-        if "gps" in point and isinstance(point["gps"], dict):
-            lat = point["gps"].get("lat")
-            lon = point["gps"].get("lon")
-
-        # Parse speed if available
-        if "speed" in point:
-            speed = point.get("speed")
-
-        # Validate we have minimum required data
+    def _store_coord(coord: dict[str, Any]) -> None:
+        timestamp = _coerce_timestamp(coord.get("timestamp"))
+        lat = coord.get("lat")
+        lon = coord.get("lon")
         if timestamp and lat is not None and lon is not None:
-            coord_data = {"timestamp": timestamp, "lat": lat, "lon": lon}
-            if speed is not None:
-                coord_data["speed"] = speed
-            new_coords.append(coord_data)
+            try:
+                lat_val = float(lat)
+                lon_val = float(lon)
+            except (TypeError, ValueError):
+                return
+
+            entry: dict[str, Any] = {
+                "timestamp": timestamp.astimezone(timezone.utc),
+                "lat": lat_val,
+                "lon": lon_val,
+            }
+            speed_val = coord.get("speed")
+            if speed_val is not None:
+                try:
+                    entry["speed"] = float(speed_val)
+                except (TypeError, ValueError):
+                    pass
+
+            coords_by_ts[entry["timestamp"].isoformat()] = entry
+
+    # Seed existing coordinates
+    for existing_coord in trip_doc.get("coordinates", []):
+        if isinstance(existing_coord, dict):
+            _store_coord(existing_coord)
+
+    # Merge incoming points
+    for point in trip_data_points:
+        gps_payload = point.get("gps", {})
+        candidate = {
+            "timestamp": point.get("timestamp"),
+            "lat": gps_payload.get("lat"),
+            "lon": gps_payload.get("lon"),
+            "speed": point.get("speed"),
+        }
+        if candidate["timestamp"] and candidate["lat"] is not None and candidate["lon"] is not None:
+            _store_coord(candidate)
         else:
             logger.debug(
-                "Skipping invalid data point in tripData for %s: %s",
+                "Skipping invalid tripData point for %s: %s",
                 transaction_id,
                 point,
             )
 
-    if not new_coords:
+    combined_coords = sorted(
+        coords_by_ts.values(),
+        key=lambda coord: coord["timestamp"],
+    )
+
+    if not combined_coords:
         logger.info(
-            "No valid coordinates found in tripData for %s.",
+            "No valid coordinates remain after dedupe for %s; sequence bump only.",
             transaction_id,
         )
-        sequence = max(
-            trip_doc.get("sequence", 0) + 1,
-            int(time.time_ns() / 1000),
-        )
-        await update_one_with_retry(
-            live_collection,
+        sequence = max(trip_doc.get("sequence", 0) + 1, _next_sequence())
+        await live_collection.update_one(
             {"_id": trip_doc["_id"]},
             {
                 "$set": {
@@ -326,247 +359,114 @@ async def process_trip_data(
         )
         return
 
-    # Sort new coordinates by timestamp
-    new_coords.sort(key=lambda x: x["timestamp"])
+    # Calculate aggregate metrics directly from the complete path.
+    distance_miles = 0.0
+    computed_max_speed = float(trip_doc.get("maxSpeed") or 0.0)
+    computed_current_speed = combined_coords[-1].get("speed") or 0.0
 
-    # Get the last known coordinate to calculate incremental metrics
-    existing_coords = trip_doc.get("coordinates", [])
-    last_coord = None
-    if existing_coords:
-        # Find the last coordinate by timestamp
-        # Handle cases where coordinates might not be sorted or have invalid timestamps
-        valid_coords_with_ts = [
-            c
-            for c in existing_coords
-            if isinstance(c, dict) and isinstance(c.get("timestamp"), datetime)
-        ]
-        if valid_coords_with_ts:
-            last_coord = max(valid_coords_with_ts, key=lambda c: c["timestamp"])
-        elif existing_coords:
-            # Fallback: use the last coordinate in the array if no valid timestamps
-            last_coord = (
-                existing_coords[-1] if isinstance(existing_coords[-1], dict) else None
-            )
-
-    # Calculate incremental metrics only for new segments
-    incremental_distance = 0.0
-    incremental_max_speed = 0.0
-    current_speed = 0.0
-    speed_values = []  # For calculating average speed incrementally
-    start_point = last_coord if last_coord else None
-
-    # Build list of points to process (last point + new points)
-    points_to_process = []
-    if start_point:
-        points_to_process.append(start_point)
-    points_to_process.extend(new_coords)
-
-    # Calculate metrics for new segments only
-    if len(points_to_process) >= 2:
-        for i in range(1, len(points_to_process)):
-            prev = points_to_process[i - 1]
-            curr = points_to_process[i]
-
-            if all(k in prev for k in ["lon", "lat"]) and all(
-                k in curr for k in ["lon", "lat"]
-            ):
-                segment_distance = haversine(
-                    prev["lon"],
-                    prev["lat"],
-                    curr["lon"],
-                    curr["lat"],
-                    unit="miles",
-                )
-                incremental_distance += segment_distance
-
-                # Calculate speed if we have timestamps
-                if "timestamp" in prev and "timestamp" in curr:
-                    time_diff = (curr["timestamp"] - prev["timestamp"]).total_seconds()
-                    if time_diff > 0.5:
-                        segment_speed = (segment_distance / time_diff) * 3600
-                        if 0 <= segment_speed < 200:  # Reasonable speed range
-                            speed_values.append(segment_speed)
-                            incremental_max_speed = max(
-                                incremental_max_speed, segment_speed
-                            )
-                            if i == len(points_to_process) - 1:
-                                current_speed = segment_speed
-
-    # Use speed from data if available and no calculated speed
-    if current_speed == 0 and new_coords and "speed" in new_coords[-1]:
-        current_speed = new_coords[-1]["speed"]
-
-    # Get current values for incremental updates
-    existing_distance = trip_doc.get("distance", 0.0)
-    existing_max_speed = trip_doc.get("maxSpeed", 0.0)
-    existing_speed_sum = trip_doc.get("speedSum", 0.0)
-    existing_speed_count = trip_doc.get("speedCount", 0)
-
-    # Update speed sum and count for average speed calculation
-    new_speed_sum = existing_speed_sum + sum(speed_values)
-    new_speed_count = existing_speed_count + len(speed_values)
-
-    # Calculate new average speed
-    new_avg_speed = 0.0
-    if new_speed_count > 0:
-        new_avg_speed = new_speed_sum / new_speed_count
-    else:
-        # Fallback: calculate from distance/duration
-        start_time = trip_doc.get("startTime")
-        if not isinstance(start_time, datetime):
-            start_time = (
-                _parse_mongo_date_dict(start_time)
-                if isinstance(start_time, dict)
-                else None
-            )
-        last_point_time = (
-            new_coords[-1]["timestamp"] if new_coords else datetime.now(timezone.utc)
+    for idx in range(1, len(combined_coords)):
+        prev = combined_coords[idx - 1]
+        curr = combined_coords[idx]
+        segment_distance = haversine(
+            prev["lon"],
+            prev["lat"],
+            curr["lon"],
+            curr["lat"],
+            unit="miles",
         )
-        if start_time and isinstance(last_point_time, datetime):
-            duration_seconds = max(0.0, (last_point_time - start_time).total_seconds())
-            if duration_seconds > 0:
-                total_distance = existing_distance + incremental_distance
-                new_avg_speed = total_distance / (duration_seconds / 3600)
+        distance_miles += segment_distance
 
-    # Determine new max speed
-    new_max_speed = max(existing_max_speed, incremental_max_speed)
+        prev_ts = prev.get("timestamp")
+        curr_ts = curr.get("timestamp")
+        if isinstance(prev_ts, datetime) and isinstance(curr_ts, datetime):
+            elapsed = (curr_ts - prev_ts).total_seconds()
+            if elapsed > 0:
+                segment_speed = (segment_distance / elapsed) * 3600
+                if segment_speed >= 0:
+                    computed_max_speed = max(computed_max_speed, segment_speed)
+                    if idx == len(combined_coords) - 1 and computed_current_speed == 0:
+                        computed_current_speed = segment_speed
 
-    # Get last point timestamp for duration calculation
-    last_point_time = (
-        new_coords[-1]["timestamp"] if new_coords else datetime.now(timezone.utc)
-    )
-    start_time = trip_doc.get("startTime")
-    if not isinstance(start_time, datetime):
-        start_time = (
-            _parse_mongo_date_dict(start_time) if isinstance(start_time, dict) else None
-        )
+    # Prefer direct speed reading on final sample if provided.
+    final_speed = combined_coords[-1].get("speed")
+    if final_speed is not None:
+        try:
+            computed_current_speed = float(final_speed)
+        except (TypeError, ValueError):
+            pass
+
+    start_time_value = trip_doc.get("startTime")
+    if not isinstance(start_time_value, datetime):
+        start_time_value = _parse_mongo_date_dict(start_time_value)
+
+    if not start_time_value and combined_coords:
+        start_time_value = combined_coords[0]["timestamp"]
+
+    last_point_time = combined_coords[-1]["timestamp"]
     duration_seconds = 0.0
-    if start_time and isinstance(last_point_time, datetime):
-        duration_seconds = max(0.0, (last_point_time - start_time).total_seconds())
-
-    sequence = max(
-        trip_doc.get("sequence", 0) + 1,
-        int(time.time_ns() / 1000),
-    )
-
-    # Remove duplicates from new_coords based on timestamp before pushing
-    # Use a set to track seen timestamps (as ISO strings for hashing)
-    seen_timestamps = set()
-    if existing_coords:
-        for coord in existing_coords:
-            if isinstance(coord, dict) and "timestamp" in coord:
-                ts = coord["timestamp"]
-                ts_key = ts.isoformat() if isinstance(ts, datetime) else str(ts)
-                seen_timestamps.add(ts_key)
-
-    unique_new_coords = []
-    for coord in new_coords:
-        ts_key = coord["timestamp"].isoformat()
-        if ts_key not in seen_timestamps:
-            unique_new_coords.append(coord)
-            seen_timestamps.add(ts_key)
-
-    if not unique_new_coords:
-        logger.debug(
-            "All new coordinates were duplicates for %s. Updating sequence only.",
-            transaction_id,
+    if isinstance(start_time_value, datetime) and isinstance(last_point_time, datetime):
+        duration_seconds = max(
+            0.0,
+            (last_point_time - start_time_value).total_seconds(),
         )
-        await update_one_with_retry(
-            live_collection,
-            {"_id": trip_doc["_id"]},
-            {
-                "$set": {
-                    "sequence": sequence,
-                    "lastUpdate": last_point_time,
-                },
-            },
-        )
-        return
 
-    # Use MongoDB atomic operators for incremental updates
-    update_ops = {
-        "$push": {
-            "coordinates": {
-                "$each": unique_new_coords,
-                "$sort": {"timestamp": 1},
-            },
-        },
-        "$inc": {
-            "distance": incremental_distance,
-            "pointsRecorded": len(unique_new_coords),
-            "speedSum": sum(speed_values),
-            "speedCount": len(speed_values),
-        },
-        "$set": {
-            "lastUpdate": last_point_time,
-            "currentSpeed": current_speed,
-            "avgSpeed": new_avg_speed,
-            "duration": duration_seconds,
-            "sequence": sequence,
-        },
-        "$max": {
-            "maxSpeed": incremental_max_speed,
-        },
+    avg_speed = 0.0
+    if duration_seconds > 0:
+        avg_speed = distance_miles / (duration_seconds / 3600)
+
+    normalized_coords: list[dict[str, Any]] = [
+        {
+            k: v
+            for k, v in {
+                "timestamp": coord["timestamp"].astimezone(timezone.utc),
+                "lat": coord["lat"],
+                "lon": coord["lon"],
+                "speed": coord.get("speed"),
+            }.items()
+            if v is not None
+        }
+        for coord in combined_coords
+    ]
+
+    points_recorded = len(normalized_coords)
+    sequence = max(trip_doc.get("sequence", 0) + 1, _next_sequence())
+
+    update_payload = {
+        "coordinates": normalized_coords,
+        "distance": distance_miles,
+        "maxSpeed": computed_max_speed,
+        "currentSpeed": computed_current_speed,
+        "avgSpeed": avg_speed,
+        "duration": duration_seconds,
+        "pointsRecorded": points_recorded,
+        "lastUpdate": last_point_time,
+        "sequence": sequence,
     }
 
     try:
-        # Single atomic update using MongoDB operators
-        update_result = await update_one_with_retry(
-            live_collection,
-            {"_id": trip_doc["_id"], "status": "active"},
-            update_ops,
+        updated_trip_doc = await live_collection.find_one_and_update(
+            {"_id": trip_doc["_id"]},
+            {"$set": update_payload},
+            return_document=pymongo.ReturnDocument.AFTER,
         )
-
-        if update_result.matched_count == 0:
+        if not updated_trip_doc:
             logger.warning(
-                "Failed to find active trip %s for update. May have been archived.",
+                "Trip %s vanished before update could be applied.",
                 transaction_id,
             )
             return
 
         logger.info(
-            "Updated trip data for %s: %d new points processed (seq=%d)",
+            "Trip %s updated with %d total coordinate(s) (seq=%d)",
             transaction_id,
-            len(unique_new_coords),
+            points_recorded,
             sequence,
         )
 
-        # Publish delta update with only new data
-        try:
-            # Serialize coordinates for publishing
-            serialized_new_coords = [
-                serialize_document(coord) for coord in unique_new_coords
-            ]
-
-            delta = {
-                "new_coordinates": serialized_new_coords,
-                "updated_metrics": {
-                    "distance": existing_distance
-                    + incremental_distance,  # Absolute distance
-                    "currentSpeed": current_speed,
-                    "maxSpeed": new_max_speed,
-                    "avgSpeed": new_avg_speed,
-                    "duration": duration_seconds,
-                    "pointsRecorded": trip_doc.get("pointsRecorded", 0)
-                    + len(unique_new_coords),
-                },
-                "lastUpdate": (
-                    last_point_time.isoformat()
-                    if isinstance(last_point_time, datetime)
-                    else last_point_time
-                ),
-            }
-
-            await publish_trip_delta(transaction_id, delta, sequence)
-        except Exception as pub_err:
-            logger.warning(
-                "Failed to publish trip delta for %s: %s",
-                transaction_id,
-                pub_err,
-            )
+        await _publish_trip_snapshot(updated_trip_doc, status="active")
     except Exception as update_err:
         logger.error(
-            "Database error updating trip %s: %s",
+            "Failed to apply tripData update for %s: %s",
             transaction_id,
             update_err,
         )
@@ -702,10 +602,7 @@ async def process_trip_metrics(
                 )
 
         # Always update sequence number
-        sequence = max(
-            initial_trip_doc.get("sequence", 0) + 1,
-            int(time.time_ns() / 1000),
-        )
+        sequence = max(initial_trip_doc.get("sequence", 0) + 1, _next_sequence())
         update_fields["sequence"] = sequence
 
         if not update_fields and max_speed_from_bouncie is None:
@@ -730,33 +627,15 @@ async def process_trip_metrics(
 
         if updated_trip_doc:
             logger.info(
-                "Updated trip metrics for: %s (seq=%d)",
+                "Updated trip metrics for %s (seq=%d)",
                 transaction_id,
                 updated_trip_doc.get("sequence"),
             )
-            # Publish delta update with metrics changes
             try:
-                delta_metrics = {
-                    k: v
-                    for k, v in update_fields.items()
-                    if k not in ("sequence", "lastUpdate")
-                }
-                # Include maxSpeed if it was updated from Bouncie
-                if max_speed_from_bouncie is not None:
-                    delta_metrics["maxSpeed"] = updated_trip_doc.get("maxSpeed")
-
-                delta = {
-                    "updated_metrics": delta_metrics,
-                    "lastUpdate": update_fields.get("lastUpdate"),
-                }
-                # Convert datetime to ISO string if needed
-                if isinstance(delta["lastUpdate"], datetime):
-                    delta["lastUpdate"] = delta["lastUpdate"].isoformat()
-
-                await publish_trip_delta(transaction_id, delta, sequence)
+                await _publish_trip_snapshot(updated_trip_doc, status="active")
             except Exception as pub_err:
                 logger.warning(
-                    "Failed to publish trip metrics delta for %s: %s",
+                    "Failed to publish updated metrics for %s: %s",
                     transaction_id,
                     pub_err,
                 )
@@ -1000,7 +879,7 @@ async def process_trip_end(
         trip_to_archive.setdefault("imei", base_trip_data.get("imei"))
     trip_to_archive["sequence"] = max(
         base_trip_data.get("sequence", 0) + 1,
-        int(time.time_ns() / 1000),
+        _next_sequence(),
     )
 
     # --- Build GeoJSON LineString from coordinates array before archiving ---
@@ -1129,12 +1008,12 @@ async def process_trip_end(
             action,
             trip_to_archive["sequence"],
         )
-        # Publish trip end event
+        # Publish final snapshot so clients can clean up gracefully
         try:
-            await publish_trip_end(transaction_id, trip_to_archive["sequence"])
+            await _publish_trip_snapshot(trip_to_archive, status="completed")
         except Exception as pub_err:
             logger.warning(
-                "Failed to publish trip end event for %s: %s",
+                "Failed to publish completed trip %s: %s",
                 transaction_id,
                 pub_err,
             )
@@ -1325,7 +1204,7 @@ async def cleanup_stale_trips_logic(
             )
             trip_to_archive["sequence"] = max(
                 trip.get("sequence", 0) + 1,
-                int(time.time_ns() / 1000),
+                _next_sequence(),
             )
 
             # --- Build GeoJSON LineString from coordinates array before archiving stale trip ---
@@ -1415,6 +1294,14 @@ async def cleanup_stale_trips_logic(
                     transaction_id,
                     trip_to_archive["sequence"],
                 )
+                try:
+                    await _publish_trip_snapshot(trip_to_archive, status="completed")
+                except Exception as pub_err:
+                    logger.warning(
+                        "Failed to publish stale trip archive for %s: %s",
+                        transaction_id,
+                        pub_err,
+                    )
             else:
                 logger.error(
                     "Failed to archive stale trip via transaction: %s (_id: %s)",
