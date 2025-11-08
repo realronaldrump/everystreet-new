@@ -606,11 +606,20 @@ def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
             e,
             str(doc)[:200],
         )
-        # Fallback to simple conversion
-        return {
-            k: str(v) if isinstance(v, (ObjectId, datetime)) else v
-            for k, v in doc.items()
-        }
+        # Fallback to recursive conversion
+        def _convert_value(v):
+            if isinstance(v, ObjectId):
+                return str(v)
+            elif isinstance(v, datetime):
+                return v.isoformat()
+            elif isinstance(v, dict):
+                return {k: _convert_value(val) for k, val in v.items()}
+            elif isinstance(v, list):
+                return [_convert_value(item) for item in v]
+            else:
+                return v
+
+        return {k: _convert_value(v) for k, v in doc.items()}
 
 
 async def batch_cursor(
