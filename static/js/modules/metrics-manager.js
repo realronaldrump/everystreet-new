@@ -14,16 +14,29 @@ const metricsManager = {
     };
 
     if (!geojson?.features) {
+      const totalsDetail = {
+        totalTrips: 0,
+        totalDistanceMiles: 0,
+        avgSpeed: 0,
+        maxSpeed: 0,
+      };
       utils.batchDOMUpdates([
         () =>
           Object.values(elements).forEach((el) => {
             if (el) el.textContent = el.id.includes("time") ? "--:--" : "0";
           }),
+        () => this.dispatchMetricsEvent(totalsDetail),
       ]);
       return;
     }
 
     const metrics = this.calculateMetrics(geojson.features);
+    const totalsDetail = {
+      totalTrips: metrics.totalTrips,
+      totalDistanceMiles: Number(metrics.totalDistance.toFixed(1)),
+      avgSpeed: Number(metrics.avgSpeed.toFixed(1)),
+      maxSpeed: Number(metrics.maxSpeed.toFixed(0)),
+    };
 
     utils.batchDOMUpdates([
       () => {
@@ -42,6 +55,7 @@ const metricsManager = {
         if (elements.maxSpeed)
           elements.maxSpeed.textContent = metrics.maxSpeed.toFixed(0);
       },
+      () => this.dispatchMetricsEvent(totalsDetail),
     ]);
   },
 
@@ -133,6 +147,25 @@ const metricsManager = {
           .toString()
           .padStart(2, "0")}`
       : `${minutes}:${secs.toString().padStart(2, "0")}`;
+  },
+
+  dispatchMetricsEvent(totals) {
+    if (!totals || typeof document === "undefined") return;
+    try {
+      const detail = {
+        source: "metricsManager",
+        updatedAt: Date.now(),
+        totals: {
+          totalTrips: totals.totalTrips ?? 0,
+          totalDistanceMiles: totals.totalDistanceMiles ?? 0,
+          avgSpeed: totals.avgSpeed ?? 0,
+          maxSpeed: totals.maxSpeed ?? 0,
+        },
+      };
+      document.dispatchEvent(new CustomEvent("metricsUpdated", { detail }));
+    } catch (error) {
+      console.warn("Failed to dispatch metrics update event", error);
+    }
   },
 };
 
