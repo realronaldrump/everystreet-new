@@ -1243,7 +1243,7 @@ async def ensure_street_coverage_indexes() -> None:
             "trips",
             [("transactionId", pymongo.ASCENDING)],
             name="trips_transactionId_idx",
-            unique=True,  # Assuming transactionId is unique
+            unique=True,
             background=True,
         )
         await db_manager.safe_create_index(
@@ -1259,7 +1259,7 @@ async def ensure_street_coverage_indexes() -> None:
             "matched_trips",
             [("transactionId", pymongo.ASCENDING)],
             name="matched_trips_transactionId_idx",
-            unique=True,  # Assuming transactionId is unique
+            unique=True,
             background=True,
         )
         await db_manager.safe_create_index(
@@ -1464,7 +1464,7 @@ async def ensure_archived_trip_indexes() -> None:
         collection_name,
         "transactionId",
         name="archived_transactionId_idx",
-        unique=True,  # Assuming transactionId should be unique in this collection
+        unique=True,
         background=True,
     )
     # Index on endTime for sorting or querying by time
