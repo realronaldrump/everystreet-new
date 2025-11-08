@@ -884,8 +884,6 @@ class LiveTripTracker {
       this.startPolling();
     }
   }
-
-
 }
 
 window.LiveTripTracker = LiveTripTracker;
