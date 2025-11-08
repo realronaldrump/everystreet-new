@@ -64,9 +64,9 @@
   --text-primary: rgb(241 245 249 / 92%);
   --text-secondary: rgb(148 163 184 / 85%);
   --text-tertiary: rgb(148 163 184 / 55%);
-  --text-on-primary: #ffffff; /* Text on primary-bg buttons */
-  --text-on-secondary: #ffffff; /* Text on secondary-bg buttons */
-  --text-on-dark: #ffffff;
+  --text-on-primary: #fff; /* Text on primary-bg buttons */
+  --text-on-secondary: #fff; /* Text on secondary-bg buttons */
+  --text-on-dark: #fff;
   --text-on-light: #0b1020;
   --border-color: rgb(148 163 184 / 18%);
   --border-color-light: rgb(
@@ -159,7 +159,7 @@
 /* === Light Mode Overrides === */
 body.light-mode {
   --surface-0: #f5f6fb;
-  --surface-1: #ffffff;
+  --surface-1: #fff;
   --surface-2: #eef1ff;
   --surface-3: #e2e8f0;
   --surface-4: #cbd5f5;
@@ -167,8 +167,8 @@ body.light-mode {
   --text-primary: rgb(15 23 42 / 92%);
   --text-secondary: rgb(71 85 105 / 78%);
   --text-tertiary: rgb(100 116 139 / 55%);
-  --text-on-primary: #ffffff;
-  --text-on-secondary: #ffffff;
+  --text-on-primary: #fff;
+  --text-on-secondary: #fff;
   --border-color: rgb(15 23 42 / 12%);
   --border-color-light: rgb(15 23 42 / 24%);
   --divider-color: rgb(15 23 42 / 10%);
@@ -2056,6 +2056,7 @@ body.light-mode .btn-close-white {
 }
 
 /* === Animations === */
+
 /* Note: All @keyframes moved to animations.css */
 
 .fade-in {
