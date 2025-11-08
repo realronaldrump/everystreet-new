@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 import redis.asyncio as aioredis
 from fastapi import (
@@ -16,19 +17,88 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 
 from db import db_manager, serialize_document
-from live_tracking import get_active_trip, get_trip_updates
+from live_tracking import (
+    get_active_trip,
+    get_trip_updates,
+    process_trip_data,
+    process_trip_end,
+    process_trip_metrics,
+    process_trip_start,
+)
 from models import (
     ActiveTripResponseUnion,
     ActiveTripSuccessResponse,
     NoActiveTripResponse,
 )
 from redis_config import get_redis_url
-from tasks import process_webhook_event_task
 from trip_event_publisher import TRIP_UPDATES_CHANNEL
 
 # Setup
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+async def _process_bouncie_event_inline(data: dict[str, Any]) -> dict[str, Any]:
+    """Handle a webhook payload synchronously using live tracking helpers."""
+    event_type = data.get("eventType")
+    transaction_id = data.get("transactionId")
+
+    live_collection = db_manager.get_collection("live_trips")
+    archive_collection = db_manager.get_collection("archived_live_trips")
+
+    if live_collection is None or archive_collection is None:
+        raise RuntimeError("Database collections for live tracking are not ready.")
+
+    if event_type == "tripStart":
+        await process_trip_start(data, live_collection)
+        return {
+            "status": "processed",
+            "event": event_type,
+            "transactionId": transaction_id,
+        }
+    if event_type == "tripData":
+        await process_trip_data(data, live_collection)
+        return {
+            "status": "processed",
+            "event": event_type,
+            "transactionId": transaction_id,
+        }
+    if event_type == "tripMetrics":
+        await process_trip_metrics(data, live_collection, archive_collection)
+        return {
+            "status": "processed",
+            "event": event_type,
+            "transactionId": transaction_id,
+        }
+    if event_type == "tripEnd":
+        await process_trip_end(data, live_collection, archive_collection)
+        return {
+            "status": "processed",
+            "event": event_type,
+            "transactionId": transaction_id,
+        }
+    if event_type in {"connect", "disconnect", "battery", "mil"}:
+        logger.info(
+            "Received non-trip event type %s (TxID=%s); skipping inline processing.",
+            event_type,
+            transaction_id or "N/A",
+        )
+        return {
+            "status": "ignored",
+            "event": event_type,
+            "transactionId": transaction_id,
+        }
+
+    logger.warning(
+        "Received unknown event type %s (TxID=%s); ignoring.",
+        event_type,
+        transaction_id or "N/A",
+    )
+    return {
+        "status": "unknown_event",
+        "event": event_type,
+        "transactionId": transaction_id,
+    }
 
 
 # WebSocket Connection Manager
@@ -181,39 +251,38 @@ async def bouncie_webhook(request: Request):
             )
 
         logger.info(
-            "Webhook received: Type=%s, TransactionID=%s. Scheduling for background processing.",
+            "Webhook received: Type=%s, TransactionID=%s. Processing inline.",
             event_type,
             transaction_id or "N/A",
         )
 
         try:
-            process_webhook_event_task.delay(data)
+            inline_result = await _process_bouncie_event_inline(data)
             logger.debug(
-                "Successfully scheduled task for webhook event: Type=%s, TxID=%s",
-                event_type,
-                transaction_id or "N/A",
+                "Inline processing result for webhook: %s",
+                inline_result,
             )
-        except Exception as celery_err:
+        except Exception as inline_err:
             error_id = str(uuid.uuid4())
             logger.exception(
-                "Failed to schedule Celery task for webhook [%s]: Type=%s, TxID=%s, Error: %s",
+                "Failed to process webhook inline [%s]: Type=%s, TxID=%s, Error: %s",
                 error_id,
                 event_type,
                 transaction_id or "N/A",
-                celery_err,
+                inline_err,
             )
             return JSONResponse(
                 content={
                     "status": "error",
-                    "message": "Failed to schedule background task",
+                    "message": "Failed to process webhook",
                     "error_id": error_id,
                 },
                 status_code=500,
             )
 
         return JSONResponse(
-            content={"status": "acknowledged"},
-            status_code=202,
+            content={"status": "processed", "detail": inline_result},
+            status_code=200,
         )
 
     except Exception as e:

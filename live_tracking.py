@@ -326,7 +326,11 @@ async def process_trip_data(
             "lon": gps_payload.get("lon"),
             "speed": point.get("speed"),
         }
-        if candidate["timestamp"] and candidate["lat"] is not None and candidate["lon"] is not None:
+        if (
+            candidate["timestamp"]
+            and candidate["lat"] is not None
+            and candidate["lon"] is not None
+        ):
             _store_coord(candidate)
         else:
             logger.debug(
