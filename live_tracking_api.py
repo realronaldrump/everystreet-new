@@ -315,7 +315,7 @@ async def active_trip_endpoint():
         active_trip_doc = await get_active_trip()
 
         if not active_trip_doc:
-            logger.info("No active trip found (or not newer than sequence)")
+            logger.debug("No active trip found (or not newer than sequence)")
             return NoActiveTripResponse(server_time=datetime.now(timezone.utc))
 
         logger.info(

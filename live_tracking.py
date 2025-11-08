@@ -1434,7 +1434,7 @@ async def get_trip_updates(
 
         if any_active_trip_doc:
             current_server_seq = any_active_trip_doc.get("sequence", 0)
-            logger.info(
+            logger.debug(
                 "No *new* updates since sequence %d. Current active trip sequence: %s.",
                 client_sequence,
                 current_server_seq,
@@ -1445,7 +1445,6 @@ async def get_trip_updates(
                 "message": "No new updates available.",
                 "current_sequence": current_server_seq,
             }
-        logger.info("No active trips found in the database.")
         return {
             "status": "success",
             "has_update": False,
