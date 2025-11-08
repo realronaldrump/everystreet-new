@@ -33,6 +33,7 @@ class MongoDBJSONEncoder(json.JSONEncoder):
             return obj.isoformat()
         return super().default(obj)
 
+
 # Singleton async Redis client instance
 _redis_client: aioredis.Redis | None = None
 
