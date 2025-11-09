@@ -2641,7 +2641,7 @@
           polygon: true,
           trash: true,
         },
-        defaultMode: "draw_polygon",
+        defaultMode: "simple_select",
         styles: [
           // Fill
           {
