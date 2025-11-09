@@ -21,8 +21,8 @@ from db import (
     find_one_with_retry,
     find_with_retry,
     insert_one_with_retry,
-    update_one_with_retry,
     serialize_datetime,
+    update_one_with_retry,
 )
 
 logger = logging.getLogger(__name__)
