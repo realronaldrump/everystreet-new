@@ -5,15 +5,18 @@ import pytz
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-from db import aggregate_with_retry, build_query_from_request, db_manager, serialize_for_json
+from db import (
+    aggregate_with_retry,
+    build_query_from_request,
+    db_manager,
+    serialize_for_json,
+)
 from utils import calculate_circular_average_hour
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 trips_collection = db_manager.db["trips"]
-
-
 
 
 @router.get("/api/trip-analytics")

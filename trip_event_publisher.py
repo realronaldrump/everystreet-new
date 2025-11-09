@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 TRIP_UPDATES_CHANNEL = "trip_updates"
 
 
-
 # Singleton async Redis client instance
 _redis_client: aioredis.Redis | None = None
 

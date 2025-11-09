@@ -16,7 +16,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse
 
-from db import db_manager, BSONJSONEncoder, serialize_document
+from db import BSONJSONEncoder, db_manager, serialize_document
 from live_tracking import (
     get_active_trip,
     get_trip_updates,
@@ -36,8 +36,6 @@ from trip_event_publisher import TRIP_UPDATES_CHANNEL
 # Setup
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
 
 
 async def _process_bouncie_event_inline(data: dict[str, Any]) -> dict[str, Any]:
@@ -170,7 +168,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "status": status,
                                 "transaction_id": event_data.get("transaction_id"),
                             },
-                            cls=BSONJSONEncoder
+                            cls=BSONJSONEncoder,
                         )
                     )
                     last_sequence = event_sequence
@@ -198,7 +196,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "sequence": last_sequence,
                         "status": serialized_trip.get("status", "active"),
                     },
-                    cls=BSONJSONEncoder
+                    cls=BSONJSONEncoder,
                 )
             )
 
@@ -212,6 +210,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
         # Start listening for updates in a separate task
         import asyncio
+
         listen_task = asyncio.create_task(listen_for_updates())
 
         # Wait for either the listen task to complete or websocket to disconnect
