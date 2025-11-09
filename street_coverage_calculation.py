@@ -25,7 +25,7 @@ from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from pymongo.errors import BulkWriteError, OperationFailure
 from shapely.errors import GEOSException
 from shapely.geometry import LineString, MultiPoint, box, mapping, shape
-from shapely.ops import transform, unary_union
+from shapely.ops import transform
 
 from db import (
     batch_cursor,
@@ -566,65 +566,42 @@ class CoverageCalculator:
         boundary_shape: shape | None = None
         if boundary_geojson_data:
             try:
-                # Process the boundary_geojson_data to create a shapely geometry
-                # This logic should be similar to how it's handled in preprocess_streets
-                if isinstance(
-                    boundary_geojson_data, dict
-                ) and boundary_geojson_data.get("type") in [
+                if not isinstance(boundary_geojson_data, dict):
+                    logger.error(
+                        "Task %s: Boundary geojson_data is not a dict (got %s). Cannot process boundary.",
+                        self.task_id,
+                        type(boundary_geojson_data).__name__,
+                    )
+                    boundary_shape = None
+                elif boundary_geojson_data.get("type") not in [
                     "Polygon",
                     "MultiPolygon",
                 ]:
-                    boundary_shape = shape(boundary_geojson_data)
-                elif (
-                    isinstance(boundary_geojson_data, dict)
-                    and boundary_geojson_data.get("type") == "Feature"
-                ):
-                    geom = boundary_geojson_data.get("geometry")
-                    if geom and geom.get("type") in [
-                        "Polygon",
-                        "MultiPolygon",
-                    ]:
-                        boundary_shape = shape(geom)
-                elif (
-                    isinstance(boundary_geojson_data, dict)
-                    and boundary_geojson_data.get("type") == "FeatureCollection"
-                ):
-                    geoms = []
-                    for feature in boundary_geojson_data.get("features", []):
-                        geom = feature.get("geometry")
-                        if geom and geom.get("type") in [
-                            "Polygon",
-                            "MultiPolygon",
-                        ]:
-                            geoms.append(shape(geom))
-                    if geoms:
-                        valid_polys = [
-                            g for g in geoms if g.is_valid or g.buffer(0).is_valid
-                        ]
-                        fixed_polys = [
-                            g if g.is_valid else g.buffer(0) for g in valid_polys
-                        ]
-                        final_polys = [
-                            p for p in fixed_polys if p.is_valid and not p.is_empty
-                        ]
-                        if final_polys:
-                            boundary_shape = unary_union(final_polys)
-
-                if boundary_shape and not boundary_shape.is_valid:
-                    boundary_shape = boundary_shape.buffer(0)
-
-                if boundary_shape and boundary_shape.is_valid:
-                    logger.info(
-                        "Task %s: Using provided boundary for clipping streets during indexing.",
+                    logger.error(
+                        "Task %s: Boundary geojson_data has unexpected type '%s' (expected Polygon or MultiPolygon). Cannot process boundary.",
                         self.task_id,
+                        boundary_geojson_data.get("type"),
                     )
+                    boundary_shape = None
                 else:
-                    logger.warning(
-                        "Task %s: Provided boundary_geojson_data was invalid or could not be processed. No clipping will occur.",
-                        self.task_id,
-                    )
-                    boundary_shape = None  # Ensure it's None if invalid or unprocessed
-
+                    boundary_shape = shape(boundary_geojson_data)
+                    if not boundary_shape.is_valid:
+                        logger.warning(
+                            "Task %s: Boundary shape is invalid, attempting to fix with buffer(0).",
+                            self.task_id,
+                        )
+                        boundary_shape = boundary_shape.buffer(0)
+                    if boundary_shape.is_valid and not boundary_shape.is_empty:
+                        logger.info(
+                            "Task %s: Using provided boundary for clipping streets during indexing.",
+                            self.task_id,
+                        )
+                    else:
+                        logger.error(
+                            "Task %s: Boundary shape is invalid or empty after repair attempt. Cannot use for clipping.",
+                            self.task_id,
+                        )
+                        boundary_shape = None
             except Exception as e:
                 logger.error(
                     "Task %s: Error processing provided boundary_geojson_data: %s. No clipping will occur.",
