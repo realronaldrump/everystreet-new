@@ -19,8 +19,15 @@
       throw new Error(`Map container '${containerId}' not found`);
     }
 
+    if (container.firstChild) {
+      container.replaceChildren();
+    }
+
     if (library === "mapbox") {
       if (!mapboxgl) throw new Error("Mapbox GL JS is not loaded");
+      if (typeof mapboxgl.setTelemetryEnabled === "function") {
+        mapboxgl.setTelemetryEnabled(false);
+      }
       mapboxgl.accessToken = accessToken || window.MAPBOX_ACCESS_TOKEN;
       const map = new mapboxgl.Map({
         container: containerId,

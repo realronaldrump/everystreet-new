@@ -37,8 +37,9 @@ AUTHORIZED_DEVICES: Final[list[str]] = [
 ]
 
 
-# --- Mapbox Configuration ---
+# --- Mapbox & Analytics Configuration ---
 MAPBOX_ACCESS_TOKEN: Final[str] = os.getenv("MAPBOX_ACCESS_TOKEN", "")
+CLARITY_PROJECT_ID: Final[str | None] = os.getenv("CLARITY_PROJECT_ID") or None
 
 
 async def get_bouncie_config() -> dict[str, Any]:
@@ -81,5 +82,6 @@ __all__ = [
     "API_BASE_URL",
     "AUTHORIZED_DEVICES",
     "MAPBOX_ACCESS_TOKEN",
+    "CLARITY_PROJECT_ID",
     "get_bouncie_config",
 ]

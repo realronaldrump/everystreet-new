@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from config import MAPBOX_ACCESS_TOKEN
+from config import CLARITY_PROJECT_ID, MAPBOX_ACCESS_TOKEN
 from date_utils import normalize_calendar_date
 from db import (
     build_calendar_date_expr,
@@ -62,7 +62,10 @@ class TripUpdateRequest(BaseModel):
 @router.get("/trips", response_class=HTMLResponse, tags=["Pages"])
 async def trips_page(request: Request):
     """Render the main trips data table page."""
-    return templates.TemplateResponse("trips.html", {"request": request})
+    return templates.TemplateResponse(
+        "trips.html",
+        {"request": request, "CLARITY_PROJECT_ID": CLARITY_PROJECT_ID},
+    )
 
 
 # ==============================================================================
