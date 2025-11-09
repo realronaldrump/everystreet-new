@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import redis.asyncio as aioredis
+from bson import ObjectId
 from fastapi import (
     APIRouter,
     HTTPException,
@@ -36,6 +37,17 @@ from trip_event_publisher import TRIP_UPDATES_CHANNEL
 # Setup
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class WebSocketJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder for WebSocket messages that handles datetime and ObjectId."""
+
+    def default(self, obj):
+        if isinstance(obj, (datetime,)):
+            return obj.isoformat()
+        elif isinstance(obj, ObjectId):
+            return str(obj)
+        return super().default(obj)
 
 
 async def _process_bouncie_event_inline(data: dict[str, Any]) -> dict[str, Any]:
@@ -125,6 +137,62 @@ async def websocket_endpoint(websocket: WebSocket):
     last_sequence = 0
     redis_client = None
     pubsub = None
+    listen_task = None
+
+    async def listen_for_updates():
+        """Listen for Redis messages and send them to the websocket."""
+        nonlocal last_sequence
+        try:
+            async for message in pubsub.listen():
+                if message["type"] != "message":
+                    continue
+
+                try:
+                    event_data = json.loads(message["data"])
+
+                    # Check if this update is newer than what the client has
+                    event_sequence = event_data.get("sequence", 0)
+                    if event_sequence <= last_sequence:
+                        continue
+
+                    event_type = event_data.get("event_type")
+
+                    if event_type != "trip_state":
+                        logger.debug(
+                            "Skipping unknown trip event type %s from pubsub",
+                            event_type,
+                        )
+                        continue
+
+                    trip_payload = event_data.get("trip")
+                    if not trip_payload:
+                        logger.debug("Trip state event missing payload, skipping.")
+                        continue
+
+                    status = event_data.get("status", "active")
+
+                    await websocket.send_text(
+                        json.dumps(
+                            {
+                                "type": "trip_state",
+                                "trip": trip_payload,
+                                "sequence": event_sequence,
+                                "status": status,
+                                "transaction_id": event_data.get("transaction_id"),
+                            },
+                            cls=WebSocketJSONEncoder
+                        )
+                    )
+                    last_sequence = event_sequence
+
+                except json.JSONDecodeError as e:
+                    logger.warning("Failed to parse Redis message: %s", e)
+                except Exception as e:
+                    logger.error("Error processing Redis message: %s", e, exc_info=True)
+        except Exception as e:
+            # This will catch WebSocket disconnects and other errors
+            logger.debug("Redis listening task ended: %s", e)
+            raise
 
     try:
         # Load initial trip state on connection
@@ -132,13 +200,16 @@ async def websocket_endpoint(websocket: WebSocket):
         if initial_trip:
             serialized_trip = serialize_document(initial_trip)
             last_sequence = initial_trip.get("sequence", 0)
-            await websocket.send_json(
-                {
-                    "type": "trip_state",
-                    "trip": serialized_trip,
-                    "sequence": last_sequence,
-                    "status": serialized_trip.get("status", "active"),
-                }
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "trip_state",
+                        "trip": serialized_trip,
+                        "sequence": last_sequence,
+                        "status": serialized_trip.get("status", "active"),
+                    },
+                    cls=WebSocketJSONEncoder
+                )
             )
 
         # Connect to Redis and subscribe to trip updates channel
@@ -149,56 +220,30 @@ async def websocket_endpoint(websocket: WebSocket):
 
         logger.info("WebSocket connected and subscribed to Redis channel")
 
-        # Listen for messages from Redis Pub/Sub
-        async for message in pubsub.listen():
-            if message["type"] != "message":
-                continue
+        # Start listening for updates in a separate task
+        import asyncio
+        listen_task = asyncio.create_task(listen_for_updates())
 
-            try:
-                event_data = json.loads(message["data"])
-
-                # Check if this update is newer than what the client has
-                event_sequence = event_data.get("sequence", 0)
-                if event_sequence <= last_sequence:
-                    continue
-
-                event_type = event_data.get("event_type")
-
-                if event_type != "trip_state":
-                    logger.debug(
-                        "Skipping unknown trip event type %s from pubsub",
-                        event_type,
-                    )
-                    continue
-
-                trip_payload = event_data.get("trip")
-                if not trip_payload:
-                    logger.debug("Trip state event missing payload, skipping.")
-                    continue
-
-                status = event_data.get("status", "active")
-
-                await websocket.send_json(
-                    {
-                        "type": "trip_state",
-                        "trip": trip_payload,
-                        "sequence": event_sequence,
-                        "status": status,
-                        "transaction_id": event_data.get("transaction_id"),
-                    }
-                )
-                last_sequence = event_sequence
-
-            except json.JSONDecodeError as e:
-                logger.warning("Failed to parse Redis message: %s", e)
-            except Exception as e:
-                logger.error("Error processing Redis message: %s", e, exc_info=True)
+        # Wait for either the listen task to complete or websocket to disconnect
+        try:
+            await listen_task
+        except Exception:
+            # listen_task will raise exceptions including WebSocketDisconnect
+            pass
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")
     except Exception as e:
         logger.error("WebSocket error: %s", e, exc_info=True)
     finally:
+        # Cancel the listening task if it's still running
+        if listen_task and not listen_task.done():
+            listen_task.cancel()
+            try:
+                await listen_task
+            except asyncio.CancelledError:
+                pass
+
         manager.disconnect(websocket)
         if pubsub:
             try:
