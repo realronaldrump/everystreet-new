@@ -180,7 +180,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "status": status,
                                 "transaction_id": event_data.get("transaction_id"),
                             },
-                            cls=WebSocketJSONEncoder
+                            cls=WebSocketJSONEncoder,
                         )
                     )
                     last_sequence = event_sequence
@@ -208,7 +208,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "sequence": last_sequence,
                         "status": serialized_trip.get("status", "active"),
                     },
-                    cls=WebSocketJSONEncoder
+                    cls=WebSocketJSONEncoder,
                 )
             )
 
@@ -222,6 +222,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
         # Start listening for updates in a separate task
         import asyncio
+
         listen_task = asyncio.create_task(listen_for_updates())
 
         # Wait for either the listen task to complete or websocket to disconnect
