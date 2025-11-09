@@ -15,6 +15,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import JSONResponse
+from starlette.websockets import WebSocketState
 
 from db import db_manager, BSONJSONEncoder, serialize_document
 from live_tracking import (
@@ -161,19 +162,42 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     status = event_data.get("status", "active")
 
-                    await websocket.send_text(
-                        json.dumps(
-                            {
-                                "type": "trip_state",
-                                "trip": trip_payload,
-                                "sequence": event_sequence,
-                                "status": status,
-                                "transaction_id": event_data.get("transaction_id"),
-                            },
-                            cls=BSONJSONEncoder
+                    if websocket.application_state != WebSocketState.CONNECTED:
+                        logger.debug(
+                            "WebSocket state is %s; stopping listener.",
+                            websocket.application_state,
                         )
-                    )
-                    last_sequence = event_sequence
+                        break
+
+                    try:
+                        await websocket.send_text(
+                            json.dumps(
+                                {
+                                    "type": "trip_state",
+                                    "trip": trip_payload,
+                                    "sequence": event_sequence,
+                                    "status": status,
+                                    "transaction_id": event_data.get(
+                                        "transaction_id"
+                                    ),
+                                },
+                                cls=BSONJSONEncoder
+                            )
+                        )
+                        last_sequence = event_sequence
+                    except WebSocketDisconnect:
+                        logger.info(
+                            "WebSocket disconnected while sending update; stopping listener."
+                        )
+                        break
+                    except RuntimeError as send_error:
+                        error_message = str(send_error)
+                        if 'Cannot call "send" once a close message has been sent.' in error_message:
+                            logger.debug(
+                                "WebSocket closed before sending update; stopping listener."
+                            )
+                            break
+                        raise
 
                 except json.JSONDecodeError as e:
                     logger.warning("Failed to parse Redis message: %s", e)
