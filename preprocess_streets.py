@@ -256,7 +256,7 @@ async def _fetch_osm_with_fallback(
             while True:
                 try:
                     # Poll completion in small intervals to emit heartbeats
-                    result = await asyncio.wait_for(fetch_task, timeout=5)
+                    result = await asyncio.wait_for(fetch_task, timeout=300)
                     # Success
                     await _update_task_progress(
                         task_id,
