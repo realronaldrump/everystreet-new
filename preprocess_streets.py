@@ -24,7 +24,7 @@ from pymongo.errors import BulkWriteError
 from shapely.geometry import LineString, mapping, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import substring as shapely_substring
-from shapely.ops import transform, unary_union
+from shapely.ops import transform
 
 from db import (
     coverage_metadata_collection,
@@ -1049,35 +1049,48 @@ async def preprocess_streets(
             ),
         )
 
-        # Attempt to construct the boundary shape from validated_location geojson
+        # Construct the boundary shape from validated_location geojson
+        # The geojson field comes directly from the Nominatim Search API with polygon_geojson=1
+        # and is always a GeoJSON Geometry object: {"type": "Polygon"/"MultiPolygon", "coordinates": [...]}
         if "geojson" in validated_location and validated_location["geojson"]:
             try:
-                # Assuming validated_location['geojson'] is a FeatureCollection dictionary
-                # or a single Feature dictionary.
-                # We need to handle both MultiPolygon and Polygon geometries.
-
                 geojson_boundary_data = validated_location["geojson"]
 
-                # Check if geojson_boundary_data is what Nominatim provides directly
-                # (a dict with 'type': 'Polygon'/'MultiPolygon')
-                if isinstance(
-                    geojson_boundary_data, dict
-                ) and geojson_boundary_data.get("type") in [
+                # Validate structure: must be a dict with type Polygon or MultiPolygon
+                if not isinstance(geojson_boundary_data, dict):
+                    logger.error(
+                        "Boundary geojson for {} is not a dict (got {}). Cannot process boundary.".format(
+                            location_name, type(geojson_boundary_data).__name__
+                        ),
+                    )
+                    boundary_shape = None
+                elif geojson_boundary_data.get("type") not in [
                     "Polygon",
                     "MultiPolygon",
                 ]:
+                    logger.error(
+                        "Boundary geojson for {} has unexpected type '{}' (expected Polygon or MultiPolygon). Cannot process boundary.".format(
+                            location_name, geojson_boundary_data.get("type")
+                        ),
+                    )
+                    boundary_shape = None
+                else:
+                    # Convert GeoJSON geometry to shapely shape
                     boundary_shape = shape(geojson_boundary_data)
+
+                    # Validate and attempt to fix invalid geometries
                     if not boundary_shape.is_valid:
                         logger.warning(
-                            "Boundary shape for {} is invalid, attempting to buffer by 0".format(
+                            "Boundary shape for {} is invalid, attempting to fix with buffer(0)".format(
                                 location_name
                             ),
                         )
                         boundary_shape = boundary_shape.buffer(0)
-                    if boundary_shape.is_valid:
+
+                    if boundary_shape.is_valid and not boundary_shape.is_empty:
                         logger.info(
-                            "Successfully created boundary_shape for {} from 'geojson' field.".format(
-                                location_name
+                            "Successfully created boundary_shape for {} (type: {}).".format(
+                                location_name, geojson_boundary_data.get("type")
                             ),
                         )
                         await _update_task_progress(
@@ -1090,119 +1103,11 @@ async def preprocess_streets(
                         )
                     else:
                         logger.error(
-                            "Boundary shape for {} remains invalid after buffer(0). Cannot use for clipping.".format(
+                            "Boundary shape for {} is invalid or empty after repair attempt. Cannot use for clipping.".format(
                                 location_name
                             ),
                         )
-                        boundary_shape = None  # Ensure it's None if invalid
-                # Fallback for older structure or list of features (if Nominatim output changes or it's from another source)
-                elif isinstance(geojson_boundary_data, list) and geojson_boundary_data:
-                    raw_polygons = []
-                    for item in geojson_boundary_data:
-                        if (
-                            isinstance(item, dict)
-                            and item.get("geojson")
-                            and isinstance(item.get("geojson"), dict)
-                            and item.get("geojson").get("type")
-                            in ["Polygon", "MultiPolygon"]
-                        ):
-                            raw_polygons.append(shape(item.get("geojson")))
-                        elif isinstance(item, dict) and item.get("type") in [
-                            "Polygon",
-                            "MultiPolygon",
-                        ]:
-                            raw_polygons.append(shape(item))
-                        elif (
-                            isinstance(item, dict)
-                            and item.get("type") == "Feature"
-                            and item.get("geometry", {}).get("type")
-                            in ["Polygon", "MultiPolygon"]
-                        ):
-                            raw_polygons.append(shape(item["geometry"]))
-                        elif (
-                            isinstance(item, dict)
-                            and item.get("type") == "FeatureCollection"
-                        ):
-                            for feature in item.get("features", []):
-                                if feature.get("geometry", {}).get("type") in [
-                                    "Polygon",
-                                    "MultiPolygon",
-                                ]:
-                                    raw_polygons.append(shape(feature["geometry"]))
-
-                    if raw_polygons:
-                        # Combine all valid polygons into a single geometry (MultiPolygon or Polygon)
-                        # Filter for valid geometries before union to avoid errors
-                        valid_polygons = [
-                            p
-                            for p in raw_polygons
-                            if p.is_valid or p.buffer(0).is_valid
-                        ]
-                        if not valid_polygons:
-                            logger.warning(
-                                "No valid polygon geometries found in 'geojson' list for {} after attempting to fix.".format(
-                                    location_name
-                                ),
-                            )
-                        else:
-                            # Attempt to fix invalid geometries before union
-                            fixed_polygons = [
-                                p if p.is_valid else p.buffer(0) for p in valid_polygons
-                            ]
-                            # Filter again as buffer(0) might result in empty or invalid geoms for some inputs
-                            final_polygons_for_union = [
-                                p
-                                for p in fixed_polygons
-                                if p.is_valid and not p.is_empty
-                            ]
-                            if final_polygons_for_union:
-                                boundary_shape = unary_union(final_polygons_for_union)
-                                if not boundary_shape.is_valid:
-                                    logger.warning(
-                                        "Union of boundary polygons for {} is invalid, attempting buffer(0).".format(
-                                            location_name
-                                        ),
-                                    )
-                                    boundary_shape = boundary_shape.buffer(0)
-                                if boundary_shape.is_valid:
-                                    logger.info(
-                                        "Successfully created boundary_shape for {} from list of geojson items.".format(
-                                            location_name
-                                        ),
-                                    )
-                                    await _update_task_progress(
-                                        task_id,
-                                        "preprocessing",
-                                        10,
-                                        "Boundary processed for {}. Clipping enabled. (Detail: Boundary success)".format(
-                                            location_name
-                                        ),
-                                    )
-                                else:
-                                    logger.error(
-                                        "Boundary shape for {} from list remains invalid. Cannot use for clipping.".format(
-                                            location_name
-                                        ),
-                                    )
-                                    boundary_shape = None
-                            else:
-                                logger.warning(
-                                    "No valid polygons left after fixing for union for {}.".format(
-                                        location_name
-                                    ),
-                                )
-                    else:
-                        logger.warning(
-                            "No geometries could be extracted from the 'geojson' list for {}.".format(
-                                location_name
-                            ),
-                        )
-                else:
-                    logger.warning(
-                        "Validated_location.geojson for {} is not a recognized Polygon/MultiPolygon dict or a list of features. Type: {}".format(
-                            location_name, type(geojson_boundary_data).__name__
-                        ),
-                    )
+                        boundary_shape = None
 
             except Exception as e:
                 logger.error(
@@ -1211,7 +1116,7 @@ async def preprocess_streets(
                     ),
                     exc_info=True,
                 )
-                boundary_shape = None  # Ensure it's None on error
+                boundary_shape = None
 
         if boundary_shape:
             logger.info(
