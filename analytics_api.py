@@ -1,13 +1,11 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 import pytz
-from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-from db import aggregate_with_retry, build_query_from_request, db_manager
+from db import aggregate_with_retry, build_query_from_request, db_manager, serialize_for_json
 from utils import calculate_circular_average_hour
 
 logger = logging.getLogger(__name__)
@@ -16,17 +14,6 @@ router = APIRouter()
 trips_collection = db_manager.db["trips"]
 
 
-def convert_datetimes_to_isoformat(item: Any) -> Any:
-    """Recursively convert datetime and ObjectId objects in a dictionary or list to JSON-serializable format."""
-    if isinstance(item, dict):
-        return {k: convert_datetimes_to_isoformat(v) for k, v in item.items()}
-    if isinstance(item, list):
-        return [convert_datetimes_to_isoformat(elem) for elem in item]
-    if isinstance(item, datetime):
-        return item.isoformat()
-    if isinstance(item, ObjectId):
-        return str(item)
-    return item
 
 
 @router.get("/api/trip-analytics")
@@ -265,7 +252,7 @@ async def get_time_period_trips(request: Request):
 
         trips = await aggregate_with_retry(trips_collection, pipeline)
 
-        return JSONResponse(content=convert_datetimes_to_isoformat(trips))
+        return JSONResponse(content=serialize_for_json(trips))
 
     except HTTPException:
         raise
@@ -531,7 +518,7 @@ async def driver_behavior_analytics(request: Request):
             return JSONResponse(content=payload)
 
         combined = results[0]
-        return JSONResponse(content=convert_datetimes_to_isoformat(combined))
+        return JSONResponse(content=serialize_for_json(combined))
     except Exception as e:
         logger.exception("Error aggregating driver behavior analytics: %s", e)
         raise HTTPException(
@@ -693,7 +680,7 @@ async def get_driving_insights(request: Request):
                 for d in trips_top
             ]
 
-        return JSONResponse(content=convert_datetimes_to_isoformat(combined))
+        return JSONResponse(content=serialize_for_json(combined))
     except Exception as e:
         logger.exception(
             "Error in get_driving_insights: %s",

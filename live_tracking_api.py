@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 import redis.asyncio as aioredis
-from bson import ObjectId
 from fastapi import (
     APIRouter,
     HTTPException,
@@ -17,7 +16,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse
 
-from db import db_manager, serialize_document
+from db import db_manager, BSONJSONEncoder, serialize_document
 from live_tracking import (
     get_active_trip,
     get_trip_updates,
@@ -39,15 +38,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-class WebSocketJSONEncoder(json.JSONEncoder):
-    """Custom JSON encoder for WebSocket messages that handles datetime and ObjectId."""
-
-    def default(self, obj):
-        if isinstance(obj, (datetime,)):
-            return obj.isoformat()
-        elif isinstance(obj, ObjectId):
-            return str(obj)
-        return super().default(obj)
 
 
 async def _process_bouncie_event_inline(data: dict[str, Any]) -> dict[str, Any]:
@@ -180,7 +170,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "status": status,
                                 "transaction_id": event_data.get("transaction_id"),
                             },
-                            cls=WebSocketJSONEncoder
+                            cls=BSONJSONEncoder
                         )
                     )
                     last_sequence = event_sequence
@@ -208,7 +198,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "sequence": last_sequence,
                         "status": serialized_trip.get("status", "active"),
                     },
-                    cls=WebSocketJSONEncoder
+                    cls=BSONJSONEncoder
                 )
             )
 

@@ -40,6 +40,18 @@ from date_utils import normalize_calendar_date, normalize_to_utc_datetime
 
 logger = logging.getLogger(__name__)
 
+
+class BSONJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles MongoDB ObjectId and datetime objects for API responses."""
+
+    def default(self, obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+
 T = TypeVar("T")
 
 
@@ -620,6 +632,30 @@ def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
                 return v
 
         return {k: _convert_value(v) for k, v in doc.items()}
+
+
+def serialize_for_json(data: Any) -> Any:
+    """Serialize any data structure containing datetime/ObjectId objects to JSON-serializable format.
+
+    This function recursively converts datetime and ObjectId objects in dicts, lists, and nested structures
+    to their JSON-serializable equivalents.
+
+    Args:
+        data: Any data structure (dict, list, or primitive)
+
+    Returns:
+        Data with datetime/ObjectId objects converted to strings
+    """
+    if isinstance(data, dict):
+        return {k: serialize_for_json(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [serialize_for_json(item) for item in data]
+    elif isinstance(data, ObjectId):
+        return str(data)
+    elif isinstance(data, datetime):
+        return data.isoformat()
+    else:
+        return data
 
 
 async def batch_cursor(

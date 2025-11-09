@@ -12,9 +12,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 import redis.asyncio as aioredis
-from bson import ObjectId
 from redis.exceptions import ConnectionError as RedisConnectionError
 
+from db import BSONJSONEncoder
 from redis_config import get_redis_url
 
 logger = logging.getLogger(__name__)
@@ -23,15 +23,6 @@ logger = logging.getLogger(__name__)
 TRIP_UPDATES_CHANNEL = "trip_updates"
 
 
-class MongoDBJSONEncoder(json.JSONEncoder):
-    """Custom JSON encoder that handles MongoDB ObjectId and datetime objects."""
-
-    def default(self, obj):
-        if isinstance(obj, ObjectId):
-            return str(obj)
-        elif isinstance(obj, datetime):
-            return obj.isoformat()
-        return super().default(obj)
 
 # Singleton async Redis client instance
 _redis_client: aioredis.Redis | None = None
@@ -100,7 +91,7 @@ async def publish_trip_state(
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        message = json.dumps(event_data, cls=MongoDBJSONEncoder)
+        message = json.dumps(event_data, cls=BSONJSONEncoder)
         subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
 
         logger.debug(
