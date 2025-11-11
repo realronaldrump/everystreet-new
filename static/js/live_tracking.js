@@ -1,7 +1,12 @@
 /* global DateUtils, mapboxgl */
 
+/**
+ * LiveTripTracker - Real-time trip visualization for Bouncie webhooks
+ *
+ * Simplified single-user implementation with WebSocket primary, polling fallback.
+ */
 class LiveTripTracker {
-  static instance = null; // Singleton pattern
+  static instance = null;
 
   constructor(map) {
     // Enforce singleton
@@ -11,61 +16,52 @@ class LiveTripTracker {
     LiveTripTracker.instance = this;
 
     if (!map) {
-      window.handleError(
-        "LiveTripTracker: Map is required",
-        "LiveTripTracker constructor",
-      );
+      console.error("LiveTripTracker: Map is required");
       return;
     }
 
     this.map = map;
     this.activeTrip = null;
-    // Initialize Mapbox GL JS sources and layers for live tracking
-    this.liveSourceId = "live-trip-source";
-    this.liveLineLayerId = "live-trip-line";
-    this.liveMarkerLayerId = "live-trip-marker";
+    this.ws = null;
+    this.pollingTimer = null;
+    this.pollingInterval = 3000; // 3 seconds
 
-    // Initialize empty GeoJSON data
-    this.initializeMapboxLayers();
+    // Map layer IDs
+    this.sourceId = "live-trip-source";
+    this.lineLayerId = "live-trip-line";
+    this.markerLayerId = "live-trip-marker";
 
-    this.lastSequence = 0;
-    this.pollingInterval = 2000; // Fixed 2-second interval for fallback polling
-    this.pollingTimerId = null;
-    this.isPolling = false;
-
+    // DOM elements
     this.statusIndicator = document.querySelector(".status-indicator");
     this.statusText = document.querySelector(".live-status-text");
-    this.activeTripsCountElem = document.querySelector("#active-trips-count");
-    this.tripMetricsElem = document.querySelector(".live-trip-metrics");
-    this.errorMessageElem = document.querySelector(".error-message");
+    this.tripCountElem = document.querySelector("#active-trips-count");
+    this.metricsElem = document.querySelector(".live-trip-metrics");
 
+    this.initializeMapLayers();
     this.initialize();
   }
 
-  initializeMapboxLayers() {
+  initializeMapLayers() {
     if (!this.map || !this.map.addSource) {
-      console.warn("LiveTripTracker: Map not ready for Mapbox layers");
+      console.warn("Map not ready for layers");
       return;
     }
 
     try {
-      // Add source for live tracking data
-      if (!this.map.getSource(this.liveSourceId)) {
-        this.map.addSource(this.liveSourceId, {
+      // Add GeoJSON source
+      if (!this.map.getSource(this.sourceId)) {
+        this.map.addSource(this.sourceId, {
           type: "geojson",
-          data: {
-            type: "FeatureCollection",
-            features: [],
-          },
+          data: { type: "FeatureCollection", features: [] },
         });
       }
 
-      // Add line layer for the trip path
-      if (!this.map.getLayer(this.liveLineLayerId)) {
+      // Add line layer for trip path
+      if (!this.map.getLayer(this.lineLayerId)) {
         this.map.addLayer({
-          id: this.liveLineLayerId,
+          id: this.lineLayerId,
           type: "line",
-          source: this.liveSourceId,
+          source: this.sourceId,
           filter: ["==", ["get", "type"], "line"],
           paint: {
             "line-color": "#00FF00",
@@ -79,15 +75,15 @@ class LiveTripTracker {
         });
       }
 
-      // Add marker layer for current position
-      if (!this.map.getLayer(this.liveMarkerLayerId)) {
+      // Add marker for current position
+      if (!this.map.getLayer(this.markerLayerId)) {
         this.map.addLayer({
-          id: this.liveMarkerLayerId,
+          id: this.markerLayerId,
           type: "circle",
-          source: this.liveSourceId,
+          source: this.sourceId,
           filter: ["==", ["get", "type"], "marker"],
           paint: {
-            "circle-radius": 6,
+            "circle-radius": 8,
             "circle-color": "#00FF00",
             "circle-stroke-width": 2,
             "circle-stroke-color": "#ffffff",
@@ -95,171 +91,400 @@ class LiveTripTracker {
         });
       }
     } catch (error) {
-      console.error("Error initializing Mapbox layers:", error);
+      console.error("Error initializing map layers:", error);
     }
   }
 
   async initialize() {
     try {
-      await this.loadInitialTripData();
-      // Try WebSocket first; fallback to polling if not available
-      this.initWebSocket();
+      // Load initial trip data
+      await this.loadInitialTrip();
 
+      // Start WebSocket connection
+      this.connectWebSocket();
+
+      // Re-layer on map updates
       document.addEventListener("mapUpdated", () => {
-        this.bringLiveTripToFront();
-      });
-
-      document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") {
-          this.bringLiveTripToFront();
-        }
-      });
-
-      window.addEventListener("beforeunload", () => {
-        this.stopPolling();
+        // Live trip layers are always on top in Mapbox GL JS
+        console.debug("Map updated, live trip layers maintained");
       });
     } catch (error) {
-      window.handleError(
-        `LiveTripTracker initialization error: ${error}`,
-        "initialize",
-      );
-      this.updateStatus(false);
-      this.showError("Failed to initialize tracker. Will retry shortly.");
-      setTimeout(() => this.initialize(), 5000);
+      console.error("Initialization error:", error);
+      this.updateStatus(false, "Failed to initialize");
+      this.startPolling();
     }
   }
 
-  async loadInitialTripData() {
+  async loadInitialTrip() {
     try {
-      window.handleError(
-        "Loading initial trip data",
-        "loadInitialTripData",
-        "info",
-      );
       const response = await fetch("/api/active_trip");
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const data = await response.json();
-      window.handleError(
-        `Initial trip data response: ${JSON.stringify(data)}`,
-        "loadInitialTripData",
-        "info",
-      );
 
-      if (data.status === "success") {
-        if (data.has_active_trip && data.trip) {
-          window.handleError(
-            `Found active trip: ${data.trip.transactionId} with sequence: ${data.trip.sequence}`,
-            "loadInitialTripData",
-            "info",
-          );
-          this.setActiveTrip(data.trip);
-        } else {
-          window.handleError(
-            "No active trips found during initialization",
-            "loadInitialTripData",
-            "info",
-          );
-          this.clearActiveTrip();
-          this.updateStatus(true);
-        }
+      if (data.status === "success" && data.has_active_trip && data.trip) {
+        console.info(`Initial trip loaded: ${data.trip.transactionId}`);
+        this.updateTrip(data.trip);
       } else {
-        throw new Error(data.message || "Error loading initial trip data");
+        console.info("No active trip on startup");
+        this.clearTrip();
       }
     } catch (error) {
-      window.handleError(
-        `Error loading initial trip data: ${error}`,
-        "loadInitialTripData",
-      );
-      this.updateStatus(false, "Failed to load trip data");
-      this.showError(`Failed to load trip data: ${error.message}`);
+      console.error("Failed to load initial trip:", error);
       throw error;
     }
   }
 
-  startPolling() {
-    if (this.isPolling) return;
+  connectWebSocket() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
 
-    this.isPolling = true;
+    if (!("WebSocket" in window)) {
+      console.warn("WebSocket not supported, using polling");
+      this.startPolling();
+      return;
+    }
+
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const url = `${proto}://${location.host}/ws/trips`;
+
+    try {
+      this.ws = new WebSocket(url);
+
+      this.ws.addEventListener("open", () => {
+        console.info("WebSocket connected");
+        this.stopPolling();
+        this.updateStatus(true);
+      });
+
+      this.ws.addEventListener("message", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "trip_state" && data.trip) {
+            this.updateTrip(data.trip);
+          }
+        } catch (error) {
+          console.error("WebSocket message error:", error);
+        }
+      });
+
+      this.ws.addEventListener("close", (event) => {
+        console.warn("WebSocket closed, switching to polling", event);
+        this.ws = null;
+        this.updateStatus(false, "Reconnecting...");
+        this.startPolling();
+      });
+
+      this.ws.addEventListener("error", (error) => {
+        console.error("WebSocket error:", error);
+        this.updateStatus(false, "Connection error");
+      });
+    } catch (error) {
+      console.error("Failed to create WebSocket:", error);
+      this.startPolling();
+    }
+  }
+
+  startPolling() {
+    if (this.pollingTimer) return;
+
+    console.info("Starting polling fallback");
     this.poll();
-    window.handleError(
-      `LiveTripTracker: Started polling (${this.pollingInterval}ms interval)`,
-      "startPolling",
-      "info",
-    );
   }
 
   stopPolling() {
-    if (this.pollingTimerId) {
-      clearTimeout(this.pollingTimerId);
-      this.pollingTimerId = null;
+    if (this.pollingTimer) {
+      clearTimeout(this.pollingTimer);
+      this.pollingTimer = null;
+      console.info("Polling stopped");
     }
-    this.isPolling = false;
-    window.handleError(
-      "LiveTripTracker: Stopped polling",
-      "stopPolling",
-      "info",
-    );
   }
 
   async poll() {
-    if (!this.isPolling) return;
-
     try {
-      window.handleError(
-        `Polling for updates since sequence: ${this.lastSequence}`,
-        "poll",
-        "info",
-      );
-      await this.fetchTripUpdates();
+      const response = await fetch("/api/trip_updates");
+      const data = await response.json();
+
+      if (data.status === "success") {
+        if (data.has_update && data.trip) {
+          this.updateTrip(data.trip);
+        } else if (!data.has_update && !this.activeTrip) {
+          this.clearTrip();
+        }
+        this.updateStatus(true);
+      }
     } catch (error) {
-      window.handleError(`Error polling trip updates: ${error}`, "poll");
+      console.error("Polling error:", error);
       this.updateStatus(false, "Connection lost");
-      this.showError("Connection lost. Retrying...");
     } finally {
-      this.pollingTimerId = setTimeout(() => {
-        this.poll();
-      }, this.pollingInterval);
+      this.pollingTimer = setTimeout(() => this.poll(), this.pollingInterval);
     }
   }
 
-  async fetchTripUpdates() {
-    const response = await fetch(
-      `/api/trip_updates?last_sequence=${this.lastSequence}`,
-    );
+  updateTrip(trip) {
+    if (!trip) return;
 
-    if (!response.ok) {
-      window.handleError(`HTTP error: ${response.status}`, "fetchTripUpdates");
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // Handle completed trips
+    if (trip.status === "completed") {
+      console.info(`Trip ${trip.transactionId} completed`);
+      this.clearTrip();
+      return;
     }
 
-    const data = await response.json();
+    const isNewTrip =
+      !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
-    if (data.status === "success") {
-      if (data.has_update && data.trip) {
-        this.setActiveTrip(data.trip);
-      } else if (this.activeTrip && !data.has_update) {
-        // Still have active trip, just no new updates
-        this.updateStatus(true, "Tracking live trip");
-      } else if (!this.activeTrip && !data.has_update) {
-        // No active trip
-        this.clearActiveTrip();
-        this.updateStatus(true);
-      }
+    this.activeTrip = trip;
 
-      if (typeof data.current_sequence === "number") {
-        this.lastSequence = data.current_sequence;
+    // Extract coordinates
+    const coords = this.extractCoordinates(trip);
+    if (!coords || coords.length === 0) {
+      console.warn("No coordinates in trip update");
+      return;
+    }
+
+    // Create GeoJSON features
+    const features = this.createFeatures(coords);
+
+    // Update map source
+    const source = this.map.getSource(this.sourceId);
+    if (source) {
+      source.setData({ type: "FeatureCollection", features });
+    }
+
+    // Update marker style based on speed
+    this.updateMarkerStyle(trip.currentSpeed || 0);
+
+    // Update metrics panel
+    this.updateMetrics(trip);
+
+    // Update map view for new trips
+    if (isNewTrip) {
+      this.fitTripBounds(coords);
+    } else if (window.utils?.getStorage?.("autoFollowVehicle") === "true") {
+      this.followVehicle(coords[coords.length - 1]);
+    }
+
+    // Update UI
+    this.updateTripCount(1);
+    this.updateStatus(true, "Live tracking");
+  }
+
+  extractCoordinates(trip) {
+    let coords = [];
+
+    // Try coordinates array first (active trips)
+    if (Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
+      coords = trip.coordinates
+        .map((c) => {
+          if (c && c.lon !== undefined && c.lat !== undefined) {
+            return { lon: c.lon, lat: c.lat, timestamp: c.timestamp };
+          }
+          return null;
+        })
+        .filter(Boolean);
+    }
+
+    // Fallback to GeoJSON format
+    if (coords.length === 0 && trip.gps) {
+      const gps = trip.gps;
+      if (gps.type === "Point" && Array.isArray(gps.coordinates)) {
+        coords = [{ lon: gps.coordinates[0], lat: gps.coordinates[1] }];
+      } else if (gps.type === "LineString" && Array.isArray(gps.coordinates)) {
+        coords = gps.coordinates.map((c) => ({ lon: c[0], lat: c[1] }));
       }
+    }
+
+    return coords;
+  }
+
+  createFeatures(coords) {
+    const features = [];
+    const mapboxCoords = coords.map((c) => [c.lon, c.lat]);
+
+    // Line feature for path
+    if (mapboxCoords.length > 1) {
+      features.push({
+        type: "Feature",
+        properties: { type: "line" },
+        geometry: { type: "LineString", coordinates: mapboxCoords },
+      });
+    }
+
+    // Marker for current position
+    if (mapboxCoords.length > 0) {
+      features.push({
+        type: "Feature",
+        properties: { type: "marker" },
+        geometry: { type: "Point", coordinates: mapboxCoords[mapboxCoords.length - 1] },
+      });
+    }
+
+    return features;
+  }
+
+  updateMarkerStyle(speed) {
+    if (!this.map || !this.map.getLayer(this.markerLayerId)) return;
+
+    let color, radius;
+
+    if (speed === 0) {
+      color = "#f44336"; // Red - stopped
+      radius = 8;
+    } else if (speed < 10) {
+      color = "#ff9800"; // Orange - slow
+      radius = 6;
+    } else if (speed < 35) {
+      color = "#2196f3"; // Blue - medium
+      radius = 6;
     } else {
-      window.handleError(
-        `API error: ${data.message || "Unknown error"}`,
-        "fetchTripUpdates",
-      );
-      throw new Error(data.message || "Unknown error fetching trip updates");
+      color = "#9c27b0"; // Purple - fast
+      radius = 8;
     }
+
+    this.map.setPaintProperty(this.markerLayerId, "circle-color", color);
+    this.map.setPaintProperty(this.markerLayerId, "circle-radius", radius);
+  }
+
+  updateMetrics(trip) {
+    if (!this.metricsElem || !trip) return;
+
+    const startTime = trip.startTime ? new Date(trip.startTime) : null;
+    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
+
+    // Calculate duration
+    let duration = "0:00:00";
+    if (startTime && lastUpdate) {
+      duration = DateUtils.formatDurationHMS(startTime, lastUpdate);
+    }
+
+    // Build metrics HTML
+    const metrics = {
+      "Start Time": startTime
+        ? startTime.toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "numeric",
+            second: "numeric",
+          })
+        : "N/A",
+      Duration: duration,
+      Distance: `${(trip.distance || 0).toFixed(2)} mi`,
+      "Current Speed": `${(trip.currentSpeed || 0).toFixed(1)} mph`,
+      "Points Recorded": trip.pointsRecorded || 0,
+      "Last Update": lastUpdate ? DateUtils.formatTimeAgo(lastUpdate) : "N/A",
+    };
+
+    // Optional metrics (only show if meaningful)
+    const optional = {};
+
+    if (trip.avgSpeed > 0) {
+      optional["Average Speed"] = `${trip.avgSpeed.toFixed(1)} mph`;
+    }
+
+    if (trip.maxSpeed > Math.max(trip.currentSpeed, 5)) {
+      optional["Max Speed"] = `${trip.maxSpeed.toFixed(1)} mph`;
+    }
+
+    if (trip.totalIdlingTime > 0) {
+      optional["Idling Time"] = DateUtils.formatSecondsToHMS(trip.totalIdlingTime);
+    }
+
+    if (trip.hardBrakingCounts > 0) {
+      optional["Hard Braking"] = trip.hardBrakingCounts;
+    }
+
+    if (trip.hardAccelerationCounts > 0) {
+      optional["Hard Acceleration"] = trip.hardAccelerationCounts;
+    }
+
+    // Render metrics
+    const baseHtml = Object.entries(metrics)
+      .map(
+        ([label, value]) => `
+        <div class="metric-row">
+          <span class="metric-label">${label}:</span>
+          <span class="metric-value">${value}</span>
+        </div>
+      `,
+      )
+      .join("");
+
+    const optionalHtml =
+      Object.keys(optional).length > 0
+        ? `
+        <div class="metric-section-divider"></div>
+        <div class="metric-section-title">Trip Behavior</div>
+        ${Object.entries(optional)
+          .map(
+            ([label, value]) => `
+            <div class="metric-row">
+              <span class="metric-label">${label}:</span>
+              <span class="metric-value">${value}</span>
+            </div>
+          `,
+          )
+          .join("")}
+      `
+        : "";
+
+    this.metricsElem.innerHTML = `
+      <div class="metric-section">
+        <div class="metric-section-title">Live Trip</div>
+        ${baseHtml}
+      </div>
+      ${optionalHtml}
+    `;
+  }
+
+  fitTripBounds(coords) {
+    if (!coords || coords.length === 0) return;
+
+    const mapboxCoords = coords.map((c) => [c.lon, c.lat]);
+
+    if (mapboxCoords.length === 1) {
+      this.map.flyTo({ center: mapboxCoords[0], zoom: 15 });
+    } else {
+      try {
+        const bounds = new mapboxgl.LngLatBounds();
+        mapboxCoords.forEach((coord) => bounds.extend(coord));
+        this.map.fitBounds(bounds, { padding: 50 });
+      } catch (error) {
+        console.error("Error fitting bounds:", error);
+        this.map.flyTo({ center: mapboxCoords[0], zoom: 15 });
+      }
+    }
+  }
+
+  followVehicle(lastCoord) {
+    if (!lastCoord) return;
+
+    const point = [lastCoord.lon, lastCoord.lat];
+    const bounds = this.map.getBounds();
+    const lngLat = new mapboxgl.LngLat(point[0], point[1]);
+
+    if (!bounds.contains(lngLat)) {
+      this.map.panTo(point);
+    }
+  }
+
+  clearTrip() {
+    this.activeTrip = null;
+
+    // Clear map
+    const source = this.map.getSource(this.sourceId);
+    if (source) {
+      source.setData({ type: "FeatureCollection", features: [] });
+    }
+
+    // Clear metrics
+    if (this.metricsElem) {
+      this.metricsElem.innerHTML = "";
+    }
+
+    this.updateTripCount(0);
+    this.updateStatus(true, "Idle");
   }
 
   updateStatus(connected, message) {
@@ -267,514 +492,15 @@ class LiveTripTracker {
 
     this.statusIndicator.classList.toggle("connected", connected);
     this.statusIndicator.classList.toggle("disconnected", !connected);
-    this.statusIndicator.setAttribute(
-      "aria-label",
-      connected ? "Connected" : "Disconnected",
-    );
 
-    // Consistent status messages: only show "Connected" or "Disconnected"
-    // Trip count is shown separately
-    if (!message) {
-      message = connected ? "Connected" : "Disconnected";
-    }
-
-    this.statusText.textContent = message;
-
-    this.emitLiveTrackingUpdate({
-      connected,
-      statusText: this.statusText.textContent,
-    });
+    const statusMsg = message || (connected ? "Connected" : "Disconnected");
+    this.statusText.textContent = statusMsg;
   }
 
-  showError(message) {
-    if (!this.errorMessageElem) return;
-
-    this.errorMessageElem.textContent = message;
-    this.errorMessageElem.classList.remove("d-none");
-
-    this.emitLiveTrackingUpdate({
-      errorVisible: true,
-      errorMessage: message,
-    });
-  }
-
-  hideError() {
-    if (!this.errorMessageElem) return;
-
-    this.errorMessageElem.classList.add("d-none");
-
-    this.emitLiveTrackingUpdate({ errorVisible: false });
-  }
-
-  emitLiveTrackingUpdate(extraDetail = {}) {
-    try {
-      const detail = {
-        activeTrips: Number.parseInt(
-          this.activeTripsCountElem?.textContent || "0",
-          10,
-        ),
-        connected:
-          this.statusIndicator?.classList.contains("connected") ?? undefined,
-        statusText: this.statusText?.textContent?.trim() || "",
-        metricsHtml: this.tripMetricsElem?.innerHTML || "",
-        errorVisible: this.errorMessageElem
-          ? !this.errorMessageElem.classList.contains("d-none")
-          : false,
-        ...extraDetail,
-      };
-
-      document.dispatchEvent(
-        new CustomEvent("liveTrackingUpdated", { detail }),
-      );
-    } catch (err) {
-      console.warn("Failed to dispatch liveTrackingUpdated event", err);
+  updateTripCount(count) {
+    if (this.tripCountElem) {
+      this.tripCountElem.textContent = count;
     }
-  }
-
-  // Helper for trip completion logic
-  handleTripCompletion(trip) {
-    if (trip.status === "completed") {
-      window.handleError(
-        "Trip is completed, clearing from map",
-        "setActiveTrip",
-        "info",
-      );
-      this.clearActiveTrip();
-      return true;
-    }
-    return false;
-  }
-
-  // Extract and sort coordinates from trip data
-  extractCoordinates(trip) {
-    let coordinates = [];
-
-    // First try to use coordinates array directly
-    if (Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
-      coordinates = trip.coordinates
-        .map((coord) => {
-          // Handle both object format {lon, lat, timestamp} and array format
-          if (typeof coord === "object" && coord !== null) {
-            if (coord.lon !== undefined && coord.lat !== undefined) {
-              return {
-                lon: coord.lon,
-                lat: coord.lat,
-                timestamp: coord.timestamp || trip.startTime || trip.lastUpdate,
-              };
-            } else if (Array.isArray(coord) && coord.length >= 2) {
-              return {
-                lon: coord[0],
-                lat: coord[1],
-                timestamp: coord.timestamp || trip.startTime || trip.lastUpdate,
-              };
-            }
-          }
-          return null;
-        })
-        .filter(Boolean);
-    }
-
-    // Fallback to GPS GeoJSON format
-    if (coordinates.length === 0 && trip.gps) {
-      const gps = trip.gps;
-      if (
-        gps.type === "Point" &&
-        Array.isArray(gps.coordinates) &&
-        gps.coordinates.length === 2
-      ) {
-        coordinates = [
-          {
-            lon: gps.coordinates[0],
-            lat: gps.coordinates[1],
-            timestamp: trip.startTime || trip.lastUpdate || new Date(),
-          },
-        ];
-      } else if (gps.type === "LineString" && Array.isArray(gps.coordinates)) {
-        coordinates = gps.coordinates
-          .filter((coord) => Array.isArray(coord) && coord.length >= 2)
-          .map((coord, index) => {
-            // Try to estimate timestamp based on trip duration and point index
-            const startTime = trip.startTime
-              ? new Date(trip.startTime)
-              : new Date();
-            const lastUpdate = trip.lastUpdate
-              ? new Date(trip.lastUpdate)
-              : new Date();
-            const duration = (lastUpdate - startTime) / gps.coordinates.length;
-            return {
-              lon: coord[0],
-              lat: coord[1],
-              timestamp: new Date(startTime.getTime() + duration * index),
-            };
-          });
-      }
-    }
-
-    if (coordinates.length === 0) {
-      window.handleError(
-        "No valid coordinates found in trip data",
-        "setActiveTrip",
-        "warn",
-      );
-      return null;
-    }
-
-    // Sort by timestamp if available
-    if (coordinates[0].timestamp) {
-      coordinates.sort((a, b) => {
-        const timeA = new Date(a.timestamp).getTime();
-        const timeB = new Date(b.timestamp).getTime();
-        return timeA - timeB;
-      });
-    }
-
-    return coordinates;
-  }
-
-  // Create GeoJSON features from coordinates
-  createGeoJSONFeatures(coordinates) {
-    const mapboxCoords = coordinates.map((coord) => [coord.lon, coord.lat]);
-    const lastPoint = mapboxCoords[mapboxCoords.length - 1];
-    const features = [];
-
-    // Line feature for path
-    if (mapboxCoords.length > 1) {
-      features.push({
-        type: "Feature",
-        properties: { type: "line" },
-        geometry: {
-          type: "LineString",
-          coordinates: mapboxCoords,
-        },
-      });
-    }
-
-    // Marker for current position
-    if (lastPoint) {
-      features.push({
-        type: "Feature",
-        properties: {
-          type: "marker",
-          speed: this.activeTrip.currentSpeed || 0,
-        },
-        geometry: {
-          type: "Point",
-          coordinates: lastPoint,
-        },
-      });
-    }
-
-    return { features, mapboxCoords, lastPoint };
-  }
-
-  // Update map view based on trip data
-  updateMapView(mapboxCoords, lastPoint, isNewTrip) {
-    if (isNewTrip && mapboxCoords.length > 0) {
-      if (mapboxCoords.length > 1) {
-        try {
-          const bounds = new mapboxgl.LngLatBounds();
-          mapboxCoords.forEach((coord) => bounds.extend(coord));
-          this.map.fitBounds(bounds, { padding: 50 });
-        } catch (e) {
-          console.error("Error fitting bounds:", e);
-          this.map.flyTo({ center: lastPoint, zoom: 15 });
-        }
-      } else {
-        this.map.flyTo({ center: lastPoint, zoom: 15 });
-      }
-    } else if (
-      lastPoint &&
-      window.utils?.getStorage?.("autoFollowVehicle") === "true"
-    ) {
-      const bounds = this.map.getBounds();
-      const point = new mapboxgl.LngLat(lastPoint[0], lastPoint[1]);
-      if (!bounds.contains(point)) {
-        this.map.panTo(lastPoint);
-      }
-    }
-  }
-
-  setActiveTrip(trip) {
-    if (!trip) {
-      return;
-    }
-
-    this.lastSequence = trip.sequence || this.lastSequence;
-
-    if (this.handleTripCompletion(trip)) {
-      this.updateActiveTripsCount(0);
-      this.updateStatus(true, "Idle");
-      return;
-    }
-
-    const isNewTrip =
-      !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
-
-    this.activeTrip = {
-      ...trip,
-      coordinates: trip.coordinates || [],
-    };
-
-    const coordinates = this.extractCoordinates(this.activeTrip);
-    if (!coordinates || coordinates.length === 0) {
-      this.updateStatus(true, "Connected");
-      this.showError("Waiting for live GPS points…");
-      return;
-    }
-
-    const { features, mapboxCoords, lastPoint } =
-      this.createGeoJSONFeatures(coordinates);
-
-    const source = this.map.getSource(this.liveSourceId);
-    if (source) {
-      source.setData({
-        type: "FeatureCollection",
-        features,
-      });
-    }
-
-    this.updateMarkerStyle(this.activeTrip.currentSpeed || 0);
-    this.updateTripMetrics(this.activeTrip);
-    this.updateMapView(mapboxCoords, lastPoint, isNewTrip);
-    this.updateActiveTripsCount(1);
-    this.updateStatus(true, "Tracking live trip");
-    this.hideError();
-  }
-
-  updateMarkerStyle(speed) {
-    if (!this.map || !this.map.getLayer(this.liveMarkerLayerId)) return;
-
-    let color = "#00FF00"; // Default green
-    let radius = 6;
-
-    if (speed === 0) {
-      color = "#f44336"; // Red for stopped
-      radius = 8;
-    } else if (speed < 10) {
-      color = "#ff9800"; // Orange for slow
-      radius = 6;
-    } else if (speed < 35) {
-      color = "#2196f3"; // Blue for medium
-      radius = 6;
-    } else {
-      color = "#9c27b0"; // Purple for fast
-      radius = 8;
-    }
-
-    // Update marker
-    this.map.setPaintProperty(this.liveMarkerLayerId, "circle-color", color);
-    this.map.setPaintProperty(this.liveMarkerLayerId, "circle-radius", radius);
-  }
-
-  clearActiveTrip() {
-    this.activeTrip = null;
-
-    // Clear Mapbox source data
-    const source = this.map.getSource(this.liveSourceId);
-    if (source) {
-      source.setData({
-        type: "FeatureCollection",
-        features: [],
-      });
-    }
-
-    // Clear metrics
-    if (this.tripMetricsElem) {
-      this.tripMetricsElem.innerHTML = "";
-    }
-
-    // Update counts
-    this.updateActiveTripsCount(0);
-  }
-
-  updateActiveTripsCount(count) {
-    if (this.activeTripsCountElem) {
-      this.activeTripsCountElem.textContent = count;
-      this.activeTripsCountElem.setAttribute(
-        "aria-label",
-        `${count} active trips`,
-      );
-    }
-
-    this.emitLiveTrackingUpdate({ activeTrips: count });
-  }
-
-  // CLEANED UP: Compute trip metrics from trip data - only show meaningful metrics during live tracking
-  computeTripMetrics(trip) {
-    let startTime = trip.startTime ? new Date(trip.startTime) : null;
-    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
-    const endTime = trip.endTime ? new Date(trip.endTime) : null;
-    const tripStatus = trip.status || "active";
-
-    let durationStr = trip.durationFormatted;
-    if (!durationStr && startTime) {
-      const endTimeToUse =
-        tripStatus === "completed" ? endTime : lastUpdate || new Date();
-
-      if (endTimeToUse) {
-        durationStr = DateUtils.formatDurationHMS(startTime, endTimeToUse);
-      }
-    }
-
-    const distance = typeof trip.distance === "number" ? trip.distance : 0;
-    const currentSpeed =
-      typeof trip.currentSpeed === "number" ? trip.currentSpeed : 0;
-    const avgSpeed = typeof trip.avgSpeed === "number" ? trip.avgSpeed : 0;
-    const maxSpeed = typeof trip.maxSpeed === "number" ? trip.maxSpeed : 0;
-    const pointsRecorded = trip.pointsRecorded || trip.coordinates?.length || 0;
-    const totalIdlingTime =
-      typeof trip.totalIdlingTime === "number" ? trip.totalIdlingTime : 0;
-    const hardBrakingCounts =
-      typeof trip.hardBrakingCounts === "number" ? trip.hardBrakingCounts : 0;
-    const hardAccelerationCounts =
-      typeof trip.hardAccelerationCounts === "number"
-        ? trip.hardAccelerationCounts
-        : 0;
-
-    let startTimeFormatted = "N/A";
-    if (trip.startTimeFormatted) {
-      startTimeFormatted = trip.startTimeFormatted;
-    } else if (startTime) {
-      try {
-        if (typeof startTime === "string") {
-          startTime = new Date(startTime);
-        }
-
-        if (!isNaN(startTime.getTime())) {
-          startTimeFormatted = startTime.toLocaleString(undefined, {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "numeric",
-            second: "numeric",
-            hour12: true,
-          });
-        }
-      } catch (err) {
-        console.error("Error formatting start time:", err);
-      }
-    }
-
-    // CLEANED UP: Only include metrics that are meaningful during live tracking
-    return {
-      durationStr,
-      distance,
-      currentSpeed,
-      avgSpeed,
-      maxSpeed,
-      pointsRecorded,
-      totalIdlingTime,
-      hardBrakingCounts,
-      hardAccelerationCounts,
-      startTimeFormatted,
-      lastUpdate,
-      isLive: tripStatus === "active", // Flag to help with conditional rendering
-    };
-  }
-
-  // CLEANED UP: Render trip metrics to DOM - only show metrics that update during live tracking
-  renderTripMetrics(metrics) {
-    if (!this.tripMetricsElem) return;
-
-    // Base metrics always shown for live trips
-    const baseMetrics = {
-      "Start Time": metrics.startTimeFormatted,
-      Duration: metrics.durationStr || "0:00:00",
-      Distance: `${metrics.distance.toFixed(2)} miles`,
-      "Current Speed": `${metrics.currentSpeed.toFixed(1)} mph`,
-      "Points Recorded": metrics.pointsRecorded,
-      "Last Update": metrics.lastUpdate
-        ? DateUtils.formatTimeAgo(metrics.lastUpdate)
-        : "N/A",
-    };
-
-    // Advanced metrics (only show if they have meaningful values during live tracking)
-    const advancedMetrics = {};
-
-    // Only show average speed if we have a reasonable value (> 0)
-    if (metrics.avgSpeed > 0) {
-      advancedMetrics["Average Speed"] = `${metrics.avgSpeed.toFixed(1)} mph`;
-    }
-
-    // Only show max speed if we have a meaningful value (> current speed or > 5 mph)
-    if (metrics.maxSpeed > Math.max(metrics.currentSpeed, 5)) {
-      advancedMetrics["Max Speed"] = `${metrics.maxSpeed.toFixed(1)} mph`;
-    }
-
-    // Only show idling time if there's been some idling
-    if (metrics.totalIdlingTime > 0) {
-      advancedMetrics["Total Idling"] = DateUtils.formatSecondsToHMS(
-        metrics.totalIdlingTime,
-      );
-    }
-
-    // Only show driving behavior metrics if they exist
-    if (metrics.hardBrakingCounts > 0) {
-      advancedMetrics["Hard Braking"] = metrics.hardBrakingCounts;
-    }
-
-    if (metrics.hardAccelerationCounts > 0) {
-      advancedMetrics["Hard Acceleration"] = metrics.hardAccelerationCounts;
-    }
-
-    // Create a cleaner layout with conditional sections
-    const baseSection = Object.entries(baseMetrics)
-      .map(
-        ([label, value]) => `
-          <div class="metric-row metric-base">
-            <span class="metric-label">${label}:</span>
-            <span class="metric-value">${value}</span>
-          </div>
-        `,
-      )
-      .join("");
-
-    const advancedSection =
-      Object.keys(advancedMetrics).length > 0
-        ? `
-        <div class="metric-section-divider"></div>
-        <div class="metric-section-title">Trip Behavior</div>
-        ${Object.entries(advancedMetrics)
-          .map(
-            ([label, value]) => `
-              <div class="metric-row metric-advanced">
-                <span class="metric-label">${label}:</span>
-                <span class="metric-value">${value}</span>
-              </div>
-            `,
-          )
-          .join("")}
-      `
-        : "";
-
-    this.tripMetricsElem.innerHTML = `
-      <div class="metric-section">
-        <div class="metric-section-title">Live Trip</div>
-        ${baseSection}
-      </div>
-      ${advancedSection}
-    `;
-
-    this.emitLiveTrackingUpdate({
-      metricsHtml: this.tripMetricsElem.innerHTML,
-    });
-  }
-
-  updateTripMetrics(trip) {
-    if (!this.tripMetricsElem || !trip) return;
-
-    const metrics = this.computeTripMetrics(trip);
-    this.renderTripMetrics(metrics);
-  }
-
-  bringLiveTripToFront() {
-    // In Mapbox GL JS, layer order is determined by the order they're added
-    window.handleError(
-      "LiveTripTracker: Layers maintained at front (Mapbox GL JS)",
-      "bringLiveTripToFront",
-      "info",
-    );
   }
 
   destroy() {
@@ -785,104 +511,31 @@ class LiveTripTracker {
       this.ws = null;
     }
 
-    // Remove Mapbox layers and sources
+    // Remove map layers
     if (this.map) {
       try {
-        if (this.map.getLayer(this.liveLineLayerId)) {
-          this.map.removeLayer(this.liveLineLayerId);
+        if (this.map.getLayer(this.lineLayerId)) {
+          this.map.removeLayer(this.lineLayerId);
         }
-        if (this.map.getLayer(this.liveMarkerLayerId)) {
-          this.map.removeLayer(this.liveMarkerLayerId);
+        if (this.map.getLayer(this.markerLayerId)) {
+          this.map.removeLayer(this.markerLayerId);
         }
-        if (this.map.getSource(this.liveSourceId)) {
-          this.map.removeSource(this.liveSourceId);
+        if (this.map.getSource(this.sourceId)) {
+          this.map.removeSource(this.sourceId);
         }
       } catch (error) {
-        console.warn("Error removing live tracking layers:", error);
+        console.warn("Error removing layers:", error);
       }
     }
 
+    this.clearTrip();
     this.updateStatus(false, "Disconnected");
-    this.updateActiveTripsCount(0);
-
-    if (this.tripMetricsElem) {
-      this.tripMetricsElem.innerHTML = "";
-    }
-
-    document.removeEventListener(
-      "visibilitychange",
-      this.handleVisibilityChange,
-    );
 
     if (LiveTripTracker.instance === this) {
       LiveTripTracker.instance = null;
     }
 
-    window.handleError("LiveTripTracker instance destroyed", "destroy", "info");
-  }
-
-  /**
-   * Initialize WebSocket live channel.
-   * Falls back to polling when socket closes or errors.
-   */
-  initWebSocket() {
-    // Clean up any existing connection
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
-    if (!("WebSocket" in window)) {
-      return this.startPolling();
-    }
-
-    const proto = location.protocol === "https:" ? "wss" : "ws";
-    const url = `${proto}://${location.host}/ws/trips`;
-
-    try {
-      this.ws = new WebSocket(url);
-
-      this.ws.addEventListener("message", (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          const messageType = data.type;
-
-          if (messageType === "trip_state" && data.trip) {
-            this.setActiveTrip(data.trip);
-            this.lastSequence = data.sequence || this.lastSequence;
-          }
-        } catch (err) {
-          console.warn("LiveTripTracker WebSocket parse error:", err);
-        }
-      });
-
-      this.ws.addEventListener("open", () => {
-        console.info("LiveTripTracker: WebSocket connected – stopping poller");
-        this.stopPolling();
-      });
-
-      this.ws.addEventListener("close", (event) => {
-        console.warn("WebSocket closed – resuming polling", {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-        });
-        this.ws = null; // Clear reference
-        this.startPolling();
-      });
-
-      this.ws.addEventListener("error", (event) => {
-        console.warn("WebSocket error – resuming polling", event);
-        if (this.ws) {
-          this.ws.close();
-          this.ws = null;
-        }
-        this.startPolling();
-      });
-    } catch (e) {
-      console.warn("Failed to establish WebSocket:", e);
-      this.startPolling();
-    }
+    console.info("LiveTripTracker destroyed");
   }
 }
 

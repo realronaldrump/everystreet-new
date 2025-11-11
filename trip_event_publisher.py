@@ -62,7 +62,6 @@ async def get_redis_client() -> aioredis.Redis:
 async def publish_trip_state(
     transaction_id: str,
     trip_data: dict[str, Any],
-    sequence: int,
     *,
     status: str = "active",
 ) -> bool:
@@ -71,8 +70,7 @@ async def publish_trip_state(
     Args:
         transaction_id: Trip identifier.
         trip_data: Complete trip payload (already serialized).
-        sequence: Increasing sequence number for consumer dedupe.
-        status: Human friendly status hint (`active`, `completed`, etc.).
+        status: Trip status (`active`, `completed`, etc.).
 
     Returns:
         True if published successfully, False otherwise.
@@ -83,7 +81,6 @@ async def publish_trip_state(
 
         event_data = {
             "transaction_id": transaction_id,
-            "sequence": sequence,
             "event_type": "trip_state",
             "status": status,
             "trip": trip_data,
@@ -94,9 +91,8 @@ async def publish_trip_state(
         subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
 
         logger.debug(
-            "Published trip state for %s (seq=%d, status=%s) to %d subscriber(s)",
+            "Published trip state for %s (status=%s) to %d subscriber(s)",
             transaction_id,
-            sequence,
             status,
             subscribers,
         )
@@ -108,6 +104,5 @@ async def publish_trip_state(
             "Failed to publish trip state for %s: %s",
             transaction_id,
             e,
-            exc_info=True,
         )
         return False
