@@ -25,9 +25,7 @@ class CoverageManager {
     };
 
     this.confirmationDialog = window.confirmationDialog || {
-      show: async (options) => {
-        return await this.showEnhancedConfirmDialog(options);
-      },
+      show: async (options) => await this.showEnhancedConfirmDialog(options),
     };
 
     // Initialize modules
@@ -162,7 +160,7 @@ class CoverageManager {
         } else if (targetLink) {
           e.preventDefault();
           e.stopPropagation();
-          const locationId = targetLink.dataset.locationId;
+          const {locationId} = targetLink.dataset;
           if (locationId) {
             this.displayCoverageDashboard(locationId);
           }
@@ -830,9 +828,7 @@ class CoverageManager {
     }
 
     try {
-      this.pendingOperations.set(`update-${locationId}`, async () => {
-        return this.updateCoverageForArea(locationId, mode, showNotification);
-      });
+      this.pendingOperations.set(`update-${locationId}`, async () => this.updateCoverageForArea(locationId, mode, showNotification));
 
       const locationData = await COVERAGE_API.getArea(locationId);
 
@@ -1027,8 +1023,8 @@ class CoverageManager {
    * Handle table action
    */
   handleTableAction(button) {
-    const action = button.dataset.action;
-    const locationId = button.dataset.locationId;
+    const {action} = button.dataset;
+    const {locationId} = button.dataset;
     const locationStr = button.dataset.location;
 
     if (!locationId && !locationStr) {
@@ -1601,7 +1597,7 @@ class CoverageManager {
   async reprocessStreetsForArea(locationId) {
     try {
       const data = await COVERAGE_API.getArea(locationId);
-      const location = data.location;
+      const {location} = data;
       if (!location.display_name) throw new Error("Missing location");
 
       const defaults = {
@@ -1790,8 +1786,8 @@ class CoverageManager {
    * Show interrupted task notification
    */
   showInterruptedTaskNotification(progressData) {
-    const location = progressData.location;
-    const taskId = progressData.taskId;
+    const {location} = progressData;
+    const {taskId} = progressData;
 
     if (!location || !location.display_name || !taskId) {
       console.warn("Incomplete saved progress data found.", progressData);
@@ -1844,8 +1840,8 @@ class CoverageManager {
    * Resume interrupted task
    */
   async resumeInterruptedTask(savedData) {
-    const location = savedData.location;
-    const taskId = savedData.taskId;
+    const {location} = savedData;
+    const {taskId} = savedData;
 
     if (!location || !location.display_name || !taskId) {
       this.notificationManager.show(
@@ -2071,9 +2067,9 @@ class CoverageManager {
       return `${hours} hour${hours > 1 ? "s" : ""} ago`;
     } else if (minutes > 0) {
       return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
-    } else {
+    } 
       return "Just now";
-    }
+    
   }
 
   /**

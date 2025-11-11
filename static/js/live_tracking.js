@@ -287,7 +287,7 @@ class LiveTripTracker {
 
     // Fallback to GeoJSON format
     if (coords.length === 0 && trip.gps) {
-      const gps = trip.gps;
+      const {gps} = trip;
       if (gps.type === "Point" && Array.isArray(gps.coordinates)) {
         coords = [{ lon: gps.coordinates[0], lat: gps.coordinates[1] }];
       } else if (gps.type === "LineString" && Array.isArray(gps.coordinates)) {

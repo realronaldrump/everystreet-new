@@ -421,7 +421,7 @@ const searchManager = {
     // Clear existing highlights
     this.clearHighlight();
 
-    const geometry = result.geometry;
+    const {geometry} = result;
 
     try {
       // Add highlight source and layer
@@ -477,7 +477,7 @@ const searchManager = {
 
       // Fit bounds to the street - handle both LineString and MultiLineString
       if (geometry.type === "LineString") {
-        const coordinates = geometry.coordinates;
+        const {coordinates} = geometry;
         const bounds = coordinates.reduce(
           (bounds, coord) => bounds.extend(coord),
           new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),

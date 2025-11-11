@@ -10,7 +10,7 @@
   let currentDevices = [];
 
   // Initialize page
-  document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener("DOMContentLoaded", () => {
     initializeEventListeners();
     loadCredentials();
     initializeMobileToggles();

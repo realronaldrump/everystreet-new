@@ -325,7 +325,7 @@ class CoverageNavigation {
       if (copyButton) {
         copyButton.addEventListener("click", (e) => {
           e.stopPropagation();
-          const segmentId = e.target.dataset.segmentId;
+          const {segmentId} = e.target.dataset;
           navigator.clipboard.writeText(segmentId).then(() => {
             this.notificationManager.show(
               "Segment ID copied to clipboard",

@@ -193,7 +193,7 @@
 
     if (elements.exportAllDates) {
       elements.exportAllDates.addEventListener("change", (event) => {
-        const checked = event.target.checked;
+        const {checked} = event.target;
         const startDateInput = document.getElementById("adv-start-date");
         const endDateInput = document.getElementById("adv-end-date");
 

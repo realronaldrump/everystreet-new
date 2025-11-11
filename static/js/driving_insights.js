@@ -843,9 +843,9 @@ if (typeof window !== "undefined") {
       return 100;
     } else if (avgSpeed < 45) {
       return (avgSpeed / 45) * 100;
-    } else {
+    } 
       return Math.max(100 - (avgSpeed - 65) * 2, 0);
-    }
+    
   }
 
   // Loading States

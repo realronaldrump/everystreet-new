@@ -962,8 +962,7 @@ class TripsManager {
       return;
     }
 
-    const confirmDelete = () => {
-      return new Promise((resolve) => {
+    const confirmDelete = () => new Promise((resolve) => {
         if (
           typeof window.confirmationDialog === "object" &&
           window.confirmationDialog !== null
@@ -985,7 +984,6 @@ class TripsManager {
           );
         }
       });
-    };
 
     if (await confirmDelete()) {
       try {

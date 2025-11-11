@@ -432,7 +432,7 @@ class UploadManager {
       return;
     }
 
-    const coordinates = feature.geometry.coordinates;
+    const {coordinates} = feature.geometry;
     if (!Array.isArray(coordinates) || coordinates.length < 2) {
       console.warn(
         `Skipping feature ${index + 1} in ${
@@ -442,7 +442,7 @@ class UploadManager {
       return;
     }
 
-    const properties = feature.properties;
+    const {properties} = feature;
     const filename = `${file.name} (Feature ${index + 1})`;
 
     const fileEntry = {
@@ -473,7 +473,7 @@ class UploadManager {
   }
 
   processGeoJSONGeometry(geometry, file) {
-    const coordinates = geometry.coordinates;
+    const {coordinates} = geometry;
     if (!Array.isArray(coordinates) || coordinates.length < 2) {
       console.warn(
         `Skipping geometry in ${file.name} due to insufficient coordinates.`,
@@ -819,7 +819,7 @@ class UploadManager {
     });
     document.querySelectorAll(".delete-trip").forEach((button) => {
       button.addEventListener("click", (e) => {
-        const tripId = e.currentTarget.dataset.tripId;
+        const {tripId} = e.currentTarget.dataset;
         if (tripId) {
           this.deleteTrip(tripId);
         }

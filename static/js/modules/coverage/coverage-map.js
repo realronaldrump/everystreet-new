@@ -317,8 +317,8 @@ class CoverageMap {
           popupElement.addEventListener("click", (event) => {
             const button = event.target.closest("button[data-action]");
             if (button) {
-              const action = button.dataset.action;
-              const segmentId = button.dataset.segmentId;
+              const {action} = button.dataset;
+              const {segmentId} = button.dataset;
               if (action && segmentId) {
                 document.dispatchEvent(
                   new CustomEvent("coverageSegmentAction", {

@@ -159,7 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const saveChangesBtn = document.getElementById("saveChanges");
     if (saveChangesBtn) {
-      saveChangesBtn.addEventListener("mousedown", function (e) {
+      saveChangesBtn.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
         saveTripChanges(e);
       });
@@ -177,7 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (document.getElementById("editMap")) {
       const applyFiltersBtn = document.getElementById("apply-filters");
       if (applyFiltersBtn) {
-        applyFiltersBtn.addEventListener("mousedown", function (e) {
+        applyFiltersBtn.addEventListener("mousedown", (e) => {
           if (e.button !== 0) return;
           loadTrips(e);
         });
