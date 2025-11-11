@@ -371,13 +371,11 @@ class TripService:
                     if not existing_trip:
                         # New trip - always process
                         trips_to_process.append(trip)
-                    elif do_map_match:
+                    elif do_map_match and not existing_trip.get("matchedGps"):
                         # Map matching requested - check if trip already has matched
-                        # data
-                        if not existing_trip.get("matchedGps"):
-                            # Trip exists but lacks matchedGps - process for map
-                            # matching
-                            trips_to_process.append(trip)
+                        # data. Trip exists but lacks matchedGps - process for map
+                        # matching
+                        trips_to_process.append(trip)
                         # else: trip already has matchedGps - skip to avoid redundant
                         # processing
                     # else: trip exists and map matching not requested - skip to avoid

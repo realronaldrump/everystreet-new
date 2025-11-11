@@ -6,6 +6,7 @@ determined UTM zone for accuracy, and updates the database.
 """
 
 import asyncio
+import contextlib
 import gc
 import logging
 import math
@@ -149,10 +150,7 @@ def get_dynamic_utm_crs(latitude: float, longitude: float) -> pyproj.CRS:
         zone_number = math.floor((longitude + 180) / 6) + 1
         is_northern = latitude >= 0
 
-        if is_northern:
-            epsg_code = 32600 + zone_number
-        else:
-            epsg_code = 32700 + zone_number
+        epsg_code = 32600 + zone_number if is_northern else 32700 + zone_number
 
         return pyproj.CRS(f"EPSG:{epsg_code}")
 
@@ -284,10 +282,8 @@ async def _fetch_osm_with_fallback(
                             location_name,
                         )
                         fetch_task.cancel()
-                        try:
+                        with contextlib.suppress(Exception):
                             await fetch_task
-                        except Exception:
-                            pass
                         break  # move to next endpoint
         except Exception as e:
             logger.error(
@@ -645,7 +641,7 @@ async def process_osm_data(
                             )
                             if isinstance(
                                 length,
-                                (int, float),
+                                int | float,
                             ):
                                 total_length += length
                             else:

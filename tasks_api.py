@@ -566,8 +566,10 @@ async def reset_task_states():
 
         return {
             "status": "success",
-            "message": "Reset %d stuck tasks, skipped %d. Reset %d history entries."
-            % (reset_count, skipped_count, history_reset_count),
+            "message": (
+                f"Reset {reset_count} stuck tasks, skipped {skipped_count}. "
+                f"Reset {history_reset_count} history entries."
+            ),
             "reset_count": reset_count,
             "skipped_count": skipped_count,
             "history_reset_count": history_reset_count,

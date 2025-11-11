@@ -117,12 +117,12 @@ async def _stream_gpx_from_cursor(cursor) -> Any:
                 if geom.get("type") == "LineString":
                     coords = geom.get("coordinates", [])
                     for c in coords:
-                        if isinstance(c, (list, tuple)) and len(c) >= 2:
+                        if isinstance(c, list | tuple) and len(c) >= 2:
                             lon, lat = c[0], c[1]
                             yield f'    <trkpt lat="{lat}" lon="{lon}"/>\n'
                 elif geom.get("type") == "Point":
                     coords = geom.get("coordinates", [])
-                    if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                    if isinstance(coords, list | tuple) and len(coords) >= 2:
                         lon, lat = coords[0], coords[1]
                         yield f'    <trkpt lat="{lat}" lon="{lon}"/>\n'
                 yield "  </trkseg></trk>\n"
@@ -288,7 +288,7 @@ async def _stream_csv_from_cursor(
                 for key in base_fields:
                     if key in doc and key not in flat:
                         value = doc[key]
-                        if isinstance(value, (dict, list)):
+                        if isinstance(value, dict | list):
                             flat[key] = json.dumps(value, default=default_serializer)
                         else:
                             flat[key] = value
@@ -310,7 +310,8 @@ async def export_coverage_route_endpoint(
 ):
     """
     Export the provided coverage route GeoJSON data in the specified format.
-    This endpoint now robustly handles both GeometryCollection and single LineString geometries.
+    This endpoint now robustly handles both GeometryCollection and single
+    LineString geometries.
     """
     try:
         route_geometry = payload.get("route_geometry")
@@ -970,7 +971,7 @@ async def export_advanced(
                     row = {}
                     for k in base_fields:
                         v = item.get(k)
-                        if isinstance(v, (dict, list)):
+                        if isinstance(v, dict | list):
                             row[k] = json.dumps(v, default=default_serializer)
                         else:
                             row[k] = v
@@ -1010,7 +1011,8 @@ async def export_advanced(
                 },
             )
 
-        # For geojson/shapefile/gpx, fall back to existing helper by materializing a bounded list
+        # For geojson/shapefile/gpx, fall back to existing helper by
+        # materializing a bounded list
         limited = []
         async for item in processed_docs_cursor():
             limited.append(item)

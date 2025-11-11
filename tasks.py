@@ -11,13 +11,16 @@ the run_task_scheduler task.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import functools
 import os
 import uuid
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -349,12 +352,10 @@ async def check_dependencies(
                 if isinstance(last_updated_any, datetime):
                     last_updated = last_updated_any
                 elif isinstance(last_updated_any, str):
-                    try:
+                    with contextlib.suppress(ValueError):
                         last_updated = datetime.fromisoformat(
                             last_updated_any.replace("Z", "+00:00"),
                         )
-                    except ValueError:
-                        pass
 
                 if last_updated and last_updated.tzinfo is None:
                     last_updated = last_updated.astimezone(UTC)
@@ -928,8 +929,8 @@ async def update_coverage_for_new_trips_async(_self) -> dict[str, Any]:
         "areas_failed": failed_areas,
         "areas_skipped": skipped_areas,
         "message": (
-            "Completed incremental updates. Processed: %d, "
-            "Failed: %d, Skipped: %d" % (processed_areas, failed_areas, skipped_areas)
+            f"Completed incremental updates. Processed: {processed_areas}, "
+            f"Failed: {failed_areas}, Skipped: {skipped_areas}"
         ),
     }
 
@@ -986,8 +987,10 @@ async def cleanup_stale_trips_async(_self) -> dict[str, Any]:
 
     return {
         "status": "success",
-        "message": "Cleaned up %d stale trips, removed %d old archives."
-        % (stale_archived_count, old_removed_count),
+        "message": (
+            f"Cleaned up {stale_archived_count} stale trips, "
+            f"removed {old_removed_count} old archives."
+        ),
         "details": cleanup_result,
     }
 
@@ -1103,8 +1106,10 @@ async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
 
     return {
         "status": "success",
-        "message": "Processed %d trips, marked %d as potentially invalid"
-        % (processed_count, modified_count),
+        "message": (
+            f"Processed {processed_count} trips, "
+            f"marked {modified_count} as potentially invalid"
+        ),
         "processed_count": processed_count,
         "modified_count": modified_count,
     }
@@ -1185,8 +1190,10 @@ async def remap_unmatched_trips_async(_self) -> dict[str, Any]:
         "status": "success",
         "remapped_count": remap_count,
         "failed_count": failed_count,
-        "message": "Attempted remapping for %d trips. Succeeded: %d, Failed: %d"
-        % (len(trips_to_process), remap_count, failed_count),
+        "message": (
+            f"Attempted remapping for {len(trips_to_process)} trips. "
+            f"Succeeded: {remap_count}, Failed: {failed_count}"
+        ),
     }
 
 
@@ -1336,8 +1343,10 @@ async def validate_trip_data_async(_self) -> dict[str, Any]:
         "processed_count": processed_count,
         "marked_invalid_count": modified_count,
         "failed_count": failed_count,
-        "message": "Validated %d trips. Marked %d as invalid, %d failed processing."
-        % (processed_count, modified_count, failed_count),
+        "message": (
+            f"Validated {processed_count} trips. "
+            f"Marked {modified_count} as invalid, {failed_count} failed processing."
+        ),
     }
 
 
@@ -2000,8 +2009,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
                                 new_val
                             )
                             changes.append(
-                                "Task '%s' interval: %s -> %s mins"
-                                % (task_id, old_val, new_val),
+                                f"Task '{task_id}' interval: {old_val} -> {new_val} mins",
                             )
                 else:
                     logger.warning(
