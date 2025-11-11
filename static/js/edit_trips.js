@@ -192,7 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         poly.on("mousedown", (e) => {
-          if (e.originalEvent && e.originalEvent.button !== 0) return;
+          if (e.originalEvent?.button !== 0) return;
           selectTrip(poly, trip);
         });
         tripsLayerGroup.addLayer(poly);

@@ -1254,7 +1254,7 @@ const STATUS = window.STATUS || {
           : "mapbox://styles/mapbox/dark-v11";
 
       // Update main coverage map
-      if (this.coverageMap && this.coverageMap.setStyle) {
+      if (this.coverageMap?.setStyle) {
         // Preserve map view state
         const center = this.coverageMap.getCenter();
         const zoom = this.coverageMap.getZoom();
@@ -1276,7 +1276,7 @@ const STATUS = window.STATUS || {
       }
 
       // Update drawing map if it exists
-      if (this.drawingMap && this.drawingMap.setStyle) {
+      if (this.drawingMap?.setStyle) {
         const drawCenter = this.drawingMap.getCenter();
         const drawZoom = this.drawingMap.getZoom();
         const drawBearing = this.drawingMap.getBearing();

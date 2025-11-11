@@ -799,7 +799,7 @@ if (typeof window !== "undefined") {
   function processDailyData(weekdayData) {
     // Organize data by weekday (0=Sun, 1=Mon, ..., 6=Sat)
     const byDay = new Array(7).fill(0);
-    if (weekdayData && Array.isArray(weekdayData)) {
+    if (Array.isArray(weekdayData)) {
       weekdayData.forEach((d) => {
         if (d.day !== undefined && d.day >= 0 && d.day <= 6) {
           byDay[d.day] = d.count || 0;
