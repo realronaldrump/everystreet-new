@@ -556,7 +556,7 @@ const searchManager = {
       .addTo(state.map);
 
     // Fly to location
-    if (result.bbox && result.bbox.length === 4) {
+    if (result.bbox?.length === 4) {
       // [west, south, east, north] or [minLon, minLat, maxLon, maxLat]
       const [west, south, east, north] = result.bbox;
       state.map.fitBounds(

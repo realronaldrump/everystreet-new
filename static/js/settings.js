@@ -202,7 +202,7 @@
       }
 
       const pollInterval =
-        this.eventSource && this.eventSource.readyState === EventSource.OPEN
+        this.eventSource?.readyState === EventSource.OPEN
           ? 15000
           : 5000;
 
@@ -724,7 +724,7 @@
         }
 
         if (result.status === "success") {
-          if (result.results && result.results.length > 0) {
+          if (result.results?.length > 0) {
             const taskResult = result.results.find((r) => r.task === taskId);
 
             if (taskResult && !taskResult.success) {
@@ -981,7 +981,7 @@
             <div class="mb-3">
               <h6>Dependencies</h6>
               ${
-                taskDetails.dependencies && taskDetails.dependencies.length > 0
+                taskDetails.dependencies?.length > 0
                   ? `<div>
                    <p>${taskDetails.dependencies.join(", ")}</p>
                    <div class="alert alert-info small mt-2">
@@ -1024,7 +1024,7 @@
                 : ""
             }
             ${
-              taskDetails.history && taskDetails.history.length > 0
+              taskDetails.history?.length > 0
                 ? `
             <div class="mb-3">
               <h6>Recent History</h6>

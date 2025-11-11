@@ -277,9 +277,9 @@ class MobileMapInterface {
     if (!this.isDragging) return;
 
     let clientY = this.dragStartY;
-    if (event.changedTouches && event.changedTouches.length > 0) {
+    if (event.changedTouches?.length > 0) {
       clientY = event.changedTouches[0].clientY;
-    } else if (event.touches && event.touches.length > 0) {
+    } else if (event.touches?.length > 0) {
       clientY = event.touches[0].clientY;
     }
 
@@ -858,7 +858,7 @@ class MobileMapInterface {
 
   updateMobileClearButton() {
     if (!this.mobileClearBtn) return;
-    const hasValue = Boolean(this.mobileSearch && this.mobileSearch.value);
+    const hasValue = Boolean(this.mobileSearch?.value);
     this.mobileClearBtn.classList.toggle("d-none", !hasValue);
   }
 

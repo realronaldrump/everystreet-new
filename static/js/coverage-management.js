@@ -1443,7 +1443,7 @@ const STATUS = window.STATUS || {
         const text = await file.text();
         const data = JSON.parse(text);
 
-        if (data.areas && Array.isArray(data.areas)) {
+        if (Array.isArray(data?.areas)) {
           const confirmed = await this.confirmationDialog.show({
             title: "Import Coverage Data",
             message: `Import ${data.areas.length} coverage area${
@@ -4908,7 +4908,7 @@ const STATUS = window.STATUS || {
             const lastTripResponse = await fetch("/api/trips?limit=1");
             if (lastTripResponse.ok) {
               const tripsData = await lastTripResponse.json();
-              if (tripsData.trips && tripsData.trips.length > 0) {
+              if (tripsData.trips?.length > 0) {
                 const lastTrip = tripsData.trips[0];
                 if (lastTrip.destinationGeoPoint?.coordinates) {
                   currentLon = lastTrip.destinationGeoPoint.coordinates[0];
@@ -5113,7 +5113,7 @@ const STATUS = window.STATUS || {
       const bounds = new mapboxgl.LngLatBounds();
       clusters.forEach((cluster) => {
         // Extend bounds to include all segments in the cluster for better visibility.
-        if (cluster.segments && Array.isArray(cluster.segments)) {
+        if (Array.isArray(cluster?.segments)) {
           cluster.segments.forEach((segment) => {
             if (
               segment.geometry &&
@@ -5314,7 +5314,7 @@ const STATUS = window.STATUS || {
         this.coverageMap.getSource("streets")
       ) {
         this.suggestedEfficientStreets.forEach((cluster) => {
-          if (cluster.segments && Array.isArray(cluster.segments)) {
+          if (Array.isArray(cluster?.segments)) {
             cluster.segments.forEach((segment) => {
               const segmentId =
                 segment.segment_id || segment.properties?.segment_id;
@@ -5567,14 +5567,14 @@ const STATUS = window.STATUS || {
     }
 
     handleDrawingCreate(e) {
-      if (e.features && e.features.length > 0) {
+      if (e.features?.length > 0) {
         const feature = e.features[0];
         this.updateDrawingValidationState(feature);
       }
     }
 
     handleDrawingUpdate(e) {
-      if (e.features && e.features.length > 0) {
+      if (e.features?.length > 0) {
         const feature = e.features[0];
         this.updateDrawingValidationState(feature);
       }

@@ -138,7 +138,7 @@
             if (input.id.includes("start")) {
               const endInputId = input.id.replace("start", "end");
               const endInput = document.getElementById(endInputId);
-              if (endInput && window.flatpickr && endInput._flatpickr) {
+              if (endInput && window.flatpickr && endInput?._flatpickr) {
                 endInput._flatpickr.set("minDate", dateStr);
               }
             }
@@ -154,10 +154,10 @@
           if (config.dateStart && config.dateEnd) {
             const startInput = elements[config.dateStart];
             const endInput = elements[config.dateEnd];
-            if (startInput && !startInput.value && startInput._flatpickr) {
+            if (startInput && !startInput.value && startInput?._flatpickr) {
               startInput._flatpickr.setDate(dateRange.startDate);
             }
-            if (endInput && !endInput.value && endInput._flatpickr) {
+            if (endInput && !endInput.value && endInput?._flatpickr) {
               endInput._flatpickr.setDate(dateRange.endDate);
             }
           }
@@ -588,7 +588,7 @@
   }
 
   function setFormat(format) {
-    if (format && elements["adv-format"]) {
+    if (format && elements?.["adv-format"]) {
       elements["adv-format"].value = format;
       updateUIBasedOnFormat(format);
     }
@@ -950,7 +950,7 @@
       .then((data) => {
         locationSelect.innerHTML =
           '<option value="">Select an area...</option>';
-        if (data.success && Array.isArray(data.areas)) {
+        if (data.success && Array.isArray(data?.areas)) {
           data.areas.forEach((area) => {
             if (area.location?.display_name) {
               const opt = document.createElement("option");
@@ -1054,7 +1054,7 @@
   function geojsonToGpx(geojson) {
     let gpx =
       '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="EveryStreet" xmlns="http://www.topografix.com/GPX/1/1">\n';
-    if (geojson && Array.isArray(geojson.features)) {
+    if (geojson?.features && Array.isArray(geojson.features)) {
       geojson.features.forEach((f, i) => {
         if (
           f.geometry &&

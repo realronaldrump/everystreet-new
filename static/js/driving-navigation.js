@@ -406,7 +406,7 @@ class DrivingNavigation {
 
       this.updateProgress(80, "Rendering streets on map...");
 
-      if (geojson?.features && geojson.features.length > 0) {
+      if (geojson?.features?.length > 0) {
         const driveableFeatures = geojson.features.filter(
           (feature) => !feature.properties.undriveable,
         );
@@ -594,7 +594,7 @@ class DrivingNavigation {
 
   highlightTargetStreet(segmentId) {
     const undrivenSource = this.map.getSource("undriven-streets");
-    if (undrivenSource && undrivenSource._data) {
+    if (undrivenSource?._data) {
       const targetFeature = undrivenSource._data.features.find(
         (f) => f.properties.segment_id === segmentId,
       );

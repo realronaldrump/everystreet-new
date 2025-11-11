@@ -390,12 +390,12 @@ class UploadManager {
       filename,
       startTime: properties.start_time
         ? new Date(properties.start_time)
-        : properties.coordTimes && properties.coordTimes.length > 0
+        : properties.coordTimes?.length > 0
           ? new Date(properties.coordTimes[0])
           : null,
       endTime: properties.end_time
         ? new Date(properties.end_time)
-        : properties.coordTimes && properties.coordTimes.length > 0
+        : properties.coordTimes?.length > 0
           ? new Date(properties.coordTimes[properties.coordTimes.length - 1])
           : null,
       points: coordinates.length,
@@ -675,7 +675,7 @@ class UploadManager {
 
       const geojsonData = await response.json();
 
-      if (geojsonData && geojsonData.type === "FeatureCollection") {
+      if (geojsonData?.type === "FeatureCollection") {
         const allTrips = geojsonData.features.map((feature) => ({
           _id: feature.properties.transactionId,
           transactionId: feature.properties.transactionId,

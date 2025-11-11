@@ -2309,7 +2309,7 @@
 
       document.getElementById("trip-info").querySelector(".alert")?.remove();
 
-      if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
+      if (trip.geometry?.coordinates?.length > 0) {
         try {
           this.tripViewMap.addSource("trip", {
             type: "geojson",
@@ -2439,7 +2439,7 @@
         return;
       }
 
-      if (trip.geometry?.coordinates && trip.geometry.coordinates.length > 0) {
+      if (trip.geometry?.coordinates?.length > 0) {
         return; // Already has geometry
       }
       if (
@@ -2453,7 +2453,7 @@
       if (typeof trip.gps === "string" && trip.gps) {
         try {
           const gpsData = JSON.parse(trip.gps);
-          if (gpsData?.coordinates && gpsData.coordinates.length > 0) {
+          if (gpsData?.coordinates?.length > 0) {
             trip.geometry = gpsData;
             return;
           }
@@ -2767,7 +2767,7 @@
         const params = new URLSearchParams();
         // default timeframe according to current filter selection
         const tfSelect = document.getElementById("time-filter");
-        if (tfSelect?.value && tfSelect.value !== "all") {
+        if (tfSelect?.value !== "all" && tfSelect?.value) {
           params.append("timeframe", tfSelect.value);
         }
 
