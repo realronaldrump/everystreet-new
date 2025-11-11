@@ -55,7 +55,8 @@ const mapManager = {
       // Determine initial map style - respect stored preference or use theme
       const storedMapType = utils.getStorage("mapType");
       const initialMapType = storedMapType || theme;
-      const initialStyle = CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
+      const initialStyle =
+        CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
 
       initStage.update(60, "Creating map instance...");
 
