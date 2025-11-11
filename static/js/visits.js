@@ -112,10 +112,13 @@
       const tooltipTriggerList = [].slice.call(
         document.querySelectorAll('[data-bs-toggle="tooltip"]'),
       );
-      tooltipTriggerList.map((tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl, {
-          template:
-            '<div class="tooltip" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner bg-primary"></div></div>',
-        }));
+      tooltipTriggerList.map(
+        (tooltipTriggerEl) =>
+          new bootstrap.Tooltip(tooltipTriggerEl, {
+            template:
+              '<div class="tooltip" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner bg-primary"></div></div>',
+          }),
+      );
 
       // Add ripple effect to buttons
       document.querySelectorAll(".action-button").forEach((button) => {
@@ -2339,7 +2342,7 @@
             },
           });
 
-          const {coordinates} = trip.geometry;
+          const { coordinates } = trip.geometry;
           const startCoord = coordinates[0];
           const endCoord = coordinates[coordinates.length - 1];
 
@@ -2419,7 +2422,8 @@
 
     setupDurationSorting() {
       if (window.$ && $.fn.dataTable) {
-        $.fn.dataTable.ext.type.order["duration-pre"] = (data) => DateUtils.convertDurationToSeconds(data);
+        $.fn.dataTable.ext.type.order["duration-pre"] = (data) =>
+          DateUtils.convertDurationToSeconds(data);
       }
     }
 
@@ -2474,7 +2478,6 @@
             trip.destinationGeoPoint.coordinates,
           ],
         };
-        
       }
     }
 

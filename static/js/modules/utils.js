@@ -7,7 +7,7 @@ if (!window.utils) {
   await import("../utils.js"); // this executes the legacy script and defines window.utils
 }
 
-const {utils} = window;
+const { utils } = window;
 export { utils as default };
 
-export const {handleError} = window;
+export const { handleError } = window;

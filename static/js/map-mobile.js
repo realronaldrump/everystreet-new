@@ -631,7 +631,7 @@ class MobileMapInterface {
     });
 
     document.querySelectorAll(".mobile-street-mode-btn").forEach((btn) => {
-      const {mode} = btn.dataset;
+      const { mode } = btn.dataset;
       btn.classList.toggle("active", mode ? activeModes.has(mode) : false);
     });
   }
@@ -839,7 +839,7 @@ class MobileMapInterface {
 
   handleMobileStreetToggle(button) {
     if (!button) return;
-    const {mode} = button.dataset;
+    const { mode } = button.dataset;
     if (!mode) return;
 
     const desktopBtn = document.querySelector(

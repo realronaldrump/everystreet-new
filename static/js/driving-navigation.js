@@ -544,7 +544,7 @@ class DrivingNavigation {
     const locationSource = data.location_source || "unknown";
 
     if (data.route_geometry?.coordinates) {
-      const {coordinates} = data.route_geometry;
+      const { coordinates } = data.route_geometry;
       this.currentRoute = {
         start: { lat: coordinates[0][1], lng: coordinates[0][0] },
         end: {
@@ -909,7 +909,7 @@ class DrivingNavigation {
     // Delegate click for dynamically created popup buttons
     document.addEventListener("click", (event) => {
       if (event.target.matches(".navigate-to-segment")) {
-        const {segmentId} = event.target.dataset;
+        const { segmentId } = event.target.dataset;
         // Close all popups
         document.querySelectorAll(".mapboxgl-popup").forEach((p) => p.remove());
         this.highlightTargetStreet(segmentId);

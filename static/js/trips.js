@@ -962,7 +962,8 @@ class TripsManager {
       return;
     }
 
-    const confirmDelete = () => new Promise((resolve) => {
+    const confirmDelete = () =>
+      new Promise((resolve) => {
         if (
           typeof window.confirmationDialog === "object" &&
           window.confirmationDialog !== null

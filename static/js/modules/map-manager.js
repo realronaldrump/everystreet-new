@@ -315,7 +315,7 @@ const mapManager = {
   zoomToLastTrip(targetZoom = 14) {
     if (!state.map || !state.mapLayers.trips?.layer?.features) return;
 
-    const {features} = state.mapLayers.trips.layer;
+    const { features } = state.mapLayers.trips.layer;
 
     const lastTripFeature = features.reduce((latest, feature) => {
       const endTime = feature.properties?.endTime;

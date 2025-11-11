@@ -40,7 +40,7 @@ class CoverageSelection {
     toolbar.addEventListener("click", (e) => {
       const markBtn = e.target.closest(".bulk-mark-btn");
       if (markBtn) {
-        const {action} = markBtn.dataset;
+        const { action } = markBtn.dataset;
         if (action) {
           document.dispatchEvent(
             new CustomEvent("coverageBulkAction", { detail: action }),
