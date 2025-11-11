@@ -128,10 +128,10 @@ class DrivingNavigation {
       id: "route-layer",
       type: "line",
       source: "route",
-      paint: { 
-        "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.calculated, 
-        "line-width": 5, 
-        "line-opacity": 0.8 
+      paint: {
+        "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.calculated,
+        "line-width": 5,
+        "line-opacity": 0.8,
       },
     });
 
@@ -144,10 +144,10 @@ class DrivingNavigation {
       id: "target-street-layer",
       type: "line",
       source: "target-street",
-      paint: { 
-        "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.target, 
-        "line-width": 6, 
-        "line-opacity": 1 
+      paint: {
+        "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.target,
+        "line-width": 6,
+        "line-opacity": 1,
       },
     });
 

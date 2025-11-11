@@ -183,7 +183,8 @@ const mapManager = {
       // Build dynamic color expression
       // Priority: selected trip > recent trip > default
       const colorExpr = ["case"];
-      const baseColor = layerInfo.color || window.MapStyles.MAP_LAYER_COLORS.trips.default;
+      const baseColor =
+        layerInfo.color || window.MapStyles.MAP_LAYER_COLORS.trips.default;
       const intensityProperty = ["coalesce", ["get", "heatIntensity"], 0];
       const clampedIntensity = ["max", 0, ["min", 1, intensityProperty]];
 
@@ -201,7 +202,10 @@ const mapManager = {
           ],
           selectedId,
         ]);
-        colorExpr.push(layerInfo.highlightColor || window.MapStyles.MAP_LAYER_COLORS.trips.selected);
+        colorExpr.push(
+          layerInfo.highlightColor ||
+            window.MapStyles.MAP_LAYER_COLORS.trips.selected,
+        );
       }
 
       if (highlightRecent) {
@@ -213,7 +217,8 @@ const mapManager = {
           0,
           window.MapStyles.MAP_LAYER_COLORS.trips.recent.light,
           1,
-          layerInfo.colorRecent || window.MapStyles.MAP_LAYER_COLORS.trips.recent.dark,
+          layerInfo.colorRecent ||
+            window.MapStyles.MAP_LAYER_COLORS.trips.recent.dark,
         ];
         colorExpr.push(recentColor);
       }
