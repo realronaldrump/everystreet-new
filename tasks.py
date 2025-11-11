@@ -312,7 +312,7 @@ async def check_dependencies(
         if task_id not in TASK_METADATA:
             return {
                 "can_run": False,
-                "reason": "Unknown task: %s" % task_id,
+                "reason": f"Unknown task: {task_id}",
             }
 
         dependencies = TASK_METADATA[task_id].get("dependencies", [])
@@ -339,9 +339,7 @@ async def check_dependencies(
             ]:
                 return {
                     "can_run": False,
-                    "reason": "Dependency '{}' is currently {}".format(
-                        dep_id, dep_status
-                    ),
+                    "reason": f"Dependency '{dep_id}' is currently {dep_status}",
                 }
 
             if dep_status == TaskStatus.FAILED.value:
@@ -365,7 +363,7 @@ async def check_dependencies(
                 ):
                     return {
                         "can_run": False,
-                        "reason": "Dependency '%s' failed recently" % dep_id,
+                        "reason": f"Dependency '{dep_id}' failed recently",
                     }
 
         return {"can_run": True}
@@ -374,7 +372,7 @@ async def check_dependencies(
         logger.exception("Error checking dependencies for %s: %s", task_id, e)
         return {
             "can_run": False,
-            "reason": "Error checking dependencies: %s" % e,
+            "reason": f"Error checking dependencies: {e}",
         }
 
 
@@ -442,7 +440,7 @@ async def update_task_history_entry(
                     ser_err,
                 )
                 update_fields["result"] = (
-                    "<Unserializable Result: %s>" % type(result).__name__
+                    f"<Unserializable Result: {type(result).__name__}>"
                 )
         if error is not None:
             update_fields["error"] = str(error)
@@ -724,7 +722,7 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
 
     return {
         "status": "success",
-        "message": "Fetched %d trips successfully" % len(fetched_trips),
+        "message": f"Fetched {len(fetched_trips)} trips successfully",
         "trips_fetched": len(fetched_trips),
         "date_range": {
             "start": start_date_fetch.isoformat(),
@@ -762,7 +760,7 @@ async def manual_fetch_trips_range_async(
     def _parse_iso(dt_str: str) -> datetime:
         parsed = parse_timestamp(dt_str)
         if not parsed:
-            raise ValueError("Invalid date value: %s" % dt_str)
+            raise ValueError(f"Invalid date value: {dt_str}")
         return parsed
 
     start_dt = _parse_iso(start_iso)
@@ -846,7 +844,7 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
         display_name = (
             location.get("display_name", "Unknown")
             if location
-            else "Unknown (ID: %s)" % area_id_str
+            else f"Unknown (ID: {area_id_str})"
         )
 
         if not location:
@@ -1271,7 +1269,7 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
                             "validated_at": datetime.now(timezone.utc),
                             "validation_status": TaskStatus.FAILED.value,
                             "invalid": True,
-                            "validation_message": "Task Error: %s" % e,
+                            "validation_message": f"Task Error: {e}",
                         },
                     },
                 ),
@@ -1485,7 +1483,7 @@ async def run_task_scheduler_async() -> None:
                 )
                 priority_name = priority_enum.name.lower()
                 queue = (
-                    "%s_priority" % priority_name
+                    f"{priority_name}_priority"
                     if priority_name in ["high", "low"]
                     else "default"
                 )
@@ -1531,7 +1529,7 @@ async def run_task_scheduler_async() -> None:
                 await status_manager.update_status(
                     task_id_to_run,
                     TaskStatus.FAILED.value,
-                    error="Scheduler trigger failed: %s" % trigger_err,
+                    error=f"Scheduler trigger failed: {trigger_err}",
                 )
 
         logger.info(
@@ -1691,7 +1689,7 @@ async def manual_run_task(task_id: str) -> dict[str, Any]:
         success = all(r.get("success", False) for r in results)
         return {
             "status": ("success" if success else "partial_error"),
-            "message": "Triggered %d tasks." % len(results),
+            "message": f"Triggered {len(results)} tasks.",
             "results": results,
         }
 
@@ -1700,14 +1698,14 @@ async def manual_run_task(task_id: str) -> dict[str, Any]:
         result = await _send_manual_task(task_id, task_mapping[task_id])
         return {
             "status": ("success" if result.get("success") else "error"),
-            "message": result.get("message", "Failed to schedule task %s" % task_id),
+            "message": result.get("message", f"Failed to schedule task {task_id}"),
             "task_id": result.get("task_id"),
         }
 
     logger.error("Manual run requested for unknown task: %s", task_id)
     return {
         "status": "error",
-        "message": "Unknown or non-runnable task ID: %s" % task_id,
+        "message": f"Unknown or non-runnable task ID: {task_id}",
     }
 
 
@@ -1740,7 +1738,7 @@ async def _send_manual_task(
         priority_enum = TASK_METADATA[task_name].get("priority", TaskPriority.MEDIUM)
         priority_name = priority_enum.name.lower()
         queue = (
-            "%s_priority" % priority_name
+            f"{priority_name}_priority"
             if priority_name in ["high", "low"]
             else "default"
         )
@@ -1773,7 +1771,7 @@ async def _send_manual_task(
         return {
             "task": task_name,
             "success": True,
-            "message": "Task %s scheduled successfully." % task_name,
+            "message": f"Task {task_name} scheduled successfully.",
             "task_id": result.id,
         }
     except Exception as e:
@@ -1781,7 +1779,7 @@ async def _send_manual_task(
         await status_manager.update_status(
             task_name,
             TaskStatus.FAILED.value,
-            error="Manual trigger failed: %s" % e,
+            error=f"Manual trigger failed: {e}",
         )
         return {
             "task": task_name,
@@ -1811,7 +1809,7 @@ async def trigger_manual_fetch_trips_range(
     if end_utc <= start_utc:
         raise ValueError("End date must be after start date")
 
-    celery_task_id = "manual_fetch_trips_range_%s" % uuid.uuid4()
+    celery_task_id = f"manual_fetch_trips_range_{uuid.uuid4()}"
     kwargs = {
         "start_iso": start_utc.isoformat(),
         "end_iso": end_utc.isoformat(),
@@ -1867,7 +1865,7 @@ async def force_reset_task(
     """Forcefully reset a task's status to IDLE for manual recovery."""
 
     if task_id not in TASK_METADATA:
-        raise ValueError("Unknown task_id: %s" % task_id)
+        raise ValueError(f"Unknown task_id: {task_id}")
 
     now = datetime.now(timezone.utc)
     message = reason or "Task force-stopped by user"
@@ -1903,7 +1901,7 @@ async def force_reset_task(
 
     return {
         "status": "success",
-        "message": "Task %s was force reset." % task_id,
+        "message": f"Task {task_id} was force reset.",
         "task_id": task_id,
     }
 
@@ -1932,7 +1930,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
             if isinstance(global_disable_update, bool):
                 update_payload["disabled"] = global_disable_update
                 changes.append(
-                    "Global scheduling disable set to %s" % global_disable_update
+                    f"Global scheduling disable set to {global_disable_update}"
                 )
             else:
                 logger.warning(
@@ -1955,8 +1953,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
                             if new_val != old_val:
                                 update_payload[f"tasks.{task_id}.enabled"] = new_val
                                 changes.append(
-                                    "Task '%s' enabled status: %s -> %s"
-                                    % (task_id, old_val, new_val),
+                                    f"Task '{task_id}' enabled status: {old_val} -> {new_val}",
                                 )
                         else:
                             logger.warning(
@@ -2039,7 +2036,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
         logger.exception("Error updating task schedule: %s", e)
         return {
             "status": "error",
-            "message": "Error updating task schedule: %s" % e,
+            "message": f"Error updating task schedule: {e}",
         }
 
 
@@ -2129,7 +2126,7 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
             )
             return {
                 "status": "error",
-                "message": "Missing transactionId for %s" % event_type,
+                "message": f"Missing transactionId for {event_type}",
             }
 
         if event_type == "tripStart":
@@ -2209,10 +2206,7 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
-        error_msg = "Unhandled error processing webhook event {} (TxID: {})".format(
-            event_type or "Unknown",
-            transaction_id or "N/A",
-        )
+        error_msg = f"Unhandled error processing webhook event {event_type or 'Unknown'} (TxID: {transaction_id or 'N/A'})"
         logger.exception(
             "Celery Task %s (%s) FAILED processing webhook: %s. Runtime: %.0fms",
             task_name,

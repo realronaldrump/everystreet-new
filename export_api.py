@@ -400,7 +400,7 @@ async def export_coverage_route_endpoint(
     except Exception as e:
         logger.exception("Error exporting coverage route: %s", str(e))
         raise HTTPException(
-            status_code=500, detail="Failed to export coverage route: %s" % str(e)
+            status_code=500, detail=f"Failed to export coverage route: {str(e)}"
         )
 
 

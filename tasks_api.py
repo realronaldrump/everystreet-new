@@ -183,9 +183,9 @@ async def pause_background_tasks(
     minutes = int(data.get("duration", 30))
     return await _task_schedule_action(
         {"globalDisable": True},
-        success_message="Background tasks paused for %d minutes" % minutes,
+        success_message=f"Background tasks paused for {minutes} minutes",
         default_error="Failed to pause tasks",
-        action="pause background tasks for %d minutes" % minutes,
+        action=f"pause background tasks for {minutes} minutes",
     )
 
 
@@ -325,7 +325,7 @@ async def get_task_details(task_id: str):
         if task_id not in TASK_METADATA:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task %s not found" % task_id,
+                detail=f"Task {task_id} not found",
             )
 
         task_def = TASK_METADATA[task_id]
@@ -449,7 +449,7 @@ async def clear_task_history():
         result = await delete_many_with_retry(task_history_collection, {})
         return {
             "status": "success",
-            "message": "Cleared %d task history entries" % result.deleted_count,
+            "message": f"Cleared {result.deleted_count} task history entries",
         }
     except Exception as e:
         logger.exception(
@@ -519,7 +519,7 @@ async def reset_task_states():
                 if runtime > stuck_threshold:
                     updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
                     updates[f"tasks.{task_id}.last_error"] = (
-                        "Task reset: ran for > %s" % stuck_threshold
+                        f"Task reset: ran for > {stuck_threshold}"
                     )
                     updates[f"tasks.{task_id}.end_time"] = now
                     reset_count += 1
