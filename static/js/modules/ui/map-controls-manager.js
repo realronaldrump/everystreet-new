@@ -10,20 +10,24 @@ import eventManager from "./event-manager.js";
 const mapControlsManager = {
   init() {
     const mapTypeSelect = uiState.getElement(CONFIG.selectors.mapTypeSelect);
-    const opacityRange = uiState.getElement(CONFIG.selectors.basemapOpacityRange);
+    const opacityRange = uiState.getElement(
+      CONFIG.selectors.basemapOpacityRange,
+    );
     if (mapTypeSelect) {
       // Default to dark mode, but respect user's stored preference
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
       const defaultMapType = utils.getStorage(CONFIG.storage.mapType) || theme;
       mapTypeSelect.value = defaultMapType;
       mapTypeSelect.addEventListener("change", (e) =>
-        this.updateMapType(e.target.value)
+        this.updateMapType(e.target.value),
       );
     }
     if (opacityRange) {
-      opacityRange.value = utils.getStorage(CONFIG.storage.basemapOpacity) || 0.75;
+      opacityRange.value =
+        utils.getStorage(CONFIG.storage.basemapOpacity) || 0.75;
       opacityRange.addEventListener("input", (e) =>
-        this.updateOpacity(parseFloat(e.target.value))
+        this.updateOpacity(parseFloat(e.target.value)),
       );
     }
     // Note: controls-toggle is handled in app-controller.js using Bootstrap Collapse API
