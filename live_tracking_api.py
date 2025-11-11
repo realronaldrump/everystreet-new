@@ -32,6 +32,7 @@ from models import (
     ActiveTripResponseUnion,
     ActiveTripSuccessResponse,
     NoActiveTripResponse,
+    TripDataModel,
 )
 from redis_config import get_redis_url
 from trip_event_publisher import TRIP_UPDATES_CHANNEL
@@ -241,8 +242,14 @@ async def active_trip_endpoint():
         if not active_trip_doc:
             return NoActiveTripResponse(server_time=datetime.now(UTC))
 
+        # Serialize document to ensure ObjectId and datetime are properly converted
+        serialized_trip = serialize_document(active_trip_doc)
+
+        # Create Pydantic model from serialized document
+        trip_model = TripDataModel(**serialized_trip)
+
         return ActiveTripSuccessResponse(
-            trip=active_trip_doc,
+            trip=trip_model,
             server_time=datetime.now(UTC),
         )
 

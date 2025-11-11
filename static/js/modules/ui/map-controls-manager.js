@@ -1,3 +1,4 @@
+import { CONFIG as MAP_CONFIG } from "../config.js";
 import state from "../state.js";
 import { UI_CONFIG as CONFIG } from "../ui-config.js";
 import uiState from "../ui-state.js";
@@ -30,7 +31,11 @@ const mapControlsManager = {
     let settingsApplied = false;
     const applySettings = () => {
       if (settingsApplied) return;
-      if (state.map && state.mapInitialized && typeof state.map.setStyle === "function") {
+      if (
+        state.map &&
+        state.mapInitialized &&
+        typeof state.map.setStyle === "function"
+      ) {
         settingsApplied = true;
         this.updateMapType(mapTypeSelect?.value);
         this.updateOpacity(parseFloat(opacityRange?.value || 0.75), false);
@@ -73,7 +78,10 @@ const mapControlsManager = {
     }
     utils.setStorage(CONFIG.storage.mapType, type);
     try {
-      map.setStyle(`mapbox://styles/mapbox/${type}-v12`);
+      // Use style from CONFIG if available, fallback to default pattern
+      const styleUrl =
+        MAP_CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
+      map.setStyle(styleUrl);
       eventManager.emit("mapTypeChanged", { type });
     } catch (error) {
       console.error("Error updating map type:", error);
@@ -83,13 +91,32 @@ const mapControlsManager = {
   updateOpacity(value = 0.75, persist = true) {
     const map = state.map || window.map;
     if (!map || !state.mapInitialized) return;
-    if (typeof map.getLayer !== "function" || typeof map.setPaintProperty !== "function") {
+    if (
+      typeof map.getLayer !== "function" ||
+      typeof map.getStyle !== "function" ||
+      typeof map.setPaintProperty !== "function"
+    ) {
       console.warn("Map methods not available yet");
       return;
     }
     const basemapLayers = ["satellite", "background", "land", "water"];
+    const style = map.getStyle();
+    if (!style || !style.layers) return;
+
     basemapLayers.forEach((id) => {
-      if (map.getLayer(id)) map.setPaintProperty(id, "raster-opacity", value);
+      const layer = map.getLayer(id);
+      if (!layer) return;
+
+      // Check if layer exists in style and supports raster-opacity
+      const styleLayer = style.layers.find((l) => l.id === id);
+      if (styleLayer && styleLayer.type === "raster") {
+        try {
+          map.setPaintProperty(id, "raster-opacity", value);
+        } catch (_error) {
+          // Layer might not support raster-opacity, skip silently
+          console.debug(`Layer ${id} does not support raster-opacity`);
+        }
+      }
     });
     if (persist) utils.setStorage(CONFIG.storage.basemapOpacity, value);
     eventManager.emit("basemapOpacityChanged", { value });
