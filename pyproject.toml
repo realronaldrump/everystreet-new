@@ -38,6 +38,7 @@ select = [
 # Ignore rules that are not auto-fixable or too opinionated
 ignore = [
     "E501",   # Line too long (handled by formatters)
+    "W505",   # Doc line too long (handled by formatters)
     "B008",   # Do not perform function calls in argument defaults (too opinionated)
     "B904",   # Allow `raise` without specifying exception (too opinionated)
     "PT011",  # pytest.raises without match (too opinionated)
