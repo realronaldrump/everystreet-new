@@ -26,89 +26,128 @@ block content %}
       role="region"
       aria-label="Map controls"
     >
-      <div class="p-3 d-flex justify-content-between align-items-center">
-        <h2 class="h5 mb-0 card-title">Map Controls</h2>
+      <!-- Panel Header -->
+      <div class="control-panel-header">
+        <h2 class="control-panel-title">
+          <i class="fas fa-layer-group me-2" aria-hidden="true"></i>
+          Map Controls
+        </h2>
         <button
           id="controls-toggle"
-          class="btn btn-sm btn-icon btn-outline-secondary"
+          class="btn btn-sm btn-icon-only"
           aria-label="Toggle Controls"
           aria-expanded="true"
           aria-controls="controls-content"
+          title="Collapse panel"
         >
-          <i class="fas fa-chevron-up" aria-hidden="true"></i>
+          <i class="fas fa-chevron-down" aria-hidden="true"></i>
         </button>
       </div>
-      <div id="controls-content" class="collapse show px-3 pb-3">
-        <div class="row g-3">
-          <!-- Search Box -->
-          <div class="col-12">
-            <div class="card border-0 bg-transparent p-0">
-              <div class="mb-2">
-                <h3 class="h6 mb-0">Search</h3>
-              </div>
+
+      <div id="controls-content" class="collapse show control-panel-body">
+        <!-- Quick Actions Bar -->
+        <div class="quick-actions-bar">
+          <button
+            type="button"
+            class="btn-quick-action"
+            id="center-on-location"
+            title="Center on my location"
+            aria-label="Center map on current location"
+          >
+            <i class="fas fa-location-crosshairs" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="btn-quick-action"
+            id="fit-bounds"
+            title="Fit all trips"
+            aria-label="Fit all trips in view"
+          >
+            <i class="fas fa-expand-arrows-alt" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="btn-quick-action"
+            id="refresh-map"
+            title="Refresh map data"
+            aria-label="Refresh map data"
+          >
+            <i class="fas fa-sync-alt" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="btn-quick-action"
+            id="download-view"
+            title="Download current view"
+            aria-label="Download current map view"
+          >
+            <i class="fas fa-download" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="control-sections">
+          <!-- Search Section -->
+          <div class="control-section">
+            <div class="search-container">
               <div class="position-relative">
+                <i class="fas fa-search search-icon" aria-hidden="true"></i>
                 <input
                   type="text"
                   id="map-search-input"
-                  class="form-control form-control-sm"
-                  placeholder="Search places, addresses, or streets..."
+                  class="form-control search-input"
+                  placeholder="Search places, addresses..."
                   autocomplete="off"
                   aria-label="Search map"
-                  aria-describedby="search-help"
                 />
                 <button
                   id="clear-search-btn"
-                  class="btn btn-sm btn-link position-absolute top-50 end-0 translate-middle-y d-none btn-clear-search"
+                  class="btn btn-sm btn-link btn-clear-search d-none"
                   aria-label="Clear search"
                   title="Clear search"
                 >
                   <i class="fas fa-times" aria-hidden="true"></i>
                 </button>
               </div>
-              <div id="search-help" class="form-text text-tertiary mt-1 small">
-                Find places, addresses, or specific streets
-              </div>
             </div>
           </div>
 
-          <!-- Live Tracking Status Panel -->
-          <div class="col-12" id="live-tracking-panel">
-            <div class="card border-0 bg-transparent p-0">
-              <!-- Removed card for tighter integration -->
-              <div
-                class="d-flex justify-content-between align-items-center mb-2"
-              >
-                <h3 class="h6 mb-0">Live Tracking</h3>
-                <div class="connection-status d-flex align-items-center">
-                  <div
-                    class="status-indicator me-2"
-                    role="status"
-                    aria-live="polite"
-                  ></div>
-                  <span class="live-status-text small text-secondary"
-                    >Connecting...</span
-                  >
-                </div>
+          <!-- Live Tracking Section -->
+          <div class="control-section" id="live-tracking-panel">
+            <button
+              class="section-header"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#live-tracking-content"
+              aria-expanded="false"
+              aria-controls="live-tracking-content"
+            >
+              <div class="section-header-left">
+                <i class="fas fa-broadcast-tower section-icon" aria-hidden="true"></i>
+                <h3 class="section-title">Live Tracking</h3>
               </div>
-              <div
-                class="p-2 live-tracking-panel-bg"
-              >
-                <div
-                  class="d-flex align-items-center justify-content-between mb-1"
-                >
-                  <span class="small text-secondary">Active Trips:</span>
+              <div class="section-header-right">
+                <div class="connection-status">
+                  <div class="status-indicator" role="status" aria-live="polite"></div>
+                  <span class="live-status-text">Connecting...</span>
+                </div>
+                <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
+              </div>
+            </button>
+            <div id="live-tracking-content" class="collapse section-body">
+              <div class="live-tracking-info">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <span class="text-secondary">Active Trips</span>
                   <span
                     id="active-trips-count"
                     class="badge bg-primary rounded-pill"
                     aria-live="polite"
-                    >0</span
-                  >
+                  >0</span>
                 </div>
-                <div class="live-trip-metrics small">
+                <div class="live-trip-metrics">
                   <!-- Trip metrics will be inserted here dynamically -->
                 </div>
                 <div
-                  class="error-message alert alert-danger d-none mt-2 p-2 small"
+                  class="error-message alert alert-danger d-none mt-2 p-2"
                   role="alert"
                   aria-live="assertive"
                 >
@@ -118,241 +157,168 @@ block content %}
             </div>
           </div>
 
-          <!-- Map Display Options -->
-          <div class="col-12">
-            <div class="card border-0 bg-transparent p-0">
-              <div
-                class="d-flex justify-content-between align-items-center mb-2"
-              >
-                <h3 class="h6 mb-0">Map Display</h3>
+          <!-- Layers & Display Section -->
+          <div class="control-section">
+            <button
+              class="section-header"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#layers-content"
+              aria-expanded="true"
+              aria-controls="layers-content"
+            >
+              <div class="section-header-left">
+                <i class="fas fa-layers section-icon" aria-hidden="true"></i>
+                <h3 class="section-title">Layers & Display</h3>
+              </div>
+              <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
+            </button>
+            <div id="layers-content" class="collapse show section-body">
+              <!-- Layer Toggles -->
+              <div class="layer-group mb-3">
+                <h4 class="layer-group-title">Visible Layers</h4>
                 <div
-                  class="btn-group btn-group-sm"
+                  id="layer-toggles"
+                  class="layer-toggles-grid"
                   role="group"
-                  aria-label="Map Actions"
+                  aria-label="Layer toggles"
                 >
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    id="center-on-location"
-                    title="Center on Current Location"
-                    aria-label="Center map on current location"
-                  >
-                    <i class="fas fa-location-arrow" aria-hidden="true"></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    id="fit-bounds"
-                    title="Fit all trips in view"
-                    aria-label="Fit all trips in view"
-                  >
-                    <i class="fas fa-expand-arrows-alt" aria-hidden="true"></i>
-                  </button>
+                  <!-- Layer toggles inserted by JavaScript -->
                 </div>
               </div>
-              <div
-                class="p-2 live-tracking-panel-bg"
-              >
-                <!-- Layer Controls Section -->
-                <fieldset>
-                  <legend class="visually-hidden">
-                    Layer visibility controls
-                  </legend>
-                  <div
-                    id="layer-toggles"
-                    class="mb-2 small"
-                    role="group"
-                    aria-label="Layer toggles"
-                  >
-                    <!-- Layer toggles inserted by JavaScript -->
-                  </div>
-                </fieldset>
 
-                <div id="layer-order" class="small">
-                  <h4 class="h6 mb-1 small text-secondary text-uppercase">
-                    Layer Order
-                  </h4>
-                  <ul
-                    id="layer-order-list"
-                    class="list-group"
-                    role="list"
-                    aria-label="Layer order"
-                  >
-                    <!-- Layer items inserted by JavaScript -->
-                  </ul>
+              <!-- Layer Order -->
+              <div class="layer-group mb-3">
+                <h4 class="layer-group-title">Layer Order</h4>
+                <ul
+                  id="layer-order-list"
+                  class="layer-order-list"
+                  role="list"
+                  aria-label="Layer order"
+                >
+                  <!-- Layer items inserted by JavaScript -->
+                </ul>
+              </div>
+
+              <!-- Street Coverage -->
+              <div class="layer-group mb-3" id="location-selector-container">
+                <h4 class="layer-group-title">Street Coverage</h4>
+                <select
+                  id="streets-location"
+                  class="form-select form-select-sm mb-2"
+                  aria-label="Select coverage location"
+                >
+                  <option value="">Select a location...</option>
+                  <!-- Coverage areas will be loaded here -->
+                </select>
+
+                <!-- Street View Mode Selector -->
+                <div class="street-mode-buttons" role="group" aria-label="Street view mode">
+                  <button type="button" class="street-mode-btn" data-street-mode="undriven" title="Show undriven streets (dashed blue lines)">
+                    <i class="fas fa-road" aria-hidden="true"></i>
+                    <span>Undriven</span>
+                  </button>
+                  <button type="button" class="street-mode-btn" data-street-mode="driven" title="Show driven streets (solid green lines)">
+                    <i class="fas fa-check-circle" aria-hidden="true"></i>
+                    <span>Driven</span>
+                  </button>
+                  <button type="button" class="street-mode-btn" data-street-mode="all" title="Show all streets (single overlay)">
+                    <i class="fas fa-layer-group" aria-hidden="true"></i>
+                    <span>All</span>
+                  </button>
                 </div>
 
-                <!-- Location selector for streets -->
-                <div id="location-selector-container" class="mt-2 mb-1 small">
-                  <label
-                    for="streets-location"
-                    class="form-label small text-secondary text-uppercase d-block mb-1"
-                  >
-                    Street Coverage
-                  </label>
-                  <select
-                    id="streets-location"
-                    class="form-select form-select-sm mb-2"
-                    aria-describedby="location-help"
-                  >
-                    <option value="">Select a location...</option>
-                    <!-- Coverage areas will be loaded here -->
-                  </select>
-                  
-                  <!-- Street View Mode Selector -->
-                  <div class="btn-group w-100 mb-2" role="group" aria-label="Street view mode">
-                    <button type="button" class="btn btn-outline-primary btn-sm street-toggle-btn" data-street-mode="undriven" title="Toggle undriven streets (dashed blue lines)">
-                      <i class="fas fa-road"></i> Undriven
-                    </button>
-                    
-                    <button type="button" class="btn btn-outline-success btn-sm street-toggle-btn" data-street-mode="driven" title="Toggle driven streets (solid green lines)">
-                      <i class="fas fa-check-circle"></i> Driven
-                    </button>
-                    
-                    <button type="button" class="btn btn-outline-info btn-sm street-toggle-btn" data-street-mode="all" title="Toggle all streets (single overlay)">
-                      <i class="fas fa-layer-group"></i> All
-                    </button>
+                <!-- Color legend -->
+                <div class="street-legend">
+                  <div class="legend-item">
+                    <span class="legend-indicator legend-indicator--undriven"></span>
+                    <span>Undriven</span>
                   </div>
-                  
-                  <!-- Color legend for street view modes -->
-                  <div class="small text-secondary mt-1 d-flex align-items-center justify-content-center gap-2 legend-text-small">
-                    <span class="d-flex align-items-center">
-                      <span class="legend-indicator legend-indicator--undriven"></span>
-                      Undriven
-                    </span>
-                    <span class="d-flex align-items-center">
-                      <span class="legend-indicator legend-indicator--driven"></span>
-                      Driven
-                    </span>
-                    <span class="d-flex align-items-center">
-                      <span class="legend-indicator legend-indicator--all"></span>
-                      All
-                    </span>
+                  <div class="legend-item">
+                    <span class="legend-indicator legend-indicator--driven"></span>
+                    <span>Driven</span>
                   </div>
-                  
-                  <div id="location-help" class="form-text text-tertiary mt-1">
-                    Select a coverage area and view mode for streets.
+                  <div class="legend-item">
+                    <span class="legend-indicator legend-indicator--all"></span>
+                    <span>All</span>
                   </div>
                 </div>
+              </div>
 
-                <div class="form-check form-switch mt-2">
+              <!-- Display Options -->
+              <div class="layer-group">
+                <div class="custom-switch">
                   <input
-                    class="form-check-input"
+                    class="custom-switch-input"
                     type="checkbox"
                     role="switch"
                     id="highlight-recent-trips"
                     checked
-                    aria-describedby="highlight-help"
                   />
-                  <label
-                    class="form-check-label small"
-                    for="highlight-recent-trips"
-                  >
-                    Highlight Recent Trips
+                  <label class="custom-switch-label" for="highlight-recent-trips">
+                    <span class="switch-text">Highlight Recent Trips</span>
+                    <span class="switch-help">Last 6 hours</span>
                   </label>
-                  <div id="highlight-help" class="form-text text-tertiary mt-1">
-                    Trips from the last 6 hours will be highlighted.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Statistics Section -->
+          <div class="control-section">
+            <button
+              class="section-header"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#metrics-content"
+              aria-expanded="false"
+              aria-controls="metrics-content"
+            >
+              <div class="section-header-left">
+                <i class="fas fa-chart-bar section-icon" aria-hidden="true"></i>
+                <h3 class="section-title">Trip Statistics</h3>
+              </div>
+              <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
+            </button>
+            <div id="metrics-content" class="collapse section-body">
+              <div class="metrics-grid">
+                <div class="metric-item">
+                  <div class="metric-label">Total Trips</div>
+                  <div class="metric-value" id="total-trips" aria-live="polite">0</div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-label">Total Distance</div>
+                  <div class="metric-value" aria-live="polite">
+                    <span id="total-distance">0</span> <span class="metric-unit">mi</span>
+                  </div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-label">Avg Distance</div>
+                  <div class="metric-value" aria-live="polite">
+                    <span id="avg-distance">0</span> <span class="metric-unit">mi</span>
+                  </div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-label">Avg Start Time</div>
+                  <div class="metric-value" id="avg-start-time" aria-live="polite">--:--</div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-label">Avg Driving Time</div>
+                  <div class="metric-value" id="avg-driving-time" aria-live="polite">--:--</div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-label">Avg Speed</div>
+                  <div class="metric-value" aria-live="polite">
+                    <span id="avg-speed">0</span> <span class="metric-unit">mph</span>
+                  </div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-label">Max Speed</div>
+                  <div class="metric-value" aria-live="polite">
+                    <span id="max-speed">0</span> <span class="metric-unit">mph</span>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <!-- Metrics Section (collapsed by default) -->
-          <div class="col-12">
-            <div class="card border-0 bg-transparent p-0">
-              <button
-                class="d-flex justify-content-between align-items-center text-start w-100 bg-transparent border-0 p-0 mb-2"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#metrics-content"
-                aria-expanded="false"
-                aria-controls="metrics-content"
-              >
-                <h3 class="h6 mb-0">Trip Metrics</h3>
-                <i
-                  class="fas fa-chevron-down small text-secondary icon-chevron-transition"
-                  aria-hidden="true"
-                ></i>
-              </button>
-              <div id="metrics-content" class="collapse">
-                <div
-                  class="p-2 live-tracking-panel-bg"
-                >
-                  <dl class="row small mb-0">
-                    <dt class="col-7 text-secondary">Total Trips:</dt>
-                    <dd class="col-5 text-end mb-1">
-                      <strong id="total-trips" aria-live="polite">0</strong>
-                    </dd>
-
-                    <dt class="col-7 text-secondary">Total Distance:</dt>
-                    <dd class="col-5 text-end mb-1">
-                      <strong aria-live="polite">
-                        <span id="total-distance">0</span> miles
-                      </strong>
-                    </dd>
-
-                    <dt class="col-7 text-secondary">Avg Distance:</dt>
-                    <dd class="col-5 text-end mb-1">
-                      <strong aria-live="polite">
-                        <span id="avg-distance">0</span> miles
-                      </strong>
-                    </dd>
-
-                    <dt class="col-7 text-secondary">Avg Start Time:</dt>
-                    <dd class="col-5 text-end mb-1">
-                      <strong id="avg-start-time" aria-live="polite"
-                        >--:--</strong
-                      >
-                    </dd>
-
-                    <dt class="col-7 text-secondary">Avg Driving Time:</dt>
-                    <dd class="col-5 text-end mb-1">
-                      <strong id="avg-driving-time" aria-live="polite"
-                        >--:--</strong
-                      >
-                    </dd>
-
-                    <dt class="col-7 text-secondary">Avg Speed:</dt>
-                    <dd class="col-5 text-end mb-1">
-                      <strong aria-live="polite">
-                        <span id="avg-speed">0</span> mph
-                      </strong>
-                    </dd>
-
-                    <dt class="col-7 text-secondary">Max Speed:</dt>
-                    <dd class="col-5 text-end">
-                      <strong aria-live="polite">
-                        <span id="max-speed">0</span> mph
-                      </strong>
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Quick Actions -->
-          <div class="col-12 mt-2">
-            <div class="d-grid gap-2">
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-primary"
-                id="refresh-map"
-                aria-label="Refresh map data"
-              >
-                <i class="fas fa-sync-alt me-1" aria-hidden="true"></i>
-                Refresh Map
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-secondary"
-                id="download-view"
-                aria-label="Download current map view"
-              >
-                <i class="fas fa-download me-1" aria-hidden="true"></i>
-                Download View
-              </button>
             </div>
           </div>
         </div>
