@@ -91,7 +91,6 @@ const layerManager = {
     container.appendChild(fragment);
     this.setupEventListeners(container);
     this.setupDragAndDropForLayers(container);
-    this.updateLayerOrder();
   },
 
   setupEventListeners(container) {
@@ -120,7 +119,7 @@ const layerManager = {
 
     container.addEventListener("dragstart", (e) => {
       // Don't start drag if clicking on interactive elements
-      const target = e.target;
+      const {target} = e;
       if (
         target.tagName === "INPUT" ||
         target.tagName === "LABEL" ||
@@ -131,7 +130,7 @@ const layerManager = {
         e.preventDefault();
         return;
       }
-      
+
       draggedElement = target.closest(".layer-control");
       if (draggedElement) {
         draggedElement.classList.add("dragging");
@@ -151,9 +150,9 @@ const layerManager = {
     container.addEventListener("dragover", (e) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      
+
       if (!draggedElement) return;
-      
+
       const afterElement = this.getDragAfterElementForLayers(container, e.clientY);
       if (afterElement == null) {
         container.appendChild(draggedElement);
@@ -168,7 +167,9 @@ const layerManager = {
   },
 
   getDragAfterElementForLayers(container, y) {
-    const draggableElements = [...container.querySelectorAll(".layer-control:not(.dragging)")];
+    const draggableElements = [
+      ...container.querySelectorAll(".layer-control:not(.dragging)"),
+    ];
 
     return draggableElements.reduce(
       (closest, child) => {
@@ -189,7 +190,7 @@ const layerManager = {
     if (!container) return;
 
     Array.from(container.children).forEach((item, index) => {
-      const layerName = item.dataset.layerName;
+      const {layerName} = item.dataset;
       if (state.mapLayers[layerName]) {
         state.mapLayers[layerName].order = index;
       }
@@ -274,65 +275,6 @@ const layerManager = {
     });
     utils.setStorage(CONFIG.STORAGE_KEYS.layerSettings, settings);
   },
-
-  updateLayerOrder() {
-    // Hide the separate layer order section since layers are now draggable in the visible layers section
-    const layerOrderList = utils.getElement("layer-order-list");
-    if (layerOrderList) {
-      const layerOrderSection = layerOrderList.closest('.layer-group');
-      if (layerOrderSection) {
-        layerOrderSection.style.display = 'none';
-      }
-    }
-  },
-
-  setupDragAndDrop(container) {
-    let draggedElement = null;
-
-    container.addEventListener("dragstart", (e) => {
-      draggedElement = e.target.closest("li");
-      if (draggedElement) {
-        draggedElement.classList.add("dragging");
-        e.dataTransfer.effectAllowed = "move";
-      }
-    });
-
-    container.addEventListener("dragend", () => {
-      if (draggedElement) {
-        draggedElement.classList.remove("dragging");
-        draggedElement = null;
-        this.reorderLayers();
-      }
-    });
-
-    container.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      const afterElement = this.getDragAfterElement(container, e.clientY);
-      if (afterElement == null) {
-        container.appendChild(draggedElement);
-      } else {
-        container.insertBefore(draggedElement, afterElement);
-      }
-    });
-  },
-
-  getDragAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll("li:not(.dragging)")];
-
-    return draggableElements.reduce(
-      (closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-
-        if (offset < 0 && offset > closest.offset) {
-          return { offset, element: child };
-        }
-        return closest;
-      },
-      { offset: Number.NEGATIVE_INFINITY }
-    ).element;
-  },
-
 
   async updateMapLayer(layerName, data) {
     if (!state.map || !state.mapInitialized || !data) return;

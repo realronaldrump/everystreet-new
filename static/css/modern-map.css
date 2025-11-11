@@ -682,43 +682,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   opacity: 1;
 }
 
-/* Layer Order List */
-.layer-order-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.layer-order-list .list-group-item {
-  background: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  cursor: move;
-  padding: var(--space-2) var(--space-3);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--space-2);
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.layer-order-list .list-group-item:last-child {
-  margin-bottom: 0;
-}
-
-.layer-order-list .list-group-item:hover {
-  background: var(--surface-3);
-  border-color: var(--primary);
-  transform: translateX(4px);
-}
-
-.layer-order-list .list-group-item.dragging {
-  opacity: 0.5;
-  cursor: grabbing;
-}
-
 /* Street Mode Buttons */
 .street-mode-buttons {
   display: grid;
