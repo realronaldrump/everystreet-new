@@ -575,7 +575,7 @@ def task_runner(func: Callable) -> Callable:
 
 
 @task_runner
-async def periodic_fetch_trips_async(self) -> dict[str, Any]:
+async def periodic_fetch_trips_async(_self) -> dict[str, Any]:
     """Async logic for fetching periodic trips since the last stored trip."""
     # Get current Bouncie credentials from database or environment
     bouncie_config = await get_bouncie_config()
@@ -742,18 +742,18 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
     name="tasks.periodic_fetch_trips",
     queue="high_priority",
 )
-def periodic_fetch_trips(self, *args, **kwargs):
+def periodic_fetch_trips(_self, *_args, **_kwargs):
     """Celery task wrapper for fetching periodic trips."""
-    return run_async_from_sync(periodic_fetch_trips_async(self))
+    return run_async_from_sync(periodic_fetch_trips_async(_self))
 
 
 @task_runner
 async def manual_fetch_trips_range_async(
-    self,
+    _self,
     start_iso: str,
     end_iso: str,
     map_match: bool = False,
-    manual_run: bool = False,
+    _manual_run: bool = False,
 ) -> dict[str, Any]:
     """Fetch trips for a user-specified date range."""
 
@@ -807,18 +807,18 @@ async def manual_fetch_trips_range_async(
     queue="high_priority",
 )
 def manual_fetch_trips_range(
-    self,
+    _self,
     start_iso: str,
     end_iso: str,
     map_match: bool = False,
-    **kwargs,
+    **_kwargs,
 ):
     """Celery task wrapper for manual date-range trip fetches."""
-    manual_run = kwargs.get("manual_run", True)
+    manual_run = _kwargs.get("manual_run", True)
 
     return run_async_from_sync(
         manual_fetch_trips_range_async(
-            self,
+            _self,
             start_iso,
             end_iso,
             map_match=map_match,
@@ -828,7 +828,7 @@ def manual_fetch_trips_range(
 
 
 @task_runner
-async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
+async def update_coverage_for_new_trips_async(_self) -> dict[str, Any]:
     """Async logic for updating coverage incrementally."""
     processed_areas = 0
     failed_areas = 0
@@ -943,13 +943,13 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
     name="tasks.update_coverage_for_new_trips",
     queue="default",
 )
-def update_coverage_for_new_trips(self, *args, **kwargs):
+def update_coverage_for_new_trips(_self, *_args, **_kwargs):
     """Celery task wrapper for updating coverage incrementally."""
-    return run_async_from_sync(update_coverage_for_new_trips_async(self))
+    return run_async_from_sync(update_coverage_for_new_trips_async(_self))
 
 
 @task_runner
-async def cleanup_stale_trips_async(self) -> dict[str, Any]:
+async def cleanup_stale_trips_async(_self) -> dict[str, Any]:
     """Async logic for cleaning up stale live tracking trips."""
     # Ensure we can access the database
     _ = db_manager.client
@@ -1001,13 +1001,13 @@ async def cleanup_stale_trips_async(self) -> dict[str, Any]:
     name="tasks.cleanup_stale_trips",
     queue="low_priority",
 )
-def cleanup_stale_trips(self, *args, **kwargs):
+def cleanup_stale_trips(_self, *_args, **_kwargs):
     """Celery task wrapper for cleaning up stale live trips."""
-    return run_async_from_sync(cleanup_stale_trips_async(self))
+    return run_async_from_sync(cleanup_stale_trips_async(_self))
 
 
 @task_runner
-async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
+async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
     """Async logic for identifying and marking invalid trip records."""
     processed_count = 0
     modified_count = 0
@@ -1119,13 +1119,13 @@ async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
     name="tasks.cleanup_invalid_trips",
     queue="low_priority",
 )
-def cleanup_invalid_trips(self, *args, **kwargs):
+def cleanup_invalid_trips(_self, *_args, **_kwargs):
     """Celery task wrapper for cleaning up invalid trip data."""
-    return run_async_from_sync(cleanup_invalid_trips_async(self))
+    return run_async_from_sync(cleanup_invalid_trips_async(_self))
 
 
 @task_runner
-async def remap_unmatched_trips_async(self) -> dict[str, Any]:
+async def remap_unmatched_trips_async(_self) -> dict[str, Any]:
     """Async logic for attempting to map-match trips that previously failed."""
     remap_count = 0
     failed_count = 0
@@ -1199,13 +1199,13 @@ async def remap_unmatched_trips_async(self) -> dict[str, Any]:
     name="tasks.remap_unmatched_trips",
     queue="default",
 )
-def remap_unmatched_trips(self, *args, **kwargs):
+def remap_unmatched_trips(_self, *_args, **_kwargs):
     """Celery task wrapper for remapping unmatched trips."""
-    return run_async_from_sync(remap_unmatched_trips_async(self))
+    return run_async_from_sync(remap_unmatched_trips_async(_self))
 
 
 @task_runner
-async def validate_trip_data_async(self) -> dict[str, Any]:
+async def validate_trip_data_async(_self) -> dict[str, Any]:
     """Async logic for validating trip data integrity."""
     processed_count = 0
     failed_count = 0
@@ -1350,9 +1350,9 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
     name="tasks.validate_trip_data",
     queue="low_priority",
 )
-def validate_trip_data(self, *args, **kwargs):
+def validate_trip_data(_self, *_args, **_kwargs):
     """Celery task wrapper for validating trip data."""
-    return run_async_from_sync(validate_trip_data_async(self))
+    return run_async_from_sync(validate_trip_data_async(_self))
 
 
 async def run_task_scheduler_async() -> None:
@@ -1561,7 +1561,7 @@ async def run_task_scheduler_async() -> None:
     time_limit=300,
     soft_time_limit=280,
 )
-def run_task_scheduler(self, *args, **kwargs):
+def run_task_scheduler(_self, *_args, **_kwargs):
     """Celery task wrapper for the main task scheduler."""
     run_async_from_sync(run_task_scheduler_async())
 
