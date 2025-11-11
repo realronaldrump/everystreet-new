@@ -84,8 +84,9 @@ async def create_geojson(
                 and len(gps_data["coordinates"]) == 2
             ):
                 logger.warning(
-                    f"Trip {trip.get('transactionId', '?')} has invalid coordinates structure. Skipping. Coords: {gps_data['coordinates']}",
+                    "Trip %s has invalid coordinates structure. Skipping. Coords: %s",
                     trip.get("transactionId", "?"),
+                    gps_data["coordinates"],
                 )
                 continue
             if gps_data["type"] == "LineString" and not (
@@ -93,8 +94,9 @@ async def create_geojson(
                 and len(gps_data["coordinates"]) >= 2
             ):  # LineString needs at least 2 points
                 logger.warning(
-                    f"Trip {trip.get('transactionId', '?')} has invalid coordinates structure or not enough points. Skipping. Coords: {gps_data['coordinates']}",
+                    "Trip %s has invalid coordinates structure or not enough points. Skipping. Coords: %s",
                     trip.get("transactionId", "?"),
+                    gps_data["coordinates"],
                 )
                 continue
             # Allow other types if they are valid GeoJSON geometries, Feature creation will handle them.
@@ -185,16 +187,18 @@ async def create_gpx(
                     and all(isinstance(c, float | int) for c in coords)
                 ):
                     logger.warning(
-                        f"Trip {trip.get('transactionId', '?')} GPX export - Invalid Point coordinate structure: {coords}. Skipping.",
+                        "Trip %s GPX export - Invalid Point coordinate structure: %s. Skipping.",
                         trip.get("transactionId", "?"),
+                        coords,
                     )
                     continue
             elif gps_data["type"] == "LineString":
                 coords_list = gps_data.get("coordinates", [])
                 if not (isinstance(coords_list, list) and len(coords_list) >= 2):
                     logger.warning(
-                        f"Trip {trip.get('transactionId', '?')} GPX export - LineString has too few points: {len(coords_list) if isinstance(coords_list, list) else 'N/A'}. Skipping.",
+                        "Trip %s GPX export - LineString has too few points: %s. Skipping.",
                         trip.get("transactionId", "?"),
+                        len(coords_list) if isinstance(coords_list, list) else "N/A",
                     )
                     continue
                 for coord_pair in coords_list:
@@ -204,14 +208,16 @@ async def create_gpx(
                         and all(isinstance(c, float | int) for c in coord_pair)
                     ):
                         logger.warning(
-                            f"Trip {trip.get('transactionId', '?')} GPX export - Invalid coordinate pair in LineString: {coord_pair}. Skipping trip.",
+                            "Trip %s GPX export - Invalid coordinate pair in LineString: %s. Skipping trip.",
                             trip.get("transactionId", "?"),
+                            coord_pair,
                         )
                         continue  # Skip this trip
             else:
                 logger.warning(
-                    f"Trip {trip.get('transactionId', '?')} GPX export - Unsupported GPS type: {gps_data.get('type')}. Skipping.",
+                    "Trip %s GPX export - Unsupported GPS type: %s. Skipping.",
                     trip.get("transactionId", "?"),
+                    gps_data.get("type"),
                 )
                 continue
 
