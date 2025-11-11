@@ -60,10 +60,10 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
     elif event_type == "tripEnd":
         await process_trip_end(data, live_collection, archive_collection)
     elif event_type in {"connect", "disconnect", "battery", "mil"}:
-        logger.info(f"Received non-trip event: {event_type}")
+        logger.info("Received non-trip event: %s", event_type)
         return {"status": "ignored", "event": event_type}
     else:
-        logger.warning(f"Unknown event type: {event_type}")
+        logger.warning("Unknown event type: %s", event_type)
         return {"status": "unknown", "event": event_type}
 
     return {"status": "processed", "event": event_type, "transactionId": transaction_id}
@@ -159,7 +159,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 )
 
             except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse Redis message: {e}")
+                logger.warning("Failed to parse Redis message: %s", e)
             except WebSocketDisconnect:
                 logger.info("WebSocket disconnected during send")
                 break
@@ -172,7 +172,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")
     except Exception as e:
-        logger.error(f"WebSocket error: {e}", exc_info=True)
+        logger.error("WebSocket error: %s", e, exc_info=True)
     finally:
         manager.disconnect(websocket)
         if pubsub:
@@ -208,7 +208,7 @@ async def bouncie_webhook(request: Request):
                 status_code=400,
             )
 
-        logger.info(f"Webhook received: {event_type} (Trip: {transaction_id})")
+        logger.info("Webhook received: %s (Trip: %s)", event_type, transaction_id)
 
         result = await _process_bouncie_event(data)
         return JSONResponse(content={"status": "ok", "detail": result}, status_code=200)
@@ -221,7 +221,7 @@ async def bouncie_webhook(request: Request):
         )
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.exception(f"Webhook error [{error_id}]: {e}")
+        logger.exception("Webhook error [%s]: %s", error_id, e)
         return JSONResponse(
             content={
                 "status": "error",
@@ -252,7 +252,7 @@ async def active_trip_endpoint():
 
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.exception(f"Error fetching active trip [{error_id}]: {e}")
+        logger.exception("Error fetching active trip [%s]: %s", error_id, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -285,7 +285,7 @@ async def trip_updates_endpoint():
 
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.exception(f"Error in trip_updates [{error_id}]: {e}")
+        logger.exception("Error in trip_updates [%s]: %s", error_id, e)
 
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

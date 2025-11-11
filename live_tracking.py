@@ -42,7 +42,7 @@ async def _publish_trip_snapshot(
         serialized_trip = serialize_document(trip_doc)
         await publish_trip_state(transaction_id, serialized_trip, status=status)
     except Exception as e:
-        logger.error(f"Failed to publish trip {transaction_id}: {e}")
+        logger.error("Failed to publish trip %s: %s", transaction_id, e)
 
 
 def _parse_timestamp(timestamp_str: str | None) -> datetime | None:
@@ -203,13 +203,13 @@ async def process_trip_start(data: dict[str, Any], live_collection: Collection) 
     start_data = data.get("start", {})
 
     if not transaction_id or not start_data:
-        logger.error(f"Invalid tripStart payload: {data}")
+        logger.error("Invalid tripStart payload: %s", data)
         return
 
     start_time = _parse_timestamp(start_data.get("timestamp"))
     if not start_time:
         start_time = datetime.now(timezone.utc)
-        logger.warning(f"Trip {transaction_id}: Using current time as fallback")
+        logger.warning("Trip %s: Using current time as fallback", transaction_id)
 
     trip = {
         "transactionId": transaction_id,
@@ -236,7 +236,7 @@ async def process_trip_start(data: dict[str, Any], live_collection: Collection) 
         {"transactionId": transaction_id}, trip, upsert=True
     )
 
-    logger.info(f"Trip {transaction_id} started")
+    logger.info("Trip %s started", transaction_id)
     await _publish_trip_snapshot(trip, status="active")
 
 
@@ -246,7 +246,7 @@ async def process_trip_data(data: dict[str, Any], live_collection: Collection) -
     data_points = data.get("data", [])
 
     if not transaction_id or not data_points:
-        logger.warning(f"Invalid tripData payload: {data}")
+        logger.warning("Invalid tripData payload: %s", data)
         return
 
     # Fetch existing trip
@@ -255,13 +255,13 @@ async def process_trip_data(data: dict[str, Any], live_collection: Collection) -
     )
 
     if not trip:
-        logger.warning(f"Trip {transaction_id} not found for tripData")
+        logger.warning("Trip %s not found for tripData", transaction_id)
         return
 
     # Extract new coordinates
     new_coords = _extract_coordinates_from_data(data_points)
     if not new_coords:
-        logger.debug(f"Trip {transaction_id}: No valid coordinates in tripData")
+        logger.debug("Trip %s: No valid coordinates in tripData", transaction_id)
         return
 
     # Merge with existing, deduplicate
@@ -304,7 +304,7 @@ async def process_trip_metrics(
     metrics_data = data.get("metrics", {})
 
     if not transaction_id or not metrics_data:
-        logger.warning(f"Invalid tripMetrics payload: {data}")
+        logger.warning("Invalid tripMetrics payload: %s", data)
         return
 
     # Check if trip exists
@@ -351,7 +351,7 @@ async def process_trip_metrics(
     )
 
     if updated_trip:
-        logger.info(f"Trip {transaction_id} metrics updated")
+        logger.info("Trip %s metrics updated", transaction_id)
         await _publish_trip_snapshot(updated_trip, status="active")
 
 
@@ -365,13 +365,13 @@ async def process_trip_end(
     end_data = data.get("end", {})
 
     if not transaction_id or not end_data:
-        logger.error(f"Invalid tripEnd payload: {data}")
+        logger.error("Invalid tripEnd payload: %s", data)
         return
 
     end_time = _parse_timestamp(end_data.get("timestamp"))
     if not end_time:
         end_time = datetime.now(timezone.utc)
-        logger.warning(f"Trip {transaction_id}: Using current time for end")
+        logger.warning("Trip %s: Using current time for end", transaction_id)
 
     # Fetch active trip
     trip = await live_collection.find_one(
@@ -379,7 +379,7 @@ async def process_trip_end(
     )
 
     if not trip:
-        logger.warning(f"Trip {transaction_id} not found for tripEnd")
+        logger.warning("Trip %s not found for tripEnd", transaction_id)
         return
 
     # Calculate final duration
@@ -437,7 +437,7 @@ async def get_active_trip() -> dict[str, Any] | None:
         )
         return trip
     except Exception as e:
-        logger.error(f"Error fetching active trip: {e}")
+        logger.error("Error fetching active trip: %s", e)
         return None
 
 
@@ -474,7 +474,7 @@ async def cleanup_old_trips(live_collection: Collection, max_age_days: int = 30)
 
     count = result.deleted_count
     if count > 0:
-        logger.info(f"Cleaned up {count} old completed trips")
+        logger.info("Cleaned up %d old completed trips", count)
 
     return count
 
@@ -497,7 +497,7 @@ async def cleanup_stale_trips_logic(
     stale_count = 0
     for trip in stale_trips:
         transaction_id = trip.get("transactionId")
-        logger.warning(f"Marking stale trip as completed: {transaction_id}")
+        logger.warning("Marking stale trip as completed: %s", transaction_id)
 
         # Convert to GeoJSON
         coordinates = trip.get("coordinates", [])
@@ -519,7 +519,9 @@ async def cleanup_stale_trips_logic(
     # Cleanup old completed trips
     old_removed = await cleanup_old_trips(live_collection, max_archive_age_days)
 
-    logger.info(f"Cleanup: {stale_count} stale trips, {old_removed} old trips removed")
+    logger.info(
+        "Cleanup: %d stale trips, %d old trips removed", stale_count, old_removed
+    )
     return {
         "stale_trips_archived": stale_count,
         "old_archives_removed": old_removed,

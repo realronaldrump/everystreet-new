@@ -1431,9 +1431,9 @@ async def run_transaction(
             )
         else:
             # Some other error - log it but try to proceed
-            logger.warning(f"Error checking transaction support: {e}")
+            logger.warning("Error checking transaction support: %s", e)
     except Exception as e:
-        logger.warning(f"Unexpected error checking transaction support: {e}")
+        logger.warning("Unexpected error checking transaction support: %s", e)
 
     if not transactions_supported:
         # Fallback: execute operations sequentially without transactions
