@@ -311,7 +311,10 @@ async def bulk_delete_trips(request: Request):
             "status": "success",
             "deleted_trips": result.deleted_count,
             "deleted_matched_trips": matched_result.deleted_count,
-            "message": f"Deleted {result.deleted_count} trips and {matched_result.deleted_count} matched trips",
+            "message": (
+                f"Deleted {result.deleted_count} trips and "
+                f"{matched_result.deleted_count} matched trips"
+            ),
         }
     except Exception as e:
         logger.exception("Error in bulk_delete_trips: %s", str(e))
@@ -441,10 +444,13 @@ async def update_trip(trip_id: str, update_data: TripUpdateRequest):
 
 @router.post("/api/geocode_trips", tags=["Trips API"])
 async def geocode_trips(data: DateRangeModel | None = None):
-    """Unified endpoint to re-geocode trips within a date range with progress tracking.
+    """Unified endpoint to re-geocode trips within a date range with progress
+    tracking.
 
-    This replaces the old "GeoPoint Update", "Re-geocode All Trips", and "Update Geocoding" functionality.
-    Only geocodes trips that don't already have addresses, and checks against custom places efficiently.
+    This replaces the old "GeoPoint Update", "Re-geocode All Trips", and
+    "Update Geocoding" functionality.
+    Only geocodes trips that don't already have addresses, and checks
+    against custom places efficiently.
     """
     task_id = str(uuid.uuid4())
 

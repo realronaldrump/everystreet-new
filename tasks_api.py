@@ -560,7 +560,8 @@ async def reset_task_states():
             )
             if not config_update_result or config_update_result.modified_count == 0:
                 logger.warning(
-                    "Attempted to reset task states in config, but no document was modified.",
+                    "Attempted to reset task states in config, but no document "
+                    "was modified.",
                 )
 
         return {

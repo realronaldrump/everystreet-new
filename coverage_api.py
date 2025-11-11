@@ -64,7 +64,8 @@ async def _recalculate_coverage_stats(
             "display_name",
         ):
             logger.error(
-                "Cannot recalculate stats: Coverage area %s or its display_name not found.",
+                "Cannot recalculate stats: Coverage area %s or its "
+                "display_name not found.",
                 location_id,
             )
             return None
@@ -218,7 +219,8 @@ async def _recalculate_coverage_stats(
 
         if update_result.modified_count == 0:
             logger.warning(
-                "Stats recalculated for %s, but metadata document was not modified (maybe no change or error?).",
+                "Stats recalculated for %s, but metadata document was not "
+                "modified (maybe no change or error?).",
                 location_id,
             )
         else:
@@ -263,8 +265,9 @@ async def _recalculate_coverage_stats(
 
             return updated_coverage_area
 
-        # If find_one_with_retry returns None after update (should not happen if update succeeded)
-        # or if we want to return the calculated stats directly if the re-fetch fails for some reason.
+        # If find_one_with_retry returns None after update (should not happen
+        # if update succeeded) or if we want to return the calculated stats
+        # directly if the re-fetch fails for some reason.
         # Construct a basic response with the calculated stats.
         base_response = {
             **stats,
@@ -442,7 +445,8 @@ async def preprocess_streets_route(
         )
         try:
             if display_name:
-                await coverage_metadata_collection.update_one(  # Direct call, consider retry wrapper if needed
+                await coverage_metadata_collection.update_one(
+                    # Direct call, consider retry wrapper if needed
                     {"location.display_name": display_name},
                     {
                         "$set": {
@@ -552,7 +556,8 @@ async def delete_coverage_area(
                     gridfs_err,
                 )
 
-            # Additionally, delete ANY GridFS files that were tagged with this location name
+            # Additionally, delete ANY GridFS files that were tagged with
+            # this location name
             try:
                 cursor = db_manager.db["fs.files"].find(
                     {"metadata.location": display_name}, {"_id": 1}
@@ -695,7 +700,8 @@ async def get_coverage_area_details(location_id: str):
     location_info = coverage_doc.get("location")
     if not isinstance(location_info, dict) or not location_info.get("display_name"):
         logger.error(
-            "Coverage area %s (ID: %s) has malformed or missing 'location' data. Location data: %s. Full document: %s",
+            "Coverage area %s (ID: %s) has malformed or missing 'location' "
+            "data. Location data: %s. Full document: %s",
             location_id,
             obj_location_id,
             location_info,
@@ -703,8 +709,11 @@ async def get_coverage_area_details(location_id: str):
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Coverage area with ID '{location_id}' was found but contains incomplete or "
-            f"malformed internal location information. Please check data integrity.",
+            detail=(
+                f"Coverage area with ID '{location_id}' was found but "
+                "contains incomplete or malformed internal location "
+                "information. Please check data integrity."
+            ),
         )
 
     last_updated_iso = None
@@ -748,7 +757,9 @@ async def get_coverage_area_details(location_id: str):
     }
     overall_end_time = time.perf_counter()
     logger.info(
-        f"[{location_id}] Total processing time for get_coverage_area_details: {overall_end_time - overall_start_time:.4f}s."
+        f"[{location_id}] Total processing time for "
+        f"get_coverage_area_details: "
+        f"{overall_end_time - overall_start_time:.4f}s."
     )
     return JSONResponse(content=result)
 
@@ -787,7 +798,8 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
         not gridfs_id
     ):  # No GridFS ID, fallback to direct streets and schedule regeneration
         logger.warning(
-            f"[{location_id}] No streets_geojson_gridfs_id found for {location_name}, falling back."
+            f"[{location_id}] No streets_geojson_gridfs_id found for "
+        f"{location_name}, falling back."
         )
         # Trigger background regeneration of GridFS geojson
         asyncio.create_task(_regenerate_streets_geojson(obj_location_id))
@@ -812,7 +824,8 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
 
         if not grid_out_file_metadata:
             logger.warning(
-                f"[{location_id}] GridFS ID {gridfs_id} exists in metadata but file not found in GridFS, falling back."
+                f"[{location_id}] GridFS ID {gridfs_id} exists in metadata "
+                "but file not found in GridFS, falling back."
             )
             # Trigger background regeneration of GridFS geojson
             asyncio.create_task(_regenerate_streets_geojson(obj_location_id))
@@ -832,75 +845,94 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
             grid_out_stream = None  # Initialize to None
             try:
                 logger.debug(
-                    f"[{location_id}] Attempting to open download stream for {gridfs_id}."
+                    f"[{location_id}] Attempting to open download stream "
+                    f"for {gridfs_id}."
                 )
                 grid_out_stream = await fs.open_download_stream(gridfs_id)
                 logger.info(
-                    f"[{location_id}] Successfully opened download stream for {gridfs_id}. Type: {type(grid_out_stream)}"
+                    f"[{location_id}] Successfully opened download stream "
+                    f"for {gridfs_id}. Type: {type(grid_out_stream)}"
                 )
 
                 if grid_out_stream is None:
-                    # This case should ideally be covered by NoFile or other exceptions from Motor
+                    # This case should ideally be covered by NoFile or other
+                    # exceptions from Motor
                     logger.error(
-                        f"[{location_id}] fs.open_download_stream unexpectedly returned None for {gridfs_id}."
+                        f"[{location_id}] fs.open_download_stream unexpectedly "
+                        f"returned None for {gridfs_id}."
                     )
                     return  # Ends the generator, resulting in an empty response body
 
                 chunk_size = 8192
                 while True:
                     logger.debug(
-                        f"[{location_id}] Attempting to read chunk from stream for {gridfs_id}."
+                        f"[{location_id}] Attempting to read chunk from stream "
+                        f"for {gridfs_id}."
                     )
                     chunk = await grid_out_stream.read(chunk_size)
                     logger.debug(
-                        f"[{location_id}] Read {len(chunk)} bytes for {gridfs_id}."
+                        f"[{location_id}] Read {len(chunk)} bytes for "
+                        f"{gridfs_id}."
                     )
                     if not chunk:  # End of file
                         logger.info(
-                            f"[{location_id}] EOF reached for stream {gridfs_id}."
+                            f"[{location_id}] EOF reached for stream "
+                            f"{gridfs_id}."
                         )
                         break
                     yield chunk
 
                 logger.info(
-                    f"[{location_id}] Finished reading and yielding all chunks for {gridfs_id}."
+                    f"[{location_id}] Finished reading and yielding all "
+                    f"chunks for {gridfs_id}."
                 )
 
             except errors.NoFile:
                 logger.warning(
-                    f"[{location_id}] NoFile error during GridFS streaming for {gridfs_id}.",
+                    f"[{location_id}] NoFile error during GridFS streaming "
+                    f"for {gridfs_id}.",
                     exc_info=True,
                 )
-                # This exception will propagate to the outer try/except in the route handler
+                # This exception will propagate to the outer try/except in the
+                # route handler
                 raise
             except Exception as e_stream:
                 logger.error(
-                    f"[{location_id}] Exception during GridFS stream processing for {gridfs_id}: {e_stream}",
+                    f"[{location_id}] Exception during GridFS stream "
+                    f"processing for {gridfs_id}: {e_stream}",
                     exc_info=True,
                 )
-                # This exception will propagate to the outer try/except in the route handler
+                # This exception will propagate to the outer try/except in the
+                # route handler
                 raise
             finally:
                 if grid_out_stream is not None:
                     logger.info(
-                        f"[{location_id}] In finally block: Attempting to close stream for {gridfs_id}. Stream object: {grid_out_stream}, Type: {type(grid_out_stream)}"
+                        f"[{location_id}] In finally block: Attempting to close "
+                        f"stream for {gridfs_id}. Stream object: "
+                        f"{grid_out_stream}, Type: {type(grid_out_stream)}"
                     )
                     try:
                         await (
                             grid_out_stream.close()
                         )  # This is where the original error occurred (line 826)
                         logger.info(
-                            f"[{location_id}] Successfully closed GridFS stream {gridfs_id} for {location_name}."
+                            f"[{location_id}] Successfully closed GridFS stream "
+                            f"{gridfs_id} for {location_name}."
                         )
                     except Exception as e_close:
                         logger.error(
-                            f"[{location_id}] Error closing GridFS stream {gridfs_id}: {e_close}",
+                            f"[{location_id}] Error closing GridFS stream "
+                            f"{gridfs_id}: {e_close}",
                             exc_info=True,
                         )
-                        # Depending on policy, you might want to raise this or just log it
+                        # Depending on policy, you might want to raise this
+                        # or just log it
                 else:
                     logger.warning(
-                        f"[{location_id}] In finally block: grid_out_stream was None for {gridfs_id}, cannot close. This indicates an issue with stream opening or an earlier error."
+                        f"[{location_id}] In finally block: grid_out_stream was "
+                        f"None for {gridfs_id}, cannot close. This indicates an "
+                        "issue with stream opening or an earlier error."
                     )
 
         return StreamingResponse(stream_geojson_data(), media_type="application/json")
@@ -917,7 +949,8 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
         return JSONResponse(content=streets_data, media_type="application/json")
     except Exception as e:  # Catch other potential errors
         logger.error(
-            f"[{location_id}] General error streaming GridFS file {gridfs_id} for {location_name}: {e}",
+            f"[{location_id}] General error streaming GridFS file {gridfs_id} "
+            f"for {location_name}: {e}",
             exc_info=True,
         )
         raise HTTPException(
@@ -1213,14 +1246,17 @@ async def _mark_segment(
 
     if segment_location_name != expected_location_name:
         logger.warning(
-            "Segment %s (in location '%s') does not appear to belong to the target location '%s' (ID: %s). "
-            "This might indicate a mismatch or data issue. Proceeding with update based on segment_id.",
+            "Segment %s (in location '%s') does not appear to belong to the "
+            "target location '%s' (ID: %s). "
+            "This might indicate a mismatch or data issue. Proceeding with "
+            "update based on segment_id.",
             segment_id,
             segment_location_name,
             expected_location_name,
             location_id_str,
         )
-        # The original code proceeded with a warning. If strict matching is required, raise HTTPException here.
+        # The original code proceeded with a warning. If strict matching is
+        # required, raise HTTPException here.
 
     update_payload = {f"properties.{key}": value for key, value in updates.items()}
     update_payload["properties.manual_override"] = True
@@ -1238,13 +1274,15 @@ async def _mark_segment(
         result.modified_count == 0 and result.matched_count > 0
     ):  # Matched but not modified
         logger.info(
-            "Segment %s already had the desired state for action '%s'. No DB change made.",
+            "Segment %s already had the desired state for action '%s'. "
+            "No DB change made.",
             segment_id,
             action_name,
         )
     elif result.matched_count == 0:
         logger.warning(
-            "Segment %s with _id %s not found during update for action '%s'. This is unexpected.",
+            "Segment %s with _id %s not found during update for action '%s'. "
+            "This is unexpected.",
             segment_id,
             segment_doc["_id"],
             action_name,
@@ -1289,7 +1327,8 @@ async def mark_street_segment_as_driven(
         segment_id = data.get("segment_id")
         updates = {
             "driven": True,
-            "undriveable": False,  # Explicitly set undriveable to false if marking as driven
+            "undriveable": False,
+            # Explicitly set undriveable to false if marking as driven
             "manually_marked_driven": True,
             "manually_marked_undriven": False,
             "manually_marked_undriveable": False,
@@ -1514,7 +1553,8 @@ async def _regenerate_streets_geojson(location_id: ObjectId):
 
 
 def _bbox_from_geometry(geom: dict) -> list[float]:
-    """Return bounding box [min_lat, max_lat, min_lon, max_lon] from GeoJSON geometry."""
+    """Return bounding box [min_lat, max_lat, min_lon, max_lon] from GeoJSON
+    geometry."""
     try:
         geom_shape = shape(geom)
         minx, miny, maxx, maxy = (
