@@ -55,10 +55,7 @@ class CoverageProgress {
    */
   _removeBeforeUnloadListener() {
     if (this.isBeforeUnloadListenerActive) {
-      window.removeEventListener(
-        "beforeunload",
-        this.boundSaveProcessingState,
-      );
+      window.removeEventListener("beforeunload", this.boundSaveProcessingState);
       this.isBeforeUnloadListenerActive = false;
     }
   }
@@ -78,18 +75,12 @@ class CoverageProgress {
       const saveData = {
         location: this.currentProcessingLocation,
         taskId: this.currentTaskId,
-        stage:
-          progressMessageEl?.dataset.stage || STATUS.UNKNOWN,
-        progress: parseInt(
-          progressBar?.getAttribute("aria-valuenow") || "0",
-        ),
+        stage: progressMessageEl?.dataset.stage || STATUS.UNKNOWN,
+        progress: parseInt(progressBar?.getAttribute("aria-valuenow") || "0"),
         timestamp: new Date().toISOString(),
       };
 
-      localStorage.setItem(
-        "coverageProcessingState",
-        JSON.stringify(saveData),
-      );
+      localStorage.setItem("coverageProcessingState", JSON.stringify(saveData));
     } else {
       localStorage.removeItem("coverageProcessingState");
     }
@@ -145,10 +136,7 @@ class CoverageProgress {
         this.lastActivityTime = new Date();
         this.saveProcessingState();
 
-        if (
-          data.stage === STATUS.COMPLETE ||
-          data.stage === STATUS.COMPLETED
-        ) {
+        if (data.stage === STATUS.COMPLETE || data.stage === STATUS.COMPLETED) {
           this.updateModalContent({ ...data, progress: 100 });
           this.updateStepIndicators(STATUS.COMPLETE, 100);
           this.activeTaskIds.delete(taskId);
@@ -220,7 +208,8 @@ class CoverageProgress {
 
     this.notificationManager.show(
       `Polling timed out after ${Math.round(
-        (maxRetries * this.calculatePollInterval(STATUS.UNKNOWN, maxRetries - 1)) /
+        (maxRetries *
+          this.calculatePollInterval(STATUS.UNKNOWN, maxRetries - 1)) /
           60000,
       )} minutes.`,
       "danger",
@@ -675,9 +664,7 @@ class CoverageProgress {
     const modalElement = document.getElementById("taskProgressModal");
     if (!modalElement) return;
 
-    const activityIndicator = modalElement.querySelector(
-      ".activity-indicator",
-    );
+    const activityIndicator = modalElement.querySelector(".activity-indicator");
     const lastUpdateEl = modalElement.querySelector(".last-update-time");
 
     if (!activityIndicator || !lastUpdateEl) return;
@@ -1064,4 +1051,3 @@ class CoverageProgress {
 }
 
 export { CoverageProgress, STATUS };
-

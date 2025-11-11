@@ -134,7 +134,9 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       if (response.status === 422 && error.detail) {
         const errorMsg = Array.isArray(error.detail)
-          ? error.detail.map((err) => `${err.loc?.join(".")}: ${err.msg}`).join("; ")
+          ? error.detail
+              .map((err) => `${err.loc?.join(".")}: ${err.msg}`)
+              .join("; ")
           : error.detail;
         throw new Error(`Validation error: ${errorMsg}`);
       }
@@ -280,4 +282,3 @@ const COVERAGE_API = {
 };
 
 export default COVERAGE_API;
-

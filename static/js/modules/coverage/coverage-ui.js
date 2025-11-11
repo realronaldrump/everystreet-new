@@ -20,7 +20,12 @@ class CoverageUI {
   /**
    * Update coverage table
    */
-  updateCoverageTable(areas, formatRelativeTime, formatStageName, distanceInUserUnits) {
+  updateCoverageTable(
+    areas,
+    formatRelativeTime,
+    formatStageName,
+    distanceInUserUnits,
+  ) {
     const tableBody = document.querySelector("#coverage-areas-table tbody");
     if (!tableBody) return;
 
@@ -89,8 +94,7 @@ class CoverageUI {
         : 0;
       const totalLengthMiles = distanceInUserUnits(area.total_length);
       const drivenLengthMiles = distanceInUserUnits(area.driven_length);
-      const coveragePercentage =
-        area.coverage_percentage?.toFixed(1) || "0.0";
+      const coveragePercentage = area.coverage_percentage?.toFixed(1) || "0.0";
 
       let progressBarColor = "bg-success";
       if (hasError || isCanceled) progressBarColor = "bg-secondary";
@@ -207,10 +211,7 @@ class CoverageUI {
 
     table.removeClass("dataTable no-footer");
 
-    const headerColumns = table
-      .find("thead tr")
-      .first()
-      .children("th").length;
+    const headerColumns = table.find("thead tr").first().children("th").length;
     const bodyRows = Array.from(table.find("tbody tr"));
     const hasPlaceholderRows = bodyRows.some((row) => {
       const cells = Array.from(row.children);
@@ -285,15 +286,9 @@ class CoverageUI {
         : "Never";
 
     let barColor = "bg-success";
-    if (
-      coverage.status === "error" ||
-      coverage.status === "canceled"
-    )
+    if (coverage.status === "error" || coverage.status === "canceled")
       barColor = "bg-danger";
-    else if (
-      coverage.status !== "completed" &&
-      coverage.status !== "complete"
-    )
+    else if (coverage.status !== "completed" && coverage.status !== "complete")
       barColor = "bg-warning";
 
     const html = `
@@ -312,10 +307,7 @@ class CoverageUI {
           "Coverage",
           "text-primary",
         )}
-        ${this.createStatItem(
-          totalSegments.toLocaleString(),
-          "Total Segments",
-        )}
+        ${this.createStatItem(totalSegments.toLocaleString(), "Total Segments")}
         ${this.createStatItem(
           coveredSegments.toLocaleString(),
           "Driven Segments",
@@ -384,9 +376,7 @@ class CoverageUI {
 
     let html = "";
     topTypes.forEach((type) => {
-      const coveragePct = parseFloat(type.coverage_percentage || 0).toFixed(
-        1,
-      );
+      const coveragePct = parseFloat(type.coverage_percentage || 0).toFixed(1);
       const coveredDist = distanceInUserUnits(
         parseFloat(type.covered_length_m || 0),
       );
@@ -678,12 +668,13 @@ class CoverageUI {
    * Create alert message
    */
   createAlertMessage(title, message, type = "info") {
-    const iconClass = {
-      danger: "fa-exclamation-circle",
-      warning: "fa-exclamation-triangle",
-      info: "fa-info-circle",
-      secondary: "fa-question-circle",
-    }[type] || "fa-info-circle";
+    const iconClass =
+      {
+        danger: "fa-exclamation-circle",
+        warning: "fa-exclamation-triangle",
+        info: "fa-info-circle",
+        secondary: "fa-question-circle",
+      }[type] || "fa-info-circle";
 
     return `
       <div class="alert alert-${type} m-3 fade-in-up">
@@ -716,4 +707,3 @@ class CoverageUI {
 }
 
 export default CoverageUI;
-
