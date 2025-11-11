@@ -46,7 +46,6 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
     transaction_id = data.get("transactionId")
 
     live_collection = db_manager.get_collection("live_trips")
-    archive_collection = db_manager.get_collection("archived_live_trips")
 
     if not live_collection:
         raise RuntimeError("Live trips collection not available")
@@ -57,9 +56,9 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
     elif event_type == "tripData":
         await process_trip_data(data, live_collection)
     elif event_type == "tripMetrics":
-        await process_trip_metrics(data, live_collection, archive_collection)
+        await process_trip_metrics(data, live_collection)
     elif event_type == "tripEnd":
-        await process_trip_end(data, live_collection, archive_collection)
+        await process_trip_end(data, live_collection)
     elif event_type in {"connect", "disconnect", "battery", "mil"}:
         logger.info("Received non-trip event: %s", event_type)
         return {"status": "ignored", "event": event_type}

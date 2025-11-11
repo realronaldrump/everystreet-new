@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 live_trips_collection_global: Collection | None = None
 
 
-def initialize_db(db_live_trips, _db_archived_live_trips=None):
+def initialize_db(db_live_trips):
     """Initialize the database collection used by this module."""
     global live_trips_collection_global
     live_trips_collection_global = db_live_trips
@@ -296,7 +296,6 @@ async def process_trip_data(data: dict[str, Any], live_collection: Collection) -
 async def process_trip_metrics(
     data: dict[str, Any],
     live_collection: Collection,
-    _archive_collection: Collection,
 ) -> None:
     """Process tripMetrics event - update summary metrics from Bouncie."""
     transaction_id = data.get("transactionId")
@@ -358,7 +357,6 @@ async def process_trip_metrics(
 async def process_trip_end(
     data: dict[str, Any],
     live_collection: Collection,
-    _archive_collection: Collection,
 ) -> None:
     """Process tripEnd event - mark trip as completed."""
     transaction_id = data.get("transactionId")
@@ -482,7 +480,6 @@ async def cleanup_old_trips(live_collection: Collection, max_age_days: int = 30)
 
 async def cleanup_stale_trips_logic(
     live_collection: Collection,
-    _archive_collection: Collection,
     stale_minutes: int = 15,
     max_archive_age_days: int = 30,
 ) -> dict[str, int]:

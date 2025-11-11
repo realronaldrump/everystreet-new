@@ -957,23 +957,20 @@ async def cleanup_stale_trips_async(_self) -> dict[str, Any]:
     logger.debug("Database client accessed for cleanup task.")
 
     live_collection = db_manager.get_collection("live_trips")
-    archive_collection = db_manager.get_collection("archived_live_trips")
 
-    if live_collection is None or archive_collection is None:
+    if live_collection is None:
         logger.critical(
-            "DB collections ('live_trips' or 'archived_live_trips') "
-            "could not be obtained in cleanup task!",
+            "DB collection 'live_trips' could not be obtained in cleanup task!",
         )
         raise ConnectionFailure(
-            "Could not get required collections for cleanup task.",
+            "Could not get required collection for cleanup task.",
         )
     logger.debug(
-        "Successfully obtained live_trips and archived_live_trips collections.",
+        "Successfully obtained live_trips collection.",
     )
 
     cleanup_result = await cleanup_stale_trips_logic(
         live_collection=live_collection,
-        archive_collection=archive_collection,
     )
 
     stale_archived_count = cleanup_result.get("stale_trips_archived", 0)
@@ -2093,7 +2090,6 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
     )
 
     live_collection = None
-    archive_collection = None
 
     try:
         logger.debug(
@@ -2117,15 +2113,14 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
                 )
 
         live_collection = db_manager.get_collection("live_trips")
-        archive_collection = db_manager.get_collection("archived_live_trips")
 
-        if live_collection is None or archive_collection is None:
+        if live_collection is None:
             logger.critical(
-                "Task %s: Failed to obtain required DB collections "
-                "('live_trips' or 'archived_live_trips') via db_manager.",
+                "Task %s: Failed to obtain required DB collection "
+                "('live_trips') via db_manager.",
                 celery_task_id,
             )
-            raise ConnectionFailure("Failed to obtain DB collections via db_manager.")
+            raise ConnectionFailure("Failed to obtain DB collection via db_manager.")
 
         logger.debug("Task %s: Successfully obtained DB collections.", celery_task_id)
 
@@ -2157,13 +2152,9 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
         elif event_type == "tripData":
             run_async_from_sync(process_trip_data(data, live_collection))
         elif event_type == "tripMetrics":
-            run_async_from_sync(
-                process_trip_metrics(data, live_collection, archive_collection)
-            )
+            run_async_from_sync(process_trip_metrics(data, live_collection))
         elif event_type == "tripEnd":
-            run_async_from_sync(
-                process_trip_end(data, live_collection, archive_collection)
-            )
+            run_async_from_sync(process_trip_end(data, live_collection))
         elif event_type in ("connect", "disconnect", "battery", "mil"):
             logger.info(
                 "Task %s: Received non-trip event type: %s. Ignoring. Payload: %s",

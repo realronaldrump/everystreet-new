@@ -212,12 +212,11 @@ def init_worker(**_kwargs):
             "Initializing live_tracking global collections for worker...",
         )
         live_collection = db_manager.get_collection("live_trips")
-        archive_collection = db_manager.get_collection("archived_live_trips")
-        if live_collection is None or archive_collection is None:
+        if live_collection is None:
             raise ConnectionFailure(
-                "Failed to get live/archive collections from db_manager even though connection seems healthy.",
+                "Failed to get live collection from db_manager even though connection seems healthy.",
             )
-        initialize_live_tracking_db(live_collection, archive_collection)
+        initialize_live_tracking_db(live_collection)
         logger.info("live_tracking global collections initialized for worker.")
 
         logger.info("Worker process initialization complete.")

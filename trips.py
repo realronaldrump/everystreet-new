@@ -676,17 +676,6 @@ async def get_geocode_progress(task_id: str):
         )
 
 
-@router.post("/api/regeocode_all_trips", tags=["Trips API"])
-async def regeocode_all_trips():
-    """DEPRECATED: Use /api/geocode_trips instead. Re-run geocoding for all trips."""
-    # Redirect to new endpoint for backward compatibility
-    from models import DateRangeModel
-
-    return await geocode_trips(
-        DateRangeModel(start_date="", end_date="", interval_days=0)
-    )
-
-
 @router.post("/api/trips/{trip_id}/regeocode", tags=["Trips API"])
 async def regeocode_single_trip(trip_id: str):
     """Re-run geocoding for a single trip. Used by the Trips UI when a user clicks

@@ -624,8 +624,16 @@ class TripsManager {
     }
 
     try {
-      const response = await fetch("/api/regeocode_all_trips", {
+      const response = await fetch("/api/geocode_trips", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          start_date: "",
+          end_date: "",
+          interval_days: 0,
+        }),
       });
 
       if (!response.ok) {
@@ -633,6 +641,7 @@ class TripsManager {
         throw new Error(errorData.error || "Failed to refresh geocoding");
       }
 
+      const result = await response.json();
       if (window.notificationManager) {
         window.notificationManager.show(
           "Geocoding refresh started successfully. It may take some time to see the changes.",
