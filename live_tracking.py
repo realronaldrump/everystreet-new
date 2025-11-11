@@ -288,7 +288,7 @@ async def process_trip_data(data: dict[str, Any], live_collection: Collection) -
             "Trip %s updated: %d points, %.2fmi",
             transaction_id,
             len(all_coords),
-            metrics['distance'],
+            metrics["distance"],
         )
         await _publish_trip_snapshot(updated_trip, status="active")
 
@@ -417,7 +417,7 @@ async def process_trip_end(
             "Trip %s completed: %.0fs, %.2fmi",
             transaction_id,
             duration,
-            trip.get('distance', 0),
+            trip.get("distance", 0),
         )
         await _publish_trip_snapshot(updated_trip, status="completed")
 
