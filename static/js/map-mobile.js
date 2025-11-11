@@ -4,7 +4,7 @@
 
 class MobileMapInterface {
   constructor() {
-    this.isMobile = this.detectMobileViewport();
+    this.isMobile = MobileMapInterface.detectMobileViewport();
     if (!this.isMobile) {
       return;
     }
@@ -58,7 +58,7 @@ class MobileMapInterface {
     this.init();
   }
 
-  detectMobileViewport() {
+  static detectMobileViewport() {
     const touchCapable =
       "ontouchstart" in window || navigator.maxTouchPoints > 1;
     const narrowScreen = window.matchMedia
@@ -510,15 +510,15 @@ class MobileMapInterface {
         ["mobile-quick-trips", totals.totalTrips ?? totals.trips],
         [
           "mobile-total-distance",
-          this.formatNumber(totals.totalDistanceMiles ?? totals.totalDistance),
+          MobileMapInterface.formatNumber(totals.totalDistanceMiles ?? totals.totalDistance),
         ],
         [
           "mobile-quick-distance",
-          this.formatNumber(totals.totalDistanceMiles ?? totals.totalDistance),
+          MobileMapInterface.formatNumber(totals.totalDistanceMiles ?? totals.totalDistance),
         ],
-        ["mobile-avg-speed", this.formatNumber(totals.avgSpeed, 1)],
-        ["mobile-quick-speed", this.formatNumber(totals.avgSpeed, 1)],
-        ["mobile-max-speed", this.formatNumber(totals.maxSpeed, 1)],
+        ["mobile-avg-speed", MobileMapInterface.formatNumber(totals.avgSpeed, 1)],
+        ["mobile-quick-speed", MobileMapInterface.formatNumber(totals.avgSpeed, 1)],
+        ["mobile-max-speed", MobileMapInterface.formatNumber(totals.maxSpeed, 1)],
       ];
 
       assignments.forEach(([id, value]) => {
@@ -531,7 +531,7 @@ class MobileMapInterface {
     }
   }
 
-  formatNumber(value, precision = 0) {
+  static formatNumber(value, precision = 0) {
     if (typeof value !== "number" || Number.isNaN(value)) return value;
     return precision > 0 ? value.toFixed(precision) : Math.round(value);
   }

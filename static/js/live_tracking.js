@@ -237,14 +237,14 @@ class LiveTripTracker {
     this.activeTrip = trip;
 
     // Extract coordinates
-    const coords = this.extractCoordinates(trip);
+    const coords = LiveTripTracker.extractCoordinates(trip);
     if (!coords || coords.length === 0) {
       console.warn("No coordinates in trip update");
       return;
     }
 
     // Create GeoJSON features
-    const features = this.createFeatures(coords);
+    const features = LiveTripTracker.createFeatures(coords);
 
     // Update map source
     const source = this.map.getSource(this.sourceId);
@@ -270,7 +270,7 @@ class LiveTripTracker {
     this.updateStatus(true, "Live tracking");
   }
 
-  extractCoordinates(trip) {
+  static extractCoordinates(trip) {
     let coords = [];
 
     // Try coordinates array first (active trips)
@@ -298,7 +298,7 @@ class LiveTripTracker {
     return coords;
   }
 
-  createFeatures(coords) {
+  static createFeatures(coords) {
     const features = [];
     const mapboxCoords = coords.map((c) => [c.lon, c.lat]);
 

@@ -60,7 +60,7 @@
                 const newStatus = update.status;
 
                 if (currentStatus !== newStatus) {
-                  statusCell.innerHTML = this.getStatusHTML(newStatus);
+                  statusCell.innerHTML = TaskManager.getStatusHTML(newStatus);
                   statusCell.dataset.status = newStatus;
 
                   const runButton = row.querySelector(".run-now-btn");
@@ -105,12 +105,12 @@
 
               const lastRunCell = row.querySelector(".task-last-run");
               if (lastRunCell && update.last_run) {
-                lastRunCell.textContent = this.formatDateTime(update.last_run);
+                lastRunCell.textContent = TaskManager.formatDateTime(update.last_run);
               }
 
               const nextRunCell = row.querySelector(".task-next-run");
               if (nextRunCell && update.next_run) {
-                nextRunCell.textContent = this.formatDateTime(update.next_run);
+                nextRunCell.textContent = TaskManager.formatDateTime(update.next_run);
               }
             });
 
@@ -346,13 +346,13 @@
             <td>${task.priority || "MEDIUM"}</td>
             <td class="task-status" data-status="${
               taskStatus
-            }">${this.getStatusHTML(taskStatus)}</td>
+            }">${TaskManager.getStatusHTML(taskStatus)}</td>
             <td class="task-last-run">${
-              task.last_run ? this.formatDateTime(task.last_run) : "Never"
+              task.last_run ? TaskManager.formatDateTime(task.last_run) : "Never"
             }</td>
             <td class="task-next-run">${
               task.next_run
-                ? this.formatDateTime(task.next_run)
+                ? TaskManager.formatDateTime(task.next_run)
                 : "Not scheduled"
             }</td>
             <td>
@@ -426,7 +426,7 @@
         if (entry.runtime !== null && entry.runtime !== undefined) {
           const runtimeMs = parseFloat(entry.runtime);
           if (!isNaN(runtimeMs)) {
-            durationText = this.formatDuration(runtimeMs);
+            durationText = TaskManager.formatDuration(runtimeMs);
           }
         } else if (entry.status === "RUNNING" && entry.timestamp) {
           // Calculate elapsed time for running tasks
@@ -435,7 +435,7 @@
             const now = new Date();
             const elapsedMs = now - startTime;
             if (!isNaN(elapsedMs) && elapsedMs >= 0) {
-              durationText = this.formatDuration(elapsedMs);
+              durationText = TaskManager.formatDuration(elapsedMs);
               // Store the timestamp for real-time updates
               row.dataset.startTime = entry.timestamp;
               row.dataset.isRunning = "true";
@@ -476,11 +476,11 @@
         row.innerHTML = `
             <td>${entry.task_id}</td>
             <td>
-              <span class="badge bg-${this.getStatusColor(entry.status)}">
+              <span class="badge bg-${TaskManager.getStatusColor(entry.status)}">
                 ${entry.status}
               </span>
             </td>
-            <td>${this.formatDateTime(entry.timestamp)}</td>
+            <td>${TaskManager.formatDateTime(entry.timestamp)}</td>
             <td class="task-duration">${durationText}</td>
             <td>${resultText}</td>
             <td>${detailsContent}</td>
@@ -514,7 +514,7 @@
               if (!isNaN(elapsedMs) && elapsedMs >= 0) {
                 const durationCell = row.querySelector(".task-duration");
                 if (durationCell) {
-                  durationCell.textContent = this.formatDuration(elapsedMs);
+                  durationCell.textContent = TaskManager.formatDuration(elapsedMs);
                 }
               }
             } catch (e) {
@@ -540,7 +540,7 @@
                   const durationElement = card.querySelector(".task-duration");
                   if (durationElement) {
                     durationElement.textContent =
-                      this.formatDuration(elapsedMs);
+                      TaskManager.formatDuration(elapsedMs);
                   }
                 }
               } catch (e) {
@@ -662,7 +662,7 @@
       });
     }
 
-    getStatusHTML(status) {
+    static getStatusHTML(status) {
       const statusColors = {
         RUNNING: "primary",
         COMPLETED: "success",
@@ -687,7 +687,7 @@
       return `<span class="badge bg-${color}">${status}</span>`;
     }
 
-    getStatusColor(status) {
+    static getStatusColor(status) {
       const statusColors = {
         RUNNING: "primary",
         COMPLETED: "success",
@@ -741,7 +741,7 @@
           if (row) {
             const statusCell = row.querySelector(".task-status");
             if (statusCell) {
-              statusCell.innerHTML = this.getStatusHTML("RUNNING");
+              statusCell.innerHTML = TaskManager.getStatusHTML("RUNNING");
               statusCell.dataset.status = "RUNNING";
             }
 
@@ -866,7 +866,7 @@
       }
     }
 
-    formatDateTime(date) {
+    static formatDateTime(date) {
       if (!date) return "";
       try {
         return new Date(date).toLocaleString();
@@ -875,7 +875,7 @@
       }
     }
 
-    formatDuration(ms) {
+    static formatDuration(ms) {
       if (typeof ms !== "number" || isNaN(ms)) return "Unknown";
       const seconds = Math.max(0, Math.floor(ms / 1000));
       return window.DateUtils?.formatDuration(seconds) || "Unknown";
@@ -957,7 +957,7 @@
             </div>
             <div class="mb-3">
               <h6>Status</h6>
-              <p>${this.getStatusHTML(taskDetails.status || "IDLE")}</p>
+                      <p>${TaskManager.getStatusHTML(taskDetails.status || "IDLE")}</p>
             </div>
             <div class="mb-3">
               <h6>Interval</h6>
@@ -989,7 +989,7 @@
               <h6>Last Run</h6>
               <p>${
                 taskDetails.last_run
-                  ? this.formatDateTime(taskDetails.last_run)
+                  ? TaskManager.formatDateTime(taskDetails.last_run)
                   : "Never"
               }</p>
             </div>
@@ -997,7 +997,7 @@
               <h6>Next Run</h6>
               <p>${
                 taskDetails.next_run
-                  ? this.formatDateTime(taskDetails.next_run)
+                  ? TaskManager.formatDateTime(taskDetails.next_run)
                   : "Not scheduled"
               }</p>
             </div>
@@ -1034,13 +1034,13 @@
                     .map(
                       (entry) => `
                     <tr>
-                      <td>${this.formatDateTime(entry.timestamp)}</td>
-                      <td><span class="badge bg-${this.getStatusColor(
+                      <td>${TaskManager.formatDateTime(entry.timestamp)}</td>
+                      <td><span class="badge bg-${TaskManager.getStatusColor(
                         entry.status,
                       )}">${entry.status}</span></td>
                       <td>${
                         entry.runtime
-                          ? this.formatDuration(entry.runtime)
+                          ? TaskManager.formatDuration(entry.runtime)
                           : "N/A"
                       }</td>
                     </tr>
@@ -1934,11 +1934,11 @@
             </div>
             <div class="mobile-task-info-item">
               <span class="mobile-task-info-label">Last Run</span>
-              <div class="mobile-task-info-value">${task.last_run ? window.taskManager.formatDateTime(task.last_run) : "Never"}</div>
+              <div class="mobile-task-info-value">${task.last_run ? TaskManager.formatDateTime(task.last_run) : "Never"}</div>
             </div>
             <div class="mobile-task-info-item full-width">
               <span class="mobile-task-info-label">Next Run</span>
-              <div class="mobile-task-info-value">${task.next_run ? window.taskManager.formatDateTime(task.next_run) : "Not scheduled"}</div>
+              <div class="mobile-task-info-value">${task.next_run ? TaskManager.formatDateTime(task.next_run) : "Not scheduled"}</div>
             </div>
           </div>
           <div class="mobile-task-actions">
@@ -2054,7 +2054,7 @@
         <div class="mobile-history-header">
           <div>
             <div class="mobile-history-task-name">${entry.task_id}</div>
-            <div class="mobile-history-time">${window.taskManager.formatDateTime(entry.timestamp)}</div>
+            <div class="mobile-history-time">${TaskManager.formatDateTime(entry.timestamp)}</div>
           </div>
           <span class="badge bg-${statusClass}">${entry.status}</span>
         </div>
