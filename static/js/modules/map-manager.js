@@ -10,7 +10,10 @@ import utils from "./utils.js";
 const mapManager = {
   async initialize() {
     try {
-      const initStage = window.loadingManager.startStage("init", "Initializing map...");
+      const initStage = window.loadingManager.startStage(
+        "init",
+        "Initializing map...",
+      );
 
       const mapElement = utils.getElement("map");
       if (!mapElement || state.map) {
@@ -36,7 +39,8 @@ const mapManager = {
       mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
       mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
 
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
 
       // Determine initial map view
       const urlParams = new URLSearchParams(window.location.search);
@@ -87,7 +91,7 @@ const mapManager = {
       state.map.addControl(new mapboxgl.NavigationControl(), "top-right");
       state.map.addControl(
         new mapboxgl.AttributionControl({ compact: true }),
-        "bottom-right"
+        "bottom-right",
       );
 
       // Setup event handlers
@@ -124,7 +128,7 @@ const mapManager = {
       window.loadingManager.stageError("init", error.message);
       window.notificationManager.show(
         `Map initialization failed: ${error.message}`,
-        "danger"
+        "danger",
       );
       return false;
     }
@@ -165,7 +169,9 @@ const mapManager = {
   refreshTripStyles: utils.throttle(() => {
     if (!state.map || !state.mapInitialized) return;
 
-    const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
+    const selectedId = state.selectedTripId
+      ? String(state.selectedTripId)
+      : null;
     const highlightRecent = state.mapSettings.highlightRecentTrips;
 
     ["trips", "matchedTrips"].forEach((layerName) => {
@@ -188,12 +194,18 @@ const mapManager = {
           "==",
           [
             "to-string",
-            ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]],
+            [
+              "coalesce",
+              ["get", "transactionId"],
+              ["get", "id"],
+              ["get", "tripId"],
+            ],
           ],
           selectedId,
         ]);
         colorExpr.push(
-          layerInfo.highlightColor || window.MapStyles.MAP_LAYER_COLORS.trips.selected
+          layerInfo.highlightColor ||
+            window.MapStyles.MAP_LAYER_COLORS.trips.selected,
         );
       }
 
@@ -206,7 +218,8 @@ const mapManager = {
           0,
           window.MapStyles.MAP_LAYER_COLORS.trips.recent.light,
           1,
-          layerInfo.colorRecent || window.MapStyles.MAP_LAYER_COLORS.trips.recent.dark,
+          layerInfo.colorRecent ||
+            window.MapStyles.MAP_LAYER_COLORS.trips.recent.dark,
         ];
         colorExpr.push(recentColor);
       }
@@ -227,7 +240,12 @@ const mapManager = {
           "==",
           [
             "to-string",
-            ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]],
+            [
+              "coalesce",
+              ["get", "transactionId"],
+              ["get", "id"],
+              ["get", "tripId"],
+            ],
           ],
           selectedId,
         ]);

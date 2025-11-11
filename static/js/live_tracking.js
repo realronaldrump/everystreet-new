@@ -391,7 +391,9 @@ class LiveTripTracker {
     }
 
     if (trip.totalIdlingTime > 0) {
-      optional["Idling Time"] = DateUtils.formatSecondsToHMS(trip.totalIdlingTime);
+      optional["Idling Time"] = DateUtils.formatSecondsToHMS(
+        trip.totalIdlingTime,
+      );
     }
 
     if (trip.hardBrakingCounts > 0) {
@@ -410,7 +412,7 @@ class LiveTripTracker {
           <span class="metric-label">${label}:</span>
           <span class="metric-value">${value}</span>
         </div>
-      `
+      `,
       )
       .join("");
 
@@ -426,7 +428,7 @@ class LiveTripTracker {
               <span class="metric-label">${label}:</span>
               <span class="metric-value">${value}</span>
             </div>
-          `
+          `,
           )
           .join("")}
       `
