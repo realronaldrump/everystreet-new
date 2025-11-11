@@ -458,7 +458,7 @@ const searchManager = {
           type: "line",
           source: this.highlightSourceId,
           paint: {
-            "line-color": "#FFD700", // Gold color
+            "line-color": window.MapStyles.MAP_LAYER_COLORS.trips.selected,
             "line-width": [
               "interpolate",
               ["linear"],
@@ -546,7 +546,7 @@ const searchManager = {
       this.searchMarkerId.remove();
     }
 
-    this.searchMarkerId = new mapboxgl.Marker({ color: "#FFD700" })
+    this.searchMarkerId = new mapboxgl.Marker({ color: window.MapStyles.MAP_LAYER_COLORS.trips.selected })
       .setLngLat([lng, lat])
       .setPopup(
         new mapboxgl.Popup({ offset: 25 }).setHTML(

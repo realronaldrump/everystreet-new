@@ -51,18 +51,7 @@ class DrivingNavigation {
     this.clusterMarkers = [];
     this.currentRoute = null;
 
-    this.clusterColors = window.MapStyles?.MAP_LAYER_COLORS?.clusters || [
-      "#6366f1",
-      "#64748b",
-      "#3f8cff",
-      "#ff5470",
-      "#faae2b",
-      "#818cf8",
-      "#22c55e",
-      "#d946ef",
-      "#94a3b8",
-      "#7dd3fc",
-    ];
+    this.clusterColors = window.MapStyles.MAP_LAYER_COLORS.clusters;
 
     this.initialize();
   }
@@ -126,7 +115,7 @@ class DrivingNavigation {
       type: "line",
       source: "undriven-streets",
       paint: {
-        "line-color": "#00BFFF",
+        "line-color": window.MapStyles.MAP_LAYER_COLORS.streets.undriven,
         "line-width": 3,
         "line-opacity": 0.6,
         "line-dasharray": [2, 2],
@@ -139,7 +128,11 @@ class DrivingNavigation {
       id: "route-layer",
       type: "line",
       source: "route",
-      paint: { "line-color": "#76ff03", "line-width": 5, "line-opacity": 0.8 },
+      paint: { 
+        "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.calculated, 
+        "line-width": 5, 
+        "line-opacity": 0.8 
+      },
     });
 
     // Source and Layer for Highlighted Target Street
@@ -151,7 +144,11 @@ class DrivingNavigation {
       id: "target-street-layer",
       type: "line",
       source: "target-street",
-      paint: { "line-color": "#ffab00", "line-width": 6, "line-opacity": 1 },
+      paint: { 
+        "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.target, 
+        "line-width": 6, 
+        "line-opacity": 1 
+      },
     });
 
     // Source and Layer for Efficient Clusters
