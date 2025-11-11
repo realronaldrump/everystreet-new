@@ -48,7 +48,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
-    return await response.json();
+    return response.json();
   },
 
   /**
@@ -64,7 +64,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || "Validation failed");
     }
-    return await response.json();
+    return response.json();
   },
 
   /**
@@ -80,7 +80,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || "Validation failed");
     }
-    return await response.json();
+    return response.json();
   },
 
   /**
@@ -96,7 +96,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || "Failed to start preprocessing");
     }
-    return await response.json();
+    return response.json();
   },
 
   /**
@@ -112,7 +112,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || "Failed to start preprocessing");
     }
-    return await response.json();
+    return response.json();
   },
 
   /**
@@ -138,7 +138,7 @@ const COVERAGE_API = {
       }
       throw new Error(error.detail || "Failed to start update");
     }
-    return await response.json();
+    return response.json();
   },
 
   /**
@@ -173,7 +173,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || "Failed to send cancel request");
     }
-    return await response.json();
+    return response.json();
   },
 
   /**
@@ -189,7 +189,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || "Failed to delete area");
     }
-    return await response.json();
+    return response.json();
   },
 
   /**
@@ -203,7 +203,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || "Failed to refresh stats");
     }
-    return await response.json();
+    return response.json();
   },
 
   /**
@@ -229,7 +229,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `API request failed (HTTP ${response.status})`);
     }
-    return await response.json();
+    return response.json();
   },
 
   /**
@@ -248,7 +248,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP error ${response.status}`);
     }
-    return await response.json();
+    return response.json();
   },
 
   /**

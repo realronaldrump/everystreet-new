@@ -24,7 +24,7 @@ class CoverageManager {
     };
 
     this.confirmationDialog = window.confirmationDialog || {
-      show: async (options) => await this.showEnhancedConfirmDialog(options),
+      show: async (options) => this.showEnhancedConfirmDialog(options),
     };
 
     // Initialize modules

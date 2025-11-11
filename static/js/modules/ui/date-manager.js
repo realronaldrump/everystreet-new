@@ -1,6 +1,6 @@
 import dateUtils from "../date-utils.js";
 import { UI_CONFIG as CONFIG } from "../ui-config.js";
-import uiState from "../ui-state.js";
+import { uiState } from "../ui-state.js";
 import utils from "../ui-utils.js";
 import eventManager from "./event-manager.js";
 import panelManager from "./panel-manager.js";
@@ -94,11 +94,9 @@ const dateManager = {
       const { startDate, endDate } = await dateUtils.getDateRangePreset(range);
       if (startDate && endDate) {
         this.updateInputs(startDate, endDate);
-        uiState
-          .getAllElements(".quick-select-btn")
-          .forEach((b) => {
-            b.classList.toggle(CONFIG.classes.active, b.dataset.range === range);
-          });
+        uiState.getAllElements(".quick-select-btn").forEach((b) => {
+          b.classList.toggle(CONFIG.classes.active, b.dataset.range === range);
+        });
         uiState.uiState.lastFilterPreset = range;
         uiState.saveUIState();
         await this.applyFilters();
@@ -210,11 +208,9 @@ const dateManager = {
     this.updateInputs(today, today);
     utils.setStorage(CONFIG.storage.startDate, today);
     utils.setStorage(CONFIG.storage.endDate, today);
-    uiState
-      .getAllElements(".quick-select-btn")
-      .forEach((btn) => {
-        btn.classList.remove(CONFIG.classes.active);
-      });
+    uiState.getAllElements(".quick-select-btn").forEach((btn) => {
+      btn.classList.remove(CONFIG.classes.active);
+    });
     const todayBtn = uiState.getElement('.quick-select-btn[data-range="today"]');
     if (todayBtn) todayBtn.classList.add(CONFIG.classes.active);
     this.updateIndicator();

@@ -1355,7 +1355,9 @@ class TripProcessor:
                                 if 400 <= response.status < 500:
                                     error_text = await response.text()
                                     logger.warning(
-                                        f"Mapbox API client error: {response.status} - {error_text}"
+                                        "Mapbox API client error: %d - %s",
+                                        response.status,
+                                        error_text,
                                     )
                                     return {
                                         "code": "Error",
@@ -1875,7 +1877,8 @@ class TripProcessor:
                 # if input was e.g. a list containing one point, but it should be converted to Point type.
                 # This validator enforces GeoJSON spec for LineString.
                 logger.debug(
-                    f"LineString must have at least 2 coordinate pairs. Found: {len(coordinates)}"
+                    "LineString must have at least 2 coordinate pairs. Found: %d",
+                    len(coordinates),
                 )
                 return False
             for point in coordinates:

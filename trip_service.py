@@ -253,10 +253,7 @@ class TripService:
                     result.validated += 1
                 elif state == TripState.GEOCODED.value:
                     result.geocoded += 1
-                elif (
-                    state == TripState.MAP_MATCHED.value
-                    or state == TripState.COMPLETED.value
-                ):
+                elif state in {TripState.MAP_MATCHED.value, TripState.COMPLETED.value}:
                     result.map_matched += 1
                 elif state == TripState.FAILED.value:
                     result.failed += 1

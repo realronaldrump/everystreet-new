@@ -371,7 +371,7 @@ async def _optimize_route_for_clusters(
 
         # Find the nearest point in the current cluster to the current position
         nearest_point_in_cluster = min(
-            [seg["start_node"] for seg in cluster_segments],
+            (seg["start_node"] for seg in cluster_segments),
             key=lambda p: haversine(current_lon, current_lat, p[0], p[1]),
         )
 
