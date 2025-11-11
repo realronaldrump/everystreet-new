@@ -257,8 +257,6 @@ async def get_time_period_trips(request: Request):
 
         return JSONResponse(content=serialize_for_json(trips))
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error fetching time period trips: %s", e)
         raise HTTPException(

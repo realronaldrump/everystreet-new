@@ -95,8 +95,6 @@ async def update_credentials(credentials: BouncieCredentials):
             "status": "success",
             "message": "No changes made to credentials",
         }
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error updating Bouncie credentials")
         raise HTTPException(status_code=500, detail=str(e))

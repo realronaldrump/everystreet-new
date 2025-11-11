@@ -621,8 +621,6 @@ async def geocode_trips(data: DateRangeModel | None = None):
             "failed": result["failed"],
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error in geocode_trips: %s", e)
         # Update progress with error
@@ -670,8 +668,6 @@ async def get_geocode_progress(task_id: str):
             "error": progress.get("error"),
             "updated_at": serialize_datetime(progress.get("updated_at")),
         }
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error getting geocoding progress: %s", e)
         raise HTTPException(
