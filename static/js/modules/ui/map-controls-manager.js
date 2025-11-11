@@ -9,17 +9,21 @@ import eventManager from "./event-manager.js";
 const mapControlsManager = {
   init() {
     const mapTypeSelect = uiState.getElement(CONFIG.selectors.mapTypeSelect);
-    const opacityRange = uiState.getElement(CONFIG.selectors.basemapOpacityRange);
+    const opacityRange = uiState.getElement(
+      CONFIG.selectors.basemapOpacityRange,
+    );
     if (mapTypeSelect) {
-      mapTypeSelect.value = utils.getStorage(CONFIG.storage.mapType) || "satellite";
+      mapTypeSelect.value =
+        utils.getStorage(CONFIG.storage.mapType) || "satellite";
       mapTypeSelect.addEventListener("change", (e) =>
-        this.updateMapType(e.target.value)
+        this.updateMapType(e.target.value),
       );
     }
     if (opacityRange) {
-      opacityRange.value = utils.getStorage(CONFIG.storage.basemapOpacity) || 0.75;
+      opacityRange.value =
+        utils.getStorage(CONFIG.storage.basemapOpacity) || 0.75;
       opacityRange.addEventListener("input", (e) =>
-        this.updateOpacity(parseFloat(e.target.value))
+        this.updateOpacity(parseFloat(e.target.value)),
       );
     }
     // Note: controls-toggle is handled in app-controller.js using Bootstrap Collapse API
@@ -30,7 +34,11 @@ const mapControlsManager = {
     let settingsApplied = false;
     const applySettings = () => {
       if (settingsApplied) return;
-      if (state.map && state.mapInitialized && typeof state.map.setStyle === "function") {
+      if (
+        state.map &&
+        state.mapInitialized &&
+        typeof state.map.setStyle === "function"
+      ) {
         settingsApplied = true;
         this.updateMapType(mapTypeSelect?.value);
         this.updateOpacity(parseFloat(opacityRange?.value || 0.75), false);
@@ -83,7 +91,10 @@ const mapControlsManager = {
   updateOpacity(value = 0.75, persist = true) {
     const map = state.map || window.map;
     if (!map || !state.mapInitialized) return;
-    if (typeof map.getLayer !== "function" || typeof map.setPaintProperty !== "function") {
+    if (
+      typeof map.getLayer !== "function" ||
+      typeof map.setPaintProperty !== "function"
+    ) {
       console.warn("Map methods not available yet");
       return;
     }
