@@ -117,10 +117,7 @@ async def startup_event():
         await init_database()  # This already creates many indexes
         logger.info("Core database initialized successfully (indexes, etc.).")
 
-        initialize_live_tracking_db(
-            live_trips_collection,
-            archived_live_trips_collection,
-        )
+        initialize_live_tracking_db(live_trips_collection)
         logger.info("Live tracking DB collections initialized.")
 
         init_collections(places_collection, trips_collection)
