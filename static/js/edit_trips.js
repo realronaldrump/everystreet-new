@@ -1,61 +1,148 @@
-/* global L */
+/* global mapboxgl, MapboxDraw */
 
 document.addEventListener("DOMContentLoaded", () => {
   let editMap = null;
-  let tripsLayerGroup = null;
-  let editableLayers = null;
+  let draw = null;
+  let tripsSourceId = "trips-source";
+  let tripsLayerId = "trips-layer";
+  let markersSourceId = "markers-source";
+  let markersLayerId = "markers-layer";
   let currentTrip = null;
   let editMode = false;
+  let tripFeatures = [];
 
   async function init() {
-    initializeMap();
+    await initializeMap();
     initializeControls();
     initializeEventListeners();
     await loadTrips();
   }
 
-  function initializeMap() {
+  async function initializeMap() {
     const mapEl = document.getElementById("editMap");
     if (!mapEl) return;
 
-    // Use shared map factory for Leaflet
     editMap = window.mapBase.createMap(mapEl.id, {
-      library: "leaflet",
-      center: [37.0902, -95.7129],
+      center: [-95.7129, 37.0902],
       zoom: 4,
-      tileLayer:
-        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      tileOptions: { maxZoom: 19, attribution: "" },
     });
 
-    tripsLayerGroup = L.featureGroup().addTo(editMap);
-    editableLayers = L.featureGroup().addTo(editMap);
+    // Wait for map style to load before adding sources/layers
+    await new Promise((resolve) => {
+      if (editMap.isStyleLoaded()) {
+        resolve();
+      } else {
+        editMap.once("styledata", resolve);
+        // Fallback timeout
+        setTimeout(resolve, 1000);
+      }
+    });
+
+    // Initialize GeoJSON sources
+    editMap.addSource(tripsSourceId, {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [] },
+      generateId: true,
+    });
+
+    editMap.addSource(markersSourceId, {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [] },
+      generateId: true,
+    });
+
+    // Add trips layer
+    editMap.addLayer({
+      id: tripsLayerId,
+      type: "line",
+      source: tripsSourceId,
+      paint: {
+        "line-color": window.MapStyles?.getTripStyle?.("default")?.color || "#3388ff",
+        "line-width": 3,
+        "line-opacity": 0.8,
+      },
+      layout: {
+        "line-join": "round",
+        "line-cap": "round",
+      },
+    });
+
+    // Add markers layer
+    editMap.addLayer({
+      id: markersLayerId,
+      type: "circle",
+      source: markersSourceId,
+      paint: {
+        "circle-radius": 6,
+        "circle-color": "#ff0000",
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "#ffffff",
+      },
+    });
+
+    // Handle trip clicks
+    editMap.on("click", tripsLayerId, (e) => {
+      if (e.originalEvent?.button !== 0) return;
+      const feature = e.features[0];
+      if (feature) {
+        selectTrip(feature);
+      }
+    });
+
+    // Change cursor on hover
+    editMap.on("mouseenter", tripsLayerId, () => {
+      editMap.getCanvas().style.cursor = "pointer";
+    });
+    editMap.on("mouseleave", tripsLayerId, () => {
+      editMap.getCanvas().style.cursor = "";
+    });
   }
 
   function initializeControls() {
-    if (!editMap || typeof L.Control.Draw !== "function") {
+    if (!editMap || typeof MapboxDraw === "undefined") {
       console.error(
-        "Leaflet Draw is missing. Ensure leaflet.draw.js is included.",
+        "MapboxDraw is missing. Ensure mapbox-gl-draw.js is included.",
       );
       return;
     }
 
-    editMap.addControl(
-      new L.Control.Draw({
-        edit: {
-          featureGroup: editableLayers,
-          edit: true,
-          remove: true,
-        },
-        draw: {
-          marker: true,
-          polyline: false,
-          circle: false,
-          rectangle: false,
-          polygon: false,
-        },
-      }),
-    );
+    draw = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: {
+        point: true,
+        trash: true,
+      },
+      defaultMode: "simple_select",
+      userProperties: true,
+    });
+
+    editMap.addControl(draw);
+
+    editMap.on("draw.create", (e) => {
+      if (editMode && currentTrip) {
+        const feature = e.features[0];
+        if (feature.geometry.type === "Point") {
+          const [lng, lat] = feature.geometry.coordinates;
+          addPointToTrip({ lat, lng });
+          // Remove the point from draw since we handle it ourselves
+          draw.delete(e.features[0].id);
+        }
+      }
+    });
+
+    editMap.on("draw.update", (e) => {
+      if (!editMode || !currentTrip) return;
+
+      e.features.forEach((feature) => {
+        if (feature.geometry.type === "Point") {
+          const index = feature.properties?.index;
+          if (index !== undefined) {
+            const [lng, lat] = feature.geometry.coordinates;
+            updatePointInTrip(index, { lat, lng });
+          }
+        }
+      });
+    });
   }
 
   function initializeEventListeners() {
@@ -94,16 +181,6 @@ document.addEventListener("DOMContentLoaded", () => {
           loadTrips(e);
         });
       }
-    }
-
-    if (editMap) {
-      editMap.on(L.Draw.Event.CREATED, (e) => {
-        if (editMode && currentTrip) {
-          const newMarker = e.layer;
-          const latLng = newMarker.getLatLng();
-          addPointToTrip(latLng);
-        }
-      });
     }
   }
 
@@ -145,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       if (!data.features || data.features.length === 0) {
         console.warn("No trips found for selected dates.");
-        tripsLayerGroup.clearLayers();
+        clearTrips();
         return;
       }
 
@@ -162,10 +239,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function displayTripsOnMap(trips) {
-    if (!tripsLayerGroup) return;
+    if (!editMap) return;
 
-    tripsLayerGroup.clearLayers();
-    editableLayers.clearLayers();
+    clearTrips();
     currentTrip = null;
 
     if (!trips || trips.length === 0) {
@@ -173,52 +249,104 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const layers = trips
-      .map((trip) => {
-        const gps = trip.geometry || trip.gps;
-        if (!gps || gps.type !== "LineString" || !gps.coordinates?.length) {
-          console.warn(
-            `Skipping trip ${trip.transactionId} (no valid coordinates)`,
-          );
-          return null;
-        }
+    tripFeatures = trips.filter((trip) => {
+      const gps = trip.geometry || trip.gps;
+      return (
+        gps &&
+        gps.type === "LineString" &&
+        gps.coordinates &&
+        gps.coordinates.length > 0
+      );
+    });
 
-        const coordsLatLng = gps.coordinates.map(([lon, lat]) => [lat, lon]);
+    if (tripFeatures.length === 0) {
+      console.warn("No valid trips to display.");
+      return;
+    }
 
-        const poly = L.polyline(coordsLatLng, {
-          ...window.MapStyles.getTripStyle('default'),
+    // Update source with all trips
+    const source = editMap.getSource(tripsSourceId);
+    if (source) {
+      source.setData({
+        type: "FeatureCollection",
+        features: tripFeatures,
+      });
+    }
+
+    // Fit bounds to all trips
+    if (tripFeatures.length > 0) {
+      const bounds = tripFeatures.reduce((bounds, feature) => {
+        const coords = feature.geometry.coordinates;
+        coords.forEach(([lng, lat]) => {
+          bounds.extend([lng, lat]);
         });
+        return bounds;
+      }, new mapboxgl.LngLatBounds());
 
-        poly.on("mousedown", (e) => {
-          if (e.originalEvent?.button !== 0) return;
-          selectTrip(poly, trip);
-        });
-        tripsLayerGroup.addLayer(poly);
-        return poly;
-      })
-      .filter(Boolean);
-
-    if (layers.length > 0) {
-      const group = L.featureGroup(layers);
-      editMap.fitBounds(group.getBounds());
+      editMap.fitBounds(bounds, {
+        padding: 50,
+        maxZoom: 15,
+      });
     }
   }
 
-  function selectTrip(layer, tripData) {
+  function clearTrips() {
+    const tripsSource = editMap?.getSource(tripsSourceId);
+    if (tripsSource) {
+      tripsSource.setData({ type: "FeatureCollection", features: [] });
+    }
+    const markersSource = editMap?.getSource(markersSourceId);
+    if (markersSource) {
+      markersSource.setData({ type: "FeatureCollection", features: [] });
+    }
+    tripFeatures = [];
+    currentTrip = null;
+  }
+
+  function selectTrip(feature) {
+    if (!editMap) return;
+
+    // Reset previous selection
     if (currentTrip) {
-      resetTripStyle(currentTrip.layer);
+      updateTripStyle(currentTrip, "default");
     }
 
-    currentTrip = { layer, tripData };
-    layer.setStyle(window.MapStyles.getTripStyle('selected'));
+    currentTrip = feature;
+    updateTripStyle(feature, "selected");
 
     if (editMode) {
-      createEditableMarkers(tripData.geometry.coordinates);
+      createEditableMarkers(feature.geometry.coordinates);
     }
   }
 
-  function resetTripStyle(layer) {
-    layer.setStyle(window.MapStyles.getTripStyle('reset'));
+  function updateTripStyle(feature, styleType) {
+    if (!editMap || !feature) return;
+
+    const style = window.MapStyles?.getTripStyle?.(styleType) || {
+      color: styleType === "selected" ? "#ffd700" : "#3388ff",
+      weight: 3,
+      opacity: 0.8,
+    };
+
+    // Update feature state for styling
+    editMap.setFeatureState(
+      { source: tripsSourceId, id: feature.id },
+      { selected: styleType === "selected" },
+    );
+
+    // Update layer paint properties
+    editMap.setPaintProperty(tripsLayerId, "line-color", [
+      "case",
+      ["boolean", ["feature-state", "selected"], false],
+      style.color,
+      window.MapStyles?.getTripStyle?.("default")?.color || "#3388ff",
+    ]);
+    editMap.setPaintProperty(tripsLayerId, "line-width", [
+      "case",
+      ["boolean", ["feature-state", "selected"], false],
+      style.weight || 4,
+      3,
+    ]);
   }
 
   function toggleEditMode(e) {
@@ -230,36 +358,66 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!editMode) {
-      editableLayers.clearLayers();
+      clearMarkers();
     } else if (currentTrip) {
-      createEditableMarkers(currentTrip.tripData.geometry.coordinates);
+      createEditableMarkers(currentTrip.geometry.coordinates);
     }
   }
 
   function createEditableMarkers(coordinates) {
-    editableLayers.clearLayers();
+    if (!editMap) return;
 
-    coordinates.forEach(([lon, lat], index) => {
-      const marker = L.marker([lat, lon], {
-        draggable: true,
-        pointIndex: index,
+    clearMarkers();
+
+    const markerFeatures = coordinates.map(([lng, lat], index) => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [lng, lat],
+      },
+      properties: {
+        index,
+      },
+    }));
+
+    const markersSource = editMap.getSource(markersSourceId);
+    if (markersSource) {
+      markersSource.setData({
+        type: "FeatureCollection",
+        features: markerFeatures,
       });
+    }
 
-      marker.on("dragend", (e) =>
-        updatePointInTrip(index, e.target.getLatLng()),
-      );
-      editableLayers.addLayer(marker);
-    });
+    // Make markers draggable using MapboxDraw
+    if (draw && editMode) {
+      draw.deleteAll();
+      markerFeatures.forEach((feature) => {
+        draw.add(feature);
+      });
+      // Use direct_select mode to allow dragging individual points
+      if (markerFeatures.length > 0) {
+        draw.changeMode("direct_select", markerFeatures[0].id);
+      }
+    }
+  }
+
+  function clearMarkers() {
+    const markersSource = editMap?.getSource(markersSourceId);
+    if (markersSource) {
+      markersSource.setData({ type: "FeatureCollection", features: [] });
+    }
+    if (draw) {
+      draw.deleteAll();
+    }
   }
 
   function findClosestPointIndex(latLng, coordinates) {
     let closestIndex = 0;
     let minDistance = Infinity;
-    const point = L.latLng(latLng);
 
     for (let i = 0; i < coordinates.length; i++) {
-      const coord = L.latLng(coordinates[i][1], coordinates[i][0]);
-      const distance = point.distanceTo(coord);
+      const [lng, lat] = coordinates[i];
+      const distance = getDistance(latLng, { lat, lng });
 
       if (distance < minDistance) {
         minDistance = distance;
@@ -270,10 +428,28 @@ document.addEventListener("DOMContentLoaded", () => {
     return closestIndex;
   }
 
+  function getDistance(point1, point2) {
+    const R = 6371e3; // Earth radius in meters
+    const φ1 = (point1.lat * Math.PI) / 180;
+    const φ2 = (point2.lat * Math.PI) / 180;
+    const Δφ = ((point2.lat - point1.lat) * Math.PI) / 180;
+    const Δλ = ((point2.lng - point1.lng) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) *
+        Math.cos(φ2) *
+        Math.sin(Δλ / 2) *
+        Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  }
+
   function addPointToTrip(latLng) {
     if (!currentTrip) return;
 
-    const coords = currentTrip.tripData.geometry.coordinates;
+    const coords = currentTrip.geometry.coordinates;
     const index = findClosestPointIndex(latLng, coords);
 
     coords.splice(index + 1, 0, [latLng.lng, latLng.lat]);
@@ -285,19 +461,26 @@ document.addEventListener("DOMContentLoaded", () => {
   function updatePointInTrip(index, latLng) {
     if (!currentTrip) return;
 
-    currentTrip.tripData.geometry.coordinates[index] = [latLng.lng, latLng.lat];
+    currentTrip.geometry.coordinates[index] = [latLng.lng, latLng.lat];
 
     updateTripPolyline();
-    createEditableMarkers(currentTrip.tripData.geometry.coordinates);
+    createEditableMarkers(currentTrip.geometry.coordinates);
   }
 
   function updateTripPolyline() {
-    if (!currentTrip) return;
+    if (!currentTrip || !editMap) return;
 
-    const coords = currentTrip.tripData.geometry.coordinates;
-    const latLngs = coords.map(([lon, lat]) => [lat, lon]);
-
-    currentTrip.layer.setLatLngs(latLngs);
+    // Update the source data
+    const source = editMap.getSource(tripsSourceId);
+    if (source) {
+      const features = tripFeatures.map((f) =>
+        f.id === currentTrip.id ? currentTrip : f,
+      );
+      source.setData({
+        type: "FeatureCollection",
+        features,
+      });
+    }
   }
 
   async function saveTripChanges() {
@@ -308,13 +491,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const tripId =
-        currentTrip.tripData.properties?.transactionId ||
-        currentTrip.tripData.transactionId;
+        currentTrip.properties?.transactionId ||
+        currentTrip.transactionId;
 
       if (!tripId) {
         console.error(
           "Error: transactionId is undefined.",
-          currentTrip.tripData,
+          currentTrip,
         );
         window.notificationManager?.show(
           "Error: Could not find the trip ID to save changes.",
@@ -323,8 +506,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const isMatchedTrip =
-        document.getElementById("tripType")?.value === "matched_trips";
+      const tripTypeSelect = document.getElementById("tripType");
+      const isMatchedTrip = tripTypeSelect?.value === "matched_trips";
       const baseUrl = isMatchedTrip ? "/api/matched_trips" : "/api/trips";
       const url = `${baseUrl}/${tripId}`;
 
@@ -332,7 +515,7 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          geometry: currentTrip.tripData.geometry,
+          geometry: currentTrip.geometry,
           type: isMatchedTrip ? "matched_trips" : "trips",
         }),
       });

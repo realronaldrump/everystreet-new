@@ -88,13 +88,6 @@
       rel="stylesheet"
       href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css"
     />
-    <!-- Keep Leaflet for backwards compatibility with other pages -->
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-      crossorigin=""
-    />
     <link
       rel="stylesheet"
       href="{{ url_for('static', path='css/style.css') | replace('http://', '//') }}"
@@ -711,12 +704,6 @@
 
     <!-- Map libraries -->
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-      crossorigin=""
-    ></script>
-    <script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
     <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
     <script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
 

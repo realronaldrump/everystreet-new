@@ -1,4 +1,4 @@
-/* global L, confirmationDialog */
+/* global mapboxgl, confirmationDialog */
 
 class UploadManager {
   constructor() {
@@ -8,7 +8,8 @@ class UploadManager {
     this.state = {
       selectedFiles: [],
       previewMap: null,
-      previewLayer: null,
+      previewSourceId: "preview-source",
+      previewLayerId: "preview-layer",
       displayedTrips: [],
     };
 
@@ -47,11 +48,14 @@ class UploadManager {
 
     try {
       this.cacheElements();
-      this.initializePreviewMap();
-      this.initializeEventListeners();
-      this.loadUploadSourceTrips();
-
-      this.loadingManager.finish();
+      this.initializePreviewMap().then(() => {
+        this.initializeEventListeners();
+        this.loadUploadSourceTrips();
+        this.loadingManager.finish();
+      }).catch((error) => {
+        console.error("Error initializing upload manager:", error);
+        this.loadingManager.error("Failed to initialize upload manager");
+      });
     } catch (error) {
       console.error("Error initializing upload manager:", error);
       this.loadingManager.error("Failed to initialize upload manager");
@@ -75,24 +79,78 @@ class UploadManager {
     };
   }
 
-  initializePreviewMap() {
+  async initializePreviewMap() {
     const mapEl = this.elements.previewMapElement;
     if (!mapEl) return;
-    // Use shared map factory for Leaflet
+    
     this.state.previewMap = window.mapBase.createMap(mapEl.id, {
-      library: "leaflet",
       center: this.config.map.defaultCenter,
       zoom: this.config.map.defaultZoom,
-      tileLayer: this.config.map.tileLayerUrl,
-      tileOptions: {
-        maxZoom: this.config.map.maxZoom,
-        attribution: "",
+    });
+
+    // Wait for map style to load before adding sources/layers
+    await new Promise((resolve) => {
+      if (this.state.previewMap.isStyleLoaded()) {
+        resolve();
+      } else {
+        this.state.previewMap.once("styledata", resolve);
+        // Fallback timeout
+        setTimeout(resolve, 1000);
+      }
+    });
+
+    // Initialize GeoJSON source
+    this.state.previewMap.addSource(this.state.previewSourceId, {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [] },
+      generateId: true,
+    });
+
+    // Add preview layer
+    this.state.previewMap.addLayer({
+      id: this.state.previewLayerId,
+      type: "line",
+      source: this.state.previewSourceId,
+      paint: {
+        "line-color": "#ff0000",
+        "line-width": 3,
+        "line-opacity": 0.8,
       },
-      mapOptions: {
-        // Use default Leaflet options or override as needed
+      layout: {
+        "line-join": "round",
+        "line-cap": "round",
       },
     });
-    this.state.previewLayer = L.featureGroup().addTo(this.state.previewMap);
+
+    // Handle clicks on preview lines
+    this.state.previewMap.on("click", this.state.previewLayerId, async (e) => {
+      const feature = e.features[0];
+      if (feature && feature.properties?.filename) {
+        const confirmed = await confirmationDialog.show({
+          title: "Remove File from Preview",
+          message: `Remove ${feature.properties.filename} from the upload list?`,
+          confirmText: "Remove",
+          confirmButtonClass: "btn-danger",
+        });
+
+        if (confirmed) {
+          const currentIndex = this.state.selectedFiles.findIndex(
+            (f) => f.filename === feature.properties.filename,
+          );
+          if (currentIndex !== -1) {
+            this.removeFile(currentIndex);
+          }
+        }
+      }
+    });
+
+    // Change cursor on hover
+    this.state.previewMap.on("mouseenter", this.state.previewLayerId, () => {
+      this.state.previewMap.getCanvas().style.cursor = "pointer";
+    });
+    this.state.previewMap.on("mouseleave", this.state.previewLayerId, () => {
+      this.state.previewMap.getCanvas().style.cursor = "";
+    });
   }
 
   initializeEventListeners() {
@@ -464,69 +522,70 @@ class UploadManager {
   }
 
   updatePreviewMap() {
-    const { previewLayer, previewMap } = this.state;
+    const { previewMap, previewSourceId } = this.state;
 
-    if (!previewLayer || !previewMap) return;
+    if (!previewMap) return;
 
-    previewLayer.clearLayers();
-
-    this.state.selectedFiles.forEach((entry, index) => {
-      const validCoords = entry.coordinates.filter(
-        (coord) =>
-          Array.isArray(coord) &&
-          coord.length >= 2 &&
-          !isNaN(coord[0]) &&
-          !isNaN(coord[1]),
-      );
-
-      if (validCoords.length < 2) {
-        console.warn(
-          `Skipping preview for ${entry.filename}: Insufficient valid coordinates.`,
+    const features = this.state.selectedFiles
+      .map((entry) => {
+        const validCoords = entry.coordinates.filter(
+          (coord) =>
+            Array.isArray(coord) &&
+            coord.length >= 2 &&
+            !isNaN(coord[0]) &&
+            !isNaN(coord[1]),
         );
-        return;
-      }
 
-      const latlngs = validCoords.map((coord) => [coord[1], coord[0]]);
-      const polyline = L.polyline(latlngs, { color: "red" }).addTo(
-        previewLayer,
-      );
-
-      polyline.bindTooltip(entry.filename);
-
-      polyline.on("click", async () => {
-        const confirmed = await confirmationDialog.show({
-          title: "Remove File from Preview",
-          message: `Remove ${entry.filename} from the upload list?`,
-          confirmText: "Remove",
-          confirmButtonClass: "btn-danger",
-        });
-
-        if (confirmed) {
-          const currentIndex = this.state.selectedFiles.findIndex(
-            (f) => f === entry,
+        if (validCoords.length < 2) {
+          console.warn(
+            `Skipping preview for ${entry.filename}: Insufficient valid coordinates.`,
           );
-          if (currentIndex !== -1) {
-            this.removeFile(currentIndex);
-          }
+          return null;
         }
-      });
-    });
 
-    if (previewLayer.getLayers().length > 0) {
+        return {
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: validCoords,
+          },
+          properties: {
+            filename: entry.filename,
+          },
+        };
+      })
+      .filter(Boolean);
+
+    const source = previewMap.getSource(previewSourceId);
+    if (source) {
+      source.setData({
+        type: "FeatureCollection",
+        features,
+      });
+    }
+
+    if (features.length > 0) {
       try {
-        previewMap.fitBounds(previewLayer.getBounds());
+        const bounds = features.reduce((bounds, feature) => {
+          const coords = feature.geometry.coordinates;
+          coords.forEach(([lng, lat]) => {
+            bounds.extend([lng, lat]);
+          });
+          return bounds;
+        }, new mapboxgl.LngLatBounds());
+
+        previewMap.fitBounds(bounds, {
+          padding: 50,
+          maxZoom: 15,
+        });
       } catch (e) {
         console.error("Error fitting map bounds:", e);
-        previewMap.setView(
-          this.config.map.defaultCenter,
-          this.config.map.defaultZoom,
-        );
+        previewMap.setCenter(this.config.map.defaultCenter);
+        previewMap.setZoom(this.config.map.defaultZoom);
       }
     } else {
-      previewMap.setView(
-        this.config.map.defaultCenter,
-        this.config.map.defaultZoom,
-      );
+      previewMap.setCenter(this.config.map.defaultCenter);
+      previewMap.setZoom(this.config.map.defaultZoom);
     }
   }
 

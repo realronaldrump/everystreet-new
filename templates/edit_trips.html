@@ -61,7 +61,7 @@
 {% endblock %} {% block extra_css %}
 <link
   rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
+  href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css"
 />
 <style>
   .map-container {
@@ -79,7 +79,7 @@
   }
 </style>
 {% endblock %} {% block extra_js %}
-<!-- Load Leaflet & Leaflet Draw -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<!-- Load Mapbox Draw -->
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.js"></script>
 <script src="{{ url_for('static', path='js/edit_trips.js') | replace('http://', '//') }}"></script>
 {% endblock %}
