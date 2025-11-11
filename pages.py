@@ -41,7 +41,11 @@ async def index(request: Request):
 @router.get("/edit_trips", response_class=HTMLResponse)
 async def edit_trips_page(request: Request):
     """Render trip editing page."""
-    return _render_page("edit_trips.html", request)
+    return _render_page(
+        "edit_trips.html",
+        request,
+        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+    )
 
 
 @router.get("/settings", response_class=HTMLResponse)
@@ -64,7 +68,11 @@ async def insights_page(request: Request):
 @router.get("/visits", response_class=HTMLResponse)
 async def visits_page(request: Request):
     """Render visits page."""
-    return _render_page("visits.html", request)
+    return _render_page(
+        "visits.html",
+        request,
+        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+    )
 
 
 @router.get("/export", response_class=HTMLResponse)
@@ -76,7 +84,11 @@ async def export_page(request: Request):
 @router.get("/upload", response_class=HTMLResponse)
 async def upload_page(request: Request):
     """Render upload page."""
-    return _render_page("upload.html", request)
+    return _render_page(
+        "upload.html",
+        request,
+        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+    )
 
 
 @router.get(
