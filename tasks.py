@@ -2203,7 +2203,7 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
                 countdown,
             )
             try:
-                self.retry(exc=db_err, countdown=countdown)
+                raise self.retry(exc=db_err, countdown=countdown)
             except Exception as retry_exc:
                 logger.critical(
                     "Failed to *initiate* retry for task %s: %s",
@@ -2246,7 +2246,7 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
                 e,
             )
             try:
-                self.retry(exc=e, countdown=countdown)
+                raise self.retry(exc=e, countdown=countdown)
             except Exception as retry_exc:
                 logger.critical(
                     "Failed to *initiate* retry for task %s after generic error: %s",
