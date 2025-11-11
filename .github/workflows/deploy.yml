@@ -12,9 +12,15 @@ jobs:
       - name: Ensure latest code is merged
         run: |
           cd /home/davis/app
+          
+          # Set a Git identity for merge commits
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          
           # Set a safe default merge strategy
           git config pull.rebase false
-          # Fetch and merge the latest code from the main branch
+          
+          # Fetch and merge the latest code
           git fetch origin main
           git merge --no-edit origin/main
           
