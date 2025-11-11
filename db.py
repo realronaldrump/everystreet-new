@@ -1459,16 +1459,15 @@ async def run_transaction(
     retry_count = 0
     while retry_count <= max_retries:
         try:
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    logger.debug("Starting transaction...")
-                    for i, op in enumerate(operations):
-                        logger.debug(
-                            "Executing operation %d in transaction...",
-                            i + 1,
-                        )
-                        await op(session=session)
-                    logger.debug("Transaction committed.")
+            async with await client.start_session() as session, session.start_transaction():
+                logger.debug("Starting transaction...")
+                for i, op in enumerate(operations):
+                    logger.debug(
+                        "Executing operation %d in transaction...",
+                        i + 1,
+                    )
+                    await op(session=session)
+                logger.debug("Transaction committed.")
             return True
         except (ConnectionFailure, OperationFailure) as e:
             is_transient = False

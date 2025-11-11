@@ -229,14 +229,13 @@ async def generate_geojson_osm(
             location.get("display_name", "Unknown"),
         )
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                OVERPASS_URL,
-                params={"data": query},
-                timeout=90,  # HTTP client timeout
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
+        async with aiohttp.ClientSession() as session, session.get(
+            OVERPASS_URL,
+            params={"data": query},
+            timeout=90,  # HTTP client timeout
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
 
         features = await process_elements(
             data.get("elements", []),

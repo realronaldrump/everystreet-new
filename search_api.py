@@ -219,35 +219,34 @@ async def _search_nominatim(
             "-125,49,-66,24"  # US bounding box (west, north, east, south)
         )
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            NOMINATIM_URL, params=params, headers=NOMINATIM_HEADERS, timeout=10
-        ) as response:
-            response.raise_for_status()
-            results = await response.json()
+    async with aiohttp.ClientSession() as session, session.get(
+        NOMINATIM_URL, params=params, headers=NOMINATIM_HEADERS, timeout=10
+    ) as response:
+        response.raise_for_status()
+        results = await response.json()
 
-            # Normalize the results
-            normalized = []
-            for result in results:
-                normalized.append(
-                    {
-                        "place_name": result.get("display_name", ""),
-                        "center": [float(result["lon"]), float(result["lat"])],
-                        "place_type": [result.get("type", "unknown")],
-                        "text": result.get("name", ""),
-                        "osm_id": result.get("osm_id"),
-                        "osm_type": result.get("osm_type"),
-                        "type": result.get("type"),
-                        "lat": result.get("lat"),
-                        "lon": result.get("lon"),
-                        "display_name": result.get("display_name"),
-                        "address": result.get("address", {}),
-                        "importance": result.get("importance", 0),
-                        "bbox": result.get("boundingbox"),
-                    }
-                )
+        # Normalize the results
+        normalized = []
+        for result in results:
+            normalized.append(
+                {
+                    "place_name": result.get("display_name", ""),
+                    "center": [float(result["lon"]), float(result["lat"])],
+                    "place_type": [result.get("type", "unknown")],
+                    "text": result.get("name", ""),
+                    "osm_id": result.get("osm_id"),
+                    "osm_type": result.get("osm_type"),
+                    "type": result.get("type"),
+                    "lat": result.get("lat"),
+                    "lon": result.get("lon"),
+                    "display_name": result.get("display_name"),
+                    "address": result.get("address", {}),
+                    "importance": result.get("importance", 0),
+                    "bbox": result.get("boundingbox"),
+                }
+            )
 
-            return normalized
+        return normalized
 
 
 async def _search_mapbox(
@@ -282,26 +281,25 @@ async def _search_mapbox(
         # Default to Texas center if no proximity provided
         params["proximity"] = "-99.9018,31.9686"  # Texas center coordinates
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params, timeout=10) as response:
-            response.raise_for_status()
-            data = await response.json()
+    async with aiohttp.ClientSession() as session, session.get(url, params=params, timeout=10) as response:
+        response.raise_for_status()
+        data = await response.json()
 
-            # Return features directly (already in good format)
-            results = []
-            for feature in data.get("features", []):
-                results.append(
-                    {
-                        "place_name": feature.get("place_name", ""),
-                        "center": feature.get("center", []),
-                        "place_type": feature.get("place_type", []),
-                        "text": feature.get("text", ""),
-                        "bbox": feature.get("bbox"),
-                        "context": feature.get("context", []),
-                    }
-                )
+        # Return features directly (already in good format)
+        results = []
+        for feature in data.get("features", []):
+            results.append(
+                {
+                    "place_name": feature.get("place_name", ""),
+                    "center": feature.get("center", []),
+                    "place_type": feature.get("place_type", []),
+                    "text": feature.get("text", ""),
+                    "bbox": feature.get("bbox"),
+                    "context": feature.get("context", []),
+                }
+            )
 
-            return results
+        return results
 
 
 async def _search_streets_all_locations(
