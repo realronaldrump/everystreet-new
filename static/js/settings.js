@@ -105,12 +105,16 @@
 
               const lastRunCell = row.querySelector(".task-last-run");
               if (lastRunCell && update.last_run) {
-                lastRunCell.textContent = TaskManager.formatDateTime(update.last_run);
+                lastRunCell.textContent = TaskManager.formatDateTime(
+                  update.last_run,
+                );
               }
 
               const nextRunCell = row.querySelector(".task-next-run");
               if (nextRunCell && update.next_run) {
-                nextRunCell.textContent = TaskManager.formatDateTime(update.next_run);
+                nextRunCell.textContent = TaskManager.formatDateTime(
+                  update.next_run,
+                );
               }
             });
 
@@ -348,7 +352,9 @@
               taskStatus
             }">${TaskManager.getStatusHTML(taskStatus)}</td>
             <td class="task-last-run">${
-              task.last_run ? TaskManager.formatDateTime(task.last_run) : "Never"
+              task.last_run
+                ? TaskManager.formatDateTime(task.last_run)
+                : "Never"
             }</td>
             <td class="task-next-run">${
               task.next_run
@@ -514,7 +520,8 @@
               if (!isNaN(elapsedMs) && elapsedMs >= 0) {
                 const durationCell = row.querySelector(".task-duration");
                 if (durationCell) {
-                  durationCell.textContent = TaskManager.formatDuration(elapsedMs);
+                  durationCell.textContent =
+                    TaskManager.formatDuration(elapsedMs);
                 }
               }
             } catch (e) {

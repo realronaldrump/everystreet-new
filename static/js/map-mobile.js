@@ -510,15 +510,28 @@ class MobileMapInterface {
         ["mobile-quick-trips", totals.totalTrips ?? totals.trips],
         [
           "mobile-total-distance",
-          MobileMapInterface.formatNumber(totals.totalDistanceMiles ?? totals.totalDistance),
+          MobileMapInterface.formatNumber(
+            totals.totalDistanceMiles ?? totals.totalDistance,
+          ),
         ],
         [
           "mobile-quick-distance",
-          MobileMapInterface.formatNumber(totals.totalDistanceMiles ?? totals.totalDistance),
+          MobileMapInterface.formatNumber(
+            totals.totalDistanceMiles ?? totals.totalDistance,
+          ),
         ],
-        ["mobile-avg-speed", MobileMapInterface.formatNumber(totals.avgSpeed, 1)],
-        ["mobile-quick-speed", MobileMapInterface.formatNumber(totals.avgSpeed, 1)],
-        ["mobile-max-speed", MobileMapInterface.formatNumber(totals.maxSpeed, 1)],
+        [
+          "mobile-avg-speed",
+          MobileMapInterface.formatNumber(totals.avgSpeed, 1),
+        ],
+        [
+          "mobile-quick-speed",
+          MobileMapInterface.formatNumber(totals.avgSpeed, 1),
+        ],
+        [
+          "mobile-max-speed",
+          MobileMapInterface.formatNumber(totals.maxSpeed, 1),
+        ],
       ];
 
       assignments.forEach(([id, value]) => {
