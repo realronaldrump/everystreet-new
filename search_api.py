@@ -80,12 +80,12 @@ async def geocode_search(
         return {"results": results, "query": query}
 
     except aiohttp.ClientError as e:
-        logger.error("Geocoding API error: %s", str(e), exc_info=True)
+        logger.error("Geocoding API error: %s", e, exc_info=True)
         raise HTTPException(
             status_code=503, detail="Geocoding service temporarily unavailable"
         ) from e
     except Exception as e:
-        logger.error("Error processing geocoding search: %s", str(e), exc_info=True)
+        logger.error("Error processing geocoding search: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -138,7 +138,7 @@ async def search_streets(
 
     except Exception as e:
         # Never fail the endpoint due to upstream errors – return empty results
-        logger.error("Street search unexpected error: %s", str(e), exc_info=True)
+        logger.error("Street search unexpected error: %s", e, exc_info=True)
         return {"type": "FeatureCollection", "features": [], "query": query}
 
 
@@ -174,7 +174,7 @@ async def get_street_geometry(location_id: str, street_name: str):
         return {"type": "FeatureCollection", "features": features}
 
     except Exception as e:
-        logger.error("Error getting street geometry: %s", str(e), exc_info=True)
+        logger.error("Error getting street geometry: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

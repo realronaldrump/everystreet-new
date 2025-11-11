@@ -283,7 +283,7 @@ async def get_trips_datatable(request: Request):
             "data": formatted_data,
         }
     except Exception as e:
-        logger.exception("Error in get_trips_datatable: %s", str(e))
+        logger.exception("Error in get_trips_datatable: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -317,7 +317,7 @@ async def bulk_delete_trips(request: Request):
             ),
         }
     except Exception as e:
-        logger.exception("Error in bulk_delete_trips: %s", str(e))
+        logger.exception("Error in bulk_delete_trips: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -337,7 +337,7 @@ async def get_single_trip(trip_id: str):
             "trip": serialize_document(trip),
         }
     except Exception as e:
-        logger.exception("get_single_trip error: %s", str(e))
+        logger.exception("get_single_trip error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
@@ -378,7 +378,7 @@ async def delete_trip(trip_id: str):
             detail="Failed to delete trip after finding it.",
         )
     except Exception as e:
-        logger.exception("Error deleting trip: %s", str(e))
+        logger.exception("Error deleting trip: %s", e)
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(
@@ -435,7 +435,7 @@ async def update_trip(trip_id: str, update_data: TripUpdateRequest):
         return {"status": "no_change", "message": "Trip data was already up-to-date."}
 
     except Exception as e:
-        logger.exception("Error updating trip %s: %s", trip_id, str(e))
+        logger.exception("Error updating trip %s: %s", trip_id, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update trip: {str(e)}",
@@ -624,7 +624,7 @@ async def geocode_trips(data: DateRangeModel | None = None):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Error in geocode_trips: %s", str(e))
+        logger.exception("Error in geocode_trips: %s", e)
         # Update progress with error
         await update_one_with_retry(
             progress_collection,
@@ -673,7 +673,7 @@ async def get_geocode_progress(task_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Error getting geocoding progress: %s", str(e))
+        logger.exception("Error getting geocoding progress: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting progress: {e}",
@@ -718,7 +718,7 @@ async def regeocode_single_trip(trip_id: str):
                 detail=f"Failed to re-geocode trip {trip_id}. Check logs for details.",
             )
     except Exception as e:
-        logger.exception("Error in regeocode_single_trip: %s", str(e))
+        logger.exception("Error in regeocode_single_trip: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error re-geocoding trip {trip_id}: {e}",

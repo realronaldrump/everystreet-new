@@ -255,13 +255,19 @@ def standardize_and_validate_gps(
 
     def _log_warning(msg: str, *args: Any):
         if transaction_id is not None:
-            logger.warning("Trip %s: %s", transaction_id, msg % args if args else msg)
+            if args:
+                logger.warning("Trip %s: " + msg, transaction_id, *args)
+            else:
+                logger.warning("Trip %s: %s", transaction_id, msg)
         else:
             logger.warning(msg, *args)
 
     def _log_debug(msg: str, *args: Any):
         if transaction_id is not None:
-            logger.debug("Trip %s: %s", transaction_id, msg % args if args else msg)
+            if args:
+                logger.debug("Trip %s: " + msg, transaction_id, *args)
+            else:
+                logger.debug("Trip %s: %s", transaction_id, msg)
         else:
             logger.debug(msg, *args)
 

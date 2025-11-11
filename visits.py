@@ -153,7 +153,7 @@ async def delete_place(place_id: str):
             "message": "Place deleted",
         }
     except Exception as e:
-        logger.exception("Error deleting place: %s", str(e))
+        logger.exception("Error deleting place: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -208,7 +208,7 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
             **CustomPlace.from_dict(updated_place).to_dict(),
         }
     except Exception as e:
-        logger.exception("Error updating place: %s", str(e))
+        logger.exception("Error updating place: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -535,7 +535,7 @@ async def get_place_statistics(place_id: str):
         }
 
     except Exception as e:
-        logger.exception("Error getting place statistics for %s: %s", place_id, str(e))
+        logger.exception("Error getting place statistics for %s: %s", place_id, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -595,7 +595,7 @@ async def get_trips_for_place(place_id: str):
         return {"trips": trips_data, "name": place["name"]}
 
     except Exception as e:
-        logger.exception("Error getting trips for place %s: %s", place_id, str(e))
+        logger.exception("Error getting trips for place %s: %s", place_id, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -710,7 +710,7 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
 
         return places_data
     except Exception as e:
-        logger.exception("Error getting non-custom places visits: %s", str(e))
+        logger.exception("Error getting non-custom places visits: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -754,7 +754,7 @@ async def get_all_places_statistics():
             )
         return results
     except Exception as e:
-        logger.exception("Error in get_all_places_statistics: %s", str(e))
+        logger.exception("Error in get_all_places_statistics: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -935,7 +935,7 @@ async def get_visit_suggestions(
         return suggestions
 
     except Exception as e:
-        logger.exception("Error generating visit suggestions: %s", str(e))
+        logger.exception("Error generating visit suggestions: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

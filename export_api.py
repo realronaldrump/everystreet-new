@@ -395,10 +395,10 @@ async def export_coverage_route_endpoint(
         return await create_export_response(data_to_export, fmt, filename_base)
 
     except ValueError as ve:
-        logger.error("ValueError in export_coverage_route_endpoint: %s", str(ve))
+        logger.error("ValueError in export_coverage_route_endpoint: %s", ve)
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        logger.exception("Error exporting coverage route: %s", str(e))
+        logger.exception("Error exporting coverage route: %s", e)
         raise HTTPException(
             status_code=500, detail=f"Failed to export coverage route: {str(e)}"
         )
@@ -423,7 +423,7 @@ async def export_geojson(request: Request):
             },
         )
     except Exception as e:
-        logger.exception("Error exporting GeoJSON: %s", str(e))
+        logger.exception("Error exporting GeoJSON: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -446,7 +446,7 @@ async def export_gpx(request: Request):
             },
         )
     except Exception as e:
-        logger.exception("Error exporting GPX: %s", str(e))
+        logger.exception("Error exporting GPX: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -1024,14 +1024,14 @@ async def export_advanced(
             flatten_location_fields=flatten_location_fields,
         )
     except ValueError as e:
-        logger.error("Export error: %s", str(e))
+        logger.error("Export error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
 
     except Exception as e:
-        logger.error("Error in advanced export: %s", str(e), exc_info=True)
+        logger.error("Error in advanced export: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Export failed: {e!s}",

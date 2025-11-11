@@ -116,7 +116,7 @@ async def database_management_page(request: Request):
             collections=collections_info,
         )
     except Exception as e:
-        logger.exception("Error loading database management page: %s", str(e))
+        logger.exception("Error loading database management page: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

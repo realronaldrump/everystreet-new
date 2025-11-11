@@ -136,7 +136,7 @@ async def get_trip_analytics(request: Request):
         )
 
     except Exception as e:
-        logger.exception("Error trip analytics: %s", str(e))
+        logger.exception("Error trip analytics: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -260,7 +260,7 @@ async def get_time_period_trips(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Error fetching time period trips: %s", str(e))
+        logger.exception("Error fetching time period trips: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -914,7 +914,7 @@ async def get_metrics(request: Request):
         return JSONResponse(content=response_content)
 
     except Exception as e:
-        logger.exception("Error in get_metrics: %s", str(e))
+        logger.exception("Error in get_metrics: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

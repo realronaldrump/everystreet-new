@@ -1846,7 +1846,7 @@ class TripProcessor:
             return str(saved_doc["_id"]) if saved_doc else None
 
         except Exception as e:
-            logger.error("Error saving trip: %s", str(e))
+            logger.error("Error saving trip: %s", e)
             return None
 
     @staticmethod

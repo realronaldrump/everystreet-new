@@ -99,7 +99,7 @@ def with_comprehensive_handling(func: Callable) -> Callable:
         except Exception as e:
             duration = time.time() - start_time
             logger.exception(
-                "Error in %s after %.2fs: %s", func.__name__, duration, str(e)
+                "Error in %s after %.2fs: %s", func.__name__, duration, e
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -374,19 +374,24 @@ class TripService:
                         # New trip - always process
                         trips_to_process.append(trip)
                     elif do_map_match:
-                        # Map matching requested - check if trip already has matched data
+                        # Map matching requested - check if trip already has matched
+                        # data
                         if not existing_trip.get("matchedGps"):
-                            # Trip exists but lacks matchedGps - process for map matching
+                            # Trip exists but lacks matchedGps - process for map
+                            # matching
                             trips_to_process.append(trip)
-                        # else: trip already has matchedGps - skip to avoid redundant processing
-                    # else: trip exists and map matching not requested - skip to avoid duplicates
+                        # else: trip already has matchedGps - skip to avoid redundant 
+                        # processing
+                    # else: trip exists and map matching not requested - skip to avoid 
+                    # duplicates
             else:
                 trips_to_process = []
 
             skipped_count = len(seen_incoming) - len(trips_to_process)
             if progress_section is not None:
                 progress_section["message"] = (
-                    f"Starting trip processing (skipped {skipped_count} existing/duplicate trips)"
+                    f"Starting trip processing "
+                    f"(skipped {skipped_count} existing/duplicate trips)"
                 )
 
             for index, trip in enumerate(trips_to_process):
@@ -419,7 +424,8 @@ class TripService:
                     )
 
                     if result.get("saved_id"):
-                        # Track the trip by its transactionId for callers that expect transaction IDs
+                        # Track the trip by its transactionId for callers that expect
+                        # transaction IDs
                         processed_trip_ids.append(transaction_id)
 
                 except Exception as trip_error:
@@ -487,7 +493,8 @@ class TripService:
         Args:
             trip_ids: List of trip IDs to geocode
             skip_if_exists: If True, skip geocoding if address already exists
-            progress_callback: Optional callback function(current, total, trip_id) for progress updates
+            progress_callback: Optional callback function(current, total, trip_id) for
+            progress updates
         """
         results = {
             "total": len(trip_ids),
