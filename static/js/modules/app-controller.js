@@ -94,10 +94,12 @@ const AppController = {
 
         // Restore street view modes if location is selected
         const selectedLocationId = utils.getStorage(
-          CONFIG.STORAGE_KEYS.selectedLocation
+          CONFIG.STORAGE_KEYS.selectedLocation,
         );
         if (selectedLocationId) {
-          let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+          let savedStates = utils.getStorage(
+            CONFIG.STORAGE_KEYS.streetViewMode,
+          );
           // Handle migration from old string format
           if (typeof savedStates === "string") {
             const oldMode = savedStates;
@@ -119,10 +121,16 @@ const AppController = {
           }, 500);
         }
 
-        const mapStage = window.loadingManager.startStage("map", "Loading map data...");
+        const mapStage = window.loadingManager.startStage(
+          "map",
+          "Loading map data...",
+        );
 
         // Fetch all visible layers during initialization
-        const fetchPromises = [dataManager.fetchTrips(), dataManager.fetchMetrics()];
+        const fetchPromises = [
+          dataManager.fetchTrips(),
+          dataManager.fetchMetrics(),
+        ];
 
         // Fetch matched trips if visible
         if (state.mapLayers.matchedTrips.visible) {
@@ -175,9 +183,11 @@ const AppController = {
             "transitionend",
             () => {
               const collapsed = !content.classList.contains("show");
-              icon.className = collapsed ? "fas fa-chevron-down" : "fas fa-chevron-up";
+              icon.className = collapsed
+                ? "fas fa-chevron-down"
+                : "fas fa-chevron-up";
             },
-            { once: true }
+            { once: true },
           );
         }
       });
@@ -229,7 +239,9 @@ const AppController = {
           btn.classList.toggle("active");
 
           // Save state - ensure we always work with an object
-          let currentStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+          let currentStates = utils.getStorage(
+            CONFIG.STORAGE_KEYS.streetViewMode,
+          );
           if (typeof currentStates !== "object" || currentStates === null) {
             currentStates = {};
           }
@@ -247,7 +259,10 @@ const AppController = {
     if (centerBtn) {
       centerBtn.addEventListener("click", () => {
         if (!navigator.geolocation) {
-          window.notificationManager.show("Geolocation is not supported", "warning");
+          window.notificationManager.show(
+            "Geolocation is not supported",
+            "warning",
+          );
           return;
         }
         centerBtn.disabled = true;
@@ -266,11 +281,11 @@ const AppController = {
             console.error("Geolocation error:", err);
             window.notificationManager.show(
               `Error getting location: ${err.message}`,
-              "danger"
+              "danger",
             );
             centerBtn.disabled = false;
             centerBtn.classList.remove("btn-loading");
-          }
+          },
         );
       });
     }
@@ -339,7 +354,10 @@ const AppController = {
 
     // Keyboard shortcuts
     window.addEventListener("keydown", (e) => {
-      if (!state.map || document.activeElement.matches("input, textarea, select"))
+      if (
+        !state.map ||
+        document.activeElement.matches("input, textarea, select")
+      )
         return;
       const actions = {
         "+": () => state.map.zoomIn(),
@@ -410,22 +428,30 @@ const AppController = {
       if (res) {
         window.notificationManager.show(
           `Map matching completed: ${res.message}`,
-          "success"
+          "success",
         );
         await dataManager.updateMap();
       }
     } catch (err) {
       console.error("Map match error:", err);
-      window.notificationManager.show(`Map matching error: ${err.message}`, "danger");
+      window.notificationManager.show(
+        `Map matching error: ${err.message}`,
+        "danger",
+      );
     } finally {
       window.loadingManager.hide();
     }
   },
 
   async handleStreetViewModeChange(mode, shouldHide = false) {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
     if (!selectedLocationId && !shouldHide) {
-      window.notificationManager.show("Please select a location first", "warning");
+      window.notificationManager.show(
+        "Please select a location first",
+        "warning",
+      );
       return;
     }
 

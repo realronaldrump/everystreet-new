@@ -32,7 +32,7 @@ if (typeof window !== "undefined") {
     setupEventListeners();
     // Enable Bootstrap tooltips used in the page (e.g., Total Distance column)
     const tooltipTriggerList = [].slice.call(
-      document.querySelectorAll('[data-bs-toggle="tooltip"]')
+      document.querySelectorAll('[data-bs-toggle="tooltip"]'),
     );
     tooltipTriggerList.forEach((el) => new bootstrap.Tooltip(el));
 
@@ -76,9 +76,15 @@ if (typeof window !== "undefined") {
     document
       .getElementById("download-report")
       .addEventListener("click", generateReport);
-    document.getElementById("share-insights").addEventListener("click", shareInsights);
-    document.getElementById("export-chart").addEventListener("click", exportChart);
-    document.getElementById("export-data").addEventListener("click", exportData);
+    document
+      .getElementById("share-insights")
+      .addEventListener("click", shareInsights);
+    document
+      .getElementById("export-chart")
+      .addEventListener("click", exportChart);
+    document
+      .getElementById("export-data")
+      .addEventListener("click", exportData);
     document.getElementById("view-map").addEventListener("click", () => {
       window.location.href = "/trips";
     });
@@ -119,7 +125,9 @@ if (typeof window !== "undefined") {
       }
       prevEndDateObj.setDate(prevEndDateObj.getDate() - 1);
       const prevStartDateObj = new Date(prevEndDateObj);
-      prevStartDateObj.setDate(prevStartDateObj.getDate() - (state.currentPeriod - 1));
+      prevStartDateObj.setDate(
+        prevStartDateObj.getDate() - (state.currentPeriod - 1),
+      );
 
       const prevRange = {
         start: formatDate(prevStartDateObj),
@@ -131,15 +139,21 @@ if (typeof window !== "undefined") {
         end_date: prevRange.end,
       });
 
-      const [behavior, insights, analytics, metrics, prevBehavior, prevInsights] =
-        await Promise.all([
-          fetch(`/api/driver-behavior?${params}`).then((r) => r.json()),
-          fetch(`/api/driving-insights?${params}`).then((r) => r.json()),
-          fetch(`/api/trip-analytics?${params}`).then((r) => r.json()),
-          fetch(`/api/metrics?${params}`).then((r) => r.json()),
-          fetch(`/api/driver-behavior?${paramsPrev}`).then((r) => r.json()),
-          fetch(`/api/driving-insights?${paramsPrev}`).then((r) => r.json()),
-        ]);
+      const [
+        behavior,
+        insights,
+        analytics,
+        metrics,
+        prevBehavior,
+        prevInsights,
+      ] = await Promise.all([
+        fetch(`/api/driver-behavior?${params}`).then((r) => r.json()),
+        fetch(`/api/driving-insights?${params}`).then((r) => r.json()),
+        fetch(`/api/trip-analytics?${params}`).then((r) => r.json()),
+        fetch(`/api/metrics?${params}`).then((r) => r.json()),
+        fetch(`/api/driver-behavior?${paramsPrev}`).then((r) => r.json()),
+        fetch(`/api/driving-insights?${paramsPrev}`).then((r) => r.json()),
+      ]);
 
       state.data = { behavior, insights, analytics, metrics };
       state.prevRange = { behavior: prevBehavior, insights: prevInsights };
@@ -242,7 +256,9 @@ if (typeof window !== "undefined") {
     });
 
     // Efficiency Chart
-    const efficiencyCtx = document.getElementById("efficiencyChart").getContext("2d");
+    const efficiencyCtx = document
+      .getElementById("efficiencyChart")
+      .getContext("2d");
     state.charts.efficiency = new Chart(efficiencyCtx, {
       type: "doughnut",
       data: {
@@ -278,7 +294,9 @@ if (typeof window !== "undefined") {
     });
 
     // Time Distribution Chart
-    const timeDistCtx = document.getElementById("timeDistChart").getContext("2d");
+    const timeDistCtx = document
+      .getElementById("timeDistChart")
+      .getContext("2d");
     state.charts.timeDist = new Chart(timeDistCtx, {
       type: "bar",
       data: {
@@ -414,14 +432,21 @@ if (typeof window !== "undefined") {
     if (!element) return;
 
     if (!state.counters[elementId]) {
-      state.counters[elementId] = new CountUp(elementId, 0, endValue, decimals, 1.5, {
-        useEasing: true,
-        useGrouping: true,
-        separator: ",",
-        decimal: ".",
-        prefix: "",
-        suffix: "",
-      });
+      state.counters[elementId] = new CountUp(
+        elementId,
+        0,
+        endValue,
+        decimals,
+        1.5,
+        {
+          useEasing: true,
+          useGrouping: true,
+          separator: ",",
+          decimal: ".",
+          prefix: "",
+          suffix: "",
+        },
+      );
     } else {
       state.counters[elementId].update(endValue);
     }
@@ -455,7 +480,8 @@ if (typeof window !== "undefined") {
       insights.total_trips > 0
         ? (insights.total_distance / insights.total_trips).toFixed(1)
         : 0;
-    document.querySelector("#distance-comparison span").textContent = avgPerTrip;
+    document.querySelector("#distance-comparison span").textContent =
+      avgPerTrip;
 
     // Fuel comparison
     const mpg =
@@ -571,7 +597,9 @@ if (typeof window !== "undefined") {
     const { behavior } = state.data;
 
     const tableData =
-      state.currentView === "weekly" ? behavior.weekly || [] : behavior.monthly || [];
+      state.currentView === "weekly"
+        ? behavior.weekly || []
+        : behavior.monthly || [];
 
     const tbody = tableEl.querySelector("tbody");
     if (!tbody) return;
@@ -620,7 +648,9 @@ if (typeof window !== "undefined") {
     const parent = btn.parentElement;
 
     // Update active state
-    parent.querySelectorAll(".toggle-btn").forEach((b) => b.classList.remove("active"));
+    parent
+      .querySelectorAll(".toggle-btn")
+      .forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
 
     // Update appropriate view
@@ -652,7 +682,9 @@ if (typeof window !== "undefined") {
     const utilsObj = window.utils || {};
     const today = formatDate(new Date());
     return {
-      start: utilsObj.getStorage ? utilsObj.getStorage("startDate", today) : today,
+      start: utilsObj.getStorage
+        ? utilsObj.getStorage("startDate", today)
+        : today,
       end: utilsObj.getStorage ? utilsObj.getStorage("endDate", today) : today,
     };
   }
@@ -880,7 +912,7 @@ if (typeof window !== "undefined") {
     } else {
       // Fallback to copying to clipboard
       navigator.clipboard.writeText(
-        `${shareData.title}\n${shareData.text}\n${shareData.url}`
+        `${shareData.title}\n${shareData.text}\n${shareData.url}`,
       );
       showNotification("Link copied to clipboard!", "success");
     }
@@ -893,7 +925,7 @@ if (typeof window !== "undefined") {
       () => {
         loadAllData();
       },
-      5 * 60 * 1000
+      5 * 60 * 1000,
     );
   }
 
@@ -959,17 +991,26 @@ if (typeof window !== "undefined") {
           const startTime = trip.startTime
             ? new Date(trip.startTime).toLocaleString()
             : "-";
-          const endTime = trip.endTime ? new Date(trip.endTime).toLocaleString() : "-";
+          const endTime = trip.endTime
+            ? new Date(trip.endTime).toLocaleString()
+            : "-";
           const duration = formatDuration(trip.duration || 0);
-          const distance = trip.distance ? `${trip.distance.toFixed(1)} mi` : "-";
+          const distance = trip.distance
+            ? `${trip.distance.toFixed(1)} mi`
+            : "-";
           const startLoc =
             trip.startLocation?.formatted_address ||
             trip.startLocation?.name ||
             "Unknown";
           const destLoc =
-            trip.destination?.formatted_address || trip.destination?.name || "Unknown";
-          const maxSpeed = trip.maxSpeed ? `${trip.maxSpeed.toFixed(1)} mph` : "-";
-          const tripId = trip.transactionId || trip._id?.$oid || trip._id || "-";
+            trip.destination?.formatted_address ||
+            trip.destination?.name ||
+            "Unknown";
+          const maxSpeed = trip.maxSpeed
+            ? `${trip.maxSpeed.toFixed(1)} mph`
+            : "-";
+          const tripId =
+            trip.transactionId || trip._id?.$oid || trip._id || "-";
 
           return `
           <tr>
@@ -992,7 +1033,9 @@ if (typeof window !== "undefined") {
     }
 
     // Show the modal
-    const modal = new bootstrap.Modal(document.getElementById("tripDetailsModal"));
+    const modal = new bootstrap.Modal(
+      document.getElementById("tripDetailsModal"),
+    );
     modal.show();
   }
 
