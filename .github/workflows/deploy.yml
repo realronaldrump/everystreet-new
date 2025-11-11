@@ -1,4 +1,3 @@
-# .github/workflows/deploy.yml
 name: Deploy to Mini PC
 
 on:
@@ -10,6 +9,15 @@ jobs:
   deploy:
     runs-on: self-hosted
     steps:
+      - name: Ensure latest code is merged
+        run: |
+          cd /home/davis/app
+          # Set a safe default merge strategy
+          git config pull.rebase false
+          # Fetch and merge the latest code from the main branch
+          git fetch origin main
+          git merge --no-edit origin/main
+          
       - name: Deploy Application
         run: |
           cd /home/davis/app

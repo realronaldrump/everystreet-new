@@ -1,13 +1,13 @@
 #!/bin/bash
 # /home/davis/app/deploy.sh
-# Simple deployment script - just pull and restart
+# Simple deployment script - just restart
 
 set -e
 
 cd /home/davis/app
 
 echo "Pulling latest code..."
-git pull origin main
+# git pull origin main  <-- REMOVE OR COMMENT OUT THIS LINE
 
 echo "Rebuilding and restarting containers..."
 docker compose down
