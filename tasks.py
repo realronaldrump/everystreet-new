@@ -158,7 +158,8 @@ class TaskStatusManager:
         status: str,
         error: str | None = None,
     ) -> bool:
-        """Updates the status of a specific task in the global task configuration document.
+        """Updates the status of a specific task in the global task
+        configuration document.
 
         Args:
             task_id: The identifier of the task (e.g., 'periodic_fetch_trips').
@@ -579,7 +580,8 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
     # Get current Bouncie credentials from database or environment
     bouncie_config = await get_bouncie_config()
     logger.info(
-        "Bouncie credentials: CLIENT_ID=%s, CLIENT_SECRET=%s, REDIRECT_URI=%s, AUTH_CODE=%s, AUTHORIZED_DEVICES count: %d",
+        "Bouncie credentials: CLIENT_ID=%s, CLIENT_SECRET=%s, "
+        "REDIRECT_URI=%s, AUTH_CODE=%s, AUTHORIZED_DEVICES count: %d",
         "set" if bouncie_config.get("client_id") else "NOT SET",
         "set" if bouncie_config.get("client_secret") else "NOT SET",
         "set" if bouncie_config.get("redirect_uri") else "NOT SET",
@@ -874,7 +876,8 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
                 processed_areas += 1
             else:
                 logger.warning(
-                    "Incremental update failed or returned no result for '%s' (SubTask: %s). Check previous logs.",
+                    "Incremental update failed or returned no result for "
+                    "'%s' (SubTask: %s). Check previous logs.",
                     display_name,
                     sub_task_id,
                 )
@@ -912,7 +915,8 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
             continue
 
     logger.info(
-        "Completed automated incremental updates. Processed: %d, Failed: %d, Skipped: %d",
+        "Completed automated incremental updates. Processed: %d, "
+        "Failed: %d, Skipped: %d",
         processed_areas,
         failed_areas,
         skipped_areas,
@@ -923,8 +927,11 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
         "areas_processed": processed_areas,
         "areas_failed": failed_areas,
         "areas_skipped": skipped_areas,
-        "message": "Completed incremental updates. Processed: %d, Failed: %d, Skipped: %d"
-        % (processed_areas, failed_areas, skipped_areas),
+        "message": (
+            "Completed incremental updates. Processed: %d, "
+            "Failed: %d, Skipped: %d"
+            % (processed_areas, failed_areas, skipped_areas)
+        ),
     }
 
 
@@ -954,7 +961,8 @@ async def cleanup_stale_trips_async(self) -> dict[str, Any]:
 
     if live_collection is None or archive_collection is None:
         logger.critical(
-            "DB collections ('live_trips' or 'archived_live_trips') could not be obtained in cleanup task!",
+            "DB collections ('live_trips' or 'archived_live_trips') "
+            "could not be obtained in cleanup task!",
         )
         raise ConnectionFailure(
             "Could not get required collections for cleanup task.",
@@ -971,7 +979,8 @@ async def cleanup_stale_trips_async(self) -> dict[str, Any]:
     stale_archived_count = cleanup_result.get("stale_trips_archived", 0)
     old_removed_count = cleanup_result.get("old_archives_removed", 0)
     logger.info(
-        "Cleanup logic completed: Archived %d stale live trips, removed %d old archives.",
+        "Cleanup logic completed: Archived %d stale live trips, "
+        "removed %d old archives.",
         stale_archived_count,
         old_removed_count,
     )
@@ -1316,7 +1325,8 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
             logger.error("Error executing final validation update batch: %s", bulk_err)
 
     logger.info(
-        "Validation attempt finished. Processed: %d, Marked Invalid: %d, Failed Processing: %d",
+        "Validation attempt finished. Processed: %d, Marked Invalid: %d, "
+        "Failed Processing: %d",
         processed_count,
         modified_count,
         failed_count,
@@ -1953,11 +1963,13 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
                             if new_val != old_val:
                                 update_payload[f"tasks.{task_id}.enabled"] = new_val
                                 changes.append(
-                                    f"Task '{task_id}' enabled status: {old_val} -> {new_val}",
+                                    f"Task '{task_id}' enabled status: "
+                                    f"{old_val} -> {new_val}",
                                 )
                         else:
                             logger.warning(
-                                "Ignoring non-boolean value for enabled status of task '%s': %s",
+                                "Ignoring non-boolean value for enabled "
+                                "status of task '%s': %s",
                                 task_id,
                                 new_val,
                             )
@@ -2026,11 +2038,15 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
             }
 
         logger.info(
-            "Task configuration update requested, but no document was modified (values might be the same).",
+            "Task configuration update requested, but no document was "
+            "modified (values might be the same).",
         )
         return {
             "status": "success",
-            "message": "No changes applied to task configuration (values may already match).",
+            "message": (
+                "No changes applied to task configuration "
+                "(values may already match)."
+            ),
         }
     except Exception as e:
         logger.exception("Error updating task schedule: %s", e)
@@ -2099,7 +2115,8 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
 
         if live_collection is None or archive_collection is None:
             logger.critical(
-                "Task %s: Failed to obtain required DB collections ('live_trips' or 'archived_live_trips') via db_manager.",
+                "Task %s: Failed to obtain required DB collections "
+                "('live_trips' or 'archived_live_trips') via db_manager.",
                 celery_task_id,
             )
             raise ConnectionFailure("Failed to obtain DB collections via db_manager.")
@@ -2159,7 +2176,8 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
         logger.info(
-            "Celery Task %s (%s) successfully processed webhook: Type=%s, TransactionID=%s in %.0fms",
+            "Celery Task %s (%s) successfully processed webhook: "
+            "Type=%s, TransactionID=%s in %.0fms",
             task_name,
             celery_task_id,
             event_type,
@@ -2206,7 +2224,10 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         end_time = datetime.now(timezone.utc)
         runtime = (end_time - start_time).total_seconds() * 1000
-        error_msg = f"Unhandled error processing webhook event {event_type or 'Unknown'} (TxID: {transaction_id or 'N/A'})"
+        error_msg = (
+            f"Unhandled error processing webhook event "
+            f"{event_type or 'Unknown'} (TxID: {transaction_id or 'N/A'})"
+        )
         logger.exception(
             "Celery Task %s (%s) FAILED processing webhook: %s. Runtime: %.0fms",
             task_name,
@@ -2238,7 +2259,8 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
                 raise e from retry_exc
         else:
             logger.error(
-                "Cannot retry task %s for generic error as Celery retry context is missing.",
+                "Cannot retry task %s for generic error as Celery retry "
+                "context is missing.",
                 celery_task_id,
             )
             raise e
