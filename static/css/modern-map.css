@@ -654,6 +654,34 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   color: var(--text-primary);
 }
 
+/* Draggable Layer Controls */
+.layer-control {
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.layer-control:hover {
+  background: var(--surface-3);
+  border-color: var(--primary);
+}
+
+.layer-control.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+.layer-control .fa-grip-vertical {
+  opacity: 0.5;
+  transition: opacity var(--transition-fast);
+}
+
+.layer-control:hover .fa-grip-vertical {
+  opacity: 1;
+}
+
 /* Layer Order List */
 .layer-order-list {
   list-style: none;

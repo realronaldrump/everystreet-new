@@ -27,13 +27,17 @@ const layerManager = {
     // Exclude street layers - they're controlled by radio buttons
     const streetLayers = ["undrivenStreets", "drivenStreets", "allStreets"];
 
-    Object.entries(state.mapLayers).forEach(([name, info]) => {
-      // Skip street layers as they have dedicated radio button controls
-      if (streetLayers.includes(name)) return;
+    // Sort layers by order before creating elements
+    const sortedLayers = Object.entries(state.mapLayers)
+      .filter(([name]) => !streetLayers.includes(name))
+      .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
 
+    sortedLayers.forEach(([name, info]) => {
       const div = document.createElement("div");
       div.className = "layer-control d-flex align-items-center mb-2 p-2 rounded";
       div.dataset.layerName = name;
+      div.draggable = true;
+      div.style.cursor = "move";
 
       const checkboxId = `${name}-toggle`;
       const supportsColorPicker =
@@ -68,6 +72,7 @@ const layerManager = {
           : "";
 
       div.innerHTML = `
+          <i class="fas fa-grip-vertical me-2 text-secondary" style="cursor: move;" aria-hidden="true"></i>
           <div class="form-check form-switch me-auto">
             <input class="form-check-input" type="checkbox" id="${checkboxId}"
                    ${info.visible ? "checked" : ""} role="switch">
@@ -85,6 +90,7 @@ const layerManager = {
 
     container.appendChild(fragment);
     this.setupEventListeners(container);
+    this.setupDragAndDropForLayers(container);
     this.updateLayerOrder();
   },
 
@@ -107,6 +113,106 @@ const layerManager = {
         this.saveLayerSettings();
       }, 200)
     );
+  },
+
+  setupDragAndDropForLayers(container) {
+    let draggedElement = null;
+
+    container.addEventListener("dragstart", (e) => {
+      // Don't start drag if clicking on interactive elements
+      const target = e.target;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "LABEL" ||
+        target.closest("input") ||
+        target.closest("label") ||
+        target.closest("button")
+      ) {
+        e.preventDefault();
+        return;
+      }
+      
+      draggedElement = target.closest(".layer-control");
+      if (draggedElement) {
+        draggedElement.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/html", draggedElement.outerHTML);
+      }
+    });
+
+    container.addEventListener("dragend", () => {
+      if (draggedElement) {
+        draggedElement.classList.remove("dragging");
+        draggedElement = null;
+        this.reorderLayersFromVisible();
+      }
+    });
+
+    container.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      
+      if (!draggedElement) return;
+      
+      const afterElement = this.getDragAfterElementForLayers(container, e.clientY);
+      if (afterElement == null) {
+        container.appendChild(draggedElement);
+      } else {
+        container.insertBefore(draggedElement, afterElement);
+      }
+    });
+
+    container.addEventListener("drop", (e) => {
+      e.preventDefault();
+    });
+  },
+
+  getDragAfterElementForLayers(container, y) {
+    const draggableElements = [...container.querySelectorAll(".layer-control:not(.dragging)")];
+
+    return draggableElements.reduce(
+      (closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+
+        if (offset < 0 && offset > closest.offset) {
+          return { offset, element: child };
+        }
+        return closest;
+      },
+      { offset: Number.NEGATIVE_INFINITY }
+    ).element;
+  },
+
+  reorderLayersFromVisible() {
+    const container = utils.getElement("layer-toggles");
+    if (!container) return;
+
+    Array.from(container.children).forEach((item, index) => {
+      const layerName = item.dataset.layerName;
+      if (state.mapLayers[layerName]) {
+        state.mapLayers[layerName].order = index;
+      }
+    });
+
+    if (state.map && state.mapInitialized) {
+      const sortedLayers = Object.entries(state.mapLayers).sort(
+        ([, a], [, b]) => (b.order || 0) - (a.order || 0)
+      );
+
+      let beforeLayer = null;
+      sortedLayers.forEach(([name]) => {
+        const layerId = `${name}-layer`;
+        if (state.map.getLayer(layerId)) {
+          if (beforeLayer) {
+            state.map.moveLayer(layerId, beforeLayer);
+          }
+          beforeLayer = layerId;
+        }
+      });
+    }
+
+    this.saveLayerSettings();
   },
 
   async toggleLayer(name, visible) {
@@ -170,53 +276,14 @@ const layerManager = {
   },
 
   updateLayerOrder() {
-    const container = utils.getElement("layer-order-list");
-    if (!container) return;
-
-    // Exclude street layers - they're controlled by radio buttons
-    const streetLayers = ["undrivenStreets", "drivenStreets", "allStreets"];
-
-    const sortedLayers = Object.entries(state.mapLayers)
-      .filter(([name]) => !streetLayers.includes(name))
-      .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
-
-    container.innerHTML = sortedLayers
-      .map(
-        ([name, info]) => `
-          <li class="list-group-item d-flex justify-content-between align-items-center"
-              data-layer-name="${name}" draggable="true">
-            <span>${info.name || name}</span>
-            <div class="btn-group btn-group-sm">
-              <button class="btn btn-outline-secondary move-up" title="Move Up">
-                <i class="fas fa-arrow-up"></i>
-              </button>
-              <button class="btn btn-outline-secondary move-down" title="Move Down">
-                <i class="fas fa-arrow-down"></i>
-              </button>
-            </div>
-          </li>
-        `
-      )
-      .join("");
-
-    this.setupDragAndDrop(container);
-
-    container.addEventListener("click", (e) => {
-      const button = e.target.closest("button");
-      if (!button) return;
-
-      const li = button.closest("li");
-      const layerName = li?.dataset.layerName;
-      if (!layerName) return;
-
-      if (button.classList.contains("move-up") && li.previousElementSibling) {
-        container.insertBefore(li, li.previousElementSibling);
-      } else if (button.classList.contains("move-down") && li.nextElementSibling) {
-        container.insertBefore(li.nextElementSibling, li);
+    // Hide the separate layer order section since layers are now draggable in the visible layers section
+    const layerOrderList = utils.getElement("layer-order-list");
+    if (layerOrderList) {
+      const layerOrderSection = layerOrderList.closest('.layer-group');
+      if (layerOrderSection) {
+        layerOrderSection.style.display = 'none';
       }
-
-      this.reorderLayers();
-    });
+    }
   },
 
   setupDragAndDrop(container) {
@@ -266,36 +333,6 @@ const layerManager = {
     ).element;
   },
 
-  reorderLayers() {
-    const container = utils.getElement("layer-order-list");
-    if (!container) return;
-
-    Array.from(container.children).forEach((item, index) => {
-      const { layerName } = item.dataset;
-      if (state.mapLayers[layerName]) {
-        state.mapLayers[layerName].order = index;
-      }
-    });
-
-    if (state.map && state.mapInitialized) {
-      const sortedLayers = Object.entries(state.mapLayers).sort(
-        ([, a], [, b]) => (b.order || 0) - (a.order || 0)
-      );
-
-      let beforeLayer = null;
-      sortedLayers.forEach(([name]) => {
-        const layerId = `${name}-layer`;
-        if (state.map.getLayer(layerId)) {
-          if (beforeLayer) {
-            state.map.moveLayer(layerId, beforeLayer);
-          }
-          beforeLayer = layerId;
-        }
-      });
-    }
-
-    this.saveLayerSettings();
-  },
 
   async updateMapLayer(layerName, data) {
     if (!state.map || !state.mapInitialized || !data) return;
