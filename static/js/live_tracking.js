@@ -316,7 +316,10 @@ class LiveTripTracker {
       features.push({
         type: "Feature",
         properties: { type: "marker" },
-        geometry: { type: "Point", coordinates: mapboxCoords[mapboxCoords.length - 1] },
+        geometry: {
+          type: "Point",
+          coordinates: mapboxCoords[mapboxCoords.length - 1],
+        },
       });
     }
 
@@ -388,7 +391,9 @@ class LiveTripTracker {
     }
 
     if (trip.totalIdlingTime > 0) {
-      optional["Idling Time"] = DateUtils.formatSecondsToHMS(trip.totalIdlingTime);
+      optional["Idling Time"] = DateUtils.formatSecondsToHMS(
+        trip.totalIdlingTime,
+      );
     }
 
     if (trip.hardBrakingCounts > 0) {

@@ -3,6 +3,7 @@
 Simplified single-user implementation for real-time trip visualization.
 Trips are stored in live_trips collection for visual reference only.
 """
+
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -28,7 +29,9 @@ def initialize_db(db_live_trips, _db_archived_live_trips=None):
     logger.info("Live tracking database initialized")
 
 
-async def _publish_trip_snapshot(trip_doc: dict[str, Any], status: str = "active") -> None:
+async def _publish_trip_snapshot(
+    trip_doc: dict[str, Any], status: str = "active"
+) -> None:
     """Publish trip update to WebSocket clients via Redis."""
     transaction_id = trip_doc.get("transactionId")
     if not transaction_id:
@@ -105,7 +108,9 @@ def _deduplicate_coordinates(existing: list[dict], new: list[dict]) -> list[dict
     return sorted_coords
 
 
-def _calculate_trip_metrics(coordinates: list[dict], start_time: datetime) -> dict[str, Any]:
+def _calculate_trip_metrics(
+    coordinates: list[dict], start_time: datetime
+) -> dict[str, Any]:
     """Calculate distance, speed, and duration from coordinates."""
     if not coordinates:
         return {
@@ -127,9 +132,7 @@ def _calculate_trip_metrics(coordinates: list[dict], start_time: datetime) -> di
         curr = coordinates[i]
 
         segment_dist = haversine(
-            prev["lon"], prev["lat"],
-            curr["lon"], curr["lat"],
-            unit="miles"
+            prev["lon"], prev["lat"], curr["lon"], curr["lat"], unit="miles"
         )
         distance_miles += segment_dist
 
@@ -148,7 +151,9 @@ def _calculate_trip_metrics(coordinates: list[dict], start_time: datetime) -> di
         curr = coordinates[-1]
         time_diff = (curr["timestamp"] - prev["timestamp"]).total_seconds()
         if time_diff > 0:
-            last_dist = haversine(prev["lon"], prev["lat"], curr["lon"], curr["lat"], unit="miles")
+            last_dist = haversine(
+                prev["lon"], prev["lat"], curr["lon"], curr["lat"], unit="miles"
+            )
             current_speed = (last_dist / time_diff) * 3600
 
     # Duration and average speed
@@ -191,6 +196,7 @@ def _coordinates_to_geojson(coordinates: list[dict]) -> dict | None:
 # Event Handlers
 # ============================================================================
 
+
 async def process_trip_start(data: dict[str, Any], live_collection: Collection) -> None:
     """Process tripStart event - initialize new trip."""
     transaction_id = data.get("transactionId")
@@ -227,9 +233,7 @@ async def process_trip_start(data: dict[str, Any], live_collection: Collection) 
     }
 
     await live_collection.replace_one(
-        {"transactionId": transaction_id},
-        trip,
-        upsert=True
+        {"transactionId": transaction_id}, trip, upsert=True
     )
 
     logger.info(f"Trip {transaction_id} started")
@@ -280,11 +284,13 @@ async def process_trip_data(data: dict[str, Any], live_collection: Collection) -
     updated_trip = await live_collection.find_one_and_update(
         {"transactionId": transaction_id, "status": "active"},
         {"$set": update_fields},
-        return_document=pymongo.ReturnDocument.AFTER
+        return_document=pymongo.ReturnDocument.AFTER,
     )
 
     if updated_trip:
-        logger.info(f"Trip {transaction_id} updated: {len(all_coords)} points, {metrics['distance']:.2f}mi")
+        logger.info(
+            f"Trip {transaction_id} updated: {len(all_coords)} points, {metrics['distance']:.2f}mi"
+        )
         await _publish_trip_snapshot(updated_trip, status="active")
 
 
@@ -307,7 +313,9 @@ async def process_trip_metrics(
     )
 
     if not trip:
-        logger.info(f"Trip {transaction_id} not found for tripMetrics (may be completed)")
+        logger.info(
+            f"Trip {transaction_id} not found for tripMetrics (may be completed)"
+        )
         return
 
     # Build update from Bouncie metrics
@@ -339,7 +347,7 @@ async def process_trip_metrics(
     updated_trip = await live_collection.find_one_and_update(
         {"transactionId": transaction_id, "status": "active"},
         update_operation,
-        return_document=pymongo.ReturnDocument.AFTER
+        return_document=pymongo.ReturnDocument.AFTER,
     )
 
     if updated_trip:
@@ -366,7 +374,9 @@ async def process_trip_end(
         logger.warning(f"Trip {transaction_id}: Using current time for end")
 
     # Fetch active trip
-    trip = await live_collection.find_one({"transactionId": transaction_id, "status": "active"})
+    trip = await live_collection.find_one(
+        {"transactionId": transaction_id, "status": "active"}
+    )
 
     if not trip:
         logger.warning(f"Trip {transaction_id} not found for tripEnd")
@@ -399,7 +409,7 @@ async def process_trip_end(
     updated_trip = await live_collection.find_one_and_update(
         {"transactionId": transaction_id},
         {"$set": update_fields},
-        return_document=pymongo.ReturnDocument.AFTER
+        return_document=pymongo.ReturnDocument.AFTER,
     )
 
     if updated_trip:
@@ -414,6 +424,7 @@ async def process_trip_end(
 # Helper Functions
 # ============================================================================
 
+
 async def get_active_trip() -> dict[str, Any] | None:
     """Get the currently active trip."""
     if not live_trips_collection_global:
@@ -422,8 +433,7 @@ async def get_active_trip() -> dict[str, Any] | None:
 
     try:
         trip = await live_trips_collection_global.find_one(
-            {"status": "active"},
-            sort=[("lastUpdate", -1)]
+            {"status": "active"}, sort=[("lastUpdate", -1)]
         )
         return trip
     except Exception as e:
@@ -454,17 +464,13 @@ async def get_trip_updates(last_sequence: int = 0) -> dict[str, Any]:
         }
 
 
-async def cleanup_old_trips(
-    live_collection: Collection,
-    max_age_days: int = 30
-) -> int:
+async def cleanup_old_trips(live_collection: Collection, max_age_days: int = 30) -> int:
     """Remove completed trips older than max_age_days."""
     threshold = datetime.now(timezone.utc) - timedelta(days=max_age_days)
 
-    result = await live_collection.delete_many({
-        "status": "completed",
-        "endTime": {"$lt": threshold}
-    })
+    result = await live_collection.delete_many(
+        {"status": "completed", "endTime": {"$lt": threshold}}
+    )
 
     count = result.deleted_count
     if count > 0:
@@ -484,10 +490,9 @@ async def cleanup_stale_trips_logic(
     stale_threshold = now - timedelta(minutes=stale_minutes)
 
     # Find stale active trips
-    stale_trips = await live_collection.find({
-        "status": "active",
-        "lastUpdate": {"$lt": stale_threshold}
-    }).to_list(length=100)
+    stale_trips = await live_collection.find(
+        {"status": "active", "lastUpdate": {"$lt": stale_threshold}}
+    ).to_list(length=100)
 
     stale_count = 0
     for trip in stale_trips:
@@ -500,12 +505,14 @@ async def cleanup_stale_trips_logic(
 
         await live_collection.update_one(
             {"transactionId": transaction_id},
-            {"$set": {
-                "status": "completed",
-                "endTime": trip.get("lastUpdate"),
-                "closed_reason": "stale",
-                "gps": gps,
-            }}
+            {
+                "$set": {
+                    "status": "completed",
+                    "endTime": trip.get("lastUpdate"),
+                    "closed_reason": "stale",
+                    "gps": gps,
+                }
+            },
         )
         stale_count += 1
 

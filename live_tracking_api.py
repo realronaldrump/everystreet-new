@@ -1,4 +1,5 @@
 """API endpoints for live trip tracking via webhooks and WebSocket."""
+
 import json
 import logging
 import uuid
@@ -6,7 +7,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
 
@@ -19,7 +27,11 @@ from live_tracking import (
     process_trip_metrics,
     process_trip_start,
 )
-from models import ActiveTripResponseUnion, ActiveTripSuccessResponse, NoActiveTripResponse
+from models import (
+    ActiveTripResponseUnion,
+    ActiveTripSuccessResponse,
+    NoActiveTripResponse,
+)
 from redis_config import get_redis_url
 from trip_event_publisher import TRIP_UPDATES_CHANNEL
 
@@ -61,6 +73,7 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
 # WebSocket Connection Manager
 # ============================================================================
 
+
 class ConnectionManager:
     """Manages WebSocket connections."""
 
@@ -82,6 +95,7 @@ manager = ConnectionManager()
 # ============================================================================
 # WebSocket Endpoint
 # ============================================================================
+
 
 @router.websocket("/ws/trips")
 async def websocket_endpoint(websocket: WebSocket):
@@ -177,6 +191,7 @@ async def websocket_endpoint(websocket: WebSocket):
 # ============================================================================
 # REST API Endpoints
 # ============================================================================
+
 
 @router.post("/webhook/bouncie")
 async def bouncie_webhook(request: Request):
