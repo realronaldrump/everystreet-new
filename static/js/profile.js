@@ -4,7 +4,6 @@
  */
 
 (() => {
-  let _unmaskedCredentials = null;
   let currentDevices = [];
 
   // Initialize page
@@ -278,7 +277,7 @@
    * Add a new device input
    * @param {string} prefix - Prefix for mobile/desktop
    */
-  function addDeviceInput(_prefix = "") {
+  function addDeviceInput() {
     currentDevices.push("");
     renderDevices();
   }
@@ -288,7 +287,7 @@
    * @param {number} index - Index to remove
    * @param {string} prefix - Prefix for mobile/desktop
    */
-  function removeDevice(index, _prefix = "") {
+  function removeDevice(index) {
     if (currentDevices.length > 1) {
       currentDevices.splice(index, 1);
       renderDevices();

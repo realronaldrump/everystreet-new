@@ -272,9 +272,11 @@ class MobileMapInterface {
 
     let clientY = this.dragStartY;
     if (event.changedTouches?.length > 0) {
-      clientY = event.changedTouches[0].clientY;
+      const { clientY: touchClientY } = event.changedTouches[0];
+      clientY = touchClientY;
     } else if (event.touches?.length > 0) {
-      clientY = event.touches[0].clientY;
+      const { clientY: touchClientY } = event.touches[0];
+      clientY = touchClientY;
     }
 
     const deltaY = clientY - this.dragStartY;
@@ -338,16 +340,17 @@ class MobileMapInterface {
 
   setState(state, options = {}) {
     if (!this.sheet) return;
+    let validState = state;
     if (!this.activeStates.includes(state)) {
-      state = this.activeStates[0] || "collapsed";
+      validState = this.activeStates[0] || "collapsed";
     }
 
     const { immediate = false } = options;
 
-    this.currentState = state;
-    this.currentOffset = this.stateOffsets[state] ?? 0;
+    this.currentState = validState;
+    this.currentOffset = this.stateOffsets[validState] ?? 0;
 
-    this.updateSheetClasses(state);
+    this.updateSheetClasses(validState);
     this.applySheetOffset(this.currentOffset, { immediate });
     this.updateBackdropForOffset(this.currentOffset);
   }
@@ -635,6 +638,7 @@ class MobileMapInterface {
       statusBadge.classList.toggle("disconnected", connected === false);
       const label = statusBadge.querySelector("span:last-child");
       if (label) {
+        const { textContent } = label;
         label.textContent = connected === false ? "Offline" : "Live";
       }
     }
@@ -871,7 +875,9 @@ class MobileMapInterface {
       }
     });
     this.cleanupCallbacks = [];
-    this.observers.forEach((observer) => observer.disconnect());
+    this.observers.forEach((observer) => {
+      observer.disconnect();
+    });
     this.observers = [];
   }
 }

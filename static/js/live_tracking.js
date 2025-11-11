@@ -451,7 +451,9 @@ class LiveTripTracker {
     } else {
       try {
         const bounds = new mapboxgl.LngLatBounds();
-        mapboxCoords.forEach((coord) => bounds.extend(coord));
+        mapboxCoords.forEach((coord) => {
+          bounds.extend(coord);
+        });
         this.map.fitBounds(bounds, { padding: 50 });
       } catch (error) {
         console.error("Error fitting bounds:", error);

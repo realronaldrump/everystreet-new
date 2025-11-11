@@ -623,7 +623,7 @@ class UploadManager {
 
   async uploadFiles() {
     const { selectedFiles } = this.state;
-    const { uploadButton, mapMatchCheckbox } = this.elements;
+    const { uploadButton } = this.elements;
 
     if (selectedFiles.length === 0) {
       window.notificationManager.show("No files selected to upload", "warning");
@@ -957,4 +957,4 @@ class UploadManager {
   }
 }
 
-const _uploadManager = new UploadManager();
+// UploadManager instance is created and used via window.uploadManager

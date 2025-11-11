@@ -236,15 +236,19 @@ class CoverageNavigation {
             segment.geometry.type === "LineString" &&
             segment.geometry.coordinates
           ) {
-            segment.geometry.coordinates.forEach((coord) => bounds.extend(coord));
+            segment.geometry.coordinates.forEach((coord) => {
+              bounds.extend(coord);
+            });
           } else if (
             segment.geometry &&
             segment.geometry.type === "MultiLineString" &&
             segment.geometry.coordinates
           ) {
-            segment.geometry.coordinates.forEach((line) =>
-              line.forEach((coord) => bounds.extend(coord))
-            );
+            segment.geometry.coordinates.forEach((line) => {
+              line.forEach((coord) => {
+                bounds.extend(coord);
+              });
+            });
           }
         });
       } else if (cluster.nearest_segment?.start_coords) {
@@ -413,7 +417,9 @@ class CoverageNavigation {
    * Clear efficient street markers
    */
   clearEfficientStreetMarkers(removePanel = true) {
-    this.efficientStreetMarkers.forEach((marker) => marker.remove());
+    this.efficientStreetMarkers.forEach((marker) => {
+      marker.remove();
+    });
     this.efficientStreetMarkers = [];
 
     if (

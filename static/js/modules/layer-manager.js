@@ -317,7 +317,9 @@ const layerManager = {
       // Clean up existing layer and source completely
       if (state.map.getLayer(layerId)) {
         const events = ["click", "mouseenter", "mouseleave"];
-        events.forEach((event) => state.map.off(event, layerId));
+        events.forEach((event) => {
+          state.map.off(event, layerId);
+        });
         state.map.removeLayer(layerId);
       }
       if (state.map.getSource(sourceId)) {
@@ -388,9 +390,12 @@ const layerManager = {
             tripInteractions.handleTripClick(e, e.features[0]);
           }
         };
-        const mouseEnterHandler = () =>
-          (state.map.getCanvas().style.cursor = "pointer");
-        const mouseLeaveHandler = () => (state.map.getCanvas().style.cursor = "");
+        const mouseEnterHandler = () => {
+          state.map.getCanvas().style.cursor = "pointer";
+        };
+        const mouseLeaveHandler = () => {
+          state.map.getCanvas().style.cursor = "";
+        };
 
         state.map.on("click", layerId, clickHandler);
         state.map.on("mouseenter", layerId, mouseEnterHandler);

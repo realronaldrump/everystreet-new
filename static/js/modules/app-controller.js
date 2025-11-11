@@ -370,9 +370,9 @@ const AppController = {
     window.addEventListener("beforeunload", () => {
       state.cancelAllRequests();
       const visibility = {};
-      Object.entries(state.mapLayers).forEach(
-        ([name, info]) => (visibility[name] = info.visible)
-      );
+      Object.entries(state.mapLayers).forEach(([name, info]) => {
+        visibility[name] = info.visible;
+      });
       utils.setStorage(CONFIG.STORAGE_KEYS.layerVisibility, visibility);
       layerManager.cleanup();
     });

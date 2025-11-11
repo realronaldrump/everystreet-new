@@ -3,7 +3,7 @@
  * Coordinates all coverage management modules
  */
 
-/* global bootstrap, Chart, mapboxgl, html2canvas, $ */
+/* global bootstrap, Chart, mapboxgl, html2canvas */
 
 import dateUtils from "../date-utils.js";
 import COVERAGE_API from "./coverage-api.js";

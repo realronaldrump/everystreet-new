@@ -1,4 +1,4 @@
-/* global mapboxgl, notificationManager, LiveTripTracker */
+/* global mapboxgl, notificationManager */
 
 class DrivingNavigation {
   constructor() {
@@ -384,7 +384,9 @@ class DrivingNavigation {
         const bounds = new mapboxgl.LngLatBounds();
         driveableFeatures.forEach((feature) => {
           if (feature.geometry.type === "LineString") {
-            feature.geometry.coordinates.forEach((coord) => bounds.extend(coord));
+            feature.geometry.coordinates.forEach((coord) => {
+              bounds.extend(coord);
+            });
           }
         });
 
@@ -535,7 +537,9 @@ class DrivingNavigation {
     });
 
     const bounds = new mapboxgl.LngLatBounds();
-    data.route_geometry.coordinates.forEach((coord) => bounds.extend(coord));
+    data.route_geometry.coordinates.forEach((coord) => {
+      bounds.extend(coord);
+    });
     if (this.lastKnownLocation) {
       bounds.extend([this.lastKnownLocation.lon, this.lastKnownLocation.lat]);
     }
@@ -625,11 +629,15 @@ class DrivingNavigation {
         if (data.route_geometry.type === "GeometryCollection") {
           data.route_geometry.geometries.forEach((geom) => {
             if (geom.type === "LineString") {
-              geom.coordinates.forEach((coord) => bounds.extend(coord));
+              geom.coordinates.forEach((coord) => {
+                bounds.extend(coord);
+              });
             }
           });
         } else if (data.route_geometry.type === "LineString") {
-          data.route_geometry.coordinates.forEach((coord) => bounds.extend(coord));
+          data.route_geometry.coordinates.forEach((coord) => {
+            bounds.extend(coord);
+          });
         }
 
         if (!bounds.isEmpty()) this.map.fitBounds(bounds, { padding: 50 });
@@ -700,7 +708,7 @@ class DrivingNavigation {
         currentLat = position.coords.latitude;
         currentLon = position.coords.longitude;
         this.lastKnownLocation = { lat: currentLat, lon: currentLon };
-      } catch (_error) {
+      } catch {
         this.setStatus(
           "Unable to get current location. Please enable location services.",
           true
@@ -986,7 +994,7 @@ class DrivingNavigation {
     const score = cluster.efficiency_score.toFixed(2);
     return `<div class="efficient-cluster-popup"><h6>Cluster #${rank + 1}</h6><div class="cluster-stats small"><div><i class="fas fa-road"></i> ${cluster.segment_count} streets</div><div><i class="fas fa-ruler"></i> ${lengthMiles} mi total</div><div><i class="fas fa-location-arrow"></i> ${distanceMiles} mi away</div><div><i class="fas fa-chart-line"></i> Score: ${score}</div></div><button class="btn btn-sm btn-primary mt-2 navigate-to-segment" data-segment-id="${cluster.nearest_segment.segment_id}"><i class="fas fa-route me-1"></i> Navigate to Cluster</button></div>`;
   }
-  displayEfficientClustersInfo(_clusters) {
+  displayEfficientClustersInfo() {
     /* This method can remain largely the same as it manipulates the control panel DOM, not the map */
   }
   getCurrentPosition() {
@@ -1021,7 +1029,7 @@ class DrivingNavigation {
   async handleExportCoverageRoute() {
     /* This method does not interact with the map and needs no changes */
   }
-  formatLocationSource(_source) {
+  formatLocationSource() {
     /* This method does not interact with the map and needs no changes */
   }
 }

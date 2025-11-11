@@ -781,7 +781,7 @@ if (typeof window !== "undefined") {
     return `${hour - 12} PM`;
   }
 
-  function calculateFuelEfficiency(insights, _behavior) {
+  function calculateFuelEfficiency(insights) {
     const mpg =
       insights.total_distance > 0 && insights.total_fuel_consumed > 0
         ? insights.total_distance / insights.total_fuel_consumed

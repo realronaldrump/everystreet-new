@@ -238,7 +238,7 @@
       }
 
       const recentlyFinished = [];
-      for (const [taskId, _taskState] of this.activeTasksMap.entries()) {
+      for (const [taskId] of this.activeTasksMap.entries()) {
         if (!runningTasks.has(taskId)) {
           recentlyFinished.push(taskId);
         }

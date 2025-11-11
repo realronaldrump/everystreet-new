@@ -207,11 +207,15 @@ class CoverageMap {
       geojson.features.forEach((f) => {
         if (f.geometry?.coordinates) {
           if (f.geometry.type === "LineString")
-            f.geometry.coordinates.forEach((coord) => bounds.extend(coord));
+            f.geometry.coordinates.forEach((coord) => {
+              bounds.extend(coord);
+            });
           else if (f.geometry.type === "MultiLineString")
-            f.geometry.coordinates.forEach((line) =>
-              line.forEach((coord) => bounds.extend(coord))
-            );
+            f.geometry.coordinates.forEach((line) => {
+              line.forEach((coord) => {
+                bounds.extend(coord);
+              });
+            });
         }
       });
       this.mapBounds = !bounds.isEmpty() ? bounds : null;
@@ -728,12 +732,13 @@ class CoverageMap {
    * Utility: Distance in user units
    */
   distanceInUserUnits(meters, fixed = 2) {
+    let validMeters = meters;
     if (typeof meters !== "number" || Number.isNaN(meters)) {
-      meters = 0;
+      validMeters = 0;
     }
-    const miles = meters * 0.000621371;
+    const miles = validMeters * 0.000621371;
     return miles < 0.1
-      ? `${(meters * 3.28084).toFixed(0)} ft`
+      ? `${(validMeters * 3.28084).toFixed(0)} ft`
       : `${miles.toFixed(fixed)} mi`;
   }
 

@@ -199,7 +199,7 @@ class LoadingManager {
 
   updateProgress() {
     const stages = Object.entries(this.stages);
-    const totalWeight = stages.reduce((sum, [_, stage]) => sum + stage.weight, 0);
+    const totalWeight = stages.reduce((sum, [, stage]) => sum + stage.weight, 0);
 
     let weightedProgress = 0;
     let currentStage = null;
@@ -364,7 +364,7 @@ class LoadingManager {
     this._updateOverlayProgress(Math.round(overallProgress), currentMessage);
   }
 
-  show(message = "Loading...", _immediate = false) {
+  show(message = "Loading...") {
     const operation = this.startOperation("Manual", 100);
     operation.update(50, message);
     return this;

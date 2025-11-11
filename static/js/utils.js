@@ -1,4 +1,4 @@
-/* global flatpickr, bootstrap */
+/* global bootstrap */
 
 // Consolidated utility functions that will be used across the application
 const utils = {

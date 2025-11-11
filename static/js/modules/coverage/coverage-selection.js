@@ -3,8 +3,6 @@
  * Handles multi-select and bulk actions for street segments
  */
 
-/* global mapboxgl */
-
 class CoverageSelection {
   constructor(coverageMap, notificationManager) {
     this.coverageMap = coverageMap;

@@ -1,4 +1,4 @@
-/* global DateUtils, confirmationDialog, $, handleError */
+/* global DateUtils, $, handleError */
 
 function createEditableCell(data, type, field, inputType = "text") {
   if (type !== "display") return data;
@@ -619,7 +619,7 @@ class TripsManager {
         throw new Error(errorData.error || "Failed to refresh geocoding");
       }
 
-      const _result = await response.json();
+      await response.json();
       if (window.notificationManager) {
         window.notificationManager.show(
           "Geocoding refresh started successfully. It may take some time to see the changes.",
