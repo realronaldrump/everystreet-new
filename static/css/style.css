@@ -2033,7 +2033,7 @@ body.light-mode .live-tracking-panel-bg {
 }
 
 .legend-indicator--undriven {
-  background-color: #00BFFF;
+  background-color: #00bfff;
   border: 1px dashed rgba(255, 255, 255, 0.3);
 }
 

@@ -341,7 +341,8 @@ class LiveTripTracker {
       color = "#2196f3"; // Blue - medium
       radius = 6;
     } else {
-      color = window.MapStyles?.MAP_LAYER_COLORS?.liveTracking?.fast || "#4f46e5"; // Indigo - fast
+      color =
+        window.MapStyles?.MAP_LAYER_COLORS?.liveTracking?.fast || "#4f46e5"; // Indigo - fast
       radius = 8;
     }
 
