@@ -81,7 +81,7 @@ export const CONFIG = {
     },
     drivenStreets: {
       order: 2,
-      color: "#4CAF50",
+      color: "#059669",
       opacity: 0.8,
       visible: false,
       name: "Driven Streets",
@@ -91,7 +91,7 @@ export const CONFIG = {
     },
     allStreets: {
       order: 2,
-      color: "#9370DB",
+      color: "#818cf8",
       opacity: 0.7,
       visible: false,
       name: "All Streets",

@@ -341,7 +341,7 @@ class LiveTripTracker {
       color = "#2196f3"; // Blue - medium
       radius = 6;
     } else {
-      color = "#9c27b0"; // Purple - fast
+      color = "#4f46e5"; // Indigo - fast
       radius = 8;
     }
 

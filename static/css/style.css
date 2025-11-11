@@ -5,18 +5,18 @@
 /* === CSS Variables === */
 :root {
   /* Color System */
-  --primary: #7f5af0;
-  --primary-light: #9e8bff;
-  --primary-dark: #5630e6;
-  --primary-rgb: 127, 90, 240;
-  --secondary: #2cb67d;
-  --secondary-light: #52d79b;
-  --secondary-dark: #1d8a5d;
-  --secondary-rgb: 44, 182, 125;
-  --success: #3dd68c;
-  --success-light: #6cf7b1;
-  --success-dark: #22965f;
-  --success-rgb: 61, 214, 140;
+  --primary: #6366f1;
+  --primary-light: #818cf8;
+  --primary-dark: #4f46e5;
+  --primary-rgb: 99, 102, 241;
+  --secondary: #64748b;
+  --secondary-light: #94a3b8;
+  --secondary-dark: #475569;
+  --secondary-rgb: 100, 116, 139;
+  --success: #059669;
+  --success-light: #34d399;
+  --success-dark: #047857;
+  --success-rgb: 5, 150, 105;
   --warning: #faae2b;
   --warning-light: #fbd072;
   --warning-dark: #b7791f;

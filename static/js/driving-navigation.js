@@ -52,15 +52,15 @@ class DrivingNavigation {
     this.currentRoute = null;
 
     this.clusterColors = [
-      "#7f5af0",
-      "#2cb67d",
+      "#6366f1",
+      "#64748b",
       "#3f8cff",
       "#ff5470",
       "#faae2b",
-      "#9b8afb",
+      "#818cf8",
       "#22d3ee",
       "#d946ef",
-      "#52d79b",
+      "#94a3b8",
       "#7dd3fc",
     ];
 

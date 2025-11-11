@@ -323,8 +323,8 @@
                 "fill-color": [
                   "case",
                   ["boolean", ["feature-state", "hover"], false],
-                  "#BB86FC",
-                  "#BB86FC",
+                  "#818cf8",
+                  "#818cf8",
                 ],
                 "fill-opacity": [
                   "case",
@@ -345,7 +345,7 @@
                   "case",
                   ["boolean", ["feature-state", "hover"], false],
                   "#9965EB",
-                  "#BB86FC",
+                  "#818cf8",
                 ],
                 "line-width": [
                   "case",
@@ -474,7 +474,7 @@
           type: "fill",
           source: "custom-places",
           paint: {
-            "fill-color": "#BB86FC",
+            "fill-color": "#818cf8",
             "fill-opacity": 0.15,
           },
         });
@@ -484,7 +484,7 @@
           type: "line",
           source: "custom-places",
           paint: {
-            "line-color": "#BB86FC",
+            "line-color": "#818cf8",
             "line-width": 2,
           },
         });
@@ -576,9 +576,9 @@
             legend: { display: false },
             tooltip: {
               backgroundColor: "rgba(30, 30, 30, 0.95)",
-              titleColor: "#BB86FC",
+              titleColor: "#818cf8",
               bodyColor: "rgba(255, 255, 255, 0.9)",
-              borderColor: "#BB86FC",
+              borderColor: "#818cf8",
               borderWidth: 1,
               padding: 12,
               cornerRadius: 8,
@@ -2333,7 +2333,7 @@
             type: "line",
             source: "trip",
             paint: {
-              "line-color": "#BB86FC",
+              "line-color": "#818cf8",
               "line-width": 4,
               "line-dasharray": [2, 1],
             },
@@ -2653,7 +2653,7 @@
               ["==", "active", "false"],
             ],
             paint: {
-              "fill-color": "#BB86FC",
+              "fill-color": "#818cf8",
               "fill-opacity": 0.15,
             },
           },
@@ -2680,7 +2680,7 @@
               ["==", "active", "false"],
             ],
             paint: {
-              "line-color": "#BB86FC",
+              "line-color": "#818cf8",
               "line-width": 2,
             },
           },
