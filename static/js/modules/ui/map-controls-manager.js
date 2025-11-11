@@ -21,8 +21,9 @@ const mapControlsManager = {
         this.updateOpacity(parseFloat(e.target.value))
       );
     }
-    const toggleBtn = uiState.getElement(CONFIG.selectors.controlsToggle);
-    if (toggleBtn) toggleBtn.addEventListener("click", () => this.toggleControlPanel());
+    // Note: controls-toggle is handled in app-controller.js using Bootstrap Collapse API
+    // const toggleBtn = uiState.getElement(CONFIG.selectors.controlsToggle);
+    // if (toggleBtn) toggleBtn.addEventListener("click", () => this.toggleControlPanel());
 
     // Apply persisted settings on load
     this.updateMapType(mapTypeSelect?.value);

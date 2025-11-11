@@ -166,20 +166,32 @@ const AppController = {
   setupEventListeners() {
     // Controls toggle collapse icon
     const controlsToggle = utils.getElement("controls-toggle");
-    if (controlsToggle) {
+    const controlsContent = utils.getElement("controls-content");
+    if (controlsToggle && controlsContent) {
+      // Initialize Bootstrap Collapse
+      const collapse = new bootstrap.Collapse(controlsContent, {
+        toggle: false,
+      });
+
       controlsToggle.addEventListener("click", () => {
-        const content = utils.getElement("controls-content");
+        collapse.toggle();
+      });
+
+      // Listen for Bootstrap's collapse events to update icon and aria-expanded
+      controlsContent.addEventListener("shown.bs.collapse", () => {
         const icon = controlsToggle.querySelector("i");
-        if (content && icon) {
-          content.addEventListener(
-            "transitionend",
-            () => {
-              const collapsed = !content.classList.contains("show");
-              icon.className = collapsed ? "fas fa-chevron-down" : "fas fa-chevron-up";
-            },
-            { once: true }
-          );
+        if (icon) {
+          icon.className = "fas fa-chevron-up";
         }
+        controlsToggle.setAttribute("aria-expanded", "true");
+      });
+
+      controlsContent.addEventListener("hidden.bs.collapse", () => {
+        const icon = controlsToggle.querySelector("i");
+        if (icon) {
+          icon.className = "fas fa-chevron-down";
+        }
+        controlsToggle.setAttribute("aria-expanded", "false");
       });
     }
 
