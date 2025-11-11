@@ -352,9 +352,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   left: var(--space-4);
   right: auto; /* Default to left */
   max-width: 340px;
-  max-height: calc(
-    100vh - var(--header-height, 80px) - (2 * var(--space-4))
-  );
+  max-height: calc(100vh - var(--header-height, 80px) - (2 * var(--space-4)));
   z-index: var(--z-dropdown);
   border-radius: var(--radius-lg);
   background: var(--surface-glass);
@@ -420,8 +418,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 
 /* Panel Body */
 .control-panel-body {
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden auto;
   flex: 1;
   scrollbar-width: thin;
   scrollbar-color: var(--surface-3) transparent;
@@ -589,7 +586,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .search-input:focus {
   border-color: var(--primary);
   background: var(--surface-1);
-  box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 13, 110, 253), 0.1);
+  box-shadow: 0 0 0 3px rgb(var(--primary-rgb, 13, 110, 253), 0.1);
   outline: none;
 }
 
@@ -775,7 +772,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 
 .legend-indicator--undriven {
   background: var(--primary);
-  border: 1px dashed rgba(var(--primary-rgb, 13, 110, 253), 0.5);
+  border: 1px dashed rgb(var(--primary-rgb, 13, 110, 253), 0.5);
 }
 
 .legend-indicator--driven {
@@ -892,7 +889,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 
 .status-indicator.connected {
   background: var(--success);
-  box-shadow: 0 0 8px rgba(var(--success-rgb, 25, 135, 84), 0.5);
+  box-shadow: 0 0 8px rgb(var(--success-rgb, 25, 135, 84), 0.5);
   animation: pulse-status 2s infinite;
 }
 
@@ -906,9 +903,11 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 @keyframes pulse-status {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }

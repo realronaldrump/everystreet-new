@@ -305,16 +305,22 @@ const dateUtils = {
   },
 
   /**
-   * Format duration from hours to human-readable string.
+   * Format time from hours to AM/PM format.
    *
-   * @param {number} hours - Duration in hours
-   * @returns {string} Formatted duration (e.g., "2h 30m")
+   * @param {number} hours - Time in hours (0-23.99)
+   * @returns {string} Formatted time (e.g., "2:30 PM")
    */
   formatTimeFromHours(hours) {
-    if (hours === null || typeof hours === "undefined") return "0h 0m";
+    if (hours === null || typeof hours === "undefined") return "--:--";
     const h = Math.floor(hours);
     const m = Math.round((hours - h) * 60);
-    return `${h}h ${m}m`;
+
+    // Convert to 12-hour format
+    const displayHour = h % 12 === 0 ? 12 : h % 12;
+    const amPm = h < 12 ? "AM" : "PM";
+    const formattedMinute = m.toString().padStart(2, "0");
+
+    return `${displayHour}:${formattedMinute} ${amPm}`;
   },
 
   /**
