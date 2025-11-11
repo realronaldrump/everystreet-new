@@ -186,7 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const coordsLatLng = gps.coordinates.map(([lon, lat]) => [lat, lon]);
 
         const poly = L.polyline(coordsLatLng, {
-          ...window.MapStyles.getTripStyle('default'),
+          ...window.MapStyles.getTripStyle("default"),
         });
 
         poly.on("mousedown", (e) => {
@@ -210,7 +210,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     currentTrip = { layer, tripData };
-    layer.setStyle(window.MapStyles.getTripStyle('selected'));
+    layer.setStyle(window.MapStyles.getTripStyle("selected"));
 
     if (editMode) {
       createEditableMarkers(tripData.geometry.coordinates);
@@ -218,7 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function resetTripStyle(layer) {
-    layer.setStyle(window.MapStyles.getTripStyle('reset'));
+    layer.setStyle(window.MapStyles.getTripStyle("reset"));
   }
 
   function toggleEditMode(e) {

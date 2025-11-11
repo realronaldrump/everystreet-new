@@ -361,8 +361,9 @@
               id: "custom-places-highlight",
               type: "line",
               source: "custom-places",
-                paint: {
-                  "line-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
+              paint: {
+                "line-color":
+                  window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
                 "line-width": 4,
                 "line-opacity": 0,
               },
@@ -473,28 +474,30 @@
           id: "custom-places-fill",
           type: "fill",
           source: "custom-places",
-                paint: {
-                  "fill-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.fill,
-                  "fill-opacity": 0.15,
-                },
+          paint: {
+            "fill-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.fill,
+            "fill-opacity": 0.15,
+          },
         });
 
         this.map.addLayer({
           id: "custom-places-outline",
           type: "line",
           source: "custom-places",
-                paint: {
-                  "line-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
-                  "line-width": 2,
-                },
+          paint: {
+            "line-color":
+              window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
+            "line-width": 2,
+          },
         });
 
         this.map.addLayer({
           id: "custom-places-highlight",
           type: "line",
           source: "custom-places",
-                paint: {
-                  "line-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
+          paint: {
+            "line-color":
+              window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
             "line-width": 4,
             "line-opacity": 0,
           },
@@ -578,7 +581,8 @@
               backgroundColor: "rgba(30, 30, 30, 0.95)",
               titleColor: window.MapStyles.MAP_LAYER_COLORS.customPlaces.fill,
               bodyColor: "rgba(255, 255, 255, 0.9)",
-              borderColor: window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
+              borderColor:
+                window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
               borderWidth: 1,
               padding: 12,
               cornerRadius: 8,
@@ -2652,10 +2656,10 @@
               ["==", "$type", "Polygon"],
               ["==", "active", "false"],
             ],
-                paint: {
-                  "fill-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.fill,
-                  "fill-opacity": 0.15,
-                },
+            paint: {
+              "fill-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.fill,
+              "fill-opacity": 0.15,
+            },
           },
           {
             id: "gl-draw-polygon-fill-active",
@@ -2679,10 +2683,11 @@
               ["==", "$type", "Polygon"],
               ["==", "active", "false"],
             ],
-                paint: {
-                  "line-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
-                  "line-width": 2,
-                },
+            paint: {
+              "line-color":
+                window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
+              "line-width": 2,
+            },
           },
           {
             id: "gl-draw-polygon-stroke-active",
@@ -2692,8 +2697,9 @@
               ["==", "$type", "Polygon"],
               ["==", "active", "true"],
             ],
-                paint: {
-                  "line-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
+            paint: {
+              "line-color":
+                window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
               "line-width": 2,
             },
           },
