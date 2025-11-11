@@ -425,8 +425,4 @@ const layerManager = {
   },
 };
 
-// global exposure for backwards-compat
-if (!window.EveryStreet) window.EveryStreet = {};
-window.EveryStreet.LayerManager = layerManager;
-
 export default layerManager;

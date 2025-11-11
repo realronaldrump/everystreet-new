@@ -338,8 +338,4 @@ const mapManager = {
   },
 };
 
-// Make available globally for legacy code until the rest of the app is fully migrated.
-if (!window.EveryStreet) window.EveryStreet = {};
-window.EveryStreet.MapManager = mapManager;
-
 export default mapManager;

@@ -98,6 +98,4 @@ const eventManager = {
   },
 };
 
-// expose globally for backwards-compat
-if (!window.eventManager) window.eventManager = eventManager;
 export { eventManager as default };

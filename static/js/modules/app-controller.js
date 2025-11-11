@@ -501,25 +501,6 @@ const AppController = {
   },
 };
 
-// Make controller globally accessible for legacy scripts
-if (!window.EveryStreet) window.EveryStreet = {};
-window.EveryStreet.App = {
-  fetchTrips: dataManager.fetchTrips.bind(dataManager),
-  updateMap: dataManager.updateMap.bind(dataManager),
-  refreshTripStyles: mapManager.refreshTripStyles.bind(mapManager),
-  updateTripsTable: metricsManager.updateTripsTable.bind(metricsManager),
-  toggleLayer: layerManager.toggleLayer.bind(layerManager),
-  fetchMetrics: dataManager.fetchMetrics.bind(dataManager),
-  initializeMap: mapManager.initialize.bind(mapManager),
-  getStartDate: dateUtils.getStartDate,
-  getEndDate: dateUtils.getEndDate,
-  fitMapBounds: mapManager.fitBounds.bind(mapManager),
-  mapMatchTrips: AppController.mapMatchTrips.bind(AppController),
-  AppState: state,
-  CONFIG,
-  utils,
-};
-
 // Expose dateUtils as global DateUtils for backward compatibility with non-module scripts
 window.DateUtils = dateUtils;
 

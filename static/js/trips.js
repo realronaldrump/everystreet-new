@@ -1109,7 +1109,6 @@ class TripsManager {
     window.EveryStreet = window.EveryStreet || {};
     window.EveryStreet.Trips = {
       manager: tripsManager,
-      tripsManager, // Keep for backward compatibility
     };
 
     console.log("TripsManager initialized successfully");
