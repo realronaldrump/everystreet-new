@@ -352,9 +352,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   left: var(--space-4);
   right: auto; /* Default to left */
   max-width: 340px;
-  max-height: calc(
-    100vh - var(--header-height, 80px) - (2 * var(--space-4))
-  );
+  max-height: calc(100vh - var(--header-height, 80px) - (2 * var(--space-4)));
   z-index: var(--z-dropdown);
   border-radius: var(--radius-lg);
   background: var(--surface-glass);
@@ -906,7 +904,8 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 @keyframes pulse-status {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
