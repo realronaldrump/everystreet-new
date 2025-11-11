@@ -6,7 +6,7 @@
  */
 
 (function (window) {
-  'use strict';
+  "use strict";
 
   /**
    * Get a CSS variable value from the document root
@@ -14,8 +14,8 @@
    * @param {string} fallback - Fallback value if variable not found
    * @returns {string} The CSS variable value or fallback
    */
-  function getCSSVariable(varName, fallback = '') {
-    if (typeof window === 'undefined' || typeof document === 'undefined') {
+  function getCSSVariable(varName, fallback = "") {
+    if (typeof window === "undefined" || typeof document === "undefined") {
       return fallback;
     }
     try {
@@ -35,58 +35,58 @@
   const MAP_LAYER_COLORS = {
     // Trip layers
     trips: {
-      default: '#331107',
-      selected: '#FFD700',
+      default: "#331107",
+      selected: "#FFD700",
       recent: {
-        light: '#FFEFC1',
-        dark: '#FFB703'
-      }
+        light: "#FFEFC1",
+        dark: "#FFB703",
+      },
     },
     matchedTrips: {
-      default: '#CF6679',
-      highlight: '#40E0D0'
+      default: "#CF6679",
+      highlight: "#40E0D0",
     },
-    
+
     // Street layers
     streets: {
-      undriven: '#00BFFF',
-      driven: getCSSVariable('--success', '#059669'),
-      all: getCSSVariable('--primary-light', '#818cf8')
+      undriven: "#00BFFF",
+      driven: getCSSVariable("--success", "#059669"),
+      all: getCSSVariable("--primary-light", "#818cf8"),
     },
-    
+
     // Route colors
     routes: {
-      calculated: '#76ff03',
-      target: '#ffab00'
+      calculated: "#76ff03",
+      target: "#ffab00",
     },
-    
+
     // Cluster colors (for driving navigation)
     clusters: [
-      getCSSVariable('--primary', '#6366f1'),
-      getCSSVariable('--secondary', '#64748b'),
-      '#3f8cff',
-      '#ff5470',
-      '#faae2b',
-      getCSSVariable('--primary-light', '#818cf8'),
-      '#22c55e',
-      '#d946ef',
-      getCSSVariable('--secondary-light', '#94a3b8'),
-      '#7dd3fc'
+      getCSSVariable("--primary", "#6366f1"),
+      getCSSVariable("--secondary", "#64748b"),
+      "#3f8cff",
+      "#ff5470",
+      "#faae2b",
+      getCSSVariable("--primary-light", "#818cf8"),
+      "#22c55e",
+      "#d946ef",
+      getCSSVariable("--secondary-light", "#94a3b8"),
+      "#7dd3fc",
     ],
-    
+
     // Live tracking speed colors
     liveTracking: {
-      slow: '#10b981',    // Green
-      medium: '#2196f3',  // Blue
-      fast: getCSSVariable('--primary-dark', '#4f46e5')  // Indigo
+      slow: "#10b981", // Green
+      medium: "#2196f3", // Blue
+      fast: getCSSVariable("--primary-dark", "#4f46e5"), // Indigo
     },
-    
+
     // Custom places (visits)
     customPlaces: {
-      fill: getCSSVariable('--primary-light', '#818cf8'),
-      outline: getCSSVariable('--primary-light', '#818cf8'),
-      highlight: '#F59E0B'
-    }
+      fill: getCSSVariable("--primary-light", "#818cf8"),
+      outline: getCSSVariable("--primary-light", "#818cf8"),
+      highlight: "#F59E0B",
+    },
   };
 
   /**
@@ -96,21 +96,21 @@
   const MAP_LAYER_STYLES = {
     trip: {
       default: {
-        color: getCSSVariable('--primary-light', '#818cf8'),
+        color: getCSSVariable("--primary-light", "#818cf8"),
         weight: 3,
-        opacity: 0.8
+        opacity: 0.8,
       },
       selected: {
-        color: '#FFD700',
+        color: "#FFD700",
         weight: 5,
-        opacity: 1
+        opacity: 1,
       },
       reset: {
-        color: getCSSVariable('--primary-light', '#818cf8'),
+        color: getCSSVariable("--primary-light", "#818cf8"),
         weight: 3,
-        opacity: 0.6
-      }
-    }
+        opacity: 0.6,
+      },
+    },
   };
 
   /**
@@ -128,7 +128,7 @@
    * @param {string} state - Style state: 'default', 'selected', or 'reset'
    * @returns {Object} Style object with color, weight, opacity
    */
-  function getTripStyle(state = 'default') {
+  function getTripStyle(state = "default") {
     return MAP_LAYER_STYLES.trip[state] || MAP_LAYER_STYLES.trip.default;
   }
 
@@ -138,19 +138,17 @@
     MAP_LAYER_STYLES,
     getClusterColor,
     getTripStyle,
-    getCSSVariable
+    getCSSVariable,
   };
 
   // Global export
   window.MapStyles = mapStyles;
 
   // Module export (if supported)
-  if (typeof module !== 'undefined' && module.exports) {
+  if (typeof module !== "undefined" && module.exports) {
     module.exports = mapStyles;
   }
-  if (typeof exports !== 'undefined') {
+  if (typeof exports !== "undefined") {
     exports.MapStyles = mapStyles;
   }
 })(window);
-
-
