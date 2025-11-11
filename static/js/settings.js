@@ -759,9 +759,8 @@
           await this.loadTaskConfig();
 
           return true;
-        } 
-          throw new Error(result.message || "Failed to start task");
-        
+        }
+        throw new Error(result.message || "Failed to start task");
       } catch (error) {
         console.error(`Error running task ${taskId}:`, error);
         hideLoadingOverlay();
@@ -889,7 +888,7 @@
     gatherTaskConfigFromUI() {
       const tasks = {};
       document.querySelectorAll("#taskConfigTable tbody tr").forEach((row) => {
-        const {taskId} = row.dataset;
+        const { taskId } = row.dataset;
         if (!taskId) return;
 
         const sel = row.querySelector("select");
@@ -1450,13 +1449,13 @@
         const runBtn = e.target.closest(".run-now-btn");
         const forceBtn = e.target.closest(".force-stop-btn");
         if (detailsBtn) {
-          const {taskId} = detailsBtn.dataset;
+          const { taskId } = detailsBtn.dataset;
           taskManager.showTaskDetails(taskId);
         } else if (runBtn) {
-          const {taskId} = runBtn.dataset;
+          const { taskId } = runBtn.dataset;
           taskManager.runTask(taskId);
         } else if (forceBtn) {
-          const {taskId} = forceBtn.dataset;
+          const { taskId } = forceBtn.dataset;
           taskManager.forceStopTask(taskId);
         }
       });
@@ -1466,7 +1465,7 @@
       taskDetailsModal
         .querySelector(".run-task-btn")
         .addEventListener("mousedown", async (e) => {
-          const {taskId} = e.target.dataset;
+          const { taskId } = e.target.dataset;
           if (taskId) {
             await taskManager.runTask(taskId);
             bootstrap.Modal.getInstance(taskDetailsModal).hide();
@@ -1968,21 +1967,21 @@
     // Attach event listeners
     mobileList.querySelectorAll(".mobile-run-task").forEach((btn) => {
       btn.addEventListener("click", function () {
-        const {taskId} = this.dataset;
+        const { taskId } = this.dataset;
         window.taskManager?.runTask(taskId);
       });
     });
 
     mobileList.querySelectorAll(".mobile-stop-task").forEach((btn) => {
       btn.addEventListener("click", function () {
-        const {taskId} = this.dataset;
+        const { taskId } = this.dataset;
         window.taskManager?.forceStopTask(taskId);
       });
     });
 
     mobileList.querySelectorAll(".mobile-view-task").forEach((btn) => {
       btn.addEventListener("click", function () {
-        const {taskId} = this.dataset;
+        const { taskId } = this.dataset;
         window.taskManager?.showTaskDetails(taskId);
       });
     });
@@ -2326,7 +2325,7 @@
       tab.addEventListener("click", () => {
         geocodeTabs.forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
-        const {method} = tab.dataset;
+        const { method } = tab.dataset;
 
         if (method === "date") {
           geocodeDateRange.style.display = "block";
@@ -2654,7 +2653,7 @@
       const tasks = {};
 
       document.querySelectorAll(".mobile-task-card").forEach((card) => {
-        const {taskId} = card.dataset;
+        const { taskId } = card.dataset;
         const intervalSelect = card.querySelector(".mobile-interval-select");
         const enabledSwitch = card.querySelector(".mobile-task-enabled");
 

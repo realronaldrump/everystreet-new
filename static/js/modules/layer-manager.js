@@ -271,9 +271,8 @@ const layerManager = {
 
         if (offset < 0 && offset > closest.offset) {
           return { offset, element: child };
-        } 
-          return closest;
-        
+        }
+        return closest;
       },
       { offset: Number.NEGATIVE_INFINITY },
     ).element;
@@ -284,7 +283,7 @@ const layerManager = {
     if (!container) return;
 
     Array.from(container.children).forEach((item, index) => {
-      const {layerName} = item.dataset;
+      const { layerName } = item.dataset;
       if (state.mapLayers[layerName]) {
         state.mapLayers[layerName].order = index;
       }

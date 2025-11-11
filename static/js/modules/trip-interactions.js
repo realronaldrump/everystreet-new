@@ -149,7 +149,7 @@ const tripInteractions = {
       const button = e.target.closest("button");
       if (!button) return;
 
-      const {tripId} = button.dataset;
+      const { tripId } = button.dataset;
       if (!tripId) return;
 
       button.disabled = true;
