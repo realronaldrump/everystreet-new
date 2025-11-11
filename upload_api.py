@@ -199,7 +199,7 @@ async def upload_files(
                             else:
                                 logger.warning(
                                     "Skipping trip with transactionId %s from GeoJSON file %s in /api/upload due to invalid/missing GPS after validation.",
-                                    t.get('transactionId', 'N/A'),
+                                    t.get("transactionId", "N/A"),
                                     filename,
                                 )
                         if not processed_one_from_file and trips:
