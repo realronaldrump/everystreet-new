@@ -76,7 +76,9 @@ async def _get_mapbox_optimization_route(
             }
         except httpx.HTTPStatusError as e:
             logger.error(
-                f"Mapbox Optimization API HTTP error: {e.response.status_code} - {e.response.text}"
+                "Mapbox Optimization API HTTP error: %s - %s",
+                e.response.status_code,
+                e.response.text,
             )
             raise HTTPException(
                 status_code=e.response.status_code,
@@ -127,7 +129,9 @@ async def _get_mapbox_directions_route(
             }
         except httpx.HTTPStatusError as e:
             logger.error(
-                f"Mapbox Directions API HTTP error: {e.response.status_code} - {e.response.text}"
+                "Mapbox Directions API HTTP error: %s - %s",
+                e.response.status_code,
+                e.response.text,
             )
             raise HTTPException(
                 status_code=e.response.status_code,

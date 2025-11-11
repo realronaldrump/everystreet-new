@@ -136,8 +136,9 @@ class TripProcessor:
         self.utm_proj = None
         self.project_to_utm = None
 
+    @staticmethod
     def _standardize_and_validate_gps_data(
-        self, gps_input: Any, transaction_id: str
+        gps_input: Any, transaction_id: str
     ) -> dict | None:
         """Delegate GPS validation/standardization to the canonical utils function."""
         return standardize_and_validate_gps(gps_input, transaction_id)
@@ -187,7 +188,7 @@ class TripProcessor:
             "transactionId", f"unknown-{uuid.uuid4()}"
         )
 
-        standardized_gps = self._standardize_and_validate_gps_data(
+        standardized_gps = TripProcessor._standardize_and_validate_gps_data(
             raw_gps, transaction_id
         )
 

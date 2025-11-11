@@ -151,7 +151,8 @@ async def upload_files(
                                     }
                                 else:  # No valid unique points
                                     logger.warning(
-                                        f"GPX segment for {filename} produced no valid unique coordinates."
+                                        "GPX segment for %s produced no valid unique coordinates.",
+                                        filename,
                                     )
 
                             if standardized_gpx_gps:
@@ -168,7 +169,8 @@ async def upload_files(
                                 count += 1
                             else:
                                 logger.warning(
-                                    f"Skipping GPX track/segment in {filename} due to no valid GPS data after standardization."
+                                    "Skipping GPX track/segment in %s due to no valid GPS data after standardization.",
+                                    filename,
                                 )
 
                 except Exception as gpx_err:
@@ -196,12 +198,14 @@ async def upload_files(
                                 processed_one_from_file = True
                             else:
                                 logger.warning(
-                                    f"Skipping trip with transactionId {t.get('transactionId', 'N/A')} "
-                                    f"from GeoJSON file {filename} in /api/upload due to invalid/missing GPS after validation."
+                                    "Skipping trip with transactionId %s from GeoJSON file %s in /api/upload due to invalid/missing GPS after validation.",
+                                    t.get('transactionId', 'N/A'),
+                                    filename,
                                 )
                         if not processed_one_from_file and trips:
                             logger.warning(
-                                f"GeoJSON file {filename} in /api/upload contained trips, but none had valid GPS after processing."
+                                "GeoJSON file %s in /api/upload contained trips, but none had valid GPS after processing.",
+                                filename,
                             )
                 except json.JSONDecodeError:
                     logger.warning(

@@ -1212,7 +1212,8 @@ async def preprocess_streets(
 
         # Clear existing street segments for this location before fetching new ones
         logger.info(
-            f"Clearing existing street segments for {location_name}...",
+            "Clearing existing street segments for %s...",
+            location_name,
         )
         try:
             delete_result = await delete_many_with_retry(
