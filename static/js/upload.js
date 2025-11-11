@@ -48,14 +48,16 @@ class UploadManager {
 
     try {
       this.cacheElements();
-      this.initializePreviewMap().then(() => {
-        this.initializeEventListeners();
-        this.loadUploadSourceTrips();
-        this.loadingManager.finish();
-      }).catch((error) => {
-        console.error("Error initializing upload manager:", error);
-        this.loadingManager.error("Failed to initialize upload manager");
-      });
+      this.initializePreviewMap()
+        .then(() => {
+          this.initializeEventListeners();
+          this.loadUploadSourceTrips();
+          this.loadingManager.finish();
+        })
+        .catch((error) => {
+          console.error("Error initializing upload manager:", error);
+          this.loadingManager.error("Failed to initialize upload manager");
+        });
     } catch (error) {
       console.error("Error initializing upload manager:", error);
       this.loadingManager.error("Failed to initialize upload manager");
@@ -82,7 +84,7 @@ class UploadManager {
   async initializePreviewMap() {
     const mapEl = this.elements.previewMapElement;
     if (!mapEl) return;
-    
+
     this.state.previewMap = window.mapBase.createMap(mapEl.id, {
       center: this.config.map.defaultCenter,
       zoom: this.config.map.defaultZoom,

@@ -3,10 +3,10 @@
 document.addEventListener("DOMContentLoaded", () => {
   let editMap = null;
   let draw = null;
-  let tripsSourceId = "trips-source";
-  let tripsLayerId = "trips-layer";
-  let markersSourceId = "markers-source";
-  let markersLayerId = "markers-layer";
+  const tripsSourceId = "trips-source";
+  const tripsLayerId = "trips-layer";
+  const markersSourceId = "markers-source";
+  const markersLayerId = "markers-layer";
   let currentTrip = null;
   let editMode = false;
   let tripFeatures = [];
@@ -57,7 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
       type: "line",
       source: tripsSourceId,
       paint: {
-        "line-color": window.MapStyles?.getTripStyle?.("default")?.color || "#3388ff",
+        "line-color":
+          window.MapStyles?.getTripStyle?.("default")?.color || "#3388ff",
         "line-width": 3,
         "line-opacity": 0.8,
       },
@@ -437,10 +438,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const a =
       Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) *
-        Math.cos(φ2) *
-        Math.sin(Δλ / 2) *
-        Math.sin(Δλ / 2);
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c;
@@ -491,14 +489,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const tripId =
-        currentTrip.properties?.transactionId ||
-        currentTrip.transactionId;
+        currentTrip.properties?.transactionId || currentTrip.transactionId;
 
       if (!tripId) {
-        console.error(
-          "Error: transactionId is undefined.",
-          currentTrip,
-        );
+        console.error("Error: transactionId is undefined.", currentTrip);
         window.notificationManager?.show(
           "Error: Could not find the trip ID to save changes.",
           "danger",

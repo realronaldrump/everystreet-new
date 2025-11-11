@@ -2000,12 +2000,12 @@ body.light-mode .btn-close-white {
 
 /* === Live Tracking Panel Styles === */
 .live-tracking-panel-bg {
-  background-color: rgba(var(--surface-rgb, 16, 23, 42), 0.05);
+  background-color: rgb(var(--surface-rgb, 16, 23, 42), 0.05);
   border-radius: var(--radius-sm);
 }
 
 body.light-mode .live-tracking-panel-bg {
-  background-color: rgba(var(--surface-rgb, 245, 246, 255), 0.05);
+  background-color: rgb(var(--surface-rgb, 245, 246, 255), 0.05);
 }
 
 /* === Clear Button Styles === */
@@ -2033,12 +2033,12 @@ body.light-mode .live-tracking-panel-bg {
 }
 
 .legend-indicator--undriven {
-  background-color: #00BFFF;
-  border: 1px dashed rgba(255, 255, 255, 0.3);
+  background-color: #00bfff;
+  border: 1px dashed rgb(255 255 255 / 30%);
 }
 
 body.light-mode .legend-indicator--undriven {
-  border-color: rgba(0, 0, 0, 0.2);
+  border-color: rgb(0 0 0 / 20%);
 }
 
 .legend-indicator--driven {
