@@ -211,7 +211,7 @@ async def _search_nominatim(
     if proximity:
         # Create a viewbox around the proximity point (approximately 200km radius)
         lon, lat = proximity
-        params["viewbox"] = f"{lon-2},{lat+2},{lon+2},{lat-2}"
+        params["viewbox"] = f"{lon - 2},{lat + 2},{lon + 2},{lat - 2}"
         params["bounded"] = 1
     else:
         # Default viewbox covering United States

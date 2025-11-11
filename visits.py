@@ -923,7 +923,7 @@ async def get_visit_suggestions(
 
             suggestions.append(
                 {
-                    "suggestedName": f"Area near {round(center_lat,3)}, {round(center_lng,3)}",
+                    "suggestedName": f"Area near {round(center_lat, 3)}, {round(center_lng, 3)}",
                     "totalVisits": c["totalVisits"],
                     "firstVisit": serialize_datetime(c["firstVisit"]),
                     "lastVisit": serialize_datetime(c["lastVisit"]),

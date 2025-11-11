@@ -886,7 +886,9 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
                         f"[{location_id}] In finally block: Attempting to close stream for {gridfs_id}. Stream object: {grid_out_stream}, Type: {type(grid_out_stream)}"
                     )
                     try:
-                        await grid_out_stream.close()  # This is where the original error occurred (line 826)
+                        await (
+                            grid_out_stream.close()
+                        )  # This is where the original error occurred (line 826)
                         logger.info(
                             f"[{location_id}] Successfully closed GridFS stream {gridfs_id} for {location_name}."
                         )
