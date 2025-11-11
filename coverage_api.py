@@ -1517,7 +1517,8 @@ async def _regenerate_streets_geojson(location_id: ObjectId):
     )
     if not coverage_doc or not coverage_doc.get("location", {}).get("display_name"):
         logger.warning(
-            f"Cannot regenerate GeoJSON: missing coverage metadata for {location_id}"
+            "Cannot regenerate GeoJSON: missing coverage metadata for %s",
+            location_id,
         )
         return
     location_name = coverage_doc["location"]["display_name"]
