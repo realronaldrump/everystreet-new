@@ -233,7 +233,7 @@ class CoverageManager {
     document.addEventListener("coverageTableRedrawn", () => {
       this.initTooltips();
     });
-    
+
     document.addEventListener("coverageMapReady", () => {
       // Map is ready, ensure selection toolbar is created
       this.selection.createBulkActionToolbar();
@@ -348,10 +348,7 @@ class CoverageManager {
         );
       } else {
         coverageData = await COVERAGE_API.getArea(locationId);
-        const streetsGeoJson = await COVERAGE_API.getStreets(
-          locationId,
-          true,
-        );
+        const streetsGeoJson = await COVERAGE_API.getStreets(locationId, true);
         coverageData.streets_geojson = streetsGeoJson;
         this.setCachedData(`dashboard-${locationId}`, coverageData);
       }
@@ -377,10 +374,10 @@ class CoverageManager {
       this.updateFilterButtonStates();
 
       this.coverageMap.initializeCoverageMap(coverageData);
-      
+
       // Initialize bulk action toolbar after map is ready
       this.selection.createBulkActionToolbar();
-      
+
       // Update undriven streets list
       if (coverageData.streets_geojson) {
         this.ui.updateUndrivenStreetsList(
@@ -735,8 +732,7 @@ class CoverageManager {
     try {
       const areas = await COVERAGE_API.getAllAreas();
       const exists = areas.some(
-        (area) =>
-          area.location?.display_name === customAreaToAdd.display_name,
+        (area) => area.location?.display_name === customAreaToAdd.display_name,
       );
 
       if (exists) {
@@ -759,9 +755,8 @@ class CoverageManager {
         0,
       );
 
-      const taskData = await COVERAGE_API.preprocessCustomBoundary(
-        customAreaToAdd,
-      );
+      const taskData =
+        await COVERAGE_API.preprocessCustomBoundary(customAreaToAdd);
 
       this.notificationManager.show(
         "Custom coverage area processing started.",
@@ -813,7 +808,11 @@ class CoverageManager {
   /**
    * Update coverage for area
    */
-  async updateCoverageForArea(locationId, mode = "full", showNotification = true) {
+  async updateCoverageForArea(
+    locationId,
+    mode = "full",
+    showNotification = true,
+  ) {
     if (!locationId) {
       this.notificationManager.show(
         "Invalid location ID provided for update.",
@@ -865,10 +864,7 @@ class CoverageManager {
         `Requesting ${mode} update for ${processingLocation.display_name}...`,
       );
 
-      const data = await COVERAGE_API.updateCoverage(
-        processingLocation,
-        mode,
-      );
+      const data = await COVERAGE_API.updateCoverage(processingLocation, mode);
 
       if (data.task_id) {
         this.progress.currentTaskId = data.task_id;
@@ -1007,8 +1003,7 @@ class CoverageManager {
       await this.loadCoverageAreas();
 
       if (
-        this.selectedLocation?.location?.display_name ===
-        location.display_name
+        this.selectedLocation?.location?.display_name === location.display_name
       ) {
         this.closeCoverageDashboard();
       }
@@ -1133,7 +1128,8 @@ class CoverageManager {
           (f) => f.properties.segment_id === segmentId,
         );
         if (featureIndex !== -1) {
-          const feature = this.coverageMap.streetsGeoJson.features[featureIndex];
+          const feature =
+            this.coverageMap.streetsGeoJson.features[featureIndex];
           switch (action) {
             case "driven":
               feature.properties.driven = true;
@@ -1447,7 +1443,8 @@ class CoverageManager {
    * Update filter button states
    */
   updateFilterButtonStates(filterType = null) {
-    const currentFilter = filterType || this.currentFilter || this.coverageMap.currentFilter;
+    const currentFilter =
+      filterType || this.currentFilter || this.coverageMap.currentFilter;
     const filterButtons = document.querySelectorAll(
       ".map-controls button[data-filter]",
     );
@@ -1539,8 +1536,7 @@ class CoverageManager {
               const a = document.createElement("a");
               a.href = url;
               const locationName =
-                this.selectedLocation?.location?.display_name ||
-                "coverage_map";
+                this.selectedLocation?.location?.display_name || "coverage_map";
               const dateStr = dateUtils.formatDateToString(new Date());
               a.download = `${locationName
                 .replace(/[^a-z0-9]/gi, "_")
@@ -1828,12 +1824,10 @@ class CoverageManager {
       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
 
-    notification
-      .querySelector(".resume-task")
-      .addEventListener("click", () => {
-        this.resumeInterruptedTask(progressData);
-        notification.remove();
-      });
+    notification.querySelector(".resume-task").addEventListener("click", () => {
+      this.resumeInterruptedTask(progressData);
+      notification.remove();
+    });
 
     notification
       .querySelector(".discard-task")
@@ -2131,4 +2125,3 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 export default CoverageManager;
-

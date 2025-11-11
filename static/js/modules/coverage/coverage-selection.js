@@ -108,7 +108,8 @@ class CoverageSelection {
    * Update bulk toolbar
    */
   _updateBulkToolbar() {
-    const toolbar = this.bulkToolbar || document.getElementById("bulk-action-toolbar");
+    const toolbar =
+      this.bulkToolbar || document.getElementById("bulk-action-toolbar");
     if (!toolbar) return;
     const countSpan = document.getElementById("bulk-selected-count");
     const count = this.selectedSegmentIds.size;
@@ -142,4 +143,3 @@ class CoverageSelection {
 }
 
 export default CoverageSelection;
-

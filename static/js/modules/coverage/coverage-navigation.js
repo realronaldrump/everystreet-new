@@ -180,8 +180,7 @@ class CoverageNavigation {
    * Display efficient streets
    */
   displayEfficientStreets(clusters, positionSource) {
-    if (!this.coverageMap?.map || !this.coverageMap.map.isStyleLoaded())
-      return;
+    if (!this.coverageMap?.map || !this.coverageMap.map.isStyleLoaded()) return;
 
     this.clearEfficientStreetMarkers(false);
 
@@ -468,4 +467,3 @@ class CoverageNavigation {
 }
 
 export default CoverageNavigation;
-

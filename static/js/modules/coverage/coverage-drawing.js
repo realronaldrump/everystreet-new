@@ -78,10 +78,7 @@ class CoverageDrawing {
         );
       }
 
-      this.drawingMap.addControl(
-        new mapboxgl.NavigationControl(),
-        "top-right",
-      );
+      this.drawingMap.addControl(new mapboxgl.NavigationControl(), "top-right");
     } catch (error) {
       console.error("Error initializing drawing map:", error);
       this.showDrawingError(
@@ -131,11 +128,7 @@ class CoverageDrawing {
       {
         id: "gl-draw-polygon-fill-active",
         type: "fill",
-        filter: [
-          "all",
-          ["==", "active", "true"],
-          ["==", "$type", "Polygon"],
-        ],
+        filter: ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]],
         paint: {
           "fill-color": "#fbb03b",
           "fill-outline-color": "#fbb03b",
@@ -145,11 +138,7 @@ class CoverageDrawing {
       {
         id: "gl-draw-polygon-stroke-active",
         type: "line",
-        filter: [
-          "all",
-          ["==", "active", "true"],
-          ["==", "$type", "Polygon"],
-        ],
+        filter: ["all", ["==", "active", "true"], ["==", "$type", "Polygon"]],
         layout: {
           "line-cap": "round",
           "line-join": "round",
@@ -162,11 +151,7 @@ class CoverageDrawing {
       {
         id: "gl-draw-polygon-midpoint",
         type: "circle",
-        filter: [
-          "all",
-          ["==", "$type", "Point"],
-          ["==", "meta", "midpoint"],
-        ],
+        filter: ["all", ["==", "$type", "Point"], ["==", "meta", "midpoint"]],
         paint: {
           "circle-radius": 3,
           "circle-color": "#fbb03b",
@@ -326,9 +311,7 @@ class CoverageDrawing {
    */
   showDrawingValidationResult(data) {
     const resultDiv = document.getElementById("drawing-validation-result");
-    const messageSpan = resultDiv?.querySelector(
-      ".drawing-validation-message",
-    );
+    const messageSpan = resultDiv?.querySelector(".drawing-validation-message");
 
     if (resultDiv && messageSpan) {
       messageSpan.textContent = `Custom area "${data.display_name}" validated successfully! (${data.stats.total_points} points, ${data.stats.rings} ring${data.stats.rings > 1 ? "s" : ""})`;
@@ -363,4 +346,3 @@ class CoverageDrawing {
 }
 
 export default CoverageDrawing;
-

@@ -69,10 +69,7 @@ class CoverageMap {
       };
       this.map = new mapboxgl.Map(mapOptions);
 
-      this.map.addControl(
-        new mapboxgl.NavigationControl(),
-        "top-right",
-      );
+      this.map.addControl(new mapboxgl.NavigationControl(), "top-right");
       this.map.addControl(new mapboxgl.ScaleControl());
       this.map.addControl(new mapboxgl.FullscreenControl());
       this.map.addControl(
@@ -98,7 +95,7 @@ class CoverageMap {
           this.setupTripLayers();
           this.loadTripsForView();
         }
-        
+
         // Dispatch event that map is ready
         document.dispatchEvent(new CustomEvent("coverageMapReady"));
       });
@@ -254,10 +251,7 @@ class CoverageMap {
         const props = e.features[0].properties;
         const currentHoverId = props.segment_id;
         if (currentHoverId !== this.hoveredSegmentId) {
-          if (
-            this.hoveredSegmentId !== null &&
-            this.map.getSource("streets")
-          ) {
+          if (this.hoveredSegmentId !== null && this.map.getSource("streets")) {
             this.map.setFeatureState(
               { source: "streets", id: this.hoveredSegmentId },
               { hover: false },
@@ -279,10 +273,7 @@ class CoverageMap {
     this.map.on("mouseleave", "streets-layer", () => {
       this.map.getCanvas().style.cursor = "";
       if (this.mapInfoPanel) this.mapInfoPanel.style.display = "none";
-      if (
-        this.hoveredSegmentId !== null &&
-        this.map.getSource("streets")
-      ) {
+      if (this.hoveredSegmentId !== null && this.map.getSource("streets")) {
         this.map.setFeatureState(
           { source: "streets", id: this.hoveredSegmentId },
           { hover: false },
@@ -350,10 +341,7 @@ class CoverageMap {
    */
   createStreetPopupContentHTML(props) {
     const streetName =
-      props.street_name ||
-      props.name ||
-      props.display_name ||
-      "Unnamed Street";
+      props.street_name || props.name || props.display_name || "Unnamed Street";
     const streetType =
       props.highway || props.inferred_highway_type || "unknown";
     const segmentLength = parseFloat(
@@ -424,10 +412,7 @@ class CoverageMap {
         }
         const center = this.map.getCenter();
         const zoom = this.map.getZoom();
-        localStorage.setItem(
-          "lastMapView",
-          JSON.stringify({ center, zoom }),
-        );
+        localStorage.setItem("lastMapView", JSON.stringify({ center, zoom }));
       }, 300);
     });
   }
@@ -545,12 +530,7 @@ class CoverageMap {
    * Load trips for view
    */
   async loadTripsForView() {
-    if (
-      !this.map ||
-      !this.showTripsActive ||
-      !this.map.isStyleLoaded()
-    )
-      return;
+    if (!this.map || !this.showTripsActive || !this.map.isStyleLoaded()) return;
     this.setupTripLayers();
     const tripsSource = this.map.getSource("trips-source");
     if (!tripsSource) return;
@@ -789,12 +769,13 @@ class CoverageMap {
    * Utility: Create alert message
    */
   createAlertMessage(title, message, type = "info") {
-    const iconClass = {
-      danger: "fa-exclamation-circle",
-      warning: "fa-exclamation-triangle",
-      info: "fa-info-circle",
-      secondary: "fa-question-circle",
-    }[type] || "fa-info-circle";
+    const iconClass =
+      {
+        danger: "fa-exclamation-circle",
+        warning: "fa-exclamation-triangle",
+        info: "fa-info-circle",
+        secondary: "fa-question-circle",
+      }[type] || "fa-info-circle";
 
     return `
       <div class="alert alert-${type} m-3 fade-in-up">
@@ -805,4 +786,3 @@ class CoverageMap {
 }
 
 export default CoverageMap;
-
