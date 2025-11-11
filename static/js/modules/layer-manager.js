@@ -119,7 +119,7 @@ const layerManager = {
 
     container.addEventListener("dragstart", (e) => {
       // Don't start drag if clicking on interactive elements
-      const {target} = e;
+      const { target } = e;
       if (
         target.tagName === "INPUT" ||
         target.tagName === "LABEL" ||
@@ -190,7 +190,7 @@ const layerManager = {
     if (!container) return;
 
     Array.from(container.children).forEach((item, index) => {
-      const {layerName} = item.dataset;
+      const { layerName } = item.dataset;
       if (state.mapLayers[layerName]) {
         state.mapLayers[layerName].order = index;
       }

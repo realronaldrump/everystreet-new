@@ -3,7 +3,6 @@ import dataManager from "./data-manager.js";
 import dateUtils from "./date-utils.js";
 import layerManager from "./layer-manager.js";
 import mapManager from "./map-manager.js";
-import metricsManager from "./metrics-manager.js";
 import searchManager from "./search-manager.js";
 import state from "./state.js";
 import utils from "./utils.js";
@@ -399,7 +398,7 @@ const AppController = {
     });
   },
 
-  // Public proxy (retro-compat) ---------------------------------------
+  // Public method for map matching trips
   async mapMatchTrips() {
     try {
       const confirmed = await window.confirmationDialog.show({

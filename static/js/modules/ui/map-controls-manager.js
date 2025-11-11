@@ -1,3 +1,4 @@
+import state from "../state.js";
 import { UI_CONFIG as CONFIG } from "../ui-config.js";
 import uiState from "../ui-state.js";
 import utils from "../ui-utils.js";
@@ -40,7 +41,7 @@ const mapControlsManager = {
   },
 
   updateMapType(type = "satellite") {
-    const map = window.EveryStreet?.mapManager?.getMap?.();
+    const map = state.map || window.map;
     if (!map) return;
     utils.setStorage(CONFIG.storage.mapType, type);
     map.setStyle(`mapbox://styles/mapbox/${type}-v12`);
@@ -48,7 +49,7 @@ const mapControlsManager = {
   },
 
   updateOpacity(value = 0.75, persist = true) {
-    const map = window.EveryStreet?.mapManager?.getMap?.();
+    const map = state.map || window.map;
     if (!map) return;
     const basemapLayers = ["satellite", "background", "land", "water"];
     basemapLayers.forEach((id) => {

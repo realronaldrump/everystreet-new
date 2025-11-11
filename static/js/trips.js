@@ -1063,10 +1063,7 @@ class TripsManager {
   }
 
   static formatDuration(rawValue) {
-    const metricsManager =
-      window.metricsManager ||
-      window.EveryStreet?.MetricsManager ||
-      window.EveryStreet?.metricsManager;
+    const metricsManager = window.metricsManager || window.EveryStreet?.MetricsManager;
 
     const parsedSeconds = Number(rawValue);
 
