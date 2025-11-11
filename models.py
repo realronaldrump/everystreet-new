@@ -168,9 +168,7 @@ class NoActiveTripResponse(BaseModel):
     server_time: datetime
 
 
-ActiveTripResponseUnion = (
-    ActiveTripSuccessResponse | NoActiveTripResponse
-)
+ActiveTripResponseUnion = ActiveTripSuccessResponse | NoActiveTripResponse
 
 # Add new model for app settings
 

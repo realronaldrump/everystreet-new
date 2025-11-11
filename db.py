@@ -1412,7 +1412,10 @@ async def run_transaction(
     # Standalone MongoDB instances will fail with "Transaction numbers are only allowed on a replica set member or mongos"
     transactions_supported = True
     try:
-        async with await client.start_session() as test_session, test_session.start_transaction():
+        async with (
+            await client.start_session() as test_session,
+            test_session.start_transaction(),
+        ):
             # Try to start a transaction - this will fail immediately on standalone
             pass
     except OperationFailure as e:
