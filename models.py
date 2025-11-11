@@ -169,29 +169,3 @@ class NoActiveTripResponse(BaseModel):
 
 
 ActiveTripResponseUnion = ActiveTripSuccessResponse | NoActiveTripResponse
-
-# Add new model for app settings
-
-
-class AppSettingsModel(BaseModel):
-    """Persistent application settings stored on the server."""
-
-    highlightRecentTrips: bool = True
-    autoCenter: bool = True
-    showLiveTracking: bool = True
-    polylineColor: str = "#00FF00"
-    polylineOpacity: float = 0.8
-    geocodeTripsOnFetch: bool = True
-
-    class Config:
-        extra = "allow"
-        json_schema_extra = {
-            "example": {
-                "highlightRecentTrips": True,
-                "autoCenter": True,
-                "showLiveTracking": True,
-                "polylineColor": "#00FF00",
-                "polylineOpacity": 0.8,
-                "geocodeTripsOnFetch": True,
-            },
-        }
