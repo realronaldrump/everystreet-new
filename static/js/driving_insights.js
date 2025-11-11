@@ -35,7 +35,9 @@ if (typeof window !== "undefined") {
       document.querySelectorAll('[data-bs-toggle="tooltip"]')
     );
     tooltipTriggerList.forEach((el) => {
-      new bootstrap.Tooltip(el);
+      const tooltip = new bootstrap.Tooltip(el);
+      // Tooltip instance is stored but intentionally not used - it attaches to DOM element
+      void tooltip;
     });
 
     initCharts();

@@ -1865,12 +1865,14 @@ class CoverageManager {
     tooltipTriggerList.forEach((tooltipTriggerEl) => {
       const existing = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
       if (existing) existing.dispose();
-      new bootstrap.Tooltip(tooltipTriggerEl, {
+      const tooltip = new bootstrap.Tooltip(tooltipTriggerEl, {
         animation: true,
         delay: { show: 500, hide: 100 },
         html: true,
         placement: "auto",
       });
+      // Tooltip instance is stored but intentionally not used - it attaches to DOM element
+      void tooltip;
     });
   }
 
