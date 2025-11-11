@@ -971,10 +971,8 @@ class TripProcessor:
                     transaction_id,
                 )
                 # Optionally, set matchedGps to be the same as gps if it's a Point
-                # self.processed_data["matchedGps"] = gps_data
-                # self._set_state(TripState.MAP_MATCHED) # Or just return True
                 return True
-            elif gps_type == "LineString":
+            if gps_type == "LineString":
                 map_match_input_coords = gps_data.get("coordinates", [])
                 if len(map_match_input_coords) < 2:
                     logger.warning(
@@ -1871,7 +1869,7 @@ class TripProcessor:
                 return False
             return True
 
-        elif geom_type == "LineString":
+        if geom_type == "LineString":
             if not isinstance(coordinates, list) or len(coordinates) < 2:
                 # LineString must have at least 2 points.
                 # Note: _standardize_and_validate_gps_data might produce LineString with 1 point temporarily
@@ -1906,8 +1904,6 @@ class TripProcessor:
 
         # Example: If matched_trips_collection *must* contain LineStrings only:
         # if geojson_data.get("type") != "LineString":
-        #     logger.debug("Data for matched_trips_collection is not a LineString: type %s", geojson_data.get('type'))
-        #     return False
         return True
 
     @staticmethod

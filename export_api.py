@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import geojson as geojson_module
@@ -341,8 +341,8 @@ async def export_coverage_route_endpoint(
                                 "transactionId": f"segment_{i + 1}",
                                 "gps": geom,
                                 "source": "coverage_route_segment",
-                                "startTime": datetime.now(timezone.utc),
-                                "endTime": datetime.now(timezone.utc),
+                                "startTime": datetime.now(UTC),
+                                "endTime": datetime.now(UTC),
                             }
                         )
                 data_to_export = trips_for_gpx
@@ -369,8 +369,8 @@ async def export_coverage_route_endpoint(
                         "transactionId": "single_route",
                         "gps": route_geometry,
                         "source": "single_route",
-                        "startTime": datetime.now(timezone.utc),
-                        "endTime": datetime.now(timezone.utc),
+                        "startTime": datetime.now(UTC),
+                        "endTime": datetime.now(UTC),
                     }
                 ]
             elif fmt == "shapefile":

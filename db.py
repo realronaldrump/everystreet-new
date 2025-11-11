@@ -13,7 +13,7 @@ import logging
 import os
 import threading
 from collections.abc import AsyncIterator, Awaitable, Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 import bson
@@ -47,7 +47,7 @@ class BSONJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, ObjectId):
             return str(obj)
-        elif isinstance(obj, datetime):
+        if isinstance(obj, datetime):
             return obj.isoformat()
         return super().default(obj)
 
@@ -142,7 +142,7 @@ class DatabaseManager:
 
             client_kwargs: dict[str, Any] = {
                 "tz_aware": True,
-                "tzinfo": timezone.utc,
+                "tzinfo": UTC,
                 "maxPoolSize": self._max_pool_size,
                 "minPoolSize": 0,
                 "maxIdleTimeMS": 60000,
@@ -586,9 +586,9 @@ def serialize_datetime(
     if dt is None:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     else:
-        dt = dt.astimezone(timezone.utc)
+        dt = dt.astimezone(UTC)
     return dt.isoformat().replace("+00:00", "Z")
 
 
@@ -625,14 +625,13 @@ def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
         def _convert_value(v):
             if isinstance(v, ObjectId):
                 return str(v)
-            elif isinstance(v, datetime):
+            if isinstance(v, datetime):
                 return v.isoformat()
-            elif isinstance(v, dict):
+            if isinstance(v, dict):
                 return {k: _convert_value(val) for k, val in v.items()}
-            elif isinstance(v, list):
+            if isinstance(v, list):
                 return [_convert_value(item) for item in v]
-            else:
-                return v
+            return v
 
         return {k: _convert_value(v) for k, v in doc.items()}
 
@@ -651,14 +650,13 @@ def serialize_for_json(data: Any) -> Any:
     """
     if isinstance(data, dict):
         return {k: serialize_for_json(v) for k, v in data.items()}
-    elif isinstance(data, list):
+    if isinstance(data, list):
         return [serialize_for_json(item) for item in data]
-    elif isinstance(data, ObjectId):
+    if isinstance(data, ObjectId):
         return str(data)
-    elif isinstance(data, datetime):
+    if isinstance(data, datetime):
         return data.isoformat()
-    else:
-        return data
+    return data
 
 
 async def batch_cursor(
@@ -1459,7 +1457,10 @@ async def run_transaction(
     retry_count = 0
     while retry_count <= max_retries:
         try:
-            async with await client.start_session() as session, session.start_transaction():
+            async with (
+                await client.start_session() as session,
+                session.start_transaction(),
+            ):
                 logger.debug("Starting transaction...")
                 for i, op in enumerate(operations):
                     logger.debug(

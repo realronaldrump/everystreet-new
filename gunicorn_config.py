@@ -6,7 +6,7 @@ Optimized for Railway deployment with memory and resource constraints.
 import logging
 import os
 
-bind = "0.0.0.0:" + os.environ.get("PORT", "8080")
+bind = f"0.0.0.0:{os.environ.get('PORT', '8080')}"
 backlog = 1024
 
 workers = int(os.environ.get("GUNICORN_WORKERS", "2"))

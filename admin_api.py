@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, status
@@ -280,13 +280,13 @@ async def get_first_trip_date():
         )
 
         if not earliest_trip or not earliest_trip.get("startTime"):
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             return {"first_trip_date": now.isoformat()}
 
         earliest_trip_date = earliest_trip["startTime"]
         if earliest_trip_date.tzinfo is None:
             earliest_trip_date = earliest_trip_date.replace(
-                tzinfo=timezone.utc,
+                tzinfo=UTC,
             )
 
         return {

@@ -4,7 +4,7 @@ import logging
 import time  # Added for timing
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import bson  # For bson.json_util
@@ -211,8 +211,8 @@ async def _recalculate_coverage_stats(
                 "$set": {
                     **stats,
                     "needs_stats_update": False,
-                    "last_stats_update": datetime.now(timezone.utc),
-                    "last_modified": datetime.now(timezone.utc),
+                    "last_stats_update": datetime.now(UTC),
+                    "last_modified": datetime.now(UTC),
                 },
             },
         )
@@ -273,8 +273,8 @@ async def _recalculate_coverage_stats(
             **stats,
             "_id": str(location_id),
             "location": coverage_area.get("location", {}),  # from initial fetch
-            "last_updated": datetime.now(timezone.utc).isoformat(),
-            "last_stats_update": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
+            "last_stats_update": datetime.now(UTC).isoformat(),
         }
         return base_response
 
@@ -420,7 +420,7 @@ async def preprocess_streets_route(
                     "location": validated_location_dict,
                     "status": "processing",
                     "last_error": None,
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                     "total_length": 0,
                     "driven_length": 0,
                     "coverage_percentage": 0,
@@ -799,7 +799,7 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
     ):  # No GridFS ID, fallback to direct streets and schedule regeneration
         logger.warning(
             f"[{location_id}] No streets_geojson_gridfs_id found for "
-        f"{location_name}, falling back."
+            f"{location_name}, falling back."
         )
         # Trigger background regeneration of GridFS geojson
         asyncio.create_task(_regenerate_streets_geojson(obj_location_id))
@@ -871,13 +871,11 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
                     )
                     chunk = await grid_out_stream.read(chunk_size)
                     logger.debug(
-                        f"[{location_id}] Read {len(chunk)} bytes for "
-                        f"{gridfs_id}."
+                        f"[{location_id}] Read {len(chunk)} bytes for {gridfs_id}."
                     )
                     if not chunk:  # End of file
                         logger.info(
-                            f"[{location_id}] EOF reached for stream "
-                            f"{gridfs_id}."
+                            f"[{location_id}] EOF reached for stream {gridfs_id}."
                         )
                         break
                     yield chunk
@@ -1261,7 +1259,7 @@ async def _mark_segment(
     update_payload = {f"properties.{key}": value for key, value in updates.items()}
     update_payload["properties.manual_override"] = True
     update_payload["properties.last_manual_update"] = datetime.now(
-        timezone.utc,
+        UTC,
     )
 
     result = await update_one_with_retry(
@@ -1294,7 +1292,7 @@ async def _mark_segment(
         {
             "$set": {
                 "needs_stats_update": True,
-                "last_modified": datetime.now(timezone.utc),
+                "last_modified": datetime.now(UTC),
             },
         },
     )
@@ -1672,7 +1670,7 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
                 "location": location_dict,
                 "status": "processing",
                 "last_error": None,
-                "last_updated": datetime.now(timezone.utc),
+                "last_updated": datetime.now(UTC),
                 "total_length": 0,
                 "driven_length": 0,
                 "coverage_percentage": 0,

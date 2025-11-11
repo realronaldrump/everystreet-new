@@ -173,7 +173,7 @@ async def get_current_position(request_data: dict) -> tuple[float, float, str]:
     ):
         lon, lat = gps_data["coordinates"][-1]
         return lat, lon, "last-trip-end"
-    elif gps_data and gps_data.get("type") == "Point" and gps_data.get("coordinates"):
+    if gps_data and gps_data.get("type") == "Point" and gps_data.get("coordinates"):
         lon, lat = gps_data["coordinates"]
         return lat, lon, "last-trip-end-point"
 

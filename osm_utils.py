@@ -7,7 +7,7 @@ streets.
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
@@ -60,7 +60,7 @@ def build_standard_osm_streets_query(
         "->.searchArea" in query_target_clause
         and not query_target_clause.strip().endswith(";")
     ):
-        query_target_clause = query_target_clause.strip() + ";"
+        query_target_clause = f"{query_target_clause.strip()};"
 
     # Determine if we are using .searchArea (for area queries) or direct bbox
     area_filter_clause = (
@@ -229,11 +229,14 @@ async def generate_geojson_osm(
             location.get("display_name", "Unknown"),
         )
 
-        async with aiohttp.ClientSession() as session, session.get(
-            OVERPASS_URL,
-            params={"data": query},
-            timeout=90,  # HTTP client timeout
-        ) as response:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                OVERPASS_URL,
+                params={"data": query},
+                timeout=90,  # HTTP client timeout
+            ) as response,
+        ):
             response.raise_for_status()
             data = await response.json()
 
@@ -284,7 +287,7 @@ async def generate_geojson_osm(
                         {
                             "$set": {
                                 "geojson": geojson_data,
-                                "updated_at": datetime.now(timezone.utc),
+                                "updated_at": datetime.now(UTC),
                             },
                         },
                     )
@@ -303,8 +306,8 @@ async def generate_geojson_osm(
                             "location": location,
                             "type": osm_type_label,
                             "geojson": geojson_data,
-                            "created_at": datetime.now(timezone.utc),
-                            "updated_at": datetime.now(timezone.utc),
+                            "created_at": datetime.now(UTC),
+                            "updated_at": datetime.now(UTC),
                         },
                     )
                     logger.info(

@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import gpxpy
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
@@ -56,7 +56,7 @@ async def process_geojson_trip(
                 f"geojson-{int(datetime.now().timestamp())}",
             )
             stime_parsed = (
-                parse_timestamp(stime_str) if stime_str else datetime.now(timezone.utc)
+                parse_timestamp(stime_str) if stime_str else datetime.now(UTC)
             )
             etime_parsed = parse_timestamp(etime_str) if etime_str else stime_parsed
             trip_geo = {

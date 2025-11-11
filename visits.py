@@ -5,7 +5,7 @@ creating, retrieving, and analyzing visit data.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pymongo
@@ -56,7 +56,7 @@ class CustomPlace:
         """
         self.name = name
         self.geometry = geometry
-        self.created_at = created_at or datetime.now(timezone.utc)
+        self.created_at = created_at or datetime.now(UTC)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the CustomPlace to a dictionary for storage.
@@ -88,7 +88,7 @@ class CustomPlace:
         elif isinstance(created_raw, datetime):
             created = created_raw
         else:
-            created = datetime.now(timezone.utc)
+            created = datetime.now(UTC)
         return CustomPlace(
             name=data["name"],
             geometry=data["geometry"],
@@ -243,7 +243,7 @@ def parse_time(time_value):
     if isinstance(time_value, str):
         return parse_timestamp(time_value)
     if time_value.tzinfo is None:
-        return time_value.astimezone(timezone.utc)
+        return time_value.astimezone(UTC)
     return time_value
 
 
@@ -621,7 +621,7 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
        inside that rolling window are considered.
     """
     from datetime import datetime  # Local import to avoid circular issues
-    from datetime import timedelta, timezone
+    from datetime import timedelta
 
     try:
         # ------------------------------------------------------------------
@@ -640,7 +640,7 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
 
         if timeframe:
             timeframe = timeframe.lower()
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             delta_map = {
                 "day": timedelta(days=1),
                 "week": timedelta(weeks=1),
@@ -794,7 +794,7 @@ async def get_visit_suggestions(
     before saving as a real custom place.
     """
 
-    from datetime import datetime, timedelta, timezone  # Local import
+    from datetime import datetime, timedelta  # Local import
 
     try:
         match_stage: dict[str, Any] = {
@@ -806,7 +806,7 @@ async def get_visit_suggestions(
 
         if timeframe:
             timeframe = timeframe.lower()
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             delta_map = {
                 "day": timedelta(days=1),
                 "week": timedelta(weeks=1),

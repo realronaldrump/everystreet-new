@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytz
 from fastapi import APIRouter, HTTPException, Request, status
@@ -870,7 +870,7 @@ async def get_metrics(request: Request):
                 start_hours_utc_list,
             )
 
-            base_date = datetime.now(timezone.utc).replace(
+            base_date = datetime.now(UTC).replace(
                 hour=0,
                 minute=0,
                 second=0,

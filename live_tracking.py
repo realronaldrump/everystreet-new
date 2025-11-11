@@ -5,7 +5,7 @@ Trips are stored in live_trips collection for visual reference only.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pymongo
@@ -188,8 +188,7 @@ def _coordinates_to_geojson(coordinates: list[dict]) -> dict | None:
 
     if len(distinct) == 1:
         return {"type": "Point", "coordinates": distinct[0]}
-    else:
-        return {"type": "LineString", "coordinates": distinct}
+    return {"type": "LineString", "coordinates": distinct}
 
 
 # ============================================================================
@@ -208,7 +207,7 @@ async def process_trip_start(data: dict[str, Any], live_collection: Collection) 
 
     start_time = _parse_timestamp(start_data.get("timestamp"))
     if not start_time:
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         logger.warning("Trip %s: Using current time as fallback", transaction_id)
 
     trip = {
@@ -370,7 +369,7 @@ async def process_trip_end(
 
     end_time = _parse_timestamp(end_data.get("timestamp"))
     if not end_time:
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         logger.warning("Trip %s: Using current time for end", transaction_id)
 
     # Fetch active trip
@@ -456,17 +455,16 @@ async def get_trip_updates(last_sequence: int = 0) -> dict[str, Any]:
             "has_update": True,
             "trip": serialized,
         }
-    else:
-        return {
-            "status": "success",
-            "has_update": False,
-            "message": "No active trip",
-        }
+    return {
+        "status": "success",
+        "has_update": False,
+        "message": "No active trip",
+    }
 
 
 async def cleanup_old_trips(live_collection: Collection, max_age_days: int = 30) -> int:
     """Remove completed trips older than max_age_days."""
-    threshold = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+    threshold = datetime.now(UTC) - timedelta(days=max_age_days)
 
     result = await live_collection.delete_many(
         {"status": "completed", "endTime": {"$lt": threshold}}
@@ -486,7 +484,7 @@ async def cleanup_stale_trips_logic(
     max_archive_age_days: int = 30,
 ) -> dict[str, int]:
     """Mark stale active trips as completed and cleanup old trips."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stale_threshold = now - timedelta(minutes=stale_minutes)
 
     # Find stale active trips

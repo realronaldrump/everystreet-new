@@ -15,7 +15,7 @@ import functools
 import os
 import uuid
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any, TypeVar
 
@@ -172,7 +172,7 @@ class TaskStatusManager:
 
         """
         try:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             update_data = {
                 f"tasks.{task_id}.status": status,
                 f"tasks.{task_id}.last_updated": now,
@@ -357,10 +357,10 @@ async def check_dependencies(
                         pass
 
                 if last_updated and last_updated.tzinfo is None:
-                    last_updated = last_updated.astimezone(timezone.utc)
+                    last_updated = last_updated.astimezone(UTC)
 
                 if last_updated and (
-                    datetime.now(timezone.utc) - last_updated < timedelta(hours=1)
+                    datetime.now(UTC) - last_updated < timedelta(hours=1)
                 ):
                     return {
                         "can_run": False,
@@ -405,7 +405,7 @@ async def update_task_history_entry(
 
     """
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         update_fields = {
             "task_id": task_name,
             "status": status,
@@ -480,7 +480,7 @@ def task_runner(func: Callable) -> Callable:
 
         # Get necessary task metadata
         status_manager = TaskStatusManager.get_instance()
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         celery_task_id = self.request.id
         manual_run = (
             kwargs.get("manual_run", False)
@@ -510,7 +510,7 @@ def task_runner(func: Callable) -> Callable:
             result_data = await func(self, *args, **kwargs)
 
             # Task completion on success
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             runtime = (end_time - start_time).total_seconds() * 1000
 
             logger.info(
@@ -534,7 +534,7 @@ def task_runner(func: Callable) -> Callable:
 
         except Exception as e:
             # Task completion on failure
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             runtime = (end_time - start_time).total_seconds() * 1000
             logger.exception(
                 "Task %s (%s) failed: Error in %s: %s",
@@ -590,7 +590,7 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
     )
 
     logger.info("Determining date range for fetching trips...")
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
 
     try:
         logger.info("Looking for the most recent trip in the database (any source)")
@@ -614,7 +614,7 @@ async def periodic_fetch_trips_async(self) -> dict[str, Any]:
 
             if latest_trip_end:
                 if latest_trip_end.tzinfo is None:
-                    latest_trip_end = latest_trip_end.replace(tzinfo=timezone.utc)
+                    latest_trip_end = latest_trip_end.replace(tzinfo=UTC)
 
                 start_date_fetch = latest_trip_end
                 logger.info(
@@ -901,7 +901,7 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
                         "$set": {
                             "stage": "error",
                             "error": str(inner_e),
-                            "updated_at": datetime.now(timezone.utc),
+                            "updated_at": datetime.now(UTC),
                         }
                     },
                     upsert=True,
@@ -929,8 +929,7 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
         "areas_skipped": skipped_areas,
         "message": (
             "Completed incremental updates. Processed: %d, "
-            "Failed: %d, Skipped: %d"
-            % (processed_areas, failed_areas, skipped_areas)
+            "Failed: %d, Skipped: %d" % (processed_areas, failed_areas, skipped_areas)
         ),
     }
 
@@ -1049,7 +1048,7 @@ async def cleanup_invalid_trips_async(self) -> dict[str, Any]:
                         "$set": {
                             "invalid": True,
                             "validation_message": message or "Invalid data detected",
-                            "validated_at": datetime.now(timezone.utc),
+                            "validated_at": datetime.now(UTC),
                         },
                     },
                 ),
@@ -1213,7 +1212,7 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
     modified_count = 0
     limit = 100
 
-    validation_threshold = datetime.now(timezone.utc) - timedelta(days=7)
+    validation_threshold = datetime.now(UTC) - timedelta(days=7)
     query = {
         "$or": [
             {"validated_at": {"$exists": False}},
@@ -1253,7 +1252,7 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
                 )
 
             update_data = {
-                "validated_at": datetime.now(timezone.utc),
+                "validated_at": datetime.now(UTC),
                 "validation_status": processor.state.value,
                 "invalid": not is_valid,
                 "validation_message": validation_message if not is_valid else None,
@@ -1275,7 +1274,7 @@ async def validate_trip_data_async(self) -> dict[str, Any]:
                     {"_id": trip["_id"]},
                     {
                         "$set": {
-                            "validated_at": datetime.now(timezone.utc),
+                            "validated_at": datetime.now(UTC),
                             "validation_status": TaskStatus.FAILED.value,
                             "invalid": True,
                             "validation_message": f"Task Error: {e}",
@@ -1366,7 +1365,7 @@ async def run_task_scheduler_async() -> None:
     """
     triggered_count = 0
     skipped_count = 0
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     logger.debug("Scheduler task running at %s", now_utc.isoformat())
     status_manager = TaskStatusManager.get_instance()
 
@@ -1441,7 +1440,7 @@ async def run_task_scheduler_async() -> None:
                     )
 
             if last_run and last_run.tzinfo is None:
-                last_run = last_run.astimezone(timezone.utc)
+                last_run = last_run.astimezone(UTC)
 
             is_due = False
             if last_run is None:
@@ -1602,7 +1601,7 @@ async def get_all_task_metadata() -> dict[str, Any]:
 
             if last_run and interval_minutes and interval_minutes > 0:
                 if last_run.tzinfo is None:
-                    last_run = last_run.astimezone(timezone.utc)
+                    last_run = last_run.astimezone(UTC)
                 estimated_next_run = last_run + timedelta(minutes=interval_minutes)
 
             priority_enum = metadata.get("priority", TaskPriority.MEDIUM)
@@ -1768,7 +1767,7 @@ async def _send_manual_task(
             task_name=task_name,
             status=TaskStatus.PENDING.value,
             manual_run=True,
-            start_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
         )
 
         logger.info(
@@ -1810,8 +1809,8 @@ async def trigger_manual_fetch_trips_range(
 
     def _ensure_utc(dt: datetime) -> datetime:
         if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+            return dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
 
     start_utc = _ensure_utc(start_date)
     end_utc = _ensure_utc(end_date)
@@ -1845,7 +1844,7 @@ async def trigger_manual_fetch_trips_range(
             task_name="manual_fetch_trips_range",
             status=TaskStatus.PENDING.value,
             manual_run=True,
-            start_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
             result={
                 "start_date": start_utc.isoformat(),
                 "end_date": end_utc.isoformat(),
@@ -1877,7 +1876,7 @@ async def force_reset_task(
     if task_id not in TASK_METADATA:
         raise ValueError(f"Unknown task_id: {task_id}")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     message = reason or "Task force-stopped by user"
 
     update_fields = {
@@ -2026,7 +2025,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
 
         if result.modified_count > 0 or result.upserted_id is not None:
             log_msg = (
-                "Task configuration updated: %s" % "; ".join(changes)
+                f"Task configuration updated: {'; '.join(changes)}"
                 if changes
                 else "Task configuration updated (specific changes not detailed)."
             )
@@ -2044,8 +2043,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
         return {
             "status": "success",
             "message": (
-                "No changes applied to task configuration "
-                "(values may already match)."
+                "No changes applied to task configuration (values may already match)."
             ),
         }
     except Exception as e:
@@ -2074,7 +2072,7 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
     """
     task_name = "process_webhook_event_task"
     celery_task_id = self.request.id
-    start_time = datetime.now(timezone.utc)
+    start_time = datetime.now(UTC)
     event_type = data.get("eventType")
     transaction_id = data.get("transactionId")
 
@@ -2173,7 +2171,7 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
                 data,
             )
 
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         runtime = (end_time - start_time).total_seconds() * 1000
         logger.info(
             "Celery Task %s (%s) successfully processed webhook: "
@@ -2222,7 +2220,7 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
             raise db_err
 
     except Exception as e:
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         runtime = (end_time - start_time).total_seconds() * 1000
         error_msg = (
             f"Unhandled error processing webhook event "

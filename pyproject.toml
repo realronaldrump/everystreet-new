@@ -1,9 +1,49 @@
 [tool.ruff]
 line-length = 88
+target-version = "py311"
 
 [tool.ruff.lint]
-# Enable E501 to check for lines exceeding 88 characters (including comments)
-select = ["E501"]
+# Enable comprehensive auto-fixable rules
+# E: pycodestyle errors (many auto-fixable)
+# F: Pyflakes (all auto-fixable)
+# W: pycodestyle warnings (some auto-fixable)
+# SIM: flake8-simplify (many auto-fixable simplifications)
+# C4: flake8-comprehensions (many auto-fixable)
+# PIE: flake8-pie (some auto-fixable)
+# RET: flake8-return (some auto-fixable)
+# TID: flake8-tidy-imports (many auto-fixable)
+# ARG: flake8-unused-arguments (some auto-fixable)
+# UP: pyupgrade (many auto-fixable, also handled separately)
+# B: flake8-bugbear (some auto-fixable, conservative)
+# PT: flake8-pytest-style (if tests exist)
+# TCH: flake8-type-checking (some auto-fixable)
+# I: isort (handled separately but good to have)
+select = [
+    "E",      # pycodestyle errors
+    "F",      # Pyflakes
+    "W",      # pycodestyle warnings
+    "SIM",    # flake8-simplify
+    "C4",     # flake8-comprehensions
+    "PIE",    # flake8-pie
+    "RET",    # flake8-return
+    "TID",    # flake8-tidy-imports
+    "ARG",    # flake8-unused-arguments
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "PT",     # flake8-pytest-style
+    "TCH",    # flake8-type-checking
+    "I",      # isort
+]
+
+# Ignore rules that are not auto-fixable or too opinionated
+ignore = [
+    "E501",   # Line too long (handled by formatters)
+    "B008",   # Do not perform function calls in argument defaults (too opinionated)
+    "B904",   # Allow `raise` without specifying exception (too opinionated)
+    "PT011",  # pytest.raises without match (too opinionated)
+    "PT012",  # pytest.raises with too broad exception (too opinionated)
+    "RET504", # Unnecessary assignment before return (can be too aggressive)
+]
 
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 88

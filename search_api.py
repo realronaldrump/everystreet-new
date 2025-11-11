@@ -219,9 +219,12 @@ async def _search_nominatim(
             "-125,49,-66,24"  # US bounding box (west, north, east, south)
         )
 
-    async with aiohttp.ClientSession() as session, session.get(
-        NOMINATIM_URL, params=params, headers=NOMINATIM_HEADERS, timeout=10
-    ) as response:
+    async with (
+        aiohttp.ClientSession() as session,
+        session.get(
+            NOMINATIM_URL, params=params, headers=NOMINATIM_HEADERS, timeout=10
+        ) as response,
+    ):
         response.raise_for_status()
         results = await response.json()
 
@@ -281,7 +284,10 @@ async def _search_mapbox(
         # Default to Texas center if no proximity provided
         params["proximity"] = "-99.9018,31.9686"  # Texas center coordinates
 
-    async with aiohttp.ClientSession() as session, session.get(url, params=params, timeout=10) as response:
+    async with (
+        aiohttp.ClientSession() as session,
+        session.get(url, params=params, timeout=10) as response,
+    ):
         response.raise_for_status()
         data = await response.json()
 

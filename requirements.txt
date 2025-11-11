@@ -23,3 +23,7 @@ Shapely
 uvicorn[standard]
 jinja2
 python-multipart
+autoflake
+eradicate
+flynt
+pycln

@@ -12,7 +12,7 @@ import os
 from collections import defaultdict
 from concurrent.futures import CancelledError, Future, ProcessPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import bson.json_util
@@ -79,7 +79,7 @@ def process_trip_worker(
     min_match_length: float,
 ) -> dict[int, set[str]]:
     """Processes a batch of trips against candidate street UTM geometries."""
-    start_time = datetime.now(timezone.utc)
+    start_time = datetime.now(UTC)
     worker_pid = os.getpid()
     logger.debug(
         "Worker %d: Starting processing for %d trips against %d segments.",
@@ -231,7 +231,7 @@ def process_trip_worker(
         )
         return {}
 
-    end_time = datetime.now(timezone.utc)
+    end_time = datetime.now(UTC)
     duration = (end_time - start_time).total_seconds()
     logger.debug(
         "Worker %d: Finished processing. Found matches for %d trips. Duration: %.2fs",
@@ -435,7 +435,7 @@ class CoverageCalculator:
                 "stage": stage,
                 "progress": round(progress, 2),
                 "message": message,
-                "updated_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(UTC),
                 "location": self.location_name,
                 "metrics": enhanced_metrics,
             }
@@ -973,7 +973,7 @@ class CoverageCalculator:
                 return False, []
             return True, valid_coords_list
 
-        elif trip_type == "Point":
+        if trip_type == "Point":
             if not (
                 isinstance(coordinates, list)
                 and len(coordinates) == 2
@@ -985,9 +985,8 @@ class CoverageCalculator:
             # For coverage, simulate a very short line segment from a Point
             return True, [coordinates, coordinates]
 
-        else:
-            logger.debug("Unsupported GeoJSON type for trip: %s", trip_type)
-            return False, []
+        logger.debug("Unsupported GeoJSON type for trip: %s", trip_type)
+        return False, []
 
     async def process_trips(self, processed_trip_ids_set: set[str]) -> bool:
         """Processes trips to find newly covered street segments."""
@@ -1171,7 +1170,7 @@ class CoverageCalculator:
         failed_futures_count = 0
         batch_num = 0
         last_progress_update_pct = 56
-        last_progress_update_time = datetime.now(timezone.utc)
+        last_progress_update_time = datetime.now(UTC)
         # self.processed_trips_count is now the count of *unique* trips processed by workers
 
         try:
@@ -1400,6 +1399,7 @@ class CoverageCalculator:
                     ) in zip(
                         geom_chunks,
                         bbox_chunks,
+                        strict=False,
                     ):
                         if not geom_chunk or not sub_batch_coords:
                             continue
@@ -1549,7 +1549,7 @@ class CoverageCalculator:
                             check_err,
                         )
 
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 should_update_progress = (
                     (batch_num % PROGRESS_UPDATE_INTERVAL_TRIPS == 0)
                     or (processed_count_local >= self.total_trips_to_process)
@@ -1808,7 +1808,7 @@ class CoverageCalculator:
                 len(segments_to_update_in_db),
             )
             segment_list = list(segments_to_update_in_db)
-            update_timestamp = datetime.now(timezone.utc)
+            update_timestamp = datetime.now(UTC)
             try:
                 max_update_batch = 10000
                 for i in range(
@@ -2019,19 +2019,19 @@ class CoverageCalculator:
         try:
             trip_ids_list = list(processed_trip_ids_set)
             processed_trips_info = {
-                "last_processed_timestamp": datetime.now(timezone.utc),
+                "last_processed_timestamp": datetime.now(UTC),
                 "count_in_last_run": self.processed_trips_count,
             }
 
             update_doc = {
                 "$set": {
                     **coverage_stats,
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                     "status": "completed_stats",
                     "last_error": None,
                     "processed_trips": processed_trips_info,
                     "needs_stats_update": False,
-                    "last_stats_update": datetime.now(timezone.utc),
+                    "last_stats_update": datetime.now(UTC),
                 },
             }
 
@@ -2101,7 +2101,7 @@ class CoverageCalculator:
         boundary_geojson_data: dict | None = None,
     ) -> dict[str, Any] | None:
         """Main orchestration method for the coverage calculation process."""
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         run_type = "incremental" if run_incremental else "full"
         logger.info(
             "Task %s: Starting %s coverage computation for %s",
@@ -2309,7 +2309,7 @@ class CoverageCalculator:
                     self.task_id,
                 )
 
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             duration = (end_time - start_time).total_seconds()
             logger.info(
                 "Task %s: Coverage computation (%s) for %s main logic finished in %.2f seconds.",
@@ -2478,7 +2478,7 @@ async def compute_coverage_for_location(
                     "stage": "error",
                     "message": error_msg,
                     "error": "Timeout",
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                     "status": "error",
                 },
             },
@@ -2490,7 +2490,7 @@ async def compute_coverage_for_location(
                 "$set": {
                     "status": "error",
                     "last_error": error_msg,
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                 },
             },
             upsert=True,
@@ -2521,7 +2521,7 @@ async def compute_coverage_for_location(
                 "$set": {
                     "status": "error",
                     "last_error": f"Wrapper error: {str(e)[:200]}",
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                 },
             },
             upsert=True,
@@ -2643,7 +2643,7 @@ async def compute_incremental_coverage(
                     "stage": "error",
                     "message": error_msg,
                     "error": "Timeout",
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                     "status": "error",
                 },
             },
@@ -2655,7 +2655,7 @@ async def compute_incremental_coverage(
                 "$set": {
                     "status": "error",
                     "last_error": error_msg,
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                 },
             },
             upsert=False,
@@ -2686,7 +2686,7 @@ async def compute_incremental_coverage(
                 "$set": {
                     "status": "error",
                     "last_error": f"Incr Wrapper error: {str(e)[:200]}",
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                 },
             },
             upsert=False,
@@ -2786,7 +2786,7 @@ async def generate_and_store_geojson(
                 "contentType": "application/json",
                 "location": location_name,
                 "task_id": task_id,
-                "generated_at": datetime.now(timezone.utc),
+                "generated_at": datetime.now(UTC),
             },
         )
 
@@ -2863,7 +2863,7 @@ async def generate_and_store_geojson(
         geojson_metadata = {
             **metadata_stats,
             "total_features_in_file": total_features,
-            "geojson_generated_at": datetime.now(timezone.utc).isoformat(),
+            "geojson_generated_at": datetime.now(UTC).isoformat(),
             "source_task_id": task_id,
         }
         metadata_json = bson.json_util.dumps(geojson_metadata)
@@ -2897,7 +2897,7 @@ async def generate_and_store_geojson(
                     "$set": {
                         "streets_geojson_gridfs_id": file_id,
                         "status": "completed",
-                        "last_geojson_update": datetime.now(timezone.utc),
+                        "last_geojson_update": datetime.now(UTC),
                         "last_error": None,
                     },
                 },
@@ -2918,7 +2918,7 @@ async def generate_and_store_geojson(
                             "progress": 100,
                             "message": f"Coverage analysis complete. Map data generated ({total_features:,} streets).",
                             "status": "complete",
-                            "updated_at": datetime.now(timezone.utc),
+                            "updated_at": datetime.now(UTC),
                         },
                     },
                     upsert=True,

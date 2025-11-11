@@ -8,7 +8,7 @@ This module uses async Redis operations to avoid blocking the event loop.
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -84,7 +84,7 @@ async def publish_trip_state(
             "event_type": "trip_state",
             "status": status,
             "trip": trip_data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         message = json.dumps(event_data, cls=BSONJSONEncoder)

@@ -8,7 +8,7 @@ asynchronously from API endpoints.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from db import (
@@ -60,7 +60,7 @@ async def process_coverage_calculation(
                     "stage": "initializing",
                     "progress": 0,
                     "message": "Starting coverage calculation orchestration...",
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                     "location": display_name,
                     "status": "processing",
                 },
@@ -102,7 +102,7 @@ async def process_coverage_calculation(
                     "$set": {
                         "status": "error",
                         "last_error": f"Orchestration Error: {str(e)[:200]}",
-                        "last_updated": datetime.now(timezone.utc),
+                        "last_updated": datetime.now(UTC),
                     },
                 },
                 upsert=True,
@@ -116,7 +116,7 @@ async def process_coverage_calculation(
                         "progress": 0,
                         "message": f"Orchestration Error: {str(e)[:500]}",
                         "error": str(e)[:200],
-                        "updated_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(UTC),
                         "status": "error",
                     },
                 },
@@ -158,7 +158,7 @@ async def process_incremental_coverage_calculation(
                     "stage": "initializing",
                     "progress": 0,
                     "message": "Starting incremental coverage orchestration...",
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                     "location": display_name,
                     "status": "processing",
                 },
@@ -200,7 +200,7 @@ async def process_incremental_coverage_calculation(
                     "$set": {
                         "status": "error",
                         "last_error": f"Orchestration Error: {str(e)[:200]}",
-                        "last_updated": datetime.now(timezone.utc),
+                        "last_updated": datetime.now(UTC),
                     },
                 },
                 upsert=True,
@@ -214,7 +214,7 @@ async def process_incremental_coverage_calculation(
                         "progress": 0,
                         "message": f"Orchestration Error: {str(e)[:500]}",
                         "error": str(e)[:200],
-                        "updated_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(UTC),
                         "status": "error",
                     },
                 },
@@ -260,7 +260,7 @@ async def process_area(
                     "stage": "preprocessing",
                     "progress": 0,
                     "message": "Initializing area processing...",
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                     "location": display_name,
                     "status": "processing",
                 },
@@ -274,7 +274,7 @@ async def process_area(
                 "$set": {
                     "location": location,
                     "status": "preprocessing",
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                     "last_error": None,
                     "needs_stats_update": False,
                     "total_length_m": 0.0,
@@ -337,7 +337,7 @@ async def process_area(
                         "progress": 10,
                         "message": f"Preprocessing failed: {error_msg}",
                         "error": error_msg,
-                        "updated_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(UTC),
                         "status": "error",
                     },
                 },
@@ -363,7 +363,7 @@ async def process_area(
                     "stage": "post_preprocessing",
                     "progress": 40,
                     "message": "Street preprocessing complete. Initializing coverage calculation...",
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                 },
             },
         )
@@ -409,7 +409,7 @@ async def process_area(
                     "$set": {
                         "status": "error",
                         "last_error": f"Area Processing Error: {str(e)[:200]}",
-                        "last_updated": datetime.now(timezone.utc),
+                        "last_updated": datetime.now(UTC),
                     },
                 },
                 upsert=True,
@@ -422,7 +422,7 @@ async def process_area(
                         "stage": "error",
                         "message": f"Area Processing Error: {str(e)[:500]}",
                         "error": str(e)[:200],
-                        "updated_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(UTC),
                         "status": "error",
                     },
                 },

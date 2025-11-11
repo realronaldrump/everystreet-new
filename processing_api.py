@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -226,7 +226,7 @@ async def remap_matched_trips(
             )
 
         if data.interval_days > 0:
-            end_dt = datetime.now(timezone.utc)
+            end_dt = datetime.now(UTC)
             start_dt = end_dt - timedelta(days=data.interval_days)
             start_iso = start_dt.date().isoformat()
             end_iso = end_dt.date().isoformat()

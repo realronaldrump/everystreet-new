@@ -98,9 +98,7 @@ def with_comprehensive_handling(func: Callable) -> Callable:
             )
         except Exception as e:
             duration = time.time() - start_time
-            logger.exception(
-                "Error in %s after %.2fs: %s", func.__name__, duration, e
-            )
+            logger.exception("Error in %s after %.2fs: %s", func.__name__, duration, e)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Processing error: {str(e)}",
@@ -380,9 +378,9 @@ class TripService:
                             # Trip exists but lacks matchedGps - process for map
                             # matching
                             trips_to_process.append(trip)
-                        # else: trip already has matchedGps - skip to avoid redundant 
+                        # else: trip already has matchedGps - skip to avoid redundant
                         # processing
-                    # else: trip exists and map matching not requested - skip to avoid 
+                    # else: trip exists and map matching not requested - skip to avoid
                     # duplicates
             else:
                 trips_to_process = []

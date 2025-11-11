@@ -45,13 +45,13 @@ async def get_credentials():
         # Mask sensitive fields for display
         if credentials.get("client_secret"):
             credentials["client_secret"] = (
-                "***" + credentials["client_secret"][-4:]
+                f"***{credentials['client_secret'][-4:]}"
                 if len(credentials["client_secret"]) > 4
                 else "***"
             )
         if credentials.get("authorization_code"):
             credentials["authorization_code"] = (
-                "***" + credentials["authorization_code"][-4:]
+                f"***{credentials['authorization_code'][-4:]}"
                 if len(credentials["authorization_code"]) > 4
                 else "***"
             )
@@ -91,11 +91,10 @@ async def update_credentials(credentials: BouncieCredentials):
                 "status": "success",
                 "message": "Bouncie credentials updated successfully",
             }
-        else:
-            return {
-                "status": "success",
-                "message": "No changes made to credentials",
-            }
+        return {
+            "status": "success",
+            "message": "No changes made to credentials",
+        }
     except HTTPException:
         raise
     except Exception as e:

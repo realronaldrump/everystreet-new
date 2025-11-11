@@ -3,7 +3,7 @@
 import json
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -421,7 +421,7 @@ async def update_trip(trip_id: str, update_data: TripUpdateRequest):
         if not update_payload:
             return {"status": "no_change", "message": "No data provided to update."}
 
-        update_payload["last_modified"] = datetime.now(timezone.utc)
+        update_payload["last_modified"] = datetime.now(UTC)
 
         result = await update_one_with_retry(
             trips_collection,
@@ -464,7 +464,7 @@ async def geocode_trips(data: DateRangeModel | None = None):
             start_iso = None
             end_iso = None
         elif data.interval_days > 0:
-            end_dt = datetime.now(timezone.utc)
+            end_dt = datetime.now(UTC)
             start_dt = end_dt - timedelta(days=data.interval_days)
             start_iso = start_dt.date().isoformat()
             end_iso = end_dt.date().isoformat()
@@ -502,7 +502,7 @@ async def geocode_trips(data: DateRangeModel | None = None):
                     "stage": "initializing",
                     "progress": 0,
                     "message": "Finding trips to geocode...",
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                     "task_type": "geocoding",
                     "metrics": {
                         "total": 0,
@@ -569,7 +569,7 @@ async def geocode_trips(data: DateRangeModel | None = None):
                         "progress": progress_pct,
                         "message": f"Geocoding trip {current} of {total}",
                         "current_trip_id": trip_id,
-                        "updated_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(UTC),
                     },
                     "$inc": {
                         "metrics.processed": 1,
@@ -604,7 +604,7 @@ async def geocode_trips(data: DateRangeModel | None = None):
                         "skipped": result["skipped"],
                         "failed": result["failed"],
                     },
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                 }
             },
         )
@@ -635,7 +635,7 @@ async def geocode_trips(data: DateRangeModel | None = None):
                     "progress": 0,
                     "message": f"Error: {str(e)}",
                     "error": str(e),
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                 }
             },
         )
@@ -712,11 +712,10 @@ async def regeocode_single_trip(trip_id: str):
                 "status": "success",
                 "message": f"Trip {trip_id} re-geocoded successfully.",
             }
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to re-geocode trip {trip_id}. Check logs for details.",
-            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to re-geocode trip {trip_id}. Check logs for details.",
+        )
     except Exception as e:
         logger.exception("Error in regeocode_single_trip: %s", e)
         raise HTTPException(

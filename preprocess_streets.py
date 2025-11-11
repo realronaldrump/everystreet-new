@@ -14,7 +14,7 @@ import os
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
@@ -91,7 +91,7 @@ async def _update_task_progress(
                 "stage": stage,
                 "progress": progress,
                 "message": message,
-                "updated_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(UTC),
             },
         }
         if error:
@@ -122,10 +122,6 @@ def _get_query_target_clause_for_bbox(location: dict[str, Any]) -> str:
     # OSM uses (south, west, north, east)
     # FastAPI/Nominatim typically gives (min_lat, max_lat, min_lon, max_lon)
     # Ensure correct order for Overpass: south,west,north,east
-    # bbox[0] = min_lat (south)
-    # bbox[1] = max_lat (north)
-    # bbox[2] = min_lon (west)
-    # bbox[3] = max_lon (east)
     bbox_str = f"{bbox[0]},{bbox[2]},{bbox[1]},{bbox[3]}"
     return f"({bbox_str})"  # For direct bbox filtering in Overpass
 
@@ -560,7 +556,7 @@ async def process_osm_data(
                         "location": location,
                         "total_length": 0.0,
                         "total_segments": 0,
-                        "last_updated": datetime.now(timezone.utc),
+                        "last_updated": datetime.now(UTC),
                         "status": "completed",  # Mark as completed even if no streets
                         "last_error": None,  # No error, just no streets
                     },
@@ -703,9 +699,7 @@ async def process_osm_data(
                             )
                             # Duplicate key error code
                             dup_keys = [
-                                e
-                                for e in write_errors
-                                if e.get("code") == 11000
+                                e for e in write_errors if e.get("code") == 11000
                             ]
                             if dup_keys:
                                 logger.warning(
@@ -832,7 +826,7 @@ async def process_osm_data(
                         "location": location,
                         "total_length": total_length,  # Store total length in meters
                         "total_segments": total_segments_count,
-                        "last_updated": datetime.now(timezone.utc),
+                        "last_updated": datetime.now(UTC),
                         "status": "completed",
                         "last_error": None,
                     },
@@ -875,7 +869,7 @@ async def process_osm_data(
                         "location": location,
                         "total_length": 0.0,
                         "total_segments": 0,
-                        "last_updated": datetime.now(timezone.utc),
+                        "last_updated": datetime.now(UTC),
                         "status": "completed",
                         "last_error": "No segments generated after filtering",
                     },
@@ -1018,7 +1012,7 @@ async def process_osm_data(
                 "$set": {
                     "status": "error",
                     "last_error": f"Error in street data segmentation: {str(e)[:200]}",
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                 },
             },
             upsert=True,
@@ -1054,7 +1048,6 @@ async def preprocess_streets(
         # Construct the boundary shape from validated_location geojson
         # The geojson field comes directly from the Nominatim Search API with
         # polygon_geojson=1 and is always a GeoJSON Geometry object:
-        # {"type": "Polygon"/"MultiPolygon", "coordinates": [...]}
         if "geojson" in validated_location and validated_location["geojson"]:
             try:
                 geojson_boundary_data = validated_location["geojson"]
@@ -1207,7 +1200,7 @@ async def preprocess_streets(
                 "$set": {
                     "location": validated_location,
                     "status": "processing",
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                     "last_error": None,  # Clear previous errors
                 },
                 "$setOnInsert": {  # Fields to set only on insert
@@ -1215,7 +1208,7 @@ async def preprocess_streets(
                     "driven_length": 0.0,
                     "coverage_percentage": 0.0,
                     "total_segments": 0,
-                    "created_at": datetime.now(timezone.utc),
+                    "created_at": datetime.now(UTC),
                 },
             },
             upsert=True,
@@ -1277,7 +1270,7 @@ async def preprocess_streets(
                     cache_ok = True
                 elif created_at and isinstance(created_at, datetime):
                     age_hours = (
-                        datetime.now(timezone.utc) - created_at
+                        datetime.now(UTC) - created_at
                     ).total_seconds() / 3600.0
                     cache_ok = age_hours <= OSM_CACHE_TTL_HOURS
                 else:
@@ -1307,7 +1300,7 @@ async def preprocess_streets(
                                 "location": validated_location,
                                 "data": osm_data,
                                 "endpoint": endpoint_used,
-                                "created_at": datetime.now(timezone.utc),
+                                "created_at": datetime.now(UTC),
                             }
                         },
                         upsert=True,
@@ -1478,7 +1471,7 @@ async def preprocess_streets(
                 "$set": {
                     "status": "error",
                     "last_error": f"Unexpected preprocessing error: {str(e)[:200]}",
-                    "last_updated": datetime.now(timezone.utc),
+                    "last_updated": datetime.now(UTC),
                 },
             },
             upsert=True,

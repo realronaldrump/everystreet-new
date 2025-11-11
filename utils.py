@@ -44,7 +44,7 @@ async def get_session() -> aiohttp.ClientSession:
     current_pid = os.getpid()
 
     # Handle fork scenario: close inherited session from parent process
-    if _SESSION is not None and _SESSION_OWNER_PID != current_pid:
+    if _SESSION is not None and current_pid != _SESSION_OWNER_PID:
         try:
             if not _SESSION.closed:
                 await _SESSION.close()
@@ -256,7 +256,7 @@ def standardize_and_validate_gps(
     def _log_warning(msg: str, *args: Any):
         if transaction_id is not None:
             if args:
-                logger.warning("Trip %s: " + msg, transaction_id, *args)
+                logger.warning(f"Trip %s: {msg}", transaction_id, *args)
             else:
                 logger.warning("Trip %s: %s", transaction_id, msg)
         else:
@@ -265,7 +265,7 @@ def standardize_and_validate_gps(
     def _log_debug(msg: str, *args: Any):
         if transaction_id is not None:
             if args:
-                logger.debug("Trip %s: " + msg, transaction_id, *args)
+                logger.debug(f"Trip %s: {msg}", transaction_id, *args)
             else:
                 logger.debug("Trip %s: %s", transaction_id, msg)
         else:

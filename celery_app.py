@@ -13,7 +13,7 @@ user.
 
 import os
 import time
-from datetime import timedelta
+from datetime import UTC, timedelta
 
 from celery import Celery, signals
 from celery.signals import worker_process_init
@@ -183,9 +183,9 @@ def beat_init_handler(**kwargs):
 
 @signals.worker_init.connect
 def worker_init(**kwargs):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    current_time = datetime.now(timezone.utc)
+    current_time = datetime.now(UTC)
     logger.debug("Worker starting at UTC time: %s", current_time.isoformat())
 
 

@@ -3,7 +3,7 @@
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -243,11 +243,11 @@ async def active_trip_endpoint():
         active_trip_doc = await get_active_trip()
 
         if not active_trip_doc:
-            return NoActiveTripResponse(server_time=datetime.now(timezone.utc))
+            return NoActiveTripResponse(server_time=datetime.now(UTC))
 
         return ActiveTripSuccessResponse(
             trip=active_trip_doc,
-            server_time=datetime.now(timezone.utc),
+            server_time=datetime.now(UTC),
         )
 
     except Exception as e:
@@ -280,7 +280,7 @@ async def trip_updates_endpoint():
             )
 
         updates = await get_trip_updates()
-        updates["server_time"] = datetime.now(timezone.utc).isoformat()
+        updates["server_time"] = datetime.now(UTC).isoformat()
         return updates
 
     except Exception as e:
@@ -294,6 +294,6 @@ async def trip_updates_endpoint():
                 "has_update": False,
                 "message": "Internal server error",
                 "error_id": error_id,
-                "server_time": datetime.now(timezone.utc).isoformat(),
+                "server_time": datetime.now(UTC).isoformat(),
             },
         )

@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from math import ceil
 
 from fastapi import APIRouter, Body, HTTPException, Request, status
@@ -138,7 +138,7 @@ async def get_background_tasks_config():
                         last_run_dt = last_run
                     if last_run_dt.tzinfo is None:
                         last_run_dt = last_run_dt.replace(
-                            tzinfo=timezone.utc
+                            tzinfo=UTC
                         )  # Make sure timezone is set
                     next_run_dt = last_run_dt + timedelta(minutes=interval)
                     next_run = next_run_dt.isoformat()
@@ -466,7 +466,7 @@ async def clear_task_history():
 async def reset_task_states():
     """Reset any stuck 'RUNNING' tasks to 'FAILED' state with safeguards."""
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stuck_threshold = timedelta(hours=2)
         reset_count = 0
         skipped_count = 0
@@ -512,7 +512,7 @@ async def reset_task_states():
             else:
                 if start_time.tzinfo is None:
                     start_time = start_time.replace(
-                        tzinfo=timezone.utc
+                        tzinfo=UTC
                     )  # Make sure timezone is set
 
                 runtime = now - start_time

@@ -18,7 +18,7 @@ operations used throughout the codebase.
 """
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from dateutil import parser
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 def get_current_utc_time() -> datetime:
     """Return the current time as a timezone-aware datetime object in UTC."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def parse_timestamp(ts: str | datetime) -> datetime | None:
@@ -53,7 +53,7 @@ def parse_timestamp(ts: str | datetime) -> datetime | None:
     if isinstance(ts, datetime):
         # If the datetime object is naive, assume UTC.
         if ts.tzinfo is None:
-            return ts.replace(tzinfo=timezone.utc)
+            return ts.replace(tzinfo=UTC)
         return ts
 
     try:
@@ -61,7 +61,7 @@ def parse_timestamp(ts: str | datetime) -> datetime | None:
         parsed_time = parser.isoparse(ts)
         # If the parsed time is naive, assume it's in UTC.
         if parsed_time.tzinfo is None:
-            return parsed_time.replace(tzinfo=timezone.utc)
+            return parsed_time.replace(tzinfo=UTC)
         return parsed_time
     except (ValueError, TypeError) as e:
         logger.warning("Failed to parse timestamp '%s': %s", ts, e)
@@ -75,9 +75,9 @@ def ensure_utc(dt: datetime | None) -> datetime | None:
         return None
 
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
 
-    return dt.astimezone(timezone.utc)
+    return dt.astimezone(UTC)
 
 
 def normalize_to_utc_datetime(value: str | datetime | date | None) -> datetime | None:
@@ -90,7 +90,7 @@ def normalize_to_utc_datetime(value: str | datetime | date | None) -> datetime |
         return ensure_utc(value)
 
     if isinstance(value, date):
-        return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
+        return datetime.combine(value, datetime.min.time(), tzinfo=UTC)
 
     if isinstance(value, str):
         parsed = parse_timestamp(value)
@@ -105,7 +105,7 @@ def normalize_to_utc_datetime(value: str | datetime | date | None) -> datetime |
             )
             return None
 
-        return datetime.combine(parsed_date, datetime.min.time(), tzinfo=timezone.utc)
+        return datetime.combine(parsed_date, datetime.min.time(), tzinfo=UTC)
 
     logger.warning("Unsupported datetime input type '%s'", type(value))
     return None
