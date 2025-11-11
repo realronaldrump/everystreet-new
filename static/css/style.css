@@ -1998,6 +1998,61 @@ body.light-mode .btn-close-white {
   max-width: var(--content-max-width);
 }
 
+/* === Live Tracking Panel Styles === */
+.live-tracking-panel-bg {
+  background-color: rgba(var(--surface-rgb, 16, 23, 42), 0.05);
+  border-radius: var(--radius-sm);
+}
+
+body.light-mode .live-tracking-panel-bg {
+  background-color: rgba(var(--surface-rgb, 245, 246, 255), 0.05);
+}
+
+/* === Clear Button Styles === */
+.btn-clear-search {
+  padding: 0.25rem 0.5rem;
+  z-index: 10;
+}
+
+.btn-clear-mobile {
+  padding: 0;
+}
+
+/* === Icon Transition Styles === */
+.icon-chevron-transition {
+  transition: transform 0.3s ease;
+}
+
+/* === Legend Indicators === */
+.legend-indicator {
+  display: inline-block;
+  width: 18px;
+  height: 3px;
+  margin-right: 3px;
+  border-radius: 1px;
+}
+
+.legend-indicator--undriven {
+  background-color: #00BFFF;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+}
+
+body.light-mode .legend-indicator--undriven {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.legend-indicator--driven {
+  background-color: var(--success);
+}
+
+.legend-indicator--all {
+  background-color: var(--primary-light);
+}
+
+.legend-text-small {
+  font-size: 0.75rem;
+}
+
 /* === Utility Classes === */
 .text-primary {
   color: var(--primary) !important;

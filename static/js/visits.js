@@ -323,8 +323,8 @@
                 "fill-color": [
                   "case",
                   ["boolean", ["feature-state", "hover"], false],
-                  "#818cf8",
-                  "#818cf8",
+                  window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.fill || "#818cf8",
+                  window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.fill || "#818cf8",
                 ],
                 "fill-opacity": [
                   "case",
@@ -345,7 +345,7 @@
                   "case",
                   ["boolean", ["feature-state", "hover"], false],
                   "#9965EB",
-                  "#818cf8",
+                  window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.outline || "#818cf8",
                 ],
                 "line-width": [
                   "case",
@@ -361,8 +361,8 @@
               id: "custom-places-highlight",
               type: "line",
               source: "custom-places",
-              paint: {
-                "line-color": "#F59E0B",
+                paint: {
+                  "line-color": window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.highlight || "#F59E0B",
                 "line-width": 4,
                 "line-opacity": 0,
               },
@@ -473,28 +473,28 @@
           id: "custom-places-fill",
           type: "fill",
           source: "custom-places",
-          paint: {
-            "fill-color": "#818cf8",
-            "fill-opacity": 0.15,
-          },
+                paint: {
+                  "fill-color": window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.fill || "#818cf8",
+                  "fill-opacity": 0.15,
+                },
         });
 
         this.map.addLayer({
           id: "custom-places-outline",
           type: "line",
           source: "custom-places",
-          paint: {
-            "line-color": "#818cf8",
-            "line-width": 2,
-          },
+                paint: {
+                  "line-color": window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.outline || "#818cf8",
+                  "line-width": 2,
+                },
         });
 
         this.map.addLayer({
           id: "custom-places-highlight",
           type: "line",
           source: "custom-places",
-          paint: {
-            "line-color": "#F59E0B",
+                paint: {
+                  "line-color": window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.highlight || "#F59E0B",
             "line-width": 4,
             "line-opacity": 0,
           },
@@ -576,9 +576,9 @@
             legend: { display: false },
             tooltip: {
               backgroundColor: "rgba(30, 30, 30, 0.95)",
-              titleColor: "#818cf8",
+              titleColor: window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.fill || "#818cf8",
               bodyColor: "rgba(255, 255, 255, 0.9)",
-              borderColor: "#818cf8",
+              borderColor: window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.outline || "#818cf8",
               borderWidth: 1,
               padding: 12,
               cornerRadius: 8,
@@ -2333,7 +2333,7 @@
             type: "line",
             source: "trip",
             paint: {
-              "line-color": "#818cf8",
+              "line-color": window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.fill || "#818cf8",
               "line-width": 4,
               "line-dasharray": [2, 1],
             },
@@ -2652,10 +2652,10 @@
               ["==", "$type", "Polygon"],
               ["==", "active", "false"],
             ],
-            paint: {
-              "fill-color": "#818cf8",
-              "fill-opacity": 0.15,
-            },
+                paint: {
+                  "fill-color": window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.fill || "#818cf8",
+                  "fill-opacity": 0.15,
+                },
           },
           {
             id: "gl-draw-polygon-fill-active",
@@ -2679,10 +2679,10 @@
               ["==", "$type", "Polygon"],
               ["==", "active", "false"],
             ],
-            paint: {
-              "line-color": "#818cf8",
-              "line-width": 2,
-            },
+                paint: {
+                  "line-color": window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.outline || "#818cf8",
+                  "line-width": 2,
+                },
           },
           {
             id: "gl-draw-polygon-stroke-active",
@@ -2692,8 +2692,8 @@
               ["==", "$type", "Polygon"],
               ["==", "active", "true"],
             ],
-            paint: {
-              "line-color": "#F59E0B",
+                paint: {
+                  "line-color": window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.highlight || "#F59E0B",
               "line-width": 2,
             },
           },

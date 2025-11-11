@@ -51,14 +51,14 @@ class DrivingNavigation {
     this.clusterMarkers = [];
     this.currentRoute = null;
 
-    this.clusterColors = [
+    this.clusterColors = window.MapStyles?.MAP_LAYER_COLORS?.clusters || [
       "#6366f1",
       "#64748b",
       "#3f8cff",
       "#ff5470",
       "#faae2b",
       "#818cf8",
-      "#22d3ee",
+      "#22c55e",
       "#d946ef",
       "#94a3b8",
       "#7dd3fc",

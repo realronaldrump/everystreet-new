@@ -58,8 +58,7 @@ block content %}
                 />
                 <button
                   id="clear-search-btn"
-                  class="btn btn-sm btn-link position-absolute top-50 end-0 translate-middle-y d-none"
-                  style="padding: 0.25rem 0.5rem; z-index: 10;"
+                  class="btn btn-sm btn-link position-absolute top-50 end-0 translate-middle-y d-none btn-clear-search"
                   aria-label="Clear search"
                   title="Clear search"
                 >
@@ -92,14 +91,7 @@ block content %}
                 </div>
               </div>
               <div
-                class="p-2"
-                style="
-                  background-color: rgba(
-                    var(--surface-rgb, 255, 255, 255),
-                    0.05
-                  );
-                  border-radius: var(--radius-sm);
-                "
+                class="p-2 live-tracking-panel-bg"
               >
                 <div
                   class="d-flex align-items-center justify-content-between mb-1"
@@ -159,14 +151,7 @@ block content %}
                 </div>
               </div>
               <div
-                class="p-2"
-                style="
-                  background-color: rgba(
-                    var(--surface-rgb, 255, 255, 255),
-                    0.05
-                  );
-                  border-radius: var(--radius-sm);
-                "
+                class="p-2 live-tracking-panel-bg"
               >
                 <!-- Layer Controls Section -->
                 <fieldset>
@@ -230,17 +215,17 @@ block content %}
                   </div>
                   
                   <!-- Color legend for street view modes -->
-                  <div class="small text-secondary mt-1 d-flex align-items-center justify-content-center gap-2" style="font-size: 0.75rem;">
+                  <div class="small text-secondary mt-1 d-flex align-items-center justify-content-center gap-2 legend-text-small">
                     <span class="d-flex align-items-center">
-                      <span style="display: inline-block; width: 18px; height: 3px; background-color: #00BFFF; margin-right: 3px; border: 1px dashed rgba(255,255,255,0.3);"></span>
+                      <span class="legend-indicator legend-indicator--undriven"></span>
                       Undriven
                     </span>
                     <span class="d-flex align-items-center">
-                      <span style="display: inline-block; width: 18px; height: 3px; background-color: #059669; margin-right: 3px;"></span>
+                      <span class="legend-indicator legend-indicator--driven"></span>
                       Driven
                     </span>
                     <span class="d-flex align-items-center">
-                      <span style="display: inline-block; width: 18px; height: 3px; background-color: #818cf8; margin-right: 3px;"></span>
+                      <span class="legend-indicator legend-indicator--all"></span>
                       All
                     </span>
                   </div>
@@ -286,21 +271,13 @@ block content %}
               >
                 <h3 class="h6 mb-0">Trip Metrics</h3>
                 <i
-                  class="fas fa-chevron-down small text-secondary"
+                  class="fas fa-chevron-down small text-secondary icon-chevron-transition"
                   aria-hidden="true"
-                  style="transition: transform 0.3s ease"
                 ></i>
               </button>
               <div id="metrics-content" class="collapse">
                 <div
-                  class="p-2"
-                  style="
-                    background-color: rgba(
-                      var(--surface-rgb, 255, 255, 255),
-                      0.05
-                    );
-                    border-radius: var(--radius-sm);
-                  "
+                  class="p-2 live-tracking-panel-bg"
                 >
                   <dl class="row small mb-0">
                     <dt class="col-7 text-secondary">Total Trips:</dt>
@@ -456,7 +433,7 @@ block content %}
               placeholder="Search places..."
               autocomplete="off"
             />
-            <button id="mobile-clear-search" class="btn btn-sm btn-link d-none" style="padding: 0;">
+            <button id="mobile-clear-search" class="btn btn-sm btn-link d-none btn-clear-mobile">
               <i class="fas fa-times"></i>
             </button>
           </div>
