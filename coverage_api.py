@@ -799,7 +799,7 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
     ):  # No GridFS ID, fallback to direct streets and schedule regeneration
         logger.warning(
             f"[{location_id}] No streets_geojson_gridfs_id found for "
-        f"{location_name}, falling back."
+            f"{location_name}, falling back."
         )
         # Trigger background regeneration of GridFS geojson
         asyncio.create_task(_regenerate_streets_geojson(obj_location_id))
@@ -871,13 +871,11 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
                     )
                     chunk = await grid_out_stream.read(chunk_size)
                     logger.debug(
-                        f"[{location_id}] Read {len(chunk)} bytes for "
-                        f"{gridfs_id}."
+                        f"[{location_id}] Read {len(chunk)} bytes for " f"{gridfs_id}."
                     )
                     if not chunk:  # End of file
                         logger.info(
-                            f"[{location_id}] EOF reached for stream "
-                            f"{gridfs_id}."
+                            f"[{location_id}] EOF reached for stream " f"{gridfs_id}."
                         )
                         break
                     yield chunk
