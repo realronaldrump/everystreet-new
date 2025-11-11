@@ -9,20 +9,19 @@ jobs:
   deploy:
     runs-on: self-hosted
     steps:
-      - name: Ensure latest code is merged
+      - name: Force Overwrite with Latest Code
         run: |
           cd /home/davis/app
           
-          # Set a Git identity for merge commits
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          
-          # Set a safe default merge strategy
-          git config pull.rebase false
-          
-          # Fetch and merge the latest code
+          # Get the latest code from GitHub
           git fetch origin main
-          git merge --no-edit origin/main
+          
+          # WARNING: This will DELETE all local changes.
+          # Force the local branch to match the remote branch
+          git reset --hard origin/main
+          
+          # Clean up any new untracked files/folders
+          git clean -fd
           
       - name: Deploy Application
         run: |
