@@ -224,7 +224,8 @@ def init_worker(**_kwargs):
 
     except Exception as e:
         logger.critical(
-            f"CRITICAL ERROR during worker initialization: {e}",
+            "CRITICAL ERROR during worker initialization: %s",
+            e,
             exc_info=True,
         )
         raise RuntimeError(

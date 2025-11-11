@@ -1450,7 +1450,8 @@ async def run_transaction(
             return True
         except Exception as e:
             logger.error(
-                f"Sequential operation execution failed: {e}",
+                "Sequential operation execution failed: %s",
+                e,
                 exc_info=True,
             )
             return False
@@ -1484,12 +1485,18 @@ async def run_transaction(
                 retry_count += 1
                 delay = 0.1 * (2**retry_count)
                 logger.warning(
-                    f"Transient transaction error (attempt {retry_count}/{max_retries}), retrying in {delay}s: {e}"
+                    "Transient transaction error (attempt %d/%d), retrying in %s: %s",
+                    retry_count,
+                    max_retries,
+                    delay,
+                    e,
                 )
                 await asyncio.sleep(delay)
                 continue
             logger.error(
-                f"Transaction failed after {retry_count + 1} attempts: {e}",
+                "Transaction failed after %d attempts: %s",
+                retry_count + 1,
+                e,
                 exc_info=True,
             )
             return False

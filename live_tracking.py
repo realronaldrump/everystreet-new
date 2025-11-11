@@ -285,7 +285,10 @@ async def process_trip_data(data: dict[str, Any], live_collection: Collection) -
 
     if updated_trip:
         logger.info(
-            f"Trip {transaction_id} updated: {len(all_coords)} points, {metrics['distance']:.2f}mi"
+            "Trip %s updated: %d points, %.2fmi",
+            transaction_id,
+            len(all_coords),
+            metrics['distance'],
         )
         await _publish_trip_snapshot(updated_trip, status="active")
 
@@ -310,7 +313,8 @@ async def process_trip_metrics(
 
     if not trip:
         logger.info(
-            f"Trip {transaction_id} not found for tripMetrics (may be completed)"
+            "Trip %s not found for tripMetrics (may be completed)",
+            transaction_id,
         )
         return
 
@@ -410,8 +414,10 @@ async def process_trip_end(
 
     if updated_trip:
         logger.info(
-            f"Trip {transaction_id} completed: {duration:.0f}s, "
-            f"{trip.get('distance', 0):.2f}mi"
+            "Trip %s completed: %.0fs, %.2fmi",
+            transaction_id,
+            duration,
+            trip.get('distance', 0),
         )
         await _publish_trip_snapshot(updated_trip, status="completed")
 
