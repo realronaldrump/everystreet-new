@@ -20,7 +20,10 @@ class CoverageNavigation {
    */
   async findMostEfficientStreets(locationId) {
     if (!locationId) {
-      this.notificationManager.show("Please select a coverage area first.", "warning");
+      this.notificationManager.show(
+        "Please select a coverage area first.",
+        "warning",
+      );
       return;
     }
 
@@ -67,7 +70,7 @@ class CoverageNavigation {
         } catch (_lastTripError) {
           this.notificationManager.show(
             "Unable to determine current position. Please enable location services or start a trip.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -77,7 +80,7 @@ class CoverageNavigation {
     if (currentLat === undefined || currentLon === undefined) {
       this.notificationManager.show(
         "Unable to determine current position. Please enable location services or start/complete a trip.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -93,7 +96,7 @@ class CoverageNavigation {
         locationId,
         currentLat,
         currentLon,
-        3
+        3,
       );
 
       if (
@@ -115,7 +118,9 @@ class CoverageNavigation {
         this.displayEfficientStreets(data.suggested_clusters, positionSource);
 
         const topCluster = data.suggested_clusters[0];
-        const distanceMiles = (topCluster.distance_to_cluster_m / 1609.34).toFixed(1);
+        const distanceMiles = (
+          topCluster.distance_to_cluster_m / 1609.34
+        ).toFixed(1);
         const lengthMiles = (topCluster.total_length_m / 1609.34).toFixed(2);
         const startingStreetName = topCluster.nearest_segment.street_name;
 
@@ -123,12 +128,12 @@ class CoverageNavigation {
           `Found ${data.suggested_clusters.length} efficient street clusters. ` +
             `Top cluster (starts with ${startingStreetName}): ${distanceMiles} mi away, ${lengthMiles} mi total length.`,
           "success",
-          7000
+          7000,
         );
       } else {
         this.notificationManager.show(
           "No efficient street clusters found matching criteria.",
-          "info"
+          "info",
         );
         this.clearEfficientStreetMarkers();
       }
@@ -136,7 +141,7 @@ class CoverageNavigation {
       console.error("Error finding efficient streets:", error);
       this.notificationManager.show(
         `Error finding efficient streets: ${error.message}`,
-        "danger"
+        "danger",
       );
       this.clearEfficientStreetMarkers();
     } finally {
@@ -165,7 +170,7 @@ class CoverageNavigation {
           enableHighAccuracy: true,
           timeout: 10000,
           maximumAge: 0,
-        }
+        },
       );
     });
   }
@@ -193,11 +198,12 @@ class CoverageNavigation {
         this.coverageMap.map.getSource("streets")
       ) {
         cluster.segments.forEach((segment) => {
-          const segmentId = segment.segment_id || segment.properties?.segment_id;
+          const segmentId =
+            segment.segment_id || segment.properties?.segment_id;
           if (segmentId) {
             this.coverageMap.map.setFeatureState(
               { source: "streets", id: segmentId },
-              { efficientRank: rank }
+              { efficientRank: rank },
             );
           }
         });
@@ -236,14 +242,16 @@ class CoverageNavigation {
             segment.geometry.type === "LineString" &&
             segment.geometry.coordinates
           ) {
-            segment.geometry.coordinates.forEach((coord) => bounds.extend(coord));
+            segment.geometry.coordinates.forEach((coord) =>
+              bounds.extend(coord),
+            );
           } else if (
             segment.geometry &&
             segment.geometry.type === "MultiLineString" &&
             segment.geometry.coordinates
           ) {
             segment.geometry.coordinates.forEach((line) =>
-              line.forEach((coord) => bounds.extend(coord))
+              line.forEach((coord) => bounds.extend(coord)),
             );
           }
         });
@@ -268,7 +276,9 @@ class CoverageNavigation {
     const streetName = nearestSegment.street_name || "Unnamed Street";
 
     const totalLengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
-    const distanceToClusterMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(1);
+    const distanceToClusterMiles = (
+      cluster.distance_to_cluster_m / 1609.34
+    ).toFixed(1);
     const efficiencyScore = cluster.efficiency_score.toFixed(2);
     const segmentCount = cluster.segment_count;
 
@@ -284,7 +294,7 @@ class CoverageNavigation {
         <div class="mb-1"><strong>Starts with:</strong> ${streetName}</div>
         <div class="small text-muted mb-2">Cluster ID: ${cluster.cluster_id.substring(
           0,
-          8
+          8,
         )}...</div>
         
         <div class="efficiency-metrics small">
@@ -308,7 +318,9 @@ class CoverageNavigation {
     popup.setHTML(content);
 
     popup.on("open", () => {
-      const copyButton = popup.getElement().querySelector(".copy-segment-id-btn");
+      const copyButton = popup
+        .getElement()
+        .querySelector(".copy-segment-id-btn");
       if (copyButton) {
         copyButton.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -317,7 +329,7 @@ class CoverageNavigation {
             this.notificationManager.show(
               "Segment ID copied to clipboard",
               "success",
-              2000
+              2000,
             );
           });
         });
@@ -336,7 +348,8 @@ class CoverageNavigation {
       panel = document.createElement("div");
       panel.id = "efficient-streets-panel";
       panel.className = "efficient-streets-panel-overlay";
-      const dashboard = document.getElementById("coverage-dashboard") || document.body;
+      const dashboard =
+        document.getElementById("coverage-dashboard") || document.body;
       dashboard.appendChild(panel);
     }
 
@@ -356,7 +369,9 @@ class CoverageNavigation {
 
     clusters.forEach((cluster, index) => {
       const nearestSegment = cluster.nearest_segment;
-      const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(1);
+      const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(
+        1,
+      );
       const totalLengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
       const score = cluster.efficiency_score.toFixed(2);
       const colors = ["#ffd700", "#c0c0c0", "#cd7f32"];
@@ -424,12 +439,13 @@ class CoverageNavigation {
       this.suggestedEfficientStreets.forEach((cluster) => {
         if (Array.isArray(cluster?.segments)) {
           cluster.segments.forEach((segment) => {
-            const segmentId = segment.segment_id || segment.properties?.segment_id;
+            const segmentId =
+              segment.segment_id || segment.properties?.segment_id;
             if (segmentId && this.coverageMap.map.getSource("streets")) {
               try {
                 this.coverageMap.map.removeFeatureState(
                   { source: "streets", id: segmentId },
-                  "efficientRank"
+                  "efficientRank",
                 );
               } catch (_e) {
                 // Silently ignore feature state removal errors
