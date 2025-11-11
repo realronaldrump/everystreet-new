@@ -71,8 +71,20 @@ const dateManager = {
   updateInputs(startDate, endDate) {
     const s = uiState.getElement(CONFIG.selectors.startDate);
     const e = uiState.getElement(CONFIG.selectors.endDate);
-    if (s) s._flatpickr?.setDate(startDate, true) || (s.value = startDate);
-    if (e) e._flatpickr?.setDate(endDate, true) || (e.value = endDate);
+    if (s) {
+      if (s._flatpickr?.setDate(startDate, true)) {
+        // Date set via flatpickr
+      } else {
+        s.value = startDate;
+      }
+    }
+    if (e) {
+      if (e._flatpickr?.setDate(endDate, true)) {
+        // Date set via flatpickr
+      } else {
+        e.value = endDate;
+      }
+    }
   },
 
   async setRange(range) {
@@ -84,9 +96,9 @@ const dateManager = {
         this.updateInputs(startDate, endDate);
         uiState
           .getAllElements(".quick-select-btn")
-          .forEach((b) =>
-            b.classList.toggle(CONFIG.classes.active, b.dataset.range === range)
-          );
+          .forEach((b) => {
+            b.classList.toggle(CONFIG.classes.active, b.dataset.range === range);
+          });
         uiState.uiState.lastFilterPreset = range;
         uiState.saveUIState();
         await this.applyFilters();
@@ -200,7 +212,9 @@ const dateManager = {
     utils.setStorage(CONFIG.storage.endDate, today);
     uiState
       .getAllElements(".quick-select-btn")
-      .forEach((btn) => btn.classList.remove(CONFIG.classes.active));
+      .forEach((btn) => {
+        btn.classList.remove(CONFIG.classes.active);
+      });
     const todayBtn = uiState.getElement('.quick-select-btn[data-range="today"]');
     if (todayBtn) todayBtn.classList.add(CONFIG.classes.active);
     this.updateIndicator();

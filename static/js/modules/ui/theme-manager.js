@@ -29,7 +29,11 @@ const themeManager = {
     (
       utils.batchDOMUpdates ??
       utils.batchDomUpdates ??
-      ((updates) => updates.forEach((fn) => fn()))
+      ((updates) => {
+        updates.forEach((fn) => {
+          fn();
+        });
+      })
     )([
       () => {
         document.body.classList.toggle(CONFIG.classes.lightMode, isLight);
@@ -42,7 +46,9 @@ const themeManager = {
     ]);
 
     if (animate && CONFIG.animations.enabled) {
-      setTimeout(() => (document.documentElement.style.transition = ""), 300);
+      setTimeout(() => {
+        document.documentElement.style.transition = "";
+      }, 300);
     }
 
     utils.setStorage(CONFIG.storage.theme, theme);

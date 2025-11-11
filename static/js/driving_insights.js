@@ -34,7 +34,9 @@ if (typeof window !== "undefined") {
     const tooltipTriggerList = [].slice.call(
       document.querySelectorAll('[data-bs-toggle="tooltip"]')
     );
-    tooltipTriggerList.forEach((el) => new bootstrap.Tooltip(el));
+    tooltipTriggerList.forEach((el) => {
+      new bootstrap.Tooltip(el);
+    });
 
     initCharts();
     await loadAllData();
@@ -620,7 +622,9 @@ if (typeof window !== "undefined") {
     const parent = btn.parentElement;
 
     // Update active state
-    parent.querySelectorAll(".toggle-btn").forEach((b) => b.classList.remove("active"));
+    parent.querySelectorAll(".toggle-btn").forEach((b) => {
+      b.classList.remove("active");
+    });
     btn.classList.add("active");
 
     // Update appropriate view

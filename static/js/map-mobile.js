@@ -631,14 +631,14 @@ class MobileMapInterface {
     const statusBadge = document.getElementById("mobile-live-status");
     const statusText = document.querySelector(".live-status-text");
     if (statusBadge) {
-      let connected = statusText?.textContent?.toLowerCase().includes("connected");
+      const { textContent: statusTextContent } = statusText || {};
+      let connected = statusTextContent?.toLowerCase().includes("connected");
       if (detail && typeof detail.connected === "boolean") {
         connected = detail.connected;
       }
       statusBadge.classList.toggle("disconnected", connected === false);
       const label = statusBadge.querySelector("span:last-child");
       if (label) {
-        const { textContent } = label;
         label.textContent = connected === false ? "Offline" : "Live";
       }
     }

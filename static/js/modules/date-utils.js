@@ -326,10 +326,10 @@ const dateUtils = {
   formatSecondsToHMS(seconds) {
     if (typeof seconds !== "number" || Number.isNaN(seconds)) return "00:00:00";
 
-    seconds = Math.max(0, Math.floor(seconds));
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
+    const validSeconds = Math.max(0, Math.floor(seconds));
+    const hours = Math.floor(validSeconds / 3600);
+    const minutes = Math.floor((validSeconds % 3600) / 60);
+    const remainingSeconds = validSeconds % 60;
 
     return `${hours.toString().padStart(2, "0")}:${minutes
       .toString()
@@ -616,12 +616,13 @@ const dateUtils = {
    * @returns {string} Formatted distance
    */
   distanceInUserUnits(meters, fixed = 2) {
+    let validMeters = meters;
     if (typeof meters !== "number" || Number.isNaN(meters)) {
-      meters = 0;
+      validMeters = 0;
     }
-    const miles = meters * 0.000621371;
+    const miles = validMeters * 0.000621371;
     return miles < 0.1
-      ? `${(meters * 3.28084).toFixed(0)} ft`
+      ? `${(validMeters * 3.28084).toFixed(0)} ft`
       : `${miles.toFixed(fixed)} mi`;
   },
 
@@ -632,19 +633,20 @@ const dateUtils = {
    * @returns {Object} Speed information with formatting
    */
   formatVehicleSpeed(speed) {
+    let validSpeed = speed;
     if (typeof speed !== "number") {
-      speed = parseFloat(speed) || 0;
+      validSpeed = parseFloat(speed) || 0;
     }
 
     let status = "stopped";
-    if (speed > 35) status = "fast";
-    else if (speed > 10) status = "medium";
-    else if (speed > 0) status = "slow";
+    if (validSpeed > 35) status = "fast";
+    else if (validSpeed > 10) status = "medium";
+    else if (validSpeed > 0) status = "slow";
 
     return {
-      value: speed.toFixed(1),
+      value: validSpeed.toFixed(1),
       status,
-      formatted: `${speed.toFixed(1)} mph`,
+      formatted: `${validSpeed.toFixed(1)} mph`,
       cssClass: `vehicle-${status}`,
     };
   },

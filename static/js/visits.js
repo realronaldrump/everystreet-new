@@ -1101,7 +1101,9 @@
     async filterByTimeframe(timeframe) {
       // Add loading state to both tables
       const tables = [this.visitsTable, this.nonCustomVisitsTable];
-      tables.forEach((table) => table?.processing?.(true));
+      tables.forEach((table) => {
+        table?.processing?.(true);
+      });
 
       try {
         const params = new URLSearchParams({ timeframe });
@@ -1130,7 +1132,9 @@
         console.error("Error filtering by timeframe:", error);
         window.notificationManager?.show("Error filtering data", "danger");
       } finally {
-        tables.forEach((table) => table?.processing?.(false));
+        tables.forEach((table) => {
+          table?.processing?.(false);
+        });
       }
     }
 
@@ -2317,7 +2321,9 @@
       }
 
       // Clear animation frames
-      this.animationFrames.forEach((frame) => cancelAnimationFrame(frame));
+      this.animationFrames.forEach((frame) => {
+        cancelAnimationFrame(frame);
+      });
 
       // Remove event listeners
       document.removeEventListener("keydown", this.keyboardHandler);

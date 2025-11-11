@@ -142,7 +142,6 @@
       const data = await response.json();
 
       if (data.status === "success" && data.credentials) {
-        _unmaskedCredentials = data.credentials;
         populateForm(data.credentials, false);
         showStatus("Credentials unmasked", "success");
       } else {

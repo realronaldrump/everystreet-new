@@ -957,4 +957,5 @@ class UploadManager {
   }
 }
 
-// UploadManager instance is created and used via window.uploadManager
+// UploadManager is instantiated elsewhere and assigned to window.uploadManager
+// This class definition is used by other modules

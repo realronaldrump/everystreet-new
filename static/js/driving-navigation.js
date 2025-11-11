@@ -827,7 +827,9 @@ class DrivingNavigation {
   }
 
   clearEfficientClusters() {
-    this.clusterMarkers.forEach((marker) => marker.remove());
+    this.clusterMarkers.forEach((marker) => {
+      marker.remove();
+    });
     this.clusterMarkers = [];
     this.map
       .getSource("efficient-clusters")
@@ -855,7 +857,9 @@ class DrivingNavigation {
       if (event.target.matches(".navigate-to-segment")) {
         const { segmentId } = event.target.dataset;
         // Close all popups
-        document.querySelectorAll(".mapboxgl-popup").forEach((p) => p.remove());
+        document.querySelectorAll(".mapboxgl-popup").forEach((p) => {
+          p.remove();
+        });
         this.highlightTargetStreet(segmentId);
         this.findRouteToSegment(segmentId);
       }
@@ -890,9 +894,9 @@ class DrivingNavigation {
   }
   resetSteps() {
     this.currentStep = null;
-    [this.stepClustering, this.stepOptimizing, this.stepRendering].forEach(
-      (s) => (s.className = "step")
-    );
+    [this.stepClustering, this.stepOptimizing, this.stepRendering].forEach((s) => {
+      s.className = "step";
+    });
   }
   setActiveStep(step) {
     this.resetSteps();
