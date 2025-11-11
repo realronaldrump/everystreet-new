@@ -40,10 +40,10 @@ class CoverageSelection {
     toolbar.addEventListener("click", (e) => {
       const markBtn = e.target.closest(".bulk-mark-btn");
       if (markBtn) {
-        const {action} = markBtn.dataset;
+        const { action } = markBtn.dataset;
         if (action) {
           document.dispatchEvent(
-            new CustomEvent("coverageBulkAction", { detail: action }),
+            new CustomEvent("coverageBulkAction", { detail: action })
           );
         }
         return;
@@ -74,8 +74,7 @@ class CoverageSelection {
    * Update selection highlight
    */
   _updateSelectionHighlight() {
-    if (!this.coverageMap?.map || !this.coverageMap.map.getSource("streets"))
-      return;
+    if (!this.coverageMap?.map || !this.coverageMap.map.getSource("streets")) return;
 
     const layerId = "streets-selection-highlight";
     if (!this.coverageMap.map.getLayer(layerId)) {
@@ -92,7 +91,7 @@ class CoverageSelection {
           },
           filter: ["in", "segment_id", ""],
         },
-        "streets-layer",
+        "streets-layer"
       );
     }
 
@@ -108,8 +107,7 @@ class CoverageSelection {
    * Update bulk toolbar
    */
   _updateBulkToolbar() {
-    const toolbar =
-      this.bulkToolbar || document.getElementById("bulk-action-toolbar");
+    const toolbar = this.bulkToolbar || document.getElementById("bulk-action-toolbar");
     if (!toolbar) return;
     const countSpan = document.getElementById("bulk-selected-count");
     const count = this.selectedSegmentIds.size;

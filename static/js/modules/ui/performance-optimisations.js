@@ -26,6 +26,5 @@ const perfOptim = {
   },
 };
 
-if (!window.performanceOptimisations)
-  window.performanceOptimisations = perfOptim;
+if (!window.performanceOptimisations) window.performanceOptimisations = perfOptim;
 export { perfOptim as default };

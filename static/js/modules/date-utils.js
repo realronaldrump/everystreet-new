@@ -54,7 +54,7 @@ const dateUtils = {
    * formatDateToString(new Date(2024, 2, 15)) // Returns "2024-03-15"
    */
   formatDateToString(date) {
-    if (!date || !(date instanceof Date) || isNaN(date.getTime())) return null;
+    if (!date || !(date instanceof Date) || Number.isNaN(date.getTime())) return null;
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
@@ -79,10 +79,7 @@ const dateUtils = {
     if (dateValue instanceof Date) return new Date(dateValue);
 
     // Try parsing as YYYY-MM-DD string first (timezone-safe)
-    if (
-      typeof dateValue === "string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(dateValue)
-    ) {
+    if (typeof dateValue === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
       const parsed = this.parseDateString(dateValue);
       if (parsed && endOfDay) parsed.setHours(23, 59, 59, 999);
       return parsed;
@@ -90,7 +87,7 @@ const dateUtils = {
 
     try {
       const date = new Date(dateValue);
-      if (isNaN(date.getTime())) {
+      if (Number.isNaN(date.getTime())) {
         console.warn(`Invalid date value: ${dateValue}`);
         return null;
       }
@@ -165,9 +162,7 @@ const dateUtils = {
    * @returns {string} Start date in YYYY-MM-DD format
    */
   getStartDate() {
-    return (
-      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate()
-    );
+    return utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate();
   },
 
   /**
@@ -176,9 +171,7 @@ const dateUtils = {
    * @returns {string} End date in YYYY-MM-DD format
    */
   getEndDate() {
-    return (
-      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate()
-    );
+    return utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate();
   },
 
   /**
@@ -254,7 +247,7 @@ const dateUtils = {
         if (!startDate) {
           // Fallback to 1 year ago if we can't fetch the first trip date
           console.warn(
-            "Could not determine first trip date, using 1 year ago as fallback",
+            "Could not determine first trip date, using 1 year ago as fallback"
           );
           startDate = new Date(today);
           startDate.setFullYear(startDate.getFullYear() - 1);
@@ -331,7 +324,7 @@ const dateUtils = {
    * @returns {string} Formatted duration (e.g., "2:30:45")
    */
   formatSecondsToHMS(seconds) {
-    if (typeof seconds !== "number" || isNaN(seconds)) return "00:00:00";
+    if (typeof seconds !== "number" || Number.isNaN(seconds)) return "00:00:00";
 
     seconds = Math.max(0, Math.floor(seconds));
     const hours = Math.floor(seconds / 3600);
@@ -350,7 +343,7 @@ const dateUtils = {
    * @returns {string} Formatted duration (e.g., "2h 30m 45s")
    */
   formatDuration(durationMsOrSec = 0) {
-    if (!durationMsOrSec || isNaN(durationMsOrSec)) return "N/A";
+    if (!durationMsOrSec || Number.isNaN(durationMsOrSec)) return "N/A";
 
     // Auto-detect if value is in milliseconds (> 1000000 likely means ms)
     let totalSeconds = durationMsOrSec;
@@ -411,10 +404,10 @@ const dateUtils = {
     const minuteMatch = duration.match(/(\d+)\s*m/);
     const secondMatch = duration.match(/(\d+)\s*s/);
 
-    if (dayMatch) seconds += parseInt(dayMatch[1]) * 86400;
-    if (hourMatch) seconds += parseInt(hourMatch[1]) * 3600;
-    if (minuteMatch) seconds += parseInt(minuteMatch[1]) * 60;
-    if (secondMatch) seconds += parseInt(secondMatch[1]);
+    if (dayMatch) seconds += parseInt(dayMatch[1], 10) * 86400;
+    if (hourMatch) seconds += parseInt(hourMatch[1], 10) * 3600;
+    if (minuteMatch) seconds += parseInt(minuteMatch[1], 10) * 60;
+    if (secondMatch) seconds += parseInt(secondMatch[1], 10);
 
     return seconds;
   },
@@ -456,9 +449,7 @@ const dateUtils = {
 
     const days = Math.floor(hours / 24);
     if (days < 7 || !abbreviated) {
-      return abbreviated
-        ? `${days}d ago`
-        : `${days} day${days !== 1 ? "s" : ""} ago`;
+      return abbreviated ? `${days}d ago` : `${days} day${days !== 1 ? "s" : ""} ago`;
     }
 
     return this.formatForDisplay(date, { dateStyle: "short" });
@@ -490,9 +481,8 @@ const dateUtils = {
       return `${hours} hour${hours > 1 ? "s" : ""} ago`;
     } else if (minutes > 0) {
       return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
-    } 
-      return "Just now";
-    
+    }
+    return "Just now";
   },
 
   /**
@@ -626,7 +616,7 @@ const dateUtils = {
    * @returns {string} Formatted distance
    */
   distanceInUserUnits(meters, fixed = 2) {
-    if (typeof meters !== "number" || isNaN(meters)) {
+    if (typeof meters !== "number" || Number.isNaN(meters)) {
       meters = 0;
     }
     const miles = meters * 0.000621371;

@@ -3,8 +3,6 @@
  * Handles all API calls related to coverage areas
  */
 
-import utils from "../utils.js";
-
 const COVERAGE_API = {
   /**
    * Fetch all coverage areas
@@ -134,9 +132,7 @@ const COVERAGE_API = {
       const error = await response.json().catch(() => ({}));
       if (response.status === 422 && error.detail) {
         const errorMsg = Array.isArray(error.detail)
-          ? error.detail
-              .map((err) => `${err.loc?.join(".")}: ${err.msg}`)
-              .join("; ")
+          ? error.detail.map((err) => `${err.loc?.join(".")}: ${err.msg}`).join("; ")
           : error.detail;
         throw new Error(`Validation error: ${errorMsg}`);
       }
@@ -200,10 +196,9 @@ const COVERAGE_API = {
    * Refresh stats for a coverage area
    */
   async refreshStats(locationId) {
-    const response = await fetch(
-      `/api/coverage_areas/${locationId}/refresh_stats`,
-      { method: "POST" },
-    );
+    const response = await fetch(`/api/coverage_areas/${locationId}/refresh_stats`, {
+      method: "POST",
+    });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || "Failed to refresh stats");
@@ -232,9 +227,7 @@ const COVERAGE_API = {
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.detail || `API request failed (HTTP ${response.status})`,
-      );
+      throw new Error(error.detail || `API request failed (HTTP ${response.status})`);
     }
     return await response.json();
   },
@@ -249,7 +242,7 @@ const COVERAGE_API = {
       top_n: topN.toString(),
     });
     const response = await fetch(
-      `/api/driving-navigation/suggest-next-street/${locationId}?${params}`,
+      `/api/driving-navigation/suggest-next-street/${locationId}?${params}`
     );
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));

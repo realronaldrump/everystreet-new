@@ -1,6 +1,5 @@
 /* global   */
 
-"use strict";
 (() => {
   const elements = {};
 
@@ -92,22 +91,14 @@
       }
     });
 
-    elements.validateButtons = document.querySelectorAll(
-      ".validate-location-btn",
-    );
+    elements.validateButtons = document.querySelectorAll(".validate-location-btn");
 
     elements.exportAllDates = document.getElementById("export-all-dates");
-    elements.saveExportSettings = document.getElementById(
-      "save-export-settings",
-    );
+    elements.saveExportSettings = document.getElementById("save-export-settings");
 
     elements.includeTrips = document.getElementById("include-trips");
-    elements.includeMatchedTrips = document.getElementById(
-      "include-matched-trips",
-    );
-    elements.includeUploadedTrips = document.getElementById(
-      "include-uploaded-trips",
-    );
+    elements.includeMatchedTrips = document.getElementById("include-matched-trips");
+    elements.includeUploadedTrips = document.getElementById("include-uploaded-trips");
 
     elements.includeBasicInfo = document.getElementById("include-basic-info");
     elements.includeLocations = document.getElementById("include-locations");
@@ -118,9 +109,7 @@
 
     elements.csvOptionsContainer = document.getElementById("csv-options");
     elements.includeGpsInCsv = document.getElementById("include-gps-in-csv");
-    elements.flattenLocationFields = document.getElementById(
-      "flatten-location-fields",
-    );
+    elements.flattenLocationFields = document.getElementById("flatten-location-fields");
   }
 
   function initDatePickers() {
@@ -134,7 +123,7 @@
       if (input.id) {
         window.DateUtils.initDatePicker(`#${input.id}`, {
           maxDate: "today",
-          onClose(selectedDates, dateStr) {
+          onClose(_selectedDates, dateStr) {
             if (input.id.includes("start")) {
               const endInputId = input.id.replace("start", "end");
               const endInput = document.getElementById(endInputId);
@@ -193,7 +182,7 @@
 
     if (elements.exportAllDates) {
       elements.exportAllDates.addEventListener("change", (event) => {
-        const {checked} = event.target;
+        const { checked } = event.target;
         const startDateInput = document.getElementById("adv-start-date");
         const endDateInput = document.getElementById("adv-end-date");
 
@@ -232,8 +221,7 @@
     });
 
     if (elements.csvOptionsContainer) {
-      elements.csvOptionsContainer.style.display =
-        format === "csv" ? "block" : "none";
+      elements.csvOptionsContainer.style.display = format === "csv" ? "block" : "none";
     }
 
     switch (format) {
@@ -252,8 +240,7 @@
         if (elements.includeTelemetry) {
           elements.includeTelemetry.disabled = true;
           elements.includeTelemetry.parentElement.classList.add("text-muted");
-          elements.includeTelemetry.title =
-            "Limited telemetry support in GPX format";
+          elements.includeTelemetry.title = "Limited telemetry support in GPX format";
         }
         if (elements.includeMeta) {
           elements.includeMeta.disabled = true;
@@ -263,8 +250,7 @@
         if (elements.includeCustom) {
           elements.includeCustom.disabled = true;
           elements.includeCustom.parentElement.classList.add("text-muted");
-          elements.includeCustom.title =
-            "Custom data not supported in GPX format";
+          elements.includeCustom.title = "Custom data not supported in GPX format";
         }
         break;
 
@@ -314,7 +300,7 @@
     if (activeExports[formType]) {
       window.notificationManager.show(
         `Already exporting ${config.name}. Please wait...`,
-        "info",
+        "info"
       );
       return;
     }
@@ -331,24 +317,18 @@
     }
     try {
       activeExports[formType] = true;
-      window.notificationManager.show(
-        `Starting ${config.name} export...`,
-        "info",
-      );
+      window.notificationManager.show(`Starting ${config.name} export...`, "info");
       const url = buildExportUrl(formType, config);
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => {
         abortController.abort();
         window.handleError(
-          `Export operation timed out after 120 seconds: ${config.name}`,
+          `Export operation timed out after 120 seconds: ${config.name}`
         );
       }, 120000);
       try {
         await downloadFile(url, config.name, abortController.signal);
-        window.notificationManager.show(
-          `${config.name} export completed`,
-          "success",
-        );
+        window.notificationManager.show(`${config.name} export completed`, "success");
       } finally {
         clearTimeout(timeoutId);
       }
@@ -356,7 +336,7 @@
       console.error("Export error:", error);
       window.notificationManager.show(
         `Export failed: ${error.message || "Unknown error"}`,
-        "error",
+        "error"
       );
     } finally {
       activeExports[formType] = false;
@@ -390,7 +370,7 @@
     }
     const locationData = locationInput.getAttribute("data-location");
     return `${config.endpoint}?location=${encodeURIComponent(
-      locationData,
+      locationData
     )}&format=${format}`;
   }
 
@@ -433,7 +413,7 @@
       const endDate = elements[config.dateEnd]?.value;
       if (!startDate || !endDate) {
         throw new Error(
-          "Please select both start and end dates or check 'Export all dates'",
+          "Please select both start and end dates or check 'Export all dates'"
         );
       }
       if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
@@ -465,9 +445,7 @@
         // Fallback for any potentially added simple formats
         const format = elements[config.format]?.value;
         if (!format) {
-          throw new Error(
-            `Could not determine format for export type '${formType}'`,
-          );
+          throw new Error(`Could not determine format for export type '${formType}'`);
         }
         return `${config.endpoint}?format=${format}`;
       }
@@ -496,10 +474,7 @@
         format: elements["adv-format"]?.value,
       };
 
-      window.utils.setStorage(
-        "advancedExportSettings",
-        JSON.stringify(settings),
-      );
+      window.utils.setStorage("advancedExportSettings", JSON.stringify(settings));
     } catch (error) {
       console.warn("Error saving export settings:", error);
     }
@@ -507,9 +482,7 @@
 
   function loadSavedExportSettings() {
     try {
-      const savedSettingsJSON = window.utils.getStorage(
-        "advancedExportSettings",
-      );
+      const savedSettingsJSON = window.utils.getStorage("advancedExportSettings");
       if (!savedSettingsJSON) return;
       const settings = JSON.parse(savedSettingsJSON);
       setDataSources(settings.dataSources);
@@ -526,10 +499,7 @@
     if (elements.includeTrips && dataSources.includeTrips !== undefined) {
       elements.includeTrips.checked = dataSources.includeTrips;
     }
-    if (
-      elements.includeMatchedTrips &&
-      dataSources.includeMatchedTrips !== undefined
-    ) {
+    if (elements.includeMatchedTrips && dataSources.includeMatchedTrips !== undefined) {
       elements.includeMatchedTrips.checked = dataSources.includeMatchedTrips;
     }
     if (
@@ -542,22 +512,13 @@
 
   function setDataFields(dataFields) {
     if (!dataFields) return;
-    if (
-      elements.includeBasicInfo &&
-      dataFields.includeBasicInfo !== undefined
-    ) {
+    if (elements.includeBasicInfo && dataFields.includeBasicInfo !== undefined) {
       elements.includeBasicInfo.checked = dataFields.includeBasicInfo;
     }
-    if (
-      elements.includeLocations &&
-      dataFields.includeLocations !== undefined
-    ) {
+    if (elements.includeLocations && dataFields.includeLocations !== undefined) {
       elements.includeLocations.checked = dataFields.includeLocations;
     }
-    if (
-      elements.includeTelemetry &&
-      dataFields.includeTelemetry !== undefined
-    ) {
+    if (elements.includeTelemetry && dataFields.includeTelemetry !== undefined) {
       elements.includeTelemetry.checked = dataFields.includeTelemetry;
     }
     if (elements.includeGeometry && dataFields.includeGeometry !== undefined) {
@@ -607,10 +568,7 @@
 
     const locationData = locationInput.getAttribute("data-location");
     if (!locationData) {
-      window.notificationManager.show(
-        "Please validate the location first",
-        "warning",
-      );
+      window.notificationManager.show("Please validate the location first", "warning");
       return false;
     }
 
@@ -641,7 +599,7 @@
     try {
       window.notificationManager.show(
         `Validating location: "${locationInput.value}"...`,
-        "info",
+        "info"
       );
 
       const response = await fetch("/api/validate_location", {
@@ -664,11 +622,10 @@
         locationInput.setAttribute("data-location", JSON.stringify(data));
         locationInput.setAttribute(
           "data-display-name",
-          data.display_name || data.name || locationInput.value,
+          data.display_name || data.name || locationInput.value
         );
 
-        locationInput.value =
-          data.display_name || data.name || locationInput.value;
+        locationInput.value = data.display_name || data.name || locationInput.value;
 
         locationInput.classList.add("is-valid");
         locationInput.classList.remove("is-invalid");
@@ -682,14 +639,14 @@
           `Location validated: "${
             data.display_name || data.name || locationInput.value
           }"`,
-          "success",
+          "success"
         );
       } else {
         locationInput.classList.add("is-invalid");
         locationInput.classList.remove("is-valid");
         window.notificationManager.show(
           "Location not found. Please try a different search term",
-          "warning",
+          "warning"
         );
       }
     } catch (error) {
@@ -699,7 +656,7 @@
         console.error("Error validating location:", error);
         window.notificationManager.show(
           `Validation failed: ${error.message}`,
-          "danger",
+          "danger"
         );
       }
 
@@ -716,18 +673,13 @@
   async function downloadFile(url, exportName, signal) {
     const urlWithTimestamp = `${url}${url.includes("?") ? "&" : "?"}timestamp=${Date.now()}`;
     try {
-      window.notificationManager.show(
-        `Requesting ${exportName} data...`,
-        "info",
-      );
+      window.notificationManager.show(`Requesting ${exportName} data...`, "info");
       console.info(`Requesting export from: ${urlWithTimestamp}`);
       window.loadingManager.show(exportName);
       const fetchOptions = { signal };
       console.info(`Starting fetch for ${exportName} export...`);
       const response = await fetch(urlWithTimestamp, fetchOptions);
-      console.info(
-        `Received response: status=${response.status}, ok=${response.ok}`,
-      );
+      console.info(`Received response: status=${response.status}, ok=${response.ok}`);
       // Check for Content-Disposition header to identify file downloads
       const contentDisposition = response.headers.get("Content-Disposition");
       const isFileDownload = contentDisposition?.includes("attachment");
@@ -754,20 +706,14 @@
       // If it's a file download or response.ok is true, proceed with download logic
       const contentLength = response.headers.get("Content-Length");
       const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-      console.info(
-        `Content-Length: ${contentLength}, parsed size: ${totalSize}`,
-      );
+      console.info(`Content-Length: ${contentLength}, parsed size: ${totalSize}`);
       console.info("Response headers:");
       response.headers.forEach((value, name) => {
         console.info(`${name}: ${value}`);
       });
       const formatMatch = urlWithTimestamp.match(/format=([^&]+)/);
       const format = formatMatch ? formatMatch[1] : null;
-      const filename = getFilenameFromHeaders(
-        contentDisposition,
-        exportName,
-        format,
-      );
+      const filename = getFilenameFromHeaders(contentDisposition, exportName, format);
       window.notificationManager.show(`Downloading ${filename}...`, "info");
       console.info(`Starting download of ${filename}...`);
       await processDownloadStream(response, filename, format, totalSize);
@@ -775,7 +721,7 @@
       console.error(`Export error for ${exportName}:`, error);
       if (error.name === "AbortError") {
         throw new Error(
-          "Export timed out. The file might be too large or the server is busy.",
+          "Export timed out. The file might be too large or the server is busy."
         );
       }
       const errorMsg = `Export failed: ${error.message || "Unknown error"}`;
@@ -826,7 +772,7 @@
       const { done, value } = await reader.read();
       if (done) {
         console.info(
-          `Finished reading response body, total size: ${receivedLength} bytes`,
+          `Finished reading response body, total size: ${receivedLength} bytes`
         );
         break;
       }
@@ -837,14 +783,11 @@
         receivedLength % Math.max(totalSize / 10, 1024 * 1024) < value.length
       ) {
         console.info(
-          `Download progress: ${Math.round((receivedLength / totalSize) * 100)}% (${receivedLength}/${totalSize} bytes)`,
+          `Download progress: ${Math.round((receivedLength / totalSize) * 100)}% (${receivedLength}/${totalSize} bytes)`
         );
       }
       if (totalSize) {
-        const progress = Math.min(
-          Math.round((receivedLength / totalSize) * 100),
-          100,
-        );
+        const progress = Math.min(Math.round((receivedLength / totalSize) * 100), 100);
         if (
           window.loadingManager &&
           typeof window.loadingManager.updateProgress === "function"
@@ -890,10 +833,7 @@
       URL.revokeObjectURL(blobUrl);
       console.info(`Download cleanup completed for ${filename}`);
     }, 100);
-    window.notificationManager.show(
-      `Successfully exported ${filename}`,
-      "success",
-    );
+    window.notificationManager.show(`Successfully exported ${filename}`, "success");
   }
 
   function getExtensionForFormat(format) {
@@ -948,8 +888,7 @@
     fetch("/api/coverage_areas")
       .then((res) => res.json())
       .then((data) => {
-        locationSelect.innerHTML =
-          '<option value="">Select an area...</option>';
+        locationSelect.innerHTML = '<option value="">Select an area...</option>';
         if (data.success && Array.isArray(data?.areas)) {
           data.areas.forEach((area) => {
             if (area.location?.display_name) {
@@ -964,11 +903,10 @@
         }
       })
       .catch((err) => {
-        locationSelect.innerHTML =
-          '<option value="">Failed to load areas</option>';
+        locationSelect.innerHTML = '<option value="">Failed to load areas</option>';
         window.notificationManager.show(
           `Failed to load areas: ${err.message}`,
-          "error",
+          "error"
         );
       });
 
@@ -1034,15 +972,9 @@
           document.body.removeChild(a);
           window.URL.revokeObjectURL(url);
         }, 100);
-        window.notificationManager.show(
-          "Undriven streets export completed",
-          "success",
-        );
+        window.notificationManager.show("Undriven streets export completed", "success");
       } catch (err) {
-        window.notificationManager.show(
-          `Export failed: ${err.message}`,
-          "error",
-        );
+        window.notificationManager.show(`Export failed: ${err.message}`, "error");
       } finally {
         exportBtn.disabled = false;
         exportBtn.innerHTML = "Export Undriven Streets";

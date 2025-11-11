@@ -3,10 +3,8 @@
  * Handles Bouncie API credentials management
  */
 
-(function () {
-  "use strict";
-
-  let unmaskedCredentials = null;
+(() => {
+  let _unmaskedCredentials = null;
   let currentDevices = [];
 
   // Initialize page
@@ -44,14 +42,14 @@
     const toggleSecretBtn = document.getElementById("toggleClientSecret");
     if (toggleSecretBtn) {
       toggleSecretBtn.addEventListener("click", () =>
-        togglePasswordVisibility("clientSecret", "toggleClientSecret"),
+        togglePasswordVisibility("clientSecret", "toggleClientSecret")
       );
     }
 
     const toggleAuthBtn = document.getElementById("toggleAuthCode");
     if (toggleAuthBtn) {
       toggleAuthBtn.addEventListener("click", () =>
-        togglePasswordVisibility("authorizationCode", "toggleAuthCode"),
+        togglePasswordVisibility("authorizationCode", "toggleAuthCode")
       );
     }
 
@@ -68,32 +66,20 @@
 
     const mobileAddDeviceBtn = document.getElementById("mobile-addDeviceBtn");
     if (mobileAddDeviceBtn) {
-      mobileAddDeviceBtn.addEventListener("click", () =>
-        addDeviceInput("mobile"),
-      );
+      mobileAddDeviceBtn.addEventListener("click", () => addDeviceInput("mobile"));
     }
 
-    const mobileToggleSecretBtn = document.getElementById(
-      "mobile-toggleClientSecret",
-    );
+    const mobileToggleSecretBtn = document.getElementById("mobile-toggleClientSecret");
     if (mobileToggleSecretBtn) {
       mobileToggleSecretBtn.addEventListener("click", () =>
-        togglePasswordVisibility(
-          "mobile-clientSecret",
-          "mobile-toggleClientSecret",
-        ),
+        togglePasswordVisibility("mobile-clientSecret", "mobile-toggleClientSecret")
       );
     }
 
-    const mobileToggleAuthBtn = document.getElementById(
-      "mobile-toggleAuthCode",
-    );
+    const mobileToggleAuthBtn = document.getElementById("mobile-toggleAuthCode");
     if (mobileToggleAuthBtn) {
       mobileToggleAuthBtn.addEventListener("click", () =>
-        togglePasswordVisibility(
-          "mobile-authorizationCode",
-          "mobile-toggleAuthCode",
-        ),
+        togglePasswordVisibility("mobile-authorizationCode", "mobile-toggleAuthCode")
       );
     }
   }
@@ -102,18 +88,13 @@
    * Initialize mobile section toggles
    */
   function initializeMobileToggles() {
-    const headers = document.querySelectorAll(
-      ".mobile-settings-section-header",
-    );
+    const headers = document.querySelectorAll(".mobile-settings-section-header");
     headers.forEach((header) => {
       header.addEventListener("click", function () {
         const content = this.nextElementSibling;
         const chevron = this.querySelector(".mobile-settings-section-chevron");
 
-        if (
-          content &&
-          content.classList.contains("mobile-settings-section-content")
-        ) {
+        if (content?.classList.contains("mobile-settings-section-content")) {
           this.classList.toggle("expanded");
           content.classList.toggle("expanded");
           if (chevron) {
@@ -142,7 +123,7 @@
       } else {
         showStatus(
           "No credentials found. Please enter your Bouncie credentials.",
-          "warning",
+          "warning"
         );
       }
     } catch (error) {
@@ -162,7 +143,7 @@
       const data = await response.json();
 
       if (data.status === "success" && data.credentials) {
-        unmaskedCredentials = data.credentials;
+        _unmaskedCredentials = data.credentials;
         populateForm(data.credentials, false);
         showStatus("Credentials unmasked", "success");
       } else {
@@ -188,31 +169,22 @@
     const fetchConcurrencyInput = document.getElementById("fetchConcurrency");
 
     if (clientIdInput) clientIdInput.value = credentials.client_id || "";
-    if (clientSecretInput)
-      clientSecretInput.value = credentials.client_secret || "";
-    if (redirectUriInput)
-      redirectUriInput.value = credentials.redirect_uri || "";
-    if (authCodeInput)
-      authCodeInput.value = credentials.authorization_code || "";
+    if (clientSecretInput) clientSecretInput.value = credentials.client_secret || "";
+    if (redirectUriInput) redirectUriInput.value = credentials.redirect_uri || "";
+    if (authCodeInput) authCodeInput.value = credentials.authorization_code || "";
     if (fetchConcurrencyInput)
       fetchConcurrencyInput.value = credentials.fetch_concurrency || "12";
 
     // Mobile form
     const mobileClientIdInput = document.getElementById("mobile-clientId");
-    const mobileClientSecretInput = document.getElementById(
-      "mobile-clientSecret",
-    );
-    const mobileRedirectUriInput =
-      document.getElementById("mobile-redirectUri");
-    const mobileAuthCodeInput = document.getElementById(
-      "mobile-authorizationCode",
-    );
+    const mobileClientSecretInput = document.getElementById("mobile-clientSecret");
+    const mobileRedirectUriInput = document.getElementById("mobile-redirectUri");
+    const mobileAuthCodeInput = document.getElementById("mobile-authorizationCode");
     const mobileFetchConcurrencyInput = document.getElementById(
-      "mobile-fetchConcurrency",
+      "mobile-fetchConcurrency"
     );
 
-    if (mobileClientIdInput)
-      mobileClientIdInput.value = credentials.client_id || "";
+    if (mobileClientIdInput) mobileClientIdInput.value = credentials.client_id || "";
     if (mobileClientSecretInput)
       mobileClientSecretInput.value = credentials.client_secret || "";
     if (mobileRedirectUriInput)
@@ -228,16 +200,13 @@
 
     // Add CSS class for masked fields
     if (masked) {
-      if (clientSecretInput)
-        clientSecretInput.classList.add("credential-masked");
+      if (clientSecretInput) clientSecretInput.classList.add("credential-masked");
       if (authCodeInput) authCodeInput.classList.add("credential-masked");
       if (mobileClientSecretInput)
         mobileClientSecretInput.classList.add("credential-masked");
-      if (mobileAuthCodeInput)
-        mobileAuthCodeInput.classList.add("credential-masked");
+      if (mobileAuthCodeInput) mobileAuthCodeInput.classList.add("credential-masked");
     } else {
-      if (clientSecretInput)
-        clientSecretInput.classList.remove("credential-masked");
+      if (clientSecretInput) clientSecretInput.classList.remove("credential-masked");
       if (authCodeInput) authCodeInput.classList.remove("credential-masked");
       if (mobileClientSecretInput)
         mobileClientSecretInput.classList.remove("credential-masked");
@@ -309,7 +278,7 @@
    * Add a new device input
    * @param {string} prefix - Prefix for mobile/desktop
    */
-  function addDeviceInput(prefix = "") {
+  function addDeviceInput(_prefix = "") {
     currentDevices.push("");
     renderDevices();
   }
@@ -319,7 +288,7 @@
    * @param {number} index - Index to remove
    * @param {string} prefix - Prefix for mobile/desktop
    */
-  function removeDevice(index, prefix = "") {
+  function removeDevice(index, _prefix = "") {
     if (currentDevices.length > 1) {
       currentDevices.splice(index, 1);
       renderDevices();
@@ -340,22 +309,17 @@
 
     // Collect form data
     const clientId = document.getElementById(`${prefix}clientId`).value.trim();
-    const clientSecret = document
-      .getElementById(`${prefix}clientSecret`)
-      .value.trim();
-    const redirectUri = document
-      .getElementById(`${prefix}redirectUri`)
-      .value.trim();
+    const clientSecret = document.getElementById(`${prefix}clientSecret`).value.trim();
+    const redirectUri = document.getElementById(`${prefix}redirectUri`).value.trim();
     const authorizationCode = document
       .getElementById(`${prefix}authorizationCode`)
       .value.trim();
     const fetchConcurrency =
-      document.getElementById(`${prefix}fetchConcurrency`)?.value.trim() ||
-      "12";
+      document.getElementById(`${prefix}fetchConcurrency`)?.value.trim() || "12";
 
     // Collect devices
     const deviceInputs = document.querySelectorAll(
-      `#${isMobile ? "mobile-" : ""}devicesList input`,
+      `#${isMobile ? "mobile-" : ""}devicesList input`
     );
     const devices = Array.from(deviceInputs)
       .map((input) => input.value.trim())
@@ -368,11 +332,7 @@
     }
 
     if (devices.length === 0) {
-      showStatus(
-        "At least one authorized device is required",
-        "error",
-        isMobile,
-      );
+      showStatus("At least one authorized device is required", "error", isMobile);
       return;
     }
 
@@ -406,20 +366,14 @@
         }, 1500);
       } else {
         showStatus(
-          `Error saving credentials: ${
-            data.detail || data.message || "Unknown error"
-          }`,
+          `Error saving credentials: ${data.detail || data.message || "Unknown error"}`,
           "error",
-          isMobile,
+          isMobile
         );
       }
     } catch (error) {
       console.error("Error saving credentials:", error);
-      showStatus(
-        `Error saving credentials: ${error.message}`,
-        "error",
-        isMobile,
-      );
+      showStatus(`Error saving credentials: ${error.message}`, "error", isMobile);
     }
   }
 

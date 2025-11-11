@@ -180,7 +180,7 @@ class LoadingManager {
 
     // Check if all stages are complete
     const allComplete = Object.values(this.stages).every(
-      (stage) => stage.status === "complete" || stage.status === "skipped",
+      (stage) => stage.status === "complete" || stage.status === "skipped"
     );
 
     if (allComplete) {
@@ -199,10 +199,7 @@ class LoadingManager {
 
   updateProgress() {
     const stages = Object.entries(this.stages);
-    const totalWeight = stages.reduce(
-      (sum, [_, stage]) => sum + stage.weight,
-      0,
-    );
+    const totalWeight = stages.reduce((sum, [_, stage]) => sum + stage.weight, 0);
 
     let weightedProgress = 0;
     let currentStage = null;
@@ -211,11 +208,7 @@ class LoadingManager {
     stages.forEach(([name, stage]) => {
       const progress = stage.progress || 0;
       const stageProgress =
-        stage.status === "complete"
-          ? 100
-          : stage.status === "error"
-            ? 0
-            : progress;
+        stage.status === "complete" ? 100 : stage.status === "error" ? 0 : progress;
 
       weightedProgress += (stageProgress / 100) * stage.weight;
 
@@ -252,9 +245,7 @@ class LoadingManager {
 
     detailsHtml += "</div>";
 
-    const overallPercentage = Math.round(
-      (weightedProgress / totalWeight) * 100,
-    );
+    const overallPercentage = Math.round((weightedProgress / totalWeight) * 100);
     const message = currentStage?.message || "Loading...";
 
     this._updateOverlayProgress(overallPercentage, message);
@@ -369,12 +360,11 @@ class LoadingManager {
       }
     }
 
-    const overallProgress =
-      totalWeight > 0 ? (totalProgress / totalWeight) * 100 : 0;
+    const overallProgress = totalWeight > 0 ? (totalProgress / totalWeight) * 100 : 0;
     this._updateOverlayProgress(Math.round(overallProgress), currentMessage);
   }
 
-  show(message = "Loading...", immediate = false) {
+  show(message = "Loading...", _immediate = false) {
     const operation = this.startOperation("Manual", 100);
     operation.update(50, message);
     return this;
@@ -409,9 +399,7 @@ class LoadingManager {
   error(message, context = null, autoHide = true) {
     if (!this.initialized) this.init();
 
-    console.error(
-      `Loading Error: ${message}${context ? ` in ${context}` : ""}`,
-    );
+    console.error(`Loading Error: ${message}${context ? ` in ${context}` : ""}`);
 
     this._showOverlay(`Error: ${message}`, true);
 
@@ -451,9 +439,7 @@ class LoadingManager {
       overlay.offsetHeight;
 
       // Fade in with shorter duration
-      overlay.style.transition = immediate
-        ? "none"
-        : "opacity 0.2s ease-in-out";
+      overlay.style.transition = immediate ? "none" : "opacity 0.2s ease-in-out";
       overlay.style.opacity = "1";
 
       this.isVisible = true;
@@ -510,9 +496,7 @@ class LoadingManager {
     }
 
     // Ensure minimum show time
-    const elapsed = this.showStartTime
-      ? Date.now() - this.showStartTime
-      : Infinity;
+    const elapsed = this.showStartTime ? Date.now() - this.showStartTime : Infinity;
     const remainingTime = Math.max(0, this.minimumShowTime - elapsed);
 
     setTimeout(() => this._hideOverlay(), remainingTime + 300);
@@ -528,9 +512,7 @@ class LoadingManager {
     if (!overlay) return;
 
     // Ensure minimum show time
-    const elapsed = this.showStartTime
-      ? Date.now() - this.showStartTime
-      : Infinity;
+    const elapsed = this.showStartTime ? Date.now() - this.showStartTime : Infinity;
     const remainingTime = Math.max(0, this.minimumShowTime - elapsed);
 
     this.hideTimeout = setTimeout(() => {
@@ -594,8 +576,7 @@ class LoadingManager {
       update: (progress, message) =>
         this.updateSubOperation(operationId, subOperationId, progress, message),
       finish: () => this.finishSubOperation(operationId, subOperationId),
-      error: (message) =>
-        this.errorSubOperation(operationId, subOperationId, message),
+      error: (message) => this.errorSubOperation(operationId, subOperationId, message),
     };
   }
 
@@ -663,10 +644,7 @@ class LoadingManager {
 }
 
 // Create and export singleton instance
-if (
-  !window.loadingManager ||
-  typeof window.loadingManager.startStage !== "function"
-) {
+if (!window.loadingManager || typeof window.loadingManager.startStage !== "function") {
   window.loadingManager = new LoadingManager();
 }
 

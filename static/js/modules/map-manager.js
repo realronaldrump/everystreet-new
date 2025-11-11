@@ -1,7 +1,8 @@
 /* global mapboxgl */
-import utils from "./utils.js";
+
 import { CONFIG } from "./config.js";
 import state from "./state.js";
+import utils from "./utils.js";
 
 // NOTE: this is extracted verbatim from `app.js` to keep behaviour identical.
 // Future refactors can safely trim dependencies now that the code is isolated.
@@ -9,10 +10,7 @@ import state from "./state.js";
 const mapManager = {
   async initialize() {
     try {
-      const initStage = window.loadingManager.startStage(
-        "init",
-        "Initializing map...",
-      );
+      const initStage = window.loadingManager.startStage("init", "Initializing map...");
 
       const mapElement = utils.getElement("map");
       if (!mapElement || state.map) {
@@ -38,8 +36,7 @@ const mapManager = {
       mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
       mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
 
-      const theme =
-        document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
 
       // Determine initial map view
       const urlParams = new URLSearchParams(window.location.search);
@@ -48,10 +45,10 @@ const mapManager = {
       const zoomParam = parseFloat(urlParams.get("zoom"));
       const savedView = utils.getStorage("mapView");
       const center =
-        !isNaN(latParam) && !isNaN(lngParam)
+        !Number.isNaN(latParam) && !Number.isNaN(lngParam)
           ? [lngParam, latParam]
           : savedView?.center || CONFIG.MAP.defaultCenter;
-      const zoom = !isNaN(zoomParam)
+      const zoom = !Number.isNaN(zoomParam)
         ? zoomParam
         : savedView?.zoom || CONFIG.MAP.defaultZoom;
 
@@ -74,7 +71,7 @@ const mapManager = {
               if (parsed.hostname === "events.mapbox.com") {
                 return null;
               }
-            } catch (e) {
+            } catch (_e) {
               // Ignore parse errors, do not block
             }
           }
@@ -90,7 +87,7 @@ const mapManager = {
       state.map.addControl(new mapboxgl.NavigationControl(), "top-right");
       state.map.addControl(
         new mapboxgl.AttributionControl({ compact: true }),
-        "bottom-right",
+        "bottom-right"
       );
 
       // Setup event handlers
@@ -127,7 +124,7 @@ const mapManager = {
       window.loadingManager.stageError("init", error.message);
       window.notificationManager.show(
         `Map initialization failed: ${error.message}`,
-        "danger",
+        "danger"
       );
       return false;
     }
@@ -168,9 +165,7 @@ const mapManager = {
   refreshTripStyles: utils.throttle(() => {
     if (!state.map || !state.mapInitialized) return;
 
-    const selectedId = state.selectedTripId
-      ? String(state.selectedTripId)
-      : null;
+    const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
     const highlightRecent = state.mapSettings.highlightRecentTrips;
 
     ["trips", "matchedTrips"].forEach((layerName) => {
@@ -193,18 +188,12 @@ const mapManager = {
           "==",
           [
             "to-string",
-            [
-              "coalesce",
-              ["get", "transactionId"],
-              ["get", "id"],
-              ["get", "tripId"],
-            ],
+            ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]],
           ],
           selectedId,
         ]);
         colorExpr.push(
-          layerInfo.highlightColor ||
-            window.MapStyles.MAP_LAYER_COLORS.trips.selected,
+          layerInfo.highlightColor || window.MapStyles.MAP_LAYER_COLORS.trips.selected
         );
       }
 
@@ -217,8 +206,7 @@ const mapManager = {
           0,
           window.MapStyles.MAP_LAYER_COLORS.trips.recent.light,
           1,
-          layerInfo.colorRecent ||
-            window.MapStyles.MAP_LAYER_COLORS.trips.recent.dark,
+          layerInfo.colorRecent || window.MapStyles.MAP_LAYER_COLORS.trips.recent.dark,
         ];
         colorExpr.push(recentColor);
       }
@@ -239,12 +227,7 @@ const mapManager = {
           "==",
           [
             "to-string",
-            [
-              "coalesce",
-              ["get", "transactionId"],
-              ["get", "id"],
-              ["get", "tripId"],
-            ],
+            ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]],
           ],
           selectedId,
         ]);
@@ -315,7 +298,7 @@ const mapManager = {
   zoomToLastTrip(targetZoom = 14) {
     if (!state.map || !state.mapLayers.trips?.layer?.features) return;
 
-    const {features} = state.mapLayers.trips.layer;
+    const { features } = state.mapLayers.trips.layer;
 
     const lastTripFeature = features.reduce((latest, feature) => {
       const endTime = feature.properties?.endTime;
@@ -342,8 +325,8 @@ const mapManager = {
 
     if (
       lastCoord?.length === 2 &&
-      !isNaN(lastCoord[0]) &&
-      !isNaN(lastCoord[1])
+      !Number.isNaN(lastCoord[0]) &&
+      !Number.isNaN(lastCoord[1])
     ) {
       state.map.flyTo({
         center: lastCoord,

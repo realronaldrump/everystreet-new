@@ -287,7 +287,7 @@ class LiveTripTracker {
 
     // Fallback to GeoJSON format
     if (coords.length === 0 && trip.gps) {
-      const {gps} = trip;
+      const { gps } = trip;
       if (gps.type === "Point" && Array.isArray(gps.coordinates)) {
         coords = [{ lon: gps.coordinates[0], lat: gps.coordinates[1] }];
       } else if (gps.type === "LineString" && Array.isArray(gps.coordinates)) {
@@ -391,9 +391,7 @@ class LiveTripTracker {
     }
 
     if (trip.totalIdlingTime > 0) {
-      optional["Idling Time"] = DateUtils.formatSecondsToHMS(
-        trip.totalIdlingTime,
-      );
+      optional["Idling Time"] = DateUtils.formatSecondsToHMS(trip.totalIdlingTime);
     }
 
     if (trip.hardBrakingCounts > 0) {
@@ -412,7 +410,7 @@ class LiveTripTracker {
           <span class="metric-label">${label}:</span>
           <span class="metric-value">${value}</span>
         </div>
-      `,
+      `
       )
       .join("");
 
@@ -428,7 +426,7 @@ class LiveTripTracker {
               <span class="metric-label">${label}:</span>
               <span class="metric-value">${value}</span>
             </div>
-          `,
+          `
           )
           .join("")}
       `

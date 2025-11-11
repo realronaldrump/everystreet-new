@@ -1,5 +1,5 @@
-import utils from "./utils.js";
 import dateUtils from "./date-utils.js";
+import utils from "./utils.js";
 
 const metricsManager = {
   updateTripsTable(geojson) {
@@ -40,8 +40,7 @@ const metricsManager = {
 
     utils.batchDOMUpdates([
       () => {
-        if (elements.totalTrips)
-          elements.totalTrips.textContent = metrics.totalTrips;
+        if (elements.totalTrips) elements.totalTrips.textContent = metrics.totalTrips;
         if (elements.totalDistance)
           elements.totalDistance.textContent = metrics.totalDistance.toFixed(1);
         if (elements.avgDistance)
@@ -74,7 +73,7 @@ const metricsManager = {
     features.forEach((feature) => {
       const props = feature.properties || {};
 
-      if (props.distance && !isNaN(props.distance)) {
+      if (props.distance && !Number.isNaN(props.distance)) {
         metrics.totalDistance += parseFloat(props.distance);
         metrics.validDistanceCount++;
       }
@@ -83,30 +82,26 @@ const metricsManager = {
       if (!drivingTime && props.startTime && props.endTime) {
         const start = new Date(props.startTime);
         const end = new Date(props.endTime);
-        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
           drivingTime = (end - start) / 1000;
         }
       }
 
-      if (drivingTime && !isNaN(drivingTime)) {
+      if (drivingTime && !Number.isNaN(drivingTime)) {
         metrics.totalDrivingTime += parseFloat(drivingTime);
         metrics.validDrivingTimeCount++;
       }
 
       if (props.startTime) {
         const startTime = new Date(props.startTime);
-        if (!isNaN(startTime.getTime())) {
-          metrics.totalStartHours +=
-            startTime.getHours() + startTime.getMinutes() / 60;
+        if (!Number.isNaN(startTime.getTime())) {
+          metrics.totalStartHours += startTime.getHours() + startTime.getMinutes() / 60;
           metrics.validStartTimeCount++;
         }
       }
 
-      if (props.maxSpeed && !isNaN(props.maxSpeed)) {
-        metrics.maxSpeed = Math.max(
-          metrics.maxSpeed,
-          parseFloat(props.maxSpeed),
-        );
+      if (props.maxSpeed && !Number.isNaN(props.maxSpeed)) {
+        metrics.maxSpeed = Math.max(metrics.maxSpeed, parseFloat(props.maxSpeed));
       }
     });
 
@@ -120,13 +115,13 @@ const metricsManager = {
       avgStartTime:
         metrics.validStartTimeCount > 0
           ? dateUtils.formatTimeFromHours(
-              metrics.totalStartHours / metrics.validStartTimeCount,
+              metrics.totalStartHours / metrics.validStartTimeCount
             )
           : "--:--",
       avgDrivingTime:
         metrics.validDrivingTimeCount > 0
           ? this.formatDuration(
-              metrics.totalDrivingTime / metrics.validDrivingTimeCount,
+              metrics.totalDrivingTime / metrics.validDrivingTimeCount
             )
           : "--:--",
       avgSpeed:
@@ -138,7 +133,7 @@ const metricsManager = {
   },
 
   formatDuration(seconds) {
-    if (!seconds || isNaN(seconds)) return "--:--";
+    if (!seconds || Number.isNaN(seconds)) return "--:--";
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);

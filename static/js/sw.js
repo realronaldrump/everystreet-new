@@ -18,8 +18,7 @@ self.addEventListener("activate", () => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
-  if (!request.url.match(API_PATTERN) && !request.url.match(TILE_PATTERN))
-    return;
+  if (!request.url.match(API_PATTERN) && !request.url.match(TILE_PATTERN)) return;
 
   event.respondWith(staleWhileRevalidate(request));
 });

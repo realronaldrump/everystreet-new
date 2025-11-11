@@ -1,6 +1,6 @@
 // UI-utils shim – exports the global utils (defined in legacy utils.js) for ESM consumers.
 import "../utils.js";
-const {utils} = window;
+const { utils } = window;
 
 // Polyfills for fadeIn/fadeOut if the legacy utils didn't have them
 if (!utils.fadeIn) {
@@ -39,10 +39,9 @@ if (!utils.measureScrollbarWidth) {
 }
 
 if (!utils.showNotification) {
-  utils.showNotification = (...args) =>
-    window.notificationManager?.show?.(...args);
+  utils.showNotification = (...args) => window.notificationManager?.show?.(...args);
 }
 
 export { utils as default };
 
-export const {handleError} = window;
+export const { handleError } = window;
