@@ -929,8 +929,7 @@ async def update_coverage_for_new_trips_async(self) -> dict[str, Any]:
         "areas_skipped": skipped_areas,
         "message": (
             "Completed incremental updates. Processed: %d, "
-            "Failed: %d, Skipped: %d"
-            % (processed_areas, failed_areas, skipped_areas)
+            "Failed: %d, Skipped: %d" % (processed_areas, failed_areas, skipped_areas)
         ),
     }
 
