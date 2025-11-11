@@ -212,7 +212,7 @@ const AppController = {
     }
 
     // Street view mode toggle buttons
-    const streetToggleButtons = document.querySelectorAll(".street-toggle-btn");
+    const streetToggleButtons = document.querySelectorAll(".street-mode-btn");
     if (streetToggleButtons.length > 0) {
       // Restore saved states - handle migration from old string format
       let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);

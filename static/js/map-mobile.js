@@ -604,7 +604,7 @@ class MobileMapInterface {
   }
 
   syncStreetModes() {
-    const desktopButtons = document.querySelectorAll(".street-toggle-btn");
+    const desktopButtons = document.querySelectorAll(".street-mode-btn");
     if (!desktopButtons.length) return;
 
     const activeModes = new Set();
@@ -803,7 +803,7 @@ class MobileMapInterface {
   }
 
   attachStreetModeListeners() {
-    const desktopButtons = document.querySelectorAll(".street-toggle-btn");
+    const desktopButtons = document.querySelectorAll(".street-mode-btn");
     if (!desktopButtons.length) return;
 
     desktopButtons.forEach((btn) => {
@@ -821,7 +821,7 @@ class MobileMapInterface {
     if (!mode) return;
 
     const desktopBtn = document.querySelector(
-      `.street-toggle-btn[data-street-mode="${mode}"]`
+      `.street-mode-btn[data-street-mode="${mode}"]`
     );
     if (!desktopBtn) return;
 
