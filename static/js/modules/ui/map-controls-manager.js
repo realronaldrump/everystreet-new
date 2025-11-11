@@ -12,7 +12,10 @@ const mapControlsManager = {
     const mapTypeSelect = uiState.getElement(CONFIG.selectors.mapTypeSelect);
     const opacityRange = uiState.getElement(CONFIG.selectors.basemapOpacityRange);
     if (mapTypeSelect) {
-      mapTypeSelect.value = utils.getStorage(CONFIG.storage.mapType) || "satellite";
+      // Default to dark mode, but respect user's stored preference
+      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const defaultMapType = utils.getStorage(CONFIG.storage.mapType) || theme;
+      mapTypeSelect.value = defaultMapType;
       mapTypeSelect.addEventListener("change", (e) =>
         this.updateMapType(e.target.value)
       );
@@ -69,7 +72,7 @@ const mapControlsManager = {
     eventManager.emit("mapControlsToggled", { open: isOpen });
   },
 
-  updateMapType(type = "satellite") {
+  updateMapType(type = "dark") {
     const map = state.map || window.map;
     if (!map || !state.mapInitialized) return;
     if (typeof map.setStyle !== "function") {
