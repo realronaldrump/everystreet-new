@@ -202,9 +202,7 @@
       }
 
       const pollInterval =
-        this.eventSource?.readyState === EventSource.OPEN
-          ? 15000
-          : 5000;
+        this.eventSource?.readyState === EventSource.OPEN ? 15000 : 5000;
 
       this.pollingInterval = setInterval(() => {
         this.loadTaskConfig();
