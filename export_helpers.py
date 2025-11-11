@@ -79,26 +79,24 @@ async def create_geojson(
 
             # Basic validation for Point/LineString coordinates structure
             # More robust validation should happen upstream or via a shared helper if needed
-            if gps_data["type"] == "Point":
-                if not (
-                    isinstance(gps_data["coordinates"], list)
-                    and len(gps_data["coordinates"]) == 2
-                ):
-                    logger.warning(
-                        f"Trip {trip.get('transactionId', '?')} has invalid coordinates structure. Skipping. Coords: {gps_data['coordinates']}",
-                        trip.get("transactionId", "?"),
-                    )
-                    continue
-            elif gps_data["type"] == "LineString":
-                if not (
-                    isinstance(gps_data["coordinates"], list)
-                    and len(gps_data["coordinates"]) >= 2
-                ):  # LineString needs at least 2 points
-                    logger.warning(
-                        f"Trip {trip.get('transactionId', '?')} has invalid coordinates structure or not enough points. Skipping. Coords: {gps_data['coordinates']}",
-                        trip.get("transactionId", "?"),
-                    )
-                    continue
+            if gps_data["type"] == "Point" and not (
+                isinstance(gps_data["coordinates"], list)
+                and len(gps_data["coordinates"]) == 2
+            ):
+                logger.warning(
+                    f"Trip {trip.get('transactionId', '?')} has invalid coordinates structure. Skipping. Coords: {gps_data['coordinates']}",
+                    trip.get("transactionId", "?"),
+                )
+                continue
+            if gps_data["type"] == "LineString" and not (
+                isinstance(gps_data["coordinates"], list)
+                and len(gps_data["coordinates"]) >= 2
+            ):  # LineString needs at least 2 points
+                logger.warning(
+                    f"Trip {trip.get('transactionId', '?')} has invalid coordinates structure or not enough points. Skipping. Coords: {gps_data['coordinates']}",
+                    trip.get("transactionId", "?"),
+                )
+                continue
             # Allow other types if they are valid GeoJSON geometries, Feature creation will handle them.
 
             properties_dict = {}
@@ -184,7 +182,7 @@ async def create_gpx(
                 if not (
                     isinstance(coords, list)
                     and len(coords) == 2
-                    and all(isinstance(c, (float, int)) for c in coords)
+                    and all(isinstance(c, float | int) for c in coords)
                 ):
                     logger.warning(
                         f"Trip {trip.get('transactionId', '?')} GPX export - Invalid Point coordinate structure: {coords}. Skipping.",
@@ -203,7 +201,7 @@ async def create_gpx(
                     if not (
                         isinstance(coord_pair, list)
                         and len(coord_pair) == 2
-                        and all(isinstance(c, (float, int)) for c in coord_pair)
+                        and all(isinstance(c, float | int) for c in coord_pair)
                     ):
                         logger.warning(
                             f"Trip {trip.get('transactionId', '?')} GPX export - Invalid coordinate pair in LineString: {coord_pair}. Skipping trip.",
@@ -715,7 +713,7 @@ async def create_csv_export(
                 "destination",
             ]:
                 pass
-            elif isinstance(value, (dict, list)):
+            elif isinstance(value, dict | list):
                 flat_trip[key] = json.dumps(
                     value,
                     default=default_serializer,

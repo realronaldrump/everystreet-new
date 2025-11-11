@@ -1,5 +1,6 @@
 """API endpoints for live trip tracking via webhooks and WebSocket."""
 
+import contextlib
 import json
 import logging
 import uuid
@@ -176,16 +177,12 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         manager.disconnect(websocket)
         if pubsub:
-            try:
+            with contextlib.suppress(Exception):
                 await pubsub.unsubscribe(TRIP_UPDATES_CHANNEL)
                 await pubsub.close()
-            except Exception:
-                pass
         if redis_client:
-            try:
+            with contextlib.suppress(Exception):
                 await redis_client.close()
-            except Exception:
-                pass
 
 
 # ============================================================================

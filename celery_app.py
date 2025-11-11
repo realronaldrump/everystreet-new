@@ -144,7 +144,7 @@ def task_failure_handler(
     sender=None,
     task_id=None,
     exception=None,
-    **kwargs,
+    **_kwargs,
 ):
     task_name = sender.name if sender else "unknown"
     if task_name != "tasks.run_task_scheduler":
@@ -165,24 +165,24 @@ def task_failure_handler(
 
 
 @signals.worker_ready.connect
-def worker_ready_handler(**kwargs):
+def worker_ready_handler(**_kwargs):
     logger.info("Celery worker is ready and listening for tasks.")
 
 
 @signals.worker_shutting_down.connect
-def worker_shutdown_handler(**kwargs):
+def worker_shutdown_handler(**_kwargs):
     logger.info("Celery worker is shutting down...")
 
 
 @signals.beat_init.connect
-def beat_init_handler(**kwargs):
+def beat_init_handler(**_kwargs):
     logger.info(
         "Celery beat scheduler initialized and started (running scheduler task).",
     )
 
 
 @signals.worker_init.connect
-def worker_init(**kwargs):
+def worker_init(**_kwargs):
     from datetime import datetime
 
     current_time = datetime.now(UTC)
@@ -190,7 +190,7 @@ def worker_init(**kwargs):
 
 
 @worker_process_init.connect(weak=False)
-def init_worker(**kwargs):
+def init_worker(**_kwargs):
     """Initialize database connection and modules for each Celery worker process."""
     logger.info("Initializing Celery worker process...")
     try:

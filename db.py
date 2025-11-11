@@ -12,15 +12,13 @@ import json
 import logging
 import os
 import threading
-from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import bson
 import certifi
 import pymongo
 from bson import ObjectId, json_util
-from fastapi import Request
 from motor.motor_asyncio import (
     AsyncIOMotorClient,
     AsyncIOMotorCollection,
@@ -34,7 +32,12 @@ from pymongo.errors import (
     OperationFailure,
     ServerSelectionTimeoutError,
 )
-from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Callable
+
+    from fastapi import Request
+    from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
 from date_utils import normalize_calendar_date, normalize_to_utc_datetime
 
@@ -375,7 +378,7 @@ class DatabaseManager:
                 if idx_name == "_id_":
                     continue
 
-                idx_keys = tuple(sorted(list(idx_info.get("key", []))))
+                idx_keys = tuple(sorted(idx_info.get("key", [])))
                 if idx_keys == keys_tuple:
                     logger.info(
                         "Index with keys %s already exists as '%s' on %s, skipping creation",
@@ -426,7 +429,7 @@ class DatabaseManager:
                     idx_info,
                 ) in existing_indexes_info.items():
                     idx_keys_check = tuple(
-                        sorted(list(idx_info.get("key", []))),
+                        sorted(idx_info.get("key", [])),
                     )
                     if idx_keys_check == keys_tuple_check:
                         return idx_name
@@ -585,10 +588,7 @@ def serialize_datetime(
     """
     if dt is None:
         return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
-    else:
-        dt = dt.astimezone(UTC)
+    dt = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
     return dt.isoformat().replace("+00:00", "Z")
 
 
@@ -770,7 +770,7 @@ def build_calendar_date_expr(
 async def build_query_from_request(
     request: Request,
     date_field: str = "startTime",
-    end_of_day: bool = True,
+    _end_of_day: bool = True,
     include_imei: bool = True,
     additional_filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -1412,10 +1412,9 @@ async def run_transaction(
     # Standalone MongoDB instances will fail with "Transaction numbers are only allowed on a replica set member or mongos"
     transactions_supported = True
     try:
-        async with await client.start_session() as test_session:
+        async with await client.start_session() as test_session, test_session.start_transaction():
             # Try to start a transaction - this will fail immediately on standalone
-            async with test_session.start_transaction():
-                pass
+            pass
     except OperationFailure as e:
         # Check for specific transaction-not-supported errors
         if (
@@ -1494,6 +1493,7 @@ async def run_transaction(
         except Exception as e:
             logger.error("Unexpected error during transaction: %s", e, exc_info=True)
             return False
+    return False
 
 
 async def ensure_archived_trip_indexes() -> None:

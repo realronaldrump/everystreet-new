@@ -361,7 +361,7 @@ async def _optimize_route_for_clusters(
         )
     )
 
-    for i, cluster_segments in enumerate(clusters):
+    for _i, cluster_segments in enumerate(clusters):
         if not cluster_segments:
             continue
 

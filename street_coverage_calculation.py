@@ -13,7 +13,7 @@ from collections import defaultdict
 from concurrent.futures import CancelledError, Future, ProcessPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import bson.json_util
 import numpy as np
@@ -21,11 +21,13 @@ import pyproj
 import rtree
 from bson import ObjectId
 from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from pymongo.errors import BulkWriteError, OperationFailure
 from shapely.errors import GEOSException
 from shapely.geometry import LineString, MultiPoint, box, mapping, shape
 from shapely.ops import transform
+
+if TYPE_CHECKING:
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from db import (
     batch_cursor,
@@ -886,16 +888,16 @@ class CoverageCalculator:
             lons = [
                 c[0]
                 for c in coords
-                if isinstance(c, (list, tuple))
+                if isinstance(c, list | tuple)
                 and len(c) >= 2
-                and isinstance(c[0], (int, float))
+                and isinstance(c[0], int | float)
             ]
             lats = [
                 c[1]
                 for c in coords
-                if isinstance(c, (list, tuple))
+                if isinstance(c, list | tuple)
                 and len(c) >= 2
-                and isinstance(c[1], (int, float))
+                and isinstance(c[1], int | float)
             ]
             if not lons or not lats:
                 return None
@@ -951,7 +953,7 @@ class CoverageCalculator:
                 if (
                     isinstance(coord_pair, list)
                     and len(coord_pair) == 2
-                    and all(isinstance(c, (int, float)) for c in coord_pair)
+                    and all(isinstance(c, int | float) for c in coord_pair)
                     and (-180 <= coord_pair[0] <= 180 and -90 <= coord_pair[1] <= 90)
                 ):  # Lon, Lat check
                     valid_coords_list.append(coord_pair)
@@ -977,7 +979,7 @@ class CoverageCalculator:
             if not (
                 isinstance(coordinates, list)
                 and len(coordinates) == 2
-                and all(isinstance(c, (int, float)) for c in coordinates)
+                and all(isinstance(c, int | float) for c in coordinates)
                 and (-180 <= coordinates[0] <= 180 and -90 <= coordinates[1] <= 90)
             ):  # Lon, Lat check
                 logger.debug("Invalid Point coordinates: %s", coordinates)
@@ -2188,7 +2190,7 @@ class CoverageCalculator:
                         trip_ids_data = metadata["processed_trips"]["trip_ids"]
                         if isinstance(
                             trip_ids_data,
-                            (list, set),
+                            list | set,
                         ):
                             processed_trip_ids_set = set(
                                 map(

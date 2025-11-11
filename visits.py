@@ -620,8 +620,7 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
        ``month`` | ``year``).  When supplied, only trips whose *endTime* falls
        inside that rolling window are considered.
     """
-    from datetime import datetime  # Local import to avoid circular issues
-    from datetime import timedelta
+    from datetime import datetime, timedelta  # Local import to avoid circular issues
 
     try:
         # ------------------------------------------------------------------

@@ -34,10 +34,11 @@ _SESSION_OWNER_PID: int | None = None
 
 
 async def get_session() -> aiohttp.ClientSession:
-    """Get or create a shared aiohttp ClientSession with simplified lifecycle management.
+    """Get or create a shared aiohttp ClientSession.
 
-    This function creates a per-process session and handles fork scenarios cleanly.
-    Sessions are not shared across processes to avoid concurrency issues.
+    This function creates a per-process session and handles fork scenarios
+    cleanly. Sessions are not shared across processes to avoid concurrency
+    issues.
     """
     global _SESSION, _SESSION_OWNER_PID
 
@@ -143,6 +144,7 @@ def retry_async(
 
             if last_exception:
                 raise last_exception
+            return None
 
         return wrapper
 
@@ -277,7 +279,7 @@ def standardize_and_validate_gps(
         except json.JSONDecodeError:
             _log_warning("Invalid JSON string in GPS data")
             return None
-    elif isinstance(gps_input, (list, dict)):
+    elif isinstance(gps_input, list | dict):
         gps_data = gps_input
     else:
         _log_warning("GPS data is of unexpected type: %s", type(gps_input).__name__)
@@ -295,7 +297,7 @@ def standardize_and_validate_gps(
                 if (
                     isinstance(raw_coords, list)
                     and len(raw_coords) == 2
-                    and all(isinstance(c, (int, float)) for c in raw_coords)
+                    and all(isinstance(c, int | float) for c in raw_coords)
                 ):
                     raw_coords = [raw_coords]
                 else:
@@ -318,7 +320,7 @@ def standardize_and_validate_gps(
         if (
             isinstance(coord_pair, list)
             and len(coord_pair) >= 2
-            and all(isinstance(c, (int, float)) for c in coord_pair[:2])
+            and all(isinstance(c, int | float) for c in coord_pair[:2])
         ):
             lon, lat = coord_pair[0], coord_pair[1]
             if -180 <= lon <= 180 and -90 <= lat <= 90:

@@ -351,7 +351,7 @@ class TripProcessor:
                 if not (
                     isinstance(gps_coords_list, list)
                     and len(gps_coords_list) == 2
-                    and all(isinstance(c, (float, int)) for c in gps_coords_list)
+                    and all(isinstance(c, float | int) for c in gps_coords_list)
                 ):
                     error_message = "GeoJSON Point 'coordinates' must be a list of two numbers [lon, lat]"
                     logger.warning("Trip %s: %s", transaction_id, error_message)
@@ -371,7 +371,7 @@ class TripProcessor:
                     if not (
                         isinstance(point_pair, list)
                         and len(point_pair) == 2
-                        and all(isinstance(c, (float, int)) for c in point_pair)
+                        and all(isinstance(c, float | int) for c in point_pair)
                     ):
                         error_message = (
                             "Invalid point found in GeoJSON LineString coordinates"
@@ -1118,7 +1118,7 @@ class TripProcessor:
                             timestamps.append(None)
                     elif hasattr(ts, "timestamp"):
                         timestamps.append(int(ts.timestamp()))
-                    elif isinstance(ts, (int, float)):
+                    elif isinstance(ts, int | float):
                         timestamps.append(int(ts))
                     else:
                         timestamps.append(None)
@@ -1455,11 +1455,9 @@ class TripProcessor:
                             filtered_timestamps = None
                             if chunk_timestamps:
                                 filtered_indices = set()
-                                original_idx = 0
-                                for coord in chunk_coords:
+                                for original_idx, coord in enumerate(chunk_coords):
                                     if coord in filtered_coords:
                                         filtered_indices.add(original_idx)
-                                    original_idx += 1
                                 filtered_timestamps = [
                                     (
                                         chunk_timestamps[i]
@@ -1528,8 +1526,8 @@ class TripProcessor:
                 for coord in coords:
                     if (
                         len(coord) >= 2
-                        and isinstance(coord[0], (int, float))
-                        and isinstance(coord[1], (int, float))
+                        and isinstance(coord[0], int | float)
+                        and isinstance(coord[1], int | float)
                         and -180 <= coord[0] <= 180
                         and -90 <= coord[1] <= 90
                     ):
@@ -1861,7 +1859,7 @@ class TripProcessor:
         if geom_type == "Point":
             if not isinstance(coordinates, list) or len(coordinates) != 2:
                 return False
-            if not all(isinstance(coord, (int, float)) for coord in coordinates):
+            if not all(isinstance(coord, int | float) for coord in coordinates):
                 return False
             lon, lat = coordinates
             if not (-180 <= lon <= 180 and -90 <= lat <= 90):
@@ -1882,7 +1880,7 @@ class TripProcessor:
             for point in coordinates:
                 if not isinstance(point, list) or len(point) != 2:
                     return False
-                if not all(isinstance(coord, (int, float)) for coord in point):
+                if not all(isinstance(coord, int | float) for coord in point):
                     return False
                 lon, lat = point
                 if not (-180 <= lon <= 180 and -90 <= lat <= 90):
@@ -1899,12 +1897,7 @@ class TripProcessor:
         deferring to specific business logic (e.g. must be LineString) if any.
         Currently, map_match can produce Points for degenerate LineStrings.
         """
-        if not self._is_valid_geojson_object(geojson_data):
-            return False
-
-        # Example: If matched_trips_collection *must* contain LineStrings only:
-        # if geojson_data.get("type") != "LineString":
-        return True
+        return self._is_valid_geojson_object(geojson_data)
 
     @staticmethod
     def format_idle_time(seconds: Any) -> str:

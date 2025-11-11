@@ -97,10 +97,7 @@ def _deduplicate_coordinates(existing: list[dict], new: list[dict]) -> list[dict
         if isinstance(coord, dict) and "timestamp" in coord:
             ts = coord["timestamp"]
             # Convert datetime to ISO string for consistent key
-            if isinstance(ts, datetime):
-                key = ts.isoformat()
-            else:
-                key = str(ts)
+            key = ts.isoformat() if isinstance(ts, datetime) else str(ts)
             coords_map[key] = coord
 
     # Sort by timestamp
@@ -296,7 +293,7 @@ async def process_trip_data(data: dict[str, Any], live_collection: Collection) -
 async def process_trip_metrics(
     data: dict[str, Any],
     live_collection: Collection,
-    archive_collection: Collection,
+    _archive_collection: Collection,
 ) -> None:
     """Process tripMetrics event - update summary metrics from Bouncie."""
     transaction_id = data.get("transactionId")
@@ -357,7 +354,7 @@ async def process_trip_metrics(
 async def process_trip_end(
     data: dict[str, Any],
     live_collection: Collection,
-    archive_collection: Collection,
+    _archive_collection: Collection,
 ) -> None:
     """Process tripEnd event - mark trip as completed."""
     transaction_id = data.get("transactionId")
@@ -440,7 +437,7 @@ async def get_active_trip() -> dict[str, Any] | None:
         return None
 
 
-async def get_trip_updates(last_sequence: int = 0) -> dict[str, Any]:
+async def get_trip_updates(_last_sequence: int = 0) -> dict[str, Any]:
     """Get updates for polling clients.
 
     Note: last_sequence is ignored in simplified version.
@@ -479,7 +476,7 @@ async def cleanup_old_trips(live_collection: Collection, max_age_days: int = 30)
 
 async def cleanup_stale_trips_logic(
     live_collection: Collection,
-    archive_collection: Collection,
+    _archive_collection: Collection,
     stale_minutes: int = 15,
     max_archive_age_days: int = 30,
 ) -> dict[str, int]:

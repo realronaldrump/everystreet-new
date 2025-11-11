@@ -6,7 +6,7 @@ API response structures across the application.
 """
 
 from datetime import datetime
-from typing import Annotated, Any, Union
+from typing import Annotated, Any
 
 from pydantic import BaseModel, BeforeValidator, Field
 
@@ -168,10 +168,9 @@ class NoActiveTripResponse(BaseModel):
     server_time: datetime
 
 
-ActiveTripResponseUnion = Union[
-    ActiveTripSuccessResponse,
-    NoActiveTripResponse,
-]
+ActiveTripResponseUnion = (
+    ActiveTripSuccessResponse | NoActiveTripResponse
+)
 
 # Add new model for app settings
 
