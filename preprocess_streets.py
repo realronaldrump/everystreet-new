@@ -703,9 +703,7 @@ async def process_osm_data(
                             )
                             # Duplicate key error code
                             dup_keys = [
-                                e
-                                for e in write_errors
-                                if e.get("code") == 11000
+                                e for e in write_errors if e.get("code") == 11000
                             ]
                             if dup_keys:
                                 logger.warning(
