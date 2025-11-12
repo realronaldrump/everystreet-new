@@ -25,22 +25,24 @@ def verify_api_key(api_key: Optional[str]) -> bool:
 
 @router.get("/api/logs")
 async def get_logs(
-    container: str = Query("web", description="Container name (web, worker, beat, mongo, redis)"),
+    container: str = Query(
+        "web", description="Container name (web, worker, beat, mongo, redis)"
+    ),
     lines: int = Query(100, ge=1, le=1000, description="Number of lines to retrieve"),
     follow: bool = Query(False, description="Follow log output (streaming)"),
     api_key: Optional[str] = Query(None, description="API key for authentication"),
 ):
     """Get Docker container logs.
-    
+
     Requires LOGS_API_KEY environment variable to be set for authentication.
     If no key is set, access is allowed (development mode).
-    
+
     Args:
         container: Name of the container (web, worker, beat, mongo, redis)
         lines: Number of log lines to retrieve (1-1000)
         follow: Whether to follow logs (streaming mode)
         api_key: API key for authentication
-        
+
     Returns:
         JSON response with logs and metadata
     """
@@ -50,7 +52,7 @@ async def get_logs(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",
         )
-    
+
     # Validate container name
     valid_containers = ["web", "worker", "beat", "mongo", "redis"]
     if container not in valid_containers:
@@ -58,11 +60,11 @@ async def get_logs(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid container. Must be one of: {', '.join(valid_containers)}",
         )
-    
+
     try:
         # Build docker-compose logs command
         cmd = ["docker-compose", "logs", "--tail", str(lines), container]
-        
+
         # Execute command
         result = subprocess.run(
             cmd,
@@ -71,21 +73,21 @@ async def get_logs(
             timeout=10,  # 10 second timeout
             cwd=os.path.dirname(os.path.abspath(__file__)),
         )
-        
+
         if result.returncode != 0:
             logger.error("Failed to retrieve logs: %s", result.stderr)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to retrieve logs: {result.stderr}",
             )
-        
+
         return {
             "container": container,
             "lines": lines,
             "logs": result.stdout,
             "error": result.stderr if result.stderr else None,
         }
-        
+
     except subprocess.TimeoutExpired:
         logger.error("Timeout retrieving logs for container: %s", container)
         raise HTTPException(
@@ -111,10 +113,10 @@ async def list_containers(
     api_key: Optional[str] = Query(None, description="API key for authentication"),
 ):
     """List available Docker containers.
-    
+
     Args:
         api_key: API key for authentication
-        
+
     Returns:
         List of available container names
     """
@@ -123,7 +125,7 @@ async def list_containers(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",
         )
-    
+
     return {
         "containers": ["web", "worker", "beat", "mongo", "redis"],
         "descriptions": {
@@ -134,4 +136,3 @@ async def list_containers(
             "redis": "Redis cache and message broker",
         },
     }
-
