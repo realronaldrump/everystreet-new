@@ -107,11 +107,14 @@ block content %}
             <button id="auto-refresh-toggle" class="btn btn-outline-success">
               <i class="fas fa-clock"></i> Auto-Refresh: OFF
             </button>
-            <button id="clear-logs" class="btn btn-danger">
-              <i class="fas fa-trash"></i> Clear All Logs
+            <button id="copy-all-logs" class="btn btn-info">
+              <i class="fas fa-copy"></i> Copy All
             </button>
             <button id="export-logs" class="btn btn-secondary">
               <i class="fas fa-download"></i> Export
+            </button>
+            <button id="clear-logs" class="btn btn-danger">
+              <i class="fas fa-trash"></i> Clear All
             </button>
           </div>
         </div>
@@ -174,6 +177,22 @@ block content %}
 
   .log-entry:hover {
     background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .log-entry:hover .copy-log-btn {
+    opacity: 1;
+  }
+
+  .copy-log-btn {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    min-width: 36px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .copy-log-btn:hover {
+    opacity: 1;
   }
 
   .log-entry.log-DEBUG {
