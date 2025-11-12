@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error loading log statistics:", error);
       window.notificationManager?.show(
         "Failed to load log statistics",
-        "warning"
+        "warning",
       );
     }
   }
@@ -92,7 +92,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("total-count").textContent = data.total_count || 0;
     document.getElementById("debug-count").textContent =
       data.by_level?.DEBUG || 0;
-    document.getElementById("info-count").textContent = data.by_level?.INFO || 0;
+    document.getElementById("info-count").textContent =
+      data.by_level?.INFO || 0;
     document.getElementById("warning-count").textContent =
       data.by_level?.WARNING || 0;
     document.getElementById("error-count").textContent =
@@ -283,7 +284,10 @@ document.addEventListener("DOMContentLoaded", () => {
         copyBtn.classList.add("btn-outline-secondary");
       }, 1500);
 
-      window.notificationManager?.show("Log entry copied to clipboard", "success");
+      window.notificationManager?.show(
+        "Log entry copied to clipboard",
+        "success",
+      );
     } catch (error) {
       console.error("Error copying log entry:", error);
       window.notificationManager?.show("Failed to copy log entry", "danger");
@@ -297,7 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentLogs.length === 0) {
       window.notificationManager?.show(
         "No logs to copy. Please load logs first.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -332,7 +336,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       window.notificationManager?.show(
         `Copied ${currentLogs.length} log entries to clipboard`,
-        "success"
+        "success",
       );
     } catch (error) {
       console.error("Error copying all logs:", error);
@@ -369,7 +373,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       window.notificationManager?.show(
         `Successfully cleared ${result.deleted_count} log entries`,
-        "success"
+        "success",
       );
 
       // Reload logs and stats
@@ -389,7 +393,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentLogs.length === 0) {
       window.notificationManager?.show(
         "No logs to export. Please load logs first.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -433,7 +437,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       window.notificationManager?.show(
         "Auto-refresh enabled (every 30 seconds)",
-        "info"
+        "info",
       );
     } else {
       autoRefreshToggle.classList.remove("btn-success");
