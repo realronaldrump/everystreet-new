@@ -1,0 +1,362 @@
+import asyncio
+import logging
+import subprocess
+from datetime import UTC, datetime
+from typing import Any
+
+from fastapi import APIRouter, Body, HTTPException, Query, status
+
+from db import (
+    db_manager,
+    delete_many_with_retry,
+    find_one_with_retry,
+    insert_one_with_retry,
+    serialize_datetime,
+    update_one_with_retry,
+)
+from models import CollectionModel, LocationModel, ValidateLocationModel
+from osm_utils import generate_geojson_osm
+from update_geo_points import update_geo_points
+from utils import validate_location_osm
+
+# Setup
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+# Collections
+trips_collection = db_manager.db["trips"]
+app_settings_collection = db_manager.db["app_settings"]
+
+# Default settings if none stored
+DEFAULT_APP_SETTINGS: dict[str, Any] = {
+    "_id": "default",
+    "highlightRecentTrips": True,
+    "autoCenter": True,
+    "showLiveTracking": True,
+    "polylineColor": "#00FF00",
+    "polylineOpacity": 0.8,
+    "geocodeTripsOnFetch": True,
+}
+
+
+async def get_persisted_app_settings() -> dict[str, Any]:
+    """Retrieve persisted application settings (creates defaults if missing)."""
+
+    try:
+        doc = await find_one_with_retry(app_settings_collection, {"_id": "default"})
+        if doc is None:
+            # Initialise defaults
+            await insert_one_with_retry(app_settings_collection, DEFAULT_APP_SETTINGS)
+            doc = DEFAULT_APP_SETTINGS.copy()
+        return doc
+    except Exception as e:
+        logger.exception("Error fetching app settings: %s", e)
+        # Fallback to defaults on error
+        return DEFAULT_APP_SETTINGS.copy()
+
+
+@router.get(
+    "/api/app_settings",
+    response_model=dict,
+    summary="Get Application Settings",
+    description="Retrieve persisted application-wide settings.",
+)
+async def get_app_settings_endpoint():
+    try:
+        doc = await get_persisted_app_settings()
+        # Remove Mongo _id for response clarity
+        doc.pop("_id", None)
+        return doc
+    except Exception as e:
+        logger.exception("Error fetching app settings via API: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve application settings.",
+        )
+
+
+@router.post(
+    "/api/app_settings",
+    response_model=dict,
+    summary="Update Application Settings",
+    description="Persist application settings. Fields omitted in the payload remain unchanged.",
+)
+async def update_app_settings_endpoint(settings: dict = Body(...)):
+    try:
+        if not isinstance(settings, dict):
+            raise HTTPException(status_code=400, detail="Invalid payload")
+
+        # Upsert merge into single document with _id = default
+        await update_one_with_retry(
+            app_settings_collection,
+            {"_id": "default"},
+            {"$set": settings},
+            upsert=True,
+        )
+
+        updated_settings = await get_persisted_app_settings()
+        return updated_settings
+    except Exception as e:
+        logger.exception("Error updating app settings via API: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update application settings.",
+        )
+
+
+@router.post("/api/database/clear-collection")
+async def clear_collection(data: CollectionModel):
+    """Clear all documents from a collection."""
+    try:
+        name = data.collection
+        if not name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing 'collection' field",
+            )
+
+        result = await delete_many_with_retry(db_manager.db[name], {})
+
+        return {
+            "message": f"Successfully cleared collection {name}",
+            "deleted_count": result.deleted_count,
+        }
+
+    except Exception as e:
+        logger.exception(
+            "Error clearing collection: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/api/database/storage-info")
+async def get_storage_info():
+    """Get database storage usage information."""
+    try:
+        stats = await db_manager.db.command("dbStats")
+        data_size = stats.get("dataSize", 0)
+        used_mb = round(data_size / (1024 * 1024), 2)
+
+        return {
+            "used_mb": used_mb,
+        }
+    except Exception as e:
+        logger.exception(
+            "Error getting storage info: %s",
+            str(e),
+        )
+        return {
+            "used_mb": 0,
+            "error": str(e),
+        }
+
+
+@router.post("/update_geo_points")
+async def update_geo_points_route(
+    collection_name: str,
+):
+    """Update geo points for all trips in a collection."""
+    if collection_name != "trips":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid collection name. Only 'trips' is supported.",
+        )
+
+    collection = trips_collection
+
+    try:
+        await update_geo_points(collection)
+        return {"message": f"GeoPoints updated for {collection_name}"}
+    except Exception as e:
+        logger.exception(
+            "Error in update_geo_points_route: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating GeoPoints: {e}",
+        )
+
+
+@router.post("/api/validate_location")
+async def validate_location(
+    data: ValidateLocationModel,
+):
+    """Validate a location using OpenStreetMap."""
+    try:
+        # Hard timeout to ensure we never leave the client hanging
+        validated = await asyncio.wait_for(
+            validate_location_osm(
+                data.location,
+                data.locationType,
+            ),
+            timeout=12.0,
+        )
+    except TimeoutError as exc:
+        logger.warning(
+            "Location validation timed out for location=%s type=%s",
+            data.location,
+            data.locationType,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Validation timed out. Please try again.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Location validation failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to validate location at this time.",
+        ) from exc
+
+    if not validated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found.",
+        )
+
+    return validated
+
+
+@router.post("/api/generate_geojson")
+async def generate_geojson_endpoint(
+    location: LocationModel,
+    streets_only: bool = False,
+):
+    """Generate GeoJSON for a location using the imported function."""
+    geojson_data, err = await generate_geojson_osm(
+        location.dict(),
+        streets_only,
+    )
+    if geojson_data:
+        return geojson_data
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=err or "Unknown error",
+    )
+
+
+@router.get("/api/last_trip_point")
+async def get_last_trip_point():
+    """Get coordinates of the last point in the most recent trip."""
+    try:
+        most_recent = await find_one_with_retry(
+            trips_collection,
+            {},
+            sort=[("endTime", -1)],
+        )
+
+        if not most_recent:
+            return {"lastPoint": None}
+
+        gps_data = most_recent["gps"]
+
+        if "coordinates" not in gps_data or not gps_data["coordinates"]:
+            return {"lastPoint": None}
+
+        return {"lastPoint": gps_data["coordinates"][-1]}
+    except Exception as e:
+        logger.exception(
+            "Error get_last_trip_point: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve last trip point",
+        )
+
+
+@router.get("/api/first_trip_date")
+async def get_first_trip_date():
+    """Get the date of the earliest trip in the database."""
+    try:
+        earliest_trip = await find_one_with_retry(
+            trips_collection,
+            {},
+            sort=[("startTime", 1)],
+        )
+
+        if not earliest_trip or not earliest_trip.get("startTime"):
+            now = datetime.now(UTC)
+            return {"first_trip_date": now.isoformat()}
+
+        earliest_trip_date = earliest_trip["startTime"]
+        if earliest_trip_date.tzinfo is None:
+            earliest_trip_date = earliest_trip_date.replace(
+                tzinfo=UTC,
+            )
+
+        return {
+            "first_trip_date": serialize_datetime(
+                earliest_trip_date,
+            ),
+        }
+    except Exception as e:
+        logger.exception(
+            "get_first_trip_date error: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/api/logs")
+async def get_logs(
+    container: str = Query("web", description="Container name to get logs for"),
+    lines: int = Query(100, description="Number of log lines to retrieve", ge=1, le=1000),
+):
+    """Get Docker container logs."""
+    try:
+        # Validate container name to prevent command injection
+        allowed_containers = ["web", "worker", "beat", "mongo", "redis"]
+        if container not in allowed_containers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid container name. Must be one of: {', '.join(allowed_containers)}",
+            )
+
+        # Run docker-compose logs command
+        cmd = ["docker-compose", "logs", "--tail", str(lines), container]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd="/app",  # This will be the app directory inside the container
+            timeout=30,
+        )
+
+        if result.returncode != 0:
+            logger.error(
+                "Failed to get logs for container %s: %s",
+                container,
+                result.stderr,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve logs: {result.stderr}",
+            )
+
+        return {
+            "container": container,
+            "lines": lines,
+            "logs": result.stdout.strip(),
+        }
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Log retrieval timed out",
+        )
+    except Exception as e:
+        logger.exception("Error retrieving logs: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving logs: {str(e)}",
+        )
