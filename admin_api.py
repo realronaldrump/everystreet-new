@@ -309,7 +309,9 @@ async def get_first_trip_date():
 @router.get("/api/logs")
 async def get_logs(
     container: str = Query("web", description="Container name to get logs for"),
-    lines: int = Query(100, description="Number of log lines to retrieve", ge=1, le=1000),
+    lines: int = Query(
+        100, description="Number of log lines to retrieve", ge=1, le=1000
+    ),
 ):
     """Get Docker container logs."""
     try:
