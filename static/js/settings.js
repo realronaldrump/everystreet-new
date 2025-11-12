@@ -1946,7 +1946,7 @@
       return;
     }
 
-      history.forEach((entry) => {
+    history.forEach((entry) => {
       const card = document.createElement("div");
       card.className = "mobile-history-card";
 

@@ -78,10 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
       updateStatsDisplay(data);
     } catch (error) {
       console.error("Error loading log statistics:", error);
-      window.notificationManager?.show(
-        "Failed to load log statistics",
-        "warning"
-      );
+      window.notificationManager?.show("Failed to load log statistics", "warning");
     }
   }
 
@@ -90,13 +87,10 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   function updateStatsDisplay(data) {
     document.getElementById("total-count").textContent = data.total_count || 0;
-    document.getElementById("debug-count").textContent =
-      data.by_level?.DEBUG || 0;
+    document.getElementById("debug-count").textContent = data.by_level?.DEBUG || 0;
     document.getElementById("info-count").textContent = data.by_level?.INFO || 0;
-    document.getElementById("warning-count").textContent =
-      data.by_level?.WARNING || 0;
-    document.getElementById("error-count").textContent =
-      data.by_level?.ERROR || 0;
+    document.getElementById("warning-count").textContent = data.by_level?.WARNING || 0;
+    document.getElementById("error-count").textContent = data.by_level?.ERROR || 0;
     document.getElementById("critical-count").textContent =
       data.by_level?.CRITICAL || 0;
   }
@@ -438,8 +432,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       autoRefreshToggle.classList.remove("btn-success");
       autoRefreshToggle.classList.add("btn-outline-success");
-      autoRefreshToggle.innerHTML =
-        '<i class="fas fa-clock"></i> Auto-Refresh: OFF';
+      autoRefreshToggle.innerHTML = '<i class="fas fa-clock"></i> Auto-Refresh: OFF';
 
       if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);
