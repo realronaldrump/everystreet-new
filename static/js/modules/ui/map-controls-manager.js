@@ -10,7 +10,6 @@ import eventManager from "./event-manager.js";
 const mapControlsManager = {
   init() {
     const mapTypeSelect = uiState.getElement(CONFIG.selectors.mapTypeSelect);
-    const opacityRange = uiState.getElement(CONFIG.selectors.basemapOpacityRange);
     if (mapTypeSelect) {
       // Default to dark mode, but respect user's stored preference
       const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
@@ -18,12 +17,6 @@ const mapControlsManager = {
       mapTypeSelect.value = defaultMapType;
       mapTypeSelect.addEventListener("change", (e) =>
         this.updateMapType(e.target.value)
-      );
-    }
-    if (opacityRange) {
-      opacityRange.value = utils.getStorage(CONFIG.storage.basemapOpacity) || 0.75;
-      opacityRange.addEventListener("input", (e) =>
-        this.updateOpacity(parseFloat(e.target.value))
       );
     }
     // Note: controls-toggle is handled in app-controller.js using Bootstrap Collapse API
@@ -41,7 +34,6 @@ const mapControlsManager = {
       ) {
         settingsApplied = true;
         this.updateMapType(mapTypeSelect?.value);
-        this.updateOpacity(parseFloat(opacityRange?.value || 0.75), false);
       }
     };
 
@@ -91,39 +83,6 @@ const mapControlsManager = {
     }
   },
 
-  updateOpacity(value = 0.75, persist = true) {
-    const map = state.map || window.map;
-    if (!map || !state.mapInitialized) return;
-    if (
-      typeof map.getLayer !== "function" ||
-      typeof map.getStyle !== "function" ||
-      typeof map.setPaintProperty !== "function"
-    ) {
-      console.warn("Map methods not available yet");
-      return;
-    }
-    const basemapLayers = ["satellite", "background", "land", "water"];
-    const style = map.getStyle();
-    if (!style || !style.layers) return;
-
-    basemapLayers.forEach((id) => {
-      const layer = map.getLayer(id);
-      if (!layer) return;
-
-      // Check if layer exists in style and supports raster-opacity
-      const styleLayer = style.layers.find((l) => l.id === id);
-      if (styleLayer && styleLayer.type === "raster") {
-        try {
-          map.setPaintProperty(id, "raster-opacity", value);
-        } catch (_error) {
-          // Layer might not support raster-opacity, skip silently
-          console.debug(`Layer ${id} does not support raster-opacity`);
-        }
-      }
-    });
-    if (persist) utils.setStorage(CONFIG.storage.basemapOpacity, value);
-    eventManager.emit("basemapOpacityChanged", { value });
-  },
 };
 
 if (!window.mapControlsManager) window.mapControlsManager = mapControlsManager;

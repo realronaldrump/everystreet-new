@@ -20,7 +20,6 @@ export const UI_CONFIG = {
     filterIndicator: "#filter-indicator",
     toolsSection: ".tools-section",
     mapTypeSelect: "#map-type-select",
-    basemapOpacityRange: "#basemap-opacity-range",
   },
   classes: {
     active: "active",
@@ -41,7 +40,6 @@ export const UI_CONFIG = {
     startDate: "startDate",
     endDate: "endDate",
     uiState: "uiState",
-    basemapOpacity: "basemapOpacity",
     mapType: "mapType",
     mapControlsOpen: "mapControlsOpen",
   },
