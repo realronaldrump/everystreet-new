@@ -11,66 +11,66 @@
 
   const MAP_LAYER_COLORS = {
     trips: {
-      default: "#331107",
-      selected: "#FFD700",
+      default: "#5f7d78",
+      selected: "#d4a574",
       recent: {
-        light: "#FFEFC1",
-        dark: "#FFB703",
+        light: "#e3c09a",
+        dark: "#d4a574",
       },
     },
     matchedTrips: {
-      default: "#CF6679",
-      highlight: "#40E0D0",
+      default: "#d48584",
+      highlight: "#7c9d96",
     },
     streets: {
-      undriven: "#00BFFF",
+      undriven: "#8b9dc3",
       driven: getCSSVariable("--success"),
       all: getCSSVariable("--primary-light"),
     },
     routes: {
-      calculated: "#76ff03",
-      target: "#ffab00",
+      calculated: "#6b9d8a",
+      target: "#d4a574",
     },
     clusters: [
       getCSSVariable("--primary"),
       getCSSVariable("--secondary"),
-      "#3f8cff",
-      "#ff5470",
-      "#faae2b",
+      getCSSVariable("--info"),
+      getCSSVariable("--danger"),
+      getCSSVariable("--warning"),
       getCSSVariable("--primary-light"),
-      "#22c55e",
-      "#d946ef",
+      getCSSVariable("--success"),
+      getCSSVariable("--info-light"),
       getCSSVariable("--secondary-light"),
-      "#7dd3fc",
+      getCSSVariable("--success-light"),
     ],
     liveTracking: {
-      slow: "#10b981",
-      medium: "#2196f3",
-      fast: getCSSVariable("--primary-dark"),
+      slow: getCSSVariable("--success"),
+      medium: getCSSVariable("--info"),
+      fast: getCSSVariable("--primary"),
     },
     customPlaces: {
       fill: getCSSVariable("--primary-light"),
-      outline: getCSSVariable("--primary-light"),
-      highlight: "#F59E0B",
+      outline: getCSSVariable("--primary"),
+      highlight: getCSSVariable("--warning"),
     },
   };
 
   const MAP_LAYER_STYLES = {
     trip: {
       default: {
-        color: getCSSVariable("--primary-light"),
-        weight: 3,
-        opacity: 0.8,
+        color: getCSSVariable("--primary"),
+        weight: 2.5,
+        opacity: 0.7,
       },
       selected: {
-        color: "#FFD700",
-        weight: 5,
-        opacity: 1,
+        color: getCSSVariable("--warning"),
+        weight: 4,
+        opacity: 0.9,
       },
       reset: {
         color: getCSSVariable("--primary-light"),
-        weight: 3,
-        opacity: 0.6,
+        weight: 2.5,
+        opacity: 0.5,
       },
     },
   };
