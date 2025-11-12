@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const exportLogsBtn = document.getElementById("export-logs");
   const applyFiltersBtn = document.getElementById("apply-filters");
   const autoRefreshToggle = document.getElementById("auto-refresh-toggle");
+  const copyAllLogsBtn = document.getElementById("copy-all-logs");
 
   const levelFilter = document.getElementById("level-filter");
   const limitFilter = document.getElementById("limit-filter");
@@ -25,12 +26,36 @@ document.addEventListener("DOMContentLoaded", () => {
   loadLogs();
 
   // Event listeners
-  refreshLogsBtn.addEventListener("click", () => loadLogs());
-  refreshStatsBtn.addEventListener("click", () => loadStats());
-  clearLogsBtn.addEventListener("click", () => clearLogs());
-  exportLogsBtn.addEventListener("click", () => exportLogs());
-  applyFiltersBtn.addEventListener("click", () => loadLogs());
-  autoRefreshToggle.addEventListener("click", () => toggleAutoRefresh());
+  refreshLogsBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    loadLogs();
+  });
+  refreshStatsBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    loadStats();
+  });
+  clearLogsBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    clearLogs();
+  });
+  exportLogsBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    exportLogs();
+  });
+  applyFiltersBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    loadLogs();
+  });
+  autoRefreshToggle.addEventListener("click", (e) => {
+    e.preventDefault();
+    toggleAutoRefresh();
+  });
+  if (copyAllLogsBtn) {
+    copyAllLogsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      copyAllLogs();
+    });
+  }
 
   // Allow Enter key in search filter
   searchFilter.addEventListener("keypress", (e) => {
@@ -175,22 +200,144 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
         }
 
+        // Store log data in data attribute for copying
+        const logData = JSON.stringify({
+          timestamp,
+          level,
+          logger,
+          message: log.message,
+          module,
+          function: func,
+          line,
+          exception: log.exception,
+        });
+
         return `
-          <div class="log-entry log-${level}">
-            <div>
-              <span class="log-timestamp">${timestamp}</span>
-              <span class="log-level ${level}">${level}</span>
-              <span class="log-logger ms-2">[${logger}]</span>
+          <div class="log-entry log-${level}" data-log='${escapeHtml(logData)}'>
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="flex-grow-1">
+                <div>
+                  <span class="log-timestamp">${timestamp}</span>
+                  <span class="log-level ${level}">${level}</span>
+                  <span class="log-logger ms-2">[${logger}]</span>
+                </div>
+                <div class="log-message">${message}</div>
+                ${detailsHtml}
+                ${exceptionHtml}
+              </div>
+              <button class="btn btn-sm btn-outline-secondary copy-log-btn ms-2" title="Copy log entry" aria-label="Copy log entry">
+                <i class="fas fa-copy"></i>
+              </button>
             </div>
-            <div class="log-message">${message}</div>
-            ${detailsHtml}
-            ${exceptionHtml}
           </div>
         `;
       })
       .join("");
 
     logsContainer.innerHTML = logsHtml;
+
+    // Add event listeners to copy buttons
+    const copyButtons = logsContainer.querySelectorAll(".copy-log-btn");
+    copyButtons.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const logEntry = btn.closest(".log-entry");
+        copyLogEntry(logEntry);
+      });
+    });
+  }
+
+  /**
+   * Copy a single log entry to clipboard
+   */
+  async function copyLogEntry(logEntry) {
+    try {
+      const logDataStr = logEntry.getAttribute("data-log");
+      const logData = JSON.parse(logDataStr);
+
+      // Format log for copying
+      let logText = `[${logData.timestamp}] [${logData.level}] [${logData.logger}]\n`;
+      logText += `${logData.message}\n`;
+
+      if (logData.module || logData.function || logData.line) {
+        logText += `Location: ${logData.module || ""}${logData.function ? `.${logData.function}()` : ""}${logData.line ? `:${logData.line}` : ""}\n`;
+      }
+
+      if (logData.exception) {
+        logText += `\nException:\n${logData.exception}\n`;
+      }
+
+      await navigator.clipboard.writeText(logText);
+
+      // Visual feedback
+      const copyBtn = logEntry.querySelector(".copy-log-btn");
+      const originalHtml = copyBtn.innerHTML;
+      copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+      copyBtn.classList.add("btn-success");
+      copyBtn.classList.remove("btn-outline-secondary");
+
+      setTimeout(() => {
+        copyBtn.innerHTML = originalHtml;
+        copyBtn.classList.remove("btn-success");
+        copyBtn.classList.add("btn-outline-secondary");
+      }, 1500);
+
+      window.notificationManager?.show("Log entry copied to clipboard", "success");
+    } catch (error) {
+      console.error("Error copying log entry:", error);
+      window.notificationManager?.show("Failed to copy log entry", "danger");
+    }
+  }
+
+  /**
+   * Copy all visible logs to clipboard
+   */
+  async function copyAllLogs() {
+    if (currentLogs.length === 0) {
+      window.notificationManager?.show(
+        "No logs to copy. Please load logs first.",
+        "warning"
+      );
+      return;
+    }
+
+    try {
+      let allLogsText = `Server Logs Export\n`;
+      allLogsText += `Generated: ${new Date().toLocaleString()}\n`;
+      allLogsText += `Total Logs: ${currentLogs.length}\n`;
+      allLogsText += `${"=".repeat(80)}\n\n`;
+
+      currentLogs.forEach((log, index) => {
+        const timestamp = new Date(log.timestamp).toLocaleString();
+        const level = log.level || "INFO";
+        const logger = log.logger || "unknown";
+        const message = log.message || "";
+
+        allLogsText += `[${index + 1}/${currentLogs.length}] [${timestamp}] [${level}] [${logger}]\n`;
+        allLogsText += `${message}\n`;
+
+        if (log.module || log.function || log.line) {
+          allLogsText += `Location: ${log.module || ""}${log.function ? `.${log.function}()` : ""}${log.line ? `:${log.line}` : ""}\n`;
+        }
+
+        if (log.exception) {
+          allLogsText += `Exception:\n${log.exception}\n`;
+        }
+
+        allLogsText += `${"-".repeat(80)}\n\n`;
+      });
+
+      await navigator.clipboard.writeText(allLogsText);
+
+      window.notificationManager?.show(
+        `Copied ${currentLogs.length} log entries to clipboard`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Error copying all logs:", error);
+      window.notificationManager?.show("Failed to copy logs", "danger");
+    }
   }
 
   /**
