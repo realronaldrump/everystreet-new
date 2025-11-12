@@ -427,7 +427,7 @@ async def process_trip_end(
 
 async def get_active_trip() -> dict[str, Any] | None:
     """Get the currently active trip."""
-    if not live_trips_collection_global:
+    if live_trips_collection_global is None:
         logger.error("Live trips collection not initialized")
         return None
 
