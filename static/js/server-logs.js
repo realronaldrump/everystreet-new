@@ -1,0 +1,341 @@
+/* global confirmationDialog */
+
+document.addEventListener("DOMContentLoaded", () => {
+  // DOM elements
+  const logsContainer = document.getElementById("logs-container");
+  const logsInfo = document.getElementById("logs-info");
+  const refreshLogsBtn = document.getElementById("refresh-logs");
+  const refreshStatsBtn = document.getElementById("refresh-stats");
+  const clearLogsBtn = document.getElementById("clear-logs");
+  const exportLogsBtn = document.getElementById("export-logs");
+  const applyFiltersBtn = document.getElementById("apply-filters");
+  const autoRefreshToggle = document.getElementById("auto-refresh-toggle");
+
+  const levelFilter = document.getElementById("level-filter");
+  const limitFilter = document.getElementById("limit-filter");
+  const searchFilter = document.getElementById("search-filter");
+
+  // State
+  let autoRefreshInterval = null;
+  let autoRefreshEnabled = false;
+  let currentLogs = [];
+
+  // Initialize
+  loadStats();
+  loadLogs();
+
+  // Event listeners
+  refreshLogsBtn.addEventListener("click", () => loadLogs());
+  refreshStatsBtn.addEventListener("click", () => loadStats());
+  clearLogsBtn.addEventListener("click", () => clearLogs());
+  exportLogsBtn.addEventListener("click", () => exportLogs());
+  applyFiltersBtn.addEventListener("click", () => loadLogs());
+  autoRefreshToggle.addEventListener("click", () => toggleAutoRefresh());
+
+  // Allow Enter key in search filter
+  searchFilter.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      loadLogs();
+    }
+  });
+
+  /**
+   * Load log statistics
+   */
+  async function loadStats() {
+    try {
+      const response = await fetch("/api/server-logs/stats");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      updateStatsDisplay(data);
+    } catch (error) {
+      console.error("Error loading log statistics:", error);
+      window.notificationManager?.show(
+        "Failed to load log statistics",
+        "warning"
+      );
+    }
+  }
+
+  /**
+   * Update statistics display
+   */
+  function updateStatsDisplay(data) {
+    document.getElementById("total-count").textContent = data.total_count || 0;
+    document.getElementById("debug-count").textContent =
+      data.by_level?.DEBUG || 0;
+    document.getElementById("info-count").textContent = data.by_level?.INFO || 0;
+    document.getElementById("warning-count").textContent =
+      data.by_level?.WARNING || 0;
+    document.getElementById("error-count").textContent =
+      data.by_level?.ERROR || 0;
+    document.getElementById("critical-count").textContent =
+      data.by_level?.CRITICAL || 0;
+  }
+
+  /**
+   * Load logs from server
+   */
+  async function loadLogs() {
+    try {
+      // Show loading state
+      logsContainer.innerHTML = `
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Loading logs...</p>
+        </div>
+      `;
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      params.append("limit", limitFilter.value);
+
+      if (levelFilter.value) {
+        params.append("level", levelFilter.value);
+      }
+
+      if (searchFilter.value.trim()) {
+        params.append("search", searchFilter.value.trim());
+      }
+
+      const response = await fetch(`/api/server-logs?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      currentLogs = data.logs;
+      displayLogs(data);
+    } catch (error) {
+      console.error("Error loading logs:", error);
+      logsContainer.innerHTML = `
+        <div class="text-center py-5 text-danger">
+          <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+          <p>Failed to load logs. Please try again.</p>
+          <button class="btn btn-primary" onclick="location.reload()">
+            <i class="fas fa-sync-alt"></i> Retry
+          </button>
+        </div>
+      `;
+      window.notificationManager?.show("Failed to load logs", "danger");
+    }
+  }
+
+  /**
+   * Display logs in the container
+   */
+  function displayLogs(data) {
+    const { logs, returned_count, total_count } = data;
+
+    // Update info text
+    logsInfo.textContent = `Showing ${returned_count} of ${total_count} logs`;
+
+    // If no logs, show empty state
+    if (logs.length === 0) {
+      logsContainer.innerHTML = `
+        <div class="text-center py-5 text-muted">
+          <i class="fas fa-inbox fa-3x mb-3"></i>
+          <p>No logs found matching your filters.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Build logs HTML
+    const logsHtml = logs
+      .map((log) => {
+        const timestamp = new Date(log.timestamp).toLocaleString();
+        const level = log.level || "INFO";
+        const logger = log.logger || "unknown";
+        const message = escapeHtml(log.message || "");
+        const module = log.module || "";
+        const func = log.function || "";
+        const line = log.line || "";
+
+        let detailsHtml = "";
+        if (module || func || line) {
+          detailsHtml = `
+            <div class="log-details">
+              ${module ? `${module}` : ""}${func ? `.${func}()` : ""}${line ? `:${line}` : ""}
+            </div>
+          `;
+        }
+
+        let exceptionHtml = "";
+        if (log.exception) {
+          exceptionHtml = `
+            <div class="log-exception">
+              ${escapeHtml(log.exception)}
+            </div>
+          `;
+        }
+
+        return `
+          <div class="log-entry log-${level}">
+            <div>
+              <span class="log-timestamp">${timestamp}</span>
+              <span class="log-level ${level}">${level}</span>
+              <span class="log-logger ms-2">[${logger}]</span>
+            </div>
+            <div class="log-message">${message}</div>
+            ${detailsHtml}
+            ${exceptionHtml}
+          </div>
+        `;
+      })
+      .join("");
+
+    logsContainer.innerHTML = logsHtml;
+  }
+
+  /**
+   * Clear all logs
+   */
+  async function clearLogs() {
+    try {
+      const confirmed = await window.confirmationDialog.confirm({
+        title: "Clear Server Logs",
+        message:
+          "Are you sure you want to clear all server logs? This action cannot be undone.",
+        confirmText: "Clear Logs",
+        confirmClass: "btn-danger",
+      });
+
+      if (!confirmed) return;
+
+      setButtonLoading(clearLogsBtn, true);
+
+      const response = await fetch("/api/server-logs", {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      window.notificationManager?.show(
+        `Successfully cleared ${result.deleted_count} log entries`,
+        "success"
+      );
+
+      // Reload logs and stats
+      await Promise.all([loadLogs(), loadStats()]);
+    } catch (error) {
+      console.error("Error clearing logs:", error);
+      window.notificationManager?.show("Failed to clear logs", "danger");
+    } finally {
+      setButtonLoading(clearLogsBtn, false);
+    }
+  }
+
+  /**
+   * Export logs to JSON file
+   */
+  function exportLogs() {
+    if (currentLogs.length === 0) {
+      window.notificationManager?.show(
+        "No logs to export. Please load logs first.",
+        "warning"
+      );
+      return;
+    }
+
+    try {
+      const dataStr = JSON.stringify(currentLogs, null, 2);
+      const dataBlob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `server-logs-${new Date().toISOString()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      window.notificationManager?.show("Logs exported successfully", "success");
+    } catch (error) {
+      console.error("Error exporting logs:", error);
+      window.notificationManager?.show("Failed to export logs", "danger");
+    }
+  }
+
+  /**
+   * Toggle auto-refresh
+   */
+  function toggleAutoRefresh() {
+    autoRefreshEnabled = !autoRefreshEnabled;
+
+    if (autoRefreshEnabled) {
+      autoRefreshToggle.classList.remove("btn-outline-success");
+      autoRefreshToggle.classList.add("btn-success");
+      autoRefreshToggle.innerHTML =
+        '<i class="fas fa-clock"></i> Auto-Refresh: ON (30s)';
+
+      // Refresh every 30 seconds
+      autoRefreshInterval = setInterval(() => {
+        loadLogs();
+        loadStats();
+      }, 30000);
+
+      window.notificationManager?.show(
+        "Auto-refresh enabled (every 30 seconds)",
+        "info"
+      );
+    } else {
+      autoRefreshToggle.classList.remove("btn-success");
+      autoRefreshToggle.classList.add("btn-outline-success");
+      autoRefreshToggle.innerHTML =
+        '<i class="fas fa-clock"></i> Auto-Refresh: OFF';
+
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+      }
+
+      window.notificationManager?.show("Auto-refresh disabled", "info");
+    }
+  }
+
+  /**
+   * Set button loading state
+   */
+  function setButtonLoading(button, isLoading) {
+    if (!button) return;
+
+    button.disabled = isLoading;
+
+    if (isLoading) {
+      const originalContent = button.innerHTML;
+      button.setAttribute("data-original-content", originalContent);
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    } else {
+      const originalContent = button.getAttribute("data-original-content");
+      if (originalContent) {
+        button.innerHTML = originalContent;
+      }
+    }
+  }
+
+  /**
+   * Escape HTML to prevent XSS
+   */
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Clean up on page unload
+  window.addEventListener("beforeunload", () => {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+    }
+  });
+});

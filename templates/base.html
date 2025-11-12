@@ -323,6 +323,17 @@
                   </li>
                   <li role="none">
                     <a
+                      class="dropdown-item {% if request.url.path == '/server-logs' %}active{% endif %}"
+                      href="/server-logs"
+                      role="menuitem"
+                      {% if request.url.path == '/server-logs' %}aria-current="page"{% endif %}
+                    >
+                      <i class="fas fa-file-alt me-2" aria-hidden="true"></i>
+                      Server Logs
+                    </a>
+                  </li>
+                  <li role="none">
+                    <a
                       class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
                       href="/settings"
                       role="menuitem"
@@ -495,6 +506,16 @@
                 {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}
               >
                 <i class="fas fa-database me-2" aria-hidden="true"></i> Database
+              </a>
+            </li>
+            <li role="none">
+              <a
+                href="/server-logs"
+                class="{% if request.url.path == '/server-logs' %}active{% endif %}"
+                {% if request.url.path == '/server-logs' %}aria-current="page"{% endif %}
+              >
+                <i class="fas fa-file-alt me-2" aria-hidden="true"></i> Server
+                Logs
               </a>
             </li>
             <li role="none">
