@@ -468,10 +468,19 @@ block content %}
           <div class="mobile-section-header">
             <h3 class="mobile-section-title">Map Layers</h3>
           </div>
+
+          <!-- Map Style Selector -->
+          <select id="mobile-map-type-select" class="mobile-select mb-3" aria-label="Select map style">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="satellite">Satellite</option>
+            <option value="streets">Streets</option>
+          </select>
+
           <div class="mobile-layer-buttons" id="mobile-layer-toggles">
             <!-- Layer buttons populated by JS -->
           </div>
-          
+
           <div class="mobile-toggle">
             <span class="mobile-toggle-label">Highlight Recent</span>
             <input type="checkbox" id="mobile-highlight-recent" checked />

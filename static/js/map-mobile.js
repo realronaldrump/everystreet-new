@@ -104,6 +104,8 @@ class MobileMapInterface {
     this.desktopLocation = document.getElementById("streets-location");
     this.mobileLayerContainer = document.getElementById("mobile-layer-toggles");
     this.desktopLayerContainer = document.getElementById("layer-toggles");
+    this.mobileMapType = document.getElementById("mobile-map-type-select");
+    this.desktopMapType = document.getElementById("map-type-select");
   }
 
   addBodyClass() {
@@ -458,6 +460,7 @@ class MobileMapInterface {
     this.syncSearchField();
     this.syncStreetModes();
     this.syncLiveTracking();
+    this.syncMapType();
   }
 
   syncMetrics(detail) {
@@ -603,6 +606,11 @@ class MobileMapInterface {
     this.updateMobileClearButton();
   }
 
+  syncMapType() {
+    if (!this.desktopMapType || !this.mobileMapType) return;
+    this.mobileMapType.value = this.desktopMapType.value;
+  }
+
   syncStreetModes() {
     const desktopButtons = document.querySelectorAll(".street-mode-btn");
     if (!desktopButtons.length) return;
@@ -662,6 +670,7 @@ class MobileMapInterface {
     this.setupSearchBridge();
     this.setupHighlightBridge();
     this.setupLocationBridge();
+    this.setupMapTypeBridge();
     this.attachLayerObserver();
     this.attachLocationObserver();
     this.attachStreetModeListeners();
@@ -782,6 +791,34 @@ class MobileMapInterface {
     );
     this.cleanupCallbacks.push(() =>
       this.desktopLocation.removeEventListener("change", desktopHandler)
+    );
+  }
+
+  setupMapTypeBridge() {
+    if (!this.desktopMapType || !this.mobileMapType) return;
+    const key = "mapType";
+
+    const mobileHandler = (event) => {
+      this.syncGuards[key] = "mobile";
+      this.desktopMapType.value = event.target.value;
+      this.desktopMapType.dispatchEvent(new Event("change", { bubbles: true }));
+      requestAnimationFrame(() => {
+        this.syncGuards[key] = null;
+      });
+    };
+
+    const desktopHandler = (event) => {
+      if (this.syncGuards[key] === "mobile") return;
+      this.mobileMapType.value = event.target.value;
+    };
+
+    this.mobileMapType.addEventListener("change", mobileHandler);
+    this.desktopMapType.addEventListener("change", desktopHandler);
+    this.cleanupCallbacks.push(() =>
+      this.mobileMapType.removeEventListener("change", mobileHandler)
+    );
+    this.cleanupCallbacks.push(() =>
+      this.desktopMapType.removeEventListener("change", desktopHandler)
     );
   }
 
