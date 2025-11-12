@@ -592,50 +592,6 @@ def serialize_datetime(
     return dt.isoformat().replace("+00:00", "Z")
 
 
-def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
-    """Convert MongoDB document to JSON-serializable dictionary using bson.json_util.
-
-    This function uses the battle-tested bson.json_util library for efficient
-    and reliable BSON type conversion.
-
-    Args:
-        doc: MongoDB document (dictionary)
-
-    Returns:
-        Dictionary with standard Python types suitable for JSON serialization.
-
-    """
-    if not doc:
-        return {}
-
-    try:
-        # Use bson.json_util for robust serialization/deserialization
-        # This handles ObjectId, datetime, and other BSON types correctly
-        json_str = json_util.dumps(doc)
-        result = json.loads(json_str, object_hook=json_util.object_hook)
-        return result
-    except (TypeError, ValueError) as e:
-        logger.error(
-            "Error serializing document with json_util: %s. Document snippet: %s",
-            e,
-            str(doc)[:200],
-        )
-
-        # Fallback to recursive conversion
-        def _convert_value(v):
-            if isinstance(v, ObjectId):
-                return str(v)
-            if isinstance(v, datetime):
-                return v.isoformat()
-            if isinstance(v, dict):
-                return {k: _convert_value(val) for k, val in v.items()}
-            if isinstance(v, list):
-                return [_convert_value(item) for item in v]
-            return v
-
-        return {k: _convert_value(v) for k, v in doc.items()}
-
-
 def serialize_for_json(data: Any) -> Any:
     """Serialize any data structure containing datetime/ObjectId objects to JSON-serializable format.
 
@@ -657,6 +613,26 @@ def serialize_for_json(data: Any) -> Any:
     if isinstance(data, datetime):
         return data.isoformat()
     return data
+
+
+def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
+    """Convert MongoDB document to JSON-serializable dictionary.
+
+    This function recursively converts ObjectId and datetime objects to strings,
+    providing clean output suitable for JSON serialization.
+
+    Args:
+        doc: MongoDB document (dictionary)
+
+    Returns:
+        Dictionary with standard Python types suitable for JSON serialization.
+
+    """
+    if not doc:
+        return {}
+
+    # Use serialize_for_json for consistent ObjectId/datetime conversion to strings
+    return serialize_for_json(doc)
 
 
 async def batch_cursor(
