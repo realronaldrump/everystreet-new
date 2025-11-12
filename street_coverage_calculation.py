@@ -1559,17 +1559,14 @@ class CoverageCalculator:
                 )
 
                 if should_update_progress:
-                    progress_pct = (
-                        50
-                        + (
-                            (
-                                self.processed_trips_count  # Use the count of uniquely processed trips
-                                / self.total_trips_to_process
-                                * 40
-                            )
-                            if self.total_trips_to_process > 0
-                            else 40
+                    progress_pct = 50 + (
+                        (
+                            self.processed_trips_count  # Use the count of uniquely processed trips
+                            / self.total_trips_to_process
+                            * 40
                         )
+                        if self.total_trips_to_process > 0
+                        else 40
                     )
                     progress_pct = min(progress_pct, 90.0)
 
