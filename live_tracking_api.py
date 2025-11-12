@@ -223,7 +223,9 @@ async def bouncie_webhook(request: Request):
         # Process event with error handling
         try:
             result = await _process_bouncie_event(data)
-            return JSONResponse(content={"status": "ok", "detail": result}, status_code=200)
+            return JSONResponse(
+                content={"status": "ok", "detail": result}, status_code=200
+            )
         except Exception as processing_error:
             # Log processing errors but still return 200 OK
             error_id = str(uuid.uuid4())
