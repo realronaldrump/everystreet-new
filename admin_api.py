@@ -309,8 +309,12 @@ async def get_first_trip_date():
 @router.get("/api/logs")
 async def get_logs(
     service: str = Query(..., description="Service name: web, worker, beat, or system"),
-    lines: int = Query(100, description="Number of log lines to retrieve", ge=1, le=1000),
-    follow: bool = Query(False, description="Stream logs in real-time (not implemented yet)")
+    lines: int = Query(
+        100, description="Number of log lines to retrieve", ge=1, le=1000
+    ),
+    follow: bool = Query(
+        False, description="Stream logs in real-time (not implemented yet)"
+    ),
 ):
     """
     Retrieve logs from Docker containers or system logs.
@@ -325,7 +329,11 @@ async def get_logs(
         # Map service names to possible Docker container names
         container_map = {
             "web": ["everystreet-new_web_1", "everystreet-new-web-1", "web"],
-            "worker": ["everystreet-new_worker_1", "everystreet-new-worker-1", "worker"],
+            "worker": [
+                "everystreet-new_worker_1",
+                "everystreet-new-worker-1",
+                "worker",
+            ],
             "beat": ["everystreet-new_beat_1", "everystreet-new-beat-1", "beat"],
         }
 
@@ -336,8 +344,18 @@ async def get_logs(
 
             # Try each possible container name
             for name in container_names:
-                check_cmd = ["docker", "ps", "-a", "--filter", f"name={name}", "--format", "{{.Names}}"]
-                check_result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=10)
+                check_cmd = [
+                    "docker",
+                    "ps",
+                    "-a",
+                    "--filter",
+                    f"name={name}",
+                    "--format",
+                    "{{.Names}}",
+                ]
+                check_result = subprocess.run(
+                    check_cmd, capture_output=True, text=True, timeout=10
+                )
 
                 if name in check_result.stdout.strip():
                     container_name = name
@@ -346,11 +364,17 @@ async def get_logs(
             if not container_name:
                 # List all available containers for debugging
                 all_cmd = ["docker", "ps", "-a", "--format", "{{.Names}}"]
-                all_result = subprocess.run(all_cmd, capture_output=True, text=True, timeout=10)
-                available = all_result.stdout.strip().split('\n') if all_result.stdout.strip() else []
+                all_result = subprocess.run(
+                    all_cmd, capture_output=True, text=True, timeout=10
+                )
+                available = (
+                    all_result.stdout.strip().split("\n")
+                    if all_result.stdout.strip()
+                    else []
+                )
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Container not found. Tried: {', '.join(container_names)}. Available containers: {', '.join(available)}"
+                    detail=f"Container not found. Tried: {', '.join(container_names)}. Available containers: {', '.join(available)}",
                 )
 
             cmd = ["docker", "logs", "--tail", str(lines), container_name]
@@ -364,56 +388,55 @@ async def get_logs(
 
             # Get running containers for reference
             ps_cmd = ["docker", "ps", "--format", "{{.Names}}"]
-            ps_result = subprocess.run(ps_cmd, capture_output=True, text=True, timeout=10)
+            ps_result = subprocess.run(
+                ps_cmd, capture_output=True, text=True, timeout=10
+            )
 
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid service '{service}'. Available services: {', '.join(available_services)}. Running containers: {ps_result.stdout.strip()}"
+                detail=f"Invalid service '{service}'. Available services: {', '.join(available_services)}. Running containers: {ps_result.stdout.strip()}",
             )
 
         # Execute the log command
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30  # 30 second timeout
+            cmd, capture_output=True, text=True, timeout=30  # 30 second timeout
         )
 
         if result.returncode != 0:
             logger.error("Log retrieval failed: %s", result.stderr)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to retrieve logs: {result.stderr}"
+                detail=f"Failed to retrieve logs: {result.stderr}",
             )
 
         # Split logs into lines and return as structured response
-        log_lines = result.stdout.strip().split('\n') if result.stdout.strip() else []
+        log_lines = result.stdout.strip().split("\n") if result.stdout.strip() else []
 
         return {
             "service": service,
             "lines_requested": lines,
             "lines_returned": len(log_lines),
             "logs": log_lines,
-            "timestamp": datetime.now(UTC).isoformat()
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     except subprocess.TimeoutExpired:
         logger.error("Log retrieval timed out for service: %s", service)
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Log retrieval timed out"
+            detail="Log retrieval timed out",
         )
     except subprocess.CalledProcessError as e:
         logger.error("Log retrieval command failed: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Command execution failed: {str(e)}"
+            detail=f"Command execution failed: {str(e)}",
         )
     except Exception as e:
         logger.exception("Unexpected error retrieving logs: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error: {str(e)}"
+            detail=f"Unexpected error: {str(e)}",
         )
 
 
@@ -426,15 +449,25 @@ async def get_available_log_services():
         # Check Docker containers
         container_map = {
             "web": ["everystreet-new_web_1", "everystreet-new-web-1", "web"],
-            "worker": ["everystreet-new_worker_1", "everystreet-new-worker-1", "worker"],
+            "worker": [
+                "everystreet-new_worker_1",
+                "everystreet-new-worker-1",
+                "worker",
+            ],
             "beat": ["everystreet-new_beat_1", "everystreet-new-beat-1", "beat"],
         }
 
         # First, try to get all containers to see what's actually available
         try:
             all_containers_cmd = ["docker", "ps", "-a", "--format", "{{.Names}}"]
-            all_containers_result = subprocess.run(all_containers_cmd, capture_output=True, text=True, timeout=5)
-            available_containers = all_containers_result.stdout.strip().split('\n') if all_containers_result.stdout.strip() else []
+            all_containers_result = subprocess.run(
+                all_containers_cmd, capture_output=True, text=True, timeout=5
+            )
+            available_containers = (
+                all_containers_result.stdout.strip().split("\n")
+                if all_containers_result.stdout.strip()
+                else []
+            )
             logger.info(f"Available Docker containers: {available_containers}")
         except Exception as e:
             logger.warning(f"Could not list Docker containers: {e}")
@@ -447,10 +480,23 @@ async def get_available_log_services():
                 status_text = ""
 
                 for container_name in container_names:
-                    check_all_cmd = ["docker", "ps", "-a", "--filter", f"name={container_name}", "--format", "{{.Status}}"]
-                    check_all_result = subprocess.run(check_all_cmd, capture_output=True, text=True, timeout=5)
+                    check_all_cmd = [
+                        "docker",
+                        "ps",
+                        "-a",
+                        "--filter",
+                        f"name={container_name}",
+                        "--format",
+                        "{{.Status}}",
+                    ]
+                    check_all_result = subprocess.run(
+                        check_all_cmd, capture_output=True, text=True, timeout=5
+                    )
 
-                    if check_all_result.returncode == 0 and check_all_result.stdout.strip():
+                    if (
+                        check_all_result.returncode == 0
+                        and check_all_result.stdout.strip()
+                    ):
                         # Container exists - we can get logs from it
                         found_container = container_name
                         status_text = check_all_result.stdout.strip()
@@ -460,44 +506,45 @@ async def get_available_log_services():
                     services_status[service_name] = {
                         "available": True,
                         "status": status_text,
-                        "container": found_container
+                        "container": found_container,
                     }
                 else:
                     services_status[service_name] = {
                         "available": False,
                         "status": "Container not found",
-                        "container": container_names[0]  # Use first name as example
+                        "container": container_names[0],  # Use first name as example
                     }
             except Exception as e:
                 logger.error(f"Error checking container {service_name}: {e}")
                 services_status[service_name] = {
                     "available": False,
                     "status": f"Error checking status: {str(e)}",
-                    "container": container_names[0]
+                    "container": container_names[0],
                 }
 
         # Check system logs availability
         try:
             journal_cmd = ["journalctl", "--version"]
-            journal_result = subprocess.run(journal_cmd, capture_output=True, text=True, timeout=5)
+            journal_result = subprocess.run(
+                journal_cmd, capture_output=True, text=True, timeout=5
+            )
             services_status["system"] = {
                 "available": journal_result.returncode == 0,
-                "status": "Available" if journal_result.returncode == 0 else "Not available"
+                "status": (
+                    "Available" if journal_result.returncode == 0 else "Not available"
+                ),
             }
         except Exception:
             services_status["system"] = {
                 "available": False,
-                "status": "journalctl not available"
+                "status": "journalctl not available",
             }
 
-        return {
-            "services": services_status,
-            "timestamp": datetime.now(UTC).isoformat()
-        }
+        return {"services": services_status, "timestamp": datetime.now(UTC).isoformat()}
 
     except Exception as e:
         logger.exception("Error getting services status: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get services status: {str(e)}"
+            detail=f"Failed to get services status: {str(e)}",
         )
