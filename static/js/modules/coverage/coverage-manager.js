@@ -10,7 +10,7 @@ import COVERAGE_API from "./coverage-api.js";
 import CoverageDrawing from "./coverage-drawing.js";
 import CoverageMap from "./coverage-map.js";
 import CoverageNavigation from "./coverage-navigation.js";
-import CoverageProgress from "./coverage-progress.js";
+import { CoverageProgress } from "./coverage-progress.js";
 import CoverageSelection from "./coverage-selection.js";
 import CoverageUI from "./coverage-ui.js";
 
