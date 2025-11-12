@@ -1,400 +1,428 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Server Logs - EveryStreet</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/loading-styles.css">
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="/static/css/loading-styles.css" />
     <style>
-        .logs-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+      .logs-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
 
+      .logs-header {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .service-selector {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .service-btn {
+        padding: 8px 16px;
+        border: 1px solid #ddd;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .service-btn.active {
+        background: #007bff;
+        color: white;
+        border-color: #007bff;
+      }
+
+      .service-btn:hover:not(.active) {
+        background: #f8f9fa;
+      }
+
+      .service-btn.unavailable {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .lines-input {
+        width: 80px;
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+
+      .refresh-btn {
+        padding: 8px 16px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .refresh-btn:hover {
+        background: #218838;
+      }
+
+      .refresh-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+      }
+
+      .logs-display {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        font-family: "Courier New", monospace;
+        font-size: 14px;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        max-height: 600px;
+        overflow-y: auto;
+        position: relative;
+      }
+
+      .logs-display.loading {
+        opacity: 0.7;
+      }
+
+      .loading-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: none;
+      }
+
+      .logs-display.loading .loading-overlay {
+        display: block;
+      }
+
+      .status-info {
+        margin-bottom: 10px;
+        font-size: 12px;
+        color: #666;
+      }
+
+      .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        border: 1px solid #f5c6cb;
+      }
+
+      .log-line {
+        margin: 2px 0;
+      }
+
+      .log-line.error {
+        color: #dc3545;
+      }
+
+      .log-line.warning {
+        color: #ffc107;
+      }
+
+      .log-line.info {
+        color: #007bff;
+      }
+
+      .timestamp {
+        color: #666;
+        font-size: 12px;
+      }
+
+      .auto-refresh {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-left: 15px;
+      }
+
+      .auto-refresh input[type="checkbox"] {
+        margin: 0;
+      }
+
+      @media (max-width: 768px) {
         .logs-header {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            align-items: center;
-            flex-wrap: wrap;
+          flex-direction: column;
+          align-items: stretch;
         }
 
         .service-selector {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .service-btn {
-            padding: 8px 16px;
-            border: 1px solid #ddd;
-            background: white;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .service-btn.active {
-            background: #007bff;
-            color: white;
-            border-color: #007bff;
-        }
-
-        .service-btn:hover:not(.active) {
-            background: #f8f9fa;
-        }
-
-        .service-btn.unavailable {
-            opacity: 0.5;
-            cursor: not-allowed;
+          justify-content: center;
         }
 
         .controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .lines-input {
-            width: 80px;
-            padding: 6px 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .refresh-btn {
-            padding: 8px 16px;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .refresh-btn:hover {
-            background: #218838;
-        }
-
-        .refresh-btn:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
+          justify-content: center;
         }
 
         .logs-display {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.4;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            max-height: 600px;
-            overflow-y: auto;
-            position: relative;
+          font-size: 12px;
+          max-height: 400px;
         }
-
-        .logs-display.loading {
-            opacity: 0.7;
-        }
-
-        .loading-overlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: none;
-        }
-
-        .logs-display.loading .loading-overlay {
-            display: block;
-        }
-
-        .status-info {
-            margin-bottom: 10px;
-            font-size: 12px;
-            color: #666;
-        }
-
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            border: 1px solid #f5c6cb;
-        }
-
-        .log-line {
-            margin: 2px 0;
-        }
-
-        .log-line.error {
-            color: #dc3545;
-        }
-
-        .log-line.warning {
-            color: #ffc107;
-        }
-
-        .log-line.info {
-            color: #007bff;
-        }
-
-        .timestamp {
-            color: #666;
-            font-size: 12px;
-        }
-
-        .auto-refresh {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            margin-left: 15px;
-        }
-
-        .auto-refresh input[type="checkbox"] {
-            margin: 0;
-        }
-
-        @media (max-width: 768px) {
-            .logs-header {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .service-selector {
-                justify-content: center;
-            }
-
-            .controls {
-                justify-content: center;
-            }
-
-            .logs-display {
-                font-size: 12px;
-                max-height: 400px;
-            }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="logs-container">
-        <h1>Server Logs</h1>
+      <h1>Server Logs</h1>
 
-        <div id="error-message" class="error-message" style="display: none;"></div>
+      <div id="error-message" class="error-message" style="display: none"></div>
 
-        <div class="logs-header">
-            <div class="service-selector">
-                <label>Service:</label>
-                <div id="service-buttons"></div>
-            </div>
-
-            <div class="controls">
-                <label>Lines:</label>
-                <input type="number" id="lines-input" class="lines-input" value="100" min="1" max="1000">
-
-                <button id="refresh-btn" class="refresh-btn">Refresh Logs</button>
-
-                <div class="auto-refresh">
-                    <input type="checkbox" id="auto-refresh-checkbox">
-                    <label for="auto-refresh-checkbox">Auto-refresh (30s)</label>
-                </div>
-            </div>
+      <div class="logs-header">
+        <div class="service-selector">
+          <label>Service:</label>
+          <div id="service-buttons"></div>
         </div>
 
-        <div id="status-info" class="status-info"></div>
+        <div class="controls">
+          <label>Lines:</label>
+          <input
+            type="number"
+            id="lines-input"
+            class="lines-input"
+            value="100"
+            min="1"
+            max="1000"
+          />
 
-        <div class="logs-display" id="logs-display">
-            <div class="loading-overlay">
-                <div class="loading-spinner"></div>
-                <span>Loading logs...</span>
-            </div>
-            <div id="logs-content">Select a service and click "Refresh Logs" to view logs.</div>
+          <button id="refresh-btn" class="refresh-btn">Refresh Logs</button>
+
+          <div class="auto-refresh">
+            <input type="checkbox" id="auto-refresh-checkbox" />
+            <label for="auto-refresh-checkbox">Auto-refresh (30s)</label>
+          </div>
         </div>
+      </div>
+
+      <div id="status-info" class="status-info"></div>
+
+      <div class="logs-display" id="logs-display">
+        <div class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <span>Loading logs...</span>
+        </div>
+        <div id="logs-content">
+          Select a service and click "Refresh Logs" to view logs.
+        </div>
+      </div>
     </div>
 
     <script>
-        class LogsViewer {
-            constructor() {
-                this.currentService = null;
-                this.autoRefreshInterval = null;
-                this.services = {};
+      class LogsViewer {
+        constructor() {
+          this.currentService = null;
+          this.autoRefreshInterval = null;
+          this.services = {};
 
-                this.initializeEventListeners();
-                this.loadAvailableServices();
-            }
-
-            initializeEventListeners() {
-                document.getElementById('refresh-btn').addEventListener('click', () => {
-                    this.loadLogs();
-                });
-
-                document.getElementById('lines-input').addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        this.loadLogs();
-                    }
-                });
-
-                document.getElementById('auto-refresh-checkbox').addEventListener('change', (e) => {
-                    if (e.target.checked) {
-                        this.startAutoRefresh();
-                    } else {
-                        this.stopAutoRefresh();
-                    }
-                });
-            }
-
-            async loadAvailableServices() {
-                try {
-                    const response = await fetch('/api/logs/services');
-                    const data = await response.json();
-
-                    this.services = data.services;
-                    this.renderServiceButtons();
-                } catch (error) {
-                    this.showError('Failed to load available services: ' + error.message);
-                }
-            }
-
-            renderServiceButtons() {
-                const container = document.getElementById('service-buttons');
-                container.innerHTML = '';
-
-                Object.entries(this.services).forEach(([serviceName, serviceInfo]) => {
-                    const button = document.createElement('button');
-                    button.className = 'service-btn';
-                    button.textContent = serviceName;
-                    button.dataset.service = serviceName;
-
-                    if (!serviceInfo.available) {
-                        button.classList.add('unavailable');
-                        button.title = serviceInfo.status;
-                    }
-
-                    button.addEventListener('click', () => {
-                        if (!serviceInfo.available) return;
-
-                        // Remove active class from all buttons
-                        document.querySelectorAll('.service-btn').forEach(btn => {
-                            btn.classList.remove('active');
-                        });
-
-                        // Add active class to clicked button
-                        button.classList.add('active');
-                        this.currentService = serviceName;
-                    });
-
-                    container.appendChild(button);
-                });
-            }
-
-            async loadLogs() {
-                if (!this.currentService) {
-                    this.showError('Please select a service first.');
-                    return;
-                }
-
-                const lines = document.getElementById('lines-input').value;
-                const logsDisplay = document.getElementById('logs-display');
-                const logsContent = document.getElementById('logs-content');
-                const refreshBtn = document.getElementById('refresh-btn');
-
-                // Show loading state
-                logsDisplay.classList.add('loading');
-                refreshBtn.disabled = true;
-                refreshBtn.textContent = 'Loading...';
-
-                try {
-                    this.hideError();
-
-                    const response = await fetch(`/api/logs?service=${this.currentService}&lines=${lines}`);
-                    const data = await response.json();
-
-                    if (!response.ok) {
-                        throw new Error(data.detail || 'Failed to load logs');
-                    }
-
-                    // Update status info
-                    const statusInfo = document.getElementById('status-info');
-                    statusInfo.textContent = `Service: ${data.service} | Requested: ${data.lines_requested} lines | Returned: ${data.lines_returned} lines | Timestamp: ${new Date(data.timestamp).toLocaleString()}`;
-
-                    // Format and display logs
-                    logsContent.innerHTML = this.formatLogs(data.logs);
-
-                } catch (error) {
-                    this.showError('Failed to load logs: ' + error.message);
-                    logsContent.textContent = 'Error loading logs.';
-                } finally {
-                    // Hide loading state
-                    logsDisplay.classList.remove('loading');
-                    refreshBtn.disabled = false;
-                    refreshBtn.textContent = 'Refresh Logs';
-                }
-            }
-
-            formatLogs(logLines) {
-                if (!logLines || logLines.length === 0) {
-                    return '<div class="log-line">No logs available.</div>';
-                }
-
-                return logLines.map(line => {
-                    let cssClass = 'log-line';
-
-                    // Basic log level detection
-                    if (line.toLowerCase().includes('error') || line.toLowerCase().includes('exception')) {
-                        cssClass += ' error';
-                    } else if (line.toLowerCase().includes('warning') || line.toLowerCase().includes('warn')) {
-                        cssClass += ' warning';
-                    } else if (line.toLowerCase().includes('info')) {
-                        cssClass += ' info';
-                    }
-
-                    return `<div class="${cssClass}">${this.escapeHtml(line)}</div>`;
-                }).join('');
-            }
-
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            startAutoRefresh() {
-                this.stopAutoRefresh(); // Clear any existing interval
-                this.autoRefreshInterval = setInterval(() => {
-                    if (this.currentService) {
-                        this.loadLogs();
-                    }
-                }, 30000); // 30 seconds
-            }
-
-            stopAutoRefresh() {
-                if (this.autoRefreshInterval) {
-                    clearInterval(this.autoRefreshInterval);
-                    this.autoRefreshInterval = null;
-                }
-            }
-
-            showError(message) {
-                const errorDiv = document.getElementById('error-message');
-                errorDiv.textContent = message;
-                errorDiv.style.display = 'block';
-            }
-
-            hideError() {
-                document.getElementById('error-message').style.display = 'none';
-            }
+          this.initializeEventListeners();
+          this.loadAvailableServices();
         }
 
-        // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            new LogsViewer();
-        });
+        initializeEventListeners() {
+          document
+            .getElementById("refresh-btn")
+            .addEventListener("click", () => {
+              this.loadLogs();
+            });
+
+          document
+            .getElementById("lines-input")
+            .addEventListener("keypress", (e) => {
+              if (e.key === "Enter") {
+                this.loadLogs();
+              }
+            });
+
+          document
+            .getElementById("auto-refresh-checkbox")
+            .addEventListener("change", (e) => {
+              if (e.target.checked) {
+                this.startAutoRefresh();
+              } else {
+                this.stopAutoRefresh();
+              }
+            });
+        }
+
+        async loadAvailableServices() {
+          try {
+            const response = await fetch("/api/logs/services");
+            const data = await response.json();
+
+            this.services = data.services;
+            this.renderServiceButtons();
+          } catch (error) {
+            this.showError(
+              "Failed to load available services: " + error.message,
+            );
+          }
+        }
+
+        renderServiceButtons() {
+          const container = document.getElementById("service-buttons");
+          container.innerHTML = "";
+
+          Object.entries(this.services).forEach(
+            ([serviceName, serviceInfo]) => {
+              const button = document.createElement("button");
+              button.className = "service-btn";
+              button.textContent = serviceName;
+              button.dataset.service = serviceName;
+
+              if (!serviceInfo.available) {
+                button.classList.add("unavailable");
+                button.title = serviceInfo.status;
+              }
+
+              button.addEventListener("click", () => {
+                if (!serviceInfo.available) return;
+
+                // Remove active class from all buttons
+                document.querySelectorAll(".service-btn").forEach((btn) => {
+                  btn.classList.remove("active");
+                });
+
+                // Add active class to clicked button
+                button.classList.add("active");
+                this.currentService = serviceName;
+              });
+
+              container.appendChild(button);
+            },
+          );
+        }
+
+        async loadLogs() {
+          if (!this.currentService) {
+            this.showError("Please select a service first.");
+            return;
+          }
+
+          const lines = document.getElementById("lines-input").value;
+          const logsDisplay = document.getElementById("logs-display");
+          const logsContent = document.getElementById("logs-content");
+          const refreshBtn = document.getElementById("refresh-btn");
+
+          // Show loading state
+          logsDisplay.classList.add("loading");
+          refreshBtn.disabled = true;
+          refreshBtn.textContent = "Loading...";
+
+          try {
+            this.hideError();
+
+            const response = await fetch(
+              `/api/logs?service=${this.currentService}&lines=${lines}`,
+            );
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(data.detail || "Failed to load logs");
+            }
+
+            // Update status info
+            const statusInfo = document.getElementById("status-info");
+            statusInfo.textContent = `Service: ${data.service} | Requested: ${data.lines_requested} lines | Returned: ${data.lines_returned} lines | Timestamp: ${new Date(data.timestamp).toLocaleString()}`;
+
+            // Format and display logs
+            logsContent.innerHTML = this.formatLogs(data.logs);
+          } catch (error) {
+            this.showError("Failed to load logs: " + error.message);
+            logsContent.textContent = "Error loading logs.";
+          } finally {
+            // Hide loading state
+            logsDisplay.classList.remove("loading");
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = "Refresh Logs";
+          }
+        }
+
+        formatLogs(logLines) {
+          if (!logLines || logLines.length === 0) {
+            return '<div class="log-line">No logs available.</div>';
+          }
+
+          return logLines
+            .map((line) => {
+              let cssClass = "log-line";
+
+              // Basic log level detection
+              if (
+                line.toLowerCase().includes("error") ||
+                line.toLowerCase().includes("exception")
+              ) {
+                cssClass += " error";
+              } else if (
+                line.toLowerCase().includes("warning") ||
+                line.toLowerCase().includes("warn")
+              ) {
+                cssClass += " warning";
+              } else if (line.toLowerCase().includes("info")) {
+                cssClass += " info";
+              }
+
+              return `<div class="${cssClass}">${this.escapeHtml(line)}</div>`;
+            })
+            .join("");
+        }
+
+        escapeHtml(text) {
+          const div = document.createElement("div");
+          div.textContent = text;
+          return div.innerHTML;
+        }
+
+        startAutoRefresh() {
+          this.stopAutoRefresh(); // Clear any existing interval
+          this.autoRefreshInterval = setInterval(() => {
+            if (this.currentService) {
+              this.loadLogs();
+            }
+          }, 30000); // 30 seconds
+        }
+
+        stopAutoRefresh() {
+          if (this.autoRefreshInterval) {
+            clearInterval(this.autoRefreshInterval);
+            this.autoRefreshInterval = null;
+          }
+        }
+
+        showError(message) {
+          const errorDiv = document.getElementById("error-message");
+          errorDiv.textContent = message;
+          errorDiv.style.display = "block";
+        }
+
+        hideError() {
+          document.getElementById("error-message").style.display = "none";
+        }
+      }
+
+      // Initialize when page loads
+      document.addEventListener("DOMContentLoaded", () => {
+        new LogsViewer();
+      });
     </script>
-</body>
+  </body>
 </html>
