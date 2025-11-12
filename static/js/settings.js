@@ -1946,7 +1946,7 @@
       return;
     }
 
-    history.forEach((entry) => {
+      history.forEach((entry) => {
       const card = document.createElement("div");
       card.className = "mobile-history-card";
 
@@ -1954,7 +1954,7 @@
       if (entry.runtime !== null && entry.runtime !== undefined) {
         const runtimeMs = parseFloat(entry.runtime);
         if (!Number.isNaN(runtimeMs)) {
-          durationText = window.taskManager.formatDuration(runtimeMs);
+          durationText = TaskManager.formatDuration(runtimeMs);
         }
       } else if (entry.status === "RUNNING" && entry.timestamp) {
         // Calculate elapsed time for running tasks
@@ -1963,7 +1963,7 @@
           const now = new Date();
           const elapsedMs = now - startTime;
           if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
-            durationText = window.taskManager.formatDuration(elapsedMs);
+            durationText = TaskManager.formatDuration(elapsedMs);
             // Store the timestamp for real-time updates
             card.dataset.startTime = entry.timestamp;
             card.dataset.isRunning = "true";
