@@ -42,14 +42,28 @@ router = APIRouter()
 
 
 async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
-    """Process Bouncie webhook event."""
+    """Process Bouncie webhook event.
+
+    Raises exceptions if processing fails, which are caught by the webhook handler.
+    """
     event_type = data.get("eventType")
     transaction_id = data.get("transactionId")
 
-    live_collection = db_manager.get_collection("live_trips")
+    # Check for non-trip events early (no DB needed)
+    if event_type in {"connect", "disconnect", "battery", "mil"}:
+        logger.info("Received non-trip event: %s", event_type)
+        return {"status": "ignored", "event": event_type}
 
-    if not live_collection:
-        raise RuntimeError("Live trips collection not available")
+    if event_type not in {"tripStart", "tripData", "tripMetrics", "tripEnd"}:
+        logger.warning("Unknown event type: %s", event_type)
+        return {"status": "unknown", "event": event_type}
+
+    # Get database collection (may raise exception if DB unavailable)
+    try:
+        live_collection = db_manager.get_collection("live_trips")
+    except Exception as db_error:
+        logger.error("Failed to get live_trips collection: %s", db_error)
+        raise RuntimeError(f"Database unavailable: {db_error}") from db_error
 
     # Route to appropriate handler
     if event_type == "tripStart":
@@ -60,12 +74,6 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
         await process_trip_metrics(data, live_collection)
     elif event_type == "tripEnd":
         await process_trip_end(data, live_collection)
-    elif event_type in {"connect", "disconnect", "battery", "mil"}:
-        logger.info("Received non-trip event: %s", event_type)
-        return {"status": "ignored", "event": event_type}
-    else:
-        logger.warning("Unknown event type: %s", event_type)
-        return {"status": "unknown", "event": event_type}
 
     return {"status": "processed", "event": event_type, "transactionId": transaction_id}
 
@@ -192,7 +200,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @router.post("/webhook/bouncie")
 async def bouncie_webhook(request: Request):
-    """Receive and process Bouncie webhook events."""
+    """Receive and process Bouncie webhook events.
+
+    Always returns 200 OK to prevent Bouncie from deactivating the webhook.
+    Processing errors are logged but don't fail the webhook response.
+    """
     try:
         data = await request.json()
         event_type = data.get("eventType")
@@ -200,32 +212,56 @@ async def bouncie_webhook(request: Request):
 
         if not event_type:
             logger.warning("Webhook missing eventType")
+            # Return 200 OK even for invalid payloads to prevent webhook deactivation
             return JSONResponse(
-                content={"status": "error", "message": "Missing eventType"},
-                status_code=400,
+                content={"status": "accepted", "message": "Missing eventType"},
+                status_code=200,
             )
 
         logger.info("Webhook received: %s (Trip: %s)", event_type, transaction_id)
 
-        result = await _process_bouncie_event(data)
-        return JSONResponse(content={"status": "ok", "detail": result}, status_code=200)
+        # Process event with error handling
+        try:
+            result = await _process_bouncie_event(data)
+            return JSONResponse(content={"status": "ok", "detail": result}, status_code=200)
+        except Exception as processing_error:
+            # Log processing errors but still return 200 OK
+            error_id = str(uuid.uuid4())
+            logger.exception(
+                "Failed to process webhook event [%s]: %s (Trip: %s) - Error: %s",
+                error_id,
+                event_type,
+                transaction_id,
+                processing_error,
+            )
+            return JSONResponse(
+                content={
+                    "status": "accepted",
+                    "message": "Event received but processing failed",
+                    "error_id": error_id,
+                },
+                status_code=200,  # Still return 200 to prevent webhook deactivation
+            )
 
     except json.JSONDecodeError:
         logger.error("Invalid JSON in webhook")
+        # Return 200 OK even for invalid JSON to prevent webhook deactivation
         return JSONResponse(
-            content={"status": "error", "message": "Invalid JSON"},
-            status_code=400,
+            content={"status": "accepted", "message": "Invalid JSON payload"},
+            status_code=200,
         )
     except Exception as e:
+        # Catch-all for any unexpected errors
         error_id = str(uuid.uuid4())
-        logger.exception("Webhook error [%s]: %s", error_id, e)
+        logger.exception("Unexpected webhook error [%s]: %s", error_id, e)
+        # Still return 200 OK to prevent webhook deactivation
         return JSONResponse(
             content={
-                "status": "error",
-                "message": "Internal server error",
+                "status": "accepted",
+                "message": "Event received but encountered error",
                 "error_id": error_id,
             },
-            status_code=500,
+            status_code=200,
         )
 
 
