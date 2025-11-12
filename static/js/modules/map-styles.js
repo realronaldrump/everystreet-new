@@ -6,7 +6,9 @@
 
 ((window) => {
   function getCSSVariable(varName) {
-    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue(varName)
+      .trim();
   }
 
   const MAP_LAYER_COLORS = {
