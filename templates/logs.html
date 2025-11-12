@@ -131,6 +131,7 @@
 
         .log-line {
             margin: 2px 0;
+            color: #333; /* Dark text for readability */
         }
 
         .log-line.error {
@@ -251,12 +252,21 @@
 
             async loadAvailableServices() {
                 try {
+                    console.log('Loading available services...');
                     const response = await fetch('/api/logs/services');
+                    console.log('Response status:', response.status);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
                     const data = await response.json();
+                    console.log('Services data:', data);
 
                     this.services = data.services;
                     this.renderServiceButtons();
                 } catch (error) {
+                    console.error('Error loading services:', error);
                     this.showError('Failed to load available services: ' + error.message);
                 }
             }
