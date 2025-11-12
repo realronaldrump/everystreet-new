@@ -141,6 +141,12 @@ async def app_settings_page(request: Request):
     return _render_page("app_settings.html", request)
 
 
+@router.get("/server-logs", response_class=HTMLResponse)
+async def server_logs_page(request: Request):
+    """Render server logs viewing page."""
+    return _render_page("server_logs.html", request)
+
+
 @router.get(
     "/driving-navigation",
     response_class=HTMLResponse,

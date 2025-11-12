@@ -18,7 +18,9 @@ from driving_routes import router as driving_routes_router
 from export_api import router as export_api_router
 from live_tracking import initialize_db as initialize_live_tracking_db
 from live_tracking_api import router as live_tracking_api_router
+from logs_api import router as logs_api_router
 from matched_trips_api import router as matched_trips_api_router
+from mongodb_logging_handler import MongoDBHandler
 from pages import router as pages_router
 from processing_api import router as processing_api_router
 from profile_api import router as profile_api_router
@@ -35,10 +37,13 @@ load_dotenv()
 
 # Basic logging configuration
 logging.basicConfig(
-    level=logging.WARNING,
+    level=logging.INFO,  # Changed to INFO to capture more logs
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# MongoDB logging handler will be added during startup
+mongo_handler = None
 
 # Initialize FastAPI App
 app = FastAPI(title="Every Street")
@@ -89,6 +94,7 @@ app.include_router(coverage_api_router)
 app.include_router(driving_routes_router)
 app.include_router(export_api_router)
 app.include_router(live_tracking_api_router)
+app.include_router(logs_api_router)
 app.include_router(matched_trips_api_router)
 app.include_router(processing_api_router)
 app.include_router(profile_api_router)
@@ -113,9 +119,21 @@ app_settings_collection = db_manager.db["app_settings"]
 @app.on_event("startup")
 async def startup_event():
     """Initialize database indexes and components on application startup."""
+    global mongo_handler
+
     try:
         await init_database()  # This already creates many indexes
         logger.info("Core database initialized successfully (indexes, etc.).")
+
+        # Set up MongoDB logging handler
+        mongo_handler = MongoDBHandler(db_manager.db, "server_logs")
+        await mongo_handler.setup_indexes()
+
+        # Add the MongoDB handler to the root logger
+        root_logger = logging.getLogger()
+        mongo_handler.setLevel(logging.INFO)  # Log INFO and above to MongoDB
+        root_logger.addHandler(mongo_handler)
+        logger.info("MongoDB logging handler initialized and configured.")
 
         initialize_live_tracking_db(live_trips_collection)
         logger.info("Live tracking DB collections initialized.")
