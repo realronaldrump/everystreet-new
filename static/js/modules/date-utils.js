@@ -54,7 +54,8 @@ const dateUtils = {
    * formatDateToString(new Date(2024, 2, 15)) // Returns "2024-03-15"
    */
   formatDateToString(date) {
-    if (!date || !(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+    if (!date || !(date instanceof Date) || Number.isNaN(date.getTime()))
+      return null;
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
@@ -79,7 +80,10 @@ const dateUtils = {
     if (dateValue instanceof Date) return new Date(dateValue);
 
     // Try parsing as YYYY-MM-DD string first (timezone-safe)
-    if (typeof dateValue === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    if (
+      typeof dateValue === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(dateValue)
+    ) {
       const parsed = this.parseDateString(dateValue);
       if (parsed && endOfDay) parsed.setHours(23, 59, 59, 999);
       return parsed;
@@ -162,7 +166,9 @@ const dateUtils = {
    * @returns {string} Start date in YYYY-MM-DD format
    */
   getStartDate() {
-    return utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate();
+    return (
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate()
+    );
   },
 
   /**
@@ -171,7 +177,9 @@ const dateUtils = {
    * @returns {string} End date in YYYY-MM-DD format
    */
   getEndDate() {
-    return utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate();
+    return (
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate()
+    );
   },
 
   /**
@@ -247,7 +255,7 @@ const dateUtils = {
         if (!startDate) {
           // Fallback to 1 year ago if we can't fetch the first trip date
           console.warn(
-            "Could not determine first trip date, using 1 year ago as fallback"
+            "Could not determine first trip date, using 1 year ago as fallback",
           );
           startDate = new Date(today);
           startDate.setFullYear(startDate.getFullYear() - 1);
@@ -455,7 +463,9 @@ const dateUtils = {
 
     const days = Math.floor(hours / 24);
     if (days < 7 || !abbreviated) {
-      return abbreviated ? `${days}d ago` : `${days} day${days !== 1 ? "s" : ""} ago`;
+      return abbreviated
+        ? `${days}d ago`
+        : `${days} day${days !== 1 ? "s" : ""} ago`;
     }
 
     return this.formatForDisplay(date, { dateStyle: "short" });
