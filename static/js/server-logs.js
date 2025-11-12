@@ -345,12 +345,12 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   async function clearLogs() {
     try {
-      const confirmed = await window.confirmationDialog.confirm({
+      const confirmed = await window.confirmationDialog.show({
         title: "Clear Server Logs",
         message:
           "Are you sure you want to clear all server logs? This action cannot be undone.",
         confirmText: "Clear Logs",
-        confirmClass: "btn-danger",
+        confirmButtonClass: "btn-danger",
       });
 
       if (!confirmed) return;
