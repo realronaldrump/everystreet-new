@@ -152,3 +152,13 @@ async def driving_navigation_page(request: Request):
         request,
         MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
     )
+
+
+@router.get("/logs", response_class=HTMLResponse)
+async def logs_page(request: Request):
+    """Render server logs page."""
+    return _render_page(
+        "logs.html",
+        request,
+        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+    )
