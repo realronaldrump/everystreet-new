@@ -1984,7 +1984,7 @@
         resultText = entry.result ? "Success" : "Failed";
       }
 
-      const statusClass = window.taskManager.getStatusColor(entry.status);
+      const statusClass = TaskManager.getStatusColor(entry.status);
 
       card.innerHTML = `
         <div class="mobile-history-header">
