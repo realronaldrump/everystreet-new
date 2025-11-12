@@ -18,6 +18,7 @@ from driving_routes import router as driving_routes_router
 from export_api import router as export_api_router
 from live_tracking import initialize_db as initialize_live_tracking_db
 from live_tracking_api import router as live_tracking_api_router
+from logs_api import router as logs_api_router
 from matched_trips_api import router as matched_trips_api_router
 from pages import router as pages_router
 from processing_api import router as processing_api_router
@@ -89,6 +90,7 @@ app.include_router(coverage_api_router)
 app.include_router(driving_routes_router)
 app.include_router(export_api_router)
 app.include_router(live_tracking_api_router)
+app.include_router(logs_api_router)
 app.include_router(matched_trips_api_router)
 app.include_router(processing_api_router)
 app.include_router(profile_api_router)
