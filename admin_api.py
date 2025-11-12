@@ -322,27 +322,38 @@ async def get_logs(
     - system: System-level logs (journalctl)
     """
     try:
-        # Map service names to Docker container names
+        # Map service names to possible Docker container names
         container_map = {
-            "web": "everystreet-new_web_1",
-            "worker": "everystreet-new_worker_1",
-            "beat": "everystreet-new_beat_1",
+            "web": ["everystreet-new_web_1", "everystreet-new-web-1", "web"],
+            "worker": ["everystreet-new_worker_1", "everystreet-new-worker-1", "worker"],
+            "beat": ["everystreet-new_beat_1", "everystreet-new-beat-1", "beat"],
         }
 
         if service in container_map:
-            # Get Docker container logs
-            container_name = container_map[service]
-            cmd = ["docker", "logs", "--tail", str(lines), container_name]
+            # Get Docker container logs - try multiple possible container names
+            container_names = container_map[service]
+            container_name = None
 
-            # Check if container exists and is running
-            check_cmd = ["docker", "ps", "-a", "--filter", f"name={container_name}", "--format", "{{.Names}}"]
-            check_result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=10)
+            # Try each possible container name
+            for name in container_names:
+                check_cmd = ["docker", "ps", "-a", "--filter", f"name={name}", "--format", "{{.Names}}"]
+                check_result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=10)
 
-            if container_name not in check_result.stdout.strip():
+                if name in check_result.stdout.strip():
+                    container_name = name
+                    break
+
+            if not container_name:
+                # List all available containers for debugging
+                all_cmd = ["docker", "ps", "-a", "--format", "{{.Names}}"]
+                all_result = subprocess.run(all_cmd, capture_output=True, text=True, timeout=10)
+                available = all_result.stdout.strip().split('\n') if all_result.stdout.strip() else []
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Container '{container_name}' not found. Available containers: {check_result.stdout.strip()}"
+                    detail=f"Container not found. Tried: {', '.join(container_names)}. Available containers: {', '.join(available)}"
                 )
+
+            cmd = ["docker", "logs", "--tail", str(lines), container_name]
 
         elif service == "system":
             # Get system logs using journalctl
@@ -414,14 +425,14 @@ async def get_available_log_services():
 
         # Check Docker containers
         container_map = {
-            "web": "everystreet-new_web_1",
-            "worker": "everystreet-new_worker_1",
-            "beat": "everystreet-new_beat_1",
+            "web": ["everystreet-new_web_1", "everystreet-new-web-1", "web"],
+            "worker": ["everystreet-new_worker_1", "everystreet-new-worker-1", "worker"],
+            "beat": ["everystreet-new_beat_1", "everystreet-new-beat-1", "beat"],
         }
 
-        # First, try to get all running containers to see what's actually available
+        # First, try to get all containers to see what's actually available
         try:
-            all_containers_cmd = ["docker", "ps", "--format", "{{.Names}}"]
+            all_containers_cmd = ["docker", "ps", "-a", "--format", "{{.Names}}"]
             all_containers_result = subprocess.run(all_containers_cmd, capture_output=True, text=True, timeout=5)
             available_containers = all_containers_result.stdout.strip().split('\n') if all_containers_result.stdout.strip() else []
             logger.info(f"Available Docker containers: {available_containers}")
@@ -429,43 +440,40 @@ async def get_available_log_services():
             logger.warning(f"Could not list Docker containers: {e}")
             available_containers = []
 
-        for service_name, container_name in container_map.items():
+        for service_name, container_names in container_map.items():
             try:
-                # Check if container exists and is running
-                check_cmd = ["docker", "ps", "--filter", f"name={container_name}", "--format", "{{.Status}}"]
-                check_result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=5)
+                # Try each possible container name
+                found_container = None
+                status_text = ""
 
-                if check_result.returncode == 0 and check_result.stdout.strip():
-                    status_text = check_result.stdout.strip()
-                    services_status[service_name] = {
-                        "available": True,
-                        "status": status_text,
-                        "container": container_name
-                    }
-                else:
-                    # Check if container exists but is stopped
+                for container_name in container_names:
                     check_all_cmd = ["docker", "ps", "-a", "--filter", f"name={container_name}", "--format", "{{.Status}}"]
                     check_all_result = subprocess.run(check_all_cmd, capture_output=True, text=True, timeout=5)
 
                     if check_all_result.returncode == 0 and check_all_result.stdout.strip():
-                        status_text = f"Container exists but not running: {check_all_result.stdout.strip()}"
-                        services_status[service_name] = {
-                            "available": False,
-                            "status": status_text,
-                            "container": container_name
-                        }
-                    else:
-                        services_status[service_name] = {
-                            "available": False,
-                            "status": "Container not found",
-                            "container": container_name
-                        }
+                        # Container exists - we can get logs from it
+                        found_container = container_name
+                        status_text = check_all_result.stdout.strip()
+                        break
+
+                if found_container:
+                    services_status[service_name] = {
+                        "available": True,
+                        "status": status_text,
+                        "container": found_container
+                    }
+                else:
+                    services_status[service_name] = {
+                        "available": False,
+                        "status": "Container not found",
+                        "container": container_names[0]  # Use first name as example
+                    }
             except Exception as e:
-                logger.error(f"Error checking container {container_name}: {e}")
+                logger.error(f"Error checking container {service_name}: {e}")
                 services_status[service_name] = {
                     "available": False,
                     "status": f"Error checking status: {str(e)}",
-                    "container": container_name
+                    "container": container_names[0]
                 }
 
         # Check system logs availability

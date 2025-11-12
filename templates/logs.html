@@ -329,6 +329,8 @@
                         throw new Error(data.detail || 'Failed to load logs');
                     }
 
+                    console.log('Log data received:', data);
+
                     // Update status info
                     const statusInfo = document.getElementById('status-info');
                     statusInfo.textContent = `Service: ${data.service} | Requested: ${data.lines_requested} lines | Returned: ${data.lines_returned} lines | Timestamp: ${new Date(data.timestamp).toLocaleString()}`;
@@ -348,19 +350,29 @@
             }
 
             formatLogs(logLines) {
+                console.log('Formatting logs:', logLines);
+
                 if (!logLines || logLines.length === 0) {
-                    return '<div class="log-line">No logs available.</div>';
+                    return '<div class="log-line" style="color: #666;">No logs available.</div>';
                 }
 
-                return logLines.map(line => {
+                // Filter out empty lines and ensure we have content
+                const filteredLines = logLines.filter(line => line && line.trim().length > 0);
+
+                if (filteredLines.length === 0) {
+                    return '<div class="log-line" style="color: #666;">No log content available (logs may be empty).</div>';
+                }
+
+                return filteredLines.map(line => {
                     let cssClass = 'log-line';
 
                     // Basic log level detection
-                    if (line.toLowerCase().includes('error') || line.toLowerCase().includes('exception')) {
+                    const lowerLine = line.toLowerCase();
+                    if (lowerLine.includes('error') || lowerLine.includes('exception') || lowerLine.includes('critical')) {
                         cssClass += ' error';
-                    } else if (line.toLowerCase().includes('warning') || line.toLowerCase().includes('warn')) {
+                    } else if (lowerLine.includes('warning') || lowerLine.includes('warn')) {
                         cssClass += ' warning';
-                    } else if (line.toLowerCase().includes('info')) {
+                    } else if (lowerLine.includes('info')) {
                         cssClass += ' info';
                     }
 
