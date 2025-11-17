@@ -1,8 +1,9 @@
-{% extends "base.html" %}
-{% block title %}Gas Tracking{% endblock %}
-
-{% block extra_css %}
-<link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet" />
+{% extends "base.html" %} {% block title %}Gas Tracking{% endblock %} {% block
+extra_css %}
+<link
+  href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css"
+  rel="stylesheet"
+/>
 <style>
   /* Gas Tracking Page Styles */
   .gas-hero {
@@ -178,9 +179,7 @@
     display: inline-block;
   }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid py-4">
   <!-- Hero Section -->
   <div class="gas-hero">
@@ -231,7 +230,12 @@
               <span class="form-section-icon">🚗</span>
               Vehicle
             </div>
-            <select class="form-select" id="vehicle-select" name="imei" required>
+            <select
+              class="form-select"
+              id="vehicle-select"
+              name="imei"
+              required
+            >
               <option value="">Select Vehicle...</option>
             </select>
           </div>
@@ -273,8 +277,10 @@
             </div>
             <div id="fillup-map"></div>
             <div class="location-info" id="location-info">
-              <strong>Location:</strong> <span id="location-text">Loading...</span><br />
-              <strong>Odometer:</strong> <span id="odometer-display">--</span> miles
+              <strong>Location:</strong>
+              <span id="location-text">Loading...</span><br />
+              <strong>Odometer:</strong>
+              <span id="odometer-display">--</span> miles
             </div>
           </div>
 
@@ -366,7 +372,11 @@
                 ></textarea>
               </div>
             </div>
-            <div id="calculated-mpg" class="calculated-value" style="display: none">
+            <div
+              id="calculated-mpg"
+              class="calculated-value"
+              style="display: none"
+            >
               Calculated MPG: <span id="mpg-value">--</span>
             </div>
           </div>
@@ -374,7 +384,10 @@
           <!-- Submit Button -->
           <button type="submit" class="btn-save w-100">
             Save Fill-Up
-            <span class="loading-spinner spinner-border spinner-border-sm" role="status">
+            <span
+              class="loading-spinner spinner-border spinner-border-sm"
+              role="status"
+            >
               <span class="visually-hidden">Loading...</span>
             </span>
           </button>
@@ -393,9 +406,7 @@
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_scripts %}
+{% endblock %} {% block extra_scripts %}
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
 <script src="{{ url_for('static', path='js/gas_tracking.js') }}"></script>
 {% endblock %}

@@ -41,14 +41,14 @@
     const toggleSecretBtn = document.getElementById("toggleClientSecret");
     if (toggleSecretBtn) {
       toggleSecretBtn.addEventListener("click", () =>
-        togglePasswordVisibility("clientSecret", "toggleClientSecret")
+        togglePasswordVisibility("clientSecret", "toggleClientSecret"),
       );
     }
 
     const toggleAuthBtn = document.getElementById("toggleAuthCode");
     if (toggleAuthBtn) {
       toggleAuthBtn.addEventListener("click", () =>
-        togglePasswordVisibility("authorizationCode", "toggleAuthCode")
+        togglePasswordVisibility("authorizationCode", "toggleAuthCode"),
       );
     }
 
@@ -65,20 +65,32 @@
 
     const mobileAddDeviceBtn = document.getElementById("mobile-addDeviceBtn");
     if (mobileAddDeviceBtn) {
-      mobileAddDeviceBtn.addEventListener("click", () => addDeviceInput("mobile"));
-    }
-
-    const mobileToggleSecretBtn = document.getElementById("mobile-toggleClientSecret");
-    if (mobileToggleSecretBtn) {
-      mobileToggleSecretBtn.addEventListener("click", () =>
-        togglePasswordVisibility("mobile-clientSecret", "mobile-toggleClientSecret")
+      mobileAddDeviceBtn.addEventListener("click", () =>
+        addDeviceInput("mobile"),
       );
     }
 
-    const mobileToggleAuthBtn = document.getElementById("mobile-toggleAuthCode");
+    const mobileToggleSecretBtn = document.getElementById(
+      "mobile-toggleClientSecret",
+    );
+    if (mobileToggleSecretBtn) {
+      mobileToggleSecretBtn.addEventListener("click", () =>
+        togglePasswordVisibility(
+          "mobile-clientSecret",
+          "mobile-toggleClientSecret",
+        ),
+      );
+    }
+
+    const mobileToggleAuthBtn = document.getElementById(
+      "mobile-toggleAuthCode",
+    );
     if (mobileToggleAuthBtn) {
       mobileToggleAuthBtn.addEventListener("click", () =>
-        togglePasswordVisibility("mobile-authorizationCode", "mobile-toggleAuthCode")
+        togglePasswordVisibility(
+          "mobile-authorizationCode",
+          "mobile-toggleAuthCode",
+        ),
       );
     }
   }
@@ -87,7 +99,9 @@
    * Initialize mobile section toggles
    */
   function initializeMobileToggles() {
-    const headers = document.querySelectorAll(".mobile-settings-section-header");
+    const headers = document.querySelectorAll(
+      ".mobile-settings-section-header",
+    );
     headers.forEach((header) => {
       header.addEventListener("click", function () {
         const content = this.nextElementSibling;
@@ -122,7 +136,7 @@
       } else {
         showStatus(
           "No credentials found. Please enter your Bouncie credentials.",
-          "warning"
+          "warning",
         );
       }
     } catch (error) {
@@ -167,22 +181,31 @@
     const fetchConcurrencyInput = document.getElementById("fetchConcurrency");
 
     if (clientIdInput) clientIdInput.value = credentials.client_id || "";
-    if (clientSecretInput) clientSecretInput.value = credentials.client_secret || "";
-    if (redirectUriInput) redirectUriInput.value = credentials.redirect_uri || "";
-    if (authCodeInput) authCodeInput.value = credentials.authorization_code || "";
+    if (clientSecretInput)
+      clientSecretInput.value = credentials.client_secret || "";
+    if (redirectUriInput)
+      redirectUriInput.value = credentials.redirect_uri || "";
+    if (authCodeInput)
+      authCodeInput.value = credentials.authorization_code || "";
     if (fetchConcurrencyInput)
       fetchConcurrencyInput.value = credentials.fetch_concurrency || "12";
 
     // Mobile form
     const mobileClientIdInput = document.getElementById("mobile-clientId");
-    const mobileClientSecretInput = document.getElementById("mobile-clientSecret");
-    const mobileRedirectUriInput = document.getElementById("mobile-redirectUri");
-    const mobileAuthCodeInput = document.getElementById("mobile-authorizationCode");
+    const mobileClientSecretInput = document.getElementById(
+      "mobile-clientSecret",
+    );
+    const mobileRedirectUriInput =
+      document.getElementById("mobile-redirectUri");
+    const mobileAuthCodeInput = document.getElementById(
+      "mobile-authorizationCode",
+    );
     const mobileFetchConcurrencyInput = document.getElementById(
-      "mobile-fetchConcurrency"
+      "mobile-fetchConcurrency",
     );
 
-    if (mobileClientIdInput) mobileClientIdInput.value = credentials.client_id || "";
+    if (mobileClientIdInput)
+      mobileClientIdInput.value = credentials.client_id || "";
     if (mobileClientSecretInput)
       mobileClientSecretInput.value = credentials.client_secret || "";
     if (mobileRedirectUriInput)
@@ -198,13 +221,16 @@
 
     // Add CSS class for masked fields
     if (masked) {
-      if (clientSecretInput) clientSecretInput.classList.add("credential-masked");
+      if (clientSecretInput)
+        clientSecretInput.classList.add("credential-masked");
       if (authCodeInput) authCodeInput.classList.add("credential-masked");
       if (mobileClientSecretInput)
         mobileClientSecretInput.classList.add("credential-masked");
-      if (mobileAuthCodeInput) mobileAuthCodeInput.classList.add("credential-masked");
+      if (mobileAuthCodeInput)
+        mobileAuthCodeInput.classList.add("credential-masked");
     } else {
-      if (clientSecretInput) clientSecretInput.classList.remove("credential-masked");
+      if (clientSecretInput)
+        clientSecretInput.classList.remove("credential-masked");
       if (authCodeInput) authCodeInput.classList.remove("credential-masked");
       if (mobileClientSecretInput)
         mobileClientSecretInput.classList.remove("credential-masked");
@@ -307,17 +333,22 @@
 
     // Collect form data
     const clientId = document.getElementById(`${prefix}clientId`).value.trim();
-    const clientSecret = document.getElementById(`${prefix}clientSecret`).value.trim();
-    const redirectUri = document.getElementById(`${prefix}redirectUri`).value.trim();
+    const clientSecret = document
+      .getElementById(`${prefix}clientSecret`)
+      .value.trim();
+    const redirectUri = document
+      .getElementById(`${prefix}redirectUri`)
+      .value.trim();
     const authorizationCode = document
       .getElementById(`${prefix}authorizationCode`)
       .value.trim();
     const fetchConcurrency =
-      document.getElementById(`${prefix}fetchConcurrency`)?.value.trim() || "12";
+      document.getElementById(`${prefix}fetchConcurrency`)?.value.trim() ||
+      "12";
 
     // Collect devices
     const deviceInputs = document.querySelectorAll(
-      `#${isMobile ? "mobile-" : ""}devicesList input`
+      `#${isMobile ? "mobile-" : ""}devicesList input`,
     );
     const devices = Array.from(deviceInputs)
       .map((input) => input.value.trim())
@@ -330,7 +361,11 @@
     }
 
     if (devices.length === 0) {
-      showStatus("At least one authorized device is required", "error", isMobile);
+      showStatus(
+        "At least one authorized device is required",
+        "error",
+        isMobile,
+      );
       return;
     }
 
@@ -366,12 +401,16 @@
         showStatus(
           `Error saving credentials: ${data.detail || data.message || "Unknown error"}`,
           "error",
-          isMobile
+          isMobile,
         );
       }
     } catch (error) {
       console.error("Error saving credentials:", error);
-      showStatus(`Error saving credentials: ${error.message}`, "error", isMobile);
+      showStatus(
+        `Error saving credentials: ${error.message}`,
+        "error",
+        isMobile,
+      );
     }
   }
 
@@ -462,37 +501,44 @@
    * Load and display vehicles
    */
   async function loadVehicles() {
-    const vehiclesList = document.getElementById('vehiclesList');
+    const vehiclesList = document.getElementById("vehiclesList");
 
     try {
-      const response = await fetch('/api/vehicles?active_only=false');
-      if (!response.ok) throw new Error('Failed to load vehicles');
+      const response = await fetch("/api/vehicles?active_only=false");
+      if (!response.ok) throw new Error("Failed to load vehicles");
 
       const vehicles = await response.json();
 
       if (vehicles.length === 0) {
-        vehiclesList.innerHTML = '<p class="text-center text-muted py-3">No vehicles found. Add one to get started!</p>';
+        vehiclesList.innerHTML =
+          '<p class="text-center text-muted py-3">No vehicles found. Add one to get started!</p>';
         return;
       }
 
-      vehiclesList.innerHTML = vehicles.map(vehicle => createVehicleItem(vehicle)).join('');
+      vehiclesList.innerHTML = vehicles
+        .map((vehicle) => createVehicleItem(vehicle))
+        .join("");
 
       // Add event listeners
-      vehicles.forEach(vehicle => {
+      vehicles.forEach((vehicle) => {
         const saveBtn = document.getElementById(`save-vehicle-${vehicle.imei}`);
-        const deleteBtn = document.getElementById(`delete-vehicle-${vehicle.imei}`);
+        const deleteBtn = document.getElementById(
+          `delete-vehicle-${vehicle.imei}`,
+        );
 
         if (saveBtn) {
-          saveBtn.addEventListener('click', () => saveVehicle(vehicle.imei));
+          saveBtn.addEventListener("click", () => saveVehicle(vehicle.imei));
         }
         if (deleteBtn) {
-          deleteBtn.addEventListener('click', () => deleteVehicle(vehicle.imei));
+          deleteBtn.addEventListener("click", () =>
+            deleteVehicle(vehicle.imei),
+          );
         }
       });
-
     } catch (error) {
-      console.error('Error loading vehicles:', error);
-      vehiclesList.innerHTML = '<p class="text-center text-danger py-3">Error loading vehicles</p>';
+      console.error("Error loading vehicles:", error);
+      vehiclesList.innerHTML =
+        '<p class="text-center text-danger py-3">Error loading vehicles</p>';
     }
   }
 
@@ -514,18 +560,18 @@
           <div class="col-md-4">
             <label class="form-label small">Custom Name</label>
             <input type="text" class="form-control form-control-sm" id="name-${vehicle.imei}"
-                   value="${vehicle.custom_name || ''}" placeholder="My Vehicle" />
+                   value="${vehicle.custom_name || ""}" placeholder="My Vehicle" />
           </div>
           <div class="col-md-2">
             <label class="form-label small">VIN</label>
             <input type="text" class="form-control form-control-sm" id="vin-${vehicle.imei}"
-                   value="${vehicle.vin || ''}" placeholder="VIN" readonly />
+                   value="${vehicle.vin || ""}" placeholder="VIN" readonly />
           </div>
           <div class="col-md-2">
             <label class="form-label small">Status ${statusBadge}</label>
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="active-${vehicle.imei}"
-                     ${vehicle.is_active ? 'checked' : ''} />
+                     ${vehicle.is_active ? "checked" : ""} />
               <label class="form-check-label small" for="active-${vehicle.imei}">Active</label>
             </div>
           </div>
@@ -555,28 +601,27 @@
         imei: imei,
         custom_name: nameInput.value || null,
         vin: vinInput.value || null,
-        is_active: activeInput.checked
+        is_active: activeInput.checked,
       };
 
       const response = await fetch(`/api/vehicles/${imei}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(vehicleData)
+        body: JSON.stringify(vehicleData),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || 'Failed to save vehicle');
+        throw new Error(error.detail || "Failed to save vehicle");
       }
 
-      showStatus('Vehicle updated successfully!', 'success');
+      showStatus("Vehicle updated successfully!", "success");
       await loadVehicles();
-
     } catch (error) {
-      console.error('Error saving vehicle:', error);
-      showStatus(error.message || 'Failed to save vehicle', 'error');
+      console.error("Error saving vehicle:", error);
+      showStatus(error.message || "Failed to save vehicle", "error");
     }
   }
 
@@ -584,26 +629,29 @@
    * Delete vehicle
    */
   async function deleteVehicle(imei) {
-    if (!confirm('Are you sure you want to delete this vehicle? This will mark it as inactive.')) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this vehicle? This will mark it as inactive.",
+      )
+    ) {
       return;
     }
 
     try {
       const response = await fetch(`/api/vehicles/${imei}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || 'Failed to delete vehicle');
+        throw new Error(error.detail || "Failed to delete vehicle");
       }
 
-      showStatus('Vehicle deleted successfully!', 'success');
+      showStatus("Vehicle deleted successfully!", "success");
       await loadVehicles();
-
     } catch (error) {
-      console.error('Error deleting vehicle:', error);
-      showStatus(error.message || 'Failed to delete vehicle', 'error');
+      console.error("Error deleting vehicle:", error);
+      showStatus(error.message || "Failed to delete vehicle", "error");
     }
   }
 
@@ -611,7 +659,7 @@
    * Add new vehicle
    */
   async function addNewVehicle() {
-    const imei = prompt('Enter vehicle IMEI:');
+    const imei = prompt("Enter vehicle IMEI:");
     if (!imei) return;
 
     try {
@@ -619,35 +667,34 @@
         imei: imei.trim(),
         custom_name: null,
         vin: null,
-        is_active: true
+        is_active: true,
       };
 
-      const response = await fetch('/api/vehicles', {
-        method: 'POST',
+      const response = await fetch("/api/vehicles", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(vehicleData)
+        body: JSON.stringify(vehicleData),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || 'Failed to add vehicle');
+        throw new Error(error.detail || "Failed to add vehicle");
       }
 
-      showStatus('Vehicle added successfully!', 'success');
+      showStatus("Vehicle added successfully!", "success");
       await loadVehicles();
-
     } catch (error) {
-      console.error('Error adding vehicle:', error);
-      showStatus(error.message || 'Failed to add vehicle', 'error');
+      console.error("Error adding vehicle:", error);
+      showStatus(error.message || "Failed to add vehicle", "error");
     }
   }
 
   // Initialize vehicle management
-  const addVehicleBtn = document.getElementById('addVehicleBtn');
+  const addVehicleBtn = document.getElementById("addVehicleBtn");
   if (addVehicleBtn) {
-    addVehicleBtn.addEventListener('click', addNewVehicle);
+    addVehicleBtn.addEventListener("click", addNewVehicle);
 
     // Load vehicles on page load
     loadVehicles();
