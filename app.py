@@ -16,6 +16,7 @@ from coverage_api import router as coverage_api_router
 from db import db_manager, init_database
 from driving_routes import router as driving_routes_router
 from export_api import router as export_api_router
+from gas_tracking import router as gas_tracking_router
 from live_tracking import initialize_db as initialize_live_tracking_db
 from live_tracking_api import router as live_tracking_api_router
 from logs_api import router as logs_api_router
@@ -93,6 +94,7 @@ app.include_router(analytics_api_router)
 app.include_router(coverage_api_router)
 app.include_router(driving_routes_router)
 app.include_router(export_api_router)
+app.include_router(gas_tracking_router)
 app.include_router(live_tracking_api_router)
 app.include_router(logs_api_router)
 app.include_router(matched_trips_api_router)

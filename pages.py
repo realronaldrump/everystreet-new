@@ -158,3 +158,9 @@ async def driving_navigation_page(request: Request):
         request,
         MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
     )
+
+
+@router.get("/gas-tracking", response_class=HTMLResponse)
+async def gas_tracking_page(request: Request):
+    """Render the gas tracking page."""
+    return _render_page("gas_tracking.html", request)

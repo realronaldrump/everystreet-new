@@ -169,3 +169,57 @@ class NoActiveTripResponse(BaseModel):
 
 
 ActiveTripResponseUnion = ActiveTripSuccessResponse | NoActiveTripResponse
+
+
+class GasFillupModel(BaseModel):
+    """Model for gas fill-up records."""
+
+    id: PyObjectId = Field(alias="_id", default=None)
+    imei: str  # Vehicle/device identifier
+    fillup_time: datetime  # When the fill-up occurred
+    location: dict[str, Any] | None = (
+        None  # Location of gas station (address, coordinates)
+    )
+    price_per_gallon: float  # Price per gallon
+    gallons: float  # Amount of gas purchased
+    total_cost: float  # Total cost of fill-up
+    odometer: float  # Odometer reading at fill-up
+    is_full_tank: bool = True  # Whether this was a full tank fill-up
+    notes: str | None = None  # Optional notes
+    previous_fillup_id: PyObjectId | None = None  # Link to previous fill-up
+    trip_since_last_fillup: dict[str, Any] | None = None  # Stats since last fill-up
+    calculated_mpg: float | None = None  # Calculated MPG since last fill-up
+    created_at: datetime | None = None  # When record was created
+    updated_at: datetime | None = None  # When record was last updated
+
+    class Config:
+        populate_by_name = True
+        extra = "allow"
+
+
+class GasFillupCreateModel(BaseModel):
+    """Model for creating a new gas fill-up record."""
+
+    imei: str
+    fillup_time: datetime | str
+    location: dict[str, Any] | None = None
+    price_per_gallon: float
+    gallons: float
+    odometer: float
+    is_full_tank: bool = True
+    notes: str | None = None
+
+
+class GasStatisticsModel(BaseModel):
+    """Model for gas consumption statistics."""
+
+    imei: str
+    total_fillups: int
+    total_gallons: float
+    total_cost: float
+    average_price_per_gallon: float
+    average_mpg: float | None = None
+    best_mpg: float | None = None
+    worst_mpg: float | None = None
+    total_distance: float | None = None
+    date_range: dict[str, datetime] | None = None
