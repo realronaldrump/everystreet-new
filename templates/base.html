@@ -343,6 +343,18 @@
                       Server Logs
                     </a>
                   </li>
+                  <li role="separator"><hr class="dropdown-divider" /></li>
+                  <li role="none">
+                    <a
+                      class="dropdown-item {% if request.url.path == '/vehicle-management' %}active{% endif %}"
+                      href="/vehicle-management"
+                      role="menuitem"
+                      {% if request.url.path == '/vehicle-management' %}aria-current="page"{% endif %}
+                    >
+                      <i class="fas fa-car-side me-2" aria-hidden="true"></i>
+                      Vehicle Management
+                    </a>
+                  </li>
                   <li role="none">
                     <a
                       class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
@@ -537,6 +549,15 @@
               >
                 <i class="fas fa-file-alt me-2" aria-hidden="true"></i> Server
                 Logs
+              </a>
+            </li>
+            <li role="none">
+              <a
+                href="/vehicle-management"
+                class="{% if request.url.path == '/vehicle-management' %}active{% endif %}"
+                {% if request.url.path == '/vehicle-management' %}aria-current="page"{% endif %}
+              >
+                <i class="fas fa-car-side me-2" aria-hidden="true"></i> Vehicle Management
               </a>
             </li>
             <li role="none">
