@@ -12,11 +12,12 @@ const mapControlsManager = {
     const mapTypeSelect = uiState.getElement(CONFIG.selectors.mapTypeSelect);
     if (mapTypeSelect) {
       // Default to dark mode, but respect user's stored preference
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
       const defaultMapType = utils.getStorage(CONFIG.storage.mapType) || theme;
       mapTypeSelect.value = defaultMapType;
       mapTypeSelect.addEventListener("change", (e) =>
-        this.updateMapType(e.target.value)
+        this.updateMapType(e.target.value),
       );
     }
     // Note: controls-toggle is handled in app-controller.js using Bootstrap Collapse API
