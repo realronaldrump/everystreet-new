@@ -573,6 +573,7 @@ task_config_collection = _get_collection("task_config")
 task_history_collection = _get_collection("task_history")
 progress_collection = _get_collection("progress_status")
 gas_fillups_collection = _get_collection("gas_fillups")
+vehicles_collection = _get_collection("vehicles")
 
 
 def serialize_datetime(
@@ -1438,6 +1439,33 @@ async def ensure_gas_fillup_indexes() -> None:
         )
 
 
+async def ensure_vehicle_indexes() -> None:
+    """Ensure necessary indexes exist for vehicle data."""
+    logger.debug("Ensuring vehicle indexes exist...")
+    try:
+        # Unique index on imei
+        await db_manager.safe_create_index(
+            "vehicles",
+            [("imei", pymongo.ASCENDING)],
+            name="vehicles_imei_idx",
+            unique=True,
+            background=True,
+        )
+        # Index on is_active for filtering
+        await db_manager.safe_create_index(
+            "vehicles",
+            [("is_active", pymongo.ASCENDING)],
+            name="vehicles_is_active_idx",
+            background=True,
+        )
+        logger.info("Vehicle indexes ensured/created successfully")
+    except Exception as e:
+        logger.error(
+            "Error creating vehicle indexes: %s",
+            str(e),
+        )
+
+
 async def init_database() -> None:
     """Initialize the database by ensuring all collections and indexes exist."""
     logger.info("Initializing database...")
@@ -1448,6 +1476,7 @@ async def init_database() -> None:
     await ensure_location_indexes()
     await ensure_archived_trip_indexes()
     await ensure_gas_fillup_indexes()
+    await ensure_vehicle_indexes()
 
     _ = db_manager.get_collection("places")
     _ = db_manager.get_collection("task_config")
@@ -1456,5 +1485,6 @@ async def init_database() -> None:
     _ = db_manager.get_collection("live_trips")
     _ = db_manager.get_collection("archived_live_trips")
     _ = db_manager.get_collection("gas_fillups")
+    _ = db_manager.get_collection("vehicles")
 
     logger.info("Database initialization complete.")

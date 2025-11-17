@@ -31,6 +31,7 @@ from trip_processor import TripProcessor
 from trips import router as trips_router
 from upload_api import router as upload_api_router
 from utils import cleanup_session
+from vehicle_api import router as vehicle_api_router
 from visits import init_collections
 from visits import router as visits_router
 
@@ -104,6 +105,7 @@ app.include_router(search_api_router)
 app.include_router(tasks_api_router)
 app.include_router(trips_router)
 app.include_router(upload_api_router)
+app.include_router(vehicle_api_router)
 app.include_router(visits_router)
 
 

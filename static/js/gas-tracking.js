@@ -71,22 +71,14 @@ class GasTrackingManager {
 
   async loadVehicles() {
     try {
-      // Get unique IMEIs from trips
-      const response = await fetch("/api/trips");
+      // Sync vehicles from trips first
+      await fetch("/api/vehicles/sync-from-trips", { method: "POST" });
+
+      // Get vehicles from API
+      const response = await fetch("/api/vehicles?active_only=true");
       if (!response.ok) throw new Error("Failed to load vehicles");
 
-      const data = await response.json();
-      const imeis = new Set();
-
-      if (data.features && Array.isArray(data.features)) {
-        data.features.forEach((feature) => {
-          if (feature.properties?.imei) {
-            imeis.add(feature.properties.imei);
-          }
-        });
-      }
-
-      this.vehicles = Array.from(imeis).sort();
+      this.vehicles = await response.json();
 
       // Populate vehicle select
       const vehicleSelect = document.getElementById("vehicle-select");
@@ -97,17 +89,18 @@ class GasTrackingManager {
           vehicleSelect.innerHTML = '<option value="">No vehicles found</option>';
         } else {
           vehicleSelect.innerHTML = '<option value="">Select a vehicle...</option>';
-          this.vehicles.forEach((imei) => {
+          this.vehicles.forEach((vehicle) => {
             const option = document.createElement("option");
-            option.value = imei;
-            option.textContent = `Vehicle ${imei}`;
+            option.value = vehicle.imei;
+            option.textContent = vehicle.custom_name;
+            option.dataset.vin = vehicle.vin || "";
             vehicleSelect.appendChild(option);
           });
 
           // Auto-select first vehicle
           if (this.vehicles.length > 0) {
-            vehicleSelect.value = this.vehicles[0];
-            this.currentVehicle = this.vehicles[0];
+            vehicleSelect.value = this.vehicles[0].imei;
+            this.currentVehicle = this.vehicles[0].imei;
           }
         }
       }
@@ -215,7 +208,6 @@ class GasTrackingManager {
         gallons: parseFloat(document.getElementById("gallons").value),
         odometer: parseFloat(document.getElementById("odometer").value),
         is_full_tank: document.getElementById("is-full-tank").checked,
-        notes: document.getElementById("notes").value || null,
       };
 
       const response = await fetch("/api/gas-fillups", {
@@ -547,7 +539,6 @@ class GasTrackingManager {
     document.getElementById("edit-price-per-gallon").value = fillup.price_per_gallon;
     document.getElementById("edit-gallons").value = fillup.gallons;
     document.getElementById("edit-odometer").value = fillup.odometer;
-    document.getElementById("edit-notes").value = fillup.notes || "";
 
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById("edit-fillup-modal"));
@@ -630,7 +621,6 @@ class GasTrackingManager {
         gallons: parseFloat(document.getElementById("edit-gallons").value),
         odometer: parseFloat(document.getElementById("edit-odometer").value),
         is_full_tank: fillup.is_full_tank,
-        notes: document.getElementById("edit-notes").value || null,
         location: fillup.location,
       };
 

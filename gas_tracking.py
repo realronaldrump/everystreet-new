@@ -212,7 +212,6 @@ async def create_fillup(fillup_data: GasFillupCreateModel):
             "total_cost": round(total_cost, 2),
             "odometer": fillup_data.odometer,
             "is_full_tank": fillup_data.is_full_tank,
-            "notes": fillup_data.notes,
             "previous_fillup_id": (previous_fillup["_id"] if previous_fillup else None),
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC),
@@ -396,7 +395,6 @@ async def update_fillup(fillup_id: str, fillup_data: GasFillupCreateModel):
             "total_cost": round(total_cost, 2),
             "odometer": fillup_data.odometer,
             "is_full_tank": fillup_data.is_full_tank,
-            "notes": fillup_data.notes,
             "previous_fillup_id": (previous_fillup["_id"] if previous_fillup else None),
             "updated_at": datetime.now(UTC),
         }

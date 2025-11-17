@@ -207,7 +207,6 @@ class GasFillupCreateModel(BaseModel):
     gallons: float
     odometer: float
     is_full_tank: bool = True
-    notes: str | None = None
 
 
 class GasStatisticsModel(BaseModel):
@@ -223,3 +222,34 @@ class GasStatisticsModel(BaseModel):
     worst_mpg: float | None = None
     total_distance: float | None = None
     date_range: dict[str, datetime] | None = None
+
+
+class VehicleModel(BaseModel):
+    """Model for vehicle information."""
+
+    id: PyObjectId = Field(alias="_id", default=None)
+    imei: str  # Device IMEI (unique identifier)
+    vin: str | None = None  # Vehicle Identification Number from Bouncie
+    custom_name: str  # User-provided name (e.g., "My Toyota Camry")
+    make: str | None = None  # Vehicle make (from Bouncie)
+    model: str | None = None  # Vehicle model (from Bouncie)
+    year: int | None = None  # Vehicle year (from Bouncie)
+    is_active: bool = True  # Whether vehicle is actively being tracked
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    class Config:
+        populate_by_name = True
+        extra = "allow"
+
+
+class VehicleCreateModel(BaseModel):
+    """Model for creating/updating a vehicle."""
+
+    imei: str
+    custom_name: str
+    vin: str | None = None
+    make: str | None = None
+    model: str | None = None
+    year: int | None = None
+    is_active: bool = True
