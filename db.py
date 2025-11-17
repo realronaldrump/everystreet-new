@@ -572,6 +572,7 @@ archived_live_trips_collection = _get_collection("archived_live_trips")
 task_config_collection = _get_collection("task_config")
 task_history_collection = _get_collection("task_history")
 progress_collection = _get_collection("progress_status")
+gas_fillups_collection = _get_collection("gas_fillups")
 
 
 def serialize_datetime(
@@ -1394,6 +1395,49 @@ async def ensure_archived_trip_indexes() -> None:
     logger.info("Indexes ensured for '%s'.", collection_name)
 
 
+async def ensure_gas_fillup_indexes() -> None:
+    """Ensure necessary indexes exist for gas fillup data."""
+    logger.debug("Ensuring gas fillup indexes exist...")
+    try:
+        # Index on imei for filtering by vehicle
+        await db_manager.safe_create_index(
+            "gas_fillups",
+            [("imei", pymongo.ASCENDING)],
+            name="gas_fillups_imei_idx",
+            background=True,
+        )
+        # Index on fillup_time for chronological queries
+        await db_manager.safe_create_index(
+            "gas_fillups",
+            [("fillup_time", pymongo.DESCENDING)],
+            name="gas_fillups_time_desc_idx",
+            background=True,
+        )
+        # Compound index for vehicle + time queries
+        await db_manager.safe_create_index(
+            "gas_fillups",
+            [
+                ("imei", pymongo.ASCENDING),
+                ("fillup_time", pymongo.DESCENDING),
+            ],
+            name="gas_fillups_imei_time_idx",
+            background=True,
+        )
+        # Index on odometer for range queries
+        await db_manager.safe_create_index(
+            "gas_fillups",
+            [("odometer", pymongo.ASCENDING)],
+            name="gas_fillups_odometer_idx",
+            background=True,
+        )
+        logger.info("Gas fillup indexes ensured/created successfully")
+    except Exception as e:
+        logger.error(
+            "Error creating gas fillup indexes: %s",
+            str(e),
+        )
+
+
 async def init_database() -> None:
     """Initialize the database by ensuring all collections and indexes exist."""
     logger.info("Initializing database...")
@@ -1403,6 +1447,7 @@ async def init_database() -> None:
     await ensure_street_coverage_indexes()
     await ensure_location_indexes()
     await ensure_archived_trip_indexes()
+    await ensure_gas_fillup_indexes()
 
     _ = db_manager.get_collection("places")
     _ = db_manager.get_collection("task_config")
@@ -1410,5 +1455,6 @@ async def init_database() -> None:
     _ = db_manager.get_collection("osm_data")
     _ = db_manager.get_collection("live_trips")
     _ = db_manager.get_collection("archived_live_trips")
+    _ = db_manager.get_collection("gas_fillups")
 
     logger.info("Database initialization complete.")
