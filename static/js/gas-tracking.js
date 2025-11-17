@@ -74,8 +74,8 @@ class GasTrackingManager {
 
   async loadVehicles() {
     try {
-      // Sync vehicles from trips first
-      await fetch("/api/vehicles/sync-from-trips", { method: "POST" });
+      // Sync vehicles from Bouncie API first (falls back to trips if needed)
+      await fetch("/api/vehicles/sync-from-bouncie", { method: "POST" });
 
       // Get vehicles from API
       const response = await fetch("/api/vehicles?active_only=true");

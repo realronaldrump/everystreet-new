@@ -7,10 +7,12 @@ including custom names, VINs, and active status.
 import logging
 from datetime import UTC, datetime
 
+import aiohttp
 import pymongo
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
 
+from config import API_BASE_URL, get_bouncie_config
 from db import (
     delete_one_with_retry,
     find_one_with_retry,
@@ -22,9 +24,79 @@ from db import (
     vehicles_collection,
 )
 from models import VehicleCreateModel, VehicleModel
+from utils import get_session, retry_async
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@retry_async(max_retries=3, retry_delay=1.5)
+async def get_access_token(
+    session: aiohttp.ClientSession,
+    credentials: dict,
+) -> str | None:
+    """Get an access token from the Bouncie API using OAuth.
+
+    Args:
+        session: aiohttp session to use for the request
+        credentials: Dictionary containing client_id, client_secret,
+                    authorization_code, and redirect_uri
+
+    Returns:
+        Access token string or None if failed
+    """
+    from config import AUTH_URL
+
+    payload = {
+        "client_id": credentials.get("client_id"),
+        "client_secret": credentials.get("client_secret"),
+        "grant_type": "authorization_code",
+        "code": credentials.get("authorization_code"),
+        "redirect_uri": credentials.get("redirect_uri"),
+    }
+
+    try:
+        async with session.post(AUTH_URL, data=payload) as response:
+            response.raise_for_status()
+            data = await response.json()
+            access_token = data.get("access_token")
+            if not access_token:
+                logger.error("Access token not found in response")
+                return None
+            return access_token
+    except Exception as e:
+        logger.error(f"Error retrieving access token: {e}")
+        return None
+
+
+@retry_async(max_retries=3, retry_delay=1.5)
+async def fetch_bouncie_vehicles(
+    session: aiohttp.ClientSession, token: str
+) -> list[dict]:
+    """Fetch all vehicles from Bouncie API.
+
+    Args:
+        session: aiohttp session to use for the request
+        token: Access token for Bouncie API
+
+    Returns:
+        List of vehicle data dictionaries from Bouncie
+    """
+    headers = {
+        "Authorization": token,
+        "Content-Type": "application/json",
+    }
+    url = f"{API_BASE_URL}/vehicles"
+
+    try:
+        async with session.get(url, headers=headers) as response:
+            response.raise_for_status()
+            vehicles = await response.json()
+            logger.info(f"Fetched {len(vehicles)} vehicles from Bouncie API")
+            return vehicles
+    except Exception as e:
+        logger.error(f"Error fetching vehicles from Bouncie: {e}")
+        return []
 
 
 @router.get("/api/vehicles", tags=["Vehicles"])
@@ -299,11 +371,124 @@ async def delete_vehicle(vehicle_id: str):
         )
 
 
+@router.post("/api/vehicles/sync-from-bouncie", tags=["Vehicles"])
+async def sync_vehicles_from_bouncie():
+    """Sync vehicles from Bouncie API.
+
+    Fetches comprehensive vehicle data from Bouncie including VIN, make, model, year,
+    and updates existing records or creates new ones.
+
+    Returns:
+        Summary of vehicles synced
+    """
+    try:
+        # Get Bouncie credentials
+        credentials = await get_bouncie_config()
+
+        # Get access token
+        async with get_session() as session:
+            access_token = await get_access_token(session, credentials)
+            if not access_token:
+                logger.warning(
+                    "Could not get Bouncie access token, falling back to basic sync"
+                )
+                return await sync_vehicles_from_trips()
+
+            # Fetch vehicles from Bouncie API
+            bouncie_vehicles = await fetch_bouncie_vehicles(session, access_token)
+
+        if not bouncie_vehicles:
+            logger.warning("No vehicles returned from Bouncie, falling back to basic sync")
+            return await sync_vehicles_from_trips()
+
+        # Get existing vehicles from database
+        existing_vehicles = await find_with_retry(vehicles_collection, {})
+        existing_by_imei = {v["imei"]: v for v in existing_vehicles}
+
+        created_count = 0
+        updated_count = 0
+
+        for bouncie_vehicle in bouncie_vehicles:
+            imei = bouncie_vehicle.get("imei")
+            if not imei:
+                continue
+
+            # Extract vehicle information from Bouncie
+            model_info = bouncie_vehicle.get("model", {})
+            make = model_info.get("make")
+            model = model_info.get("name")
+            year = model_info.get("year")
+            vin = bouncie_vehicle.get("vin")
+            nickname = bouncie_vehicle.get("nickName")
+
+            # Use Bouncie nickname if available, otherwise create a friendly name
+            if nickname:
+                default_name = nickname
+            elif make and model and year:
+                default_name = f"{year} {make} {model}"
+            elif make and model:
+                default_name = f"{make} {model}"
+            else:
+                default_name = f"Vehicle {imei}"
+
+            vehicle_data = {
+                "imei": imei,
+                "vin": vin,
+                "make": make,
+                "model": model,
+                "year": year,
+                "updated_at": datetime.now(UTC),
+            }
+
+            if imei in existing_by_imei:
+                # Update existing vehicle
+                existing = existing_by_imei[imei]
+
+                # Only update custom_name if it's still the default format
+                if (
+                    not existing.get("custom_name")
+                    or existing.get("custom_name", "").startswith("Vehicle ")
+                ):
+                    vehicle_data["custom_name"] = default_name
+
+                # Update the vehicle
+                await update_one_with_retry(
+                    vehicles_collection,
+                    {"imei": imei},
+                    {"$set": vehicle_data},
+                )
+                updated_count += 1
+                logger.info(f"Updated vehicle {imei}: {default_name}")
+            else:
+                # Create new vehicle
+                vehicle_data["custom_name"] = default_name
+                vehicle_data["is_active"] = True
+                vehicle_data["created_at"] = datetime.now(UTC)
+
+                await insert_one_with_retry(vehicles_collection, vehicle_data)
+                created_count += 1
+                logger.info(f"Created vehicle {imei}: {default_name}")
+
+        return {
+            "message": "Vehicles synced successfully from Bouncie",
+            "total_bouncie_vehicles": len(bouncie_vehicles),
+            "new_vehicles_created": created_count,
+            "existing_vehicles_updated": updated_count,
+        }
+
+    except Exception as e:
+        logger.error(f"Error syncing vehicles from Bouncie: {str(e)}")
+        # Fall back to basic sync on error
+        logger.info("Falling back to basic trip-based sync")
+        return await sync_vehicles_from_trips()
+
+
 @router.post("/api/vehicles/sync-from-trips", tags=["Vehicles"])
 async def sync_vehicles_from_trips():
-    """Sync vehicles from trip data.
+    """Sync vehicles from trip data (fallback method).
 
-    Creates vehicle records for any IMEIs found in trips that don't have vehicle records yet.
+    Creates basic vehicle records for any IMEIs found in trips that don't have
+    vehicle records yet. This is a fallback when Bouncie API is not available.
 
     Returns:
         Summary of vehicles synced
@@ -339,7 +524,7 @@ async def sync_vehicles_from_trips():
             created_count += 1
 
         return {
-            "message": "Vehicles synced successfully",
+            "message": "Vehicles synced from trips (basic sync)",
             "total_imeis": len(imeis),
             "existing_vehicles": len(existing_imeis),
             "new_vehicles_created": created_count,

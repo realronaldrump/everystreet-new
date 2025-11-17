@@ -68,7 +68,7 @@ class VehicleManager {
               <i class="fas fa-car fa-3x mb-3 text-muted"></i>
               <p class="text-muted mb-3">No vehicles found</p>
               <button class="btn btn-primary" onclick="vehicleManager.syncVehicles()">
-                <i class="fas fa-sync me-2"></i>Sync from Trips
+                <i class="fas fa-sync me-2"></i>Sync from Bouncie
               </button>
             </div>
           </div>
@@ -264,7 +264,7 @@ class VehicleManager {
     }
 
     try {
-      const response = await fetch("/api/vehicles/sync-from-trips", {
+      const response = await fetch("/api/vehicles/sync-from-bouncie", {
         method: "POST",
       });
 
@@ -274,12 +274,13 @@ class VehicleManager {
 
       const result = await response.json();
 
+      let message = result.message;
+      if (result.new_vehicles_created > 0 || result.existing_vehicles_updated > 0) {
+        message = `Synced from Bouncie: ${result.new_vehicles_created} new, ${result.existing_vehicles_updated} updated`;
+      }
+
       if (typeof handleError === "function") {
-        handleError(
-          null,
-          `Synced ${result.new_vehicles_created} new vehicles from trips`,
-          "success"
-        );
+        handleError(null, message, "success");
       }
 
       await this.loadVehicles();
@@ -291,7 +292,7 @@ class VehicleManager {
     } finally {
       if (syncBtn) {
         syncBtn.disabled = false;
-        syncBtn.innerHTML = '<i class="fas fa-sync me-2"></i>Sync from Trips';
+        syncBtn.innerHTML = '<i class="fas fa-sync me-2"></i>Sync from Bouncie';
       }
     }
   }
