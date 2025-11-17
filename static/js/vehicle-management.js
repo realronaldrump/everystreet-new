@@ -20,25 +20,33 @@ class VehicleManager {
 
   initializeEventListeners() {
     // Add vehicle button
-    document.getElementById("add-vehicle-btn")?.addEventListener("click", () => {
-      this.showAddModal();
-    });
+    document
+      .getElementById("add-vehicle-btn")
+      ?.addEventListener("click", () => {
+        this.showAddModal();
+      });
 
     // Sync vehicles button
-    document.getElementById("sync-vehicles-btn")?.addEventListener("click", async () => {
-      await this.syncVehicles();
-    });
+    document
+      .getElementById("sync-vehicles-btn")
+      ?.addEventListener("click", async () => {
+        await this.syncVehicles();
+      });
 
     // Save vehicle button
-    document.getElementById("save-vehicle-btn")?.addEventListener("click", async () => {
-      await this.saveVehicle();
-    });
+    document
+      .getElementById("save-vehicle-btn")
+      ?.addEventListener("click", async () => {
+        await this.saveVehicle();
+      });
 
     // Form submission
-    document.getElementById("vehicle-form")?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      await this.saveVehicle();
-    });
+    document
+      .getElementById("vehicle-form")
+      ?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await this.saveVehicle();
+      });
   }
 
   async loadVehicles() {
@@ -169,7 +177,8 @@ class VehicleManager {
     const saveBtn = document.getElementById("save-vehicle-btn");
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+      saveBtn.innerHTML =
+        '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
     }
 
     try {
@@ -206,7 +215,7 @@ class VehicleManager {
         handleError(
           null,
           `Vehicle ${isEdit ? "updated" : "added"} successfully!`,
-          "success"
+          "success",
         );
       }
 
@@ -230,7 +239,7 @@ class VehicleManager {
     if (!vehicle) return;
 
     const confirmed = confirm(
-      `Are you sure you want to delete "${vehicle.custom_name}"?`
+      `Are you sure you want to delete "${vehicle.custom_name}"?`,
     );
     if (!confirmed) return;
 
@@ -260,7 +269,8 @@ class VehicleManager {
     const syncBtn = document.getElementById("sync-vehicles-btn");
     if (syncBtn) {
       syncBtn.disabled = true;
-      syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Syncing...';
+      syncBtn.innerHTML =
+        '<i class="fas fa-spinner fa-spin me-2"></i>Syncing...';
     }
 
     try {
@@ -278,7 +288,7 @@ class VehicleManager {
         handleError(
           null,
           `Synced ${result.new_vehicles_created} new vehicles from trips`,
-          "success"
+          "success",
         );
       }
 
