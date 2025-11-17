@@ -75,6 +75,16 @@ async def visits_page(request: Request):
     )
 
 
+@router.get("/gas-tracking", response_class=HTMLResponse)
+async def gas_tracking_page(request: Request):
+    """Render gas tracking page."""
+    return _render_page(
+        "gas_tracking.html",
+        request,
+        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+    )
+
+
 @router.get("/export", response_class=HTMLResponse)
 async def export_page(request: Request):
     """Render export page."""
