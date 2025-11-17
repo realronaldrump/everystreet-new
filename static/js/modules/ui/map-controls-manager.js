@@ -82,7 +82,6 @@ const mapControlsManager = {
       console.error("Error updating map type:", error);
     }
   },
-
 };
 
 if (!window.mapControlsManager) window.mapControlsManager = mapControlsManager;
