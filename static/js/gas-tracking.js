@@ -33,6 +33,8 @@ class GasTrackingManager {
     this.statistics = null;
     this.isInitialized = false;
     this.isMobile = window.innerWidth <= 768;
+    this.map = null;
+    this.locationMarker = null;
 
     // Listen for window resize
     window.addEventListener("resize", () => {
@@ -51,6 +53,7 @@ class GasTrackingManager {
       await waitForDependencies();
 
       await this.loadVehicles();
+      this.initializeMap();
       this.initializeForm();
       this.initializeTable();
       this.initializeEventListeners();
@@ -112,6 +115,27 @@ class GasTrackingManager {
     }
   }
 
+  initializeMap() {
+    if (!window.MAPBOX_ACCESS_TOKEN || typeof mapboxgl === "undefined") {
+      console.warn("Mapbox not available");
+      return;
+    }
+
+    mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+
+    const mapContainer = document.getElementById("fillup-map");
+    if (mapContainer) {
+      this.map = new mapboxgl.Map({
+        container: "fillup-map",
+        style: "mapbox://styles/mapbox/streets-v12",
+        center: [-98.5795, 39.8283], // Center of US
+        zoom: 3,
+      });
+
+      this.map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    }
+  }
+
   initializeForm() {
     const form = document.getElementById("fillup-form");
     if (!form) return;
@@ -126,6 +150,11 @@ class GasTrackingManager {
       const hours = String(now.getHours()).padStart(2, "0");
       const minutes = String(now.getMinutes()).padStart(2, "0");
       fillupTimeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+      // Add event listener for time changes to detect location
+      fillupTimeInput.addEventListener("change", async () => {
+        await this.detectLocationAtTime();
+      });
     }
 
     // Calculate total cost on input change
@@ -193,6 +222,119 @@ class GasTrackingManager {
     }
   }
 
+  async detectLocationAtTime() {
+    if (!this.currentVehicle) {
+      return;
+    }
+
+    const fillupTimeInput = document.getElementById("fillup-time");
+    const odometerInput = document.getElementById("odometer");
+    const locationTextInput = document.getElementById("location-text");
+    const locationStatus = document.getElementById("location-status");
+
+    if (!fillupTimeInput || !fillupTimeInput.value) {
+      return;
+    }
+
+    // Show loading state
+    if (locationTextInput) {
+      locationTextInput.value = "Detecting location...";
+    }
+    if (locationStatus) {
+      locationStatus.textContent = "Searching for vehicle location...";
+      locationStatus.className = "text-muted";
+    }
+
+    try {
+      // Convert datetime-local value to ISO format
+      const timestamp = new Date(fillupTimeInput.value).toISOString();
+
+      const response = await fetch(
+        `/api/vehicle-location-at-time?imei=${encodeURIComponent(
+          this.currentVehicle
+        )}&timestamp=${encodeURIComponent(timestamp)}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to detect location");
+      }
+
+      const data = await response.json();
+
+      // Update odometer
+      if (data.odometer && odometerInput) {
+        odometerInput.value = data.odometer.toFixed(1);
+      }
+
+      // Update location text
+      if (locationTextInput) {
+        locationTextInput.value =
+          data.location?.formatted_address ||
+          data.location?.display_name ||
+          `${data.coordinates[1].toFixed(6)}, ${data.coordinates[0].toFixed(6)}`;
+      }
+
+      // Update location status
+      if (locationStatus) {
+        locationStatus.textContent = data.source
+          ? `Location detected from ${data.source}`
+          : "Location detected";
+        locationStatus.className = "text-success";
+      }
+
+      // Update map
+      this.updateMapLocation(data.coordinates, data.location);
+    } catch (error) {
+      console.error("Error detecting location:", error);
+
+      // Show error state
+      if (locationTextInput) {
+        locationTextInput.value = "Location not available";
+      }
+      if (locationStatus) {
+        locationStatus.textContent =
+          "Could not find vehicle location at this time";
+        locationStatus.className = "text-warning";
+      }
+    }
+  }
+
+  updateMapLocation(coordinates, location) {
+    if (!this.map || !coordinates || coordinates.length !== 2) {
+      return;
+    }
+
+    const [lng, lat] = coordinates;
+
+    // Remove existing marker
+    if (this.locationMarker) {
+      this.locationMarker.remove();
+    }
+
+    // Add new marker
+    this.locationMarker = new mapboxgl.Marker({ color: "#1a73e8" })
+      .setLngLat([lng, lat])
+      .addTo(this.map);
+
+    // Add popup if we have location details
+    if (location) {
+      const popupContent =
+        location.formatted_address || location.display_name || "Fill-up location";
+      this.locationMarker.setPopup(
+        new mapboxgl.Popup({ offset: 25 }).setHTML(
+          `<div style="padding: 8px;"><strong>${popupContent}</strong></div>`
+        )
+      );
+    }
+
+    // Center and zoom to location
+    this.map.flyTo({
+      center: [lng, lat],
+      zoom: 15,
+      duration: 1500,
+    });
+  }
+
   async submitFillup() {
     const submitBtn = document.getElementById("submit-fillup-btn");
     if (submitBtn) {
@@ -201,6 +343,18 @@ class GasTrackingManager {
     }
 
     try {
+      // Get location data if available
+      let locationData = null;
+      if (this.locationMarker) {
+        const lngLat = this.locationMarker.getLngLat();
+        const locationText = document.getElementById("location-text");
+        locationData = {
+          type: "Point",
+          coordinates: [lngLat.lng, lngLat.lat],
+          formatted_address: locationText ? locationText.value : null,
+        };
+      }
+
       const formData = {
         imei: document.getElementById("vehicle-select").value,
         fillup_time: document.getElementById("fillup-time").value,
@@ -208,6 +362,7 @@ class GasTrackingManager {
         gallons: parseFloat(document.getElementById("gallons").value),
         odometer: parseFloat(document.getElementById("odometer").value),
         is_full_tank: document.getElementById("is-full-tank").checked,
+        location: locationData,
       };
 
       const response = await fetch("/api/gas-fillups", {
@@ -231,6 +386,32 @@ class GasTrackingManager {
       document.getElementById("fillup-time").value = new Date()
         .toISOString()
         .slice(0, 16);
+
+      // Clear location data
+      const locationTextInput = document.getElementById("location-text");
+      const locationStatus = document.getElementById("location-status");
+      if (locationTextInput) {
+        locationTextInput.value = "";
+        locationTextInput.placeholder = "Select fill-up time to detect location...";
+      }
+      if (locationStatus) {
+        locationStatus.textContent = "";
+      }
+
+      // Remove map marker
+      if (this.locationMarker) {
+        this.locationMarker.remove();
+        this.locationMarker = null;
+      }
+
+      // Reset map view
+      if (this.map) {
+        this.map.flyTo({
+          center: [-98.5795, 39.8283],
+          zoom: 3,
+          duration: 1000,
+        });
+      }
 
       // Reload data
       await this.loadFillups();

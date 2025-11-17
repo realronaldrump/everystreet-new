@@ -708,3 +708,133 @@ async def get_trip_gas_cost(trip_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error calculating trip gas cost: {str(e)}",
         )
+
+
+@router.get("/api/vehicle-location-at-time", tags=["Gas Tracking"])
+async def get_vehicle_location_at_time(imei: str, timestamp: str):
+    """Get vehicle location and odometer at a specific time.
+
+    Args:
+        imei: Vehicle identifier
+        timestamp: ISO timestamp to query
+
+    Returns:
+        Location, odometer, and coordinates at that time
+    """
+    try:
+        # Parse timestamp
+        query_time = normalize_to_utc_datetime(timestamp)
+        if not query_time:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid timestamp format",
+            )
+
+        # Find trip that was active at this time or closest to it
+        # First, try to find a trip that includes this timestamp
+        active_trip = await find_one_with_retry(
+            trips_collection,
+            {
+                "imei": imei,
+                "startTime": {"$lte": query_time},
+                "endTime": {"$gte": query_time},
+                "endOdometer": {"$exists": True},
+            },
+            projection={
+                "endOdometer": 1,
+                "startOdometer": 1,
+                "destination": 1,
+                "gps": 1,
+                "startTime": 1,
+                "endTime": 1,
+            },
+            sort=[("endTime", pymongo.DESCENDING)],
+        )
+
+        if active_trip:
+            # Trip was active at this time
+            # Try to interpolate odometer based on position in trip
+            start_time = active_trip["startTime"]
+            end_time = active_trip["endTime"]
+            start_odo = active_trip.get("startOdometer", 0)
+            end_odo = active_trip.get("endOdometer", 0)
+
+            # Calculate position ratio in trip
+            total_duration = (end_time - start_time).total_seconds()
+            elapsed_duration = (query_time - start_time).total_seconds()
+
+            if total_duration > 0:
+                ratio = elapsed_duration / total_duration
+                estimated_odo = start_odo + ((end_odo - start_odo) * ratio)
+            else:
+                estimated_odo = end_odo
+
+            # Get coordinates from GPS track
+            coordinates = None
+            if active_trip.get("gps") and active_trip["gps"].get("coordinates"):
+                coords = active_trip["gps"]["coordinates"]
+                # Get coordinates at the ratio position
+                if len(coords) > 0:
+                    index = int(len(coords) * ratio)
+                    index = min(index, len(coords) - 1)
+                    coordinates = coords[index]
+
+            return {
+                "found": True,
+                "odometer": round(estimated_odo, 1),
+                "location": active_trip.get("destination"),
+                "coordinates": coordinates,
+                "trip_status": "active",
+                "timestamp": query_time.isoformat(),
+            }
+
+        # If no active trip, find the closest trip that ended before this time
+        closest_trip = await find_one_with_retry(
+            trips_collection,
+            {
+                "imei": imei,
+                "endTime": {"$lte": query_time},
+                "endOdometer": {"$exists": True},
+            },
+            projection={
+                "endOdometer": 1,
+                "destination": 1,
+                "gps": 1,
+                "endTime": 1,
+            },
+            sort=[("endTime", pymongo.DESCENDING)],
+        )
+
+        if closest_trip:
+            # Get last coordinates from GPS track
+            coordinates = None
+            if closest_trip.get("gps") and closest_trip["gps"].get("coordinates"):
+                coords = closest_trip["gps"]["coordinates"]
+                if len(coords) > 0:
+                    coordinates = coords[-1]  # Last point
+
+            return {
+                "found": True,
+                "odometer": round(closest_trip["endOdometer"], 1),
+                "location": closest_trip.get("destination"),
+                "coordinates": coordinates,
+                "trip_status": "completed",
+                "trip_end_time": closest_trip["endTime"].isoformat(),
+                "timestamp": query_time.isoformat(),
+            }
+
+        # No trips found
+        return {
+            "found": False,
+            "message": "No trip data found for this vehicle at or before the specified time",
+            "timestamp": query_time.isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting vehicle location at time: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting vehicle location: {str(e)}",
+        )

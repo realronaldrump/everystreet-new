@@ -4,6 +4,10 @@ endblock %} {% block extra_css %}
   rel="stylesheet"
   href="{{ url_for('static', path='css/gas-tracking.css') | replace('http://', '//') }}"
 />
+<link
+  href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
+  rel="stylesheet"
+/>
 {% endblock %} {% block content %}
 <div class="container-fluid px-4 py-3">
   <div class="page-header mb-4">
@@ -170,16 +174,22 @@ endblock %} {% block extra_css %}
           <!-- Location -->
           <div class="col-12">
             <label for="location-text" class="form-label">
-              <i class="fas fa-map-marker-alt me-1"></i>Location (Optional)
+              <i class="fas fa-map-marker-alt me-1"></i>Location
             </label>
             <input
               type="text"
               class="form-control"
               id="location-text"
-              placeholder="Auto-detected from trips"
+              placeholder="Select fill-up time to detect location..."
               readonly
             />
             <small class="text-muted" id="location-status"></small>
+          </div>
+
+          <!-- Location Map -->
+          <div class="col-12">
+            <div id="fillup-map" style="height: 250px; border-radius: 8px; border: 1px solid var(--border-color);"></div>
+            <small class="text-muted">Vehicle location at selected time</small>
           </div>
 
           <!-- Calculated Total -->
@@ -318,5 +328,9 @@ endblock %} {% block extra_css %}
 </div>
 
 {% endblock %} {% block extra_js %}
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+<script>
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
 <script src="{{ url_for('static', path='js/gas-tracking.js') | replace('http://', '//') }}"></script>
 {% endblock %}
