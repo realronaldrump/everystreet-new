@@ -292,8 +292,7 @@ class GasTrackingManager {
         locationTextInput.value = "Location not available";
       }
       if (locationStatus) {
-        locationStatus.textContent =
-          "Could not find vehicle location at this time";
+        locationStatus.textContent = "Could not find vehicle location at this time";
         locationStatus.className = "text-warning";
       }
     }

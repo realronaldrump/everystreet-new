@@ -25,9 +25,11 @@ class VehicleManager {
     });
 
     // Sync vehicles button
-    document.getElementById("sync-vehicles-btn")?.addEventListener("click", async () => {
-      await this.syncVehicles();
-    });
+    document
+      .getElementById("sync-vehicles-btn")
+      ?.addEventListener("click", async () => {
+        await this.syncVehicles();
+      });
 
     // Save vehicle button
     document.getElementById("save-vehicle-btn")?.addEventListener("click", async () => {
@@ -180,7 +182,7 @@ class VehicleManager {
         make: document.getElementById("vehicle-make").value.trim() || null,
         model: document.getElementById("vehicle-model").value.trim() || null,
         year: document.getElementById("vehicle-year").value
-          ? parseInt(document.getElementById("vehicle-year").value)
+          ? parseInt(document.getElementById("vehicle-year").value, 10)
           : null,
         is_active: document.getElementById("vehicle-active").checked,
       };
@@ -192,7 +194,7 @@ class VehicleManager {
       const method = isEdit ? "PUT" : "POST";
 
       const response = await fetch(url, {
-        method: method,
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });

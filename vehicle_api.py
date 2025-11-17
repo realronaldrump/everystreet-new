@@ -21,7 +21,7 @@ from db import (
     update_one_with_retry,
     vehicles_collection,
 )
-from models import VehicleCreateModel, VehicleModel
+from models import VehicleCreateModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
