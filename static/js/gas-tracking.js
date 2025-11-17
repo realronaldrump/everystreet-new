@@ -86,9 +86,11 @@ class GasTrackingManager {
         vehicleSelect.innerHTML = "";
 
         if (this.vehicles.length === 0) {
-          vehicleSelect.innerHTML = '<option value="">No vehicles found</option>';
+          vehicleSelect.innerHTML =
+            '<option value="">No vehicles found</option>';
         } else {
-          vehicleSelect.innerHTML = '<option value="">Select a vehicle...</option>';
+          vehicleSelect.innerHTML =
+            '<option value="">Select a vehicle...</option>';
           this.vehicles.forEach((vehicle) => {
             const option = document.createElement("option");
             option.value = vehicle.imei;
@@ -175,7 +177,9 @@ class GasTrackingManager {
     if (!this.currentVehicle) return;
 
     try {
-      const response = await fetch(`/api/latest-odometer/${this.currentVehicle}`);
+      const response = await fetch(
+        `/api/latest-odometer/${this.currentVehicle}`,
+      );
       if (!response.ok) throw new Error("Failed to load odometer");
 
       const data = await response.json();
@@ -197,14 +201,17 @@ class GasTrackingManager {
     const submitBtn = document.getElementById("submit-fillup-btn");
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+      submitBtn.innerHTML =
+        '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
     }
 
     try {
       const formData = {
         imei: document.getElementById("vehicle-select").value,
         fillup_time: document.getElementById("fillup-time").value,
-        price_per_gallon: parseFloat(document.getElementById("price-per-gallon").value),
+        price_per_gallon: parseFloat(
+          document.getElementById("price-per-gallon").value,
+        ),
         gallons: parseFloat(document.getElementById("gallons").value),
         odometer: parseFloat(document.getElementById("odometer").value),
         is_full_tank: document.getElementById("is-full-tank").checked,
@@ -258,7 +265,7 @@ class GasTrackingManager {
 
     try {
       const response = await fetch(
-        `/api/gas-fillups?imei=${this.currentVehicle}&limit=100`
+        `/api/gas-fillups?imei=${this.currentVehicle}&limit=100`,
       );
       if (!response.ok) throw new Error("Failed to load fill-ups");
 
@@ -279,7 +286,9 @@ class GasTrackingManager {
     }
 
     try {
-      const response = await fetch(`/api/gas-statistics?imei=${this.currentVehicle}`);
+      const response = await fetch(
+        `/api/gas-statistics?imei=${this.currentVehicle}`,
+      );
       if (!response.ok) throw new Error("Failed to load statistics");
 
       this.statistics = await response.json();
@@ -536,18 +545,21 @@ class GasTrackingManager {
 
     // Populate modal form
     document.getElementById("edit-fillup-id").value = fillup._id;
-    document.getElementById("edit-price-per-gallon").value = fillup.price_per_gallon;
+    document.getElementById("edit-price-per-gallon").value =
+      fillup.price_per_gallon;
     document.getElementById("edit-gallons").value = fillup.gallons;
     document.getElementById("edit-odometer").value = fillup.odometer;
 
     // Show modal
-    const modal = new bootstrap.Modal(document.getElementById("edit-fillup-modal"));
+    const modal = new bootstrap.Modal(
+      document.getElementById("edit-fillup-modal"),
+    );
     modal.show();
   }
 
   async deleteFillup(id) {
     const confirmDelete = confirm(
-      "Are you sure you want to delete this fill-up record?"
+      "Are you sure you want to delete this fill-up record?",
     );
     if (!confirmDelete) return;
 
@@ -608,7 +620,8 @@ class GasTrackingManager {
     const saveBtn = document.getElementById("save-edit-fillup-btn");
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+      saveBtn.innerHTML =
+        '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
     }
 
     try {
@@ -616,7 +629,7 @@ class GasTrackingManager {
         imei: fillup.imei,
         fillup_time: fillup.fillup_time,
         price_per_gallon: parseFloat(
-          document.getElementById("edit-price-per-gallon").value
+          document.getElementById("edit-price-per-gallon").value,
         ),
         gallons: parseFloat(document.getElementById("edit-gallons").value),
         odometer: parseFloat(document.getElementById("edit-odometer").value),
@@ -641,7 +654,7 @@ class GasTrackingManager {
 
       // Close modal
       const modal = bootstrap.Modal.getInstance(
-        document.getElementById("edit-fillup-modal")
+        document.getElementById("edit-fillup-modal"),
       );
       if (modal) modal.hide();
 
