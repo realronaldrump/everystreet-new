@@ -583,6 +583,78 @@ async def get_gas_statistics(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/api/vehicles/sync-from-trips")
+async def sync_vehicles_from_trips() -> dict[str, Any]:
+    """Sync vehicles from trip data - creates vehicle records with VIN info from trips."""
+    try:
+        # Get unique vehicles from trips
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$imei",
+                    "vin": {"$first": "$vin"},
+                    "latest_trip": {"$max": "$endTime"},
+                }
+            },
+            {"$match": {"_id": {"$ne": None}}},
+        ]
+
+        trip_vehicles = await aggregate_with_retry(trips_collection, pipeline)
+
+        synced_count = 0
+        updated_count = 0
+
+        for tv in trip_vehicles:
+            imei = tv["_id"]
+            vin = tv.get("vin")
+
+            if not imei:
+                continue
+
+            # Check if vehicle exists
+            existing = await find_one_with_retry(
+                vehicles_collection, {"imei": imei}
+            )
+
+            if existing:
+                # Update VIN if we have it and it's not set
+                if vin and not existing.get("vin"):
+                    await update_one_with_retry(
+                        vehicles_collection,
+                        {"imei": imei},
+                        {
+                            "$set": {
+                                "vin": vin,
+                                "updated_at": datetime.now(timezone.utc),
+                            }
+                        },
+                    )
+                    updated_count += 1
+            else:
+                # Create new vehicle
+                vehicle_doc = {
+                    "imei": imei,
+                    "vin": vin,
+                    "custom_name": None,
+                    "is_active": True,
+                    "created_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(timezone.utc),
+                }
+                await insert_one_with_retry(vehicles_collection, vehicle_doc)
+                synced_count += 1
+
+        return {
+            "status": "success",
+            "synced": synced_count,
+            "updated": updated_count,
+            "total_vehicles": len(trip_vehicles),
+        }
+
+    except Exception as e:
+        logger.error(f"Error syncing vehicles: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/api/trip-gas-cost")
 async def calculate_trip_gas_cost(
     trip_id: str = Query(..., description="Trip transaction ID or ObjectId"),

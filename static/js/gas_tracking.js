@@ -74,6 +74,13 @@ async function initializeMap() {
  */
 async function loadVehicles() {
     try {
+        // First sync vehicles from trips to ensure they exist
+        try {
+            await fetch('/api/vehicles/sync-from-trips', { method: 'POST' });
+        } catch (syncError) {
+            console.warn('Failed to sync vehicles:', syncError);
+        }
+
         const response = await fetch('/api/vehicles?active_only=true');
         if (!response.ok) throw new Error('Failed to load vehicles');
 
@@ -82,10 +89,16 @@ async function loadVehicles() {
         const vehicleSelect = document.getElementById('vehicle-select');
         vehicleSelect.innerHTML = '<option value="">Select Vehicle...</option>';
 
+        if (vehicles.length === 0) {
+            vehicleSelect.innerHTML = '<option value="">No vehicles found - check profile settings</option>';
+            return;
+        }
+
         vehicles.forEach(vehicle => {
             const option = document.createElement('option');
             option.value = vehicle.imei;
-            option.textContent = vehicle.custom_name || `Vehicle ${vehicle.imei}`;
+            const displayName = vehicle.custom_name || (vehicle.vin ? `VIN: ${vehicle.vin}` : `IMEI: ${vehicle.imei}`);
+            option.textContent = displayName;
             option.dataset.vin = vehicle.vin || '';
             vehicleSelect.appendChild(option);
         });

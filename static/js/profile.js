@@ -465,13 +465,20 @@
     const vehiclesList = document.getElementById('vehiclesList');
 
     try {
+      // First, sync vehicles from trips to ensure VINs are populated
+      try {
+        await fetch('/api/vehicles/sync-from-trips', { method: 'POST' });
+      } catch (syncError) {
+        console.warn('Failed to sync vehicles:', syncError);
+      }
+
       const response = await fetch('/api/vehicles?active_only=false');
       if (!response.ok) throw new Error('Failed to load vehicles');
 
       const vehicles = await response.json();
 
       if (vehicles.length === 0) {
-        vehiclesList.innerHTML = '<p class="text-center text-muted py-3">No vehicles found. Add one to get started!</p>';
+        vehiclesList.innerHTML = '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Trips" to auto-discover vehicles.</p>';
         return;
       }
 
@@ -505,25 +512,25 @@
       : '<span class="badge bg-secondary">Inactive</span>';
 
     return `
-      <div class="device-list-item mb-3" id="vehicle-${vehicle.imei}">
-        <div class="row g-2 w-100">
-          <div class="col-md-4">
-            <label class="form-label small">IMEI</label>
-            <input type="text" class="form-control form-control-sm" value="${vehicle.imei}" readonly />
+      <div class="vehicle-item-container" id="vehicle-${vehicle.imei}">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label small text-muted">IMEI</label>
+            <input type="text" class="form-control form-control-sm" value="${vehicle.imei}" readonly style="background: rgba(0,0,0,0.2);" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small text-muted">VIN</label>
+            <input type="text" class="form-control form-control-sm" value="${vehicle.vin || 'N/A'}" readonly style="background: rgba(0,0,0,0.2);" />
           </div>
           <div class="col-md-4">
-            <label class="form-label small">Custom Name</label>
+            <label class="form-label small text-muted">Custom Name</label>
             <input type="text" class="form-control form-control-sm" id="name-${vehicle.imei}"
-                   value="${vehicle.custom_name || ''}" placeholder="My Vehicle" />
+                   value="${vehicle.custom_name || ''}" placeholder="Enter friendly name..." />
           </div>
           <div class="col-md-2">
-            <label class="form-label small">VIN</label>
-            <input type="text" class="form-control form-control-sm" id="vin-${vehicle.imei}"
-                   value="${vehicle.vin || ''}" placeholder="VIN" readonly />
-          </div>
-          <div class="col-md-2">
-            <label class="form-label small">Status ${statusBadge}</label>
-            <div class="form-check form-switch">
+            <label class="form-label small text-muted">Status</label>
+            <div>${statusBadge}</div>
+            <div class="form-check form-switch mt-1">
               <input class="form-check-input" type="checkbox" id="active-${vehicle.imei}"
                      ${vehicle.is_active ? 'checked' : ''} />
               <label class="form-check-label small" for="active-${vehicle.imei}">Active</label>
@@ -531,10 +538,10 @@
           </div>
           <div class="col-12">
             <button type="button" class="btn btn-sm btn-primary" id="save-vehicle-${vehicle.imei}">
-              <i class="fas fa-save"></i> Save
+              <i class="fas fa-save"></i> Save Changes
             </button>
-            <button type="button" class="btn btn-sm btn-danger" id="delete-vehicle-${vehicle.imei}">
-              <i class="fas fa-trash"></i> Delete
+            <button type="button" class="btn btn-sm btn-outline-danger" id="delete-vehicle-${vehicle.imei}">
+              <i class="fas fa-trash"></i> Deactivate
             </button>
           </div>
         </div>
@@ -547,14 +554,12 @@
    */
   async function saveVehicle(imei) {
     const nameInput = document.getElementById(`name-${imei}`);
-    const vinInput = document.getElementById(`vin-${imei}`);
     const activeInput = document.getElementById(`active-${imei}`);
 
     try {
       const vehicleData = {
         imei: imei,
         custom_name: nameInput.value || null,
-        vin: vinInput.value || null,
         is_active: activeInput.checked
       };
 
