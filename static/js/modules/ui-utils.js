@@ -39,7 +39,8 @@ if (!utils.measureScrollbarWidth) {
 }
 
 if (!utils.showNotification) {
-  utils.showNotification = (...args) => window.notificationManager?.show?.(...args);
+  utils.showNotification = (...args) =>
+    window.notificationManager?.show?.(...args);
 }
 
 export { utils as default };
