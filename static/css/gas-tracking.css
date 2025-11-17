@@ -456,7 +456,10 @@
 
 /* Form Collapse Animation */
 #fillup-form-container {
-  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+  transition:
+    max-height 0.3s ease,
+    opacity 0.3s ease,
+    padding 0.3s ease;
   max-height: 2000px;
   opacity: 1;
 }

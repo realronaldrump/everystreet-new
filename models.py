@@ -177,7 +177,9 @@ class GasFillupModel(BaseModel):
     id: PyObjectId = Field(alias="_id", default=None)
     imei: str  # Vehicle/device identifier
     fillup_time: datetime  # When the fill-up occurred
-    location: dict[str, Any] | None = None  # Location of gas station (address, coordinates)
+    location: dict[str, Any] | None = (
+        None  # Location of gas station (address, coordinates)
+    )
     price_per_gallon: float  # Price per gallon
     gallons: float  # Amount of gas purchased
     total_cost: float  # Total cost of fill-up

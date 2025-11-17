@@ -1,17 +1,16 @@
-{% extends "base.html" %}
-{% block title %}Every Street - Gas Tracking{% endblock %}
-{% block extra_css %}
+{% extends "base.html" %} {% block title %}Every Street - Gas Tracking{%
+endblock %} {% block extra_css %}
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/gas-tracking.css') | replace('http://', '//') }}"
 />
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid px-4 py-3">
   <div class="page-header mb-4">
     <h1 class="mb-2">Gas Tracking</h1>
-    <p class="text-muted">Track fuel consumption, calculate MPG, and analyze driving costs</p>
+    <p class="text-muted">
+      Track fuel consumption, calculate MPG, and analyze driving costs
+    </p>
   </div>
 
   <!-- Statistics Cards -->
@@ -93,7 +92,12 @@
             <label for="fillup-time" class="form-label">
               <i class="fas fa-clock me-1"></i>Fill-Up Time
             </label>
-            <input type="datetime-local" class="form-control" id="fillup-time" required />
+            <input
+              type="datetime-local"
+              class="form-control"
+              id="fillup-time"
+              required
+            />
           </div>
 
           <!-- Price Per Gallon -->
@@ -151,7 +155,12 @@
           <!-- Full Tank Checkbox -->
           <div class="col-12 col-md-6">
             <div class="form-check mt-4">
-              <input class="form-check-input" type="checkbox" id="is-full-tank" checked />
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="is-full-tank"
+                checked
+              />
               <label class="form-check-label" for="is-full-tank">
                 Full tank fill-up
               </label>
@@ -197,7 +206,11 @@
 
           <!-- Submit Button -->
           <div class="col-12">
-            <button type="submit" class="btn btn-primary w-100" id="submit-fillup-btn">
+            <button
+              type="submit"
+              class="btn btn-primary w-100"
+              id="submit-fillup-btn"
+            >
               <i class="fas fa-save me-2"></i>Save Fill-Up
             </button>
           </div>
@@ -209,9 +222,7 @@
   <!-- Fill-Ups History -->
   <div class="card">
     <div class="card-header">
-      <h5 class="mb-0">
-        <i class="fas fa-history me-2"></i>Fill-Up History
-      </h5>
+      <h5 class="mb-0"><i class="fas fa-history me-2"></i>Fill-Up History</h5>
     </div>
     <div class="card-body">
       <div class="table-responsive">
@@ -246,33 +257,64 @@
 </div>
 
 <!-- Edit Fill-Up Modal -->
-<div class="modal fade" id="edit-fillup-modal" tabindex="-1" aria-labelledby="edit-fillup-modal-label" aria-hidden="true">
+<div
+  class="modal fade"
+  id="edit-fillup-modal"
+  tabindex="-1"
+  aria-labelledby="edit-fillup-modal-label"
+  aria-hidden="true"
+>
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="edit-fillup-modal-label">
           <i class="fas fa-edit me-2"></i>Edit Fill-Up
         </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
       </div>
       <div class="modal-body">
         <form id="edit-fillup-form">
           <input type="hidden" id="edit-fillup-id" />
           <!-- Similar form fields as add form -->
           <div class="mb-3">
-            <label for="edit-price-per-gallon" class="form-label">Price Per Gallon</label>
+            <label for="edit-price-per-gallon" class="form-label"
+              >Price Per Gallon</label
+            >
             <div class="input-group">
               <span class="input-group-text">$</span>
-              <input type="number" class="form-control" id="edit-price-per-gallon" step="0.001" required />
+              <input
+                type="number"
+                class="form-control"
+                id="edit-price-per-gallon"
+                step="0.001"
+                required
+              />
             </div>
           </div>
           <div class="mb-3">
             <label for="edit-gallons" class="form-label">Gallons</label>
-            <input type="number" class="form-control" id="edit-gallons" step="0.01" required />
+            <input
+              type="number"
+              class="form-control"
+              id="edit-gallons"
+              step="0.01"
+              required
+            />
           </div>
           <div class="mb-3">
             <label for="edit-odometer" class="form-label">Odometer</label>
-            <input type="number" class="form-control" id="edit-odometer" step="0.1" required />
+            <input
+              type="number"
+              class="form-control"
+              id="edit-odometer"
+              step="0.1"
+              required
+            />
           </div>
           <div class="mb-3">
             <label for="edit-notes" class="form-label">Notes</label>
@@ -281,7 +323,9 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
         <button type="button" class="btn btn-primary" id="save-edit-fillup-btn">
           <i class="fas fa-save me-2"></i>Save Changes
         </button>
@@ -290,8 +334,6 @@
   </div>
 </div>
 
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', path='js/gas-tracking.js') | replace('http://', '//') }}"></script>
 {% endblock %}

@@ -214,9 +214,7 @@ async def create_fillup(fillup_data: GasFillupCreateModel):
             "odometer": fillup_data.odometer,
             "is_full_tank": fillup_data.is_full_tank,
             "notes": fillup_data.notes,
-            "previous_fillup_id": (
-                previous_fillup["_id"] if previous_fillup else None
-            ),
+            "previous_fillup_id": (previous_fillup["_id"] if previous_fillup else None),
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC),
         }
@@ -400,9 +398,7 @@ async def update_fillup(fillup_id: str, fillup_data: GasFillupCreateModel):
             "odometer": fillup_data.odometer,
             "is_full_tank": fillup_data.is_full_tank,
             "notes": fillup_data.notes,
-            "previous_fillup_id": (
-                previous_fillup["_id"] if previous_fillup else None
-            ),
+            "previous_fillup_id": (previous_fillup["_id"] if previous_fillup else None),
             "updated_at": datetime.now(UTC),
         }
 
@@ -566,7 +562,10 @@ async def get_gas_statistics(
                         ]
                     },
                     "total_distance": {
-                        "$round": [{"$subtract": ["$last_odometer", "$first_odometer"]}, 2]
+                        "$round": [
+                            {"$subtract": ["$last_odometer", "$first_odometer"]},
+                            2,
+                        ]
                     },
                     "date_range": {
                         "start": "$min_fillup_time",
@@ -643,7 +642,9 @@ async def get_trip_gas_cost(trip_id: str):
         # Get trip data
         trip_query = {"transactionId": trip_id}
         if ObjectId.is_valid(trip_id):
-            trip_query = {"$or": [{"transactionId": trip_id}, {"_id": ObjectId(trip_id)}]}
+            trip_query = {
+                "$or": [{"transactionId": trip_id}, {"_id": ObjectId(trip_id)}]
+            }
 
         trip = await find_one_with_retry(trips_collection, trip_query)
 

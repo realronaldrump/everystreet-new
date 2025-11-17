@@ -185,7 +185,7 @@ class GasTrackingManager {
 
     try {
       const response = await fetch(
-        `/api/latest-odometer/${this.currentVehicle}`
+        `/api/latest-odometer/${this.currentVehicle}`,
       );
       if (!response.ok) throw new Error("Failed to load odometer");
 
@@ -217,7 +217,7 @@ class GasTrackingManager {
         imei: document.getElementById("vehicle-select").value,
         fillup_time: document.getElementById("fillup-time").value,
         price_per_gallon: parseFloat(
-          document.getElementById("price-per-gallon").value
+          document.getElementById("price-per-gallon").value,
         ),
         gallons: parseFloat(document.getElementById("gallons").value),
         odometer: parseFloat(document.getElementById("odometer").value),
@@ -243,8 +243,9 @@ class GasTrackingManager {
 
       // Reset form
       document.getElementById("fillup-form").reset();
-      document.getElementById("fillup-time").value =
-        new Date().toISOString().slice(0, 16);
+      document.getElementById("fillup-time").value = new Date()
+        .toISOString()
+        .slice(0, 16);
 
       // Reload data
       await this.loadFillups();
@@ -272,7 +273,7 @@ class GasTrackingManager {
 
     try {
       const response = await fetch(
-        `/api/gas-fillups?imei=${this.currentVehicle}&limit=100`
+        `/api/gas-fillups?imei=${this.currentVehicle}&limit=100`,
       );
       if (!response.ok) throw new Error("Failed to load fill-ups");
 
@@ -294,7 +295,7 @@ class GasTrackingManager {
 
     try {
       const response = await fetch(
-        `/api/gas-statistics?imei=${this.currentVehicle}`
+        `/api/gas-statistics?imei=${this.currentVehicle}`,
       );
       if (!response.ok) throw new Error("Failed to load statistics");
 
@@ -312,10 +313,12 @@ class GasTrackingManager {
     const elements = {
       "stat-total-fillups": stats ? stats.total_fillups : "--",
       "stat-total-cost": stats ? `$${stats.total_cost.toFixed(2)}` : "--",
-      "stat-avg-mpg": stats && stats.average_mpg ? `${stats.average_mpg} mpg` : "--",
-      "stat-current-price": stats && stats.average_price_per_gallon
-        ? `$${stats.average_price_per_gallon.toFixed(3)}/gal`
-        : "--",
+      "stat-avg-mpg":
+        stats && stats.average_mpg ? `${stats.average_mpg} mpg` : "--",
+      "stat-current-price":
+        stats && stats.average_price_per_gallon
+          ? `$${stats.average_price_per_gallon.toFixed(3)}/gal`
+          : "--",
     };
 
     Object.entries(elements).forEach(([id, value]) => {
@@ -562,14 +565,14 @@ class GasTrackingManager {
 
     // Show modal
     const modal = new bootstrap.Modal(
-      document.getElementById("edit-fillup-modal")
+      document.getElementById("edit-fillup-modal"),
     );
     modal.show();
   }
 
   async deleteFillup(id) {
     const confirmDelete = confirm(
-      "Are you sure you want to delete this fill-up record?"
+      "Are you sure you want to delete this fill-up record?",
     );
     if (!confirmDelete) return;
 
@@ -630,7 +633,8 @@ class GasTrackingManager {
     const saveBtn = document.getElementById("save-edit-fillup-btn");
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+      saveBtn.innerHTML =
+        '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
     }
 
     try {
@@ -638,7 +642,7 @@ class GasTrackingManager {
         imei: fillup.imei,
         fillup_time: fillup.fillup_time,
         price_per_gallon: parseFloat(
-          document.getElementById("edit-price-per-gallon").value
+          document.getElementById("edit-price-per-gallon").value,
         ),
         gallons: parseFloat(document.getElementById("edit-gallons").value),
         odometer: parseFloat(document.getElementById("edit-odometer").value),
@@ -664,7 +668,7 @@ class GasTrackingManager {
 
       // Close modal
       const modal = bootstrap.Modal.getInstance(
-        document.getElementById("edit-fillup-modal")
+        document.getElementById("edit-fillup-modal"),
       );
       if (modal) modal.hide();
 
