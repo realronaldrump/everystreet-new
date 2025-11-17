@@ -223,6 +223,18 @@
                 </a>
               </li>
               <li
+                class="nav-item {% if request.url.path == '/gas-tracking' %}active{% endif %}"
+              >
+                <a
+                  href="/gas-tracking"
+                  title="Gas Tracking"
+                  {% if request.url.path == '/gas-tracking' %}aria-current="page"{% endif %}
+                >
+                  <i class="fas fa-gas-pump" aria-hidden="true"></i>
+                  <span>Gas</span>
+                </a>
+              </li>
+              <li
                 class="nav-item {% if request.url.path == '/driving-navigation' %}active{% endif %}"
               >
                 <a
@@ -458,6 +470,16 @@
               >
                 <i class="fas fa-chart-line me-2" aria-hidden="true"></i>
                 Driving Insights
+              </a>
+            </li>
+            <li role="none">
+              <a
+                href="/gas-tracking"
+                class="{% if request.url.path == '/gas-tracking' %}active{% endif %}"
+                {% if request.url.path == '/gas-tracking' %}aria-current="page"{% endif %}
+              >
+                <i class="fas fa-gas-pump me-2" aria-hidden="true"></i>
+                Gas Tracking
               </a>
             </li>
             <li role="none">
