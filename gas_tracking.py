@@ -10,8 +10,7 @@ from typing import Any
 
 import pymongo
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, status
 
 from date_utils import normalize_to_utc_datetime
 from db import (
@@ -25,7 +24,7 @@ from db import (
     trips_collection,
     update_one_with_retry,
 )
-from models import GasFillupCreateModel, GasFillupModel, GasStatisticsModel
+from models import GasFillupCreateModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

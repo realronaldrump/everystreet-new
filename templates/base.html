@@ -194,7 +194,7 @@
                   title="Map"
                   {%
                   if
-                  request.url.path=""
+                  request.url.path ==
                   ="/"
                   %}aria-current="page"
                   {%
@@ -212,7 +212,7 @@
                   title="Trips"
                   {%
                   if
-                  request.url.path=""
+                  request.url.path ==
                   ="/trips"
                   %}aria-current="page"
                   {%
@@ -231,7 +231,7 @@
                   title="Insights"
                   {%
                   if
-                  request.url.path=""
+                  request.url.path ==
                   ="/insights"
                   %}aria-current="page"
                   {%
@@ -250,7 +250,7 @@
                   title="Gas Tracking"
                   {%
                   if
-                  request.url.path=""
+                  request.url.path ==
                   ="/gas-tracking"
                   %}aria-current="page"
                   {%
@@ -269,7 +269,7 @@
                   title="Driving Navigation"
                   {%
                   if
-                  request.url.path=""
+                  request.url.path ==
                   ="/driving-navigation"
                   %}aria-current="page"
                   {%
@@ -301,7 +301,7 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path=""
+                      request.url.path ==
                       ="/edit_trips"
                       %}aria-current="page"
                       {%
@@ -319,7 +319,7 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path=""
+                      request.url.path ==
                       ="/visits"
                       %}aria-current="page"
                       {%
@@ -340,7 +340,7 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path=""
+                      request.url.path ==
                       ="/coverage-management"
                       %}aria-current="page"
                       {%
@@ -361,7 +361,7 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path=""
+                      request.url.path ==
                       ="/export"
                       %}aria-current="page"
                       {%
@@ -379,7 +379,7 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path=""
+                      request.url.path ==
                       ="/upload"
                       %}aria-current="page"
                       {%
@@ -398,7 +398,7 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path=""
+                      request.url.path ==
                       ="/database-management"
                       %}aria-current="page"
                       {%
@@ -416,7 +416,7 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path=""
+                      request.url.path ==
                       ="/server-logs"
                       %}aria-current="page"
                       {%
@@ -434,7 +434,7 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path=""
+                      request.url.path ==
                       ="/settings"
                       %}aria-current="page"
                       {%
@@ -452,7 +452,7 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path=""
+                      request.url.path ==
                       ="/app-settings"
                       %}aria-current="page"
                       {%
@@ -470,7 +470,7 @@
                       role="menuitem"
                       {%
                       if
-                      request.url.path=""
+                      request.url.path ==
                       ="/profile"
                       %}aria-current="page"
                       {%
@@ -535,7 +535,7 @@
                 class="{% if request.url.path == '/' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/"
                 %}aria-current="page"
                 {%
@@ -551,7 +551,7 @@
                 class="{% if request.url.path == '/trips' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/trips"
                 %}aria-current="page"
                 {%
@@ -567,7 +567,7 @@
                 class="{% if request.url.path == '/driving-navigation' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/driving-navigation"
                 %}aria-current="page"
                 {%
@@ -584,7 +584,7 @@
                 class="{% if request.url.path == '/edit_trips' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/edit_trips"
                 %}aria-current="page"
                 {%
@@ -600,7 +600,7 @@
                 class="{% if request.url.path == '/insights' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/insights"
                 %}aria-current="page"
                 {%
@@ -617,7 +617,7 @@
                 class="{% if request.url.path == '/gas-tracking' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/gas-tracking"
                 %}aria-current="page"
                 {%
@@ -634,7 +634,7 @@
                 class="{% if request.url.path == '/export' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/export"
                 %}aria-current="page"
                 {%
@@ -651,7 +651,7 @@
                 class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/coverage-management"
                 %}aria-current="page"
                 {%
@@ -668,7 +668,7 @@
                 class="{% if request.url.path == '/upload' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/upload"
                 %}aria-current="page"
                 {%
@@ -684,7 +684,7 @@
                 class="{% if request.url.path == '/visits' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/visits"
                 %}aria-current="page"
                 {%
@@ -701,7 +701,7 @@
                 class="{% if request.url.path == '/database-management' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/database-management"
                 %}aria-current="page"
                 {%
@@ -717,7 +717,7 @@
                 class="{% if request.url.path == '/server-logs' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/server-logs"
                 %}aria-current="page"
                 {%
@@ -734,7 +734,7 @@
                 class="{% if request.url.path == '/settings' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/settings"
                 %}aria-current="page"
                 {%
@@ -750,7 +750,7 @@
                 class="{% if request.url.path == '/app-settings' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/app-settings"
                 %}aria-current="page"
                 {%
@@ -767,7 +767,7 @@
                 class="{% if request.url.path == '/profile' %}active{% endif %}"
                 {%
                 if
-                request.url.path=""
+                request.url.path ==
                 ="/profile"
                 %}aria-current="page"
                 {%
