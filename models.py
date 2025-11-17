@@ -169,3 +169,95 @@ class NoActiveTripResponse(BaseModel):
 
 
 ActiveTripResponseUnion = ActiveTripSuccessResponse | NoActiveTripResponse
+
+
+class VehicleModel(BaseModel):
+    """Model for vehicle management with custom naming and status."""
+
+    id: PyObjectId | None = Field(alias="_id", default=None)
+    imei: str  # Device identifier from Bouncie
+    vin: str | None = None  # Vehicle Identification Number
+    custom_name: str | None = None  # User-friendly name
+    make: str | None = None
+    model: str | None = None
+    year: int | None = None
+    is_active: bool = True  # Whether vehicle is actively tracked
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
+        extra = "allow"
+
+
+class GasFillupModel(BaseModel):
+    """Model for gas fill-up records."""
+
+    id: PyObjectId | None = Field(alias="_id", default=None)
+    imei: str  # Device/vehicle identifier
+    vin: str | None = None
+    fillup_time: datetime  # When the fill-up occurred
+    timezone: str | None = None
+
+    # Location data
+    latitude: float | None = None
+    longitude: float | None = None
+    location_address: str | None = None
+    station_name: str | None = None
+
+    # Fill-up details
+    gallons: float  # Amount of gas purchased
+    price_per_gallon: float | None = None  # Price per gallon
+    total_cost: float | None = None  # Total cost of fill-up
+
+    # Odometer and calculations
+    odometer: float | None = None  # Odometer reading at fill-up
+    previous_odometer: float | None = None  # Previous fill-up odometer
+    miles_since_last_fillup: float | None = None
+    calculated_mpg: float | None = None  # MPG since last fill-up
+
+    # Metadata
+    is_full_tank: bool = True  # Whether it was a full tank fill-up
+    notes: str | None = None
+    detected_automatically: bool = False  # Whether detected via ML/geocoding
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
+        extra = "allow"
+
+
+class GasFillupCreateModel(BaseModel):
+    """Model for creating a new gas fill-up record."""
+
+    imei: str
+    fillup_time: datetime | str  # Accept ISO string or datetime
+    gallons: float
+    price_per_gallon: float | None = None
+    total_cost: float | None = None
+    odometer: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    is_full_tank: bool = True
+    notes: str | None = None
+
+    class Config:
+        extra = "allow"
+
+
+class GasStatisticsModel(BaseModel):
+    """Model for gas consumption statistics."""
+
+    imei: str | None = None
+    total_fillups: int
+    total_gallons: float
+    total_cost: float
+    average_mpg: float | None = None
+    average_price_per_gallon: float | None = None
+    cost_per_mile: float | None = None
+    period_start: datetime | None = None
+    period_end: datetime | None = None
+
+    class Config:
+        extra = "allow"

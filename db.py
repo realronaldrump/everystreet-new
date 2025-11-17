@@ -573,6 +573,10 @@ task_config_collection = _get_collection("task_config")
 task_history_collection = _get_collection("task_history")
 progress_collection = _get_collection("progress_status")
 
+# Gas tracking collections
+gas_fillups_collection = _get_collection("gas_fillups")
+vehicles_collection = _get_collection("vehicles")
+
 
 def serialize_datetime(
     dt: datetime | None,
@@ -1394,6 +1398,61 @@ async def ensure_archived_trip_indexes() -> None:
     logger.info("Indexes ensured for '%s'.", collection_name)
 
 
+async def ensure_gas_tracking_indexes() -> None:
+    """Ensure necessary indexes exist for gas tracking collections."""
+    logger.debug("Ensuring gas tracking indexes exist...")
+    try:
+        # Indexes for gas_fillups collection
+        await db_manager.safe_create_index(
+            "gas_fillups",
+            [("imei", pymongo.ASCENDING), ("fillup_time", pymongo.DESCENDING)],
+            name="gas_fillups_imei_time_idx",
+            background=True,
+        )
+        await db_manager.safe_create_index(
+            "gas_fillups",
+            [("fillup_time", pymongo.DESCENDING)],
+            name="gas_fillups_fillup_time_idx",
+            background=True,
+        )
+        await db_manager.safe_create_index(
+            "gas_fillups",
+            [("vin", pymongo.ASCENDING)],
+            name="gas_fillups_vin_idx",
+            background=True,
+            sparse=True,
+        )
+
+        # Indexes for vehicles collection
+        await db_manager.safe_create_index(
+            "vehicles",
+            [("imei", pymongo.ASCENDING)],
+            name="vehicles_imei_idx",
+            unique=True,
+            background=True,
+        )
+        await db_manager.safe_create_index(
+            "vehicles",
+            [("vin", pymongo.ASCENDING)],
+            name="vehicles_vin_idx",
+            background=True,
+            sparse=True,
+        )
+        await db_manager.safe_create_index(
+            "vehicles",
+            [("is_active", pymongo.ASCENDING)],
+            name="vehicles_is_active_idx",
+            background=True,
+        )
+
+        logger.info("Gas tracking indexes ensured/created successfully")
+    except Exception as e:
+        logger.error(
+            "Error creating gas tracking indexes: %s",
+            str(e),
+        )
+
+
 async def init_database() -> None:
     """Initialize the database by ensuring all collections and indexes exist."""
     logger.info("Initializing database...")
@@ -1403,6 +1462,7 @@ async def init_database() -> None:
     await ensure_street_coverage_indexes()
     await ensure_location_indexes()
     await ensure_archived_trip_indexes()
+    await ensure_gas_tracking_indexes()
 
     _ = db_manager.get_collection("places")
     _ = db_manager.get_collection("task_config")
@@ -1410,5 +1470,7 @@ async def init_database() -> None:
     _ = db_manager.get_collection("osm_data")
     _ = db_manager.get_collection("live_trips")
     _ = db_manager.get_collection("archived_live_trips")
+    _ = db_manager.get_collection("gas_fillups")
+    _ = db_manager.get_collection("vehicles")
 
     logger.info("Database initialization complete.")

@@ -453,4 +453,203 @@
     };
     return map[type] || "info";
   }
+
+  // ========================================
+  // Vehicle Management
+  // ========================================
+
+  /**
+   * Load and display vehicles
+   */
+  async function loadVehicles() {
+    const vehiclesList = document.getElementById('vehiclesList');
+
+    try {
+      const response = await fetch('/api/vehicles?active_only=false');
+      if (!response.ok) throw new Error('Failed to load vehicles');
+
+      const vehicles = await response.json();
+
+      if (vehicles.length === 0) {
+        vehiclesList.innerHTML = '<p class="text-center text-muted py-3">No vehicles found. Add one to get started!</p>';
+        return;
+      }
+
+      vehiclesList.innerHTML = vehicles.map(vehicle => createVehicleItem(vehicle)).join('');
+
+      // Add event listeners
+      vehicles.forEach(vehicle => {
+        const saveBtn = document.getElementById(`save-vehicle-${vehicle.imei}`);
+        const deleteBtn = document.getElementById(`delete-vehicle-${vehicle.imei}`);
+
+        if (saveBtn) {
+          saveBtn.addEventListener('click', () => saveVehicle(vehicle.imei));
+        }
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', () => deleteVehicle(vehicle.imei));
+        }
+      });
+
+    } catch (error) {
+      console.error('Error loading vehicles:', error);
+      vehiclesList.innerHTML = '<p class="text-center text-danger py-3">Error loading vehicles</p>';
+    }
+  }
+
+  /**
+   * Create HTML for a vehicle item
+   */
+  function createVehicleItem(vehicle) {
+    const statusBadge = vehicle.is_active
+      ? '<span class="badge bg-success">Active</span>'
+      : '<span class="badge bg-secondary">Inactive</span>';
+
+    return `
+      <div class="device-list-item mb-3" id="vehicle-${vehicle.imei}">
+        <div class="row g-2 w-100">
+          <div class="col-md-4">
+            <label class="form-label small">IMEI</label>
+            <input type="text" class="form-control form-control-sm" value="${vehicle.imei}" readonly />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small">Custom Name</label>
+            <input type="text" class="form-control form-control-sm" id="name-${vehicle.imei}"
+                   value="${vehicle.custom_name || ''}" placeholder="My Vehicle" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">VIN</label>
+            <input type="text" class="form-control form-control-sm" id="vin-${vehicle.imei}"
+                   value="${vehicle.vin || ''}" placeholder="VIN" readonly />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">Status ${statusBadge}</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="active-${vehicle.imei}"
+                     ${vehicle.is_active ? 'checked' : ''} />
+              <label class="form-check-label small" for="active-${vehicle.imei}">Active</label>
+            </div>
+          </div>
+          <div class="col-12">
+            <button type="button" class="btn btn-sm btn-primary" id="save-vehicle-${vehicle.imei}">
+              <i class="fas fa-save"></i> Save
+            </button>
+            <button type="button" class="btn btn-sm btn-danger" id="delete-vehicle-${vehicle.imei}">
+              <i class="fas fa-trash"></i> Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Save vehicle changes
+   */
+  async function saveVehicle(imei) {
+    const nameInput = document.getElementById(`name-${imei}`);
+    const vinInput = document.getElementById(`vin-${imei}`);
+    const activeInput = document.getElementById(`active-${imei}`);
+
+    try {
+      const vehicleData = {
+        imei: imei,
+        custom_name: nameInput.value || null,
+        vin: vinInput.value || null,
+        is_active: activeInput.checked
+      };
+
+      const response = await fetch(`/api/vehicles/${imei}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(vehicleData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to save vehicle');
+      }
+
+      showStatus('Vehicle updated successfully!', 'success');
+      await loadVehicles();
+
+    } catch (error) {
+      console.error('Error saving vehicle:', error);
+      showStatus(error.message || 'Failed to save vehicle', 'error');
+    }
+  }
+
+  /**
+   * Delete vehicle
+   */
+  async function deleteVehicle(imei) {
+    if (!confirm('Are you sure you want to delete this vehicle? This will mark it as inactive.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/vehicles/${imei}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to delete vehicle');
+      }
+
+      showStatus('Vehicle deleted successfully!', 'success');
+      await loadVehicles();
+
+    } catch (error) {
+      console.error('Error deleting vehicle:', error);
+      showStatus(error.message || 'Failed to delete vehicle', 'error');
+    }
+  }
+
+  /**
+   * Add new vehicle
+   */
+  async function addNewVehicle() {
+    const imei = prompt('Enter vehicle IMEI:');
+    if (!imei) return;
+
+    try {
+      const vehicleData = {
+        imei: imei.trim(),
+        custom_name: null,
+        vin: null,
+        is_active: true
+      };
+
+      const response = await fetch('/api/vehicles', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(vehicleData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to add vehicle');
+      }
+
+      showStatus('Vehicle added successfully!', 'success');
+      await loadVehicles();
+
+    } catch (error) {
+      console.error('Error adding vehicle:', error);
+      showStatus(error.message || 'Failed to add vehicle', 'error');
+    }
+  }
+
+  // Initialize vehicle management
+  const addVehicleBtn = document.getElementById('addVehicleBtn');
+  if (addVehicleBtn) {
+    addVehicleBtn.addEventListener('click', addNewVehicle);
+
+    // Load vehicles on page load
+    loadVehicles();
+  }
 })();

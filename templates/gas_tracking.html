@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block title %}Gas Tracking{% endblock %}
+
+{% block extra_css %}
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet" />
+<style>
+  /* Gas Tracking Page Styles */
+  .gas-hero {
+    background: linear-gradient(
+      135deg,
+      rgba(var(--primary-rgb), 0.1),
+      rgba(var(--secondary-rgb), 0.1),
+      rgba(var(--primary-rgb), 0.05)
+    );
+    background-size: 200% 200%;
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    margin-bottom: var(--space-6);
+  }
+
+  .gas-form-container {
+    background: var(--surface-1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    border: 1px solid var(--border-color);
+    margin-bottom: var(--space-4);
+  }
+
+  .form-section {
+    margin-bottom: var(--space-5);
+  }
+
+  .form-section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .form-section-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: var(--text-on-primary);
+  }
+
+  #fillup-map {
+    height: 300px;
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    margin-bottom: var(--space-3);
+  }
+
+  .location-info {
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+    font-size: 0.9rem;
+  }
+
+  .calculated-value {
+    background: rgba(var(--success-rgb), 0.1);
+    color: var(--success);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    display: inline-block;
+    margin-top: var(--space-2);
+  }
+
+  .fillup-history {
+    background: var(--surface-1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    border: 1px solid var(--border-color);
+  }
+
+  .fillup-item {
+    background: var(--surface-2);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-3);
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-normal);
+  }
+
+  .fillup-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+  }
+
+  .fillup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+  }
+
+  .fillup-date {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .fillup-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+  }
+
+  .fillup-detail {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .fillup-detail-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-1);
+  }
+
+  .fillup-detail-value {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .stats-card {
+    background: var(--surface-1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    border: 1px solid var(--border-color);
+    text-align: center;
+  }
+
+  .stats-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: var(--space-2);
+  }
+
+  .stats-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  .btn-save {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: var(--text-on-primary);
+    border: none;
+    padding: var(--space-3) var(--space-6);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    transition: all var(--transition-normal);
+  }
+
+  .btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .loading-spinner {
+    display: none;
+    margin-left: var(--space-2);
+  }
+
+  .loading-spinner.active {
+    display: inline-block;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Hero Section -->
+  <div class="gas-hero">
+    <h1 class="display-5 fw-bold mb-3">⛽ Gas Tracking</h1>
+    <p class="lead mb-0">
+      Track your fuel consumption, monitor MPG, and calculate trip costs
+    </p>
+  </div>
+
+  <!-- Statistics Row -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="stats-card">
+        <div class="stats-value" id="total-fillups">0</div>
+        <div class="stats-label">Total Fill-ups</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="stats-card">
+        <div class="stats-value" id="total-spent">$0</div>
+        <div class="stats-label">Total Spent</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="stats-card">
+        <div class="stats-value" id="avg-mpg">--</div>
+        <div class="stats-label">Average MPG</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="stats-card">
+        <div class="stats-value" id="cost-per-mile">$0.00</div>
+        <div class="stats-label">Cost per Mile</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Left Column: Form -->
+    <div class="col-lg-6">
+      <div class="gas-form-container">
+        <h2 class="h4 mb-4">Record Fill-Up</h2>
+
+        <form id="gas-fillup-form">
+          <!-- Vehicle Selection -->
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">🚗</span>
+              Vehicle
+            </div>
+            <select class="form-select" id="vehicle-select" name="imei" required>
+              <option value="">Select Vehicle...</option>
+            </select>
+          </div>
+
+          <!-- Fill-up Time -->
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">📅</span>
+              Fill-up Time
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Date & Time</label>
+                <input
+                  type="datetime-local"
+                  class="form-control"
+                  id="fillup-time"
+                  name="fillup_time"
+                  required
+                />
+              </div>
+              <div class="col-md-6 d-flex align-items-end">
+                <button
+                  type="button"
+                  class="btn btn-outline-primary w-100"
+                  id="use-now-btn"
+                >
+                  Use Now
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Location Section -->
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">📍</span>
+              Location
+            </div>
+            <div id="fillup-map"></div>
+            <div class="location-info" id="location-info">
+              <strong>Location:</strong> <span id="location-text">Loading...</span><br />
+              <strong>Odometer:</strong> <span id="odometer-display">--</span> miles
+            </div>
+          </div>
+
+          <!-- Fill-up Details -->
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">⛽</span>
+              Fill-up Details
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Gallons</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="gallons"
+                  name="gallons"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Price per Gallon</label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="price-per-gallon"
+                    name="price_per_gallon"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Total Cost</label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="total-cost"
+                    name="total_cost"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    readonly
+                  />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Odometer</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="odometer"
+                  name="odometer"
+                  step="0.1"
+                  min="0"
+                  placeholder="miles"
+                />
+              </div>
+              <div class="col-12">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="full-tank"
+                    name="is_full_tank"
+                    checked
+                  />
+                  <label class="form-check-label" for="full-tank">
+                    Full Tank Fill-up
+                  </label>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Notes (optional)</label>
+                <textarea
+                  class="form-control"
+                  id="notes"
+                  name="notes"
+                  rows="2"
+                  placeholder="e.g., Gas station name, receipt number..."
+                ></textarea>
+              </div>
+            </div>
+            <div id="calculated-mpg" class="calculated-value" style="display: none">
+              Calculated MPG: <span id="mpg-value">--</span>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn-save w-100">
+            Save Fill-Up
+            <span class="loading-spinner spinner-border spinner-border-sm" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Right Column: History -->
+    <div class="col-lg-6">
+      <div class="fillup-history">
+        <h2 class="h4 mb-4">Recent Fill-Ups</h2>
+        <div id="fillup-list">
+          <p class="text-center text-muted">No fill-ups recorded yet</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
+<script src="{{ url_for('static', path='js/gas_tracking.js') }}"></script>
+{% endblock %}
