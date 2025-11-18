@@ -459,17 +459,13 @@ class CoverageCalculator:
             )
 
     async def initialize_workers(self) -> None:
-        """Initializes a worker pool.
+        """Initializes a worker pool using ProcessPoolExecutor.
 
-        Celery prefork workers are marked as *daemonic* in Python's multiprocessing
-        implementation.  A daemonic process is prohibited from creating child
-        processes, which causes a ``ValueError: daemonic processes are not allowed
-        to have children`` whenever we try to spin up a ``ProcessPoolExecutor``
-        inside a Celery task.  To avoid flooding the logs with this error we
-        detect the condition up-front and fall back to sequential (single-thread)
-        execution.  This preserves correctness while keeping the door open for
-        true multiprocessing when the code is executed outside a Celery worker
-        (for example during CLI runs or unit tests).
+        Uses the 'spawn' start method for multiprocessing, which allows
+        ProcessPoolExecutor to work even when running inside daemonic processes
+        (such as Celery workers). The 'spawn' method creates a fresh Python
+        interpreter process, avoiding the 'daemonic processes are not allowed
+        to have children' error that occurs with the default 'fork' method.
         """
 
         # If we're running inside a Celery worker (daemon=True) we cannot spawn
@@ -484,16 +480,18 @@ class CoverageCalculator:
             self.process_pool = None
             return
 
-        # Regular non-daemon execution path – attempt to create a process pool.
         if self.process_pool is None and self.max_workers > 0:
             try:
+                # Use 'spawn' context to allow multiprocessing from daemonic processes
+                # (e.g., Celery workers). This creates a fresh Python interpreter
+                # process instead of forking, which works even in daemonic contexts.
                 context = multiprocessing.get_context("spawn")
                 self.process_pool = ProcessPoolExecutor(
                     max_workers=self.max_workers,
                     mp_context=context,
                 )
                 logger.info(
-                    "Task %s: Initialized ProcessPoolExecutor with %d workers.",
+                    "Task %s: Initialized ProcessPoolExecutor with %d workers (spawn context).",
                     self.task_id,
                     self.max_workers,
                 )
@@ -1559,14 +1557,17 @@ class CoverageCalculator:
                 )
 
                 if should_update_progress:
-                    progress_pct = 50 + (
-                        (
-                            self.processed_trips_count  # Use the count of uniquely processed trips
-                            / self.total_trips_to_process
-                            * 40
+                    progress_pct = (
+                        50
+                        + (
+                            (
+                                self.processed_trips_count  # Use the count of uniquely processed trips
+                                / self.total_trips_to_process
+                                * 40
+                            )
+                            if self.total_trips_to_process > 0
+                            else 40
                         )
-                        if self.total_trips_to_process > 0
-                        else 40
                     )
                     progress_pct = min(progress_pct, 90.0)
 

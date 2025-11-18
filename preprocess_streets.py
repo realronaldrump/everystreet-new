@@ -12,7 +12,6 @@ import logging
 import math
 import multiprocessing
 import os
-from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import UTC, datetime
@@ -371,8 +370,7 @@ def process_element_parallel(
         geometry_nodes = element_data["geometry_nodes"]
         tags = element_data["tags"]
         location_name = element_data["location_name"]
-        proj_to_utm: Callable = element_data["project_to_utm"]
-        proj_to_wgs84: Callable = element_data["project_to_wgs84"]
+        utm_crs_str = element_data["utm_crs_str"]
         boundary_polygon: BaseGeometry | None = element_data.get("boundary_polygon")
         segment_length_meters: float = element_data.get(
             "segment_length_meters",
@@ -384,8 +382,18 @@ def process_element_parallel(
 
         highway_type = tags.get("highway", "unknown")
 
+        # Initialize transformers locally to avoid pickling issues
+        wgs84 = pyproj.CRS("EPSG:4326")
+        utm_crs = pyproj.CRS.from_string(utm_crs_str)
+        project_to_utm = pyproj.Transformer.from_crs(
+            wgs84, utm_crs, always_xy=True
+        ).transform
+        project_to_wgs84 = pyproj.Transformer.from_crs(
+            utm_crs, wgs84, always_xy=True
+        ).transform
+
         line_wgs84 = LineString(nodes)
-        projected_line = transform(proj_to_utm, line_wgs84)
+        projected_line = transform(project_to_utm, line_wgs84)
 
         if projected_line.length < 1e-6:  # Filter out zero-length lines in UTM
             return []
@@ -399,7 +407,7 @@ def process_element_parallel(
         for i, segment_utm in enumerate(segments):
             if segment_utm.length < 1e-6:  # Filter out zero-length segments
                 continue
-            segment_wgs84 = transform(proj_to_wgs84, segment_utm)
+            segment_wgs84 = transform(project_to_wgs84, segment_utm)
             if not segment_wgs84.is_valid or segment_wgs84.is_empty:
                 logger.warning(
                     "Skipping invalid/empty segment %s-%d before clipping",
@@ -507,8 +515,7 @@ def process_element_parallel(
 async def process_osm_data(
     osm_data: dict[str, Any],
     location: dict[str, Any],
-    project_to_utm_func: Callable,
-    project_to_wgs84_func: Callable,
+    utm_crs_string: str,
     boundary_polygon: BaseGeometry | None,
     segment_length_meters: float,
     task_id: str | None = None,
@@ -516,7 +523,7 @@ async def process_osm_data(
     """Convert OSM ways into segmented features and insert them into
     streets_collection.
 
-    Uses the provided projection functions and parallel processing.
+    Uses the provided projection string and parallel processing.
     Also update coverage metadata.
     """
     try:
@@ -580,8 +587,7 @@ async def process_osm_data(
                 "geometry_nodes": element.get("geometry", []),
                 "tags": element.get("tags", {}),
                 "location_name": location_name,
-                "project_to_utm": project_to_utm_func,
-                "project_to_wgs84": project_to_wgs84_func,
+                "utm_crs_str": utm_crs_string,
                 "boundary_polygon": boundary_polygon,
                 "segment_length_meters": segment_length_meters,
             }
@@ -610,7 +616,17 @@ async def process_osm_data(
         # Use ProcessPoolExecutor for CPU-bound tasks (segmentation, projection)
         # if not daemonic
         if effective_max_workers > 0:
-            executor = ProcessPoolExecutor(max_workers=effective_max_workers)
+            try:
+                # Use 'spawn' context for better compatibility with C-extension libraries
+                context = multiprocessing.get_context("spawn")
+                executor = ProcessPoolExecutor(
+                    max_workers=effective_max_workers, mp_context=context
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to create process pool (%s). Running sequentially.", e
+                )
+                executor = None
         else:
             executor = None
 
@@ -1170,23 +1186,15 @@ async def preprocess_streets(
             )
 
         dynamic_utm_crs = get_dynamic_utm_crs(center_lat, center_lon)
+        # Convert CRS to string for pickling in multiprocessing
+        utm_crs_string = dynamic_utm_crs.to_string()
+
         logger.info(
             "Using dynamic CRS %s (EPSG: %s) for location %s",
             dynamic_utm_crs.name,
             dynamic_utm_crs.to_epsg(),
             location_name,
         )
-
-        project_to_utm_dynamic = pyproj.Transformer.from_crs(
-            WGS84,
-            dynamic_utm_crs,
-            always_xy=True,
-        ).transform
-        project_to_wgs84_dynamic = pyproj.Transformer.from_crs(
-            dynamic_utm_crs,
-            WGS84,
-            always_xy=True,
-        ).transform
 
         # Update metadata status to processing
         await update_one_with_retry(
@@ -1394,8 +1402,7 @@ async def preprocess_streets(
                 process_osm_data(
                     osm_data,
                     validated_location,
-                    project_to_utm_dynamic,
-                    project_to_wgs84_dynamic,
+                    utm_crs_string,  # Pass the string, not the object/function
                     boundary_shape,
                     segment_length_meters,
                     task_id,

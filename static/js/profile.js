@@ -462,44 +462,47 @@
    * Load and display vehicles
    */
   async function loadVehicles() {
-    const vehiclesList = document.getElementById('vehiclesList');
+    const vehiclesList = document.getElementById("vehiclesList");
 
     try {
       // First, sync vehicles from trips to ensure VINs are populated
       try {
-        await fetch('/api/vehicles/sync-from-trips', { method: 'POST' });
+        await fetch("/api/vehicles/sync-from-trips", { method: "POST" });
       } catch (syncError) {
-        console.warn('Failed to sync vehicles:', syncError);
+        console.warn("Failed to sync vehicles:", syncError);
       }
 
-      const response = await fetch('/api/vehicles?active_only=false');
-      if (!response.ok) throw new Error('Failed to load vehicles');
+      const response = await fetch("/api/vehicles?active_only=false");
+      if (!response.ok) throw new Error("Failed to load vehicles");
 
       const vehicles = await response.json();
 
       if (vehicles.length === 0) {
-        vehiclesList.innerHTML = '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Trips" to auto-discover vehicles.</p>';
+        vehiclesList.innerHTML =
+          '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Trips" to auto-discover vehicles.</p>';
         return;
       }
 
-      vehiclesList.innerHTML = vehicles.map(vehicle => createVehicleItem(vehicle)).join('');
+      vehiclesList.innerHTML = vehicles
+        .map((vehicle) => createVehicleItem(vehicle))
+        .join("");
 
       // Add event listeners
-      vehicles.forEach(vehicle => {
+      vehicles.forEach((vehicle) => {
         const saveBtn = document.getElementById(`save-vehicle-${vehicle.imei}`);
         const deleteBtn = document.getElementById(`delete-vehicle-${vehicle.imei}`);
 
         if (saveBtn) {
-          saveBtn.addEventListener('click', () => saveVehicle(vehicle.imei));
+          saveBtn.addEventListener("click", () => saveVehicle(vehicle.imei));
         }
         if (deleteBtn) {
-          deleteBtn.addEventListener('click', () => deleteVehicle(vehicle.imei));
+          deleteBtn.addEventListener("click", () => deleteVehicle(vehicle.imei));
         }
       });
-
     } catch (error) {
-      console.error('Error loading vehicles:', error);
-      vehiclesList.innerHTML = '<p class="text-center text-danger py-3">Error loading vehicles</p>';
+      console.error("Error loading vehicles:", error);
+      vehiclesList.innerHTML =
+        '<p class="text-center text-danger py-3">Error loading vehicles</p>';
     }
   }
 
@@ -520,19 +523,19 @@
           </div>
           <div class="col-md-3">
             <label class="form-label small text-muted">VIN</label>
-            <input type="text" class="form-control form-control-sm" value="${vehicle.vin || 'N/A'}" readonly style="background: rgba(0,0,0,0.2);" />
+            <input type="text" class="form-control form-control-sm" value="${vehicle.vin || "N/A"}" readonly style="background: rgba(0,0,0,0.2);" />
           </div>
           <div class="col-md-4">
             <label class="form-label small text-muted">Custom Name</label>
             <input type="text" class="form-control form-control-sm" id="name-${vehicle.imei}"
-                   value="${vehicle.custom_name || ''}" placeholder="Enter friendly name..." />
+                   value="${vehicle.custom_name || ""}" placeholder="Enter friendly name..." />
           </div>
           <div class="col-md-2">
             <label class="form-label small text-muted">Status</label>
             <div>${statusBadge}</div>
             <div class="form-check form-switch mt-1">
               <input class="form-check-input" type="checkbox" id="active-${vehicle.imei}"
-                     ${vehicle.is_active ? 'checked' : ''} />
+                     ${vehicle.is_active ? "checked" : ""} />
               <label class="form-check-label small" for="active-${vehicle.imei}">Active</label>
             </div>
           </div>
@@ -558,30 +561,29 @@
 
     try {
       const vehicleData = {
-        imei: imei,
+        imei,
         custom_name: nameInput.value || null,
-        is_active: activeInput.checked
+        is_active: activeInput.checked,
       };
 
       const response = await fetch(`/api/vehicles/${imei}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(vehicleData)
+        body: JSON.stringify(vehicleData),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || 'Failed to save vehicle');
+        throw new Error(error.detail || "Failed to save vehicle");
       }
 
-      showStatus('Vehicle updated successfully!', 'success');
+      showStatus("Vehicle updated successfully!", "success");
       await loadVehicles();
-
     } catch (error) {
-      console.error('Error saving vehicle:', error);
-      showStatus(error.message || 'Failed to save vehicle', 'error');
+      console.error("Error saving vehicle:", error);
+      showStatus(error.message || "Failed to save vehicle", "error");
     }
   }
 
@@ -589,26 +591,29 @@
    * Delete vehicle
    */
   async function deleteVehicle(imei) {
-    if (!confirm('Are you sure you want to delete this vehicle? This will mark it as inactive.')) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this vehicle? This will mark it as inactive."
+      )
+    ) {
       return;
     }
 
     try {
       const response = await fetch(`/api/vehicles/${imei}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || 'Failed to delete vehicle');
+        throw new Error(error.detail || "Failed to delete vehicle");
       }
 
-      showStatus('Vehicle deleted successfully!', 'success');
+      showStatus("Vehicle deleted successfully!", "success");
       await loadVehicles();
-
     } catch (error) {
-      console.error('Error deleting vehicle:', error);
-      showStatus(error.message || 'Failed to delete vehicle', 'error');
+      console.error("Error deleting vehicle:", error);
+      showStatus(error.message || "Failed to delete vehicle", "error");
     }
   }
 
@@ -616,7 +621,7 @@
    * Add new vehicle
    */
   async function addNewVehicle() {
-    const imei = prompt('Enter vehicle IMEI:');
+    const imei = prompt("Enter vehicle IMEI:");
     if (!imei) return;
 
     try {
@@ -624,35 +629,34 @@
         imei: imei.trim(),
         custom_name: null,
         vin: null,
-        is_active: true
+        is_active: true,
       };
 
-      const response = await fetch('/api/vehicles', {
-        method: 'POST',
+      const response = await fetch("/api/vehicles", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(vehicleData)
+        body: JSON.stringify(vehicleData),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || 'Failed to add vehicle');
+        throw new Error(error.detail || "Failed to add vehicle");
       }
 
-      showStatus('Vehicle added successfully!', 'success');
+      showStatus("Vehicle added successfully!", "success");
       await loadVehicles();
-
     } catch (error) {
-      console.error('Error adding vehicle:', error);
-      showStatus(error.message || 'Failed to add vehicle', 'error');
+      console.error("Error adding vehicle:", error);
+      showStatus(error.message || "Failed to add vehicle", "error");
     }
   }
 
   // Initialize vehicle management
-  const addVehicleBtn = document.getElementById('addVehicleBtn');
+  const addVehicleBtn = document.getElementById("addVehicleBtn");
   if (addVehicleBtn) {
-    addVehicleBtn.addEventListener('click', addNewVehicle);
+    addVehicleBtn.addEventListener("click", addNewVehicle);
 
     // Load vehicles on page load
     loadVehicles();

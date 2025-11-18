@@ -1,11 +1,11 @@
 """API endpoints for gas tracking and vehicle management."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
 
 from db import (
@@ -22,8 +22,6 @@ from db import (
 )
 from models import (
     GasFillupCreateModel,
-    GasFillupModel,
-    GasStatisticsModel,
     VehicleModel,
 )
 
@@ -78,8 +76,8 @@ async def create_vehicle(vehicle_data: VehicleModel) -> dict[str, Any]:
             )
 
         vehicle_dict = vehicle_data.model_dump(exclude={"id"}, exclude_none=True)
-        vehicle_dict["created_at"] = datetime.now(timezone.utc)
-        vehicle_dict["updated_at"] = datetime.now(timezone.utc)
+        vehicle_dict["created_at"] = datetime.now(UTC)
+        vehicle_dict["updated_at"] = datetime.now(UTC)
 
         result = await insert_one_with_retry(vehicles_collection, vehicle_dict)
         vehicle_dict["_id"] = result.inserted_id
@@ -94,9 +92,7 @@ async def create_vehicle(vehicle_data: VehicleModel) -> dict[str, Any]:
 
 
 @router.put("/api/vehicles/{imei}")
-async def update_vehicle(
-    imei: str, vehicle_data: VehicleModel
-) -> dict[str, Any]:
+async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> dict[str, Any]:
     """Update a vehicle's information."""
     try:
         # Find the vehicle
@@ -108,7 +104,7 @@ async def update_vehicle(
         update_data = vehicle_data.model_dump(
             exclude={"id", "imei", "created_at"}, exclude_none=True
         )
-        update_data["updated_at"] = datetime.now(timezone.utc)
+        update_data["updated_at"] = datetime.now(UTC)
 
         await update_one_with_retry(
             vehicles_collection, {"imei": imei}, {"$set": update_data}
@@ -136,7 +132,7 @@ async def delete_vehicle(imei: str) -> dict[str, str]:
             {
                 "$set": {
                     "is_active": False,
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                 }
             },
         )
@@ -231,9 +227,7 @@ async def create_gas_fillup(
         # Convert string datetime to datetime object if needed
         fillup_time = fillup_data.fillup_time
         if isinstance(fillup_time, str):
-            fillup_time = datetime.fromisoformat(
-                fillup_time.replace("Z", "+00:00")
-            )
+            fillup_time = datetime.fromisoformat(fillup_time.replace("Z", "+00:00"))
 
         # Get vehicle info if available
         vehicle = await find_one_with_retry(
@@ -262,11 +256,7 @@ async def create_gas_fillup(
 
         # Calculate total cost if not provided
         total_cost = fillup_data.total_cost
-        if (
-            not total_cost
-            and fillup_data.price_per_gallon
-            and fillup_data.gallons
-        ):
+        if not total_cost and fillup_data.price_per_gallon and fillup_data.gallons:
             total_cost = fillup_data.price_per_gallon * fillup_data.gallons
 
         # Create fill-up document
@@ -286,8 +276,8 @@ async def create_gas_fillup(
             "miles_since_last_fillup": miles_since_last,
             "calculated_mpg": calculated_mpg,
             "detected_automatically": False,
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
         }
 
         result = await insert_one_with_retry(gas_fillups_collection, fillup_doc)
@@ -320,7 +310,7 @@ async def update_gas_fillup(
 
         # Update document
         update_data = fillup_data.model_dump(exclude_none=True)
-        update_data["updated_at"] = datetime.now(timezone.utc)
+        update_data["updated_at"] = datetime.now(UTC)
 
         # Recalculate MPG and total cost if needed
         if "gallons" in update_data or "odometer" in update_data:
@@ -528,9 +518,7 @@ async def get_gas_statistics(
                         "total_gallons": {"$sum": "$gallons"},
                         "total_cost": {"$sum": "$total_cost"},
                         "average_mpg": {"$avg": "$calculated_mpg"},
-                        "average_price_per_gallon": {
-                            "$avg": "$price_per_gallon"
-                        },
+                        "average_price_per_gallon": {"$avg": "$price_per_gallon"},
                         "min_date": {"$min": "$fillup_time"},
                         "max_date": {"$max": "$fillup_time"},
                     }
@@ -612,9 +600,7 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
                 continue
 
             # Check if vehicle exists
-            existing = await find_one_with_retry(
-                vehicles_collection, {"imei": imei}
-            )
+            existing = await find_one_with_retry(vehicles_collection, {"imei": imei})
 
             if existing:
                 # Update VIN if we have it and it's not set
@@ -625,7 +611,7 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
                         {
                             "$set": {
                                 "vin": vin,
-                                "updated_at": datetime.now(timezone.utc),
+                                "updated_at": datetime.now(UTC),
                             }
                         },
                     )
@@ -637,8 +623,8 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
                     "vin": vin,
                     "custom_name": None,
                     "is_active": True,
-                    "created_at": datetime.now(timezone.utc),
-                    "updated_at": datetime.now(timezone.utc),
+                    "created_at": datetime.now(UTC),
+                    "updated_at": datetime.now(UTC),
                 }
                 await insert_one_with_retry(vehicles_collection, vehicle_doc)
                 synced_count += 1
@@ -677,9 +663,7 @@ async def calculate_trip_gas_cost(
 
         trip_imei = imei or trip.get("imei")
         if not trip_imei:
-            raise HTTPException(
-                status_code=400, detail="Cannot determine vehicle IMEI"
-            )
+            raise HTTPException(status_code=400, detail="Cannot determine vehicle IMEI")
 
         # Get the most recent fill-up before or during this trip
         fillup = await find_one_with_retry(
