@@ -14,8 +14,8 @@ from typing import Any
 import redis.asyncio as aioredis
 from redis.exceptions import ConnectionError as RedisConnectionError
 
-from db import BSONJSONEncoder
 from redis_config import get_redis_url
+from utils import BSONJSONEncoder
 
 logger = logging.getLogger(__name__)
 

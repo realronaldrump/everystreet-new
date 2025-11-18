@@ -17,27 +17,11 @@ from typing import Any
 import geopandas as gpd
 import gpxpy
 import gpxpy.gpx
-from bson import ObjectId
 from fastapi.responses import StreamingResponse
 
+from utils import default_serializer
+
 logger = logging.getLogger(__name__)
-
-
-def default_serializer(obj: Any) -> str:
-    """Custom JSON serializer to handle datetime and ObjectId types.
-
-    Args:
-        obj: The object to serialize
-
-    Returns:
-        str: String representation of the object
-
-    """
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    if isinstance(obj, ObjectId):
-        return str(obj)
-    return str(obj)
 
 
 async def create_geojson(

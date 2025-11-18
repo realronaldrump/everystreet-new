@@ -14,7 +14,7 @@ from pymongo.collection import Collection
 from date_utils import parse_timestamp
 from db import serialize_document
 from trip_event_publisher import publish_trip_state
-from utils import haversine
+from utils import haversine, validate_coordinate_pair
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,8 @@ def _parse_timestamp(timestamp_str: str | None) -> datetime | None:
 def _extract_coordinates_from_data(data_points: list[dict]) -> list[dict[str, Any]]:
     """Extract and normalize coordinates from Bouncie tripData payload.
 
+    Uses centralized coordinate validation to ensure consistency.
+
     Returns list of dicts with keys: timestamp, lat, lon, speed (optional)
     """
     coords = []
@@ -68,18 +70,21 @@ def _extract_coordinates_from_data(data_points: list[dict]) -> list[dict[str, An
         lon = gps.get("lon")
 
         if timestamp and lat is not None and lon is not None:
-            coord = {
-                "timestamp": timestamp,
-                "lat": float(lat),
-                "lon": float(lon),
-            }
+            # Use centralized validation for coordinate pairs
+            is_valid, validated_coord = validate_coordinate_pair([lon, lat])
+            if is_valid and validated_coord is not None:
+                coord = {
+                    "timestamp": timestamp,
+                    "lat": validated_coord[1],  # lat is second element
+                    "lon": validated_coord[0],  # lon is first element
+                }
 
-            # Include speed if available
-            speed = point.get("speed")
-            if speed is not None:
-                coord["speed"] = float(speed)
+                # Include speed if available
+                speed = point.get("speed")
+                if speed is not None:
+                    coord["speed"] = float(speed)
 
-            coords.append(coord)
+                coords.append(coord)
 
     return coords
 

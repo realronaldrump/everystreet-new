@@ -6,6 +6,7 @@ import math
 import os
 import statistics
 from collections.abc import Coroutine
+from datetime import datetime
 from typing import Any, TypeVar
 
 import aiohttp
@@ -15,6 +16,7 @@ from aiohttp import (
     ClientResponseError,
     ServerDisconnectedError,
 )
+from bson import ObjectId
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,6 +26,41 @@ EARTH_RADIUS_MILES = 3958.8
 EARTH_RADIUS_KM = 6371.0
 
 T = TypeVar("T")
+
+
+class BSONJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles MongoDB ObjectId and datetime objects.
+
+    This encoder ensures consistent date/ObjectId formatting across the application.
+    Use with json.dumps(data, cls=BSONJSONEncoder).
+    """
+
+    def default(self, obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+
+def default_serializer(obj: Any) -> str:
+    """Custom JSON serializer function to handle datetime and ObjectId types.
+
+    This function provides the same serialization logic as BSONJSONEncoder
+    but as a function suitable for use with json.dumps(data, default=default_serializer).
+
+    Args:
+        obj: The object to serialize
+
+    Returns:
+        str: String representation of the object (ISO format for datetime, str for ObjectId)
+    """
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    return str(obj)
+
 
 # NOTE: Consider migrating to httpx in the future for simpler session lifecycle
 # management. httpx provides better support for both sync and async operations
@@ -237,6 +274,110 @@ def validate_trip_data(
     return True, None
 
 
+def validate_coordinate_pair(coord_pair: Any) -> tuple[bool, list[float] | None]:
+    """Validate a single coordinate pair [lon, lat].
+
+    Args:
+        coord_pair: A coordinate pair (list, tuple, etc.)
+
+    Returns:
+        Tuple of (is_valid, [lon, lat] or None)
+    """
+    if not isinstance(coord_pair, list | tuple) or len(coord_pair) < 2:
+        return False, None
+
+    try:
+        lon = float(coord_pair[0])
+        lat = float(coord_pair[1])
+    except (TypeError, ValueError, IndexError):
+        return False, None
+
+    if not (-180 <= lon <= 180 and -90 <= lat <= 90):
+        return False, None
+
+    return True, [lon, lat]
+
+
+def validate_geojson_point_or_linestring(
+    gps_data: Any,
+    transaction_id: str | None = None,
+) -> tuple[bool, dict[str, Any] | None]:
+    """Validate GeoJSON Point or LineString structure and coordinate ranges.
+
+    This is the canonical validation function ensuring consistent Point vs LineString
+    validation across the codebase.
+
+    Args:
+        gps_data: GeoJSON dict with 'type' and 'coordinates' keys
+        transaction_id: Optional id for contextual logging
+
+    Returns:
+        Tuple of (is_valid, validated_geojson_dict or None)
+    """
+    if not isinstance(gps_data, dict):
+        return False, None
+
+    geom_type = gps_data.get("type")
+    coordinates = gps_data.get("coordinates")
+
+    if geom_type not in ["Point", "LineString"]:
+        return False, None
+
+    if not isinstance(coordinates, list):
+        return False, None
+
+    if geom_type == "Point":
+        is_valid, validated_coord = validate_coordinate_pair(coordinates)
+        if not is_valid or validated_coord is None:
+            if transaction_id:
+                logger.debug(
+                    "Trip %s: Invalid Point coordinates: %s",
+                    transaction_id,
+                    coordinates,
+                )
+            return False, None
+        return True, {"type": "Point", "coordinates": validated_coord}
+
+    if geom_type == "LineString":
+        if len(coordinates) < 2:
+            if transaction_id:
+                logger.debug(
+                    "Trip %s: LineString must have at least 2 coordinates",
+                    transaction_id,
+                )
+            return False, None
+
+        validated_coords: list[list[float]] = []
+        for coord_pair in coordinates:
+            is_valid, validated_coord = validate_coordinate_pair(coord_pair)
+            if not is_valid or validated_coord is None:
+                if transaction_id:
+                    logger.debug(
+                        "Trip %s: Invalid coordinate pair in LineString: %s",
+                        transaction_id,
+                        coord_pair,
+                    )
+                return False, None
+            validated_coords.append(validated_coord)
+
+        # Remove consecutive duplicates
+        unique_coords: list[list[float]] = []
+        for coord in validated_coords:
+            if not unique_coords or coord != unique_coords[-1]:
+                unique_coords.append(coord)
+
+        # After deduplication, check if we still have a valid LineString
+        if len(unique_coords) < 2:
+            # If only one unique point, convert to Point
+            if len(unique_coords) == 1:
+                return True, {"type": "Point", "coordinates": unique_coords[0]}
+            return False, None
+
+        return True, {"type": "LineString", "coordinates": unique_coords}
+
+    return False, None
+
+
 def standardize_and_validate_gps(
     gps_input: Any,
     transaction_id: str | None = None,
@@ -245,6 +386,7 @@ def standardize_and_validate_gps(
 
     Accepts a JSON string, list of coordinate pairs, or a GeoJSON dict and
     returns a validated GeoJSON Point or LineString. Returns None if invalid.
+    Uses the centralized validation logic for consistency.
 
     Args:
         gps_input: Raw GPS input (str | list | dict)
@@ -253,7 +395,6 @@ def standardize_and_validate_gps(
     Returns:
         GeoJSON dict or None.
     """
-    processed_coords: list[list[float]] = []
 
     def _log_warning(msg: str, *args: Any):
         if transaction_id is not None:
@@ -286,69 +427,41 @@ def standardize_and_validate_gps(
         return None
 
     if isinstance(gps_data, list):
+        # Convert list of coordinates to GeoJSON format for validation
         raw_coords = gps_data
-    elif isinstance(gps_data, dict):
-        if (
-            gps_data.get("type") in ["Point", "LineString"]
-            and "coordinates" in gps_data
-        ):
-            raw_coords = gps_data.get("coordinates")
-            if gps_data["type"] == "Point":
-                if (
-                    isinstance(raw_coords, list)
-                    and len(raw_coords) == 2
-                    and all(isinstance(c, int | float) for c in raw_coords)
-                ):
-                    raw_coords = [raw_coords]
-                else:
-                    _log_warning("GPS data (dict, Point) has invalid coordinates")
-                    return None
-        else:
-            _log_warning(
-                "GPS data (dict) is not a valid GeoJSON Point or LineString",
-            )
-            return None
-    else:
-        _log_warning("GPS data structure not recognized")
-        return None
-
-    if not isinstance(raw_coords, list):
-        _log_warning("Parsed GPS coordinates are not a list: %s", raw_coords)
-        return None
-
-    for coord_pair in raw_coords:
-        if (
-            isinstance(coord_pair, list)
-            and len(coord_pair) >= 2
-            and all(isinstance(c, int | float) for c in coord_pair[:2])
-        ):
-            lon, lat = coord_pair[0], coord_pair[1]
-            if -180 <= lon <= 180 and -90 <= lat <= 90:
-                processed_coords.append([lon, lat])
+        processed_coords: list[list[float]] = []
+        for coord_pair in raw_coords:
+            is_valid, validated_coord = validate_coordinate_pair(coord_pair)
+            if is_valid and validated_coord is not None:
+                processed_coords.append(validated_coord)
             else:
-                _log_warning("Coordinate out of bounds: [%s, %s]", lon, lat)
-        else:
-            _log_debug("Skipping invalid coordinate pair: %s", coord_pair)
+                _log_debug("Skipping invalid coordinate pair: %s", coord_pair)
 
-    if not processed_coords:
-        # Reduce noise for common invalid GPS cases
-        if transaction_id is not None:
-            logger.debug(
-                "Trip %s: No valid coordinate pairs found after validation.",
-                transaction_id,
-            )
-        else:
-            logger.debug("No valid coordinate pairs found after validation.")
+        if not processed_coords:
+            _log_warning("No valid coordinate pairs found after validation")
+            return None
+
+        # Remove consecutive duplicates
+        unique_coords: list[list[float]] = []
+        for coord in processed_coords:
+            if not unique_coords or coord != unique_coords[-1]:
+                unique_coords.append(coord)
+
+        if len(unique_coords) == 1:
+            return {"type": "Point", "coordinates": unique_coords[0]}
+        return {"type": "LineString", "coordinates": unique_coords}
+
+    if isinstance(gps_data, dict):
+        # Use centralized validation for GeoJSON dicts
+        is_valid, validated_geojson = validate_geojson_point_or_linestring(
+            gps_data, transaction_id
+        )
+        if is_valid and validated_geojson is not None:
+            return validated_geojson
+        _log_warning("GPS data (dict) failed validation")
         return None
-
-    unique_coords: list[list[float]] = []
-    for coord in processed_coords:
-        if not unique_coords or coord != unique_coords[-1]:
-            unique_coords.append(coord)
-
-    if len(unique_coords) == 1:
-        return {"type": "Point", "coordinates": unique_coords[0]}
-    return {"type": "LineString", "coordinates": unique_coords}
+    _log_warning("GPS data structure not recognized")
+    return None
 
 
 @retry_async(max_retries=3, retry_delay=2.0)

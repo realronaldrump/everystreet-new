@@ -43,6 +43,7 @@ from db import (
     update_one_with_retry,
 )
 from osm_utils import generate_geojson_osm
+from utils import validate_geojson_point_or_linestring
 
 load_dotenv()
 
@@ -921,7 +922,7 @@ class CoverageCalculator:
     ) -> tuple[bool, list[list[float]]]:
         """
         Validates if the GPS data (expected to be a GeoJSON Point or LineString dict)
-        is suitable for coverage calculation.
+        is suitable for coverage calculation. Uses centralized validation logic from utils.
 
         Args:
             gps_data: A GeoJSON dictionary (Point or LineString) or None.
@@ -934,58 +935,22 @@ class CoverageCalculator:
         if not gps_data or not isinstance(gps_data, dict):
             return False, []
 
-        trip_type = gps_data.get("type")
-        coordinates = gps_data.get("coordinates")
+        # Use centralized validation function
+        is_valid, validated_geojson = validate_geojson_point_or_linestring(gps_data)
 
-        if not trip_type or not isinstance(coordinates, list):
+        if not is_valid or validated_geojson is None:
             return False, []
 
-        if trip_type == "LineString":
-            if len(coordinates) < 2:
-                logger.debug("Invalid LineString: less than 2 coordinates.")
-                return False, []
+        geom_type = validated_geojson.get("type")
+        coordinates = validated_geojson.get("coordinates")
 
-            # Validate each coordinate pair in the LineString
-            valid_coords_list = []
-            for coord_pair in coordinates:
-                if (
-                    isinstance(coord_pair, list)
-                    and len(coord_pair) == 2
-                    and all(isinstance(c, int | float) for c in coord_pair)
-                    and (-180 <= coord_pair[0] <= 180 and -90 <= coord_pair[1] <= 90)
-                ):  # Lon, Lat check
-                    valid_coords_list.append(coord_pair)
-                else:
-                    logger.debug(
-                        "Invalid coordinate pair in LineString: %s", coord_pair
-                    )
-                    return (
-                        False,
-                        [],
-                    )  # Strict: entire LineString invalid if one point is bad
-
-            if (
-                len(valid_coords_list) < 2
-            ):  # Ensure after validation we still have a line
-                logger.debug(
-                    "LineString has less than 2 valid coordinates after validation."
-                )
-                return False, []
-            return True, valid_coords_list
-
-        if trip_type == "Point":
-            if not (
-                isinstance(coordinates, list)
-                and len(coordinates) == 2
-                and all(isinstance(c, int | float) for c in coordinates)
-                and (-180 <= coordinates[0] <= 180 and -90 <= coordinates[1] <= 90)
-            ):  # Lon, Lat check
-                logger.debug("Invalid Point coordinates: %s", coordinates)
-                return False, []
+        if geom_type == "Point":
             # For coverage, simulate a very short line segment from a Point
             return True, [coordinates, coordinates]
+        if geom_type == "LineString":
+            # Return the validated coordinate list
+            return True, coordinates
 
-        logger.debug("Unsupported GeoJSON type for trip: %s", trip_type)
         return False, []
 
     async def process_trips(self, processed_trip_ids_set: set[str]) -> bool:
@@ -1557,17 +1522,14 @@ class CoverageCalculator:
                 )
 
                 if should_update_progress:
-                    progress_pct = (
-                        50
-                        + (
-                            (
-                                self.processed_trips_count  # Use the count of uniquely processed trips
-                                / self.total_trips_to_process
-                                * 40
-                            )
-                            if self.total_trips_to_process > 0
-                            else 40
+                    progress_pct = 50 + (
+                        (
+                            self.processed_trips_count  # Use the count of uniquely processed trips
+                            / self.total_trips_to_process
+                            * 40
                         )
+                        if self.total_trips_to_process > 0
+                        else 40
                     )
                     progress_pct = min(progress_pct, 90.0)
 

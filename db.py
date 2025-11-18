@@ -8,7 +8,6 @@ and GridFS access.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import threading
@@ -42,17 +41,6 @@ if TYPE_CHECKING:
 from date_utils import normalize_calendar_date, normalize_to_utc_datetime
 
 logger = logging.getLogger(__name__)
-
-
-class BSONJSONEncoder(json.JSONEncoder):
-    """Custom JSON encoder that handles MongoDB ObjectId and datetime objects for API responses."""
-
-    def default(self, obj):
-        if isinstance(obj, ObjectId):
-            return str(obj)
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        return super().default(obj)
 
 
 T = TypeVar("T")
@@ -487,12 +475,9 @@ class DatabaseManager:
                     )
                     return None
 
-            elif (
-                e.code
-                in (
-                    86,
-                    68,
-                )
+            elif e.code in (
+                86,
+                68,
             ):  # Other conflicts (IndexKeySpecsConflict, IndexNameAlreadyExists and not options conflict)
                 logger.warning(
                     "Index conflict (key specs or name already exists and options match): %s",

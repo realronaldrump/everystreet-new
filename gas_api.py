@@ -20,10 +20,7 @@ from db import (
     update_one_with_retry,
     vehicles_collection,
 )
-from models import (
-    GasFillupCreateModel,
-    VehicleModel,
-)
+from models import GasFillupCreateModel, VehicleModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

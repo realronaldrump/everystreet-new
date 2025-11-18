@@ -16,11 +16,11 @@ from db import (
 )
 from export_helpers import (
     create_export_response,
-    default_serializer,
     get_location_filename,
     process_trip_for_export,
 )
 from osm_utils import generate_geojson_osm
+from utils import default_serializer
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
