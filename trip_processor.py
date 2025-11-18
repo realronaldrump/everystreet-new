@@ -16,6 +16,7 @@ from typing import Any
 
 import aiohttp
 import pyproj
+from aiolimiter import AsyncLimiter
 from pymongo.errors import DuplicateKeyError
 from shapely.geometry import Point
 
@@ -57,47 +58,12 @@ class Config:
         self._mapbox_access_token = value
 
 
-class RateLimiter:
-    """Rate limiter for API requests with thread-safe design."""
 
-    def __init__(
-        self,
-        max_requests: int,
-        window_seconds: int,
-    ):
-        self.max_requests = max_requests
-        self.window_seconds = window_seconds
-        self.window_start = time.time()
-        self.request_count = 0
-        self.lock = asyncio.Lock()
-
-    async def check_rate_limit(
-        self,
-    ) -> tuple[bool, float]:
-        """Check if we're about to exceed rate limit.
-
-        Returns (need_to_wait, wait_time_seconds)
-        """
-        async with self.lock:
-            current_time = time.time()
-            elapsed = current_time - self.window_start
-
-            if elapsed > self.window_seconds:
-                self.request_count = 0
-                self.window_start = current_time
-                return False, 0
-
-            if self.request_count >= self.max_requests:
-                wait_time = self.window_seconds - elapsed
-                return True, max(0.1, wait_time)
-
-            self.request_count += 1
-            return False, 0
 
 
 config = Config()
 # Mapbox allows 300 requests per minute - be conservative at 280 to account for burst traffic
-mapbox_rate_limiter = RateLimiter(280, 60)
+mapbox_rate_limiter = AsyncLimiter(280, 60)
 # Increased semaphore for better parallelization with proper rate limiting
 map_match_semaphore = asyncio.Semaphore(10)
 
@@ -1300,16 +1266,8 @@ class TripProcessor:
                         1,
                         max_attempts_for_429 + 1,
                     ):
-                        (
-                            should_wait,
-                            wait_time,
-                        ) = await mapbox_rate_limiter.check_rate_limit()
-                        if should_wait:
-                            logger.info(
-                                "Rate limit approaching - waiting %.2f seconds before API call",
-                                wait_time,
-                            )
-                            await asyncio.sleep(wait_time)
+                        async with mapbox_rate_limiter:
+                            pass  # Wait for rate limit slot
 
                         try:
                             # Use POST request to avoid URL length limitations
