@@ -9,7 +9,6 @@ ensures consistent handling of all trip data.
 import asyncio
 import json
 import logging
-import time
 import uuid
 from enum import Enum
 from typing import Any
@@ -56,9 +55,6 @@ class Config:
     @mapbox_access_token.setter
     def mapbox_access_token(self, value):
         self._mapbox_access_token = value
-
-
-
 
 
 config = Config()

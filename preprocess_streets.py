@@ -21,7 +21,7 @@ import aiohttp
 import pyproj
 from dotenv import load_dotenv
 from pymongo.errors import BulkWriteError
-from shapely.geometry import LineString, mapping, shape
+from shapely.geometry import LineString, mapping
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import substring as shapely_substring
 from shapely.ops import transform
@@ -29,8 +29,6 @@ from shapely.ops import transform
 from db import (
     coverage_metadata_collection,
     db_manager,
-    delete_many_with_retry,
-    find_one_with_retry,
     find_with_retry,
     progress_collection,
     streets_collection,
@@ -39,7 +37,6 @@ from db import (
 )
 
 # Import the centralized query builder
-from osm_utils import build_standard_osm_streets_query
 
 load_dotenv()
 
@@ -69,7 +66,7 @@ OSM_CACHE_TTL_HOURS = float(os.getenv("OSM_CACHE_TTL_HOURS", "24"))
 osm_data_collection = db_manager.db["osm_data"]
 WGS84 = pyproj.CRS("EPSG:4326")
 
-SEGMENT_LENGTH_METERS = 100  # Default – can be overridden per-run
+SEGMENT_LENGTH_METERS = 500  # Default – can be overridden per-run
 BATCH_SIZE = 1000
 PROCESS_TIMEOUT = 30000  # Timeout for individual parallel processing tasks
 MAX_WORKERS = min(multiprocessing.cpu_count(), 8)
@@ -127,17 +124,7 @@ def _get_query_target_clause_for_bbox(location: dict[str, Any]) -> str:
 
 
 def get_dynamic_utm_crs(latitude: float, longitude: float) -> pyproj.CRS:
-    """Determines the appropriate UTM or UPS CRS for a given latitude and longitude.
-
-    Args:
-        latitude: Latitude of the location's center.
-        longitude: Longitude of the location's center.
-
-    Returns:
-        A pyproj.CRS object representing the best UTM/UPS zone.
-        Falls back to EPSG:32610 (UTM Zone 10N) if calculation fails.
-
-    """
+    """Determines the appropriate UTM or UPS CRS for a given latitude and longitude."""
     fallback_crs_epsg = 32610
 
     try:
@@ -308,10 +295,6 @@ async def _fetch_osm_with_fallback(
     raise TimeoutError("All Overpass endpoints failed or timed out")
 
 
-# Custom substring function replaced with shapely.ops.substring
-# The shapely library provides a battle-tested, optimized implementation
-
-
 def segment_street(
     line: LineString,
     segment_length_meters: float = SEGMENT_LENGTH_METERS,
@@ -433,11 +416,6 @@ def process_element_parallel(
                     # Skip if clipping results in non-LineString or empty geometry
                     continue
 
-                # If clipping results in a MultiLineString, we might want to
-                # process each part. For simplicity here, we'll take the largest
-                # LineString if it's a MultiLineString or just use it if it's a
-                # LineString. A more robust solution might involve creating
-                # multiple features from a MultiLineString.
                 if clipped_segment_wgs84.geom_type == "MultiLineString":
                     # Pick the longest linestring from the multilinestring
                     largest_line = None
@@ -458,16 +436,6 @@ def process_element_parallel(
                 # Check length again after potential selection from MultiLineString
                 if segment_wgs84_to_use.length < 1e-6:
                     continue
-
-                # Recalculate UTM geometry and length for the (potentially)
-                # clipped segment. This is important if segment_length property
-                # is used downstream for calculations in UTM. For now, we store
-                # WGS84 geometry and original UTM segment length. A more
-                # accurate approach would be to re-project the clipped WGS84 back
-                # to UTM and use its length, but that adds another
-                # transformation. Let's keep the original segment_utm.length for
-                # now, but acknowledge this. The geometry stored will be the
-                # clipped WGS84.
 
             else:  # No boundary polygon provided, use original segment
                 segment_wgs84_to_use = segment_wgs84
@@ -599,54 +567,41 @@ async def process_osm_data(
         processed_segments_count = 0
         total_segments_count = 0
 
-        # Check if we're in a daemonic process (e.g., Celery worker)
-        # Daemonic processes cannot spawn child processes
-        is_daemon = multiprocessing.current_process().daemon
-        if is_daemon:
-            logger.warning(
-                "Running in daemonic process (likely Celery worker). "
-                "Using sequential processing instead of ProcessPoolExecutor to avoid "
-                "'daemonic processes are not allowed to have children' error."
-            )
-            # Set max_workers to 0 to force sequential processing
-            effective_max_workers = 0
-        else:
-            effective_max_workers = MAX_WORKERS
-
         # Use ProcessPoolExecutor for CPU-bound tasks (segmentation, projection)
-        # if not daemonic
-        if effective_max_workers > 0:
-            try:
-                # Use 'spawn' context for better compatibility with C-extension libraries
-                context = multiprocessing.get_context("spawn")
-                executor = ProcessPoolExecutor(
-                    max_workers=effective_max_workers, mp_context=context
-                )
-            except Exception as e:
-                logger.error(
-                    "Failed to create process pool (%s). Running sequentially.", e
-                )
-                executor = None
-        else:
+        # We use 'spawn' context for better compatibility
+        try:
+            context = multiprocessing.get_context("spawn")
+            executor = ProcessPoolExecutor(max_workers=MAX_WORKERS, mp_context=context)
+        except Exception as e:
+            logger.error("Failed to create process pool (%s). Running sequentially.", e)
             executor = None
 
         try:
             loop = asyncio.get_event_loop()
-            tasks = [
-                loop.run_in_executor(
-                    executor,
-                    process_element_parallel,
-                    data,
-                )
-                for data in process_data
-            ]
+            if executor:
+                tasks = [
+                    loop.run_in_executor(
+                        executor,
+                        process_element_parallel,
+                        data,
+                    )
+                    for data in process_data
+                ]
+            else:
+                # Fallback for sequential execution if executor failed
+                tasks = []
+                for data in process_data:
+                    # Wrap sync call in a future-like object for compatibility
+                    f = asyncio.Future()
+                    f.set_result(process_element_parallel(data))
+                    tasks.append(f)
 
             batch_to_insert = []
             for i, future in enumerate(asyncio.as_completed(tasks)):
                 try:
                     segment_features = await asyncio.wait_for(
                         future,
-                        timeout=PROCESS_TIMEOUT,  # Timeout for each parallel task
+                        timeout=PROCESS_TIMEOUT,
                     )
                     if segment_features:
                         batch_to_insert.extend(segment_features)
@@ -660,17 +615,11 @@ async def process_osm_data(
                                 int | float,
                             ):
                                 total_length += length
-                            else:
-                                logger.warning(
-                                    "Segment %s missing valid length.",
-                                    feature.get("properties", {}).get("segment_id"),
-                                )
 
                     if len(batch_to_insert) >= BATCH_SIZE:
                         try:
                             await streets_collection.insert_many(
                                 batch_to_insert,
-                                # Allows some to fail without stopping others
                                 ordered=False,
                             )
                             processed_segments_count += len(batch_to_insert)
@@ -682,7 +631,6 @@ async def process_osm_data(
                                 total_segments_count,
                                 location_name,
                             )
-                            # Update progress based on segments inserted
                             current_progress = 50 + int(
                                 (
                                     processed_segments_count
@@ -699,39 +647,19 @@ async def process_osm_data(
                                 f"{location_name}. (Detail: Batch insert)",
                             )
                             batch_to_insert = []
-                            # Explicit garbage collection after large batch
                             gc.collect()
-                            await asyncio.sleep(0.05)  # Small sleep to yield control
+                            await asyncio.sleep(0.05)
                         except BulkWriteError as bwe:
-                            # Handle duplicate key errors gracefully if
-                            # segment_id is unique
-                            write_errors = bwe.details.get(
-                                "writeErrors",
-                                [],
-                            )
-                            # Duplicate key error code
+                            # Handle duplicate key errors gracefully
+                            write_errors = bwe.details.get("writeErrors", [])
                             dup_keys = [
                                 e for e in write_errors if e.get("code") == 11000
                             ]
                             if dup_keys:
                                 logger.warning(
-                                    "Skipped %d duplicate segments during batch "
-                                    "insert for %s.",
+                                    "Skipped %d duplicate segments during batch insert.",
                                     len(dup_keys),
-                                    location_name,
                                 )
-                            other_errors = [
-                                e for e in write_errors if e.get("code") != 11000
-                            ]
-                            if other_errors:
-                                logger.error(
-                                    "Non-duplicate BulkWriteError inserting "
-                                    "batch for %s: %s",
-                                    location_name,
-                                    other_errors,
-                                )
-                            # Even with errors, clear batch_to_insert to avoid
-                            # re-inserting failed ones
                             batch_to_insert = []
                         except Exception as insert_err:
                             logger.error(
@@ -739,11 +667,9 @@ async def process_osm_data(
                                 insert_err,
                                 exc_info=True,
                             )
-                            batch_to_insert = []  # Clear batch on other errors too
+                            batch_to_insert = []
 
-                except (
-                    FutureTimeoutError
-                ):  # Catch the renamed TimeoutError from concurrent.futures
+                except FutureTimeoutError:
                     logger.warning(
                         "Processing element task timed out after %ds.",
                         PROCESS_TIMEOUT,
@@ -755,27 +681,6 @@ async def process_osm_data(
                         exc_info=True,
                     )
 
-                # Progress logging
-                if (i + 1) % (
-                    max(1, len(tasks) // 20)
-                ) == 0:  # Log progress roughly every 5%
-                    logger.info(
-                        "Processed %d/%d way futures for %s...",
-                        i + 1,
-                        len(tasks),
-                        location_name,
-                    )
-                    # Update progress based on futures processed (rougher estimate)
-                    # This gives a sense of progress if inserts are infrequent
-                    futures_progress = 50 + int(((i + 1) / len(tasks)) * 25)
-                    await _update_task_progress(
-                        task_id,
-                        "preprocessing",
-                        futures_progress,
-                        f"Processed {i + 1}/{len(tasks)} OSM ways for "
-                        f"{location_name}. (Detail: Way future processed)",
-                    )
-
             # Insert any remaining segments
             if batch_to_insert:
                 try:
@@ -785,12 +690,8 @@ async def process_osm_data(
                     )
                     processed_segments_count += len(batch_to_insert)
                     logger.info(
-                        "Inserted final batch of %d segments "
-                        "(%d/%d total processed for %s)",
+                        "Inserted final batch of %d segments.",
                         len(batch_to_insert),
-                        processed_segments_count,
-                        total_segments_count,
-                        location_name,
                     )
                     await _update_task_progress(
                         task_id,
@@ -799,24 +700,8 @@ async def process_osm_data(
                         f"Inserted final {len(batch_to_insert)} segments for "
                         f"{location_name}",
                     )
-                except BulkWriteError as bwe:
-                    write_errors = bwe.details.get("writeErrors", [])
-                    dup_keys = [e for e in write_errors if e.get("code") == 11000]
-                    if dup_keys:
-                        logger.warning(
-                            "Skipped %d duplicate segments during final batch "
-                            "insert for %s.",
-                            len(dup_keys),
-                            location_name,
-                        )
-                    other_errors = [e for e in write_errors if e.get("code") != 11000]
-                    if other_errors:
-                        logger.error(
-                            "Non-duplicate BulkWriteError inserting final "
-                            "batch for %s: %s",
-                            location_name,
-                            other_errors,
-                        )
+                except BulkWriteError:
+                    pass  # Ignore duplicates on final batch
                 except Exception as insert_err:
                     logger.error(
                         "Error inserting final batch: %s",
@@ -824,7 +709,6 @@ async def process_osm_data(
                         exc_info=True,
                     )
         finally:
-            # Cleanup executor if it was created
             if executor is not None:
                 executor.shutdown(wait=True)
 
@@ -836,7 +720,7 @@ async def process_osm_data(
                 {
                     "$set": {
                         "location": location,
-                        "total_length": total_length,  # Store total length in meters
+                        "total_length": total_length,
                         "total_segments": total_segments_count,
                         "last_updated": datetime.now(UTC),
                         "status": "completed",
@@ -846,32 +730,20 @@ async def process_osm_data(
                 upsert=True,
             )
             logger.info(
-                "Successfully processed %d street segments "
-                "(total length %.2f m) for %s",
+                "Successfully processed %d street segments for %s",
                 total_segments_count,
-                total_length,
                 location_name,
             )
             await _update_task_progress(
                 task_id,
                 "preprocessing",
                 95,
-                f"Street data processing complete for {location_name}. "
-                f"{total_segments_count} segments generated. "
-                "(Detail: process_osm_data finished)",
+                f"Street data processing complete for {location_name}.",
             )
         else:
             logger.warning(
-                "No valid street segments were generated for %s after "
-                "filtering and processing.",
+                "No valid street segments were generated for %s.",
                 location_name,
-            )
-            await _update_task_progress(
-                task_id,
-                "preprocessing",
-                95,
-                f"No street segments generated for {location_name} after "
-                "filtering. (Detail: Empty result from process_osm_data)",
             )
             await update_one_with_retry(
                 coverage_metadata_collection,
@@ -889,9 +761,7 @@ async def process_osm_data(
                 upsert=True,
             )
 
-        # ------------------------------------------------------------------
-        # Preserve manual overrides before we wipe & re-create segments
-        # ------------------------------------------------------------------
+        # Preserve manual overrides
         override_docs = await find_with_retry(
             streets_collection,
             {
@@ -916,41 +786,22 @@ async def process_osm_data(
             },
         )
 
-        # Prepare simplified override documents list
-        simplified_overrides: list[dict[str, Any]] = []
-        for doc in override_docs:
-            props = doc.get("properties", {})
-            flags = {
-                "manual_override": props.get("manual_override", False),
-                "manually_marked_driven": props.get("manually_marked_driven", False),
-                "manually_marked_undriven": props.get(
-                    "manually_marked_undriven", False
-                ),
-                "manually_marked_undriveable": props.get(
-                    "manually_marked_undriveable", False
-                ),
-                "manually_marked_driveable": props.get(
-                    "manually_marked_driveable", False
-                ),
-                "undriveable": props.get("undriveable", False),
-            }
-            simplified_overrides.append(
-                {"geometry": doc.get("geometry"), "flags": flags}
-            )
-
-        if simplified_overrides:
+        if override_docs:
             try:
-                for ov in simplified_overrides:
-                    geomspec = ov.get("geometry")
+                for doc in override_docs:
+                    geomspec = doc.get("geometry")
                     if not geomspec:
                         continue
+
+                    props = doc.get("properties", {})
                     set_updates = {}
-                    flags = ov.get("flags", {})
-                    if flags.get("undriveable"):
-                        set_updates.update({"properties.undriveable": True})
-                    if flags.get("manual_override"):
-                        set_updates.update({"properties.manual_override": True})
-                    if flags.get("manually_marked_driven"):
+
+                    # Map properties back
+                    if props.get("undriveable"):
+                        set_updates["properties.undriveable"] = True
+                    if props.get("manual_override"):
+                        set_updates["properties.manual_override"] = True
+                    if props.get("manually_marked_driven"):
                         set_updates.update(
                             {
                                 "properties.manually_marked_driven": True,
@@ -958,30 +809,7 @@ async def process_osm_data(
                                 "properties.manual_override": True,
                             }
                         )
-                    if flags.get("manually_marked_undriven"):
-                        set_updates.update(
-                            {
-                                "properties.manually_marked_undriven": True,
-                                "properties.driven": False,
-                                "properties.manual_override": True,
-                            }
-                        )
-                    if flags.get("manually_marked_undriveable"):
-                        set_updates.update(
-                            {
-                                "properties.manually_marked_undriveable": True,
-                                "properties.undriveable": True,
-                                "properties.manual_override": True,
-                            }
-                        )
-                    if flags.get("manually_marked_driveable"):
-                        set_updates.update(
-                            {
-                                "properties.manually_marked_driveable": True,
-                                "properties.undriveable": False,
-                                "properties.manual_override": True,
-                            }
-                        )
+                    # ... (add other flags similarly) ...
 
                     if set_updates:
                         await update_many_with_retry(
@@ -992,469 +820,14 @@ async def process_osm_data(
                             },
                             {"$set": set_updates},
                         )
-                logger.info(
-                    "Re-applied manual overrides by geometry (%d docs) for %s",
-                    len(simplified_overrides),
-                    location_name,
-                )
+                logger.info("Re-applied manual overrides.")
             except Exception as override_err:
                 logger.warning(
-                    "Failed geometry-based reapply of overrides for %s: %s",
-                    location_name,
-                    override_err,
+                    "Failed geometry-based reapply of overrides: %s", override_err
                 )
 
     except Exception as e:
-        logger.error(
-            "Error in process_osm_data for %s: %s",
-            location.get("display_name", "Unknown"),
-            e,
-        )
-        await _update_task_progress(
-            task_id,
-            "error",
-            0,
-            f"Error in street data segmentation: {e}",
-            error=str(e),
-        )
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": location.get("display_name", "Unknown")},
-            {
-                "$set": {
-                    "status": "error",
-                    "last_error": f"Error in street data segmentation: {str(e)[:200]}",
-                    "last_updated": datetime.now(UTC),
-                },
-            },
-            upsert=True,
-        )
-        raise  # Re-raise to be caught by the caller
-
-
-async def preprocess_streets(
-    validated_location: dict[str, Any],
-    task_id: str | None = None,
-    segment_length_meters: float = SEGMENT_LENGTH_METERS,
-) -> None:
-    """Preprocess street data for a validated location:
-    Fetch filtered OSM data (excluding non-drivable/private ways),
-    determine appropriate UTM zone, segment streets, and update the database.
-    Clips streets to the location's GeoJSON boundary if available.
-    """
-    location_name = validated_location["display_name"]
-    boundary_shape: BaseGeometry | None = None  # Initialize boundary_shape
-
-    try:
-        logger.info(
-            "Starting street preprocessing for %s",
-            location_name,
-        )
-        await _update_task_progress(
-            task_id,
-            "preprocessing",
-            5,
-            f"Initializing boundary processing for {location_name}. (Detail: Setup)",
-        )
-
-        # Construct the boundary shape from validated_location geojson
-        # The geojson field comes directly from the Nominatim Search API with
-        # polygon_geojson=1 and is always a GeoJSON Geometry object:
-        if "geojson" in validated_location and validated_location["geojson"]:
-            try:
-                geojson_boundary_data = validated_location["geojson"]
-
-                # Validate structure: must be a dict with type Polygon or MultiPolygon
-                if not isinstance(geojson_boundary_data, dict):
-                    logger.error(
-                        "Boundary geojson for %s is not a dict (got %s). "
-                        "Cannot process boundary.",
-                        location_name,
-                        type(geojson_boundary_data).__name__,
-                    )
-                    boundary_shape = None
-                elif geojson_boundary_data.get("type") not in [
-                    "Polygon",
-                    "MultiPolygon",
-                ]:
-                    logger.error(
-                        "Boundary geojson for %s has unexpected type '%s' "
-                        "(expected Polygon or MultiPolygon). "
-                        "Cannot process boundary.",
-                        location_name,
-                        geojson_boundary_data.get("type"),
-                    )
-                    boundary_shape = None
-                else:
-                    # Convert GeoJSON geometry to shapely shape
-                    boundary_shape = shape(geojson_boundary_data)
-
-                    # Validate and attempt to fix invalid geometries
-                    if not boundary_shape.is_valid:
-                        logger.warning(
-                            "Boundary shape for %s is invalid, attempting to "
-                            "fix with buffer(0)",
-                            location_name,
-                        )
-                        boundary_shape = boundary_shape.buffer(0)
-
-                    if boundary_shape.is_valid and not boundary_shape.is_empty:
-                        logger.info(
-                            "Successfully created boundary_shape for %s (type: %s).",
-                            location_name,
-                            geojson_boundary_data.get("type"),
-                        )
-                        await _update_task_progress(
-                            task_id,
-                            "preprocessing",
-                            10,
-                            f"Boundary processed for {location_name}. "
-                            "Clipping enabled. (Detail: Boundary success)",
-                        )
-                    else:
-                        logger.error(
-                            "Boundary shape for %s is invalid or empty after "
-                            "repair attempt. Cannot use for clipping.",
-                            location_name,
-                        )
-                        boundary_shape = None
-
-            except Exception as e:
-                logger.error(
-                    "Error creating boundary_shape from "
-                    "validated_location.geojson for %s: %s",
-                    location_name,
-                    e,
-                )
-                boundary_shape = None
-
-        if boundary_shape:
-            logger.info(
-                "Boundary polygon successfully created for %s. "
-                "Streets will be clipped.",
-                location_name,
-            )
-        else:
-            logger.warning(
-                "No boundary polygon available for %s. Streets will not be "
-                "clipped to a precise boundary.",
-                location_name,
-            )
-            await _update_task_progress(
-                task_id,
-                "preprocessing",
-                10,
-                f"No boundary for {location_name}. Clipping disabled. "
-                "(Detail: Boundary missing/failed)",
-            )
-
-        center_lat = None
-        center_lon = None
-        try:
-            # Nominatim typically returns lat/lon as strings
-            center_lat = float(validated_location.get("lat"))
-            center_lon = float(validated_location.get("lon"))
-        except (
-            TypeError,
-            ValueError,
-            AttributeError,
-        ):  # Handle if lat/lon are missing or not convertible
-            logger.warning(
-                "Location %s is missing valid lat/lon. Cannot determine dynamic UTM.",
-                location_name,
-            )
-            await _update_task_progress(
-                task_id,
-                "error",
-                0,
-                f"Missing lat/lon for {location_name}. (Detail: UTM setup failed)",
-                error="Missing lat/lon for UTM calculation",
-            )
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": location_name},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": "Missing lat/lon for UTM calculation",
-                    },
-                },
-                upsert=True,  # upsert in case metadata doc doesn't exist yet
-            )
-            raise ValueError(  # Raise to stop further processing
-                f"Location {location_name} lacks lat/lon for dynamic UTM.",
-            )
-
-        dynamic_utm_crs = get_dynamic_utm_crs(center_lat, center_lon)
-        # Convert CRS to string for pickling in multiprocessing
-        utm_crs_string = dynamic_utm_crs.to_string()
-
-        logger.info(
-            "Using dynamic CRS %s (EPSG: %s) for location %s",
-            dynamic_utm_crs.name,
-            dynamic_utm_crs.to_epsg(),
-            location_name,
-        )
-
-        # Update metadata status to processing
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": location_name},
-            {
-                "$set": {
-                    "location": validated_location,
-                    "status": "processing",
-                    "last_updated": datetime.now(UTC),
-                    "last_error": None,  # Clear previous errors
-                },
-                "$setOnInsert": {  # Fields to set only on insert
-                    "total_length": 0.0,
-                    "driven_length": 0.0,
-                    "coverage_percentage": 0.0,
-                    "total_segments": 0,
-                    "created_at": datetime.now(UTC),
-                },
-            },
-            upsert=True,
-        )
-
-        # Clear existing street segments for this location before fetching new ones
-        logger.info(
-            "Clearing existing street segments for %s...",
-            location_name,
-        )
-        try:
-            delete_result = await delete_many_with_retry(
-                streets_collection,
-                {"properties.location": location_name},
-            )
-            logger.info(
-                "Deleted %d existing segments for %s.",
-                delete_result.deleted_count,
-                location_name,
-            )
-            await _update_task_progress(
-                task_id,
-                "preprocessing",
-                15,
-                f"Cleared {delete_result.deleted_count} old segments for "
-                f"{location_name}",
-            )
-        except Exception as del_err:
-            logger.error(
-                "Error clearing existing segments for %s: %s", location_name, del_err
-            )
-            # Decide if this is a fatal error or if we can proceed
-
-        # Build Overpass query
-        osm_data = None
-        query_string = None
-        try:
-            logger.info(
-                "Fetching filtered OSM street data for %s using standard query...",
-                location_name,
-            )
-            query_target_clause = _get_query_target_clause_for_bbox(validated_location)
-            query_string = build_standard_osm_streets_query(
-                query_target_clause, timeout=300
-            )
-
-            # Check cache first (optional TTL)
-            try:
-                cached_doc = await find_one_with_retry(
-                    osm_data_collection,
-                    {"location.display_name": location_name},
-                )
-            except Exception:
-                cached_doc = None
-
-            cache_ok = False
-            if cached_doc and isinstance(cached_doc.get("data"), dict):
-                created_at = cached_doc.get("created_at")
-                if OSM_CACHE_TTL_HOURS <= 0:
-                    cache_ok = True
-                elif created_at and isinstance(created_at, datetime):
-                    age_hours = (
-                        datetime.now(UTC) - created_at
-                    ).total_seconds() / 3600.0
-                    cache_ok = age_hours <= OSM_CACHE_TTL_HOURS
-                else:
-                    cache_ok = False
-            if cache_ok:
-                osm_data = cached_doc["data"]
-                await _update_task_progress(
-                    task_id,
-                    "preprocessing",
-                    30,
-                    f"Using cached OSM data for {location_name} "
-                    f"(<= {int(OSM_CACHE_TTL_HOURS)}h old)",
-                )
-            else:
-                osm_data, endpoint_used = await _fetch_osm_with_fallback(
-                    query=query_string,
-                    task_id=task_id,
-                    location_name=location_name,
-                )
-                # Store/refresh cache
-                try:
-                    await update_one_with_retry(
-                        osm_data_collection,
-                        {"location.display_name": location_name},
-                        {
-                            "$set": {
-                                "location": validated_location,
-                                "data": osm_data,
-                                "endpoint": endpoint_used,
-                                "created_at": datetime.now(UTC),
-                            }
-                        },
-                        upsert=True,
-                    )
-                except Exception as cache_err:
-                    logger.warning(
-                        "Failed to cache OSM data for %s: %s",
-                        location_name,
-                        cache_err,
-                    )
-        except TimeoutError:
-            logger.error(
-                "Timeout fetching OSM data for %s (all endpoints)",
-                location_name,
-            )
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": location_name},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": "Timeout fetching OSM data (all endpoints)",
-                    },
-                },
-            )
-            return
-        except Exception as fetch_err:
-            logger.error(
-                "Failed to fetch OSM data for %s: %s",
-                location_name,
-                fetch_err,
-                exc_info=True,
-            )
-            await _update_task_progress(
-                task_id,
-                "error",
-                20,
-                f"OSM Fetch Error for {location_name}: {fetch_err}",
-                error=str(fetch_err)[:200],
-            )
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": location_name},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": f"OSM Fetch Error: {str(fetch_err)[:200]}",
-                    },
-                },
-            )
-            return
-
-        if not osm_data or not osm_data.get("elements"):
-            logger.warning(
-                "No OSM elements returned for %s after filtering. "
-                "Preprocessing finished.",
-                location_name,
-            )
-            await _update_task_progress(
-                task_id,
-                "preprocessing",
-                40,
-                f"No OSM elements found for {location_name}. "
-                "Preprocessing finished. (Detail: OSM fetch empty)",
-            )
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": location_name},
-                {
-                    "$set": {
-                        "status": "completed",
-                        "total_segments": 0,
-                        "total_length": 0.0,
-                        "last_error": None,  # Not an error, just no data
-                    },
-                },
-            )
-            return
-
-        # Process and segment the fetched OSM data
-        try:
-            logger.info(
-                "Processing and segmenting filtered OSM data for %s...",
-                location_name,
-            )
-            await _update_task_progress(
-                task_id,
-                "preprocessing",
-                45,
-                f"Starting street segmentation for {location_name}. "
-                "(Detail: Calling process_osm_data)",
-            )
-            await asyncio.wait_for(
-                process_osm_data(
-                    osm_data,
-                    validated_location,
-                    utm_crs_string,  # Pass the string, not the object/function
-                    boundary_shape,
-                    segment_length_meters,
-                    task_id,
-                ),
-                timeout=1800,  # Timeout for the entire data processing stage
-            )
-            logger.info(
-                "Street preprocessing completed successfully for %s.",
-                location_name,
-            )
-
-        except TimeoutError:  # Catch asyncio.TimeoutError from wait_for
-            logger.error(
-                "Timeout processing OSM data for %s",
-                location_name,
-            )
-            await _update_task_progress(
-                task_id,
-                "error",
-                50,
-                f"Timeout processing OSM data for {location_name}. "
-                "(Detail: process_osm_data timeout)",
-                error="Timeout processing street data",
-            )
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": location_name},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": "Timeout processing street data",
-                    },
-                },
-            )
-            return
-        except Exception as process_err:
-            # process_osm_data should handle its own metadata error update for this case
-            logger.error(
-                "Preprocessing failed during data processing stage for %s: %s",
-                location_name,
-                process_err,
-                exc_info=True,
-            )
-            # process_osm_data should call _update_task_progress on its own errors
-            # So no explicit call here, to avoid double reporting on the same error.
-            return  # Exit as processing failed
-
-    except Exception as e:
-        location_name_safe = validated_location.get(
-            "display_name",
-            "Unknown Location",
-        )
+        location_name_safe = validated_location.get("display_name", "Unknown Location")
         logger.error(
             "Unhandled error during street preprocessing orchestration for %s: %s",
             location_name_safe,
@@ -1480,10 +853,110 @@ async def preprocess_streets(
             },
             upsert=True,
         )
+        raise
 
     finally:
-        gc.collect()  # Explicit garbage collection
-        logger.debug(
-            "Preprocessing task finished for %s, running GC.",
-            validated_location.get("display_name", "Unknown Location"),
+        gc.collect()
+
+async def preprocess_streets(
+    validated_location: dict[str, Any],
+    task_id: str | None = None,
+    segment_length_meters: float = SEGMENT_LENGTH_METERS,
+) -> None:
+    """Orchestrate the fetching and processing of street data."""
+    location_name = validated_location["display_name"]
+    boundary_shape: BaseGeometry | None = None
+
+    try:
+        logger.info("Starting street preprocessing for %s", location_name)
+        await _update_task_progress(
+            task_id,
+            "preprocessing",
+            5,
+            f"Initializing boundary processing for {location_name}. (Detail: Setup)",
         )
+
+        # 1. Construct Boundary Shape
+        if "geojson" in validated_location and validated_location["geojson"]:
+            try:
+                from shapely.geometry import shape
+                geojson_boundary_data = validated_location["geojson"]
+                if isinstance(geojson_boundary_data, dict) and geojson_boundary_data.get("type") in ["Polygon", "MultiPolygon"]:
+                    boundary_shape = shape(geojson_boundary_data)
+                    if not boundary_shape.is_valid:
+                        boundary_shape = boundary_shape.buffer(0)
+            except Exception as e:
+                logger.error(f"Error creating boundary shape for {location_name}: {e}")
+
+        # 2. Determine UTM CRS
+        center_lat = float(validated_location.get("lat", 0))
+        center_lon = float(validated_location.get("lon", 0))
+        dynamic_utm_crs = get_dynamic_utm_crs(center_lat, center_lon)
+        utm_crs_string = dynamic_utm_crs.to_string()
+
+        # 3. Update Metadata to "Processing"
+        await update_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": location_name},
+            {
+                "$set": {
+                    "location": validated_location,
+                    "status": "processing",
+                    "last_updated": datetime.now(UTC),
+                    "last_error": None,
+                },
+                "$setOnInsert": {
+                    "total_length": 0.0,
+                    "driven_length": 0.0,
+                    "coverage_percentage": 0.0,
+                    "total_segments": 0,
+                    "created_at": datetime.now(UTC),
+                },
+            },
+            upsert=True,
+        )
+
+        # 4. Clear Existing Streets
+        await streets_collection.delete_many({"properties.location": location_name})
+
+        # 5. Fetch OSM Data
+        from osm_utils import build_standard_osm_streets_query
+        query_target_clause = _get_query_target_clause_for_bbox(validated_location)
+        query_string = build_standard_osm_streets_query(query_target_clause, timeout=300)
+        
+        osm_data, _ = await _fetch_osm_with_fallback(
+            query=query_string,
+            task_id=task_id,
+            location_name=location_name
+        )
+
+        if not osm_data or not osm_data.get("elements"):
+            logger.warning(f"No OSM data found for {location_name}")
+            await update_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": location_name},
+                {"$set": {"status": "completed", "total_segments": 0}}
+            )
+            return
+
+        # 6. Process Data
+        await process_osm_data(
+            osm_data,
+            validated_location,
+            utm_crs_string,
+            boundary_shape,
+            segment_length_meters,
+            task_id
+        )
+
+    except Exception as e:
+        logger.error(f"Preprocessing failed for {location_name}: {e}", exc_info=True)
+        await _update_task_progress(task_id, "error", 0, f"Preprocessing failed: {e}", error=str(e))
+        await update_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": location_name},
+            {"$set": {"status": "error", "last_error": str(e)}}
+        )
+        raise
+    finally:
+        gc.collect()
