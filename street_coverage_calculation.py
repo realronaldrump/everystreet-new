@@ -841,13 +841,15 @@ async def generate_and_store_geojson(
         logger.error(f"Task {task_id}: GeoJSON generation failed: {e}")
         if upload_stream:
             await upload_stream.abort()
-        
+
         # Update task status to error so frontend stops polling
         await progress_collection.update_one(
             {"_id": task_id},
-            {"$set": {
-                "stage": "error", 
-                "status": "error",
-                "error": f"GeoJSON generation failed: {str(e)}"
-            }},
+            {
+                "$set": {
+                    "stage": "error",
+                    "status": "error",
+                    "error": f"GeoJSON generation failed: {str(e)}",
+                }
+            },
         )
