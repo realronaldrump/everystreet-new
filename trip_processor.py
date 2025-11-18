@@ -58,9 +58,6 @@ class Config:
         self._mapbox_access_token = value
 
 
-
-
-
 config = Config()
 # Mapbox allows 300 requests per minute - be conservative at 280 to account for burst traffic
 mapbox_rate_limiter = AsyncLimiter(280, 60)
