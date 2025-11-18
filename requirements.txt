@@ -27,3 +27,4 @@ autoflake
 eradicate
 flynt
 pycln
+aiolimiter
