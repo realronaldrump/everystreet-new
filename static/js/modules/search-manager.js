@@ -38,7 +38,7 @@ const searchManager = {
         if (!this.searchResults.classList.contains("d-none")) {
           this.positionDropdown();
         }
-      }, 100)
+      }, 100),
     );
 
     // Reposition on scroll of parent containers
@@ -70,7 +70,7 @@ const searchManager = {
             this.hideClearButton();
           }
         }
-      }, 300)
+      }, 300),
     );
 
     // Keyboard navigation
@@ -92,7 +92,11 @@ const searchManager = {
         if (index >= 0 && this.currentResults[index]) {
           this.selectResult(this.currentResults[index]);
         } else {
-          window.notificationManager?.show("No results to select", "warning", 2000);
+          window.notificationManager?.show(
+            "No results to select",
+            "warning",
+            2000,
+          );
         }
       } else if (e.key === "Escape") {
         this.hideResults();
@@ -130,7 +134,9 @@ const searchManager = {
     try {
       this.showLoading();
 
-      const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+      const selectedLocationId = utils.getStorage(
+        CONFIG.STORAGE_KEYS.selectedLocation,
+      );
 
       let results = [];
 
@@ -157,7 +163,7 @@ const searchManager = {
       window.notificationManager?.show(
         "Search failed. Please try again.",
         "danger",
-        2500
+        2500,
       );
     }
   },
@@ -185,7 +191,9 @@ const searchManager = {
           feature.properties.location ||
           (locationId ? `Location ${locationId}` : "Unknown location");
         const streetName =
-          feature.properties.street_name || feature.properties.name || "Unnamed Street";
+          feature.properties.street_name ||
+          feature.properties.name ||
+          "Unnamed Street";
 
         // Add segment count to subtitle if available
         const segmentCount = feature.properties.segment_count;
@@ -218,7 +226,7 @@ const searchManager = {
       }
 
       const response = await fetch(
-        `/api/search/geocode?query=${encodeURIComponent(query)}&limit=5${proximityParams}`
+        `/api/search/geocode?query=${encodeURIComponent(query)}&limit=5${proximityParams}`,
       );
 
       if (!response.ok) {
@@ -234,14 +242,17 @@ const searchManager = {
           ? result.place_type[0]
           : result.type || "place";
         const isStreet = ["road", "street", "highway", "residential"].includes(
-          placeType
+          placeType,
         );
 
         return {
           type: isStreet ? "street" : "place",
           name: result.text || result.place_name || "Unknown",
           subtitle: result.place_name || result.display_name || "",
-          center: result.center || [parseFloat(result.lon), parseFloat(result.lat)],
+          center: result.center || [
+            parseFloat(result.lon),
+            parseFloat(result.lat),
+          ],
           bbox: result.bbox,
           osm_id: result.osm_id,
           osm_type: result.osm_type,
@@ -310,7 +321,8 @@ const searchManager = {
 
     // Determine if dropdown should appear above or below
     const showAbove =
-      spaceBelow < Math.min(dropdownHeight + 20, 200) && spaceAbove > spaceBelow;
+      spaceBelow < Math.min(dropdownHeight + 20, 200) &&
+      spaceAbove > spaceBelow;
 
     if (showAbove) {
       // Position above the input
@@ -447,7 +459,17 @@ const searchManager = {
           source: this.highlightSourceId,
           paint: {
             "line-color": window.MapStyles.MAP_LAYER_COLORS.trips.selected,
-            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 15, 6, 20, 12],
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              10,
+              3,
+              15,
+              6,
+              20,
+              12,
+            ],
             "line-opacity": 0.9,
           },
         });
@@ -458,7 +480,7 @@ const searchManager = {
         const { coordinates } = geometry;
         const bounds = coordinates.reduce(
           (bounds, coord) => bounds.extend(coord),
-          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
         );
 
         state.map.fitBounds(bounds, {
@@ -472,7 +494,7 @@ const searchManager = {
         if (allCoordinates.length > 0) {
           const bounds = allCoordinates.reduce(
             (bounds, coord) => bounds.extend(coord),
-            new mapboxgl.LngLatBounds(allCoordinates[0], allCoordinates[0])
+            new mapboxgl.LngLatBounds(allCoordinates[0], allCoordinates[0]),
           );
 
           state.map.fitBounds(bounds, {
@@ -497,11 +519,15 @@ const searchManager = {
       window.notificationManager.show(
         `Highlighted: ${result.name}${segmentInfo}`,
         "success",
-        3000
+        3000,
       );
     } catch (error) {
       console.error("Error highlighting street:", error);
-      window.notificationManager.show("Failed to highlight street", "warning", 3000);
+      window.notificationManager.show(
+        "Failed to highlight street",
+        "warning",
+        3000,
+      );
     }
   },
 
@@ -526,8 +552,8 @@ const searchManager = {
       .setLngLat([lng, lat])
       .setPopup(
         new mapboxgl.Popup({ offset: 25 }).setHTML(
-          `<strong>${result.name}</strong><br>${result.subtitle}`
-        )
+          `<strong>${result.name}</strong><br>${result.subtitle}`,
+        ),
       )
       .addTo(state.map);
 
@@ -544,7 +570,7 @@ const searchManager = {
           padding: 50,
           maxZoom: 15,
           duration: 1000,
-        }
+        },
       );
     } else {
       state.map.flyTo({
@@ -554,7 +580,11 @@ const searchManager = {
       });
     }
 
-    window.notificationManager.show(`Navigated to: ${result.name}`, "success", 3000);
+    window.notificationManager.show(
+      `Navigated to: ${result.name}`,
+      "success",
+      3000,
+    );
   },
 
   clearHighlight() {
@@ -584,7 +614,8 @@ const searchManager = {
   },
 
   showLoading() {
-    this.searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
+    this.searchResults.innerHTML =
+      '<div class="search-loading">Searching...</div>';
     this.positionDropdown();
     this.searchResults.classList.remove("d-none");
   },

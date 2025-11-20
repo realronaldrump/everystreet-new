@@ -858,6 +858,7 @@ async def process_osm_data(
     finally:
         gc.collect()
 
+
 async def preprocess_streets(
     validated_location: dict[str, Any],
     task_id: str | None = None,
@@ -880,8 +881,11 @@ async def preprocess_streets(
         if "geojson" in validated_location and validated_location["geojson"]:
             try:
                 from shapely.geometry import shape
+
                 geojson_boundary_data = validated_location["geojson"]
-                if isinstance(geojson_boundary_data, dict) and geojson_boundary_data.get("type") in ["Polygon", "MultiPolygon"]:
+                if isinstance(
+                    geojson_boundary_data, dict
+                ) and geojson_boundary_data.get("type") in ["Polygon", "MultiPolygon"]:
                     boundary_shape = shape(geojson_boundary_data)
                     if not boundary_shape.is_valid:
                         boundary_shape = boundary_shape.buffer(0)
@@ -921,13 +925,14 @@ async def preprocess_streets(
 
         # 5. Fetch OSM Data
         from osm_utils import build_standard_osm_streets_query
+
         query_target_clause = _get_query_target_clause_for_bbox(validated_location)
-        query_string = build_standard_osm_streets_query(query_target_clause, timeout=300)
-        
+        query_string = build_standard_osm_streets_query(
+            query_target_clause, timeout=300
+        )
+
         osm_data, _ = await _fetch_osm_with_fallback(
-            query=query_string,
-            task_id=task_id,
-            location_name=location_name
+            query=query_string, task_id=task_id, location_name=location_name
         )
 
         if not osm_data or not osm_data.get("elements"):
@@ -935,7 +940,7 @@ async def preprocess_streets(
             await update_one_with_retry(
                 coverage_metadata_collection,
                 {"location.display_name": location_name},
-                {"$set": {"status": "completed", "total_segments": 0}}
+                {"$set": {"status": "completed", "total_segments": 0}},
             )
             return
 
@@ -946,16 +951,18 @@ async def preprocess_streets(
             utm_crs_string,
             boundary_shape,
             segment_length_meters,
-            task_id
+            task_id,
         )
 
     except Exception as e:
         logger.error(f"Preprocessing failed for {location_name}: {e}", exc_info=True)
-        await _update_task_progress(task_id, "error", 0, f"Preprocessing failed: {e}", error=str(e))
+        await _update_task_progress(
+            task_id, "error", 0, f"Preprocessing failed: {e}", error=str(e)
+        )
         await update_one_with_retry(
             coverage_metadata_collection,
             {"location.display_name": location_name},
-            {"$set": {"status": "error", "last_error": str(e)}}
+            {"$set": {"status": "error", "last_error": str(e)}},
         )
         raise
     finally:
