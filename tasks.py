@@ -754,7 +754,7 @@ async def manual_fetch_trips_range_async(
     start_iso: str,
     end_iso: str,
     map_match: bool = False,
-    _manual_run: bool = False,
+    manual_run: bool = False,
 ) -> dict[str, Any]:
     """Fetch trips for a user-specified date range."""
 
