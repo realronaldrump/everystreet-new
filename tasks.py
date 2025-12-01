@@ -746,6 +746,14 @@ async def manual_fetch_trips_range_async(
         raise ValueError("End date must be after start date")
 
     logger.info(
+        "STARTING MANUAL FETCH TASK: %s to %s (map_match=%s, manual_run=%s)",
+        start_dt.isoformat(),
+        end_dt.isoformat(),
+        map_match,
+        manual_run,
+    )
+
+    logger.info(
         "Manual fetch requested from %s to %s (map_match=%s)",
         start_dt.isoformat(),
         end_dt.isoformat(),
@@ -1762,13 +1770,25 @@ async def trigger_manual_fetch_trips_range(
         "map_match": bool(map_match),
         "manual_run": True,
     }
-
     try:
+        logger.info(
+            "Scheduling manual fetch task via Celery: ID=%s, Start=%s, End=%s, MapMatch=%s",
+            celery_task_id,
+            start_utc.isoformat(),
+            end_utc.isoformat(),
+            map_match,
+        )
+
         result = celery_app.send_task(
             "tasks.manual_fetch_trips_range",
             task_id=celery_task_id,
             queue="default",
             kwargs=kwargs,
+        )
+
+        logger.info(
+            "Successfully sent manual fetch task to Celery. Result ID: %s",
+            result.id,
         )
 
         await status_manager.update_status(
@@ -1791,7 +1811,7 @@ async def trigger_manual_fetch_trips_range(
 
         return {
             "status": "success",
-            "message": "Manual fetch scheduled",
+            "message": f"Manual fetch scheduled (Task ID: {result.id})",
             "task_id": result.id,
         }
     except Exception as exc:  # pragma: no cover - defensive scheduling
