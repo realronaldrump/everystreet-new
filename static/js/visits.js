@@ -76,7 +76,7 @@
       if (loadingOverlay) {
         // Allow clicks to pass through immediately while fading out
         loadingOverlay.style.pointerEvents = "none";
-        
+
         setTimeout(() => {
           loadingOverlay.style.transition = "opacity 0.3s ease";
           loadingOverlay.style.opacity = "0";
@@ -121,14 +121,14 @@
 
       // Initialize tooltips with custom styling
       const tooltipTriggerList = [].slice.call(
-        document.querySelectorAll('[data-bs-toggle="tooltip"]')
+        document.querySelectorAll('[data-bs-toggle="tooltip"]'),
       );
       tooltipTriggerList.map(
         (tooltipTriggerEl) =>
           new bootstrap.Tooltip(tooltipTriggerEl, {
             template:
               '<div class="tooltip" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner bg-primary"></div></div>',
-          })
+          }),
       );
 
       // Add ripple effect to buttons
@@ -204,8 +204,10 @@
 
     async updateStatsCounts() {
       // Update total places count
-      document.getElementById("total-places-count").textContent = this.places.size;
-      document.getElementById("active-places-stat").textContent = this.places.size;
+      document.getElementById("total-places-count").textContent =
+        this.places.size;
+      document.getElementById("active-places-stat").textContent =
+        this.places.size;
 
       // Calculate total visits
       try {
@@ -218,12 +220,18 @@
 
         if (customRes.ok) {
           const customStats = await customRes.json();
-          totalVisits += customStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
+          totalVisits += customStats.reduce(
+            (sum, p) => sum + (p.totalVisits || 0),
+            0,
+          );
         }
 
         if (otherRes.ok) {
           const otherStats = await otherRes.json();
-          totalVisits += otherStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
+          totalVisits += otherStats.reduce(
+            (sum, p) => sum + (p.totalVisits || 0),
+            0,
+          );
         }
 
         this.animateCounter("total-visits-count", totalVisits);
@@ -245,13 +253,16 @@
           const customStats = await customRes.json();
           monthlyVisits += customStats.reduce(
             (sum, p) => sum + (p.monthlyVisits || p.totalVisits || 0),
-            0
+            0,
           );
         }
 
         if (otherRes.ok) {
           const otherStats = await otherRes.json();
-          monthlyVisits += otherStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
+          monthlyVisits += otherStats.reduce(
+            (sum, p) => sum + (p.totalVisits || 0),
+            0,
+          );
         }
 
         this.animateCounter("month-visits-stat", monthlyVisits);
@@ -288,7 +299,7 @@
             new mapboxgl.NavigationControl({
               showCompass: false,
             }),
-            "bottom-right"
+            "bottom-right",
           );
 
           // Wait for map load before continuing
@@ -363,7 +374,8 @@
               type: "line",
               source: "custom-places",
               paint: {
-                "line-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
+                "line-color":
+                  window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
                 "line-width": 4,
                 "line-opacity": 0,
               },
@@ -377,13 +389,13 @@
                 if (hoveredStateId !== null) {
                   this.map.setFeatureState(
                     { source: "custom-places", id: hoveredStateId },
-                    { hover: false }
+                    { hover: false },
                   );
                 }
                 hoveredStateId = e.features[0].id;
                 this.map.setFeatureState(
                   { source: "custom-places", id: hoveredStateId },
-                  { hover: true }
+                  { hover: true },
                 );
                 this.map.getCanvas().style.cursor = "pointer";
               }
@@ -393,7 +405,7 @@
               if (hoveredStateId !== null) {
                 this.map.setFeatureState(
                   { source: "custom-places", id: hoveredStateId },
-                  { hover: false }
+                  { hover: false },
                 );
               }
               hoveredStateId = null;
@@ -485,7 +497,8 @@
           type: "line",
           source: "custom-places",
           paint: {
-            "line-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
+            "line-color":
+              window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
             "line-width": 2,
           },
         });
@@ -495,7 +508,8 @@
           type: "line",
           source: "custom-places",
           paint: {
-            "line-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
+            "line-color":
+              window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
             "line-width": 4,
             "line-opacity": 0,
           },
@@ -579,7 +593,8 @@
               backgroundColor: "rgba(30, 30, 30, 0.95)",
               titleColor: window.MapStyles.MAP_LAYER_COLORS.customPlaces.fill,
               bodyColor: "rgba(255, 255, 255, 0.9)",
-              borderColor: window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
+              borderColor:
+                window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
               borderWidth: 1,
               padding: 12,
               cornerRadius: 8,
@@ -594,9 +609,10 @@
           onClick: (_event, elements) => {
             if (elements.length > 0) {
               const chartElement = elements[0];
-              const placeName = this.visitsChart.data.labels[chartElement.index];
+              const placeName =
+                this.visitsChart.data.labels[chartElement.index];
               const placeEntry = Array.from(this.places.entries()).find(
-                ([, placeData]) => placeData.name === placeName
+                ([, placeData]) => placeData.name === placeName,
               );
               if (placeEntry) {
                 const [placeId] = placeEntry;
@@ -612,7 +628,8 @@
             }
           },
           onHover: (_event, elements) => {
-            ctx.canvas.style.cursor = elements.length > 0 ? "pointer" : "default";
+            ctx.canvas.style.cursor =
+              elements.length > 0 ? "pointer" : "default";
           },
         },
       });
@@ -741,7 +758,8 @@
         columns: [
           {
             data: "name",
-            render: (data) => `<i class="fas fa-globe me-2 text-info"></i>${data}`,
+            render: (data) =>
+              `<i class="fas fa-globe me-2 text-info"></i>${data}`,
             createdCell: (td, _cellData, _rowData, _row, col) => {
               $(td).attr("data-label", headers[col]);
             },
@@ -874,7 +892,8 @@
             data: "timeSinceLastVisit",
             className: "numeric-cell text-end",
             type: "duration",
-            render: (data) => data || '<span class="text-muted">First visit</span>',
+            render: (data) =>
+              data || '<span class="text-muted">First visit</span>',
             createdCell: (td, _cellData, _rowData, _row, col) => {
               $(td).attr("data-label", headers[col]);
             },
@@ -1003,14 +1022,18 @@
       $(el)
         .find("tbody")
         .on("click", ".create-place-btn", (e) => {
-          const row = this.suggestionsTable.row($(e.currentTarget).closest("tr"));
+          const row = this.suggestionsTable.row(
+            $(e.currentTarget).closest("tr"),
+          );
           const data = row.data();
           if (data) {
             this.applySuggestion(data);
           }
         })
         .on("click", ".preview-suggestion-btn", (e) => {
-          const row = this.suggestionsTable.row($(e.currentTarget).closest("tr"));
+          const row = this.suggestionsTable.row(
+            $(e.currentTarget).closest("tr"),
+          );
           const data = row.data();
           if (data) {
             this.previewSuggestion(data);
@@ -1020,35 +1043,47 @@
 
     setupEventListeners() {
       // Enhanced button interactions
-      document.getElementById("start-drawing")?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
-        this.startDrawing();
-      });
+      document
+        .getElementById("start-drawing")
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.startDrawing();
+        });
 
-      document.getElementById("save-place")?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
-        this.savePlace();
-      });
+      document
+        .getElementById("save-place")
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.savePlace();
+        });
 
-      document.getElementById("clear-drawing")?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
-        this.clearCurrentDrawing();
-      });
+      document
+        .getElementById("clear-drawing")
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.clearCurrentDrawing();
+        });
 
-      document.getElementById("zoom-to-fit")?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
-        this.zoomToFitAllPlaces();
-      });
+      document
+        .getElementById("zoom-to-fit")
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.zoomToFitAllPlaces();
+        });
 
-      document.getElementById("manage-places")?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
-        this.showManagePlacesModal();
-      });
+      document
+        .getElementById("manage-places")
+        ?.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          this.showManagePlacesModal();
+        });
 
-      document.getElementById("edit-place-form")?.addEventListener("submit", (e) => {
-        e.preventDefault();
-        this.saveEditedPlace();
-      });
+      document
+        .getElementById("edit-place-form")
+        ?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          this.saveEditedPlace();
+        });
 
       document
         .getElementById("edit-place-boundary")
@@ -1060,7 +1095,7 @@
       document
         .getElementById("toggle-custom-places")
         ?.addEventListener("change", (e) =>
-          this.toggleCustomPlacesVisibility(e.target.checked)
+          this.toggleCustomPlacesVisibility(e.target.checked),
         );
 
       document
@@ -1083,9 +1118,11 @@
       this.setupMapStyleToggle();
 
       // Time filter
-      document.getElementById("time-filter")?.addEventListener("change", (e) => {
-        this.filterByTimeframe(e.target.value);
-      });
+      document
+        .getElementById("time-filter")
+        ?.addEventListener("change", (e) => {
+          this.filterByTimeframe(e.target.value);
+        });
 
       // Enhanced keyboard shortcuts
       document.addEventListener("keydown", (e) => {
@@ -1180,11 +1217,14 @@
             this.updateStatsCounts();
             this.loadingManager.finish("Loading Places");
           },
-          places.length * 50 + 100
+          places.length * 50 + 100,
         );
       } catch (error) {
         console.error("Error loading places:", error);
-        window.notificationManager?.show("Failed to load custom places", "danger");
+        window.notificationManager?.show(
+          "Failed to load custom places",
+          "danger",
+        );
         this.loadingManager.error("Failed during Loading Places");
       }
     }
@@ -1254,7 +1294,9 @@
 
         // Update chart with animation
         if (this.visitsChart) {
-          this.visitsChart.data.labels = validResults.slice(0, 10).map((d) => d.name);
+          this.visitsChart.data.labels = validResults
+            .slice(0, 10)
+            .map((d) => d.name);
           this.visitsChart.data.datasets[0].data = validResults
             .slice(0, 10)
             .map((d) => d.totalVisits);
@@ -1270,7 +1312,10 @@
         this.updateInsights(statsList);
       } catch (error) {
         console.error("Error updating place statistics:", error);
-        window.notificationManager?.show("Error updating place statistics", "danger");
+        window.notificationManager?.show(
+          "Error updating place statistics",
+          "danger",
+        );
       } finally {
         this.loadingManager.finish("Updating Statistics");
       }
@@ -1286,7 +1331,7 @@
 
       // Most visited place
       const mostVisited = stats.reduce((max, place) =>
-        place.totalVisits > max.totalVisits ? place : max
+        place.totalVisits > max.totalVisits ? place : max,
       );
       document.getElementById("most-visited-place").textContent =
         `${mostVisited.name} (${mostVisited.totalVisits} visits)`;
@@ -1304,14 +1349,20 @@
       }
 
       // Visit frequency (visits per week)
-      const totalVisits = stats.reduce((sum, place) => sum + place.totalVisits, 0);
+      const totalVisits = stats.reduce(
+        (sum, place) => sum + place.totalVisits,
+        0,
+      );
       const firstVisitDate = stats
         .filter((s) => s.firstVisit)
         .map((s) => new Date(s.firstVisit))
         .reduce((min, date) => (date < min ? date : min), new Date());
 
-      const weeksSinceFirst = (Date.now() - firstVisitDate) / (1000 * 60 * 60 * 24 * 7);
-      const visitsPerWeek = (totalVisits / Math.max(weeksSinceFirst, 1)).toFixed(1);
+      const weeksSinceFirst =
+        (Date.now() - firstVisitDate) / (1000 * 60 * 60 * 24 * 7);
+      const visitsPerWeek = (
+        totalVisits / Math.max(weeksSinceFirst, 1)
+      ).toFixed(1);
       document.getElementById("visit-frequency").textContent =
         `${visitsPerWeek} visits/week`;
     }
@@ -1321,13 +1372,16 @@
       const placeName = placeNameInput?.value.trim();
 
       if (!placeName) {
-        this.showInputError(placeNameInput, "Please enter a name for the place.");
+        this.showInputError(
+          placeNameInput,
+          "Please enter a name for the place.",
+        );
         return;
       }
       if (!this.currentPolygon) {
         window.notificationManager?.show(
           "Please draw a boundary for the place first.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -1365,7 +1419,7 @@
 
         window.notificationManager?.show(
           `Place "${placeName}" saved successfully!`,
-          "success"
+          "success",
         );
 
         // Update stats
@@ -1374,11 +1428,12 @@
         console.error("Error saving place:", error);
         window.notificationManager?.show(
           "Failed to save place. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         saveBtn.classList.remove("loading");
-        saveBtn.innerHTML = '<i class="fas fa-save me-2"></i><span>Save Place</span>';
+        saveBtn.innerHTML =
+          '<i class="fas fa-save me-2"></i><span>Save Place</span>';
         this.loadingManager.finish("Saving Place");
       }
     }
@@ -1394,7 +1449,7 @@
         () => {
           input.classList.remove("is-invalid");
         },
-        { once: true }
+        { once: true },
       );
     }
 
@@ -1446,7 +1501,7 @@
               [minX, minY],
               [maxX, maxY],
             ],
-            { padding: 100, duration: 1000 }
+            { padding: 100, duration: 1000 },
           );
         }
       } catch (e) {
@@ -1459,7 +1514,7 @@
       if (!placeToDelete) {
         window.notificationManager?.show(
           "Attempted to delete non-existent place.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -1494,9 +1549,8 @@
         // Remove feature from map source
         if (this.placeFeatures.has(placeId)) {
           const feature = this.placeFeatures.get(placeId);
-          this.customPlacesData.features = this.customPlacesData.features.filter(
-            (f) => f !== feature
-          );
+          this.customPlacesData.features =
+            this.customPlacesData.features.filter((f) => f !== feature);
           this.placeFeatures.delete(placeId);
           if (this.map?.getSource("custom-places")) {
             this.map.getSource("custom-places").setData(this.customPlacesData);
@@ -1509,13 +1563,13 @@
 
         window.notificationManager?.show(
           `Place "${placeToDelete.name}" deleted successfully.`,
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error deleting place:", error);
         window.notificationManager?.show(
           "Failed to delete place. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         this.loadingManager.finish("Deleting Place");
@@ -1553,7 +1607,7 @@
       const notification = window.notificationManager?.show(
         "Click on the map to start drawing the place boundary. Click the first point or press Enter to finish.",
         "info",
-        0
+        0,
       );
 
       // Store notification to dismiss later
@@ -1580,7 +1634,7 @@
 
       window.notificationManager?.show(
         "Boundary drawn! Enter a name and click Save Place.",
-        "success"
+        "success",
       );
 
       // Focus on name input
@@ -1693,18 +1747,20 @@
         row.querySelector(".edit-place-btn").addEventListener("click", (e) => {
           const placeId = e.currentTarget.getAttribute("data-place-id");
           bootstrap.Modal.getInstance(
-            document.getElementById("manage-places-modal")
+            document.getElementById("manage-places-modal"),
           )?.hide();
           this.showEditPlaceModal(placeId);
         });
 
-        row.querySelector(".delete-place-btn").addEventListener("click", (e) => {
-          const placeId = e.currentTarget.getAttribute("data-place-id");
-          bootstrap.Modal.getInstance(
-            document.getElementById("manage-places-modal")
-          )?.hide();
-          this.deletePlace(placeId);
-        });
+        row
+          .querySelector(".delete-place-btn")
+          .addEventListener("click", (e) => {
+            const placeId = e.currentTarget.getAttribute("data-place-id");
+            bootstrap.Modal.getInstance(
+              document.getElementById("manage-places-modal"),
+            )?.hide();
+            this.deletePlace(placeId);
+          });
       });
     }
 
@@ -1761,7 +1817,7 @@
               <p class="mb-0 mt-2 text-muted small">Fetching statistics...</p>
             </div>
           </div>
-        `
+        `,
         )
         .addTo(this.map);
 
@@ -1853,23 +1909,32 @@
               <i class="fas fa-exclamation-triangle me-2"></i>
               Error loading statistics
             </div>
-          </div>`
+          </div>`,
         );
-        window.notificationManager?.show("Failed to fetch place statistics", "danger");
+        window.notificationManager?.show(
+          "Failed to fetch place statistics",
+          "danger",
+        );
       }
     }
 
     async toggleView(placeId = null) {
-      const mainViewContainer = document.getElementById("visits-table-container");
-      const detailViewContainer = document.getElementById("trips-for-place-container");
+      const mainViewContainer = document.getElementById(
+        "visits-table-container",
+      );
+      const detailViewContainer = document.getElementById(
+        "trips-for-place-container",
+      );
 
       if (placeId) {
         const place = this.places.get(placeId);
         if (!place) {
-          console.error(`Cannot switch to detail view: Place ID ${placeId} not found.`);
+          console.error(
+            `Cannot switch to detail view: Place ID ${placeId} not found.`,
+          );
           window.notificationManager?.show(
             "Could not find the selected place.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -1938,12 +2003,13 @@
         this.tripsTable.rows.add(trips).draw();
 
         const placeNameElement = document.getElementById("selected-place-name");
-        if (placeNameElement && data.name) placeNameElement.textContent = data.name;
+        if (placeNameElement && data.name)
+          placeNameElement.textContent = data.name;
       } catch (error) {
         console.error(`Error fetching trips for place ${placeId}:`, error);
         window.notificationManager?.show(
           "Failed to fetch trips for the selected place.",
-          "danger"
+          "danger",
         );
         this.tripsTable.clear().draw();
       } finally {
@@ -1955,24 +2021,26 @@
       if (!this.nonCustomVisitsTable) return;
       this.loadingManager.addSubOperation(
         "Initializing Visits Page",
-        "Loading Other Locations"
+        "Loading Other Locations",
       );
       try {
         const response = await fetch("/api/non_custom_places_visits");
         if (!response.ok)
-          throw new Error(`Failed to fetch non-custom visits: ${response.statusText}`);
+          throw new Error(
+            `Failed to fetch non-custom visits: ${response.statusText}`,
+          );
         const visitsData = await response.json();
         this.nonCustomVisitsTable.clear().rows.add(visitsData).draw();
         this.loadingManager.updateSubOperation(
           "Initializing Visits Page",
           "Loading Other Locations",
-          100
+          100,
         );
       } catch (error) {
         console.error("Error fetching non-custom places visits:", error);
         window.notificationManager?.show(
           "Failed to load non-custom places visits",
-          "danger"
+          "danger",
         );
         this.loadingManager.error("Failed during Loading Other Locations");
       }
@@ -2026,7 +2094,10 @@
 
     zoomToFitAllPlaces() {
       if (!this.map || this.customPlacesData.features.length === 0) {
-        window.notificationManager?.show("No custom places found to zoom to.", "info");
+        window.notificationManager?.show(
+          "No custom places found to zoom to.",
+          "info",
+        );
         return;
       }
 
@@ -2061,7 +2132,7 @@
             [minX, minY],
             [maxX, maxY],
           ],
-          { padding: 50, duration: 1000 }
+          { padding: 50, duration: 1000 },
         );
       }
     }
@@ -2077,7 +2148,9 @@
       try {
         const response = await fetch(`/api/trips/${tripId}`);
         if (!response.ok)
-          throw new Error(`Failed to fetch trip ${tripId}: ${response.statusText}`);
+          throw new Error(
+            `Failed to fetch trip ${tripId}: ${response.statusText}`,
+          );
 
         const tripResponse = await response.json();
         const trip = tripResponse.trip || tripResponse;
@@ -2089,7 +2162,7 @@
         this.loadingManager.error("Failed to fetch trip data");
         window.notificationManager?.show(
           "Error loading trip data. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         this.loadingManager.finish("Loading Trip");
@@ -2137,7 +2210,9 @@
       const startLocation =
         trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
       const endLocation =
-        trip.destination?.formatted_address || trip.destinationPlace || "Unknown";
+        trip.destination?.formatted_address ||
+        trip.destinationPlace ||
+        "Unknown";
 
       tripInfoContainer.innerHTML = `
         <div class="trip-details">
@@ -2180,11 +2255,18 @@
 
       const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
 
-      modalElement.removeEventListener("shown.bs.modal", this._handleTripModalShown);
+      modalElement.removeEventListener(
+        "shown.bs.modal",
+        this._handleTripModalShown,
+      );
       this._handleTripModalShown = () => this.initializeOrUpdateTripMap(trip);
-      modalElement.addEventListener("shown.bs.modal", this._handleTripModalShown, {
-        once: true,
-      });
+      modalElement.addEventListener(
+        "shown.bs.modal",
+        this._handleTripModalShown,
+        {
+          once: true,
+        },
+      );
 
       modal.show();
     }
@@ -2204,7 +2286,8 @@
         mapContainer.innerHTML = "";
         mapContainer.appendChild(mapElement);
 
-        const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+        const theme =
+          document.documentElement.getAttribute("data-bs-theme") || "dark";
 
         this.tripViewMap = new mapboxgl.Map({
           container: mapElement.id,
@@ -2287,7 +2370,9 @@
               scale: 1.2,
             })
               .setLngLat(startCoord)
-              .setPopup(new mapboxgl.Popup({ offset: 25 }).setText("Trip Start"))
+              .setPopup(
+                new mapboxgl.Popup({ offset: 25 }).setText("Trip Start"),
+              )
               .addTo(this.tripViewMap);
           }
 
@@ -2304,7 +2389,7 @@
           // Fit bounds with animation
           const bounds = coordinates.reduce(
             (b, c) => b.extend(c),
-            new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+            new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
           );
           this.tripViewMap.fitBounds(bounds, {
             padding: 50,
@@ -2379,7 +2464,10 @@
       if (trip.geometry?.coordinates?.length > 0) {
         return; // Already has geometry
       }
-      if (trip.matchedGps?.coordinates && trip.matchedGps.coordinates.length > 0) {
+      if (
+        trip.matchedGps?.coordinates &&
+        trip.matchedGps.coordinates.length > 0
+      ) {
         trip.geometry = trip.matchedGps;
         return;
       }
@@ -2393,10 +2481,16 @@
           }
         } catch (e) {
           console.error("Failed to parse gps JSON", e);
-          window.notificationManager?.show("Failed to parse gps JSON.", "danger");
+          window.notificationManager?.show(
+            "Failed to parse gps JSON.",
+            "danger",
+          );
         }
       }
-      if (trip.startGeoPoint?.coordinates && trip.destinationGeoPoint?.coordinates) {
+      if (
+        trip.startGeoPoint?.coordinates &&
+        trip.destinationGeoPoint?.coordinates
+      ) {
         trip.geometry = {
           type: "LineString",
           coordinates: [
@@ -2414,14 +2508,20 @@
       const newName = newNameInput?.value.trim();
 
       if (!placeId || !newName) {
-        window.notificationManager?.show("Place ID or Name is missing.", "warning");
+        window.notificationManager?.show(
+          "Place ID or Name is missing.",
+          "warning",
+        );
         newNameInput?.focus();
         return;
       }
 
       const placeToUpdate = this.places.get(placeId);
       if (!placeToUpdate) {
-        window.notificationManager?.show("Cannot find place to update.", "danger");
+        window.notificationManager?.show(
+          "Cannot find place to update.",
+          "danger",
+        );
         return;
       }
 
@@ -2449,9 +2549,8 @@
         // Replace feature in source
         if (this.placeFeatures.has(placeId)) {
           const oldFeature = this.placeFeatures.get(placeId);
-          this.customPlacesData.features = this.customPlacesData.features.filter(
-            (f) => f !== oldFeature
-          );
+          this.customPlacesData.features =
+            this.customPlacesData.features.filter((f) => f !== oldFeature);
           this.placeFeatures.delete(placeId);
         }
 
@@ -2477,13 +2576,13 @@
 
         window.notificationManager?.show(
           `Place "${newName}" updated successfully.`,
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error updating place:", error);
         window.notificationManager?.show(
           "Failed to update place. Please try again.",
-          "danger"
+          "danger",
         );
       } finally {
         this.loadingManager.finish("Updating Place");
@@ -2494,7 +2593,10 @@
       const placeId = document.getElementById("edit-place-id")?.value;
       const place = this.places.get(placeId);
       if (!place) {
-        window.notificationManager?.show("Could not find place to edit.", "warning");
+        window.notificationManager?.show(
+          "Could not find place to edit.",
+          "warning",
+        );
         return;
       }
 
@@ -2529,7 +2631,7 @@
                 [minX, minY],
                 [maxX, maxY],
               ],
-              { padding: 20 }
+              { padding: 20 },
             );
           }
         } catch (e) {
@@ -2544,7 +2646,7 @@
       window.notificationManager?.show(
         `Draw the new boundary for "${place.name}". The previous boundary is shown dashed. Finish drawing, then save changes via the Manage Places modal.`,
         "info",
-        10000
+        10000,
       );
     }
 
@@ -2566,7 +2668,11 @@
           {
             id: "gl-draw-polygon-fill-inactive",
             type: "fill",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "false"],
+            ],
             paint: {
               "fill-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.fill,
               "fill-opacity": 0.15,
@@ -2575,7 +2681,11 @@
           {
             id: "gl-draw-polygon-fill-active",
             type: "fill",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "true"],
+            ],
             paint: {
               "fill-color": "#F59E0B",
               "fill-opacity": 0.1,
@@ -2585,18 +2695,28 @@
           {
             id: "gl-draw-polygon-stroke-inactive",
             type: "line",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "false"],
+            ],
             paint: {
-              "line-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
+              "line-color":
+                window.MapStyles.MAP_LAYER_COLORS.customPlaces.outline,
               "line-width": 2,
             },
           },
           {
             id: "gl-draw-polygon-stroke-active",
             type: "line",
-            filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+            filter: [
+              "all",
+              ["==", "$type", "Polygon"],
+              ["==", "active", "true"],
+            ],
             paint: {
-              "line-color": window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
+              "line-color":
+                window.MapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
               "line-width": 2,
             },
           },
@@ -2732,7 +2852,7 @@
 
       window.notificationManager?.show(
         "Suggestion applied! Adjust boundary or name, then click Save Place.",
-        "info"
+        "info",
       );
     }
 
@@ -2784,7 +2904,8 @@
       const themeObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (mutation.attributeName === "data-bs-theme") {
-            const newTheme = document.documentElement.getAttribute("data-bs-theme");
+            const newTheme =
+              document.documentElement.getAttribute("data-bs-theme");
             window.visitsManager?.updateMapTheme(newTheme);
           }
         });
