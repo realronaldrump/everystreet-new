@@ -1808,14 +1808,60 @@ async def force_reset_task(
     task_id: str,
     reason: str | None = None,
 ) -> dict[str, Any]:
-    """Forcefully reset a task's status to IDLE for manual recovery."""
+    """Forcefully reset a task's status to IDLE and revoke running Celery tasks.
+
+    This function:
+    1. Identifies any 'RUNNING' or 'PENDING' instances of the task in history.
+    2. Issues a Celery revoke command (terminate=True) for each.
+    3. Updates the history entries to 'REVOKED'.
+    4. Resets the global task configuration to 'IDLE'.
+    """
 
     if task_id not in TASK_METADATA:
         raise ValueError(f"Unknown task_id: {task_id}")
 
     now = datetime.now(UTC)
     message = reason or "Task force-stopped by user"
+    revoked_count = 0
 
+    # 1. Find running/pending instances in history
+    cursor = task_history_collection.find(
+        {
+            "task_id": task_id,
+            "status": {"$in": [TaskStatus.RUNNING.value, TaskStatus.PENDING.value]},
+        }
+    )
+
+    async for doc in cursor:
+        celery_task_id = doc["_id"]  # The _id is the celery_task_id
+        logger.warning(
+            "Force stopping task %s (Celery ID: %s)",
+            task_id,
+            celery_task_id,
+        )
+
+        # 2. Revoke the Celery task
+        try:
+            celery_app.control.revoke(celery_task_id, terminate=True)
+            revoked_count += 1
+        except Exception as e:
+            logger.error(
+                "Failed to revoke Celery task %s: %s",
+                celery_task_id,
+                e,
+            )
+
+        # 3. Update history entry
+        await update_task_history_entry(
+            celery_task_id=celery_task_id,
+            task_name=task_id,
+            status="REVOKED",
+            manual_run=doc.get("manual_run", False),
+            error=f"Force stopped: {message}",
+            end_time=now,
+        )
+
+    # 4. Reset global config
     update_fields = {
         f"tasks.{task_id}.status": TaskStatus.IDLE.value,
         f"tasks.{task_id}.last_error": message,
@@ -1831,24 +1877,33 @@ async def force_reset_task(
         upsert=True,
     )
 
+    # Add a history entry for the force stop action itself
     history_id = f"{task_id}_force_stop_{uuid.uuid4()}"
     await update_task_history_entry(
         celery_task_id=history_id,
         task_name=task_id,
-        status="FORCED_STOP",
+        status="FORCED_STOP_ACTION",
         manual_run=True,
-        error=message,
+        error=f"User initiated force stop. Revoked {revoked_count} active instances.",
         start_time=now,
         end_time=now,
         runtime_ms=0,
     )
 
-    logger.info("Task %s force-reset by user", task_id)
+    logger.info(
+        "Task %s force-reset by user. Revoked %d instances.",
+        task_id,
+        revoked_count,
+    )
 
     return {
         "status": "success",
-        "message": f"Task {task_id} was force reset.",
+        "message": (
+            f"Task {task_id} was force stopped. "
+            f"Revoked {revoked_count} active instances."
+        ),
         "task_id": task_id,
+        "revoked_count": revoked_count,
     }
 
 
