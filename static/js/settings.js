@@ -47,7 +47,9 @@
             const updates = JSON.parse(event.data);
 
             Object.entries(updates).forEach(([taskId, update]) => {
-              const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
+              const row = document.querySelector(
+                `tr[data-task-id="${taskId}"]`,
+              );
               if (!row) return;
 
               const statusCell = row.querySelector(".task-status");
@@ -70,7 +72,9 @@
 
                   const forceButton = row.querySelector(".force-stop-btn");
                   if (forceButton) {
-                    forceButton.disabled = !["RUNNING", "PENDING"].includes(newStatus);
+                    forceButton.disabled = !["RUNNING", "PENDING"].includes(
+                      newStatus,
+                    );
                   }
 
                   if (
@@ -91,7 +95,7 @@
                     this.notifier.show(
                       newStatus === "COMPLETED" ? "Success" : "Error",
                       message,
-                      notificationType
+                      notificationType,
                     );
                   }
                 }
@@ -99,12 +103,16 @@
 
               const lastRunCell = row.querySelector(".task-last-run");
               if (lastRunCell && update.last_run) {
-                lastRunCell.textContent = TaskManager.formatDateTime(update.last_run);
+                lastRunCell.textContent = TaskManager.formatDateTime(
+                  update.last_run,
+                );
               }
 
               const nextRunCell = row.querySelector(".task-next-run");
               if (nextRunCell && update.next_run) {
-                nextRunCell.textContent = TaskManager.formatDateTime(update.next_run);
+                nextRunCell.textContent = TaskManager.formatDateTime(
+                  update.next_run,
+                );
               }
             });
 
@@ -143,7 +151,7 @@
               this.notifier.show(
                 "Task Started",
                 `Task ${displayName} is now running`,
-                "info"
+                "info",
               );
             }
           }
@@ -155,13 +163,19 @@
           const taskStatus = updates[taskId].status;
           if (taskStatus !== "RUNNING") {
             if (taskState.status === "RUNNING") {
-              const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
+              const row = document.querySelector(
+                `tr[data-task-id="${taskId}"]`,
+              );
               if (row) {
                 const displayName =
-                  row.querySelector(".task-name-display")?.textContent || taskId;
+                  row.querySelector(".task-name-display")?.textContent ||
+                  taskId;
                 if (taskStatus === "COMPLETED" || taskStatus === "FAILED") {
-                  const type = taskStatus === "COMPLETED" ? "success" : "danger";
-                  const runTime = Math.round((Date.now() - taskState.startTime) / 1000);
+                  const type =
+                    taskStatus === "COMPLETED" ? "success" : "danger";
+                  const runTime = Math.round(
+                    (Date.now() - taskState.startTime) / 1000,
+                  );
                   const message =
                     taskStatus === "COMPLETED"
                       ? `Task ${displayName} completed successfully in ${runTime}s`
@@ -217,7 +231,7 @@
         this.notifier.show(
           "Error",
           `Failed to load task configuration: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -254,7 +268,7 @@
         ) {
           const type = status === "COMPLETED" ? "success" : "danger";
           const runTime = Math.round(
-            (Date.now() - this.activeTasksMap.get(taskId).startTime) / 1000
+            (Date.now() - this.activeTasksMap.get(taskId).startTime) / 1000,
           );
           const message =
             status === "COMPLETED"
@@ -310,7 +324,7 @@
                   }>
                     ${opt.label}
                   </option>
-                `
+                `,
                   )
                   .join("")}
               </select>`
@@ -331,7 +345,9 @@
               taskStatus
             }">${TaskManager.getStatusHTML(taskStatus)}</td>
             <td class="task-last-run">${
-              task.last_run ? TaskManager.formatDateTime(task.last_run) : "Never"
+              task.last_run
+                ? TaskManager.formatDateTime(task.last_run)
+                : "Never"
             }</td>
             <td class="task-next-run">${
               task.next_run
@@ -343,7 +359,9 @@
                 <button class="btn btn-info run-now-btn" data-task-id="${taskId}"
                   ${isManualOnly || taskStatus === "RUNNING" ? "disabled" : ""}
                   title="${
-                    isManualOnly ? "Use the manual fetch form below" : "Run task now"
+                    isManualOnly
+                      ? "Use the manual fetch form below"
+                      : "Run task now"
                   }">
                   <i class="fas fa-play"></i>
                 </button>
@@ -367,7 +385,7 @@
     async updateTaskHistory() {
       try {
         const response = await fetch(
-          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`
+          `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`,
         );
         if (!response.ok) {
           throw new Error("Failed to fetch task history");
@@ -381,7 +399,7 @@
         this.notifier.show(
           "Error",
           `Failed to update task history: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -495,7 +513,8 @@
               if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
                 const durationCell = row.querySelector(".task-duration");
                 if (durationCell) {
-                  durationCell.textContent = TaskManager.formatDuration(elapsedMs);
+                  durationCell.textContent =
+                    TaskManager.formatDuration(elapsedMs);
                 }
               }
             } catch (e) {
@@ -520,7 +539,8 @@
                 if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
                   const durationElement = card.querySelector(".task-duration");
                   if (durationElement) {
-                    durationElement.textContent = TaskManager.formatDuration(elapsedMs);
+                    durationElement.textContent =
+                      TaskManager.formatDuration(elapsedMs);
                   }
                 }
               } catch (e) {
@@ -585,7 +605,9 @@
     }
 
     updateHistoryPagination() {
-      const paginationContainer = document.querySelector("#taskHistoryPagination");
+      const paginationContainer = document.querySelector(
+        "#taskHistoryPagination",
+      );
       if (!paginationContainer) return;
 
       paginationContainer.innerHTML = "";
@@ -705,7 +727,11 @@
             startTime: new Date(),
           });
 
-          this.notifier.show("Task Started", `Task ${taskId} has been started`, "info");
+          this.notifier.show(
+            "Task Started",
+            `Task ${taskId} has been started`,
+            "info",
+          );
 
           const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
           if (row) {
@@ -732,7 +758,7 @@
         this.notifier.show(
           "Error",
           `Failed to start task ${taskId}: ${error.message}`,
-          "danger"
+          "danger",
         );
         return false;
       }
@@ -772,7 +798,9 @@
         hideLoadingOverlay();
 
         if (!response.ok) {
-          throw new Error(data.detail || data.message || "Failed to force stop task");
+          throw new Error(
+            data.detail || data.message || "Failed to force stop task",
+          );
         }
 
         const message = data.message || `Task ${taskId} has been reset.`;
@@ -786,7 +814,7 @@
         this.notifier.show(
           "Error",
           `Failed to force stop task ${taskId}: ${error.message}`,
-          "danger"
+          "danger",
         );
         return false;
       }
@@ -795,21 +823,26 @@
     async scheduleManualFetch(startIso, endIso, mapMatch) {
       try {
         showLoadingOverlay();
-        const response = await fetch("/api/background_tasks/fetch_trips_range", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            start_date: startIso,
-            end_date: endIso,
-            map_match: Boolean(mapMatch),
-          }),
-        });
+        const response = await fetch(
+          "/api/background_tasks/fetch_trips_range",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              start_date: startIso,
+              end_date: endIso,
+              map_match: Boolean(mapMatch),
+            }),
+          },
+        );
 
         const data = await response.json();
         hideLoadingOverlay();
 
         if (!response.ok) {
-          throw new Error(data.detail || data.message || "Failed to schedule fetch");
+          throw new Error(
+            data.detail || data.message || "Failed to schedule fetch",
+          );
         }
 
         const message = data.message || "Manual trip fetch scheduled.";
@@ -822,7 +855,7 @@
         this.notifier.show(
           "Error",
           `Failed to schedule manual fetch: ${error.message}`,
-          "danger"
+          "danger",
         );
         throw error;
       }
@@ -892,7 +925,9 @@
       try {
         showLoadingOverlay();
 
-        const taskResponse = await fetch(`/api/background_tasks/task/${taskId}`);
+        const taskResponse = await fetch(
+          `/api/background_tasks/task/${taskId}`,
+        );
         if (!taskResponse.ok) throw new Error("Failed to fetch task details");
         const taskDetails = await taskResponse.json();
 
@@ -923,7 +958,7 @@
               <h6>Interval</h6>
               <p>${
                 this.intervalOptions.find(
-                  (opt) => opt.value === taskDetails.interval_minutes
+                  (opt) => opt.value === taskDetails.interval_minutes,
                 )?.label || `${taskDetails.interval_minutes} minutes`
               }</p>
             </div>
@@ -968,7 +1003,7 @@
             <div class="mb-3">
               <h6>Last Error</h6>
               <pre class="bg-dark text-danger p-2 rounded">${this.escapeHtml(
-                taskDetails.last_error
+                taskDetails.last_error,
               )}</pre>
             </div>`
                 : ""
@@ -993,7 +1028,7 @@
                     <tr>
                       <td>${TaskManager.formatDateTime(entry.timestamp)}</td>
                       <td><span class="badge bg-${TaskManager.getStatusColor(
-                        entry.status
+                        entry.status,
                       )}">${entry.status}</span></td>
                       <td>${
                         entry.runtime
@@ -1001,7 +1036,7 @@
                           : "N/A"
                       }</td>
                     </tr>
-                  `
+                  `,
                     )
                     .join("")}
                 </tbody>
@@ -1022,7 +1057,7 @@
         this.notifier.show(
           "Error",
           `Failed to fetch task details: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -1049,19 +1084,25 @@
 
         this.currentHistoryPage = 1;
         this.historyTotalPages = 1;
-        const paginationContainer = document.querySelector("#taskHistoryPagination");
+        const paginationContainer = document.querySelector(
+          "#taskHistoryPagination",
+        );
         if (paginationContainer) {
           paginationContainer.innerHTML = "";
         }
 
-        this.notifier.show("Success", "Task history cleared successfully", "success");
+        this.notifier.show(
+          "Success",
+          "Task history cleared successfully",
+          "success",
+        );
       } catch (error) {
         hideLoadingOverlay();
         console.error("Error clearing task history:", error);
         this.notifier.show(
           "Error",
           `Failed to clear task history: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -1150,10 +1191,14 @@
     });
 
     const openFetchAllMissingModalBtn = document.getElementById(
-      "openFetchAllMissingModalBtn"
+      "openFetchAllMissingModalBtn",
     );
-    const confirmFetchAllMissingBtn = document.getElementById("confirmFetchAllMissing");
-    const fetchAllMissingStartInput = document.getElementById("fetchAllMissingStart");
+    const confirmFetchAllMissingBtn = document.getElementById(
+      "confirmFetchAllMissing",
+    );
+    const fetchAllMissingStartInput = document.getElementById(
+      "fetchAllMissingStart",
+    );
 
     if (openFetchAllMissingModalBtn) {
       openFetchAllMissingModalBtn.addEventListener("click", async () => {
@@ -1192,7 +1237,8 @@
         modal.hide();
 
         try {
-          if (openFetchAllMissingModalBtn) openFetchAllMissingModalBtn.disabled = true;
+          if (openFetchAllMissingModalBtn)
+            openFetchAllMissingModalBtn.disabled = true;
           if (statusSpan) statusSpan.textContent = "Starting task...";
 
           showLoadingOverlay();
@@ -1202,7 +1248,7 @@
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ start_date: startDate }),
-            }
+            },
           );
           const result = await response.json();
           hideLoadingOverlay();
@@ -1211,7 +1257,7 @@
             taskManager.notifier.show(
               "Success",
               "Fetch all missing trips task started",
-              "success"
+              "success",
             );
             if (statusSpan) statusSpan.textContent = "Task started!";
             setTimeout(() => {
@@ -1221,14 +1267,17 @@
             }, 3000);
             taskManager.loadTaskConfig();
           } else {
-            throw new Error(result.detail || result.message || "Failed to start task");
+            throw new Error(
+              result.detail || result.message || "Failed to start task",
+            );
           }
         } catch (error) {
           hideLoadingOverlay();
           console.error("Error starting fetch all missing trips:", error);
           taskManager.notifier.show("Error", error.message, "danger");
           if (statusSpan) statusSpan.textContent = "Error starting task";
-          if (openFetchAllMissingModalBtn) openFetchAllMissingModalBtn.disabled = false;
+          if (openFetchAllMissingModalBtn)
+            openFetchAllMissingModalBtn.disabled = false;
         }
       });
     }
@@ -1254,7 +1303,7 @@
           .then(() => {
             window.notificationManager.show(
               "Task configuration updated successfully",
-              "success"
+              "success",
             );
             taskManager.loadTaskConfig();
           })
@@ -1262,7 +1311,7 @@
             console.error("Error updating task config:", error);
             window.notificationManager.show(
               `Error updating task config: ${error.message}`,
-              "danger"
+              "danger",
             );
           });
       });
@@ -1311,12 +1360,12 @@
 
           window.notificationManager.show(
             `Tasks paused for ${duration} minutes`,
-            "success"
+            "success",
           );
 
           // Close the modal
           const modal = bootstrap.Modal.getInstance(
-            document.getElementById("pauseModal")
+            document.getElementById("pauseModal"),
           );
           if (modal) modal.hide();
 
@@ -1365,7 +1414,10 @@
 
           if (!response.ok) throw new Error("Failed to stop tasks");
 
-          window.notificationManager.show("All running tasks stopped", "success");
+          window.notificationManager.show(
+            "All running tasks stopped",
+            "success",
+          );
           taskManager.loadTaskConfig();
         } catch (error) {
           hideLoadingOverlay();
@@ -1434,10 +1486,16 @@
         taskManager
           .submitTaskConfigUpdate(config)
           .then(() =>
-            window.notificationManager.show("Global disable toggled", "success")
+            window.notificationManager.show(
+              "Global disable toggled",
+              "success",
+            ),
           )
           .catch(() =>
-            window.notificationManager.show("Failed to toggle global disable", "danger")
+            window.notificationManager.show(
+              "Failed to toggle global disable",
+              "danger",
+            ),
           );
       });
     }
@@ -1445,7 +1503,9 @@
     if (clearHistoryBtn) {
       clearHistoryBtn.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
-        const modal = new bootstrap.Modal(document.getElementById("clearHistoryModal"));
+        const modal = new bootstrap.Modal(
+          document.getElementById("clearHistoryModal"),
+        );
         modal.show();
       });
     }
@@ -1456,7 +1516,7 @@
         if (e.button !== 0) return;
         await taskManager.clearTaskHistory();
         const modal = bootstrap.Modal.getInstance(
-          document.getElementById("clearHistoryModal")
+          document.getElementById("clearHistoryModal"),
         );
         modal.hide();
       });
@@ -1513,7 +1573,8 @@
       if (statusEl) statusEl.textContent = "";
 
       if (!startValue || !endValue) {
-        if (statusEl) statusEl.textContent = "Please select both start and end dates.";
+        if (statusEl)
+          statusEl.textContent = "Please select both start and end dates.";
         return;
       }
 
@@ -1533,7 +1594,8 @@
       }
 
       if (endDate.getTime() <= startDate.getTime()) {
-        if (statusEl) statusEl.textContent = "End date must be after the start date.";
+        if (statusEl)
+          statusEl.textContent = "End date must be after the start date.";
         return;
       }
 
@@ -1544,7 +1606,7 @@
         await window.taskManager.scheduleManualFetch(
           startDate.toISOString(),
           endDate.toISOString(),
-          mapMatchEnabled
+          mapMatchEnabled,
         );
         if (statusEl) statusEl.textContent = "Fetch scheduled successfully.";
       } catch (error) {
@@ -1596,14 +1658,14 @@
         if (!start_date || !end_date) {
           window.notificationManager.show(
             "Please select both start and end dates",
-            "danger"
+            "danger",
           );
           return;
         }
       } else if (method === "interval") {
         interval_days = parseInt(
           document.getElementById("geocode-interval-select").value,
-          10
+          10,
         );
       }
 
@@ -1621,7 +1683,7 @@
         progressBar.classList.add(
           "bg-primary",
           "progress-bar-animated",
-          "progress-bar-striped"
+          "progress-bar-striped",
         );
         progressMessage.textContent = "Initializing...";
         progressMetrics.textContent = "";
@@ -1643,7 +1705,7 @@
         const pollInterval = setInterval(async () => {
           try {
             const progressResponse = await fetch(
-              `/api/geocode_trips/progress/${taskId}`
+              `/api/geocode_trips/progress/${taskId}`,
             );
             if (!progressResponse.ok) {
               clearInterval(pollInterval);
@@ -1689,7 +1751,7 @@
                   "progress-bar-animated",
                   "progress-bar-striped",
                   "bg-primary",
-                  "bg-danger"
+                  "bg-danger",
                 );
                 progressBar.classList.add("bg-success");
                 if (statusEl) {
@@ -1698,14 +1760,14 @@
                 }
                 window.notificationManager.show(
                   `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
-                  "success"
+                  "success",
                 );
               } else {
                 progressBar.classList.remove(
                   "progress-bar-animated",
                   "progress-bar-striped",
                   "bg-primary",
-                  "bg-success"
+                  "bg-success",
                 );
                 progressBar.classList.add("bg-danger");
                 if (statusEl) {
@@ -1714,7 +1776,7 @@
                 }
                 window.notificationManager.show(
                   `Geocoding failed: ${progressData.error || "Unknown error"}`,
-                  "danger"
+                  "danger",
                 );
               }
             }
@@ -1723,12 +1785,13 @@
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
             if (statusEl) {
-              statusEl.textContent = "Lost connection while monitoring progress.";
+              statusEl.textContent =
+                "Lost connection while monitoring progress.";
               statusEl.className = "mt-2 text-warning";
             }
             window.notificationManager?.show(
               "Lost connection while monitoring geocoding progress",
-              "warning"
+              "warning",
             );
           }
         }, 1000); // Poll every second
@@ -1781,14 +1844,14 @@
         if (!start_date || !end_date) {
           window.notificationManager.show(
             "Please select both start and end dates",
-            "danger"
+            "danger",
           );
           return;
         }
       } else {
         interval_days = parseInt(
           document.getElementById("remap-interval-select").value,
-          10
+          10,
         );
         const startDateObj = new Date();
         startDateObj.setDate(startDateObj.getDate() - interval_days);
@@ -1798,7 +1861,8 @@
 
       try {
         showLoadingOverlay();
-        document.getElementById("remap-status").textContent = "Remapping trips...";
+        document.getElementById("remap-status").textContent =
+          "Remapping trips...";
 
         const response = await fetch("/api/matched_trips/remap", {
           method: "POST",
@@ -1834,7 +1898,9 @@
   // Mobile-specific functions
   function setupMobileUI() {
     // Check if mobile container exists
-    const mobileContainer = document.querySelector(".settings-mobile-container");
+    const mobileContainer = document.querySelector(
+      ".settings-mobile-container",
+    );
     if (!mobileContainer) return;
 
     setupMobileAccordions();
@@ -1847,7 +1913,9 @@
   }
 
   function setupMobileAccordions() {
-    const headers = document.querySelectorAll(".mobile-settings-section-header");
+    const headers = document.querySelectorAll(
+      ".mobile-settings-section-header",
+    );
 
     headers.forEach((header) => {
       header.addEventListener("click", function () {
@@ -1919,7 +1987,7 @@
                     <option value="${opt.value}" ${opt.value === task.interval_minutes ? "selected" : ""}>
                       ${opt.label}
                     </option>
-                  `
+                  `,
                     )
                     .join("")}
                 </select>
@@ -2138,7 +2206,8 @@
 
     nextBtn.onclick = () => {
       if (
-        window.taskManager.currentHistoryPage < window.taskManager.historyTotalPages
+        window.taskManager.currentHistoryPage <
+        window.taskManager.historyTotalPages
       ) {
         window.taskManager.currentHistoryPage++;
         window.taskManager.updateTaskHistory();
@@ -2148,7 +2217,9 @@
 
   function setupMobileGlobalControls() {
     // Global disable switch
-    const mobileGlobalSwitch = document.getElementById("mobile-globalDisableSwitch");
+    const mobileGlobalSwitch = document.getElementById(
+      "mobile-globalDisableSwitch",
+    );
     const desktopGlobalSwitch = document.getElementById("globalDisableSwitch");
 
     if (mobileGlobalSwitch && desktopGlobalSwitch) {
@@ -2198,7 +2269,9 @@
 
     if (mobileClearBtn && desktopClearBtn) {
       mobileClearBtn.addEventListener("click", () => {
-        const modal = new bootstrap.Modal(document.getElementById("clearHistoryModal"));
+        const modal = new bootstrap.Modal(
+          document.getElementById("clearHistoryModal"),
+        );
         modal.show();
       });
     }
@@ -2210,7 +2283,9 @@
 
     const startInput = document.getElementById("mobile-manual-fetch-start");
     const endInput = document.getElementById("mobile-manual-fetch-end");
-    const mapMatchInput = document.getElementById("mobile-manual-fetch-map-match");
+    const mapMatchInput = document.getElementById(
+      "mobile-manual-fetch-map-match",
+    );
     const statusEl = document.getElementById("mobile-manual-fetch-status");
 
     form.addEventListener("submit", async (event) => {
@@ -2273,7 +2348,7 @@
         await window.taskManager.scheduleManualFetch(
           startDate.toISOString(),
           endDate.toISOString(),
-          mapMatchEnabled
+          mapMatchEnabled,
         );
         if (statusEl) {
           statusEl.classList.remove("info");
@@ -2301,15 +2376,23 @@
   function setupMobileGeocodeTrips() {
     // Handle method tabs
     const geocodeTabs = document.querySelectorAll(
-      '.mobile-date-method-tab[data-target="geocode"]'
+      '.mobile-date-method-tab[data-target="geocode"]',
     );
-    const geocodeDateRange = document.getElementById("mobile-geocode-date-range");
+    const geocodeDateRange = document.getElementById(
+      "mobile-geocode-date-range",
+    );
     const geocodeInterval = document.getElementById("mobile-geocode-interval");
     const geocodeBtn = document.getElementById("mobile-geocode-trips-btn");
-    const progressPanel = document.getElementById("mobile-geocode-progress-panel");
+    const progressPanel = document.getElementById(
+      "mobile-geocode-progress-panel",
+    );
     const progressBar = document.getElementById("mobile-geocode-progress-bar");
-    const progressMessage = document.getElementById("mobile-geocode-progress-message");
-    const progressMetrics = document.getElementById("mobile-geocode-progress-metrics");
+    const progressMessage = document.getElementById(
+      "mobile-geocode-progress-message",
+    );
+    const progressMetrics = document.getElementById(
+      "mobile-geocode-progress-metrics",
+    );
     const statusEl = document.getElementById("mobile-geocode-trips-status");
 
     if (!geocodeBtn) return;
@@ -2337,7 +2420,7 @@
     // Handle button click
     geocodeBtn.addEventListener("click", async () => {
       const activeTab = document.querySelector(
-        '.mobile-date-method-tab[data-target="geocode"].active'
+        '.mobile-date-method-tab[data-target="geocode"].active',
       );
       const method = activeTab?.dataset.method || "date";
       let start_date = "";
@@ -2345,19 +2428,21 @@
       let interval_days = 0;
 
       if (method === "date") {
-        start_date = document.getElementById("mobile-geocode-start")?.value || "";
+        start_date =
+          document.getElementById("mobile-geocode-start")?.value || "";
         end_date = document.getElementById("mobile-geocode-end")?.value || "";
         if (!start_date || !end_date) {
           window.notificationManager.show(
             "Please select both start and end dates",
-            "danger"
+            "danger",
           );
           return;
         }
       } else if (method === "interval") {
         interval_days = parseInt(
-          document.getElementById("mobile-geocode-interval-select")?.value || "0",
-          10
+          document.getElementById("mobile-geocode-interval-select")?.value ||
+            "0",
+          10,
         );
       }
 
@@ -2377,7 +2462,7 @@
           progressBar.classList.add(
             "bg-primary",
             "progress-bar-animated",
-            "progress-bar-striped"
+            "progress-bar-striped",
           );
         }
         if (progressMessage) progressMessage.textContent = "Initializing...";
@@ -2400,7 +2485,7 @@
         const pollInterval = setInterval(async () => {
           try {
             const progressResponse = await fetch(
-              `/api/geocode_trips/progress/${taskId}`
+              `/api/geocode_trips/progress/${taskId}`,
             );
             if (!progressResponse.ok) {
               clearInterval(pollInterval);
@@ -2450,7 +2535,7 @@
                     "progress-bar-animated",
                     "progress-bar-striped",
                     "bg-primary",
-                    "bg-danger"
+                    "bg-danger",
                   );
                   progressBar.classList.add("bg-success");
                 }
@@ -2461,7 +2546,7 @@
                 }
                 window.notificationManager.show(
                   `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
-                  "success"
+                  "success",
                 );
               } else {
                 if (progressBar) {
@@ -2469,7 +2554,7 @@
                     "progress-bar-animated",
                     "progress-bar-striped",
                     "bg-primary",
-                    "bg-success"
+                    "bg-success",
                   );
                   progressBar.classList.add("bg-danger");
                 }
@@ -2480,7 +2565,7 @@
                 }
                 window.notificationManager.show(
                   `Geocoding failed: ${progressData.error || "Unknown error"}`,
-                  "danger"
+                  "danger",
                 );
               }
             }
@@ -2489,13 +2574,14 @@
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
             if (statusEl) {
-              statusEl.textContent = "Lost connection while monitoring progress.";
+              statusEl.textContent =
+                "Lost connection while monitoring progress.";
               statusEl.classList.remove("info", "success");
               statusEl.classList.add("error");
             }
             window.notificationManager?.show(
               "Lost connection while monitoring geocoding progress",
-              "warning"
+              "warning",
             );
           }
         }, 1000); // Poll every second
@@ -2525,10 +2611,10 @@
   function setupMobileRemapTrips() {
     // Remap trips - method tabs
     const dateTab = document.querySelector(
-      '.mobile-date-method-tab[data-method="date"]'
+      '.mobile-date-method-tab[data-method="date"]',
     );
     const intervalTab = document.querySelector(
-      '.mobile-date-method-tab[data-method="interval"]'
+      '.mobile-date-method-tab[data-method="interval"]',
     );
     const dateRange = document.getElementById("mobile-remap-date-range");
     const intervalDiv = document.getElementById("mobile-remap-interval");
@@ -2556,8 +2642,8 @@
     if (remapBtn) {
       remapBtn.addEventListener("click", async () => {
         const method =
-          document.querySelector(".mobile-date-method-tab.active")?.dataset.method ||
-          "date";
+          document.querySelector(".mobile-date-method-tab.active")?.dataset
+            .method || "date";
         let start_date,
           end_date,
           interval_days = 0;
@@ -2568,14 +2654,14 @@
           if (!start_date || !end_date) {
             window.notificationManager.show(
               "Please select both start and end dates",
-              "danger"
+              "danger",
             );
             return;
           }
         } else {
           interval_days = parseInt(
             document.getElementById("mobile-remap-interval-select").value,
-            10
+            10,
           );
           const startDateObj = new Date();
           startDateObj.setDate(startDateObj.getDate() - interval_days);
@@ -2638,7 +2724,9 @@
       if (!window.taskManager) return;
 
       // Gather mobile config
-      const mobileGlobalSwitch = document.getElementById("mobile-globalDisableSwitch");
+      const mobileGlobalSwitch = document.getElementById(
+        "mobile-globalDisableSwitch",
+      );
       const tasks = {};
 
       document.querySelectorAll(".mobile-task-card").forEach((card) => {
@@ -2665,7 +2753,7 @@
         .then(() => {
           window.notificationManager.show(
             "Task configuration updated successfully",
-            "success"
+            "success",
           );
           fab.classList.add("saved");
           setTimeout(() => fab.classList.remove("saved"), 2000);
@@ -2675,7 +2763,7 @@
           console.error("Error updating task config:", error);
           window.notificationManager.show(
             `Error updating task config: ${error.message}`,
-            "danger"
+            "danger",
           );
         });
     });
