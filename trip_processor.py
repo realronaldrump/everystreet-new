@@ -657,27 +657,28 @@ class TripProcessor:
             start_pt = Point(start_coord[0], start_coord[1])
             end_pt = Point(end_coord[0], end_coord[1])
 
-            LOCATION_SCHEMA = {
-                "formatted_address": "",
-                "address_components": {
-                    "street_number": "",
-                    "street": "",
-                    "city": "",
-                    "county": "",
-                    "state": "",
-                    "postal_code": "",
-                    "country": "",
-                },
-                "coordinates": {
-                    "lat": 0.0,
-                    "lng": 0.0,
-                },
-            }
+            def get_empty_location_schema():
+                return {
+                    "formatted_address": "",
+                    "address_components": {
+                        "street_number": "",
+                        "street": "",
+                        "city": "",
+                        "county": "",
+                        "state": "",
+                        "postal_code": "",
+                        "country": "",
+                    },
+                    "coordinates": {
+                        "lat": 0.0,
+                        "lng": 0.0,
+                    },
+                }
 
             if not self.processed_data.get("startLocation"):
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
-                    structured_start = LOCATION_SCHEMA.copy()
+                    structured_start = get_empty_location_schema()
                     structured_start["formatted_address"] = start_place.get(
                         "name",
                         "",
@@ -742,7 +743,7 @@ class TripProcessor:
                         )
 
                     if rev_start:
-                        structured_start = LOCATION_SCHEMA.copy()
+                        structured_start = get_empty_location_schema()
 
                         # Handle Mapbox response format
                         if config.mapbox_access_token and "place_name" in rev_start:
@@ -817,7 +818,7 @@ class TripProcessor:
             if not self.processed_data.get("destination"):
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
-                    structured_dest = LOCATION_SCHEMA.copy()
+                    structured_dest = get_empty_location_schema()
                     structured_dest["formatted_address"] = end_place.get(
                         "name",
                         "",
@@ -876,8 +877,15 @@ class TripProcessor:
                             end_coord[0],
                         )
 
+                    if not rev_end:
+                        logger.warning(
+                            "Trip %s: Failed to geocode destination. Coords: %s",
+                            transaction_id,
+                            end_coord,
+                        )
+
                     if rev_end:
-                        structured_dest = LOCATION_SCHEMA.copy()
+                        structured_dest = get_empty_location_schema()
 
                         # Handle Mapbox response format
                         if config.mapbox_access_token and "place_name" in rev_end:
