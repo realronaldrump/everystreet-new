@@ -499,6 +499,42 @@ async def reverse_geocode_nominatim(
         return None
 
 
+@retry_async(max_retries=3, retry_delay=1.0)
+async def reverse_geocode_mapbox(
+    lat: float,
+    lon: float,
+    access_token: str,
+) -> dict[str, Any] | None:
+    """Reverse geocode coordinates using Mapbox Geocoding API."""
+    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{lon},{lat}.json"
+    params = {
+        "access_token": access_token,
+        "types": "address,poi",
+        "limit": 1,
+    }
+
+    session = await get_session()
+    async with session.get(url, params=params) as response:
+        if response.status == 200:
+            data = await response.json()
+            if data.get("features"):
+                return data["features"][0]
+            return None
+        if response.status == 429:
+            retry_after = int(response.headers.get("Retry-After", 5))
+            raise ClientResponseError(
+                request_info=response.request_info,
+                history=response.history,
+                status=429,
+                message=f"Rate limited. Retry after {retry_after}s",
+            )
+        logger.warning(
+            "Mapbox geocoding error: status code %d",
+            response.status,
+        )
+        return None
+
+
 def haversine(
     lon1: float,
     lat1: float,

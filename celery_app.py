@@ -225,12 +225,19 @@ def init_worker(**_kwargs):
             # Attach to the root logger to capture everything
             root_logger = logging.getLogger()
             root_logger.addHandler(mongo_handler)
+            
+            # Ensure logs also go to stdout/stderr for terminal visibility
+            stream_handler = logging.StreamHandler()
+            stream_handler.setFormatter(formatter)
+            stream_handler.setLevel(logging.INFO)
+            root_logger.addHandler(stream_handler)
 
             # Also ensure 'tasks' logger has it
             tasks_logger = logging.getLogger("tasks")
             tasks_logger.addHandler(mongo_handler)
+            tasks_logger.addHandler(stream_handler)
 
-            logger.info("MongoDB logging handler attached to worker process.")
+            logger.info("MongoDB logging handler and StreamHandler attached to worker process.")
         except Exception as log_err:
             logger.error("Failed to attach MongoDB logging handler: %s", log_err)
         # ---------------------------------------------------

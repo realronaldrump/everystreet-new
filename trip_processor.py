@@ -21,7 +21,7 @@ from shapely.geometry import Point
 
 from date_utils import get_current_utc_time, parse_timestamp
 from db import matched_trips_collection, places_collection, trips_collection
-from utils import haversine, reverse_geocode_nominatim, standardize_and_validate_gps
+from utils import haversine, reverse_geocode_nominatim, reverse_geocode_mapbox, standardize_and_validate_gps
 
 logger = logging.getLogger(__name__)
 
@@ -715,39 +715,80 @@ class TripProcessor:
                         start_place.get("_id", ""),
                     )
                 else:
-                    rev_start = await reverse_geocode_nominatim(
-                        start_coord[1],
-                        start_coord[0],
-                    )
-                    if rev_start:
-                        structured_start = LOCATION_SCHEMA.copy()
-                        structured_start["formatted_address"] = rev_start.get(
-                            "display_name",
-                            "",
+                    # Use Mapbox if available, otherwise fallback to Nominatim
+                    rev_start = None
+                    if config.mapbox_access_token:
+                        async with mapbox_rate_limiter:
+                            rev_start = await reverse_geocode_mapbox(
+                                start_coord[1],
+                                start_coord[0],
+                                config.mapbox_access_token,
+                            )
+                    
+                    # Fallback to Nominatim if Mapbox failed or not configured
+                    if not rev_start:
+                        # Nominatim limit: 1 request per second
+                        # We should ideally have a global limiter, but for now we'll just be careful
+                        # or rely on the retry decorator's backoff.
+                        # Ideally: async with nominatim_rate_limiter:
+                        rev_start = await reverse_geocode_nominatim(
+                            start_coord[1],
+                            start_coord[0],
                         )
 
-                        if "address" in rev_start:
-                            addr = rev_start["address"]
-                            component_mapping = {
-                                "house_number": "street_number",
-                                "road": "street",
-                                "city": "city",
-                                "town": "city",
-                                "village": "city",
-                                "county": "county",
-                                "state": "state",
-                                "postcode": "postal_code",
-                                "country": "country",
-                            }
+                    if rev_start:
+                        structured_start = LOCATION_SCHEMA.copy()
+                        
+                        # Handle Mapbox response format
+                        if config.mapbox_access_token and "place_name" in rev_start:
+                            structured_start["formatted_address"] = rev_start.get("place_name", "")
+                            # Mapbox context parsing
+                            for ctx in rev_start.get("context", []):
+                                if "id" in ctx:
+                                    if ctx["id"].startswith("postcode"):
+                                        structured_start["address_components"]["postal_code"] = ctx.get("text", "")
+                                    elif ctx["id"].startswith("place"):
+                                        structured_start["address_components"]["city"] = ctx.get("text", "")
+                                    elif ctx["id"].startswith("region"):
+                                        structured_start["address_components"]["state"] = ctx.get("text", "")
+                                    elif ctx["id"].startswith("country"):
+                                        structured_start["address_components"]["country"] = ctx.get("text", "")
+                            
+                            # Mapbox address parsing (often in 'text' and 'address' fields of the feature)
+                            if "text" in rev_start:
+                                structured_start["address_components"]["street"] = rev_start.get("text", "")
+                            if "address" in rev_start:
+                                structured_start["address_components"]["street_number"] = rev_start.get("address", "")
 
-                            for (
-                                nominatim_key,
-                                our_key,
-                            ) in component_mapping.items():
-                                if nominatim_key in addr:
-                                    structured_start["address_components"][our_key] = (
-                                        addr[nominatim_key]
-                                    )
+                        # Handle Nominatim response format (fallback)
+                        elif "display_name" in rev_start:
+                            structured_start["formatted_address"] = rev_start.get(
+                                "display_name",
+                                "",
+                            )
+
+                            if "address" in rev_start:
+                                addr = rev_start["address"]
+                                component_mapping = {
+                                    "house_number": "street_number",
+                                    "road": "street",
+                                    "city": "city",
+                                    "town": "city",
+                                    "village": "city",
+                                    "county": "county",
+                                    "state": "state",
+                                    "postcode": "postal_code",
+                                    "country": "country",
+                                }
+
+                                for (
+                                    nominatim_key,
+                                    our_key,
+                                ) in component_mapping.items():
+                                    if nominatim_key in addr:
+                                        structured_start["address_components"][our_key] = (
+                                            addr[nominatim_key]
+                                        )
 
                         structured_start["coordinates"]["lng"] = start_coord[0]
                         structured_start["coordinates"]["lat"] = start_coord[1]
@@ -800,10 +841,79 @@ class TripProcessor:
                         end_place.get("_id", ""),
                     )
                 else:
-                    rev_end = await reverse_geocode_nominatim(
-                        end_coord[1],
-                        end_coord[0],
-                    )
+                    # Use Mapbox if available, otherwise fallback to Nominatim
+                    rev_end = None
+                    if config.mapbox_access_token:
+                        async with mapbox_rate_limiter:
+                            rev_end = await reverse_geocode_mapbox(
+                                end_coord[1],
+                                end_coord[0],
+                                config.mapbox_access_token,
+                            )
+                    
+                    if not rev_end:
+                        rev_end = await reverse_geocode_nominatim(
+                            end_coord[1],
+                            end_coord[0],
+                        )
+
+                    if rev_end:
+                        structured_dest = LOCATION_SCHEMA.copy()
+                        
+                        # Handle Mapbox response format
+                        if config.mapbox_access_token and "place_name" in rev_end:
+                            structured_dest["formatted_address"] = rev_end.get("place_name", "")
+                            for ctx in rev_end.get("context", []):
+                                if "id" in ctx:
+                                    if ctx["id"].startswith("postcode"):
+                                        structured_dest["address_components"]["postal_code"] = ctx.get("text", "")
+                                    elif ctx["id"].startswith("place"):
+                                        structured_dest["address_components"]["city"] = ctx.get("text", "")
+                                    elif ctx["id"].startswith("region"):
+                                        structured_dest["address_components"]["state"] = ctx.get("text", "")
+                                    elif ctx["id"].startswith("country"):
+                                        structured_dest["address_components"]["country"] = ctx.get("text", "")
+                            
+                            if "text" in rev_end:
+                                structured_dest["address_components"]["street"] = rev_end.get("text", "")
+                            if "address" in rev_end:
+                                structured_dest["address_components"]["street_number"] = rev_end.get("address", "")
+
+                        # Handle Nominatim response format
+                        elif "display_name" in rev_end:
+                            structured_dest["formatted_address"] = rev_end.get(
+                                "display_name",
+                                "",
+                            )
+
+                            if "address" in rev_end:
+                                addr = rev_end["address"]
+                                component_mapping = {
+                                    "house_number": "street_number",
+                                    "road": "street",
+                                    "city": "city",
+                                    "town": "city",
+                                    "village": "city",
+                                    "county": "county",
+                                    "state": "state",
+                                    "postcode": "postal_code",
+                                    "country": "country",
+                                }
+
+                                for (
+                                    nominatim_key,
+                                    our_key,
+                                ) in component_mapping.items():
+                                    if nominatim_key in addr:
+                                        structured_dest["address_components"][our_key] = (
+                                            addr[nominatim_key]
+                                        )
+
+                        structured_dest["coordinates"]["lng"] = end_coord[0]
+                        structured_dest["coordinates"]["lat"] = end_coord[1]
+
+                        self.processed_data["destination"] = structured_dest
+
                     if rev_end:
                         structured_dest = LOCATION_SCHEMA.copy()
                         structured_dest["formatted_address"] = rev_end.get(
