@@ -314,11 +314,32 @@ async def schedule_fetch_trips_range(payload: FetchTripsRangeRequest):
         ) from exc
 
 
-@router.post("/api/background_tasks/fetch_all_missing_trips")
-async def schedule_fetch_all_missing_trips():
-    """Schedule a task to fetch all missing trips from 2020 to now."""
+@router.get("/api/trips/earliest_date")
+async def get_earliest_trip_date_endpoint():
+    """Get the date of the earliest trip in the database."""
     try:
-        result = await trigger_fetch_all_missing_trips()
+        from tasks import get_earliest_trip_date
+
+        date = await get_earliest_trip_date()
+        return {"earliest_date": date.isoformat() if date else None}
+    except Exception as exc:
+        logger.exception("Error getting earliest trip date: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get earliest trip date.",
+        ) from exc
+
+
+class FetchAllMissingPayload(BaseModel):
+    start_date: str | None = None
+
+
+@router.post("/api/background_tasks/fetch_all_missing_trips")
+async def schedule_fetch_all_missing_trips(payload: FetchAllMissingPayload = None):
+    """Schedule a task to fetch all missing trips from a start date (or default) to now."""
+    try:
+        start_date = payload.start_date if payload else None
+        result = await trigger_fetch_all_missing_trips(start_date=start_date)
         return result
     except Exception as exc:
         logger.exception("Error scheduling fetch all missing trips: %s", exc)

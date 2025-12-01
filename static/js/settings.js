@@ -1149,20 +1149,50 @@
       }
     });
 
-    const fetchAllMissingBtn = document.getElementById("fetchAllMissingTripsBtn");
-    if (fetchAllMissingBtn) {
-      fetchAllMissingBtn.addEventListener("click", async () => {
-        if (
-          !confirm(
-            "Are you sure you want to fetch ALL missing trips from 2020? This may take a long time."
-          )
-        ) {
-          return;
-        }
+    const openFetchAllMissingModalBtn = document.getElementById(
+      "openFetchAllMissingModalBtn"
+    );
+    const confirmFetchAllMissingBtn = document.getElementById("confirmFetchAllMissing");
+    const fetchAllMissingStartInput = document.getElementById("fetchAllMissingStart");
 
-        const statusSpan = document.getElementById("fetchAllMissingStatus");
+    if (openFetchAllMissingModalBtn) {
+      openFetchAllMissingModalBtn.addEventListener("click", async () => {
+        // Fetch earliest date when modal opens
         try {
-          fetchAllMissingBtn.disabled = true;
+          const response = await fetch("/api/trips/earliest_date");
+          if (response.ok) {
+            const data = await response.json();
+            if (data.earliest_date && fetchAllMissingStartInput) {
+              // Format for datetime-local input (YYYY-MM-DDTHH:mm)
+              const date = new Date(data.earliest_date);
+              const formatted = date.toISOString().slice(0, 16);
+              fetchAllMissingStartInput.value = formatted;
+            } else if (fetchAllMissingStartInput) {
+              // Default to 2020-01-01 if no date found
+              fetchAllMissingStartInput.value = "2020-01-01T00:00";
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching earliest date:", error);
+          if (fetchAllMissingStartInput) {
+            fetchAllMissingStartInput.value = "2020-01-01T00:00";
+          }
+        }
+      });
+    }
+
+    if (confirmFetchAllMissingBtn) {
+      confirmFetchAllMissingBtn.addEventListener("click", async () => {
+        const startDate = fetchAllMissingStartInput?.value;
+        const statusSpan = document.getElementById("fetchAllMissingStatus");
+
+        // Close modal
+        const modalEl = document.getElementById("fetchAllMissingModal");
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+
+        try {
+          if (openFetchAllMissingModalBtn) openFetchAllMissingModalBtn.disabled = true;
           if (statusSpan) statusSpan.textContent = "Starting task...";
 
           showLoadingOverlay();
@@ -1170,6 +1200,8 @@
             "/api/background_tasks/fetch_all_missing_trips",
             {
               method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ start_date: startDate }),
             }
           );
           const result = await response.json();
@@ -1184,7 +1216,8 @@
             if (statusSpan) statusSpan.textContent = "Task started!";
             setTimeout(() => {
               if (statusSpan) statusSpan.textContent = "";
-              fetchAllMissingBtn.disabled = false;
+              if (openFetchAllMissingModalBtn)
+                openFetchAllMissingModalBtn.disabled = false;
             }, 3000);
             taskManager.loadTaskConfig();
           } else {
@@ -1195,7 +1228,7 @@
           console.error("Error starting fetch all missing trips:", error);
           taskManager.notifier.show("Error", error.message, "danger");
           if (statusSpan) statusSpan.textContent = "Error starting task";
-          fetchAllMissingBtn.disabled = false;
+          if (openFetchAllMissingModalBtn) openFetchAllMissingModalBtn.disabled = false;
         }
       });
     }

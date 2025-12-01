@@ -815,13 +815,53 @@ def manual_fetch_trips_range(
     )
 
 
+async def get_earliest_trip_date() -> datetime | None:
+    """Find the start time of the earliest trip in the database."""
+    try:
+        earliest_trip = await find_one_with_retry(
+            trips_collection,
+            {},
+            sort=[("startTime", 1)],
+            projection={"startTime": 1},
+        )
+        if earliest_trip and "startTime" in earliest_trip:
+            return earliest_trip["startTime"].replace(tzinfo=UTC)
+    except Exception as e:
+        logger.error("Error finding earliest trip date: %s", e)
+    return None
+
+
 @task_runner
 async def fetch_all_missing_trips_async(
-    _self, manual_run: bool = False
+    _self, manual_run: bool = False, start_iso: str | None = None
 ) -> dict[str, Any]:
-    """Fetch all trips from 2020-01-01 to now."""
-    # Hardcoded start date: Jan 1, 2020
-    start_dt = datetime(2020, 1, 1, tzinfo=UTC)
+    """Fetch all trips from a start date (defaulting to earliest trip or 2020-01-01) to now."""
+
+    if start_iso:
+        try:
+            start_dt = parse(start_iso)
+            if start_dt.tzinfo is None:
+                start_dt = start_dt.replace(tzinfo=UTC)
+        except Exception as e:
+            logger.error("Invalid start_iso provided: %s. Using default.", e)
+            start_dt = None
+    else:
+        start_dt = None
+
+    if not start_dt:
+        # Try to find the earliest trip in the DB to use as a start date
+        # This ensures we cover everything from the beginning of our history
+        earliest_db_date = await get_earliest_trip_date()
+        if earliest_db_date:
+            # Go back a bit further just in case? Or just use that date.
+            # Let's use that date.
+            start_dt = earliest_db_date
+            logger.info("Using earliest trip date from DB: %s", start_dt)
+        else:
+            # Fallback if DB is empty
+            start_dt = datetime(2020, 1, 1, tzinfo=UTC)
+            logger.info("No trips in DB, using hardcoded start date: %s", start_dt)
+
     end_dt = datetime.now(UTC)
 
     logger.info(
@@ -864,8 +904,9 @@ async def fetch_all_missing_trips_async(
 def fetch_all_missing_trips(_self, **_kwargs):
     """Celery task wrapper for fetching all missing trips."""
     manual_run = _kwargs.get("manual_run", True)
+    start_iso = _kwargs.get("start_iso")
     return run_async_from_sync(
-        fetch_all_missing_trips_async(_self, manual_run=manual_run)
+        fetch_all_missing_trips_async(_self, manual_run=manual_run, start_iso=start_iso)
     )
 
 
@@ -2334,7 +2375,9 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
         raise e
 
 
-async def trigger_fetch_all_missing_trips() -> dict[str, Any]:
+async def trigger_fetch_all_missing_trips(
+    start_date: str | None = None,
+) -> dict[str, Any]:
     """Triggers the fetch_all_missing_trips task."""
     task_id = "fetch_all_missing_trips"
 
@@ -2344,7 +2387,7 @@ async def trigger_fetch_all_missing_trips() -> dict[str, Any]:
         raise ValueError(f"Cannot run task: {dep_check['reason']}")
 
     # Trigger the task
-    task = fetch_all_missing_trips.delay(manual_run=True)
+    task = fetch_all_missing_trips.delay(manual_run=True, start_iso=start_date)
 
     return {
         "status": "success",
