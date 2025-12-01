@@ -215,7 +215,12 @@ async def fetch_bouncie_trips_in_range(
                             if t.get("transactionId") in processed_transaction_ids
                         ]
                     else:
-                        logger.info("Fetched 0 trips for device %s in range %s to %s", imei, s, e)
+                        logger.info(
+                            "Fetched 0 trips for device %s in range %s to %s",
+                            imei,
+                            s,
+                            e,
+                        )
                     return []
                 finally:
                     nonlocal completed_chunks
