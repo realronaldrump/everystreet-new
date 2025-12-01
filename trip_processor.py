@@ -947,40 +947,7 @@ class TripProcessor:
 
                         self.processed_data["destination"] = structured_dest
 
-                    if rev_end:
-                        structured_dest = LOCATION_SCHEMA.copy()
-                        structured_dest["formatted_address"] = rev_end.get(
-                            "display_name",
-                            "",
-                        )
 
-                        if "address" in rev_end:
-                            addr = rev_end["address"]
-                            component_mapping = {
-                                "house_number": "street_number",
-                                "road": "street",
-                                "city": "city",
-                                "town": "city",
-                                "village": "city",
-                                "county": "county",
-                                "state": "state",
-                                "postcode": "postal_code",
-                                "country": "country",
-                            }
-
-                            for (
-                                nominatim_key,
-                                our_key,
-                            ) in component_mapping.items():
-                                if nominatim_key in addr:
-                                    structured_dest["address_components"][our_key] = (
-                                        addr[nominatim_key]
-                                    )
-
-                        structured_dest["coordinates"]["lng"] = end_coord[0]
-                        structured_dest["coordinates"]["lat"] = end_coord[1]
-
-                        self.processed_data["destination"] = structured_dest
 
             self.processed_data["location_schema_version"] = 2
 

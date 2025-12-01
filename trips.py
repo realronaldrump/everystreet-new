@@ -693,7 +693,7 @@ async def regeocode_single_trip(trip_id: str):
                 detail="Trip not found",
             )
 
-        result = await trip_service.refresh_geocoding([trip_id])
+        result = await trip_service.refresh_geocoding([trip_id], skip_if_exists=False)
 
         if result["updated"] > 0:
             return {

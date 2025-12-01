@@ -66,12 +66,17 @@
       const loadingOverlay = document.getElementById("map-loading");
       if (loadingOverlay) {
         loadingOverlay.style.display = "flex";
+        loadingOverlay.style.opacity = "1";
+        loadingOverlay.style.pointerEvents = "all";
       }
     }
 
     hideInitialLoading() {
       const loadingOverlay = document.getElementById("map-loading");
       if (loadingOverlay) {
+        // Allow clicks to pass through immediately while fading out
+        loadingOverlay.style.pointerEvents = "none";
+        
         setTimeout(() => {
           loadingOverlay.style.transition = "opacity 0.3s ease";
           loadingOverlay.style.opacity = "0";
