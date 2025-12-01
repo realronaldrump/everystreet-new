@@ -381,6 +381,13 @@ class TripService:
                 trips_to_process = []
 
             skipped_count = len(seen_incoming) - len(trips_to_process)
+            logger.info(
+                "Processing Bouncie trips: Total incoming=%d, Unique=%d, To Process=%d, Skipped=%d (existing/duplicates)",
+                len(trips_data),
+                len(seen_incoming),
+                len(trips_to_process),
+                skipped_count,
+            )
             if progress_section is not None:
                 progress_section["message"] = (
                     f"Starting trip processing "

@@ -871,6 +871,12 @@ async def fetch_all_missing_trips_async(
         manual_run,
     )
 
+    try:
+        initial_count = await count_documents_with_retry(trips_collection, {})
+        logger.info("Current total trips in DB before fetch: %d", initial_count)
+    except Exception as e:
+        logger.error("Error counting trips: %s", e)
+
     # We disable map matching for this bulk operation to be faster/safer,
     # or we could make it configurable. For now, let's default to False
     # to avoid slamming the map matching service with years of data.
