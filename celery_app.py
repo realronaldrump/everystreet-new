@@ -209,12 +209,12 @@ def init_worker(**_kwargs):
 
             # Create handler using the worker's db instance
             mongo_handler = MongoDBHandler(db_manager.db)
-            
+
             # We need to run setup_indexes, but we can't await here easily.
             # However, the handler handles async emission.
             # Ideally, indexes are set up by the main app, but we can try to ensure it.
             # For now, just attaching the handler is the priority.
-            
+
             # Configure formatting
             formatter = logging.Formatter(
                 "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -225,11 +225,11 @@ def init_worker(**_kwargs):
             # Attach to the root logger to capture everything
             root_logger = logging.getLogger()
             root_logger.addHandler(mongo_handler)
-            
+
             # Also ensure 'tasks' logger has it
             tasks_logger = logging.getLogger("tasks")
             tasks_logger.addHandler(mongo_handler)
-            
+
             logger.info("MongoDB logging handler attached to worker process.")
         except Exception as log_err:
             logger.error("Failed to attach MongoDB logging handler: %s", log_err)
