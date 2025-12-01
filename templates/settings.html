@@ -137,6 +137,22 @@
 
       <div class="card bg-dark text-white mb-4">
         <div class="card-body">
+          <h3 class="h5">Fetch All Missing Trips</h3>
+          <p class="text-muted small">
+            Fetches all trips from Jan 1, 2020 to now. This is useful for filling in any gaps in your trip history.
+            This process may take a while.
+          </p>
+          <div class="d-flex align-items-center">
+            <button class="btn btn-warning" id="fetchAllMissingTripsBtn">
+              <i class="fas fa-sync-alt"></i> Fetch All Missing Trips
+            </button>
+            <span class="ms-3 text-muted" id="fetchAllMissingStatus"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card bg-dark text-white mb-4">
+        <div class="card-body">
           <h3 class="h5">Task History</h3>
           <div class="d-flex justify-content-between align-items-center mb-3">
             <button class="btn btn-danger btn-sm" id="clearHistoryBtn">

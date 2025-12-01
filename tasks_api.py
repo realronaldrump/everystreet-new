@@ -25,6 +25,7 @@ from tasks import (
     get_all_task_metadata,
     get_task_config,
     manual_run_task,
+    trigger_fetch_all_missing_trips,
     trigger_manual_fetch_trips_range,
     update_task_schedule,
 )
@@ -310,6 +311,20 @@ async def schedule_fetch_trips_range(payload: FetchTripsRangeRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to schedule manual fetch.",
+        ) from exc
+
+
+@router.post("/api/background_tasks/fetch_all_missing_trips")
+async def schedule_fetch_all_missing_trips():
+    """Schedule a task to fetch all missing trips from 2020 to now."""
+    try:
+        result = await trigger_fetch_all_missing_trips()
+        return result
+    except Exception as exc:
+        logger.exception("Error scheduling fetch all missing trips: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to schedule fetch all missing trips.",
         ) from exc
 
 

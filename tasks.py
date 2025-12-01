@@ -119,6 +119,13 @@ TASK_METADATA = {
         "description": "Fetches Bouncie trips for a specific date range on-demand",
         "manual_only": True,
     },
+    "fetch_all_missing_trips": {
+        "display_name": "Fetch All Missing Trips",
+        "default_interval_minutes": 0,
+        "dependencies": [],
+        "description": "Fetches all trips from 2020-01-01 to now to fill gaps",
+        "manual_only": True,
+    },
 }
 
 
@@ -804,7 +811,61 @@ def manual_fetch_trips_range(
             end_iso,
             map_match=map_match,
             manual_run=manual_run,
-        )
+        ),
+    )
+
+
+@task_runner
+async def fetch_all_missing_trips_async(
+    _self, manual_run: bool = False
+) -> dict[str, Any]:
+    """Fetch all trips from 2020-01-01 to now."""
+    # Hardcoded start date: Jan 1, 2020
+    start_dt = datetime(2020, 1, 1, tzinfo=UTC)
+    end_dt = datetime.now(UTC)
+
+    logger.info(
+        "STARTING FETCH ALL MISSING TRIPS TASK: %s to %s (manual_run=%s)",
+        start_dt.isoformat(),
+        end_dt.isoformat(),
+        manual_run,
+    )
+
+    # We disable map matching for this bulk operation to be faster/safer,
+    # or we could make it configurable. For now, let's default to False
+    # to avoid slamming the map matching service with years of data.
+    # The user can run "Remap Unmatched Trips" later if needed.
+    fetched_trips = await fetch_bouncie_trips_in_range(
+        start_dt,
+        end_dt,
+        do_map_match=False,
+    )
+
+    logger.info("Fetch all missing trips completed: %d trips", len(fetched_trips))
+
+    return {
+        "status": "success",
+        "trips_fetched": len(fetched_trips),
+        "date_range": {
+            "start": start_dt.isoformat(),
+            "end": end_dt.isoformat(),
+        },
+    }
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=60,
+    time_limit=7200,  # Allow 2 hours for this potentially large task
+    soft_time_limit=7000,
+    name="tasks.fetch_all_missing_trips",
+)
+def fetch_all_missing_trips(_self, **_kwargs):
+    """Celery task wrapper for fetching all missing trips."""
+    manual_run = _kwargs.get("manual_run", True)
+    return run_async_from_sync(
+        fetch_all_missing_trips_async(_self, manual_run=manual_run)
     )
 
 
@@ -2268,3 +2329,25 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
                 celery_task_id,
             )
             raise e
+    except Exception as e:
+        logger.exception("Unexpected error in webhook processing wrapper: %s", e)
+        raise e
+
+
+async def trigger_fetch_all_missing_trips() -> dict[str, Any]:
+    """Triggers the fetch_all_missing_trips task."""
+    task_id = "fetch_all_missing_trips"
+
+    # Check dependencies
+    dep_check = await check_dependencies(task_id)
+    if not dep_check["can_run"]:
+        raise ValueError(f"Cannot run task: {dep_check['reason']}")
+
+    # Trigger the task
+    task = fetch_all_missing_trips.delay(manual_run=True)
+
+    return {
+        "status": "success",
+        "message": "Task triggered successfully",
+        "task_id": task.id,
+    }

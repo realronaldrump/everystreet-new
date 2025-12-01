@@ -1148,6 +1148,57 @@
         window.taskManager.cleanup();
       }
     });
+
+    const fetchAllMissingBtn = document.getElementById("fetchAllMissingTripsBtn");
+    if (fetchAllMissingBtn) {
+      fetchAllMissingBtn.addEventListener("click", async () => {
+        if (
+          !confirm(
+            "Are you sure you want to fetch ALL missing trips from 2020? This may take a long time."
+          )
+        ) {
+          return;
+        }
+
+        const statusSpan = document.getElementById("fetchAllMissingStatus");
+        try {
+          fetchAllMissingBtn.disabled = true;
+          if (statusSpan) statusSpan.textContent = "Starting task...";
+
+          showLoadingOverlay();
+          const response = await fetch(
+            "/api/background_tasks/fetch_all_missing_trips",
+            {
+              method: "POST",
+            }
+          );
+          const result = await response.json();
+          hideLoadingOverlay();
+
+          if (response.ok && result.status === "success") {
+            taskManager.notifier.show(
+              "Success",
+              "Fetch all missing trips task started",
+              "success"
+            );
+            if (statusSpan) statusSpan.textContent = "Task started!";
+            setTimeout(() => {
+              if (statusSpan) statusSpan.textContent = "";
+              fetchAllMissingBtn.disabled = false;
+            }, 3000);
+            taskManager.loadTaskConfig();
+          } else {
+            throw new Error(result.detail || result.message || "Failed to start task");
+          }
+        } catch (error) {
+          hideLoadingOverlay();
+          console.error("Error starting fetch all missing trips:", error);
+          taskManager.notifier.show("Error", error.message, "danger");
+          if (statusSpan) statusSpan.textContent = "Error starting task";
+          fetchAllMissingBtn.disabled = false;
+        }
+      });
+    }
   });
 
   function setupTaskConfigEventListeners() {
