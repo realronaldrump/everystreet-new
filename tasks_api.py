@@ -20,7 +20,6 @@ from db import (
 from models import BackgroundTasksConfigModel
 from tasks import (
     TASK_METADATA,
-    TaskPriority,
     TaskStatus,
     force_reset_task,
     get_all_task_metadata,
@@ -112,10 +111,6 @@ async def get_background_tasks_config():
                 "Unknown Task",
             )
             task_config["description"] = task_def.get("description", "")
-            task_config["priority"] = task_def.get(
-                "priority",
-                TaskPriority.MEDIUM.name,
-            )
             task_config["manual_only"] = task_def.get("manual_only", False)
 
             task_config["status"] = task_config.get("status", "IDLE")
@@ -357,11 +352,7 @@ async def get_task_details(task_id: str):
             "id": task_id,
             "display_name": task_def["display_name"],
             "description": task_def["description"],
-            "priority": (
-                task_def["priority"].name
-                if hasattr(task_def["priority"], "name")
-                else str(task_def["priority"])
-            ),
+            "description": task_def["description"],
             "dependencies": task_def["dependencies"],
             "status": task_config.get("status", "IDLE"),
             "enabled": task_config.get("enabled", True),

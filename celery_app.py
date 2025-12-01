@@ -85,11 +85,6 @@ get_redis_connection_with_retry()
 
 task_queues = [
     Queue("default", routing_key="default"),
-    Queue(
-        "high_priority",
-        routing_key="high_priority",
-    ),
-    Queue("low_priority", routing_key="low_priority"),
 ]
 
 app = Celery(
@@ -130,7 +125,6 @@ app.conf.update(
         "run_task_scheduler_every_minute": {
             "task": "tasks.run_task_scheduler",
             "schedule": timedelta(minutes=1),
-            "options": {"queue": "high_priority"},
         },
     },
     worker_send_task_events=True,

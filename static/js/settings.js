@@ -327,7 +327,6 @@
               </div>`
               }
             </td>
-            <td>${task.priority || "MEDIUM"}</td>
             <td class="task-status" data-status="${
               taskStatus
             }">${TaskManager.getStatusHTML(taskStatus)}</td>
@@ -928,10 +927,7 @@
                 )?.label || `${taskDetails.interval_minutes} minutes`
               }</p>
             </div>
-            <div class="mb-3">
-              <h6>Priority</h6>
-              <p>${taskDetails.priority || "MEDIUM"}</p>
-            </div>
+
             <div class="mb-3">
               <h6>Dependencies</h6>
               ${
@@ -1864,10 +1860,7 @@
             </div>
             `
             }
-            <div class="mobile-task-info-item">
-              <span class="mobile-task-info-label">Priority</span>
-              <div class="mobile-task-info-value">${task.priority || "MEDIUM"}</div>
-            </div>
+
             <div class="mobile-task-info-item">
               <span class="mobile-task-info-label">Last Run</span>
               <div class="mobile-task-info-value">${task.last_run ? TaskManager.formatDateTime(task.last_run) : "Never"}</div>

@@ -62,21 +62,6 @@ logger = get_task_logger(__name__)
 T = TypeVar("T")
 
 
-class TaskPriority(Enum):
-    LOW = 1
-    MEDIUM = 2
-    HIGH = 3
-
-    @classmethod
-    def from_string(cls, priority_str: str) -> TaskPriority:
-        priority_map = {
-            "LOW": cls.LOW,
-            "MEDIUM": cls.MEDIUM,
-            "HIGH": cls.HIGH,
-        }
-        return priority_map.get(priority_str, cls.MEDIUM)
-
-
 class TaskStatus(Enum):
     IDLE = "IDLE"
     RUNNING = "RUNNING"
@@ -94,49 +79,42 @@ TASK_METADATA = {
                 "60",
             ),
         ),
-        "priority": TaskPriority.HIGH,
         "dependencies": [],
         "description": "Fetches trips from the Bouncie API periodically",
     },
     "cleanup_stale_trips": {
         "display_name": "Cleanup Stale Trips",
         "default_interval_minutes": 60,
-        "priority": TaskPriority.LOW,
         "dependencies": [],
         "description": "Archives trips that haven't been updated recently",
     },
     "cleanup_invalid_trips": {
         "display_name": "Cleanup Invalid Trips",
         "default_interval_minutes": 1440,
-        "priority": TaskPriority.LOW,
         "dependencies": [],
         "description": "Identifies and marks invalid trip records",
     },
     "remap_unmatched_trips": {
         "display_name": "Remap Unmatched Trips",
         "default_interval_minutes": 360,
-        "priority": TaskPriority.MEDIUM,
         "dependencies": ["periodic_fetch_trips"],
         "description": "Attempts to map-match trips that previously failed",
     },
     "validate_trip_data": {
         "display_name": "Validate Trip Data",
         "default_interval_minutes": 720,
-        "priority": TaskPriority.LOW,
         "dependencies": [],
         "description": "Validates and corrects trip data inconsistencies",
     },
     "update_coverage_for_new_trips": {
         "display_name": "Incremental Progress Updates",
         "default_interval_minutes": 180,
-        "priority": TaskPriority.MEDIUM,
         "dependencies": ["periodic_fetch_trips"],
         "description": "Updates coverage calculations incrementally for new trips",
     },
     "manual_fetch_trips_range": {
         "display_name": "Fetch Trips (Custom Range)",
         "default_interval_minutes": 0,
-        "priority": TaskPriority.MEDIUM,
         "dependencies": [],
         "description": "Fetches Bouncie trips for a specific date range on-demand",
         "manual_only": True,
@@ -561,11 +539,8 @@ def task_runner(func: Callable) -> Callable:
 
             # Attempt retry if this is a retryable task
             try:
-                # Get retry delay based on task priority
-                priority = TASK_METADATA.get(task_name, {}).get(
-                    "priority", TaskPriority.MEDIUM
-                )
-                countdown = 60 if priority == TaskPriority.HIGH else 300
+                # Default retry delay
+                countdown = 60
                 raise self.retry(exc=e, countdown=countdown)
             except Exception:
                 # If retry fails or is not available, re-raise the original exception
@@ -740,7 +715,7 @@ async def periodic_fetch_trips_async(_self) -> dict[str, Any]:
     time_limit=3600,
     soft_time_limit=3300,
     name="tasks.periodic_fetch_trips",
-    queue="high_priority",
+    name="tasks.periodic_fetch_trips",
 )
 def periodic_fetch_trips(_self, *_args, **_kwargs):
     """Celery task wrapper for fetching periodic trips."""
@@ -804,7 +779,7 @@ async def manual_fetch_trips_range_async(
     time_limit=3600,
     soft_time_limit=3300,
     name="tasks.manual_fetch_trips_range",
-    queue="high_priority",
+    name="tasks.manual_fetch_trips_range",
 )
 def manual_fetch_trips_range(
     _self,
@@ -998,7 +973,7 @@ async def cleanup_stale_trips_async(_self) -> dict[str, Any]:
     time_limit=1800,
     soft_time_limit=1700,
     name="tasks.cleanup_stale_trips",
-    queue="low_priority",
+    name="tasks.cleanup_stale_trips",
 )
 def cleanup_stale_trips(_self, *_args, **_kwargs):
     """Celery task wrapper for cleaning up stale live trips."""
@@ -1118,7 +1093,7 @@ async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
     time_limit=7200,
     soft_time_limit=7000,
     name="tasks.cleanup_invalid_trips",
-    queue="low_priority",
+    name="tasks.cleanup_invalid_trips",
 )
 def cleanup_invalid_trips(_self, *_args, **_kwargs):
     """Celery task wrapper for cleaning up invalid trip data."""
@@ -1353,7 +1328,7 @@ async def validate_trip_data_async(_self) -> dict[str, Any]:
     time_limit=7200,
     soft_time_limit=7000,
     name="tasks.validate_trip_data",
-    queue="low_priority",
+    name="tasks.validate_trip_data",
 )
 def validate_trip_data(_self, *_args, **_kwargs):
     """Celery task wrapper for validating trip data."""
@@ -1492,23 +1467,12 @@ async def run_task_scheduler_async() -> None:
             try:
                 celery_task_name = task_name_mapping[task_id_to_run]
 
-                priority_enum = TASK_METADATA[task_id_to_run].get(
-                    "priority",
-                    TaskPriority.MEDIUM,
-                )
-                priority_name = priority_enum.name.lower()
-                queue = (
-                    f"{priority_name}_priority"
-                    if priority_name in ["high", "low"]
-                    else "default"
-                )
-
                 celery_task_id = f"{task_id_to_run}_scheduled_{uuid.uuid4()}"
 
                 celery_app.send_task(
                     celery_task_name,
                     task_id=celery_task_id,
-                    queue=queue,
+                    queue="default",
                 )
 
                 await status_manager.update_status(
@@ -1525,11 +1489,10 @@ async def run_task_scheduler_async() -> None:
 
                 triggered_count += 1
                 logger.info(
-                    "Triggered task '%s' -> Celery task '%s' (ID: %s) on queue '%s'",
+                    "Triggered task '%s' -> Celery task '%s' (ID: %s)",
                     task_id_to_run,
                     celery_task_name,
                     celery_task_id,
-                    queue,
                 )
 
                 await asyncio.sleep(0.1)
@@ -1562,7 +1525,7 @@ async def run_task_scheduler_async() -> None:
 @shared_task(
     bind=True,
     name="tasks.run_task_scheduler",
-    queue="high_priority",
+    name="tasks.run_task_scheduler",
     ignore_result=True,
     time_limit=300,
     soft_time_limit=280,
@@ -1610,13 +1573,6 @@ async def get_all_task_metadata() -> dict[str, Any]:
                     last_run = last_run.astimezone(UTC)
                 estimated_next_run = last_run + timedelta(minutes=interval_minutes)
 
-            priority_enum = metadata.get("priority", TaskPriority.MEDIUM)
-            priority_name = (
-                priority_enum.name
-                if isinstance(priority_enum, TaskPriority)
-                else str(priority_enum)
-            )
-
             task_entry.update(
                 {
                     "enabled": config_data.get("enabled", True),
@@ -1634,7 +1590,6 @@ async def get_all_task_metadata() -> dict[str, Any]:
                     "last_updated": serialize_datetime(
                         config_data.get("last_updated"),
                     ),
-                    "priority": priority_name,
                     "manual_only": metadata.get("manual_only", False),
                 },
             )
@@ -1645,15 +1600,8 @@ async def get_all_task_metadata() -> dict[str, Any]:
         logger.exception("Error getting all task metadata: %s", e)
         fallback_metadata = {}
         for task_id, metadata in TASK_METADATA.items():
-            priority_enum = metadata.get("priority", TaskPriority.MEDIUM)
-            priority_name = (
-                priority_enum.name
-                if isinstance(priority_enum, TaskPriority)
-                else str(priority_enum)
-            )
             fallback_metadata[task_id] = {
                 **metadata,
-                "priority": priority_name,
                 "enabled": True,
                 "interval_minutes": metadata.get("default_interval_minutes"),
                 "status": TaskStatus.IDLE.value,
@@ -1748,20 +1696,12 @@ async def _send_manual_task(
                 "message": reason,
             }
 
-        priority_enum = TASK_METADATA[task_name].get("priority", TaskPriority.MEDIUM)
-        priority_name = priority_enum.name.lower()
-        queue = (
-            f"{priority_name}_priority"
-            if priority_name in ["high", "low"]
-            else "default"
-        )
-
         celery_task_id = f"{task_name}_manual_{uuid.uuid4()}"
 
         result = celery_app.send_task(
             celery_task_string_name,
             task_id=celery_task_id,
-            queue=queue,
+            queue="default",
             kwargs={"manual_run": True},  # Pass manual_run flag
         )
 
@@ -1775,11 +1715,10 @@ async def _send_manual_task(
         )
 
         logger.info(
-            "Manually triggered task '%s' -> Celery task '%s' (ID: %s) on queue '%s'",
+            "Manually triggered task '%s' -> Celery task '%s' (ID: %s)",
             task_name,
             celery_task_string_name,
             celery_task_id,
-            queue,
         )
         return {
             "task": task_name,
@@ -1834,7 +1773,8 @@ async def trigger_manual_fetch_trips_range(
         result = celery_app.send_task(
             "tasks.manual_fetch_trips_range",
             task_id=celery_task_id,
-            queue="high_priority",
+            task_id=celery_task_id,
+            queue="default",
             kwargs=kwargs,
         )
 
