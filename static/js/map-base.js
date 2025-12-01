@@ -7,7 +7,7 @@
       attributionControl = true,
       accessToken,
       style,
-      mapOptions = {},
+      ...rest
     } = options;
 
     const container = document.getElementById(containerId);
@@ -38,7 +38,7 @@
       center,
       zoom,
       attributionControl,
-      ...mapOptions,
+      ...rest,
     });
     map.addControl(new mapboxgl.NavigationControl());
     map.on("error", (err) => console.error("Mapbox error:", err));
