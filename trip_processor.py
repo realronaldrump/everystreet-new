@@ -955,8 +955,6 @@ class TripProcessor:
 
                         self.processed_data["destination"] = structured_dest
 
-
-
             self.processed_data["location_schema_version"] = 2
 
             self.processed_data["geocoded_at"] = get_current_utc_time()
