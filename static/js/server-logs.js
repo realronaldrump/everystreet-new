@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const refreshStatsBtn = document.getElementById("refresh-stats");
   const clearLogsBtn = document.getElementById("clear-logs");
   const exportLogsBtn = document.getElementById("export-logs");
-  const applyFiltersBtn = document.getElementById("apply-filters");
+  const applyFiltersBtn = document.getElementById("apply-logs-filters");
   const autoRefreshToggle = document.getElementById("auto-refresh-toggle");
   const copyAllLogsBtn = document.getElementById("copy-all-logs");
 

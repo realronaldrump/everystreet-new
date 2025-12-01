@@ -93,7 +93,7 @@ block content %}
           />
         </div>
         <div class="col-md-2 d-flex align-items-end">
-          <button id="apply-filters" class="btn btn-primary w-100">
+          <button id="apply-logs-filters" class="btn btn-primary w-100">
             <i class="fas fa-filter"></i> Apply
           </button>
         </div>
@@ -284,5 +284,5 @@ block content %}
 </style>
 
 {% endblock %} {% block extra_js %}
-<script src="{{ url_for('static', path='js/server-logs.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/server-logs.js') | replace('http://', '//') }}?v=2"></script>
 {% endblock %}
