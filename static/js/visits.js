@@ -76,7 +76,7 @@
       if (loadingOverlay) {
         // Allow clicks to pass through immediately while fading out
         loadingOverlay.style.pointerEvents = "none";
-        
+
         setTimeout(() => {
           loadingOverlay.style.transition = "opacity 0.3s ease";
           loadingOverlay.style.opacity = "0";
@@ -112,7 +112,7 @@
               if (target) {
                 target.scrollIntoView({ behavior: "smooth", block: "start" });
               }
-            } catch (e) {
+            } catch (_e) {
               console.warn("Invalid selector for smooth scroll:", href);
             }
           }
