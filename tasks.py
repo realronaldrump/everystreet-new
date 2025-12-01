@@ -715,7 +715,6 @@ async def periodic_fetch_trips_async(_self) -> dict[str, Any]:
     time_limit=3600,
     soft_time_limit=3300,
     name="tasks.periodic_fetch_trips",
-    name="tasks.periodic_fetch_trips",
 )
 def periodic_fetch_trips(_self, *_args, **_kwargs):
     """Celery task wrapper for fetching periodic trips."""
@@ -778,7 +777,6 @@ async def manual_fetch_trips_range_async(
     default_retry_delay=60,
     time_limit=3600,
     soft_time_limit=3300,
-    name="tasks.manual_fetch_trips_range",
     name="tasks.manual_fetch_trips_range",
 )
 def manual_fetch_trips_range(
@@ -973,7 +971,6 @@ async def cleanup_stale_trips_async(_self) -> dict[str, Any]:
     time_limit=1800,
     soft_time_limit=1700,
     name="tasks.cleanup_stale_trips",
-    name="tasks.cleanup_stale_trips",
 )
 def cleanup_stale_trips(_self, *_args, **_kwargs):
     """Celery task wrapper for cleaning up stale live trips."""
@@ -1092,7 +1089,6 @@ async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
     default_retry_delay=300,
     time_limit=7200,
     soft_time_limit=7000,
-    name="tasks.cleanup_invalid_trips",
     name="tasks.cleanup_invalid_trips",
 )
 def cleanup_invalid_trips(_self, *_args, **_kwargs):
@@ -1328,7 +1324,6 @@ async def validate_trip_data_async(_self) -> dict[str, Any]:
     time_limit=7200,
     soft_time_limit=7000,
     name="tasks.validate_trip_data",
-    name="tasks.validate_trip_data",
 )
 def validate_trip_data(_self, *_args, **_kwargs):
     """Celery task wrapper for validating trip data."""
@@ -1524,7 +1519,6 @@ async def run_task_scheduler_async() -> None:
 
 @shared_task(
     bind=True,
-    name="tasks.run_task_scheduler",
     name="tasks.run_task_scheduler",
     ignore_result=True,
     time_limit=300,
@@ -1772,7 +1766,6 @@ async def trigger_manual_fetch_trips_range(
     try:
         result = celery_app.send_task(
             "tasks.manual_fetch_trips_range",
-            task_id=celery_task_id,
             task_id=celery_task_id,
             queue="default",
             kwargs=kwargs,
