@@ -1,6 +1,4 @@
-"""
-API endpoints for viewing and managing server logs.
-"""
+"""API endpoints for viewing and managing server logs."""
 
 import logging
 from typing import Any

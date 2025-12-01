@@ -1,4 +1,5 @@
-"""Module for orchestrating street coverage preprocessing and calculation
+"""Module for orchestrating street coverage preprocessing and calculation.
+
 tasks.
 
 This module contains functions that manage the workflow of fetching street
@@ -43,7 +44,6 @@ async def process_coverage_calculation(
     Args:
         location: Dictionary with location data (e.g., display_name, osm_id).
         task_id: Unique identifier for tracking this specific task run.
-
     """
     display_name = location.get("display_name", "Unknown Location")
     logger.info(
@@ -141,7 +141,6 @@ async def process_incremental_coverage_calculation(
     Args:
         location: Dictionary with location data (must include display_name).
         task_id: Unique identifier for tracking this specific task run.
-
     """
     display_name = location.get("display_name", "Unknown Location")
     logger.info(
@@ -232,7 +231,8 @@ async def process_area(
     task_id: str,
     segment_length_meters: float | None = None,
 ) -> None:
-    """Orchestrates the processing of a full area: preprocess streets
+    """Orchestrates the processing of a full area: preprocess streets.
+
     then calculate coverage.
 
     Manages progress updates and status throughout the combined process.
@@ -241,7 +241,6 @@ async def process_area(
         location: Dictionary with location data.
         task_id: Unique identifier for tracking this combined task run.
         segment_length_meters: Optional segment length in meters.
-
     """
     display_name = location.get("display_name", "Unknown Location")
     logger.info(

@@ -1,4 +1,5 @@
-"""Pydantic models for request validation and API responses in the street
+"""Pydantic models for request validation and API responses in the street.
+
 coverage tracking application.
 
 This module contains Pydantic models used for data validation and defining
@@ -96,7 +97,7 @@ class CollectionModel(BaseModel):
 
 
 class CoordinatePointModel(BaseModel):
-    """Represents a single coordinate point with timestamp and optional speed"""
+    """Represents a single coordinate point with timestamp and optional speed."""
 
     timestamp: datetime
     lat: float
@@ -109,7 +110,8 @@ class CoordinatePointModel(BaseModel):
 
 # In models.py - Update the TripDataModel
 class TripDataModel(BaseModel):
-    """Represents the data structure of a trip document as returned from the database,
+    """Represents the data structure of a trip document as returned from the database,.
+
     prepared for API responses. Includes fields observed in live_tracking.py.
     """
 
@@ -158,7 +160,8 @@ class ActiveTripSuccessResponse(BaseModel):
 
 
 class NoActiveTripResponse(BaseModel):
-    """Response model for when no active trip is found (or it's not newer than requested
+    """Response model for when no active trip is found (or it's not newer than requested.
+
     sequence).
     """
 

@@ -270,7 +270,8 @@ async def driver_behavior_analytics(request: Request):
     """Aggregate driving behavior statistics within optional date range filters.
 
     Accepts the same `start_date` and `end_date` query parameters used by other API endpoints.
-    If no filters are provided, all trips are considered (back-compat)."""
+    If no filters are provided, all trips are considered (back-compat).
+    """
     # Build the Mongo query using the shared helper so filters stay consistent app-wide
     try:
         query = await build_query_from_request(request)

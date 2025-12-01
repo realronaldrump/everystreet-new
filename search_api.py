@@ -52,7 +52,6 @@ async def geocode_search(
 
     Returns:
         List of geocoding results with coordinates and metadata
-
     """
     if not query or len(query.strip()) < 2:
         raise HTTPException(
@@ -106,7 +105,6 @@ async def search_streets(
 
     Returns:
         GeoJSON FeatureCollection of matching streets
-
     """
     if not query or len(query.strip()) < 2:
         raise HTTPException(
@@ -152,7 +150,6 @@ async def get_street_geometry(location_id: str, street_name: str):
 
     Returns:
         GeoJSON FeatureCollection with matching street geometries
-
     """
     logger.debug(
         "Getting street geometry for: %s in location %s",
@@ -197,7 +194,6 @@ async def _search_nominatim(
 
     Returns:
         List of geocoding results
-
     """
     params = {
         "q": query,
@@ -264,7 +260,6 @@ async def _search_mapbox(
 
     Returns:
         List of geocoding results
-
     """
     if not MAPBOX_ACCESS_TOKEN:
         logger.warning("Mapbox token not configured, falling back to Nominatim")
@@ -319,7 +314,6 @@ async def _search_streets_all_locations(
 
     Returns:
         List of GeoJSON features with combined geometries per street name
-
     """
     # Use aggregation to group segments by street_name and location
     pipeline = [
@@ -408,7 +402,6 @@ async def _search_streets_in_coverage(
 
     Returns:
         List of GeoJSON features with combined geometries per street name
-
     """
     # First, verify the coverage area exists and get its display name
     try:

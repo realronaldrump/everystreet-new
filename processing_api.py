@@ -42,7 +42,8 @@ async def process_single_trip(
     trip_id: str,
     options: ProcessTripOptions,
 ):
-    """Process a single trip with options to validate, geocode, and map
+    """Process a single trip with options to validate, geocode, and map.
+
     match.
     """
     trip = await trip_service.get_trip_by_id(trip_id)
@@ -161,7 +162,6 @@ async def map_match_trips_endpoint(
         trip_id: Optional specific trip ID to match
         start_date: Optional start of date range
         end_date: Optional end of date range
-
     """
     try:
         query = {}

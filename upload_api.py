@@ -26,7 +26,6 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
     Args:
         trip: Trip data dictionary
         source: The source of the trip ('upload', 'upload_gpx', 'upload_geojson')
-
     """
     await trip_service.process_uploaded_trip(trip, source)
 
@@ -41,7 +40,6 @@ async def process_geojson_trip(
 
     Returns:
         List of trip dictionaries, or None if processing failed
-
     """
     try:
         feats = geojson_data.get("features", [])
@@ -88,7 +86,8 @@ async def process_geojson_trip(
 async def upload_files(
     files: list[UploadFile] = File(...),
 ):
-    """Upload GPX or GeoJSON files and process them into the trips
+    """Upload GPX or GeoJSON files and process them into the trips.
+
     collection.
     """
     try:

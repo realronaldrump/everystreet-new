@@ -518,9 +518,9 @@ class CoverageManager {
 
         // If we are on the dashboard for this location, refresh it
         if (this.currentDashboardLocationId && this.selectedLocation) {
-           // We don't have the ID of the new location easily here without reloading, 
-           // but typically "add" implies we might want to switch to it or just refresh list.
-           // For now, just reloading the list is sufficient as the user is likely on the list view or another dashboard.
+          // We don't have the ID of the new location easily here without reloading,
+          // but typically "add" implies we might want to switch to it or just refresh list.
+          // For now, just reloading the list is sufficient as the user is likely on the list view or another dashboard.
         }
       } else {
         this.progress.hideProgressModal();
@@ -815,9 +815,8 @@ class CoverageManager {
 
         // If we are currently viewing this location's dashboard, refresh it
         if (isUpdatingDisplayedLocation) {
-           await this.displayCoverageDashboard(locationId);
+          await this.displayCoverageDashboard(locationId);
         }
-
       } else {
         this.progress.hideProgressModal();
         this.notificationManager.show(

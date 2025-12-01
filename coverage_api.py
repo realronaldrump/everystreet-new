@@ -51,7 +51,8 @@ osm_data_collection = db_manager.db["osm_data"]
 async def _recalculate_coverage_stats(
     location_id: ObjectId,
 ) -> dict | None:
-    """Internal helper to recalculate stats for a coverage area based on
+    """Internal helper to recalculate stats for a coverage area based on.
+
     streets_collection.
     """
     try:
@@ -361,7 +362,8 @@ async def get_coverage_status(task_id: str):
 async def get_incremental_street_coverage(
     location: LocationModel,
 ):
-    """Update street coverage incrementally, processing only new trips since
+    """Update street coverage incrementally, processing only new trips since.
+
     last update.
     """
     try:
@@ -388,7 +390,8 @@ async def get_incremental_street_coverage(
 async def preprocess_streets_route(
     location_data: LocationModel,
 ):
-    """Preprocess streets data for a validated location received in the request
+    """Preprocess streets data for a validated location received in the request.
+
     body.
     """
     display_name = None
@@ -1583,8 +1586,10 @@ async def _regenerate_streets_geojson(location_id: ObjectId):
 
 
 def _bbox_from_geometry(geom: dict) -> list[float]:
-    """Return bounding box [min_lat, max_lat, min_lon, max_lon] from GeoJSON
-    geometry."""
+    """Return bounding box [min_lat, max_lat, min_lon, max_lon] from GeoJSON.
+
+    geometry.
+    """
     try:
         geom_shape = shape(geom)
         minx, miny, maxx, maxy = (

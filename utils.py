@@ -540,7 +540,8 @@ def meters_to_miles(meters: float) -> float:
 def calculate_distance(
     coordinates: list[list[float]],
 ) -> float:
-    """Calculate the total distance of a trip from a list of [lng, lat]
+    """Calculate the total distance of a trip from a list of [lng, lat].
+
     coordinates.
 
     Args:
@@ -548,7 +549,6 @@ def calculate_distance(
 
     Returns:
         Total distance in miles
-
     """
     total_distance_meters = 0.0
     coords: list[list[float]] = coordinates if isinstance(coordinates, list) else []
@@ -601,7 +601,6 @@ def run_async_from_sync(
 
     Returns:
         The result of the coroutine.
-
     """
     try:
         loop = asyncio.get_event_loop_policy().get_event_loop()

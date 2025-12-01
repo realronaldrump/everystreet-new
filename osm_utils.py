@@ -107,7 +107,6 @@ async def process_elements(
 
     Returns:
         List of GeoJSON features
-
     """
     features = []
     for e in elements:
@@ -182,7 +181,6 @@ async def generate_geojson_osm(
 
     Returns:
         Tuple of (GeoJSON data, error message)
-
     """
     try:
         if not (

@@ -32,7 +32,8 @@ def get_current_utc_time() -> datetime:
 
 def parse_timestamp(ts: str | datetime) -> datetime | None:
     """
-    Parse a timestamp string (or datetime object) and ensure it is
+    Parse a timestamp string (or datetime object) and ensure it is.
+
     timezone-aware, defaulting to UTC.
 
     This function is the primary entry point for converting external timestamps

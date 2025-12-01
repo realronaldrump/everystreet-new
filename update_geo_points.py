@@ -41,7 +41,6 @@ async def update_geo_points(
 
     Returns:
         int: Number of documents updated
-
     """
     logger.info(
         "Starting GeoPoint update for collection: %s",

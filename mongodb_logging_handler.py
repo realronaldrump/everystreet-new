@@ -1,5 +1,6 @@
 """
 MongoDB Logging Handler for storing application logs in MongoDB.
+
 This allows viewing server logs remotely through the web interface.
 """
 

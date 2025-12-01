@@ -161,7 +161,8 @@ class TaskStatusManager:
         status: str,
         error: str | None = None,
     ) -> bool:
-        """Updates the status of a specific task in the global task
+        """Updates the status of a specific task in the global task.
+
         configuration document.
 
         Args:
@@ -172,7 +173,6 @@ class TaskStatusManager:
         Returns:
             True if the update was successful (document modified or upserted),
             False otherwise.
-
         """
         try:
             now = datetime.now(UTC)
@@ -215,13 +215,13 @@ class TaskStatusManager:
 
 async def get_task_config() -> dict[str, Any]:
     """Retrieves the global task configuration document from the database.
+
     If the document doesn't exist, it creates a default configuration based
     on TASK_METADATA. It also ensures that all tasks defined in TASK_METADATA
     have a corresponding entry in the configuration.
 
     Returns:
         The task configuration dictionary. Returns a default structure on error.
-
     """
     try:
         cfg = await find_one_with_retry(
@@ -300,7 +300,8 @@ async def get_task_config() -> dict[str, Any]:
 async def check_dependencies(
     task_id: str,
 ) -> dict[str, Any]:
-    """Checks if the dependencies for a given task are met (i.e., not currently running
+    """Checks if the dependencies for a given task are met (i.e., not currently running.
+
     or recently failed).
 
     Args:
@@ -310,7 +311,6 @@ async def check_dependencies(
         A dictionary containing:
             'can_run': Boolean indicating if the task can run based on dependencies.
             'reason': String explaining why the task cannot run (if applicable).
-
     """
     try:
         if task_id not in TASK_METADATA:
@@ -403,7 +403,6 @@ async def update_task_history_entry(
         start_time: Timestamp when the task started execution.
         end_time: Timestamp when the task finished execution.
         runtime_ms: Duration of the task execution in milliseconds.
-
     """
     try:
         now = datetime.now(UTC)
@@ -1363,6 +1362,7 @@ def validate_trip_data(_self, *_args, **_kwargs):
 
 async def run_task_scheduler_async() -> None:
     """Async logic for the main task scheduler.
+
     This task runs periodically (e.g., every minute) and triggers other tasks
     based on their configured schedules and dependencies.
 
@@ -1573,13 +1573,13 @@ def run_task_scheduler(_self, *_args, **_kwargs):
 
 
 async def get_all_task_metadata() -> dict[str, Any]:
-    """Retrieves metadata for all defined tasks, enriched with current status
+    """Retrieves metadata for all defined tasks, enriched with current status.
+
     and configuration from the database.
 
     Returns:
         A dictionary where keys are task IDs and values are dictionaries
         containing task metadata and current status information.
-
     """
     try:
         task_config = await get_task_config()
@@ -1676,7 +1676,6 @@ async def manual_run_task(task_id: str) -> dict[str, Any]:
 
     Returns:
         A dictionary indicating the status of the trigger operation.
-
     """
     task_mapping = {
         "periodic_fetch_trips": "tasks.periodic_fetch_trips",
@@ -1736,7 +1735,6 @@ async def _send_manual_task(
 
     Returns:
         A dictionary indicating success/failure and the Celery task ID if successful.
-
     """
     status_manager = TaskStatusManager.get_instance()
     try:
@@ -1922,7 +1920,8 @@ async def force_reset_task(
 
 
 async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, Any]:
-    """Updates the task scheduling configuration (enabled status, interval) in the
+    """Updates the task scheduling configuration (enabled status, interval) in the.
+
     database.
 
     Args:
@@ -1933,7 +1932,6 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
 
     Returns:
         A dictionary indicating the status of the update operation.
-
     """
     try:
         global_disable_update = task_config_update.get("globalDisable")
@@ -2071,6 +2069,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
 )
 def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
     """Celery task to process Bouncie webhook data asynchronously.
+
     Obtains DB collections reliably at the start of execution via db_manager.
 
     Note: This is NOT an async function and does NOT use the task_runner decorator.

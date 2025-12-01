@@ -65,7 +65,8 @@ map_match_semaphore = asyncio.Semaphore(10)
 
 
 class TripProcessor:
-    """Unified processor for trip data that handles all aspects of trip
+    """Unified processor for trip data that handles all aspects of trip.
+
     processing including validation, parsing, geocoding, and map matching using
     a state machine approach to track status.
     """
@@ -81,7 +82,6 @@ class TripProcessor:
             mapbox_token: The Mapbox access token for map matching
             source: Source of the trip data (api, upload, upload_gpx, upload_geojson,
             bouncie etc.)
-
         """
         if mapbox_token:
             config.mapbox_access_token = mapbox_token
@@ -115,7 +115,6 @@ class TripProcessor:
         Args:
             new_state: The new state to set
             error: Optional error message if transitioning to FAILED state
-
         """
         previous_state = self.state
         self.state = new_state
@@ -137,7 +136,6 @@ class TripProcessor:
 
         Args:
             trip_data: The raw trip data dictionary
-
         """
         self.trip_data = trip_data
         self.processed_data = (
@@ -175,7 +173,6 @@ class TripProcessor:
 
         Returns:
             Dict with current state, history, and any errors
-
         """
         return {
             "state": self.state.value,
@@ -185,7 +182,8 @@ class TripProcessor:
         }
 
     async def process(self, do_map_match: bool = True) -> dict[str, Any]:
-        """Process the trip through all appropriate stages based on current
+        """Process the trip through all appropriate stages based on current.
+
         state.
 
         Args:
@@ -193,7 +191,6 @@ class TripProcessor:
 
         Returns:
             The processed trip data
-
         """
         if not self.trip_data:
             self._set_state(
@@ -237,7 +234,6 @@ class TripProcessor:
 
         Returns:
             True if validation passed, False otherwise
-
         """
         try:
             transaction_id = self.trip_data.get("transactionId", "unknown")
@@ -375,12 +371,12 @@ class TripProcessor:
             return False
 
     async def process_basic(self) -> bool:
-        """Perform basic processing on trip data (timestamps, GPS parsing,
+        """Perform basic processing on trip data (timestamps, GPS parsing,.
+
         etc.).
 
         Returns:
             True if processing succeeded, False otherwise
-
         """
         try:
             transaction_id = self.trip_data.get("transactionId", "unknown")
@@ -548,7 +544,6 @@ class TripProcessor:
 
         Returns:
             Place document if found, None otherwise
-
         """
         point_geojson = {
             "type": "Point",
@@ -606,12 +601,13 @@ class TripProcessor:
         return fallback_coords
 
     async def geocode(self) -> bool:
-        """Perform geocoding for trip start and end points. Stores location
+        """Perform geocoding for trip start and end points.
+
+        Stores location
         data in structured format optimized for analytics.
 
         Returns:
             True if geocoding succeeded, False otherwise
-
         """
         try:
             transaction_id = self.trip_data.get("transactionId", "unknown")
@@ -865,7 +861,6 @@ class TripProcessor:
 
         Returns:
             True if map matching succeeded or was appropriately handled, False otherwise
-
         """
         try:
             transaction_id = self.trip_data.get("transactionId", "unknown")
@@ -1127,7 +1122,6 @@ class TripProcessor:
 
         Args:
             coords: The coordinates to use for determining UTM zone
-
         """
         lats = [c[1] for c in coords]
         lons = [c[0] for c in coords]
@@ -1155,7 +1149,8 @@ class TripProcessor:
         min_sub_chunk: int = 20,
         jump_threshold_m: float = 200.0,
     ) -> dict[str, Any]:
-        """Map match coordinates using the Mapbox API with advanced chunking
+        """Map match coordinates using the Mapbox API with advanced chunking.
+
         and stitching. Uses POST requests with timestamps and accuracy parameters
         for maximum matching accuracy.
 
@@ -1169,7 +1164,6 @@ class TripProcessor:
 
         Returns:
             Dictionary with map matching results
-
         """
         if len(coordinates) < 2:
             return {
@@ -1646,7 +1640,6 @@ class TripProcessor:
 
         Returns:
             ObjectId of the saved document if successful, None otherwise
-
         """
         try:
             if self.state not in [
@@ -1804,7 +1797,8 @@ class TripProcessor:
 
     @staticmethod
     def _is_valid_geojson_object(geojson_data: Any) -> bool:  # Renamed
-        """Checks if the input is a structurally valid GeoJSON Point or LineString
+        """Checks if the input is a structurally valid GeoJSON Point or LineString.
+
         dictionary suitable for MongoDB 2dsphere indexing, including WGS84 range checks.
         """
         if not isinstance(geojson_data, dict):
@@ -1851,6 +1845,7 @@ class TripProcessor:
     def _is_valid_geojson_for_matched_collection(self, geojson_data: Any) -> bool:
         """
         Checks if the GeoJSON is suitable for the matched_trips_collection.
+
         This primarily ensures it's a valid GeoJSON Point or LineString,
         deferring to specific business logic (e.g. must be LineString) if any.
         Currently, map_match can produce Points for degenerate LineStrings.

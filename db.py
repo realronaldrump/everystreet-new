@@ -47,7 +47,8 @@ T = TypeVar("T")
 
 
 class DatabaseManager:
-    """Singleton class to manage the MongoDB client, database connection, and
+    """Singleton class to manage the MongoDB client, database connection, and.
+
     GridFS.
     """
 
@@ -879,9 +880,7 @@ async def init_task_history_collection() -> None:
 
 
 async def ensure_street_coverage_indexes() -> None:
-    """
-    Ensure all necessary indexes exist for the entire application.
-    """
+    """Ensure all necessary indexes exist for the entire application."""
     logger.debug("Ensuring all application indexes exist...")
 
     try:

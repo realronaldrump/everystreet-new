@@ -34,7 +34,6 @@ async def create_geojson(
 
     Returns:
         str: A GeoJSON string representing the trips
-
     """
     features = []
 
@@ -134,7 +133,6 @@ async def create_gpx(
 
     Returns:
         str: A GPX XML string representing the trips
-
     """
     gpx = gpxpy.gpx.GPX()
     trip_count = 0
@@ -274,7 +272,6 @@ async def create_shapefile(
 
     Returns:
         io.BytesIO: Buffer containing the zipped shapefile
-
     """
     try:
         gdf = gpd.GeoDataFrame.from_features(geojson_data["features"])
@@ -311,7 +308,6 @@ async def export_geojson_response(data, filename: str) -> StreamingResponse:
 
     Returns:
         StreamingResponse: Formatted response with GeoJSON content
-
     """
     if isinstance(data, list):
         content = await create_geojson(data)
@@ -336,7 +332,6 @@ async def export_gpx_response(data, filename: str) -> StreamingResponse:
 
     Returns:
         StreamingResponse: Formatted response with GPX content
-
     """
     if isinstance(data, list):
         content = await create_gpx(data)
@@ -381,7 +376,6 @@ async def export_shapefile_response(
 
     Returns:
         StreamingResponse: Formatted response with zipped shapefile content
-
     """
     buffer = await create_shapefile(geojson_data, filename)
 
@@ -412,7 +406,6 @@ async def create_export_response(
 
     Returns:
         StreamingResponse: Response with appropriate content and headers
-
     """
     fmt = fmt.lower()
 
@@ -484,7 +477,6 @@ def get_location_filename(
 
     Returns:
         str: Safe filename string
-
     """
     return (
         location.get("display_name", "").split(",")[0].strip().replace(" ", "_").lower()
@@ -508,7 +500,6 @@ async def process_trip_for_export(
 
     Returns:
         Dict: Processed trip with only the requested fields
-
     """
     result = {}
 
@@ -616,7 +607,6 @@ async def create_csv_export(
 
     Returns:
         str: CSV data as a string
-
     """
     if not trips:
         return "No data to export"

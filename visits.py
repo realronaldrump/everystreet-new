@@ -52,7 +52,6 @@ class CustomPlace:
             name: The name of the place
             geometry: GeoJSON geometry object defining the place boundaries
             created_at: When the place was created, defaults to current UTC time
-
         """
         self.name = name
         self.geometry = geometry
@@ -63,7 +62,6 @@ class CustomPlace:
 
         Returns:
             Dict with the place's data
-
         """
         return {
             "name": self.name,
@@ -80,7 +78,6 @@ class CustomPlace:
 
         Returns:
             CustomPlace instance
-
         """
         created_raw = data.get("created_at")
         if isinstance(created_raw, str):
@@ -107,7 +104,6 @@ def init_collections(places_coll, trips_coll):
     Args:
         places_coll: MongoDB collection for places
         trips_coll: MongoDB collection for trips
-
     """
     Collections.places = places_coll
     Collections.trips = trips_coll
@@ -252,6 +248,7 @@ async def _calculate_visits_for_place(
 ) -> list[dict]:
     """
     Core logic to calculate visit details for a single place.
+
     This is the robust version that correctly handles departures.
     """
     place_id = str(place["_id"])

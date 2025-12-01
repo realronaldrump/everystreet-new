@@ -444,7 +444,8 @@ async def update_trip(trip_id: str, update_data: TripUpdateRequest):
 
 @router.post("/api/geocode_trips", tags=["Trips API"])
 async def geocode_trips(data: DateRangeModel | None = None):
-    """Unified endpoint to re-geocode trips within a date range with progress
+    """Unified endpoint to re-geocode trips within a date range with progress.
+
     tracking.
 
     This replaces the old "GeoPoint Update", "Re-geocode All Trips", and
@@ -678,7 +679,9 @@ async def get_geocode_progress(task_id: str):
 
 @router.post("/api/trips/{trip_id}/regeocode", tags=["Trips API"])
 async def regeocode_single_trip(trip_id: str):
-    """Re-run geocoding for a single trip. Used by the Trips UI when a user clicks
+    """Re-run geocoding for a single trip.
+
+    Used by the Trips UI when a user clicks
     the per-trip "Refresh Geocoding" button so the trip is re-evaluated against
     any newly-created custom places.
     """

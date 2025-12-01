@@ -310,6 +310,7 @@ async def export_coverage_route_endpoint(
 ):
     """
     Export the provided coverage route GeoJSON data in the specified format.
+
     This endpoint now robustly handles both GeometryCollection and single
     LineString geometries.
     """

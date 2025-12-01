@@ -191,6 +191,7 @@ async def get_current_position(request_data: dict) -> tuple[float, float, str]:
 async def get_next_driving_route(request: Request):
     """
     Calculates a route to the nearest undriven street or a specific target segment.
+
     This now correctly uses the Directions API for simple A-to-B routing.
     """
     try:
@@ -347,6 +348,7 @@ async def _optimize_route_for_clusters(
 ) -> dict[str, Any]:
     """
     Optimizes a route through multiple clusters of street segments.
+
     This version correctly handles clusters of size 1.
     """
     if not clusters:
