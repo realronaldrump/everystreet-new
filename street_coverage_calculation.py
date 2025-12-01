@@ -536,17 +536,17 @@ class CoverageCalculator:
 
             for item in stats.get("street_types_data", []):
                 t = item.get("type", "unknown")
-                l = item.get("length", 0.0)
+                length = item.get("length", 0.0)
                 driven = item.get("driven", False)
                 undriveable = item.get("undriveable", False)
 
                 type_map[t]["total"] += 1
-                type_map[t]["length"] += l
+                type_map[t]["length"] += length
                 if undriveable:
-                    type_map[t]["undriveable_length"] += l
+                    type_map[t]["undriveable_length"] += length
                 elif driven:
                     type_map[t]["covered"] += 1
-                    type_map[t]["covered_length"] += l
+                    type_map[t]["covered_length"] += length
 
             final_street_types = []
             for t, data in type_map.items():
@@ -660,7 +660,6 @@ class CoverageCalculator:
     async def compute_coverage(
         self,
         run_incremental: bool = False,
-        boundary_geojson_data: dict | None = None,
     ) -> dict[str, Any] | None:
         """Main orchestration method for the coverage calculation process."""
         start_time = datetime.now(UTC)
@@ -726,7 +725,6 @@ class CoverageCalculator:
 async def compute_coverage_for_location(
     location: dict[str, Any],
     task_id: str,
-    fetch_boundary_for_clipping: bool = True,
 ) -> dict[str, Any] | None:
     """Entry point for a full coverage calculation."""
     calculator = CoverageCalculator(location, task_id)
@@ -736,7 +734,6 @@ async def compute_coverage_for_location(
 async def compute_incremental_coverage(
     location: dict[str, Any],
     task_id: str,
-    fetch_boundary_for_clipping: bool = True,
 ) -> dict[str, Any] | None:
     """Entry point for an incremental coverage calculation."""
     calculator = CoverageCalculator(location, task_id)
@@ -772,10 +769,8 @@ async def generate_and_store_geojson(
             {"streets_geojson_gridfs_id": 1},
         )
         if existing_meta and existing_meta.get("streets_geojson_gridfs_id"):
-            try:
+            with contextlib.suppress(Exception):
                 await fs.delete(existing_meta["streets_geojson_gridfs_id"])
-            except Exception:
-                pass
 
         # Stream new file
         upload_stream = fs.open_upload_stream(

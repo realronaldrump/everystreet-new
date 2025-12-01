@@ -2317,7 +2317,9 @@
     // Handle tab clicks
     geocodeTabs.forEach((tab) => {
       tab.addEventListener("click", () => {
-        geocodeTabs.forEach((t) => t.classList.remove("active"));
+        geocodeTabs.forEach((t) => {
+          t.classList.remove("active");
+        });
         tab.classList.add("active");
         const { method } = tab.dataset;
 

@@ -388,7 +388,6 @@ async def get_task_details(task_id: str):
             "id": task_id,
             "display_name": task_def["display_name"],
             "description": task_def["description"],
-            "description": task_def["description"],
             "dependencies": task_def["dependencies"],
             "status": task_config.get("status", "IDLE"),
             "enabled": task_config.get("enabled", True),

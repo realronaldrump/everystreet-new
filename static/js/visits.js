@@ -1725,9 +1725,10 @@
       }
 
       // Determine popup location if not provided
-      if (!lngLat && place.geometry?.coordinates) {
+      let targetLngLat = lngLat;
+      if (!targetLngLat && place.geometry?.coordinates) {
         const first = place.geometry.coordinates[0][0];
-        lngLat = { lng: first[0], lat: first[1] };
+        targetLngLat = { lng: first[0], lat: first[1] };
       }
 
       // Create enhanced popup with loading state
@@ -1736,7 +1737,7 @@
         className: "custom-popup-enhanced",
         maxWidth: "320px",
       })
-        .setLngLat(lngLat)
+        .setLngLat(targetLngLat)
         .setHTML(
           `
           <div class="custom-place-popup">

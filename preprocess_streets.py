@@ -600,7 +600,7 @@ async def process_osm_data(
                     tasks.append(f)
 
             batch_to_insert = []
-            for i, future in enumerate(asyncio.as_completed(tasks)):
+            for _i, future in enumerate(asyncio.as_completed(tasks)):
                 try:
                     segment_features = await asyncio.wait_for(
                         future,
@@ -830,7 +830,7 @@ async def process_osm_data(
                 )
 
     except Exception as e:
-        location_name_safe = validated_location.get("display_name", "Unknown Location")
+        location_name_safe = location.get("display_name", "Unknown Location")
         logger.error(
             "Unhandled error during street preprocessing orchestration for %s: %s",
             location_name_safe,

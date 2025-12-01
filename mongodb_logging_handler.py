@@ -4,6 +4,7 @@ MongoDB Logging Handler for storing application logs in MongoDB.
 This allows viewing server logs remotely through the web interface.
 """
 
+import contextlib
 import logging
 from datetime import datetime
 from typing import Any
@@ -83,11 +84,8 @@ class MongoDBHandler(logging.Handler):
         Args:
             log_entry: The formatted log entry to insert
         """
-        try:
+        with contextlib.suppress(Exception):
             await self.collection.insert_one(log_entry)
-        except Exception:
-            # Silently fail to prevent logging errors from breaking the app
-            pass
 
     def _format_log_entry(self, record: logging.LogRecord) -> dict[str, Any]:
         """

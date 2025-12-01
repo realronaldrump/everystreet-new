@@ -207,7 +207,9 @@ class UploadManager {
     if (selectAllCheckbox) {
       selectAllCheckbox.addEventListener("change", () => {
         const checkboxes = document.querySelectorAll(".trip-checkbox");
-        checkboxes.forEach((cb) => (cb.checked = selectAllCheckbox.checked));
+        checkboxes.forEach((cb) => {
+          cb.checked = selectAllCheckbox.checked;
+        });
         this.updateBulkDeleteButtonState();
       });
     }

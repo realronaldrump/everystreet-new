@@ -1243,7 +1243,9 @@ class CoverageManager {
       const extendCoord = (coord) => bounds.extend(coord);
       if (geom.type === "LineString") geom.coordinates.forEach(extendCoord);
       else if (geom.type === "MultiLineString")
-        geom.coordinates.forEach((line) => line.forEach(extendCoord));
+        geom.coordinates.forEach((line) => {
+          line.forEach(extendCoord);
+        });
     });
     if (!bounds.isEmpty()) {
       this.coverageMap.map.fitBounds(bounds, {
@@ -1953,12 +1955,13 @@ class CoverageManager {
    * Utility: Distance in user units
    */
   distanceInUserUnits(meters, fixed = 2) {
-    if (typeof meters !== "number" || Number.isNaN(meters)) {
-      meters = 0;
+    let safeMeters = meters;
+    if (typeof safeMeters !== "number" || Number.isNaN(safeMeters)) {
+      safeMeters = 0;
     }
-    const miles = meters * 0.000621371;
+    const miles = safeMeters * 0.000621371;
     return miles < 0.1
-      ? `${(meters * 3.28084).toFixed(0)} ft`
+      ? `${(safeMeters * 3.28084).toFixed(0)} ft`
       : `${miles.toFixed(fixed)} mi`;
   }
 

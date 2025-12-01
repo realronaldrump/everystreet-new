@@ -57,7 +57,9 @@ const utils = {
       if (!inThrottle) {
         lastResult = func.apply(this, args);
         inThrottle = true;
-        setTimeout(() => (inThrottle = false), limit);
+        setTimeout(() => {
+          inThrottle = false;
+        }, limit);
       }
       return lastResult;
     };
@@ -132,7 +134,9 @@ const utils = {
   // Batch DOM updates
   batchDOMUpdates(updates) {
     requestAnimationFrame(() => {
-      updates.forEach((update) => update());
+      updates.forEach((update) => {
+        update();
+      });
     });
   },
 
@@ -199,9 +203,9 @@ const utils = {
       }
     }
 
-    cacheKeys
-      .slice(0, Math.floor(cacheKeys.length / 2))
-      .forEach((key) => localStorage.removeItem(key));
+    cacheKeys.slice(0, Math.floor(cacheKeys.length / 2)).forEach((key) => {
+      localStorage.removeItem(key);
+    });
   },
 
   // Cached fetch (existing implementation)
@@ -240,9 +244,9 @@ const utils = {
       if (!alertsContainer) return;
 
       // Clear existing connection status alerts
-      alertsContainer
-        .querySelectorAll(".connection-status")
-        .forEach((el) => el.remove());
+      alertsContainer.querySelectorAll(".connection-status").forEach((el) => {
+        el.remove();
+      });
 
       if (!isOnline) {
         // Show persistent offline warning
