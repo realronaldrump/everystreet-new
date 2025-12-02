@@ -15,7 +15,8 @@ const DEFAULT_HEATMAP_STOPS = CONFIG.LAYER_DEFAULTS?.trips?.heatmapStops || [
   [1, "#FFEFA0"],
 ];
 
-const DEFAULT_HEATMAP_PRECISION = CONFIG.LAYER_DEFAULTS?.trips?.heatmapPrecision ?? 5;
+const DEFAULT_HEATMAP_PRECISION =
+  CONFIG.LAYER_DEFAULTS?.trips?.heatmapPrecision ?? 4;
 
 const makeSegmentKey = (a, b, precision = DEFAULT_HEATMAP_PRECISION) => {
   if (!Array.isArray(a) || !Array.isArray(b)) return null;
@@ -46,17 +47,35 @@ const getGeometryCoordinateSets = (geometry) => {
 const normalizeHeatValue = (value, maxValue) => {
   if (!Number.isFinite(value) || value <= 0) return 0;
   if (!Number.isFinite(maxValue) || maxValue <= 0) return 0;
-  if (maxValue === 1) return Math.min(1, value);
-  const numerator = Math.log(value + 1);
-  const denominator = Math.log(maxValue + 1);
+
+  // Clamp to avoid overweighting extreme outliers while still keeping a smooth
+  // gradient across frequently used paths.
+  const clampedMax = Math.max(1, maxValue);
+  const clampedValue = Math.min(value, clampedMax);
+
+  if (clampedMax === 1) return Math.min(1, clampedValue);
+
+  const numerator = Math.log(clampedValue + 1);
+  const denominator = Math.log(clampedMax + 1);
   if (
     !Number.isFinite(numerator) ||
     !Number.isFinite(denominator) ||
     denominator === 0
   ) {
-    return Math.min(1, value / maxValue);
+    return Math.min(1, clampedValue / clampedMax);
   }
   return Math.min(1, numerator / denominator);
+};
+
+const getPercentile = (values, percentile) => {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = (percentile / 100) * (sorted.length - 1);
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) return sorted[lower];
+  const weight = index - lower;
+  return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 };
 
 const buildHeatmapExpression = (stops) => {
@@ -67,7 +86,7 @@ const buildHeatmapExpression = (stops) => {
         Array.isArray(stop) &&
         stop.length >= 2 &&
         Number.isFinite(stop[0]) &&
-        typeof stop[1] === "string"
+        typeof stop[1] === "string",
     )
     .map(([value, color]) => [Math.max(0, Math.min(1, value)), color])
     .sort((a, b) => a[0] - b[0]);
@@ -128,14 +147,22 @@ const dataManager = {
       return null;
     }
 
+    const countValues = Array.from(segmentCounts.values());
     let maxCount = 0;
     let minCount = Number.POSITIVE_INFINITY;
+    let totalCount = 0;
 
-    segmentCounts.forEach((count) => {
+    countValues.forEach((count) => {
       if (!Number.isFinite(count)) return;
       if (count > maxCount) maxCount = count;
       if (count < minCount) minCount = count;
+      totalCount += count;
     });
+
+    const medianCount = getPercentile(countValues, 50);
+    const p90 = getPercentile(countValues, 90);
+    const p95 = getPercentile(countValues, 95);
+    const normalizationMax = Number.isFinite(p95) && p95 > 0 ? p95 : maxCount;
 
     if (!Number.isFinite(maxCount) || maxCount <= 0) {
       features.forEach((feature) => {
@@ -164,14 +191,18 @@ const dataManager = {
         }
       });
 
+      // Averaging segment usage across each trip prevents random bright spots
+      // when only a tiny portion overlaps while still reflecting overall route frequency.
       const average = segmentCounter > 0 ? featureSum / segmentCounter : 0;
-      const intensitySource = featureMax || average;
-      const normalized = normalizeHeatValue(intensitySource, maxCount);
+      const intensitySource = average || featureMax;
+      const normalized = normalizeHeatValue(intensitySource, normalizationMax);
       const props = ensureFeatureProperties(feature);
       props.heatIntensity = Number.isFinite(normalized)
         ? Number(normalized.toFixed(4))
         : 0;
-      props.heatWeight = intensitySource;
+      props.heatWeight = Number.isFinite(intensitySource)
+        ? Number(intensitySource.toFixed(4))
+        : 0;
     });
 
     const stops =
@@ -188,7 +219,15 @@ const dataManager = {
 
     const stats = {
       maxCount,
+      medianCount: Number.isFinite(medianCount) ? medianCount : 0,
+      p90: Number.isFinite(p90) ? p90 : 0,
+      p95: Number.isFinite(p95) ? p95 : 0,
+      normalizationMax,
       minCount: Number.isFinite(minCount) ? minCount : 0,
+      averageCount:
+        countValues.length > 0
+          ? Number((totalCount / countValues.length).toFixed(2))
+          : 0,
       totalSegments: segmentCounts.size,
       precision,
     };
@@ -202,7 +241,10 @@ const dataManager = {
   async fetchTrips() {
     if (!state.mapInitialized) return null;
 
-    const dataStage = window.loadingManager.startStage("data", "Loading trips...");
+    const dataStage = window.loadingManager.startStage(
+      "data",
+      "Loading trips...",
+    );
 
     try {
       const { start, end } = dateUtils.getCachedDateRange();
@@ -212,11 +254,17 @@ const dataManager = {
       const fullCollection = await utils.fetchWithRetry(`/api/trips?${params}`);
       if (fullCollection?.type !== "FeatureCollection") {
         dataStage.error("Invalid trip data received from server.");
-        window.notificationManager.show("Failed to load valid trip data", "danger");
+        window.notificationManager.show(
+          "Failed to load valid trip data",
+          "danger",
+        );
         return null;
       }
 
-      dataStage.update(75, `Processing ${fullCollection.features.length} trips...`);
+      dataStage.update(
+        75,
+        `Processing ${fullCollection.features.length} trips...`,
+      );
 
       // Mark recent trips for styling later
       try {
@@ -295,14 +343,20 @@ const dataManager = {
   },
 
   async fetchUndrivenStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded)
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.undrivenStreetsLoaded
+    )
       return null;
 
     window.loadingManager.pulse("Loading undriven streets...");
     try {
       const data = await utils.fetchWithRetry(
-        `/api/coverage_areas/${selectedLocationId}/streets?undriven=true`
+        `/api/coverage_areas/${selectedLocationId}/streets?undriven=true`,
       );
       if (data?.type === "FeatureCollection") {
         state.mapLayers.undrivenStreets.layer = data;
@@ -319,14 +373,20 @@ const dataManager = {
   },
 
   async fetchDrivenStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded)
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.drivenStreetsLoaded
+    )
       return null;
 
     window.loadingManager.pulse("Loading driven streets...");
     try {
       const data = await utils.fetchWithRetry(
-        `/api/coverage_areas/${selectedLocationId}/streets?driven=true`
+        `/api/coverage_areas/${selectedLocationId}/streets?driven=true`,
       );
       if (data?.type === "FeatureCollection") {
         state.mapLayers.drivenStreets.layer = data;
@@ -343,14 +403,16 @@ const dataManager = {
   },
 
   async fetchAllStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
     if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded)
       return null;
 
     window.loadingManager.pulse("Loading all streets...");
     try {
       const data = await utils.fetchWithRetry(
-        `/api/coverage_areas/${selectedLocationId}/streets`
+        `/api/coverage_areas/${selectedLocationId}/streets`,
       );
       if (data?.type === "FeatureCollection") {
         state.mapLayers.allStreets.layer = data;
@@ -372,7 +434,9 @@ const dataManager = {
       const params = new URLSearchParams({ start_date: start, end_date: end });
       const data = await utils.fetchWithRetry(`/api/trip-analytics?${params}`);
       if (data)
-        document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
+        document.dispatchEvent(
+          new CustomEvent("metricsUpdated", { detail: data }),
+        );
       return data;
     } catch (error) {
       console.error("Error fetching metrics:", error);
@@ -383,7 +447,10 @@ const dataManager = {
   async updateMap(fitBounds = false) {
     if (!state.mapInitialized) return;
 
-    const renderStage = window.loadingManager.startStage("render", "Updating map...");
+    const renderStage = window.loadingManager.startStage(
+      "render",
+      "Updating map...",
+    );
 
     try {
       renderStage.update(20, "Fetching map data...");
@@ -392,9 +459,13 @@ const dataManager = {
       const promises = [];
       // Always fetch visible trip layers (they may need refresh after date range changes)
       if (state.mapLayers.trips.visible) promises.push(this.fetchTrips());
-      if (state.mapLayers.matchedTrips.visible) promises.push(this.fetchMatchedTrips());
+      if (state.mapLayers.matchedTrips.visible)
+        promises.push(this.fetchMatchedTrips());
       // Street layers only fetch if not already loaded (they're location-specific)
-      if (state.mapLayers.undrivenStreets.visible && !state.undrivenStreetsLoaded)
+      if (
+        state.mapLayers.undrivenStreets.visible &&
+        !state.undrivenStreetsLoaded
+      )
         promises.push(this.fetchUndrivenStreets());
       if (state.mapLayers.drivenStreets.visible && !state.drivenStreetsLoaded)
         promises.push(this.fetchDrivenStreets());
@@ -416,7 +487,7 @@ const dataManager = {
                 state.map.setLayoutProperty(
                   layerId,
                   "visibility",
-                  info.visible ? "visible" : "none"
+                  info.visible ? "visible" : "none",
                 );
               }
             }
