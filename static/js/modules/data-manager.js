@@ -15,8 +15,7 @@ const DEFAULT_HEATMAP_STOPS = CONFIG.LAYER_DEFAULTS?.trips?.heatmapStops || [
   [1, "#FFEFA0"],
 ];
 
-const DEFAULT_HEATMAP_PRECISION =
-  CONFIG.LAYER_DEFAULTS?.trips?.heatmapPrecision ?? 4;
+const DEFAULT_HEATMAP_PRECISION = CONFIG.LAYER_DEFAULTS?.trips?.heatmapPrecision ?? 4;
 
 const makeSegmentKey = (a, b, precision = DEFAULT_HEATMAP_PRECISION) => {
   if (!Array.isArray(a) || !Array.isArray(b)) return null;
@@ -44,27 +43,26 @@ const getGeometryCoordinateSets = (geometry) => {
   return [];
 };
 
-const normalizeHeatValue = (value, maxValue) => {
+const normalizeHeatValue = (value, minValue, maxValue) => {
   if (!Number.isFinite(value) || value <= 0) return 0;
   if (!Number.isFinite(maxValue) || maxValue <= 0) return 0;
 
-  // Clamp to avoid overweighting extreme outliers while still keeping a smooth
-  // gradient across frequently used paths.
-  const clampedMax = Math.max(1, maxValue);
-  const clampedValue = Math.min(value, clampedMax);
+  // Use a lower bound to avoid compressing everything into the hottest color
+  // when the data range is narrow. The log scaling keeps outliers from
+  // overwhelming the rest of the distribution.
+  const safeMin = Number.isFinite(minValue) && minValue > 0 ? minValue : 0;
+  const boundedMin = Math.min(safeMin, maxValue);
+  const valueWithFloor = Math.max(value, boundedMin);
+  const logMin = Math.log(boundedMin + 1);
+  const logMax = Math.log(maxValue + 1);
+  const logValue = Math.log(valueWithFloor + 1);
 
-  if (clampedMax === 1) return Math.min(1, clampedValue);
-
-  const numerator = Math.log(clampedValue + 1);
-  const denominator = Math.log(clampedMax + 1);
-  if (
-    !Number.isFinite(numerator) ||
-    !Number.isFinite(denominator) ||
-    denominator === 0
-  ) {
-    return Math.min(1, clampedValue / clampedMax);
+  if (!Number.isFinite(logMin) || !Number.isFinite(logMax) || logMax <= logMin) {
+    const linearDenominator = Math.max(1, maxValue - boundedMin);
+    return Math.max(0, Math.min(1, (valueWithFloor - boundedMin) / linearDenominator));
   }
-  return Math.min(1, numerator / denominator);
+
+  return Math.max(0, Math.min(1, (logValue - logMin) / (logMax - logMin)));
 };
 
 const getPercentile = (values, percentile) => {
@@ -86,7 +84,7 @@ const buildHeatmapExpression = (stops) => {
         Array.isArray(stop) &&
         stop.length >= 2 &&
         Number.isFinite(stop[0]) &&
-        typeof stop[1] === "string",
+        typeof stop[1] === "string"
     )
     .map(([value, color]) => [Math.max(0, Math.min(1, value)), color])
     .sort((a, b) => a[0] - b[0]);
@@ -160,9 +158,11 @@ const dataManager = {
     });
 
     const medianCount = getPercentile(countValues, 50);
+    const p20 = getPercentile(countValues, 20);
     const p90 = getPercentile(countValues, 90);
-    const p95 = getPercentile(countValues, 95);
-    const normalizationMax = Number.isFinite(p95) && p95 > 0 ? p95 : maxCount;
+    const p98 = getPercentile(countValues, 98);
+    const normalizationMin = Number.isFinite(p20) && p20 > 0 ? p20 : minCount;
+    const normalizationMax = Number.isFinite(p98) && p98 > 0 ? p98 : maxCount;
 
     if (!Number.isFinite(maxCount) || maxCount <= 0) {
       features.forEach((feature) => {
@@ -178,6 +178,7 @@ const dataManager = {
       let featureMax = 0;
       let featureSum = 0;
       let segmentCounter = 0;
+      const segmentValues = [];
 
       coordinateSets.forEach((coords) => {
         if (!Array.isArray(coords) || coords.length < 2) return;
@@ -188,14 +189,21 @@ const dataManager = {
           featureMax = Math.max(featureMax, value);
           featureSum += value;
           segmentCounter += 1;
+          segmentValues.push(value);
         }
       });
 
       // Averaging segment usage across each trip prevents random bright spots
       // when only a tiny portion overlaps while still reflecting overall route frequency.
       const average = segmentCounter > 0 ? featureSum / segmentCounter : 0;
-      const intensitySource = average || featureMax;
-      const normalized = normalizeHeatValue(intensitySource, normalizationMax);
+      const featureP75 = segmentValues.length ? getPercentile(segmentValues, 75) : 0;
+      const blendedIntensity = featureP75 > 0 ? (average + featureP75) / 2 : average;
+      const intensitySource = blendedIntensity || featureMax;
+      const normalized = normalizeHeatValue(
+        intensitySource,
+        normalizationMin,
+        normalizationMax
+      );
       const props = ensureFeatureProperties(feature);
       props.heatIntensity = Number.isFinite(normalized)
         ? Number(normalized.toFixed(4))
@@ -220,8 +228,10 @@ const dataManager = {
     const stats = {
       maxCount,
       medianCount: Number.isFinite(medianCount) ? medianCount : 0,
+      p20: Number.isFinite(p20) ? p20 : 0,
       p90: Number.isFinite(p90) ? p90 : 0,
-      p95: Number.isFinite(p95) ? p95 : 0,
+      p98: Number.isFinite(p98) ? p98 : 0,
+      normalizationMin,
       normalizationMax,
       minCount: Number.isFinite(minCount) ? minCount : 0,
       averageCount:
@@ -241,10 +251,7 @@ const dataManager = {
   async fetchTrips() {
     if (!state.mapInitialized) return null;
 
-    const dataStage = window.loadingManager.startStage(
-      "data",
-      "Loading trips...",
-    );
+    const dataStage = window.loadingManager.startStage("data", "Loading trips...");
 
     try {
       const { start, end } = dateUtils.getCachedDateRange();
@@ -254,17 +261,11 @@ const dataManager = {
       const fullCollection = await utils.fetchWithRetry(`/api/trips?${params}`);
       if (fullCollection?.type !== "FeatureCollection") {
         dataStage.error("Invalid trip data received from server.");
-        window.notificationManager.show(
-          "Failed to load valid trip data",
-          "danger",
-        );
+        window.notificationManager.show("Failed to load valid trip data", "danger");
         return null;
       }
 
-      dataStage.update(
-        75,
-        `Processing ${fullCollection.features.length} trips...`,
-      );
+      dataStage.update(75, `Processing ${fullCollection.features.length} trips...`);
 
       // Mark recent trips for styling later
       try {
@@ -343,20 +344,14 @@ const dataManager = {
   },
 
   async fetchUndrivenStreets() {
-    const selectedLocationId = utils.getStorage(
-      CONFIG.STORAGE_KEYS.selectedLocation,
-    );
-    if (
-      !selectedLocationId ||
-      !state.mapInitialized ||
-      state.undrivenStreetsLoaded
-    )
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded)
       return null;
 
     window.loadingManager.pulse("Loading undriven streets...");
     try {
       const data = await utils.fetchWithRetry(
-        `/api/coverage_areas/${selectedLocationId}/streets?undriven=true`,
+        `/api/coverage_areas/${selectedLocationId}/streets?undriven=true`
       );
       if (data?.type === "FeatureCollection") {
         state.mapLayers.undrivenStreets.layer = data;
@@ -373,20 +368,14 @@ const dataManager = {
   },
 
   async fetchDrivenStreets() {
-    const selectedLocationId = utils.getStorage(
-      CONFIG.STORAGE_KEYS.selectedLocation,
-    );
-    if (
-      !selectedLocationId ||
-      !state.mapInitialized ||
-      state.drivenStreetsLoaded
-    )
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded)
       return null;
 
     window.loadingManager.pulse("Loading driven streets...");
     try {
       const data = await utils.fetchWithRetry(
-        `/api/coverage_areas/${selectedLocationId}/streets?driven=true`,
+        `/api/coverage_areas/${selectedLocationId}/streets?driven=true`
       );
       if (data?.type === "FeatureCollection") {
         state.mapLayers.drivenStreets.layer = data;
@@ -403,16 +392,14 @@ const dataManager = {
   },
 
   async fetchAllStreets() {
-    const selectedLocationId = utils.getStorage(
-      CONFIG.STORAGE_KEYS.selectedLocation,
-    );
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded)
       return null;
 
     window.loadingManager.pulse("Loading all streets...");
     try {
       const data = await utils.fetchWithRetry(
-        `/api/coverage_areas/${selectedLocationId}/streets`,
+        `/api/coverage_areas/${selectedLocationId}/streets`
       );
       if (data?.type === "FeatureCollection") {
         state.mapLayers.allStreets.layer = data;
@@ -434,9 +421,7 @@ const dataManager = {
       const params = new URLSearchParams({ start_date: start, end_date: end });
       const data = await utils.fetchWithRetry(`/api/trip-analytics?${params}`);
       if (data)
-        document.dispatchEvent(
-          new CustomEvent("metricsUpdated", { detail: data }),
-        );
+        document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
       return data;
     } catch (error) {
       console.error("Error fetching metrics:", error);
@@ -447,10 +432,7 @@ const dataManager = {
   async updateMap(fitBounds = false) {
     if (!state.mapInitialized) return;
 
-    const renderStage = window.loadingManager.startStage(
-      "render",
-      "Updating map...",
-    );
+    const renderStage = window.loadingManager.startStage("render", "Updating map...");
 
     try {
       renderStage.update(20, "Fetching map data...");
@@ -459,13 +441,9 @@ const dataManager = {
       const promises = [];
       // Always fetch visible trip layers (they may need refresh after date range changes)
       if (state.mapLayers.trips.visible) promises.push(this.fetchTrips());
-      if (state.mapLayers.matchedTrips.visible)
-        promises.push(this.fetchMatchedTrips());
+      if (state.mapLayers.matchedTrips.visible) promises.push(this.fetchMatchedTrips());
       // Street layers only fetch if not already loaded (they're location-specific)
-      if (
-        state.mapLayers.undrivenStreets.visible &&
-        !state.undrivenStreetsLoaded
-      )
+      if (state.mapLayers.undrivenStreets.visible && !state.undrivenStreetsLoaded)
         promises.push(this.fetchUndrivenStreets());
       if (state.mapLayers.drivenStreets.visible && !state.drivenStreetsLoaded)
         promises.push(this.fetchDrivenStreets());
@@ -487,7 +465,7 @@ const dataManager = {
                 state.map.setLayoutProperty(
                   layerId,
                   "visibility",
-                  info.visible ? "visible" : "none",
+                  info.visible ? "visible" : "none"
                 );
               }
             }
