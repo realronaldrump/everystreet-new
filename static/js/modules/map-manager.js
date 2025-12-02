@@ -168,6 +168,33 @@ const mapManager = {
     }
   },
 
+  // Helper function to build heatmap color expression from stops
+  buildHeatmapColorExpression(stops) {
+    if (!Array.isArray(stops) || stops.length === 0) return null;
+
+    const sanitizedStops = stops
+      .filter(
+        (stop) =>
+          Array.isArray(stop) &&
+          stop.length >= 2 &&
+          Number.isFinite(stop[0]) &&
+          typeof stop[1] === "string"
+      )
+      .map(([value, color]) => [Math.max(0, Math.min(1, value)), color])
+      .sort((a, b) => a[0] - b[0]);
+
+    if (sanitizedStops.length < 2) return null;
+
+    const flattenedStops = sanitizedStops.flat();
+
+    return [
+      "interpolate",
+      ["linear"],
+      ["coalesce", ["get", "heatIntensity"], 0],
+      ...flattenedStops,
+    ];
+  },
+
   refreshTripStyles: utils.throttle(() => {
     if (!state.map || !state.mapInitialized) return;
 
@@ -217,8 +244,19 @@ const mapManager = {
         colorExpr.push(recentColor);
       }
 
-      // Default color
-      colorExpr.push(baseColor);
+      // Default color - use heatmap expression if available, otherwise fall back to base color
+      if (layerInfo.colorStops && Array.isArray(layerInfo.colorStops)) {
+        const heatmapExpr = mapManager.buildHeatmapColorExpression(
+          layerInfo.colorStops
+        );
+        if (heatmapExpr) {
+          colorExpr.push(heatmapExpr);
+        } else {
+          colorExpr.push(baseColor);
+        }
+      } else {
+        colorExpr.push(baseColor);
+      }
 
       // Build width expression (slightly thicker for selected)
       const baseWeight = layerInfo.weight || 2;

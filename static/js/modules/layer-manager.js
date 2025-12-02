@@ -328,7 +328,10 @@ const layerManager = {
           "line-cap": "round",
         },
         paint: {
-          "line-color": layerInfo.color,
+          // Support both static colors (strings) and dynamic expressions (arrays) for heatmaps
+          "line-color": Array.isArray(layerInfo.color)
+            ? layerInfo.color
+            : layerInfo.color || "#331107",
           "line-opacity": layerInfo.opacity,
           "line-width": [
             "interpolate",
