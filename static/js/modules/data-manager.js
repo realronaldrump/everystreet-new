@@ -15,7 +15,7 @@ const DEFAULT_HEATMAP_STOPS = CONFIG.LAYER_DEFAULTS?.trips?.heatmapStops || [
   [1, "#FFEFA0"],
 ];
 
-const DEFAULT_HEATMAP_PRECISION = CONFIG.LAYER_DEFAULTS?.trips?.heatmapPrecision ?? 4;
+const DEFAULT_HEATMAP_PRECISION = CONFIG.LAYER_DEFAULTS?.trips?.heatmapPrecision ?? 5;
 
 const makeSegmentKey = (a, b, precision = DEFAULT_HEATMAP_PRECISION) => {
   if (!Array.isArray(a) || !Array.isArray(b)) return null;
@@ -43,37 +43,20 @@ const getGeometryCoordinateSets = (geometry) => {
   return [];
 };
 
-const normalizeHeatValue = (value, minValue, maxValue) => {
+const normalizeHeatValue = (value, maxValue) => {
   if (!Number.isFinite(value) || value <= 0) return 0;
   if (!Number.isFinite(maxValue) || maxValue <= 0) return 0;
-
-  // Use a lower bound to avoid compressing everything into the hottest color
-  // when the data range is narrow. The log scaling keeps outliers from
-  // overwhelming the rest of the distribution.
-  const safeMin = Number.isFinite(minValue) && minValue > 0 ? minValue : 0;
-  const boundedMin = Math.min(safeMin, maxValue);
-  const valueWithFloor = Math.max(value, boundedMin);
-  const logMin = Math.log(boundedMin + 1);
-  const logMax = Math.log(maxValue + 1);
-  const logValue = Math.log(valueWithFloor + 1);
-
-  if (!Number.isFinite(logMin) || !Number.isFinite(logMax) || logMax <= logMin) {
-    const linearDenominator = Math.max(1, maxValue - boundedMin);
-    return Math.max(0, Math.min(1, (valueWithFloor - boundedMin) / linearDenominator));
+  if (maxValue === 1) return Math.min(1, value);
+  const numerator = Math.log(value + 1);
+  const denominator = Math.log(maxValue + 1);
+  if (
+    !Number.isFinite(numerator) ||
+    !Number.isFinite(denominator) ||
+    denominator === 0
+  ) {
+    return Math.min(1, value / maxValue);
   }
-
-  return Math.max(0, Math.min(1, (logValue - logMin) / (logMax - logMin)));
-};
-
-const getPercentile = (values, percentile) => {
-  if (!Array.isArray(values) || values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const index = (percentile / 100) * (sorted.length - 1);
-  const lower = Math.floor(index);
-  const upper = Math.ceil(index);
-  if (lower === upper) return sorted[lower];
-  const weight = index - lower;
-  return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+  return Math.min(1, numerator / denominator);
 };
 
 const buildHeatmapExpression = (stops) => {
@@ -145,24 +128,14 @@ const dataManager = {
       return null;
     }
 
-    const countValues = Array.from(segmentCounts.values());
     let maxCount = 0;
     let minCount = Number.POSITIVE_INFINITY;
-    let totalCount = 0;
 
-    countValues.forEach((count) => {
+    segmentCounts.forEach((count) => {
       if (!Number.isFinite(count)) return;
       if (count > maxCount) maxCount = count;
       if (count < minCount) minCount = count;
-      totalCount += count;
     });
-
-    const medianCount = getPercentile(countValues, 50);
-    const p20 = getPercentile(countValues, 20);
-    const p90 = getPercentile(countValues, 90);
-    const p98 = getPercentile(countValues, 98);
-    const normalizationMin = Number.isFinite(p20) && p20 > 0 ? p20 : minCount;
-    const normalizationMax = Number.isFinite(p98) && p98 > 0 ? p98 : maxCount;
 
     if (!Number.isFinite(maxCount) || maxCount <= 0) {
       features.forEach((feature) => {
@@ -178,7 +151,6 @@ const dataManager = {
       let featureMax = 0;
       let featureSum = 0;
       let segmentCounter = 0;
-      const segmentValues = [];
 
       coordinateSets.forEach((coords) => {
         if (!Array.isArray(coords) || coords.length < 2) return;
@@ -189,28 +161,17 @@ const dataManager = {
           featureMax = Math.max(featureMax, value);
           featureSum += value;
           segmentCounter += 1;
-          segmentValues.push(value);
         }
       });
 
-      // Averaging segment usage across each trip prevents random bright spots
-      // when only a tiny portion overlaps while still reflecting overall route frequency.
       const average = segmentCounter > 0 ? featureSum / segmentCounter : 0;
-      const featureP75 = segmentValues.length ? getPercentile(segmentValues, 75) : 0;
-      const blendedIntensity = featureP75 > 0 ? (average + featureP75) / 2 : average;
-      const intensitySource = blendedIntensity || featureMax;
-      const normalized = normalizeHeatValue(
-        intensitySource,
-        normalizationMin,
-        normalizationMax
-      );
+      const intensitySource = featureMax || average;
+      const normalized = normalizeHeatValue(intensitySource, maxCount);
       const props = ensureFeatureProperties(feature);
       props.heatIntensity = Number.isFinite(normalized)
         ? Number(normalized.toFixed(4))
         : 0;
-      props.heatWeight = Number.isFinite(intensitySource)
-        ? Number(intensitySource.toFixed(4))
-        : 0;
+      props.heatWeight = intensitySource;
     });
 
     const stops =
@@ -227,17 +188,7 @@ const dataManager = {
 
     const stats = {
       maxCount,
-      medianCount: Number.isFinite(medianCount) ? medianCount : 0,
-      p20: Number.isFinite(p20) ? p20 : 0,
-      p90: Number.isFinite(p90) ? p90 : 0,
-      p98: Number.isFinite(p98) ? p98 : 0,
-      normalizationMin,
-      normalizationMax,
       minCount: Number.isFinite(minCount) ? minCount : 0,
-      averageCount:
-        countValues.length > 0
-          ? Number((totalCount / countValues.length).toFixed(2))
-          : 0,
       totalSegments: segmentCounts.size,
       precision,
     };
