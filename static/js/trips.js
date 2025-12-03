@@ -101,6 +101,32 @@ class TripsManager {
     });
   }
 
+  static removeCountryFromAddress(address) {
+    if (!address) return "";
+
+    // Remove trailing country information (e.g., ", USA" or ", United States")
+    let cleaned = address.trim().replace(/,?\s*(USA|United States(?: of America)?)(?=$)/i, "");
+
+    // Remove any trailing commas left after removing the country
+    cleaned = cleaned.replace(/,\s*$/, "");
+
+    return cleaned.trim();
+  }
+
+  static formatLocation(location) {
+    if (location === null || location === undefined) return "Unknown";
+
+    let address = location;
+    if (typeof location === "object") {
+      address = location.formatted_address || location.display_name || "";
+    }
+
+    if (!address) return "Unknown";
+
+    const cleanedAddress = TripsManager.removeCountryFromAddress(address);
+    return cleanedAddress || "Unknown";
+  }
+
   async init() {
     if (this.isInitialized) return;
 
@@ -362,10 +388,7 @@ class TripsManager {
             data: "startLocation",
             title: "Start Location",
             render: (data, type) => {
-              let displayValue = data || "Unknown";
-              if (typeof data === "object" && data !== null) {
-                displayValue = data.formatted_address || "Unknown location";
-              }
+              const displayValue = TripsManager.formatLocation(data);
               return createEditableCell(displayValue, type, "startLocation");
             },
           },
@@ -373,10 +396,7 @@ class TripsManager {
             data: "destination",
             title: "Destination",
             render: (data, type) => {
-              let displayValue = data || "Unknown";
-              if (typeof data === "object" && data !== null) {
-                displayValue = data.formatted_address || "Unknown destination";
-              }
+              const displayValue = TripsManager.formatLocation(data);
               return createEditableCell(displayValue, type, "destination");
             },
           },
@@ -740,15 +760,9 @@ class TripsManager {
     const fuelConsumed =
       trip.fuelConsumed != null ? parseFloat(trip.fuelConsumed).toFixed(2) : "N/A";
 
-    const startLocation =
-      typeof trip.startLocation === "object" && trip.startLocation !== null
-        ? trip.startLocation.formatted_address || "Unknown"
-        : trip.startLocation || "Unknown";
+    const startLocation = TripsManager.formatLocation(trip.startLocation);
 
-    const destination =
-      typeof trip.destination === "object" && trip.destination !== null
-        ? trip.destination.formatted_address || "Unknown"
-        : trip.destination || "Unknown";
+    const destination = TripsManager.formatLocation(trip.destination);
 
     return `
       <div class="trip-card" data-trip-id="${transactionId}">
