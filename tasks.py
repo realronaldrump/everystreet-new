@@ -52,8 +52,8 @@ from live_tracking import (
     process_trip_metrics,
     process_trip_start,
 )
-from street_coverage_calculation import compute_incremental_coverage
 from route_solver import generate_optimal_route_with_progress, save_optimal_route
+from street_coverage_calculation import compute_incremental_coverage
 from trip_processor import TripProcessor, TripState
 from trip_service import TripService
 from utils import run_async_from_sync
@@ -2442,7 +2442,7 @@ async def generate_optimal_route_async(
     """
     # Get the Celery task ID for progress tracking
     task_id = getattr(_self.request, "id", None) or str(ObjectId())
-    
+
     logger.info(
         "Starting optimal route generation for location %s (task: %s, start: %s, %s)",
         location_id,
@@ -2456,7 +2456,9 @@ async def generate_optimal_route_async(
         start_coords = (start_lon, start_lat)
 
     # Generate the route with progress tracking
-    result = await generate_optimal_route_with_progress(location_id, task_id, start_coords)
+    result = await generate_optimal_route_with_progress(
+        location_id, task_id, start_coords
+    )
 
     # Save to database if successful
     if result.get("status") == "success":

@@ -1893,10 +1893,10 @@ async def get_optimal_route_progress(task_id: str):
         optimal_route_progress_collection,
         {"task_id": task_id},
     )
-    
+
     if not progress:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     return {
         "task_id": task_id,
         "location_id": progress.get("location_id"),
@@ -1914,22 +1914,22 @@ async def get_optimal_route_progress(task_id: str):
 @router.get("/api/optimal-routes/{task_id}/progress/sse")
 async def stream_optimal_route_progress(task_id: str):
     """Stream real-time progress updates via Server-Sent Events."""
-    
+
     async def event_generator():
         last_progress = -1
         last_stage = None
         poll_count = 0
         max_polls = 1800  # 30 minutes at 1 second intervals
-        
+
         while poll_count < max_polls:
             poll_count += 1
-            
+
             try:
                 progress = await find_one_with_retry(
                     optimal_route_progress_collection,
                     {"task_id": task_id},
                 )
-                
+
                 if not progress:
                     # Task not started yet, send waiting message
                     data = {
@@ -1941,27 +1941,35 @@ async def stream_optimal_route_progress(task_id: str):
                     yield f"data: {json.dumps(data)}\n\n"
                     await asyncio.sleep(1)
                     continue
-                
+
                 current_progress = progress.get("progress", 0)
                 current_stage = progress.get("stage")
                 current_status = progress.get("status", "running")
-                
+
                 # Only send update if something changed
                 if current_progress != last_progress or current_stage != last_stage:
                     last_progress = current_progress
                     last_stage = current_stage
-                    
+
                     data = {
                         "status": current_status,
                         "stage": current_stage,
                         "progress": current_progress,
                         "message": progress.get("message", ""),
                         "error": progress.get("error"),
-                        "started_at": progress.get("started_at").isoformat() if progress.get("started_at") else None,
-                        "updated_at": progress.get("updated_at").isoformat() if progress.get("updated_at") else None,
+                        "started_at": (
+                            progress.get("started_at").isoformat()
+                            if progress.get("started_at")
+                            else None
+                        ),
+                        "updated_at": (
+                            progress.get("updated_at").isoformat()
+                            if progress.get("updated_at")
+                            else None
+                        ),
                     }
                     yield f"data: {json.dumps(data)}\n\n"
-                
+
                 # Check if task completed or failed
                 if current_status in ("completed", "failed"):
                     # Send final update
@@ -1971,20 +1979,24 @@ async def stream_optimal_route_progress(task_id: str):
                         "progress": current_progress,
                         "message": progress.get("message", ""),
                         "error": progress.get("error"),
-                        "completed_at": progress.get("completed_at").isoformat() if progress.get("completed_at") else None,
+                        "completed_at": (
+                            progress.get("completed_at").isoformat()
+                            if progress.get("completed_at")
+                            else None
+                        ),
                     }
                     yield f"data: {json.dumps(final_data)}\n\n"
                     break
-                
+
             except Exception as e:
                 logger.error("SSE progress error: %s", e)
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
-            
+
             await asyncio.sleep(1)
-        
+
         # Send done event
         yield "event: done\ndata: {}\n\n"
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
