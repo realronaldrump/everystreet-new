@@ -28,3 +28,5 @@ eradicate
 flynt
 pycln
 aiolimiter
+osmnx
+networkx
