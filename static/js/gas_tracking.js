@@ -75,7 +75,11 @@ async function loadVehicles() {
   try {
     // First sync vehicles from trips to ensure they exist
     try {
-      await fetch("/api/vehicles/sync-from-trips", { method: "POST" });
+      const syncResponse = await fetch("/api/vehicles/sync-from-trips", { method: "POST" });
+      if (syncResponse.ok) {
+        const syncResult = await syncResponse.json();
+        console.log("Vehicle sync result:", syncResult);
+      }
     } catch (syncError) {
       console.warn("Failed to sync vehicles:", syncError);
     }
@@ -84,6 +88,7 @@ async function loadVehicles() {
     if (!response.ok) throw new Error("Failed to load vehicles");
 
     vehicles = await response.json();
+    console.log(`Loaded ${vehicles.length} vehicles:`, vehicles);
 
     const vehicleSelect = document.getElementById("vehicle-select");
     vehicleSelect.innerHTML = '<option value="">Select Vehicle...</option>';
