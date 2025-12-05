@@ -155,7 +155,11 @@ class OptimalRoutesManager {
       }
 
       const data = await response.json();
-      if (!data.success || !data.features) return;
+      // API returns GeoJSON FeatureCollection directly (type: "FeatureCollection", features: [...])
+      if (!data.features || !Array.isArray(data.features)) {
+        console.error("Invalid street data format", data);
+        return;
+      }
 
       // Separate driven and undriven streets
       const drivenFeatures = [];
@@ -218,9 +222,10 @@ class OptimalRoutesManager {
           const coverage = area.coverage_percentage?.toFixed(1) || 0;
           option.textContent = `${area.location?.display_name || "Unknown"} (${coverage}%)`;
           option.dataset.coverage = coverage;
-          option.dataset.remaining = this.formatDistance(
-            (area.total_length_m || 0) - (area.driven_length_m || 0)
-          );
+          // API returns total_length and driven_length (not _m suffix)
+          const totalLength = area.total_length || area.total_length_m || 0;
+          const drivenLength = area.driven_length || area.driven_length_m || 0;
+          option.dataset.remaining = this.formatDistance(totalLength - drivenLength);
           select.appendChild(option);
         });
 
@@ -408,7 +413,11 @@ class OptimalRoutesManager {
         const data = JSON.parse(event.data);
         this.updateProgress(data);
 
-        if (data.status === "completed") {
+        if (
+          data.status === "completed" ||
+          data.stage === "complete" ||
+          data.progress >= 100
+        ) {
           this.eventSource.close();
           this.onGenerationComplete();
         } else if (data.status === "failed") {

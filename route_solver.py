@@ -421,10 +421,21 @@ async def generate_optimal_route_with_progress(
         if not route_coords:
             raise ValueError("Failed to generate route coordinates")
 
-        await _update_db_progress(
-            task_id, location_id, "complete", 100,
-            "Route generation complete!", "completed"
-        )
+        # Force status logic to ensure frontend picks it up
+        logger.info("Route generation finished. Updating DB status to completed.")
+        try:
+            await _update_db_progress(
+                task_id, location_id, "complete", 100,
+                "Route generation complete!", "completed"
+            )
+            logger.info("DB status update successful.")
+        except Exception as update_err:
+             logger.error("Final DB progress update failed: %s", update_err)
+             # Try one more time with a simple update
+             await optimal_route_progress_collection.update_one(
+                 {"task_id": task_id},
+                 {"$set": {"status": "completed", "progress": 100, "stage": "complete", "completed_at": datetime.now(UTC)}}
+             )
 
         return {
             "status": "success",
