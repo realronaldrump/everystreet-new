@@ -55,7 +55,13 @@ def _solve_rpp(
     required_graph = nx.Graph()
     for u, v in required_edges:
         if G.has_edge(u, v):
-            required_graph.add_edge(u, v, **G.edges[u, v])
+            if G.is_multigraph():
+                # Find the edge with the shortest length
+                edges_data = G[u][v].values()
+                best_edge = min(edges_data, key=lambda x: x.get("length", float("inf")))
+                required_graph.add_edge(u, v, **best_edge)
+            else:
+                required_graph.add_edge(u, v, **G.edges[u, v])
 
     if required_graph.number_of_edges() == 0:
         return [], {"total_distance": 0, "required_distance": 0, "deadhead_distance": 0}
@@ -145,7 +151,13 @@ def _solve_rpp(
                     # Add each edge in the path
                     for j in range(len(path) - 1):
                         p_u, p_v = path[j], path[j + 1]
-                        edge_len = G.edges[p_u, p_v].get("length", 100)
+                        if G.is_multigraph():
+                            edge_len = min(
+                                (d.get("length", 100) for d in G[p_u][p_v].values()),
+                                default=100
+                            )
+                        else:
+                            edge_len = G.edges[p_u, p_v].get("length", 100)
                         augmented.add_edge(p_u, p_v, length=edge_len, required=False)
 
     # Now find Eulerian circuit
