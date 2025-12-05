@@ -24,5 +24,6 @@ reports/
 scripts/autofix.sh
 scripts/
 .stylelintrc.json
-*.txt
+
 cache/
+bouncie docs/bouncie_api_docs.txt
