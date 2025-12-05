@@ -168,3 +168,17 @@ async def driving_navigation_page(request: Request):
         request,
         MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
     )
+
+
+@router.get(
+    "/optimal-routes",
+    response_class=HTMLResponse,
+)
+async def optimal_routes_page(request: Request):
+    """Render the optimal routes generation page."""
+    return _render_page(
+        "optimal_routes.html",
+        request,
+        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+    )
+

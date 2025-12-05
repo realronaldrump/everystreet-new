@@ -1,0 +1,200 @@
+{% extends "base.html" %} {% block title %}Optimal Routes{% endblock %} {%
+block head_content %}
+
+<link
+  href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
+  rel="stylesheet"
+/>
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/optimal-routes.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
+<div class="optimal-routes-container">
+  <!-- Control Panel -->
+  <div class="control-panel">
+    <div class="panel-header">
+      <h4><i class="fas fa-route me-2"></i>Optimal Route Generator</h4>
+      <p class="text-muted mb-0">
+        Find the most efficient path to complete all remaining streets
+      </p>
+    </div>
+
+    <!-- Area Selection -->
+    <div class="control-section">
+      <label for="area-select" class="form-label">Coverage Area</label>
+      <select id="area-select" class="form-select">
+        <option value="">Select a coverage area...</option>
+      </select>
+      <div id="area-stats" class="area-stats mt-2" style="display: none">
+        <div class="stat-row">
+          <span class="stat-label">Coverage:</span>
+          <span id="area-coverage" class="stat-value">--</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Remaining:</span>
+          <span id="area-remaining" class="stat-value">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generate Button -->
+    <div class="control-section">
+      <button id="generate-route-btn" class="btn btn-primary btn-lg w-100" disabled>
+        <i class="fas fa-magic me-2"></i>Generate Optimal Route
+      </button>
+      <div class="form-text mt-2">
+        <i class="fas fa-info-circle me-1"></i>
+        Uses the Rural Postman Problem algorithm to minimize deadhead driving.
+      </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div id="progress-section" class="control-section" style="display: none">
+      <h5 class="mb-3">
+        <i class="fas fa-cog fa-spin me-2"></i>Generating Route...
+      </h5>
+
+      <!-- Stage Indicators -->
+      <div class="progress-stages">
+        <div class="stage" data-stage="initializing">
+          <div class="stage-icon"><i class="fas fa-play"></i></div>
+          <div class="stage-label">Starting</div>
+        </div>
+        <div class="stage" data-stage="loading_area,loading_segments">
+          <div class="stage-icon"><i class="fas fa-database"></i></div>
+          <div class="stage-label">Loading</div>
+        </div>
+        <div class="stage" data-stage="fetching_osm">
+          <div class="stage-icon"><i class="fas fa-globe"></i></div>
+          <div class="stage-label">Network</div>
+        </div>
+        <div class="stage" data-stage="mapping_segments,finding_odd_nodes">
+          <div class="stage-icon"><i class="fas fa-project-diagram"></i></div>
+          <div class="stage-label">Mapping</div>
+        </div>
+        <div class="stage" data-stage="computing_matching,building_circuit">
+          <div class="stage-icon"><i class="fas fa-brain"></i></div>
+          <div class="stage-label">Solving</div>
+        </div>
+        <div class="stage" data-stage="converting_coords,complete">
+          <div class="stage-icon"><i class="fas fa-check"></i></div>
+          <div class="stage-label">Complete</div>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="progress mt-3" style="height: 8px">
+        <div
+          id="progress-bar"
+          class="progress-bar progress-bar-striped progress-bar-animated"
+          role="progressbar"
+          style="width: 0%"
+        ></div>
+      </div>
+
+      <!-- Status Message -->
+      <div id="progress-message" class="progress-message mt-2">
+        Initializing...
+      </div>
+
+      <!-- Elapsed Time -->
+      <div id="elapsed-time" class="elapsed-time mt-2">
+        <i class="fas fa-clock me-1"></i>Elapsed: <span id="elapsed-value">0:00</span>
+      </div>
+    </div>
+
+    <!-- Route Results -->
+    <div id="results-section" class="control-section" style="display: none">
+      <h5 class="mb-3"><i class="fas fa-chart-bar me-2"></i>Route Statistics</h5>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-road"></i></div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-total-distance">--</div>
+            <div class="stat-label">Total Route</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-required-distance">--</div>
+            <div class="stat-label">Coverage</div>
+          </div>
+        </div>
+        <div class="stat-card deadhead">
+          <div class="stat-icon"><i class="fas fa-car-side"></i></div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-deadhead-distance">--</div>
+            <div class="stat-label">Deadhead</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fas fa-percentage"></i></div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-deadhead-percent">--</div>
+            <div class="stat-label">Efficiency</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Buttons -->
+      <div class="export-buttons mt-3">
+        <button id="export-gpx-btn" class="btn btn-outline-primary">
+          <i class="fas fa-download me-2"></i>Export GPX
+        </button>
+        <button id="clear-route-btn" class="btn btn-outline-secondary">
+          <i class="fas fa-times me-2"></i>Clear Route
+        </button>
+      </div>
+    </div>
+
+    <!-- Error Section -->
+    <div id="error-section" class="control-section error-section" style="display: none">
+      <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
+      <div class="error-message" id="error-message">An error occurred.</div>
+      <button id="retry-btn" class="btn btn-outline-danger mt-2">
+        <i class="fas fa-redo me-2"></i>Try Again
+      </button>
+    </div>
+
+    <!-- Route History -->
+    <div class="control-section mt-auto">
+      <h6 class="mb-2"><i class="fas fa-history me-2"></i>Saved Routes</h6>
+      <div id="route-history" class="route-history">
+        <div class="text-muted small">No saved routes yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Container -->
+  <div class="map-container">
+    <div id="route-map"></div>
+
+    <!-- Map Legend -->
+    <div class="map-legend" id="map-legend" style="display: none">
+      <h6>Legend</h6>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #9333ea"></span>
+        <span>Optimal Route</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #ef4444"></span>
+        <span>Deadhead Sections</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+<script>
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
+
+<script
+  type="module"
+  src="{{ url_for('static', path='js/optimal-routes.js') | replace('http://', '//') }}"
+></script>
+{% endblock %}

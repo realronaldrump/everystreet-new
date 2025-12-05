@@ -25,6 +25,7 @@ from shapely.geometry import box, shape
 from db import (
     coverage_metadata_collection,
     find_one_with_retry,
+    optimal_route_progress_collection,
     streets_collection,
     update_one_with_retry,
 )
@@ -193,6 +194,257 @@ def _solve_rpp(
     }
 
     return node_circuit, stats
+
+
+async def _update_db_progress(
+    task_id: str,
+    location_id: str,
+    stage: str,
+    progress: int,
+    message: str,
+    status: str = "running",
+    error: str | None = None,
+) -> None:
+    """Update progress in database for SSE streaming."""
+    now = datetime.now(UTC)
+    update_doc = {
+        "$set": {
+            "location_id": location_id,
+            "stage": stage,
+            "progress": progress,
+            "message": message,
+            "status": status,
+            "updated_at": now,
+        },
+        "$setOnInsert": {
+            "task_id": task_id,
+            "started_at": now,
+        },
+    }
+    if error:
+        update_doc["$set"]["error"] = error
+    if status == "completed":
+        update_doc["$set"]["completed_at"] = now
+    if status == "failed":
+        update_doc["$set"]["failed_at"] = now
+
+    await update_one_with_retry(
+        optimal_route_progress_collection,
+        {"task_id": task_id},
+        update_doc,
+        upsert=True,
+    )
+
+
+async def generate_optimal_route_with_progress(
+    location_id: str,
+    task_id: str,
+    start_coords: tuple[float, float] | None = None,
+) -> dict[str, Any]:
+    """Generate optimal route with database-backed progress tracking.
+
+    This version writes progress updates to the database so they can be
+    streamed via SSE to the frontend.
+
+    Args:
+        location_id: MongoDB ObjectId string for the coverage area
+        task_id: Celery task ID for progress tracking
+        start_coords: Optional (lon, lat) to specify route start point
+
+    Returns:
+        Dict with route_coordinates, stats, and metadata
+    """
+
+    async def update_progress(stage: str, progress: int, message: str) -> None:
+        await _update_db_progress(task_id, location_id, stage, progress, message)
+        logger.info("Route generation [%s][%d%%]: %s", task_id[:8], progress, message)
+
+    try:
+        await update_progress("initializing", 0, "Starting optimal route generation...")
+
+        # 1. Load coverage area and geometry
+        obj_id = ObjectId(location_id)
+        area = await find_one_with_retry(coverage_metadata_collection, {"_id": obj_id})
+        if not area:
+            raise ValueError(f"Coverage area {location_id} not found")
+
+        location_info = area.get("location", {})
+        location_name = location_info.get("display_name", "Unknown")
+
+        await update_progress("loading_area", 10, f"Loading coverage area: {location_name}")
+
+        # Get boundary polygon
+        boundary_geom = location_info.get("geojson", {}).get("geometry")
+        if boundary_geom:
+            polygon = shape(boundary_geom)
+        else:
+            bbox = location_info.get("boundingbox")
+            if bbox and len(bbox) >= 4:
+                polygon = box(float(bbox[2]), float(bbox[0]), float(bbox[3]), float(bbox[1]))
+            else:
+                raise ValueError("No valid boundary for coverage area")
+
+        # 2. Get undriven segments
+        await update_progress("loading_segments", 20, "Loading undriven street segments...")
+
+        cursor = streets_collection.find(
+            {
+                "properties.location": location_name,
+                "properties.driven": False,
+                "properties.undriveable": {"$ne": True},
+            },
+            {
+                "geometry": 1,
+                "properties.segment_id": 1,
+                "properties.segment_length": 1,
+                "properties.street_name": 1,
+            },
+        ).limit(MAX_SEGMENTS)
+
+        undriven = await cursor.to_list(length=MAX_SEGMENTS)
+
+        if not undriven:
+            await _update_db_progress(
+                task_id, location_id, "complete", 100,
+                "All streets already driven!", "completed"
+            )
+            return {"status": "already_complete", "message": "All streets already driven!"}
+
+        await update_progress(
+            "loading_segments", 30, f"Found {len(undriven)} undriven segments to route"
+        )
+
+        # 3. Fetch OSM street network
+        await update_progress("fetching_osm", 40, "Downloading OSM street network...")
+
+        try:
+            G = ox.graph_from_polygon(
+                polygon,
+                network_type="drive",
+                simplify=True,
+                truncate_by_edge=True,
+            )
+            G = ox.convert.to_undirected(G)
+            await update_progress(
+                "fetching_osm", 45,
+                f"Downloaded network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges"
+            )
+        except Exception as e:
+            logger.error("Failed to download OSM data: %s", e)
+            raise ValueError(f"Failed to download street network: {e}")
+
+        await update_progress("mapping_segments", 50, "Mapping segments to street network...")
+
+        # 4. Map segment endpoints to OSM nodes
+        required_edges = set()
+        segment_to_edge = {}
+        skipped = 0
+        total_segs = len(undriven)
+
+        for idx, seg in enumerate(undriven):
+            if idx % 100 == 0 and idx > 0:
+                pct = 50 + int((idx / total_segs) * 10)
+                await update_progress(
+                    "mapping_segments", pct, f"Mapping segment {idx}/{total_segs}..."
+                )
+
+            geom = seg.get("geometry", {})
+            coords = geom.get("coordinates", [])
+            if not coords or len(coords) < 2:
+                skipped += 1
+                continue
+
+            seg_id = seg["properties"]["segment_id"]
+            start_pt = coords[0]
+            end_pt = coords[-1]
+
+            try:
+                start_node = ox.distance.nearest_nodes(G, start_pt[0], start_pt[1])
+                end_node = ox.distance.nearest_nodes(G, end_pt[0], end_pt[1])
+
+                if start_node == end_node:
+                    skipped += 1
+                    continue
+
+                edge_key = (min(start_node, end_node), max(start_node, end_node))
+                required_edges.add(edge_key)
+                segment_to_edge[seg_id] = edge_key
+            except Exception:
+                skipped += 1
+                continue
+
+        if not required_edges:
+            raise ValueError("Could not map any segments to street network")
+
+        await update_progress(
+            "finding_odd_nodes", 62,
+            f"Analyzing graph: {len(required_edges)} edges, {skipped} skipped"
+        )
+
+        # 5. Determine start node
+        start_node_id = None
+        if start_coords:
+            try:
+                start_node_id = ox.distance.nearest_nodes(G, start_coords[0], start_coords[1])
+            except Exception:
+                pass
+
+        await update_progress(
+            "computing_matching", 65,
+            f"Computing optimal route for {len(required_edges)} segments..."
+        )
+
+        # 6. Solve RPP
+        try:
+            node_circuit, stats = _solve_rpp(G, required_edges, start_node_id)
+        except Exception as e:
+            logger.error("RPP solver failed: %s", e, exc_info=True)
+            raise ValueError(f"Route solver failed: {e}")
+
+        await update_progress(
+            "building_circuit", 80,
+            f"Building route with {len(node_circuit)} waypoints..."
+        )
+
+        # 7. Convert circuit to coordinates
+        route_coords = []
+        total_nodes = len(node_circuit)
+        for idx, node in enumerate(node_circuit):
+            if idx % 500 == 0 and idx > 0:
+                pct = 80 + int((idx / total_nodes) * 15)
+                await update_progress(
+                    "converting_coords", pct, f"Converting waypoint {idx}/{total_nodes}..."
+                )
+            if node in G.nodes:
+                route_coords.append([G.nodes[node]["x"], G.nodes[node]["y"]])
+
+        if not route_coords:
+            raise ValueError("Failed to generate route coordinates")
+
+        await _update_db_progress(
+            task_id, location_id, "complete", 100,
+            "Route generation complete!", "completed"
+        )
+
+        return {
+            "status": "success",
+            "route_coordinates": route_coords,
+            "total_distance_m": stats["total_distance"],
+            "required_distance_m": stats["required_distance"],
+            "deadhead_distance_m": stats["deadhead_distance"],
+            "deadhead_percentage": stats["deadhead_percentage"],
+            "segment_count": len(required_edges),
+            "circuit_nodes": len(node_circuit),
+            "generated_at": datetime.now(UTC).isoformat(),
+            "location_name": location_name,
+        }
+
+    except Exception as e:
+        await _update_db_progress(
+            task_id, location_id, "failed", 0,
+            f"Route generation failed: {e}", "failed", str(e)
+        )
+        raise
 
 
 async def generate_optimal_route(

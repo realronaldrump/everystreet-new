@@ -505,6 +505,7 @@ task_history_collection = _get_collection("task_history")
 progress_collection = _get_collection("progress_status")
 gas_fillups_collection = _get_collection("gas_fillups")
 vehicles_collection = _get_collection("vehicles")
+optimal_route_progress_collection = _get_collection("optimal_route_progress")
 
 
 def serialize_datetime(

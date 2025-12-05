@@ -1785,16 +1785,6 @@ class CoverageManager {
         this.findMostEfficientStreets();
       });
 
-    document
-      .getElementById("generate-optimal-route-btn")
-      ?.addEventListener("click", () => {
-        if (this.currentDashboardLocationId) {
-          this.navigation.generateOptimalRoute(this.currentDashboardLocationId);
-        } else {
-          this.notificationManager.show("Please select a location first.", "warning");
-        }
-      });
-
     document.getElementById("refresh-table-btn")?.addEventListener("click", () => {
       this.loadCoverageAreas(true);
     });
