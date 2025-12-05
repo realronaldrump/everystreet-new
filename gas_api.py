@@ -4,10 +4,12 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+import aiohttp
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
 
+from config import API_BASE_URL, AUTH_URL, get_bouncie_config
 from db import (
     aggregate_with_retry,
     delete_one_with_retry,
@@ -21,6 +23,7 @@ from db import (
     vehicles_collection,
 )
 from models import GasFillupCreateModel, VehicleModel
+from utils import get_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -387,18 +390,111 @@ async def delete_gas_fillup(fillup_id: str) -> dict[str, str]:
 # === Vehicle Location and Odometer Lookup ===
 
 
+async def fetch_vehicle_status_from_bouncie(imei: str) -> dict[str, Any] | None:
+    """Fetch real-time vehicle status from Bouncie API.
+
+    Calls GET /v1/vehicles?imei={imei} to get current:
+    - stats.odometer: Current odometer reading
+    - stats.location: Last known lat/lon/address
+    - stats.lastUpdated: When data was last refreshed
+
+    Args:
+        imei: Vehicle IMEI to look up
+
+    Returns:
+        Dict with latitude, longitude, odometer, address, timestamp or None if failed
+    """
+    try:
+        credentials = await get_bouncie_config()
+        session = await get_session()
+
+        # Get access token
+        payload = {
+            "client_id": credentials.get("client_id"),
+            "client_secret": credentials.get("client_secret"),
+            "grant_type": "authorization_code",
+            "code": credentials.get("authorization_code"),
+            "redirect_uri": credentials.get("redirect_uri"),
+        }
+
+        async with session.post(AUTH_URL, data=payload) as auth_response:
+            if auth_response.status != 200:
+                logger.warning(f"Bouncie auth failed: {auth_response.status}")
+                return None
+            auth_data = await auth_response.json()
+            token = auth_data.get("access_token")
+            if not token:
+                logger.warning("No access token in Bouncie response")
+                return None
+
+        # Call vehicles endpoint
+        headers = {
+            "Authorization": token,
+            "Content-Type": "application/json",
+        }
+        url = f"{API_BASE_URL}/vehicles"
+        params = {"imei": imei}
+
+        async with session.get(url, headers=headers, params=params) as response:
+            if response.status != 200:
+                logger.warning(f"Bouncie vehicles API failed: {response.status}")
+                return None
+
+            vehicles = await response.json()
+            if not vehicles:
+                logger.warning(f"No vehicle found for IMEI {imei}")
+                return None
+
+            vehicle = vehicles[0]  # API returns array
+            stats = vehicle.get("stats", {})
+            location = stats.get("location", {})
+
+            result = {
+                "latitude": location.get("lat"),
+                "longitude": location.get("lon"),
+                "address": location.get("address"),
+                "odometer": stats.get("odometer"),
+                "timestamp": stats.get("lastUpdated"),
+                "source": "bouncie_api",
+            }
+
+            logger.info(
+                f"Bouncie API: IMEI {imei} - Odo: {result['odometer']}, "
+                f"Updated: {result['timestamp']}"
+            )
+            return result
+
+    except Exception as e:
+        logger.error(f"Error fetching vehicle status from Bouncie: {e}")
+        return None
+
+
 @router.get("/api/vehicle-location")
 async def get_vehicle_location_at_time(
     imei: str = Query(..., description="Vehicle IMEI"),
-    timestamp: str = Query(..., description="ISO datetime to lookup"),
+    timestamp: str | None = Query(None, description="ISO datetime to lookup"),
     use_now: bool = Query(
         False, description="Use last known location instead of timestamp"
     ),
 ) -> dict[str, Any]:
     """Get vehicle location and odometer at a specific time."""
     try:
+        # Validate: timestamp required when not using "now"
+        if not use_now and not timestamp:
+            raise HTTPException(
+                status_code=400,
+                detail="timestamp parameter is required when use_now is false"
+            )
+
         if use_now:
-            # Get the most recent trip for this vehicle
+            # Try to get real-time data from Bouncie API first
+            bouncie_data = await fetch_vehicle_status_from_bouncie(imei)
+            if bouncie_data and bouncie_data.get("odometer"):
+                logger.info(f"Using real-time Bouncie data for IMEI {imei}")
+                return serialize_document(bouncie_data)
+
+            # Fallback to most recent trip if Bouncie API fails
+            logger.info(f"Falling back to local trip data for IMEI {imei}")
             trip = await find_one_with_retry(
                 trips_collection,
                 {"imei": imei},

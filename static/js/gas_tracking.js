@@ -166,17 +166,25 @@ async function updateLocationAndOdometer() {
     }
 
     const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to fetch location");
+    
+    if (!response.ok) {
+      // Handle specific error cases
+      if (response.status === 404) {
+        // No trip data for this vehicle
+        locationText.textContent = "No trip data available for this vehicle";
+        locationText.classList.add("text-muted");
+        odometerDisplay.textContent = "Enter manually";
+        odometerInput.placeholder = "Enter odometer reading";
+        if (map && marker) marker.remove();
+        currentLocation = null;
+        return;
+      }
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Failed to fetch location (${response.status})`);
+    }
 
     const data = await response.json();
     currentLocation = data;
-
-    // Debug output
-    const debugPre = document.getElementById("location-debug");
-    if (debugPre) {
-        debugPre.textContent = JSON.stringify(data, null, 2);
-        debugPre.style.display = "block";
-    }
 
     // Update map
     if (data.latitude && data.longitude) {
@@ -185,7 +193,7 @@ async function updateLocationAndOdometer() {
         data.address || `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
       locationText.classList.remove("text-muted");
     } else {
-      locationText.textContent = "Location not available (GPS data missing from trip)";
+      locationText.textContent = "Location not available (GPS data missing)";
       locationText.classList.add("text-muted");
       if (map && marker) marker.remove();
     }
@@ -203,13 +211,9 @@ async function updateLocationAndOdometer() {
   } catch (error) {
     console.error("Error fetching location:", error);
     locationText.textContent = "Error loading location";
+    locationText.classList.add("text-muted");
     odometerDisplay.textContent = "--";
-    
-    const debugPre = document.getElementById("location-debug");
-    if (debugPre) {
-        debugPre.textContent = "Error: " + error.message;
-        debugPre.style.display = "block";
-    }
+    currentLocation = null;
   }
 }
 
