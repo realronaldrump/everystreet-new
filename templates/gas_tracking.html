@@ -1,8 +1,9 @@
-{% extends "base.html" %}
-{% block title %}Gas Tracking{% endblock %}
-
-{% block extra_css %}
-<link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet" />
+{% extends "base.html" %} {% block title %}Gas Tracking{% endblock %} {% block
+extra_css %}
+<link
+  href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css"
+  rel="stylesheet"
+/>
 <style>
   /* Gas Tracking Page Styles */
   .gas-hero {
@@ -178,9 +179,7 @@
     display: inline-block;
   }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid py-4">
   <!-- Hero Section -->
   <div class="gas-hero">
@@ -231,7 +230,12 @@
               <span class="form-section-icon">🚗</span>
               Vehicle
             </div>
-            <select class="form-select" id="vehicle-select" name="imei" required>
+            <select
+              class="form-select"
+              id="vehicle-select"
+              name="imei"
+              required
+            >
               <option value="">Select Vehicle...</option>
             </select>
           </div>
@@ -274,16 +278,31 @@
             <div id="fillup-map"></div>
             <!-- Location Info -->
             <div class="location-info">
-              <div class="d-flex justify-content-between align-items-center mb-2">
+              <div
+                class="d-flex justify-content-between align-items-center mb-2"
+              >
                 <strong><i class="fas fa-map-marker-alt"></i> Location</strong>
-                <span id="location-text" class="text-muted">Select vehicle...</span>
+                <span id="location-text" class="text-muted"
+                  >Select vehicle...</span
+                >
               </div>
               <div class="d-flex justify-content-between align-items-center">
                 <strong><i class="fas fa-tachometer-alt"></i> Odometer</strong>
                 <span id="odometer-display">--</span>
               </div>
               <!-- Debug Panel -->
-              <pre id="location-debug" style="display:none; font-size: 0.7rem; background: rgba(0,0,0,0.2); padding: 5px; margin-top: 10px; border-radius: 4px; color: #aaa;"></pre>
+              <pre
+                id="location-debug"
+                style="
+                  display: none;
+                  font-size: 0.7rem;
+                  background: rgba(0, 0, 0, 0.2);
+                  padding: 5px;
+                  margin-top: 10px;
+                  border-radius: 4px;
+                  color: #aaa;
+                "
+              ></pre>
             </div>
           </div>
 
@@ -375,7 +394,11 @@
                 ></textarea>
               </div>
             </div>
-            <div id="calculated-mpg" class="calculated-value" style="display: none">
+            <div
+              id="calculated-mpg"
+              class="calculated-value"
+              style="display: none"
+            >
               Calculated MPG: <span id="mpg-value">--</span>
             </div>
           </div>
@@ -383,7 +406,10 @@
           <!-- Submit Button -->
           <button type="submit" class="btn-save w-100">
             Save Fill-Up
-            <span class="loading-spinner spinner-border spinner-border-sm" role="status">
+            <span
+              class="loading-spinner spinner-border spinner-border-sm"
+              role="status"
+            >
               <span class="visually-hidden">Loading...</span>
             </span>
           </button>
@@ -402,9 +428,7 @@
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script>
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
 </script>
