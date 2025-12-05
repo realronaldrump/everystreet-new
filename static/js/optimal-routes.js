@@ -64,13 +64,56 @@ class OptimalRoutesManager {
     this.map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
     this.map.on("load", () => {
-      // Add empty route source
+      // Add street network sources
+      this.map.addSource("streets-driven", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+
+      this.map.addSource("streets-undriven", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+
+      // Driven streets layer (green)
+      this.map.addLayer({
+        id: "streets-driven-layer",
+        type: "line",
+        source: "streets-driven",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#10b981",
+          "line-width": 2,
+          "line-opacity": 0.6,
+        },
+      });
+
+      // Undriven streets layer (red)
+      this.map.addLayer({
+        id: "streets-undriven-layer",
+        type: "line",
+        source: "streets-undriven",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#ef4444",
+          "line-width": 2.5,
+          "line-opacity": 0.8,
+        },
+      });
+
+      // Add optimal route source (on top of streets)
       this.map.addSource("optimal-route", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
 
-      // Route line layer
+      // Route line layer (purple, thicker, on top)
       this.map.addLayer({
         id: "optimal-route-line",
         type: "line",
@@ -81,7 +124,7 @@ class OptimalRoutesManager {
         },
         paint: {
           "line-color": "#9333ea",
-          "line-width": 4,
+          "line-width": 5,
           "line-opacity": 0.9,
         },
       });
@@ -100,6 +143,54 @@ class OptimalRoutesManager {
         },
       });
     });
+  }
+
+  async loadStreetNetwork(areaId) {
+    try {
+      // Load streets for this area
+      const response = await fetch(`/api/coverage_areas/${areaId}/streets`);
+      if (!response.ok) {
+        console.error("Failed to load streets");
+        return;
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.features) return;
+
+      // Separate driven and undriven streets
+      const drivenFeatures = [];
+      const undrivenFeatures = [];
+
+      data.features.forEach((feature) => {
+        if (feature.properties?.driven) {
+          drivenFeatures.push(feature);
+        } else if (!feature.properties?.undriveable) {
+          undrivenFeatures.push(feature);
+        }
+      });
+
+      // Update map sources
+      const drivenSource = this.map.getSource("streets-driven");
+      const undrivenSource = this.map.getSource("streets-undriven");
+
+      if (drivenSource) {
+        drivenSource.setData({
+          type: "FeatureCollection",
+          features: drivenFeatures,
+        });
+      }
+
+      if (undrivenSource) {
+        undrivenSource.setData({
+          type: "FeatureCollection",
+          features: undrivenFeatures,
+        });
+      }
+
+      console.log(`Loaded ${drivenFeatures.length} driven, ${undrivenFeatures.length} undriven streets`);
+    } catch (error) {
+      console.error("Error loading street network:", error);
+    }
   }
 
   async loadCoverageAreas() {
@@ -190,6 +281,7 @@ class OptimalRoutesManager {
       generateBtn.disabled = true;
       areaStats.style.display = "none";
       this.clearRoute();
+      this.clearStreetNetwork();
       return;
     }
 
@@ -204,11 +296,27 @@ class OptimalRoutesManager {
       areaStats.style.display = "block";
     }
 
+    // Load street network for visualization
+    await this.loadStreetNetwork(areaId);
+
     // Check for existing route
     await this.loadExistingRoute(areaId);
 
-    // Fly to area bounds
+    // Fly to area bounds and show legend
     await this.flyToArea(areaId);
+    document.getElementById("map-legend").style.display = "block";
+  }
+
+  clearStreetNetwork() {
+    const drivenSource = this.map?.getSource("streets-driven");
+    const undrivenSource = this.map?.getSource("streets-undriven");
+    
+    if (drivenSource) {
+      drivenSource.setData({ type: "FeatureCollection", features: [] });
+    }
+    if (undrivenSource) {
+      undrivenSource.setData({ type: "FeatureCollection", features: [] });
+    }
   }
 
   async loadExistingRoute(areaId) {
