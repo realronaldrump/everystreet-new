@@ -44,14 +44,20 @@ async def get_vehicles(
         if vin:
             query["vin"] = vin
         if active_only:
-            query["is_active"] = True
+            # Treat missing is_active field as active (backward compatibility)
+            query["$or"] = [
+                {"is_active": True},
+                {"is_active": {"$exists": False}},
+                {"is_active": None}
+            ]
 
         vehicles = await find_with_retry(
             vehicles_collection,
             query,
             sort=[("created_at", -1)],
         )
-
+        
+        logger.info(f"Fetched {len(vehicles)} vehicles (active_only={active_only})")
         return [serialize_document(v) for v in vehicles]
 
     except Exception as e:
@@ -430,6 +436,7 @@ async def get_vehicle_location_at_time(
                 )
 
         if not trip:
+            logger.warning(f"No trip found for IMEI {imei} (use_now={use_now}, timestamp={timestamp})")
             raise HTTPException(
                 status_code=404, detail="No trip data found for this vehicle"
             )
@@ -442,27 +449,58 @@ async def get_vehicle_location_at_time(
             "timestamp": trip.get("endTime"),
             "address": trip.get("destination", {}).get("formatted_address"),
         }
+        
+        logger.info(f"Vehicle Loc Debug: Found trip {trip.get('transactionId')}, EndOdo: {location_data['odometer']}")
 
         # Try to get coordinates from various sources
+        # 1. GPS FeatureCollection (Most accurate path)
         if trip.get("gps"):
-            # Get the last coordinate from GPS data
             gps = trip["gps"]
             if isinstance(gps, dict) and gps.get("type") == "FeatureCollection":
                 features = gps.get("features", [])
                 if features and features[0].get("geometry", {}).get("coordinates"):
                     coords = features[0]["geometry"]["coordinates"]
                     if coords:
-                        # Get last coordinate [lon, lat]
                         last_coord = coords[-1]
                         location_data["longitude"] = last_coord[0]
                         location_data["latitude"] = last_coord[1]
-
-        # Fallback to destinationGeoPoint if available
+        
+        # 2. Destination GeoPoint
         if not location_data["latitude"] and trip.get("destinationGeoPoint"):
             geo_point = trip["destinationGeoPoint"]
             if geo_point.get("coordinates"):
                 location_data["longitude"] = geo_point["coordinates"][0]
                 location_data["latitude"] = geo_point["coordinates"][1]
+                logger.info("Vehicle Loc Debug: Used destinationGeoPoint fallback")
+
+        # 3. End Location (Direct lat/lon)
+        if not location_data["latitude"] and trip.get("endLocation"):
+            end_loc = trip["endLocation"]
+            if "lat" in end_loc and "lon" in end_loc:
+                location_data["latitude"] = end_loc["lat"]
+                location_data["longitude"] = end_loc["lon"]
+                logger.info("Vehicle Loc Debug: Used endLocation fallback")
+
+        # 4. Start Location (Fallback if trip has no movement?)
+        if not location_data["latitude"] and trip.get("startLocation"):
+            start_loc = trip["startLocation"]
+            if "lat" in start_loc and "lon" in start_loc:
+                location_data["latitude"] = start_loc["lat"]
+                location_data["longitude"] = start_loc["lon"]
+                logger.info("Vehicle Loc Debug: Used startLocation fallback")
+
+        # Odometer Fallback
+        if location_data["odometer"] is None:
+             # Try startOdometer + distance? Or just startOdometer
+             if trip.get("endOdometer"):
+                 location_data["odometer"] = trip.get("endOdometer")
+             elif trip.get("startOdometer"):
+                 # Check if we can add distance
+                 distance = trip.get("distance", 0)
+                 # Distance is usually in km or mi? Bouncie is usually km, need to verify.
+                 # Actually, usually odometer is enough.
+                 location_data["odometer"] = trip.get("startOdometer")
+                 logger.info(f"Vehicle Loc Debug: Fallback to startOdometer {location_data['odometer']}")
 
         return serialize_document(location_data)
 
@@ -510,7 +548,7 @@ async def get_gas_statistics(
             [
                 {
                     "$group": {
-                        "_id": "$imei" if not imei else None,
+                        "_id": None,
                         "total_fillups": {"$sum": 1},
                         "total_gallons": {"$sum": "$gallons"},
                         "total_cost": {"$sum": "$total_cost"},
@@ -573,6 +611,7 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
     """Sync vehicles from trip data - creates vehicle records with VIN info from trips."""
     try:
         # Get unique vehicles from trips
+        # Using aggregation to get the latest info per IMEI
         pipeline = [
             {
                 "$group": {
@@ -588,6 +627,10 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
 
         synced_count = 0
         updated_count = 0
+        
+        # Get all existing vehicles to memory to avoid N+1 queries (assuming low # of vehicles)
+        existing_vehicles = await vehicles_collection.find().to_list(None)
+        existing_map = {v["imei"]: v for v in existing_vehicles}
 
         for tv in trip_vehicles:
             imei = tv["_id"]
@@ -596,8 +639,7 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
             if not imei:
                 continue
 
-            # Check if vehicle exists
-            existing = await find_one_with_retry(vehicles_collection, {"imei": imei})
+            existing = existing_map.get(imei)
 
             if existing:
                 # Update VIN if we have it and it's not set
@@ -626,6 +668,8 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
                 await insert_one_with_retry(vehicles_collection, vehicle_doc)
                 synced_count += 1
 
+        logger.info(f"Vehicle sync complete: {synced_count} new, {updated_count} updated")
+        
         return {
             "status": "success",
             "synced": synced_count,

@@ -465,13 +465,6 @@
     const vehiclesList = document.getElementById("vehiclesList");
 
     try {
-      // First, sync vehicles from trips to ensure VINs are populated
-      try {
-        await fetch("/api/vehicles/sync-from-trips", { method: "POST" });
-      } catch (syncError) {
-        console.warn("Failed to sync vehicles:", syncError);
-      }
-
       const response = await fetch("/api/vehicles?active_only=false");
       if (!response.ok) throw new Error("Failed to load vehicles");
 

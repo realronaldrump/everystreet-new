@@ -12,7 +12,18 @@ let _selectedVehicle = null;
 
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", async () => {
-  await initializePage();
+  console.log("Gas Tracking: DOM Loaded");
+  try {
+    if (!window.MAPBOX_ACCESS_TOKEN) {
+        console.error("Gas Tracking: Mapbox token missing from window!");
+    } else {
+        console.log("Gas Tracking: Mapbox token found");
+    }
+    await initializePage();
+  } catch (e) {
+    console.error("Gas Tracking: Critical initialization error:", e);
+    showError("Critical Error: " + e.message);
+  }
 });
 
 /**
@@ -52,17 +63,24 @@ async function initializeMap() {
     return;
   }
 
-  mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
-
-  map = new mapboxgl.Map({
-    container: "fillup-map",
-    style: "mapbox://styles/mapbox/streets-v12",
-    center: [-95.7129, 37.0902], // Default: US center
-    zoom: 4,
-  });
-
-  // Add navigation controls
-  map.addControl(new mapboxgl.NavigationControl(), "top-right");
+  // Use the shared map factory if available to ensure consistent styling
+  if (window.mapBase && window.mapBase.createMap) {
+      map = window.mapBase.createMap("fillup-map", {
+          center: [-95.7129, 37.0902],
+          zoom: 4,
+          attributionControl: false // usually handled by css or small container
+      });
+  } else {
+      // Fallback if factory not found
+      mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+      map = new mapboxgl.Map({
+        container: "fillup-map",
+        style: "mapbox://styles/mapbox/dark-v11", // Default to dark as per app theme
+        center: [-95.7129, 37.0902],
+        zoom: 4,
+      });
+      map.addControl(new mapboxgl.NavigationControl(), "top-right");
+  }
 
   // Wait for map to load
   await new Promise((resolve) => map.on("load", resolve));
@@ -73,29 +91,21 @@ async function initializeMap() {
  */
 async function loadVehicles() {
   try {
-    // First sync vehicles from trips to ensure they exist
-    try {
-      const syncResponse = await fetch("/api/vehicles/sync-from-trips", { method: "POST" });
-      if (syncResponse.ok) {
-        const syncResult = await syncResponse.json();
-        console.log("Vehicle sync result:", syncResult);
-      }
-    } catch (syncError) {
-      console.warn("Failed to sync vehicles:", syncError);
-    }
-
     const response = await fetch("/api/vehicles?active_only=true");
     if (!response.ok) throw new Error("Failed to load vehicles");
 
     vehicles = await response.json();
-    console.log(`Loaded ${vehicles.length} vehicles:`, vehicles);
 
     const vehicleSelect = document.getElementById("vehicle-select");
     vehicleSelect.innerHTML = '<option value="">Select Vehicle...</option>';
 
     if (vehicles.length === 0) {
+      // Option for empty state
       vehicleSelect.innerHTML =
-        '<option value="">No vehicles found - check profile settings</option>';
+        '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
+      
+      // Also show a clearer visual warning if possible
+      showError("No active vehicles found. Please go to Settings > Profile to manage vehicles.");
       return;
     }
 
@@ -115,6 +125,9 @@ async function loadVehicles() {
       vehicleSelect.value = vehicles[0].imei;
       _selectedVehicle = vehicles[0];
       await updateLocationAndOdometer();
+    } else if (vehicles.length > 0) {
+        // Optional: restore last selected vehicle from localStorage if needed
+        // For now, just leave as "Select Vehicle..."
     }
   } catch (error) {
     console.error("Error loading vehicles:", error);
@@ -158,26 +171,45 @@ async function updateLocationAndOdometer() {
     const data = await response.json();
     currentLocation = data;
 
+    // Debug output
+    const debugPre = document.getElementById("location-debug");
+    if (debugPre) {
+        debugPre.textContent = JSON.stringify(data, null, 2);
+        debugPre.style.display = "block";
+    }
+
     // Update map
     if (data.latitude && data.longitude) {
       updateMap(data.latitude, data.longitude);
       locationText.textContent =
         data.address || `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
+      locationText.classList.remove("text-muted");
     } else {
-      locationText.textContent = "Location not available";
+      locationText.textContent = "Location not available (GPS data missing from trip)";
+      locationText.classList.add("text-muted");
+      if (map && marker) marker.remove();
     }
 
-    // Update odometer
-    if (data.odometer) {
-      odometerDisplay.textContent = Math.round(data.odometer);
-      odometerInput.value = Math.round(data.odometer);
+    // Update odometer - strict check for null/undefined to allow 0
+    if (data.odometer != null) {
+      const odoVal = Math.round(data.odometer);
+      odometerDisplay.textContent = odoVal.toLocaleString();
+      odometerInput.value = odoVal;
     } else {
       odometerDisplay.textContent = "Not available";
+      // Don't clear manual input if user typed something
+      if (!odometerInput.value) odometerInput.placeholder = "Enter manually";
     }
   } catch (error) {
     console.error("Error fetching location:", error);
     locationText.textContent = "Error loading location";
     odometerDisplay.textContent = "--";
+    
+    const debugPre = document.getElementById("location-debug");
+    if (debugPre) {
+        debugPre.textContent = "Error: " + error.message;
+        debugPre.style.display = "block";
+    }
   }
 }
 
@@ -402,10 +434,19 @@ function createFillupItem(fillup) {
     ? `$${fillup.price_per_gallon.toFixed(2)}`
     : "--";
 
+  // Lookup vehicle name
+  const vehicle = vehicles.find(v => v.imei === fillup.imei);
+  const vehicleName = vehicle 
+      ? (vehicle.custom_name || `Vehicle ${vehicle.vin || vehicle.imei}`)
+      : (fillup.vin || fillup.imei || "Unknown Vehicle");
+
   return `
         <div class="fillup-item">
             <div class="fillup-header">
-                <span class="fillup-date">${date}</span>
+                <div>
+                    <span class="fillup-date">${date}</span>
+                    <div class="small text-muted">${vehicleName}</div>
+                </div>
                 <span class="badge bg-primary">${fillup.gallons.toFixed(2)} gal</span>
             </div>
             <div class="fillup-details">
@@ -426,7 +467,7 @@ function createFillupItem(fillup) {
                     <span class="fillup-detail-value">${fillup.odometer ? `${Math.round(fillup.odometer)} mi` : "--"}</span>
                 </div>
             </div>
-            ${fillup.notes ? `<div class="mt-2"><small class="text-muted">${fillup.notes}</small></div>` : ""}
+            ${fillup.notes ? `<div class="mt-2 text-wrap text-break"><small class="text-muted"><i class="fas fa-note-sticky me-1"></i>${fillup.notes}</small></div>` : ""}
         </div>
     `;
 }
