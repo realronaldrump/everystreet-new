@@ -122,7 +122,9 @@ def _solve_rpp(
                     for v in remaining_list[1:]:
                         dist = odd_pairs_distances.get(
                             (min(u, v), max(u, v)),
-                            odd_pairs_distances.get((max(u, v), min(u, v)), float("inf")),
+                            odd_pairs_distances.get(
+                                (max(u, v), min(u, v)), float("inf")
+                            ),
                         )
                         if dist < best_dist:
                             best_dist = dist
@@ -241,7 +243,9 @@ async def generate_optimal_route(
         bbox = location_info.get("boundingbox")
         if bbox and len(bbox) >= 4:
             # bbox is [south, north, west, east] or [min_lat, max_lat, min_lon, max_lon]
-            polygon = box(float(bbox[2]), float(bbox[0]), float(bbox[3]), float(bbox[1]))
+            polygon = box(
+                float(bbox[2]), float(bbox[0]), float(bbox[3]), float(bbox[1])
+            )
         else:
             raise ValueError("No valid boundary for coverage area")
 
@@ -415,7 +419,9 @@ async def save_optimal_route(location_id: str, route_result: dict[str, Any]) -> 
     logger.info("Saved optimal route for location %s", location_id)
 
 
-def build_gpx_from_coords(coords: list[list[float]], name: str = "Optimal Route") -> str:
+def build_gpx_from_coords(
+    coords: list[list[float]], name: str = "Optimal Route"
+) -> str:
     """Build GPX XML from coordinate list.
 
     Args:
@@ -425,7 +431,7 @@ def build_gpx_from_coords(coords: list[list[float]], name: str = "Optimal Route"
     Returns:
         GPX XML string
     """
-    gpx_header = f'''<?xml version="1.0" encoding="UTF-8"?>
+    gpx_header = f"""<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="EveryStreet"
      xmlns="http://www.topografix.com/GPX/1/1"
      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -437,7 +443,7 @@ def build_gpx_from_coords(coords: list[list[float]], name: str = "Optimal Route"
   <trk>
     <name>{name}</name>
     <trkseg>
-'''
+"""
     gpx_footer = """    </trkseg>
   </trk>
 </gpx>"""

@@ -52,8 +52,8 @@ from live_tracking import (
     process_trip_metrics,
     process_trip_start,
 )
-from street_coverage_calculation import compute_incremental_coverage
 from route_solver import generate_optimal_route, save_optimal_route
+from street_coverage_calculation import compute_incremental_coverage
 from trip_processor import TripProcessor, TripState
 from trip_service import TripService
 from utils import run_async_from_sync
