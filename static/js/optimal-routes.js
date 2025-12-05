@@ -191,7 +191,9 @@ class OptimalRoutesManager {
         });
       }
 
-      console.log(`Loaded ${drivenFeatures.length} driven, ${undrivenFeatures.length} undriven streets`);
+      console.log(
+        `Loaded ${drivenFeatures.length} driven, ${undrivenFeatures.length} undriven streets`
+      );
     } catch (error) {
       console.error("Error loading street network:", error);
     }
@@ -244,7 +246,8 @@ class OptimalRoutesManager {
     const areasWithRoutes = areas.filter((a) => a.optimal_route);
 
     if (areasWithRoutes.length === 0) {
-      historyContainer.innerHTML = '<div class="text-muted small">No saved routes yet.</div>';
+      historyContainer.innerHTML =
+        '<div class="text-muted small">No saved routes yet.</div>';
       return;
     }
 
@@ -269,7 +272,7 @@ class OptimalRoutesManager {
     // Add click handlers
     historyContainer.querySelectorAll(".route-history-item").forEach((item) => {
       item.addEventListener("click", () => {
-        const areaId = item.dataset.areaId;
+        const {areaId} = item.dataset;
         document.getElementById("area-select").value = areaId;
         this.onAreaSelect(areaId);
         this.loadExistingRoute(areaId);
@@ -294,10 +297,14 @@ class OptimalRoutesManager {
     generateBtn.disabled = false;
 
     // Show area stats
-    const selectedOption = document.querySelector(`#area-select option[value="${areaId}"]`);
+    const selectedOption = document.querySelector(
+      `#area-select option[value="${areaId}"]`
+    );
     if (selectedOption) {
-      document.getElementById("area-coverage").textContent = `${selectedOption.dataset.coverage}%`;
-      document.getElementById("area-remaining").textContent = selectedOption.dataset.remaining;
+      document.getElementById("area-coverage").textContent =
+        `${selectedOption.dataset.coverage}%`;
+      document.getElementById("area-remaining").textContent =
+        selectedOption.dataset.remaining;
       areaStats.style.display = "block";
     }
 
@@ -315,7 +322,7 @@ class OptimalRoutesManager {
   clearStreetNetwork() {
     const drivenSource = this.map?.getSource("streets-driven");
     const undrivenSource = this.map?.getSource("streets-undriven");
-    
+
     if (drivenSource) {
       drivenSource.setData({ type: "FeatureCollection", features: [] });
     }
@@ -355,7 +362,7 @@ class OptimalRoutesManager {
 
       if (!data.success || !data.coverage) return;
 
-      const location = data.coverage.location;
+      const {location} = data.coverage;
       if (location?.boundingbox) {
         const [south, north, west, east] = location.boundingbox.map(parseFloat);
         this.map?.fitBounds(
@@ -556,7 +563,7 @@ class OptimalRoutesManager {
           type: "Feature",
           geometry: {
             type: "LineString",
-            coordinates: coordinates,
+            coordinates,
           },
           properties: stats,
         },
@@ -636,9 +643,9 @@ class OptimalRoutesManager {
 
     if (userUnits === "km") {
       return `${(meters / 1000).toFixed(2)} km`;
-    } else {
+    } 
       return `${(meters / 1609.344).toFixed(2)} mi`;
-    }
+    
   }
 
   showNotification(message, type = "info") {

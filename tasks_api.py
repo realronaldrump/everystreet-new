@@ -405,7 +405,6 @@ async def get_celery_task_status(celery_task_id: str):
         ) from exc
 
 
-
 @router.get("/api/background_tasks/task/{task_id}")
 async def get_task_details(task_id: str):
     """Get detailed information about a specific task."""

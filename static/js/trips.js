@@ -105,7 +105,9 @@ class TripsManager {
     if (!address) return "";
 
     // Remove trailing country information (e.g., ", USA" or ", United States")
-    let cleaned = address.trim().replace(/,?\s*(USA|United States(?: of America)?)(?=$)/i, "");
+    let cleaned = address
+      .trim()
+      .replace(/,?\s*(USA|United States(?: of America)?)(?=$)/i, "");
 
     // Remove any trailing commas left after removing the country
     cleaned = cleaned.replace(/,\s*$/, "");

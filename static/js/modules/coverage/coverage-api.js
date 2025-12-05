@@ -342,4 +342,3 @@ const COVERAGE_API = {
 };
 
 export default COVERAGE_API;
-

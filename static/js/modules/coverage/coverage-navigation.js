@@ -490,7 +490,10 @@ class CoverageNavigation {
       if (result.status === "COMPLETED" || result.status === "SUCCESS") {
         // Fetch and display the generated route
         await this.displayOptimalRoute(locationId);
-        this.notificationManager.show("Optimal route generated successfully!", "success");
+        this.notificationManager.show(
+          "Optimal route generated successfully!",
+          "success"
+        );
       } else if (result.status === "FAILED") {
         throw new Error(result.error || "Route generation failed");
       }
@@ -567,7 +570,7 @@ class CoverageNavigation {
       };
 
       // Add or update the route source and layer
-      const map = this.coverageMap.map;
+      const {map} = this.coverageMap;
 
       if (map.getSource("optimal-route")) {
         map.getSource("optimal-route").setData(geojson);
@@ -730,7 +733,7 @@ class CoverageNavigation {
   clearOptimalRoute() {
     if (!this.coverageMap?.map) return;
 
-    const map = this.coverageMap.map;
+    const {map} = this.coverageMap;
 
     // Remove layers
     if (map.getLayer("optimal-route-arrows")) {
@@ -758,7 +761,7 @@ class CoverageNavigation {
   async loadExistingOptimalRoute(locationId) {
     try {
       const route = await COVERAGE_API.getOptimalRoute(locationId);
-      if (route && route.coordinates && route.coordinates.length > 0) {
+      if (route?.coordinates && route.coordinates.length > 0) {
         this.currentOptimalRouteLocationId = locationId;
         await this.displayOptimalRoute(locationId);
       }
@@ -769,4 +772,3 @@ class CoverageNavigation {
 }
 
 export default CoverageNavigation;
-

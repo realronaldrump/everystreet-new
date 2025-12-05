@@ -15,14 +15,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   console.log("Gas Tracking: DOM Loaded");
   try {
     if (!window.MAPBOX_ACCESS_TOKEN) {
-        console.error("Gas Tracking: Mapbox token missing from window!");
+      console.error("Gas Tracking: Mapbox token missing from window!");
     } else {
-        console.log("Gas Tracking: Mapbox token found");
+      console.log("Gas Tracking: Mapbox token found");
     }
     await initializePage();
   } catch (e) {
     console.error("Gas Tracking: Critical initialization error:", e);
-    showError("Critical Error: " + e.message);
+    showError(`Critical Error: ${e.message}`);
   }
 });
 
@@ -64,22 +64,22 @@ async function initializeMap() {
   }
 
   // Use the shared map factory if available to ensure consistent styling
-  if (window.mapBase && window.mapBase.createMap) {
-      map = window.mapBase.createMap("fillup-map", {
-          center: [-95.7129, 37.0902],
-          zoom: 4,
-          attributionControl: false // usually handled by css or small container
-      });
+  if (window.mapBase?.createMap) {
+    map = window.mapBase.createMap("fillup-map", {
+      center: [-95.7129, 37.0902],
+      zoom: 4,
+      attributionControl: false, // usually handled by css or small container
+    });
   } else {
-      // Fallback if factory not found
-      mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
-      map = new mapboxgl.Map({
-        container: "fillup-map",
-        style: "mapbox://styles/mapbox/dark-v11", // Default to dark as per app theme
-        center: [-95.7129, 37.0902],
-        zoom: 4,
-      });
-      map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    // Fallback if factory not found
+    mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+    map = new mapboxgl.Map({
+      container: "fillup-map",
+      style: "mapbox://styles/mapbox/dark-v11", // Default to dark as per app theme
+      center: [-95.7129, 37.0902],
+      zoom: 4,
+    });
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
   }
 
   // Wait for map to load
@@ -103,9 +103,11 @@ async function loadVehicles() {
       // Option for empty state
       vehicleSelect.innerHTML =
         '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
-      
+
       // Also show a clearer visual warning if possible
-      showError("No active vehicles found. Please go to Settings > Profile to manage vehicles.");
+      showError(
+        "No active vehicles found. Please go to Settings > Profile to manage vehicles."
+      );
       return;
     }
 
@@ -126,8 +128,8 @@ async function loadVehicles() {
       _selectedVehicle = vehicles[0];
       await updateLocationAndOdometer();
     } else if (vehicles.length > 0) {
-        // Optional: restore last selected vehicle from localStorage if needed
-        // For now, just leave as "Select Vehicle..."
+      // Optional: restore last selected vehicle from localStorage if needed
+      // For now, just leave as "Select Vehicle..."
     }
   } catch (error) {
     console.error("Error loading vehicles:", error);
@@ -166,7 +168,7 @@ async function updateLocationAndOdometer() {
     }
 
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       // Handle specific error cases
       if (response.status === 404) {
@@ -180,7 +182,9 @@ async function updateLocationAndOdometer() {
         return;
       }
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `Failed to fetch location (${response.status})`);
+      throw new Error(
+        errorData.detail || `Failed to fetch location (${response.status})`
+      );
     }
 
     const data = await response.json();
@@ -439,10 +443,10 @@ function createFillupItem(fillup) {
     : "--";
 
   // Lookup vehicle name
-  const vehicle = vehicles.find(v => v.imei === fillup.imei);
-  const vehicleName = vehicle 
-      ? (vehicle.custom_name || `Vehicle ${vehicle.vin || vehicle.imei}`)
-      : (fillup.vin || fillup.imei || "Unknown Vehicle");
+  const vehicle = vehicles.find((v) => v.imei === fillup.imei);
+  const vehicleName = vehicle
+    ? vehicle.custom_name || `Vehicle ${vehicle.vin || vehicle.imei}`
+    : fillup.vin || fillup.imei || "Unknown Vehicle";
 
   return `
         <div class="fillup-item">
