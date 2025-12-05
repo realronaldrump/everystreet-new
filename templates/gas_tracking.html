@@ -409,5 +409,5 @@
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
 </script>
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
-<script src="{{ url_for('static', path='js/gas_tracking.js') }}"></script>
+<script src="{{ url_for('static', path='js/gas_tracking.js') | replace('http://', '//') }}"></script>
 {% endblock %}
