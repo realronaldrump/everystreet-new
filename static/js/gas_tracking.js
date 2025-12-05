@@ -15,9 +15,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   console.log("Gas Tracking: DOM Loaded");
   try {
     if (!window.MAPBOX_ACCESS_TOKEN) {
-        console.error("Gas Tracking: Mapbox token missing from window!");
+      console.error("Gas Tracking: Mapbox token missing from window!");
     } else {
-        console.log("Gas Tracking: Mapbox token found");
+      console.log("Gas Tracking: Mapbox token found");
     }
     await initializePage();
   } catch (e) {
@@ -65,21 +65,21 @@ async function initializeMap() {
 
   // Use the shared map factory if available to ensure consistent styling
   if (window.mapBase && window.mapBase.createMap) {
-      map = window.mapBase.createMap("fillup-map", {
-          center: [-95.7129, 37.0902],
-          zoom: 4,
-          attributionControl: false // usually handled by css or small container
-      });
+    map = window.mapBase.createMap("fillup-map", {
+      center: [-95.7129, 37.0902],
+      zoom: 4,
+      attributionControl: false, // usually handled by css or small container
+    });
   } else {
-      // Fallback if factory not found
-      mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
-      map = new mapboxgl.Map({
-        container: "fillup-map",
-        style: "mapbox://styles/mapbox/dark-v11", // Default to dark as per app theme
-        center: [-95.7129, 37.0902],
-        zoom: 4,
-      });
-      map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    // Fallback if factory not found
+    mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+    map = new mapboxgl.Map({
+      container: "fillup-map",
+      style: "mapbox://styles/mapbox/dark-v11", // Default to dark as per app theme
+      center: [-95.7129, 37.0902],
+      zoom: 4,
+    });
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
   }
 
   // Wait for map to load
@@ -103,9 +103,11 @@ async function loadVehicles() {
       // Option for empty state
       vehicleSelect.innerHTML =
         '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
-      
+
       // Also show a clearer visual warning if possible
-      showError("No active vehicles found. Please go to Settings > Profile to manage vehicles.");
+      showError(
+        "No active vehicles found. Please go to Settings > Profile to manage vehicles.",
+      );
       return;
     }
 
@@ -126,8 +128,8 @@ async function loadVehicles() {
       _selectedVehicle = vehicles[0];
       await updateLocationAndOdometer();
     } else if (vehicles.length > 0) {
-        // Optional: restore last selected vehicle from localStorage if needed
-        // For now, just leave as "Select Vehicle..."
+      // Optional: restore last selected vehicle from localStorage if needed
+      // For now, just leave as "Select Vehicle..."
     }
   } catch (error) {
     console.error("Error loading vehicles:", error);
@@ -174,18 +176,20 @@ async function updateLocationAndOdometer() {
     // Debug output
     const debugPre = document.getElementById("location-debug");
     if (debugPre) {
-        debugPre.textContent = JSON.stringify(data, null, 2);
-        debugPre.style.display = "block";
+      debugPre.textContent = JSON.stringify(data, null, 2);
+      debugPre.style.display = "block";
     }
 
     // Update map
     if (data.latitude && data.longitude) {
       updateMap(data.latitude, data.longitude);
       locationText.textContent =
-        data.address || `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
+        data.address ||
+        `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
       locationText.classList.remove("text-muted");
     } else {
-      locationText.textContent = "Location not available (GPS data missing from trip)";
+      locationText.textContent =
+        "Location not available (GPS data missing from trip)";
       locationText.classList.add("text-muted");
       if (map && marker) marker.remove();
     }
@@ -204,11 +208,11 @@ async function updateLocationAndOdometer() {
     console.error("Error fetching location:", error);
     locationText.textContent = "Error loading location";
     odometerDisplay.textContent = "--";
-    
+
     const debugPre = document.getElementById("location-debug");
     if (debugPre) {
-        debugPre.textContent = "Error: " + error.message;
-        debugPre.style.display = "block";
+      debugPre.textContent = "Error: " + error.message;
+      debugPre.style.display = "block";
     }
   }
 }
@@ -235,7 +239,9 @@ function updateMap(lat, lon) {
   }
 
   // Add new marker
-  marker = new mapboxgl.Marker({ color: "#10b981" }).setLngLat([lon, lat]).addTo(map);
+  marker = new mapboxgl.Marker({ color: "#10b981" })
+    .setLngLat([lon, lat])
+    .addTo(map);
 
   // Fly to location
   map.flyTo({
@@ -277,12 +283,14 @@ function setCurrentTime() {
  */
 function setupEventListeners() {
   // Vehicle selection change
-  document.getElementById("vehicle-select").addEventListener("change", async (e) => {
-    _selectedVehicle = vehicles.find((v) => v.imei === e.target.value);
-    await updateLocationAndOdometer();
-    await loadRecentFillups();
-    await loadStatistics();
-  });
+  document
+    .getElementById("vehicle-select")
+    .addEventListener("change", async (e) => {
+      _selectedVehicle = vehicles.find((v) => v.imei === e.target.value);
+      await updateLocationAndOdometer();
+      await loadRecentFillups();
+      await loadStatistics();
+    });
 
   // Fill-up time change
   document
@@ -296,7 +304,9 @@ function setupEventListeners() {
   });
 
   // Calculate total cost when price or gallons change
-  document.getElementById("gallons").addEventListener("input", calculateTotalCost);
+  document
+    .getElementById("gallons")
+    .addEventListener("input", calculateTotalCost);
   document
     .getElementById("price-per-gallon")
     .addEventListener("input", calculateTotalCost);
@@ -324,11 +334,14 @@ async function handleFormSubmit(e) {
     // Gather form data
     const formData = {
       imei: document.getElementById("vehicle-select").value,
-      fillup_time: new Date(document.getElementById("fillup-time").value).toISOString(),
+      fillup_time: new Date(
+        document.getElementById("fillup-time").value,
+      ).toISOString(),
       gallons: parseFloat(document.getElementById("gallons").value),
       price_per_gallon:
         parseFloat(document.getElementById("price-per-gallon").value) || null,
-      total_cost: parseFloat(document.getElementById("total-cost").value) || null,
+      total_cost:
+        parseFloat(document.getElementById("total-cost").value) || null,
       odometer: parseFloat(document.getElementById("odometer").value) || null,
       latitude: currentLocation?.latitude || null,
       longitude: currentLocation?.longitude || null,
@@ -415,7 +428,9 @@ async function loadRecentFillups() {
       return;
     }
 
-    fillupList.innerHTML = fillups.map((fillup) => createFillupItem(fillup)).join("");
+    fillupList.innerHTML = fillups
+      .map((fillup) => createFillupItem(fillup))
+      .join("");
   } catch (error) {
     console.error("Error loading fill-ups:", error);
     fillupList.innerHTML =
@@ -435,10 +450,10 @@ function createFillupItem(fillup) {
     : "--";
 
   // Lookup vehicle name
-  const vehicle = vehicles.find(v => v.imei === fillup.imei);
-  const vehicleName = vehicle 
-      ? (vehicle.custom_name || `Vehicle ${vehicle.vin || vehicle.imei}`)
-      : (fillup.vin || fillup.imei || "Unknown Vehicle");
+  const vehicle = vehicles.find((v) => v.imei === fillup.imei);
+  const vehicleName = vehicle
+    ? vehicle.custom_name || `Vehicle ${vehicle.vin || vehicle.imei}`
+    : fillup.vin || fillup.imei || "Unknown Vehicle";
 
   return `
         <div class="fillup-item">
@@ -490,7 +505,8 @@ async function loadStatistics() {
     const stats = await response.json();
 
     // Update stats display
-    document.getElementById("total-fillups").textContent = stats.total_fillups || 0;
+    document.getElementById("total-fillups").textContent =
+      stats.total_fillups || 0;
     document.getElementById("total-spent").textContent =
       `$${(stats.total_cost || 0).toFixed(2)}`;
     document.getElementById("avg-mpg").textContent = stats.average_mpg
