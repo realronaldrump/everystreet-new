@@ -28,9 +28,11 @@ class OptimalRoutesManager {
     });
 
     // Generate button
-    document.getElementById("generate-route-btn")?.addEventListener("click", () => {
-      this.generateRoute();
-    });
+    document
+      .getElementById("generate-route-btn")
+      ?.addEventListener("click", () => {
+        this.generateRoute();
+      });
 
     // Export GPX
     document.getElementById("export-gpx-btn")?.addEventListener("click", () => {
@@ -38,9 +40,11 @@ class OptimalRoutesManager {
     });
 
     // Clear route
-    document.getElementById("clear-route-btn")?.addEventListener("click", () => {
-      this.clearRoute();
-    });
+    document
+      .getElementById("clear-route-btn")
+      ?.addEventListener("click", () => {
+        this.clearRoute();
+      });
 
     // Retry button
     document.getElementById("retry-btn")?.addEventListener("click", () => {
@@ -187,7 +191,9 @@ class OptimalRoutesManager {
         });
       }
 
-      console.log(`Loaded ${drivenFeatures.length} driven, ${undrivenFeatures.length} undriven streets`);
+      console.log(
+        `Loaded ${drivenFeatures.length} driven, ${undrivenFeatures.length} undriven streets`,
+      );
     } catch (error) {
       console.error("Error loading street network:", error);
     }
@@ -219,7 +225,7 @@ class OptimalRoutesManager {
           option.textContent = `${area.location?.display_name || "Unknown"} (${coverage}%)`;
           option.dataset.coverage = coverage;
           option.dataset.remaining = this.formatDistance(
-            (area.total_length_m || 0) - (area.driven_length_m || 0)
+            (area.total_length_m || 0) - (area.driven_length_m || 0),
           );
           select.appendChild(option);
         });
@@ -239,7 +245,8 @@ class OptimalRoutesManager {
     const areasWithRoutes = areas.filter((a) => a.optimal_route);
 
     if (areasWithRoutes.length === 0) {
-      historyContainer.innerHTML = '<div class="text-muted small">No saved routes yet.</div>';
+      historyContainer.innerHTML =
+        '<div class="text-muted small">No saved routes yet.</div>';
       return;
     }
 
@@ -289,10 +296,14 @@ class OptimalRoutesManager {
     generateBtn.disabled = false;
 
     // Show area stats
-    const selectedOption = document.querySelector(`#area-select option[value="${areaId}"]`);
+    const selectedOption = document.querySelector(
+      `#area-select option[value="${areaId}"]`,
+    );
     if (selectedOption) {
-      document.getElementById("area-coverage").textContent = `${selectedOption.dataset.coverage}%`;
-      document.getElementById("area-remaining").textContent = selectedOption.dataset.remaining;
+      document.getElementById("area-coverage").textContent =
+        `${selectedOption.dataset.coverage}%`;
+      document.getElementById("area-remaining").textContent =
+        selectedOption.dataset.remaining;
       areaStats.style.display = "block";
     }
 
@@ -310,7 +321,7 @@ class OptimalRoutesManager {
   clearStreetNetwork() {
     const drivenSource = this.map?.getSource("streets-driven");
     const undrivenSource = this.map?.getSource("streets-undriven");
-    
+
     if (drivenSource) {
       drivenSource.setData({ type: "FeatureCollection", features: [] });
     }
@@ -321,7 +332,9 @@ class OptimalRoutesManager {
 
   async loadExistingRoute(areaId) {
     try {
-      const response = await fetch(`/api/coverage_areas/${areaId}/optimal-route`);
+      const response = await fetch(
+        `/api/coverage_areas/${areaId}/optimal-route`,
+      );
 
       if (response.status === 404) {
         // No route yet
@@ -358,7 +371,7 @@ class OptimalRoutesManager {
             [west, south],
             [east, north],
           ],
-          { padding: 50, duration: 1000 }
+          { padding: 50, duration: 1000 },
         );
       }
     } catch (error) {
@@ -376,7 +389,7 @@ class OptimalRoutesManager {
       // Start the generation task
       const response = await fetch(
         `/api/coverage_areas/${this.selectedAreaId}/generate-optimal-route`,
-        { method: "POST" }
+        { method: "POST" },
       );
 
       if (!response.ok) {
@@ -401,7 +414,9 @@ class OptimalRoutesManager {
       this.eventSource.close();
     }
 
-    this.eventSource = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
+    this.eventSource = new EventSource(
+      `/api/optimal-routes/${taskId}/progress/sse`,
+    );
 
     this.eventSource.onmessage = (event) => {
       try {
@@ -413,7 +428,9 @@ class OptimalRoutesManager {
           this.onGenerationComplete();
         } else if (data.status === "failed") {
           this.eventSource.close();
-          this.showError(data.error || data.message || "Route generation failed");
+          this.showError(
+            data.error || data.message || "Route generation failed",
+          );
         }
       } catch (e) {
         console.error("SSE parse error:", e);
@@ -566,7 +583,7 @@ class OptimalRoutesManager {
     // Fit bounds to route
     const bounds = coordinates.reduce(
       (bounds, coord) => bounds.extend(coord),
-      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
     );
 
     this.map.fitBounds(bounds, { padding: 50, duration: 1000 });
@@ -574,15 +591,12 @@ class OptimalRoutesManager {
 
   showResults(data) {
     // Update stats
-    document.getElementById("stat-total-distance").textContent = this.formatDistance(
-      data.total_distance_m
-    );
-    document.getElementById("stat-required-distance").textContent = this.formatDistance(
-      data.required_distance_m
-    );
-    document.getElementById("stat-deadhead-distance").textContent = this.formatDistance(
-      data.deadhead_distance_m
-    );
+    document.getElementById("stat-total-distance").textContent =
+      this.formatDistance(data.total_distance_m);
+    document.getElementById("stat-required-distance").textContent =
+      this.formatDistance(data.required_distance_m);
+    document.getElementById("stat-deadhead-distance").textContent =
+      this.formatDistance(data.deadhead_distance_m);
     document.getElementById("stat-deadhead-percent").textContent = `${(
       100 - (data.deadhead_percentage || 0)
     ).toFixed(1)}%`;
