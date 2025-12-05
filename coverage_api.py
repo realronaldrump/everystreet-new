@@ -1727,3 +1727,159 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
         "status": "success",
         "task_id": task_id,
     }
+
+
+# =============================================================================
+# Optimal Route Generation Endpoints
+# =============================================================================
+
+
+@router.post("/api/coverage_areas/{location_id}/generate-optimal-route")
+async def start_optimal_route_generation(
+    location_id: str,
+    start_lon: float = Query(None, description="Optional starting longitude"),
+    start_lat: float = Query(None, description="Optional starting latitude"),
+):
+    """Start a background task to generate optimal completion route.
+
+    Uses the Rural Postman Problem algorithm to find the minimum-distance
+    circuit that covers all undriven streets in the coverage area.
+    """
+    from tasks import generate_optimal_route_task
+
+    try:
+        obj_location_id = ObjectId(location_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid location_id format")
+
+    # Verify coverage area exists
+    coverage_doc = await find_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": obj_location_id},
+        {"location.display_name": 1, "status": 1},
+    )
+
+    if not coverage_doc:
+        raise HTTPException(status_code=404, detail="Coverage area not found")
+
+    if coverage_doc.get("status") == "processing":
+        raise HTTPException(
+            status_code=400,
+            detail="Coverage area is still being processed. Wait for completion.",
+        )
+
+    # Start the Celery task
+    task = generate_optimal_route_task.delay(
+        location_id=location_id,
+        start_lon=start_lon,
+        start_lat=start_lat,
+        manual_run=True,
+    )
+
+    logger.info(
+        "Started optimal route generation task %s for location %s",
+        task.id,
+        location_id,
+    )
+
+    return {"task_id": task.id, "status": "started"}
+
+
+@router.get("/api/coverage_areas/{location_id}/optimal-route")
+async def get_optimal_route(location_id: str):
+    """Retrieve the generated optimal route for a coverage area."""
+    try:
+        obj_location_id = ObjectId(location_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid location_id format")
+
+    coverage_doc = await find_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": obj_location_id},
+        {"optimal_route": 1, "location.display_name": 1},
+    )
+
+    if not coverage_doc:
+        raise HTTPException(status_code=404, detail="Coverage area not found")
+
+    route = coverage_doc.get("optimal_route")
+    if not route:
+        raise HTTPException(
+            status_code=404,
+            detail="No optimal route generated yet. Use POST to generate one.",
+        )
+
+    # Serialize datetime if present
+    if isinstance(route.get("generated_at"), datetime):
+        route["generated_at"] = route["generated_at"].isoformat()
+
+    return {
+        "status": "success",
+        "location_name": coverage_doc.get("location", {}).get("display_name"),
+        **route,
+    }
+
+
+@router.get("/api/coverage_areas/{location_id}/optimal-route/gpx")
+async def export_optimal_route_gpx(location_id: str):
+    """Export optimal route as GPX file for navigation apps."""
+    from route_solver import build_gpx_from_coords
+
+    try:
+        obj_location_id = ObjectId(location_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid location_id format")
+
+    coverage_doc = await find_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": obj_location_id},
+        {"optimal_route": 1, "location.display_name": 1},
+    )
+
+    if not coverage_doc:
+        raise HTTPException(status_code=404, detail="Coverage area not found")
+
+    route = coverage_doc.get("optimal_route")
+    if not route or not route.get("coordinates"):
+        raise HTTPException(
+            status_code=404,
+            detail="No optimal route available. Generate one first.",
+        )
+
+    location_name = coverage_doc.get("location", {}).get("display_name", "Route")
+    gpx_content = build_gpx_from_coords(
+        route["coordinates"],
+        name=f"Optimal Route - {location_name}",
+    )
+
+    # Generate filename
+    safe_filename = "".join(
+        c if c.isalnum() or c in "-_" else "_" for c in location_name[:50]
+    )
+    filename = f"optimal_route_{safe_filename}.gpx"
+
+    return Response(
+        content=gpx_content,
+        media_type="application/gpx+xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.delete("/api/coverage_areas/{location_id}/optimal-route")
+async def delete_optimal_route(location_id: str):
+    """Delete the saved optimal route for a coverage area."""
+    try:
+        obj_location_id = ObjectId(location_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid location_id format")
+
+    result = await update_one_with_retry(
+        coverage_metadata_collection,
+        {"_id": obj_location_id},
+        {"$unset": {"optimal_route": 1}},
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Coverage area not found")
+
+    return {"status": "success", "message": "Optimal route deleted"}

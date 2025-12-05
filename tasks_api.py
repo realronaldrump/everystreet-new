@@ -349,6 +349,63 @@ async def schedule_fetch_all_missing_trips(payload: FetchAllMissingPayload = Non
         ) from exc
 
 
+@router.get("/api/tasks/{celery_task_id}/status")
+async def get_celery_task_status(celery_task_id: str):
+    """Get the status of a Celery task by its ID.
+
+    This endpoint checks both the task history collection and Celery's
+    backend to provide the current state of a background task.
+    """
+    from celery.result import AsyncResult
+
+    from celery_app import app as celery_app
+    from db import find_one_with_retry
+
+    try:
+        # First check our task history collection
+        history_entry = await find_one_with_retry(
+            task_history_collection,
+            {"_id": celery_task_id},
+        )
+
+        if history_entry:
+            return {
+                "task_id": celery_task_id,
+                "status": history_entry.get("status", "UNKNOWN"),
+                "result": history_entry.get("result"),
+                "error": history_entry.get("error"),
+                "start_time": serialize_datetime(history_entry.get("start_time")),
+                "end_time": serialize_datetime(history_entry.get("end_time")),
+                "runtime_ms": history_entry.get("runtime"),
+            }
+
+        # Fall back to checking Celery's result backend
+        result = AsyncResult(celery_task_id, app=celery_app)
+
+        response = {
+            "task_id": celery_task_id,
+            "status": result.status,
+            "result": None,
+            "error": None,
+        }
+
+        if result.ready():
+            if result.successful():
+                response["result"] = result.result
+            elif result.failed():
+                response["error"] = str(result.result)
+
+        return response
+
+    except Exception as exc:
+        logger.exception("Error getting task status for %s: %s", celery_task_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get task status: {exc}",
+        ) from exc
+
+
+
 @router.get("/api/background_tasks/task/{task_id}")
 async def get_task_details(task_id: str):
     """Get detailed information about a specific task."""

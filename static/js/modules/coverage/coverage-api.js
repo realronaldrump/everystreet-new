@@ -272,6 +272,74 @@ const COVERAGE_API = {
     }
     return data.trips;
   },
+
+  /**
+   * Start optimal route generation for a coverage area
+   */
+  async generateOptimalRoute(locationId, startLon = null, startLat = null) {
+    const params = new URLSearchParams();
+    if (startLon !== null) params.set("start_lon", startLon.toString());
+    if (startLat !== null) params.set("start_lat", startLat.toString());
+
+    const url = `/api/coverage_areas/${locationId}/generate-optimal-route${
+      params.toString() ? `?${params}` : ""
+    }`;
+    const response = await fetch(url, { method: "POST" });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP error ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Get the generated optimal route for a coverage area
+   */
+  async getOptimalRoute(locationId) {
+    const response = await fetch(`/api/coverage_areas/${locationId}/optimal-route`);
+    if (response.status === 404) {
+      return null; // No route generated yet
+    }
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP error ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Delete the optimal route for a coverage area
+   */
+  async deleteOptimalRoute(locationId) {
+    const response = await fetch(`/api/coverage_areas/${locationId}/optimal-route`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP error ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Get GPX download URL for optimal route
+   */
+  getOptimalRouteGpxUrl(locationId) {
+    return `/api/coverage_areas/${locationId}/optimal-route/gpx`;
+  },
+
+  /**
+   * Get Celery task status (for polling route generation progress)
+   */
+  async getTaskStatus(taskId) {
+    const response = await fetch(`/api/tasks/${taskId}/status`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP error ${response.status}`);
+    }
+    return response.json();
+  },
 };
 
 export default COVERAGE_API;
+

@@ -453,6 +453,320 @@ class CoverageNavigation {
       if (panel) panel.remove();
     }
   }
+
+  // =========================================================================
+  // Optimal Route Generation Methods
+  // =========================================================================
+
+  /**
+   * Generate optimal completion route for the current coverage area
+   */
+  async generateOptimalRoute(locationId) {
+    if (!locationId) {
+      this.notificationManager.show("Please select a coverage area first.", "warning");
+      return;
+    }
+
+    const btn = document.getElementById("generate-optimal-route-btn");
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating...';
+    }
+
+    try {
+      // Start the route generation task
+      const response = await COVERAGE_API.generateOptimalRoute(locationId);
+      const taskId = response.task_id;
+
+      this.notificationManager.show(
+        "Route generation started. This may take a few minutes...",
+        "info",
+        5000
+      );
+
+      // Poll for completion
+      const result = await this.pollTaskCompletion(taskId);
+
+      if (result.status === "COMPLETED" || result.status === "SUCCESS") {
+        // Fetch and display the generated route
+        await this.displayOptimalRoute(locationId);
+        this.notificationManager.show("Optimal route generated successfully!", "success");
+      } else if (result.status === "FAILED") {
+        throw new Error(result.error || "Route generation failed");
+      }
+    } catch (error) {
+      console.error("Error generating optimal route:", error);
+      this.notificationManager.show(
+        `Error generating route: ${error.message}`,
+        "danger"
+      );
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-route me-1"></i>Optimal Route';
+      }
+    }
+  }
+
+  /**
+   * Poll for task completion
+   */
+  async pollTaskCompletion(taskId, maxAttempts = 120, intervalMs = 2000) {
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const status = await COVERAGE_API.getTaskStatus(taskId);
+
+        if (status.status === "COMPLETED" || status.status === "SUCCESS") {
+          return status;
+        }
+
+        if (status.status === "FAILED") {
+          return status;
+        }
+
+        // Still running, wait and try again
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      } catch (error) {
+        console.warn("Error polling task status:", error);
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
+    }
+
+    throw new Error("Task timed out");
+  }
+
+  /**
+   * Display the optimal route on the map
+   */
+  async displayOptimalRoute(locationId) {
+    if (!this.coverageMap?.map) return;
+
+    try {
+      const route = await COVERAGE_API.getOptimalRoute(locationId);
+
+      if (!route || !route.coordinates || route.coordinates.length === 0) {
+        this.notificationManager.show("No route data available.", "warning");
+        return;
+      }
+
+      // Store location ID for later use (GPX export, etc.)
+      this.currentOptimalRouteLocationId = locationId;
+
+      // Create GeoJSON for the route
+      const geojson = {
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: route.coordinates,
+        },
+        properties: {
+          total_distance_m: route.total_distance_m,
+          deadhead_distance_m: route.deadhead_distance_m,
+          deadhead_percentage: route.deadhead_percentage,
+        },
+      };
+
+      // Add or update the route source and layer
+      const map = this.coverageMap.map;
+
+      if (map.getSource("optimal-route")) {
+        map.getSource("optimal-route").setData(geojson);
+      } else {
+        map.addSource("optimal-route", { type: "geojson", data: geojson });
+
+        map.addLayer({
+          id: "optimal-route-layer",
+          type: "line",
+          source: "optimal-route",
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: {
+            "line-color": "#9333ea",
+            "line-width": 5,
+            "line-opacity": 0.85,
+          },
+        });
+
+        // Add directional arrows
+        map.addLayer({
+          id: "optimal-route-arrows",
+          type: "symbol",
+          source: "optimal-route",
+          layout: {
+            "symbol-placement": "line",
+            "symbol-spacing": 100,
+            "icon-image": "arrow-right",
+            "icon-size": 0.6,
+            "icon-allow-overlap": true,
+          },
+          paint: {
+            "icon-opacity": 0.7,
+          },
+        });
+      }
+
+      // Show stats panel
+      this.showOptimalRoutePanel(route);
+
+      // Fit map to route bounds
+      const bounds = new mapboxgl.LngLatBounds();
+      route.coordinates.forEach((coord) => bounds.extend(coord));
+
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, {
+          padding: { top: 80, bottom: 50, left: 50, right: 350 },
+          maxZoom: 16,
+        });
+      }
+    } catch (error) {
+      console.error("Error displaying optimal route:", error);
+      if (error.message.includes("404")) {
+        // No route available yet
+        this.notificationManager.show(
+          "No optimal route available. Generate one first.",
+          "info"
+        );
+      } else {
+        this.notificationManager.show(
+          `Error loading route: ${error.message}`,
+          "danger"
+        );
+      }
+    }
+  }
+
+  /**
+   * Show optimal route stats panel
+   */
+  showOptimalRoutePanel(route) {
+    let panel = document.getElementById("optimal-route-panel");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "optimal-route-panel";
+      panel.className = "optimal-route-panel-overlay";
+      const dashboard = document.getElementById("coverage-dashboard") || document.body;
+      dashboard.appendChild(panel);
+    }
+
+    const totalKm = (route.total_distance_m / 1000).toFixed(2);
+    const totalMi = (route.total_distance_m / 1609.34).toFixed(2);
+    const requiredKm = ((route.required_distance_m || 0) / 1000).toFixed(2);
+    const deadheadKm = (route.deadhead_distance_m / 1000).toFixed(2);
+    const deadheadPct = route.deadhead_percentage.toFixed(1);
+
+    const html = `
+      <div class="card bg-dark text-white">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">
+            <i class="fas fa-route me-2" style="color: #9333ea;"></i>Optimal Completion Route
+          </h6>
+          <button type="button" class="btn-close btn-close-white" 
+                  onclick="document.getElementById('optimal-route-panel').remove(); document.dispatchEvent(new CustomEvent('coverageClearOptimalRoute'));">
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <div class="stat-box p-2 rounded" style="background: rgba(147, 51, 234, 0.2);">
+                <div class="small text-muted">Total Route</div>
+                <div class="fw-bold">${totalMi} mi <span class="text-muted small">(${totalKm} km)</span></div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="stat-box p-2 rounded" style="background: rgba(234, 179, 8, 0.2);">
+                <div class="small text-muted">Deadhead</div>
+                <div class="fw-bold">${deadheadKm} km <span class="text-warning">(${deadheadPct}%)</span></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="small text-muted mb-3">
+            <i class="fas fa-info-circle me-1"></i>
+            Streets to cover: ${requiredKm} km. Lower deadhead = more efficient route.
+          </div>
+          
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-light flex-grow-1" id="export-gpx-btn">
+              <i class="fas fa-download me-1"></i>Export GPX
+            </button>
+            <button class="btn btn-sm btn-outline-danger" id="clear-optimal-route-btn">
+              <i class="fas fa-times me-1"></i>Clear
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    panel.innerHTML = html;
+
+    // Attach event listeners
+    panel.querySelector("#export-gpx-btn")?.addEventListener("click", () => {
+      this.exportOptimalRouteGpx();
+    });
+
+    panel.querySelector("#clear-optimal-route-btn")?.addEventListener("click", () => {
+      this.clearOptimalRoute();
+    });
+  }
+
+  /**
+   * Export optimal route as GPX
+   */
+  exportOptimalRouteGpx() {
+    if (!this.currentOptimalRouteLocationId) {
+      this.notificationManager.show("No route to export.", "warning");
+      return;
+    }
+
+    const url = COVERAGE_API.getOptimalRouteGpxUrl(this.currentOptimalRouteLocationId);
+    window.open(url, "_blank");
+  }
+
+  /**
+   * Clear optimal route from map
+   */
+  clearOptimalRoute() {
+    if (!this.coverageMap?.map) return;
+
+    const map = this.coverageMap.map;
+
+    // Remove layers
+    if (map.getLayer("optimal-route-arrows")) {
+      map.removeLayer("optimal-route-arrows");
+    }
+    if (map.getLayer("optimal-route-layer")) {
+      map.removeLayer("optimal-route-layer");
+    }
+
+    // Remove source
+    if (map.getSource("optimal-route")) {
+      map.removeSource("optimal-route");
+    }
+
+    // Remove panel
+    const panel = document.getElementById("optimal-route-panel");
+    if (panel) panel.remove();
+
+    this.currentOptimalRouteLocationId = null;
+  }
+
+  /**
+   * Load existing optimal route if available
+   */
+  async loadExistingOptimalRoute(locationId) {
+    try {
+      const route = await COVERAGE_API.getOptimalRoute(locationId);
+      if (route && route.coordinates && route.coordinates.length > 0) {
+        this.currentOptimalRouteLocationId = locationId;
+        await this.displayOptimalRoute(locationId);
+      }
+    } catch (_error) {
+      // No existing route, which is fine
+    }
+  }
 }
 
 export default CoverageNavigation;
+

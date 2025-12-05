@@ -53,6 +53,7 @@ from live_tracking import (
     process_trip_start,
 )
 from street_coverage_calculation import compute_incremental_coverage
+from route_solver import generate_optimal_route, save_optimal_route
 from trip_processor import TripProcessor, TripState
 from trip_service import TripService
 from utils import run_async_from_sync
@@ -124,6 +125,13 @@ TASK_METADATA = {
         "default_interval_minutes": 0,
         "dependencies": [],
         "description": "Fetches all trips from 2020-01-01 to now to fill gaps",
+        "manual_only": True,
+    },
+    "generate_optimal_route": {
+        "display_name": "Generate Optimal Route",
+        "default_interval_minutes": 0,
+        "dependencies": [],
+        "description": "Computes optimal completion route for a coverage area using RPP algorithm",
         "manual_only": True,
     },
 }
@@ -2403,3 +2411,84 @@ async def trigger_fetch_all_missing_trips(
         "message": "Task triggered successfully",
         "task_id": task.id,
     }
+
+
+# =============================================================================
+# Optimal Route Generation Task
+# =============================================================================
+
+
+@task_runner
+async def generate_optimal_route_async(
+    _self,
+    location_id: str,
+    start_lon: float | None = None,
+    start_lat: float | None = None,
+    manual_run: bool = False,
+) -> dict[str, Any]:
+    """Generate optimal completion route for a coverage area.
+
+    Uses the Rural Postman Problem algorithm to find the minimum-distance
+    circuit that covers all undriven streets.
+
+    Args:
+        location_id: MongoDB ObjectId string for the coverage area
+        start_lon: Optional starting longitude
+        start_lat: Optional starting latitude
+        manual_run: Whether this was triggered manually
+
+    Returns:
+        Dict with route coordinates, distances, and stats
+    """
+    logger.info(
+        "Starting optimal route generation for location %s (start: %s, %s)",
+        location_id,
+        start_lon,
+        start_lat,
+    )
+
+    start_coords = None
+    if start_lon is not None and start_lat is not None:
+        start_coords = (start_lon, start_lat)
+
+    # Generate the route
+    result = await generate_optimal_route(location_id, start_coords)
+
+    # Save to database if successful
+    if result.get("status") == "success":
+        await save_optimal_route(location_id, result)
+        logger.info(
+            "Optimal route generated: %d segments, %.1f%% deadhead",
+            result.get("segment_count", 0),
+            result.get("deadhead_percentage", 0),
+        )
+
+    return result
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=60,
+    time_limit=1800,  # 30 minutes max
+    soft_time_limit=1700,
+    name="tasks.generate_optimal_route",
+)
+def generate_optimal_route_task(
+    _self,
+    location_id: str,
+    start_lon: float | None = None,
+    start_lat: float | None = None,
+    **_kwargs,
+):
+    """Celery task wrapper for generating optimal completion route."""
+    manual_run = _kwargs.get("manual_run", True)
+    return run_async_from_sync(
+        generate_optimal_route_async(
+            _self,
+            location_id=location_id,
+            start_lon=start_lon,
+            start_lat=start_lat,
+            manual_run=manual_run,
+        )
+    )

@@ -342,6 +342,9 @@ class CoverageManager {
       // Initialize bulk action toolbar after map is ready
       this.selection.createBulkActionToolbar();
 
+      // Load any existing optimal route
+      this.navigation.loadExistingOptimalRoute(locationId);
+
       // Update undriven streets list
       if (coverageData.streets_geojson) {
         this.ui.updateUndrivenStreetsList(
@@ -1780,6 +1783,16 @@ class CoverageManager {
       .getElementById("find-efficient-street-btn")
       ?.addEventListener("click", () => {
         this.findMostEfficientStreets();
+      });
+
+    document
+      .getElementById("generate-optimal-route-btn")
+      ?.addEventListener("click", () => {
+        if (this.currentDashboardLocationId) {
+          this.navigation.generateOptimalRoute(this.currentDashboardLocationId);
+        } else {
+          this.notificationManager.show("Please select a location first.", "warning");
+        }
       });
 
     document.getElementById("refresh-table-btn")?.addEventListener("click", () => {
