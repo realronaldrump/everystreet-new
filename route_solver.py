@@ -123,7 +123,9 @@ def _solve_rpp(
                     for v in remaining_list[1:]:
                         dist = odd_pairs_distances.get(
                             (min(u, v), max(u, v)),
-                            odd_pairs_distances.get((max(u, v), min(u, v)), float("inf")),
+                            odd_pairs_distances.get(
+                                (max(u, v), min(u, v)), float("inf")
+                            ),
                         )
                         if dist < best_dist:
                             best_dist = dist
@@ -271,7 +273,9 @@ async def generate_optimal_route_with_progress(
         location_info = area.get("location", {})
         location_name = location_info.get("display_name", "Unknown")
 
-        await update_progress("loading_area", 10, f"Loading coverage area: {location_name}")
+        await update_progress(
+            "loading_area", 10, f"Loading coverage area: {location_name}"
+        )
 
         # Get boundary polygon
         boundary_geom = location_info.get("geojson", {}).get("geometry")
@@ -280,12 +284,16 @@ async def generate_optimal_route_with_progress(
         else:
             bbox = location_info.get("boundingbox")
             if bbox and len(bbox) >= 4:
-                polygon = box(float(bbox[2]), float(bbox[0]), float(bbox[3]), float(bbox[1]))
+                polygon = box(
+                    float(bbox[2]), float(bbox[0]), float(bbox[3]), float(bbox[1])
+                )
             else:
                 raise ValueError("No valid boundary for coverage area")
 
         # 2. Get undriven segments
-        await update_progress("loading_segments", 20, "Loading undriven street segments...")
+        await update_progress(
+            "loading_segments", 20, "Loading undriven street segments..."
+        )
 
         cursor = streets_collection.find(
             {
@@ -305,10 +313,17 @@ async def generate_optimal_route_with_progress(
 
         if not undriven:
             await _update_db_progress(
-                task_id, location_id, "complete", 100,
-                "All streets already driven!", "completed"
+                task_id,
+                location_id,
+                "complete",
+                100,
+                "All streets already driven!",
+                "completed",
             )
-            return {"status": "already_complete", "message": "All streets already driven!"}
+            return {
+                "status": "already_complete",
+                "message": "All streets already driven!",
+            }
 
         await update_progress(
             "loading_segments", 30, f"Found {len(undriven)} undriven segments to route"
@@ -326,14 +341,17 @@ async def generate_optimal_route_with_progress(
             )
             G = ox.convert.to_undirected(G)
             await update_progress(
-                "fetching_osm", 45,
-                f"Downloaded network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges"
+                "fetching_osm",
+                45,
+                f"Downloaded network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges",
             )
         except Exception as e:
             logger.error("Failed to download OSM data: %s", e)
             raise ValueError(f"Failed to download street network: {e}")
 
-        await update_progress("mapping_segments", 50, "Mapping segments to street network...")
+        await update_progress(
+            "mapping_segments", 50, "Mapping segments to street network..."
+        )
 
         # 4. Map segment endpoints to OSM nodes
         required_edges = set()
@@ -377,21 +395,25 @@ async def generate_optimal_route_with_progress(
             raise ValueError("Could not map any segments to street network")
 
         await update_progress(
-            "finding_odd_nodes", 62,
-            f"Analyzing graph: {len(required_edges)} edges, {skipped} skipped"
+            "finding_odd_nodes",
+            62,
+            f"Analyzing graph: {len(required_edges)} edges, {skipped} skipped",
         )
 
         # 5. Determine start node
         start_node_id = None
         if start_coords:
             try:
-                start_node_id = ox.distance.nearest_nodes(G, start_coords[0], start_coords[1])
+                start_node_id = ox.distance.nearest_nodes(
+                    G, start_coords[0], start_coords[1]
+                )
             except Exception:
                 pass
 
         await update_progress(
-            "computing_matching", 65,
-            f"Computing optimal route for {len(required_edges)} segments..."
+            "computing_matching",
+            65,
+            f"Computing optimal route for {len(required_edges)} segments...",
         )
 
         # 6. Solve RPP
@@ -402,8 +424,9 @@ async def generate_optimal_route_with_progress(
             raise ValueError(f"Route solver failed: {e}")
 
         await update_progress(
-            "building_circuit", 80,
-            f"Building route with {len(node_circuit)} waypoints..."
+            "building_circuit",
+            80,
+            f"Building route with {len(node_circuit)} waypoints...",
         )
 
         # 7. Convert circuit to coordinates
@@ -413,7 +436,9 @@ async def generate_optimal_route_with_progress(
             if idx % 500 == 0 and idx > 0:
                 pct = 80 + int((idx / total_nodes) * 15)
                 await update_progress(
-                    "converting_coords", pct, f"Converting waypoint {idx}/{total_nodes}..."
+                    "converting_coords",
+                    pct,
+                    f"Converting waypoint {idx}/{total_nodes}...",
                 )
             if node in G.nodes:
                 route_coords.append([G.nodes[node]["x"], G.nodes[node]["y"]])
@@ -425,17 +450,28 @@ async def generate_optimal_route_with_progress(
         logger.info("Route generation finished. Updating DB status to completed.")
         try:
             await _update_db_progress(
-                task_id, location_id, "complete", 100,
-                "Route generation complete!", "completed"
+                task_id,
+                location_id,
+                "complete",
+                100,
+                "Route generation complete!",
+                "completed",
             )
             logger.info("DB status update successful.")
         except Exception as update_err:
-             logger.error("Final DB progress update failed: %s", update_err)
-             # Try one more time with a simple update
-             await optimal_route_progress_collection.update_one(
-                 {"task_id": task_id},
-                 {"$set": {"status": "completed", "progress": 100, "stage": "complete", "completed_at": datetime.now(UTC)}}
-             )
+            logger.error("Final DB progress update failed: %s", update_err)
+            # Try one more time with a simple update
+            await optimal_route_progress_collection.update_one(
+                {"task_id": task_id},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "progress": 100,
+                        "stage": "complete",
+                        "completed_at": datetime.now(UTC),
+                    }
+                },
+            )
 
         return {
             "status": "success",
@@ -452,8 +488,13 @@ async def generate_optimal_route_with_progress(
 
     except Exception as e:
         await _update_db_progress(
-            task_id, location_id, "failed", 0,
-            f"Route generation failed: {e}", "failed", str(e)
+            task_id,
+            location_id,
+            "failed",
+            0,
+            f"Route generation failed: {e}",
+            "failed",
+            str(e),
         )
         raise
 
@@ -504,7 +545,9 @@ async def generate_optimal_route(
         bbox = location_info.get("boundingbox")
         if bbox and len(bbox) >= 4:
             # bbox is [south, north, west, east] or [min_lat, max_lat, min_lon, max_lon]
-            polygon = box(float(bbox[2]), float(bbox[0]), float(bbox[3]), float(bbox[1]))
+            polygon = box(
+                float(bbox[2]), float(bbox[0]), float(bbox[3]), float(bbox[1])
+            )
         else:
             raise ValueError("No valid boundary for coverage area")
 
@@ -678,7 +721,9 @@ async def save_optimal_route(location_id: str, route_result: dict[str, Any]) -> 
     logger.info("Saved optimal route for location %s", location_id)
 
 
-def build_gpx_from_coords(coords: list[list[float]], name: str = "Optimal Route") -> str:
+def build_gpx_from_coords(
+    coords: list[list[float]], name: str = "Optimal Route"
+) -> str:
     """Build GPX XML from coordinate list.
 
     Args:
@@ -688,7 +733,7 @@ def build_gpx_from_coords(coords: list[list[float]], name: str = "Optimal Route"
     Returns:
         GPX XML string
     """
-    gpx_header = f'''<?xml version="1.0" encoding="UTF-8"?>
+    gpx_header = f"""<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="EveryStreet"
      xmlns="http://www.topografix.com/GPX/1/1"
      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -700,7 +745,7 @@ def build_gpx_from_coords(coords: list[list[float]], name: str = "Optimal Route"
   <trk>
     <name>{name}</name>
     <trkseg>
-'''
+"""
     gpx_footer = """    </trkseg>
   </trk>
 </gpx>"""
