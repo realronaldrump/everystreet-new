@@ -106,7 +106,7 @@ async function loadVehicles() {
 
       // Also show a clearer visual warning if possible
       showError(
-        "No active vehicles found. Please go to Settings > Profile to manage vehicles."
+        "No active vehicles found. Please go to Settings > Profile to manage vehicles.",
       );
       return;
     }
@@ -183,7 +183,7 @@ async function updateLocationAndOdometer() {
       }
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
-        errorData.detail || `Failed to fetch location (${response.status})`
+        errorData.detail || `Failed to fetch location (${response.status})`,
       );
     }
 
@@ -194,7 +194,8 @@ async function updateLocationAndOdometer() {
     if (data.latitude && data.longitude) {
       updateMap(data.latitude, data.longitude);
       locationText.textContent =
-        data.address || `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
+        data.address ||
+        `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
       locationText.classList.remove("text-muted");
     } else {
       locationText.textContent = "Location not available (GPS data missing)";
@@ -243,7 +244,9 @@ function updateMap(lat, lon) {
   }
 
   // Add new marker
-  marker = new mapboxgl.Marker({ color: "#10b981" }).setLngLat([lon, lat]).addTo(map);
+  marker = new mapboxgl.Marker({ color: "#10b981" })
+    .setLngLat([lon, lat])
+    .addTo(map);
 
   // Fly to location
   map.flyTo({
@@ -285,12 +288,14 @@ function setCurrentTime() {
  */
 function setupEventListeners() {
   // Vehicle selection change
-  document.getElementById("vehicle-select").addEventListener("change", async (e) => {
-    _selectedVehicle = vehicles.find((v) => v.imei === e.target.value);
-    await updateLocationAndOdometer();
-    await loadRecentFillups();
-    await loadStatistics();
-  });
+  document
+    .getElementById("vehicle-select")
+    .addEventListener("change", async (e) => {
+      _selectedVehicle = vehicles.find((v) => v.imei === e.target.value);
+      await updateLocationAndOdometer();
+      await loadRecentFillups();
+      await loadStatistics();
+    });
 
   // Fill-up time change
   document
@@ -304,7 +309,9 @@ function setupEventListeners() {
   });
 
   // Calculate total cost when price or gallons change
-  document.getElementById("gallons").addEventListener("input", calculateTotalCost);
+  document
+    .getElementById("gallons")
+    .addEventListener("input", calculateTotalCost);
   document
     .getElementById("price-per-gallon")
     .addEventListener("input", calculateTotalCost);
@@ -332,11 +339,14 @@ async function handleFormSubmit(e) {
     // Gather form data
     const formData = {
       imei: document.getElementById("vehicle-select").value,
-      fillup_time: new Date(document.getElementById("fillup-time").value).toISOString(),
+      fillup_time: new Date(
+        document.getElementById("fillup-time").value,
+      ).toISOString(),
       gallons: parseFloat(document.getElementById("gallons").value),
       price_per_gallon:
         parseFloat(document.getElementById("price-per-gallon").value) || null,
-      total_cost: parseFloat(document.getElementById("total-cost").value) || null,
+      total_cost:
+        parseFloat(document.getElementById("total-cost").value) || null,
       odometer: parseFloat(document.getElementById("odometer").value) || null,
       latitude: currentLocation?.latitude || null,
       longitude: currentLocation?.longitude || null,
@@ -423,7 +433,9 @@ async function loadRecentFillups() {
       return;
     }
 
-    fillupList.innerHTML = fillups.map((fillup) => createFillupItem(fillup)).join("");
+    fillupList.innerHTML = fillups
+      .map((fillup) => createFillupItem(fillup))
+      .join("");
   } catch (error) {
     console.error("Error loading fill-ups:", error);
     fillupList.innerHTML =
@@ -498,7 +510,8 @@ async function loadStatistics() {
     const stats = await response.json();
 
     // Update stats display
-    document.getElementById("total-fillups").textContent = stats.total_fillups || 0;
+    document.getElementById("total-fillups").textContent =
+      stats.total_fillups || 0;
     document.getElementById("total-spent").textContent =
       `$${(stats.total_cost || 0).toFixed(2)}`;
     document.getElementById("avg-mpg").textContent = stats.average_mpg
