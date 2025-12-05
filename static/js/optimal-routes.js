@@ -272,7 +272,7 @@ class OptimalRoutesManager {
     // Add click handlers
     historyContainer.querySelectorAll(".route-history-item").forEach((item) => {
       item.addEventListener("click", () => {
-        const {areaId} = item.dataset;
+        const { areaId } = item.dataset;
         document.getElementById("area-select").value = areaId;
         this.onAreaSelect(areaId);
         this.loadExistingRoute(areaId);
@@ -362,7 +362,7 @@ class OptimalRoutesManager {
 
       if (!data.success || !data.coverage) return;
 
-      const {location} = data.coverage;
+      const { location } = data.coverage;
       if (location?.boundingbox) {
         const [south, north, west, east] = location.boundingbox.map(parseFloat);
         this.map?.fitBounds(
@@ -643,9 +643,8 @@ class OptimalRoutesManager {
 
     if (userUnits === "km") {
       return `${(meters / 1000).toFixed(2)} km`;
-    } 
-      return `${(meters / 1609.344).toFixed(2)} mi`;
-    
+    }
+    return `${(meters / 1609.344).toFixed(2)} mi`;
   }
 
   showNotification(message, type = "info") {

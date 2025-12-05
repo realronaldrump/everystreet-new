@@ -814,7 +814,7 @@ async def generate_and_store_geojson(
         await upload_stream.write(b"\n]}")
         await upload_stream.close()
 
-        # Update Metadata
+        # Update Metadata with final "completed" status
         await update_one_with_retry(
             coverage_metadata_collection,
             {"location.display_name": location_name},
@@ -822,6 +822,8 @@ async def generate_and_store_geojson(
                 "$set": {
                     "streets_geojson_gridfs_id": upload_stream._id,
                     "last_geojson_update": datetime.now(UTC),
+                    "status": "completed",
+                    "last_updated": datetime.now(UTC),
                 }
             },
         )
@@ -845,6 +847,19 @@ async def generate_and_store_geojson(
                     "stage": "error",
                     "status": "error",
                     "error": f"GeoJSON generation failed: {str(e)}",
+                }
+            },
+        )
+
+        # Also update coverage_metadata_collection so the table reflects the error
+        await update_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": location_name},
+            {
+                "$set": {
+                    "status": "error",
+                    "last_error": f"GeoJSON generation failed: {str(e)[:200]}",
+                    "last_updated": datetime.now(UTC),
                 }
             },
         )

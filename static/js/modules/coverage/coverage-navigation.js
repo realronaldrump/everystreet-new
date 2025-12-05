@@ -570,7 +570,7 @@ class CoverageNavigation {
       };
 
       // Add or update the route source and layer
-      const {map} = this.coverageMap;
+      const { map } = this.coverageMap;
 
       if (map.getSource("optimal-route")) {
         map.getSource("optimal-route").setData(geojson);
@@ -733,7 +733,7 @@ class CoverageNavigation {
   clearOptimalRoute() {
     if (!this.coverageMap?.map) return;
 
-    const {map} = this.coverageMap;
+    const { map } = this.coverageMap;
 
     // Remove layers
     if (map.getLayer("optimal-route-arrows")) {
