@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from api_utils import api_route
 from config import CLARITY_PROJECT_ID, MAPBOX_ACCESS_TOKEN
 from date_utils import normalize_calendar_date
 from db import (
@@ -154,283 +155,230 @@ async def get_trips(request: Request):
 
 
 @router.post("/api/trips/datatable", tags=["Trips API"])
+@api_route(logger)
 async def get_trips_datatable(request: Request):
     """Get trips data formatted for DataTables server-side processing."""
-    try:
-        body = await request.json()
-        draw = body.get("draw", 1)
-        start = body.get("start", 0)
-        length = body.get("length", 10)
-        search_value = body.get("search", {}).get("value", "")
-        order = body.get("order", [])
-        columns = body.get("columns", [])
-        start_date = body.get("start_date")
-        end_date = body.get("end_date")
+    body = await request.json()
+    draw = body.get("draw", 1)
+    start = body.get("start", 0)
+    length = body.get("length", 10)
+    search_value = body.get("search", {}).get("value", "")
+    order = body.get("order", [])
+    columns = body.get("columns", [])
+    start_date = body.get("start_date")
+    end_date = body.get("end_date")
 
-        # ------------------------------------------------------------------
-        # Date filtering – use **each trip's own time zone**
-        # ------------------------------------------------------------------
-        # The client sends calendar dates (YYYY-MM-DD). We need trips whose
-        # local start date – when converted to that trip's timeZone field –
-        # falls inside the selected range.  We can do this entirely inside
-        # MongoDB using a $dateToString+$expr filter so there is no Python-side
-        # timezone math and no helper utilities.
+    query = {}
 
-        query = {}
+    if start_date or end_date:
+        range_expr = build_calendar_date_expr(start_date, end_date)
+        if range_expr:
+            query["$expr"] = range_expr
 
-        if start_date or end_date:
-            range_expr = build_calendar_date_expr(start_date, end_date)
-            if range_expr:
-                query["$expr"] = range_expr
+    if search_value:
+        search_regex = {"$regex": search_value, "$options": "i"}
+        query["$or"] = [
+            {"transactionId": search_regex},
+            {"imei": search_regex},
+            {"startLocation.formatted_address": search_regex},
+            {"destination.formatted_address": search_regex},
+        ]
 
-        if search_value:
-            search_regex = {"$regex": search_value, "$options": "i"}
-            query["$or"] = [
-                {"transactionId": search_regex},
-                {"imei": search_regex},
-                {"startLocation.formatted_address": search_regex},
-                {"destination.formatted_address": search_regex},
-            ]
+    total_count = await trips_collection.count_documents({})
+    filtered_count = await trips_collection.count_documents(query)
 
-        total_count = await trips_collection.count_documents({})
-        filtered_count = await trips_collection.count_documents(query)
+    sort_column = None
+    sort_direction = -1
+    if order and columns:
+        column_index = order[0].get("column")
+        column_dir = order[0].get("dir", "asc")
+        if column_index is not None and column_index < len(columns):
+            sort_column = columns[column_index].get("data")
+            sort_direction = -1 if column_dir == "desc" else 1
 
-        sort_column = None
+    if not sort_column:
+        sort_column = "startTime"
         sort_direction = -1
-        if order and columns:
-            column_index = order[0].get("column")
-            column_dir = order[0].get("dir", "asc")
-            if column_index is not None and column_index < len(columns):
-                sort_column = columns[column_index].get("data")
-                sort_direction = -1 if column_dir == "desc" else 1
 
-        if not sort_column:
-            sort_column = "startTime"
-            sort_direction = -1
-
-        # Duration is a computed field (endTime - startTime), not stored in DB.
-        # Use aggregation pipeline to compute and sort by it.
-        if sort_column == "duration":
-            pipeline = [
-                {"$match": query},
-                {
-                    "$addFields": {
-                        "duration": {
-                            "$subtract": ["$endTime", "$startTime"]
-                        }
-                    }
-                },
-                {"$sort": {"duration": sort_direction}},
-                {"$skip": start},
-                {"$limit": length},
-            ]
-            trips_list = await trips_collection.aggregate(pipeline).to_list(length=length)
-        else:
-            cursor = (
-                trips_collection.find(query)
-                .sort([(sort_column, sort_direction)])
-                .skip(start)
-                .limit(length)
-            )
-            trips_list = await cursor.to_list(length=length)
-
-        formatted_data = []
-        for trip in trips_list:
-            start_time = trip.get("startTime")
-            end_time = trip.get("endTime")
-            duration = (
-                (end_time - start_time).total_seconds()
-                if start_time and end_time
-                else None
-            )
-
-            start_location = trip.get("startLocation", "Unknown")
-            if isinstance(start_location, dict):
-                start_location = start_location.get("formatted_address", "Unknown")
-
-            destination = trip.get("destination", "Unknown")
-            if isinstance(destination, dict):
-                destination = destination.get("formatted_address", "Unknown")
-
-            formatted_trip = {
-                "transactionId": trip.get("transactionId", ""),
-                "imei": trip.get("imei", ""),
-                "startTime": serialize_datetime(start_time),
-                "endTime": serialize_datetime(end_time),
-                "duration": duration,
-                "distance": float(trip.get("distance", 0)),
-                "startLocation": start_location,
-                "destination": destination,
-                "maxSpeed": float(trip.get("maxSpeed", 0)),
-                "totalIdleDuration": trip.get("totalIdleDuration", 0),
-                "fuelConsumed": float(trip.get("fuelConsumed", 0)),
-            }
-            formatted_data.append(formatted_trip)
-
-        return {
-            "draw": draw,
-            "recordsTotal": total_count,
-            "recordsFiltered": filtered_count,
-            "data": formatted_data,
-        }
-    except Exception as e:
-        logger.exception("Error in get_trips_datatable: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+    if sort_column == "duration":
+        pipeline = [
+            {"$match": query},
+            {"$addFields": {"duration": {"$subtract": ["$endTime", "$startTime"]}}},
+            {"$sort": {"duration": sort_direction}},
+            {"$skip": start},
+            {"$limit": length},
+        ]
+        trips_list = await trips_collection.aggregate(pipeline).to_list(length=length)
+    else:
+        cursor = (
+            trips_collection.find(query)
+            .sort([(sort_column, sort_direction)])
+            .skip(start)
+            .limit(length)
         )
+        trips_list = await cursor.to_list(length=length)
+
+    formatted_data = []
+    for trip in trips_list:
+        start_time = trip.get("startTime")
+        end_time = trip.get("endTime")
+        duration = (
+            (end_time - start_time).total_seconds() if start_time and end_time else None
+        )
+
+        start_location = trip.get("startLocation", "Unknown")
+        if isinstance(start_location, dict):
+            start_location = start_location.get("formatted_address", "Unknown")
+
+        destination = trip.get("destination", "Unknown")
+        if isinstance(destination, dict):
+            destination = destination.get("formatted_address", "Unknown")
+
+        formatted_trip = {
+            "transactionId": trip.get("transactionId", ""),
+            "imei": trip.get("imei", ""),
+            "startTime": serialize_datetime(start_time),
+            "endTime": serialize_datetime(end_time),
+            "duration": duration,
+            "distance": float(trip.get("distance", 0)),
+            "startLocation": start_location,
+            "destination": destination,
+            "maxSpeed": float(trip.get("maxSpeed", 0)),
+            "totalIdleDuration": trip.get("totalIdleDuration", 0),
+            "fuelConsumed": float(trip.get("fuelConsumed", 0)),
+        }
+        formatted_data.append(formatted_trip)
+
+    return {
+        "draw": draw,
+        "recordsTotal": total_count,
+        "recordsFiltered": filtered_count,
+        "data": formatted_data,
+    }
 
 
 @router.post("/api/trips/bulk_delete", tags=["Trips API"])
+@api_route(logger)
 async def bulk_delete_trips(request: Request):
     """Bulk delete trips by their transaction IDs."""
-    try:
-        body = await request.json()
-        trip_ids = body.get("trip_ids", [])
-        if not trip_ids:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="No trip IDs provided"
-            )
-
-        result = await delete_many_with_retry(
-            trips_collection, {"transactionId": {"$in": trip_ids}}
-        )
-        matched_result = await delete_many_with_retry(
-            matched_trips_collection, {"transactionId": {"$in": trip_ids}}
-        )
-
-        return {
-            "status": "success",
-            "deleted_trips": result.deleted_count,
-            "deleted_matched_trips": matched_result.deleted_count,
-            "message": (
-                f"Deleted {result.deleted_count} trips and "
-                f"{matched_result.deleted_count} matched trips"
-            ),
-        }
-    except Exception as e:
-        logger.exception("Error in bulk_delete_trips: %s", e)
+    body = await request.json()
+    trip_ids = body.get("trip_ids", [])
+    if not trip_ids:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No trip IDs provided"
         )
+
+    result = await delete_many_with_retry(
+        trips_collection, {"transactionId": {"$in": trip_ids}}
+    )
+    matched_result = await delete_many_with_retry(
+        matched_trips_collection, {"transactionId": {"$in": trip_ids}}
+    )
+
+    return {
+        "status": "success",
+        "deleted_trips": result.deleted_count,
+        "deleted_matched_trips": matched_result.deleted_count,
+        "message": (
+            f"Deleted {result.deleted_count} trips and "
+            f"{matched_result.deleted_count} matched trips"
+        ),
+    }
 
 
 @router.get("/api/trips/{trip_id}", tags=["Trips API"])
+@api_route(logger)
 async def get_single_trip(trip_id: str):
     """Get a single trip by its transaction ID."""
-    try:
-        trip = await get_trip_by_id(trip_id, trips_collection)
-        if not trip:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
-            )
-        return {
-            "status": "success",
-            "trip": serialize_document(trip),
-        }
-    except Exception as e:
-        logger.exception("get_single_trip error: %s", e)
+    trip = await get_trip_by_id(trip_id, trips_collection)
+    if not trip:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
+            status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
         )
+    return {
+        "status": "success",
+        "trip": serialize_document(trip),
+    }
 
 
 @router.delete("/api/trips/{trip_id}", tags=["Trips API"])
+@api_route(logger)
 async def delete_trip(trip_id: str):
     """Delete a trip by its transaction ID."""
-    try:
-        trip = await get_trip_by_id(trip_id, trips_collection)
-        if not trip:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
-            )
-
-        result = await delete_one_with_retry(trips_collection, {"_id": trip["_id"]})
-
-        actual_transaction_id = trip.get("transactionId")
-        matched_delete_result = None
-        if actual_transaction_id:
-            matched_delete_result = await delete_one_with_retry(
-                matched_trips_collection, {"transactionId": actual_transaction_id}
-            )
-
-        if result.deleted_count >= 1:
-            return {
-                "status": "success",
-                "message": "Trip deleted successfully",
-                "deleted_trips": result.deleted_count,
-                "deleted_matched_trips": (
-                    matched_delete_result.deleted_count if matched_delete_result else 0
-                ),
-            }
-
+    trip = await get_trip_by_id(trip_id, trips_collection)
+    if not trip:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete trip after finding it.",
+            status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
         )
-    except Exception as e:
-        logger.exception("Error deleting trip: %s", e)
-        if isinstance(e, HTTPException):
-            raise
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
+
+    result = await delete_one_with_retry(trips_collection, {"_id": trip["_id"]})
+
+    actual_transaction_id = trip.get("transactionId")
+    matched_delete_result = None
+    if actual_transaction_id:
+        matched_delete_result = await delete_one_with_retry(
+            matched_trips_collection, {"transactionId": actual_transaction_id}
         )
+
+    if result.deleted_count >= 1:
+        return {
+            "status": "success",
+            "message": "Trip deleted successfully",
+            "deleted_trips": result.deleted_count,
+            "deleted_matched_trips": (
+                matched_delete_result.deleted_count if matched_delete_result else 0
+            ),
+        }
+
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Failed to delete trip after finding it.",
+    )
 
 
 @router.put("/api/trips/{trip_id}", tags=["Trips API"])
+@api_route(logger)
 async def update_trip(trip_id: str, update_data: TripUpdateRequest):
     """Update a trip's details, such as its geometry or properties."""
-    try:
-        trip_to_update = await get_trip_by_id(trip_id, trips_collection)
-        if not trip_to_update:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
-            )
-
-        update_payload = {}
-        if update_data.geometry:
-            geometry_data = update_data.geometry
-            if isinstance(geometry_data, str):
-                try:
-                    geometry_data = json.loads(geometry_data)
-                except json.JSONDecodeError:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Invalid JSON format for geometry field.",
-                    )
-            update_payload["gps"] = geometry_data
-
-        if update_data.properties:
-            for key, value in update_data.properties.items():
-                if key not in [
-                    "_id",
-                    "transactionId",
-                ]:  # Avoid updating immutable fields
-                    update_payload[key] = value
-
-        if not update_payload:
-            return {"status": "no_change", "message": "No data provided to update."}
-
-        update_payload["last_modified"] = datetime.now(UTC)
-
-        result = await update_one_with_retry(
-            trips_collection,
-            {"transactionId": trip_id},
-            {"$set": update_payload},
-        )
-
-        if result.modified_count > 0:
-            return {"status": "success", "message": "Trip updated successfully."}
-
-        return {"status": "no_change", "message": "Trip data was already up-to-date."}
-
-    except Exception as e:
-        logger.exception("Error updating trip %s: %s", trip_id, e)
+    trip_to_update = await get_trip_by_id(trip_id, trips_collection)
+    if not trip_to_update:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update trip: {str(e)}",
+            status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
         )
+
+    update_payload = {}
+    if update_data.geometry:
+        geometry_data = update_data.geometry
+        if isinstance(geometry_data, str):
+            try:
+                geometry_data = json.loads(geometry_data)
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid JSON format for geometry field.",
+                )
+        update_payload["gps"] = geometry_data
+
+    if update_data.properties:
+        for key, value in update_data.properties.items():
+            if key not in ["_id", "transactionId"]:
+                update_payload[key] = value
+
+    if not update_payload:
+        return {"status": "no_change", "message": "No data provided to update."}
+
+    update_payload["last_modified"] = datetime.now(UTC)
+
+    result = await update_one_with_retry(
+        trips_collection,
+        {"transactionId": trip_id},
+        {"$set": update_payload},
+    )
+
+    if result.modified_count > 0:
+        return {"status": "success", "message": "Trip updated successfully."}
+
+    return {"status": "no_change", "message": "Trip data was already up-to-date."}
 
 
 @router.post("/api/geocode_trips", tags=["Trips API"])
@@ -636,39 +584,34 @@ async def geocode_trips(data: DateRangeModel | None = None):
 
 
 @router.get("/api/geocode_trips/progress/{task_id}", tags=["Trips API"])
+@api_route(logger)
 async def get_geocode_progress(task_id: str):
     """Get progress for a geocoding task."""
-    try:
-        progress = await find_one_with_retry(
-            progress_collection,
-            {"_id": task_id, "task_type": "geocoding"},
-        )
+    progress = await find_one_with_retry(
+        progress_collection,
+        {"_id": task_id, "task_type": "geocoding"},
+    )
 
-        if not progress:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found",
-            )
-
-        return {
-            "task_id": task_id,
-            "stage": progress.get("stage", "unknown"),
-            "progress": progress.get("progress", 0),
-            "message": progress.get("message", ""),
-            "metrics": progress.get("metrics", {}),
-            "current_trip_id": progress.get("current_trip_id"),
-            "error": progress.get("error"),
-            "updated_at": serialize_datetime(progress.get("updated_at")),
-        }
-    except Exception as e:
-        logger.exception("Error getting geocoding progress: %s", e)
+    if not progress:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting progress: {e}",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found",
         )
+
+    return {
+        "task_id": task_id,
+        "stage": progress.get("stage", "unknown"),
+        "progress": progress.get("progress", 0),
+        "message": progress.get("message", ""),
+        "metrics": progress.get("metrics", {}),
+        "current_trip_id": progress.get("current_trip_id"),
+        "error": progress.get("error"),
+        "updated_at": serialize_datetime(progress.get("updated_at")),
+    }
 
 
 @router.post("/api/trips/{trip_id}/regeocode", tags=["Trips API"])
+@api_route(logger)
 async def regeocode_single_trip(trip_id: str):
     """Re-run geocoding for a single trip.
 
@@ -676,28 +619,21 @@ async def regeocode_single_trip(trip_id: str):
     the per-trip "Refresh Geocoding" button so the trip is re-evaluated against
     any newly-created custom places.
     """
-    try:
-        trip = await trip_service.get_trip_by_id(trip_id)
-        if not trip:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Trip not found",
-            )
-
-        result = await trip_service.refresh_geocoding([trip_id], skip_if_exists=False)
-
-        if result["updated"] > 0:
-            return {
-                "status": "success",
-                "message": f"Trip {trip_id} re-geocoded successfully.",
-            }
+    trip = await trip_service.get_trip_by_id(trip_id)
+    if not trip:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to re-geocode trip {trip_id}. Check logs for details.",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trip not found",
         )
-    except Exception as e:
-        logger.exception("Error in regeocode_single_trip: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error re-geocoding trip {trip_id}: {e}",
-        )
+
+    result = await trip_service.refresh_geocoding([trip_id], skip_if_exists=False)
+
+    if result["updated"] > 0:
+        return {
+            "status": "success",
+            "message": f"Trip {trip_id} re-geocoded successfully.",
+        }
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"Failed to re-geocode trip {trip_id}. Check logs for details.",
+    )

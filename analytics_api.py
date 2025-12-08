@@ -5,6 +5,7 @@ import pytz
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+from api_utils import api_route, get_mongo_tz_expr
 from db import (
     aggregate_with_retry,
     build_query_from_request,
@@ -20,512 +21,448 @@ trips_collection = db_manager.db["trips"]
 
 
 @router.get("/api/trip-analytics")
+@api_route(logger)
 async def get_trip_analytics(request: Request):
     """Get analytics on trips over time."""
-    try:
-        # Build query with new timezone-aware helper
-        query = await build_query_from_request(request)
+    query = await build_query_from_request(request)
 
-        # Ensure caller provided at least a date range; with the new helper the
-        # range lives under $expr instead of startTime, so we just verify that
-        # either query contains a $expr date filter or the request actually
-        # included start_date / end_date parameters.
-        if "$expr" not in query and (
-            request.query_params.get("start_date") is None
-            or request.query_params.get("end_date") is None
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing date range",
-            )
+    if "$expr" not in query and (
+        request.query_params.get("start_date") is None
+        or request.query_params.get("end_date") is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing date range",
+        )
 
-        # Build timezone expression (same logic used elsewhere in the app)
-        tz_expr = {
-            "$switch": {
-                "branches": [
-                    {"case": {"$in": ["$timeZone", ["", "0000"]]}, "then": "UTC"}
-                ],
-                "default": {"$ifNull": ["$timeZone", "UTC"]},
-            }
-        }
+    tz_expr = get_mongo_tz_expr()
 
-        pipeline = [
-            {"$match": query},
-            {
-                "$group": {
-                    "_id": {
-                        "date": {
-                            "$dateToString": {
-                                "format": "%Y-%m-%d",
-                                "date": "$startTime",
-                                "timezone": tz_expr,
-                            },
-                        },
-                        "hour": {
-                            "$hour": {
-                                "date": "$startTime",
-                                "timezone": tz_expr,
-                            }
-                        },
-                        "dayOfWeek": {
-                            "$dayOfWeek": {
-                                "date": "$startTime",
-                                "timezone": tz_expr,
-                            }
+    pipeline = [
+        {"$match": query},
+        {
+            "$group": {
+                "_id": {
+                    "date": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": "$startTime",
+                            "timezone": tz_expr,
                         },
                     },
-                    "totalDistance": {"$sum": "$distance"},
-                    "tripCount": {"$sum": 1},
+                    "hour": {
+                        "$hour": {
+                            "date": "$startTime",
+                            "timezone": tz_expr,
+                        }
+                    },
+                    "dayOfWeek": {
+                        "$dayOfWeek": {
+                            "date": "$startTime",
+                            "timezone": tz_expr,
+                        }
+                    },
                 },
+                "totalDistance": {"$sum": "$distance"},
+                "tripCount": {"$sum": 1},
             },
+        },
+    ]
+
+    results = await aggregate_with_retry(trips_collection, pipeline)
+
+    def organize_daily_data(res):
+        daily_data = {}
+        for r in res:
+            date_key = r["_id"]["date"]
+            if date_key not in daily_data:
+                daily_data[date_key] = {"distance": 0, "count": 0}
+            daily_data[date_key]["distance"] += r["totalDistance"]
+            daily_data[date_key]["count"] += r["tripCount"]
+        return [
+            {"date": d, "distance": v["distance"], "count": v["count"]}
+            for d, v in sorted(daily_data.items())
         ]
 
-        results = await aggregate_with_retry(trips_collection, pipeline)
+    def organize_hourly_data(res):
+        hourly_data = {}
+        for r in res:
+            hr = r["_id"]["hour"]
+            if hr not in hourly_data:
+                hourly_data[hr] = 0
+            hourly_data[hr] += r["tripCount"]
+        return [{"hour": h, "count": c} for h, c in sorted(hourly_data.items())]
 
-        def organize_daily_data(res):
-            daily_data = {}
-            for r in res:
-                date_key = r["_id"]["date"]
-                if date_key not in daily_data:
-                    daily_data[date_key] = {
-                        "distance": 0,
-                        "count": 0,
-                    }
-                daily_data[date_key]["distance"] += r["totalDistance"]
-                daily_data[date_key]["count"] += r["tripCount"]
-            return [
-                {
-                    "date": d,
-                    "distance": v["distance"],
-                    "count": v["count"],
-                }
-                for d, v in sorted(daily_data.items())
-            ]
+    def organize_weekday_data(res):
+        """Organize data by day of week (MongoDB returns 1=Sunday, 7=Saturday)."""
+        weekday_data = {}
+        for r in res:
+            day_of_week = r["_id"]["dayOfWeek"] - 1
+            if day_of_week not in weekday_data:
+                weekday_data[day_of_week] = 0
+            weekday_data[day_of_week] += r["tripCount"]
+        return [{"day": d, "count": c} for d, c in sorted(weekday_data.items())]
 
-        def organize_hourly_data(res):
-            hourly_data = {}
-            for r in res:
-                hr = r["_id"]["hour"]
-                if hr not in hourly_data:
-                    hourly_data[hr] = 0
-                hourly_data[hr] += r["tripCount"]
-            return [{"hour": h, "count": c} for h, c in sorted(hourly_data.items())]
+    daily_list = organize_daily_data(results)
+    hourly_list = organize_hourly_data(results)
+    weekday_list = organize_weekday_data(results)
 
-        def organize_weekday_data(res):
-            """Organize data by day of week (MongoDB returns 1=Sunday, 7=Saturday)."""
-            weekday_data = {}
-            for r in res:
-                # MongoDB $dayOfWeek returns 1-7 (1=Sunday, 2=Monday, ..., 7=Saturday)
-                # Convert to JavaScript 0-6 (0=Sunday, 1=Monday, ..., 6=Saturday)
-                day_of_week = r["_id"]["dayOfWeek"] - 1
-                if day_of_week not in weekday_data:
-                    weekday_data[day_of_week] = 0
-                weekday_data[day_of_week] += r["tripCount"]
-            return [{"day": d, "count": c} for d, c in sorted(weekday_data.items())]
-
-        daily_list = organize_daily_data(results)
-        hourly_list = organize_hourly_data(results)
-        weekday_list = organize_weekday_data(results)
-
-        return JSONResponse(
-            content={
-                "daily_distances": daily_list,
-                "time_distribution": hourly_list,
-                "weekday_distribution": weekday_list,
-            },
-        )
-
-    except Exception as e:
-        logger.exception("Error trip analytics: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return JSONResponse(
+        content={
+            "daily_distances": daily_list,
+            "time_distribution": hourly_list,
+            "weekday_distribution": weekday_list,
+        },
+    )
 
 
 @router.get("/api/time-period-trips")
+@api_route(logger)
 async def get_time_period_trips(request: Request):
     """Get trips for a specific time period (hour or day of week)."""
+    query = await build_query_from_request(request)
+
+    time_type = request.query_params.get("time_type")
+    time_value = request.query_params.get("time_value")
+
+    if not time_type or time_value is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing time_type or time_value parameter",
+        )
+
     try:
-        query = await build_query_from_request(request)
+        time_value = int(time_value)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="time_value must be an integer",
+        )
 
-        time_type = request.query_params.get("time_type")  # "hour" or "day"
-        time_value = request.query_params.get("time_value")  # hour (0-23) or day (0-6)
+    tz_expr = get_mongo_tz_expr()
 
-        if not time_type or time_value is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing time_type or time_value parameter",
-            )
-
-        try:
-            time_value = int(time_value)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="time_value must be an integer",
-            )
-
-        # Build timezone expression
-        tz_expr = {
-            "$switch": {
-                "branches": [
-                    {"case": {"$in": ["$timeZone", ["", "0000"]]}, "then": "UTC"}
-                ],
-                "default": {"$ifNull": ["$timeZone", "UTC"]},
-            }
+    if time_type == "hour":
+        query["$expr"] = {
+            "$and": [
+                query.get("$expr", {"$literal": True}),
+                {
+                    "$eq": [
+                        {"$hour": {"date": "$startTime", "timezone": tz_expr}},
+                        time_value,
+                    ]
+                },
+            ]
         }
+    elif time_type == "day":
+        mongo_day = time_value + 1
+        query["$expr"] = {
+            "$and": [
+                query.get("$expr", {"$literal": True}),
+                {
+                    "$eq": [
+                        {"$dayOfWeek": {"date": "$startTime", "timezone": tz_expr}},
+                        mongo_day,
+                    ]
+                },
+            ]
+        }
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="time_type must be 'hour' or 'day'",
+        )
 
-        # Add time-specific filter
-        if time_type == "hour":
-            query["$expr"] = {
-                "$and": [
-                    query.get("$expr", {"$literal": True}),
-                    {
-                        "$eq": [
-                            {"$hour": {"date": "$startTime", "timezone": tz_expr}},
-                            time_value,
-                        ]
-                    },
-                ]
-            }
-        elif time_type == "day":
-            # MongoDB returns 1-7 (1=Sunday), we get 0-6 (0=Sunday) from frontend
-            mongo_day = time_value + 1
-            query["$expr"] = {
-                "$and": [
-                    query.get("$expr", {"$literal": True}),
-                    {
-                        "$eq": [
-                            {"$dayOfWeek": {"date": "$startTime", "timezone": tz_expr}},
-                            mongo_day,
-                        ]
-                    },
-                ]
-            }
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="time_type must be 'hour' or 'day'",
-            )
-
-        # Fetch trips with relevant fields, calculating duration if needed
-        pipeline = [
-            {"$match": query},
-            {
-                "$addFields": {
-                    "duration_seconds": {
-                        "$cond": {
-                            "if": {
-                                "$and": [
-                                    {"$ifNull": ["$startTime", False]},
-                                    {"$ifNull": ["$endTime", False]},
-                                    {"$lt": ["$startTime", "$endTime"]},
-                                ]
-                            },
-                            "then": {
-                                "$divide": [
-                                    {"$subtract": ["$endTime", "$startTime"]},
-                                    1000.0,
-                                ]
-                            },
-                            "else": {"$ifNull": ["$duration", 0]},
-                        }
+    pipeline = [
+        {"$match": query},
+        {
+            "$addFields": {
+                "duration_seconds": {
+                    "$cond": {
+                        "if": {
+                            "$and": [
+                                {"$ifNull": ["$startTime", False]},
+                                {"$ifNull": ["$endTime", False]},
+                                {"$lt": ["$startTime", "$endTime"]},
+                            ]
+                        },
+                        "then": {
+                            "$divide": [
+                                {"$subtract": ["$endTime", "$startTime"]},
+                                1000.0,
+                            ]
+                        },
+                        "else": {"$ifNull": ["$duration", 0]},
                     }
                 }
-            },
-            {
-                "$project": {
-                    "transactionId": 1,
-                    "startTime": 1,
-                    "endTime": 1,
-                    "duration": "$duration_seconds",
-                    "distance": 1,
-                    "startLocation": 1,
-                    "destination": 1,
-                    "maxSpeed": 1,
-                    "totalIdleDuration": 1,
-                    "fuelConsumed": 1,
-                    "timeZone": 1,
-                }
-            },
-            {"$sort": {"startTime": -1}},
-            {"$limit": 100},
-        ]
+            }
+        },
+        {
+            "$project": {
+                "transactionId": 1,
+                "startTime": 1,
+                "endTime": 1,
+                "duration": "$duration_seconds",
+                "distance": 1,
+                "startLocation": 1,
+                "destination": 1,
+                "maxSpeed": 1,
+                "totalIdleDuration": 1,
+                "fuelConsumed": 1,
+                "timeZone": 1,
+            }
+        },
+        {"$sort": {"startTime": -1}},
+        {"$limit": 100},
+    ]
 
-        trips = await aggregate_with_retry(trips_collection, pipeline)
+    trips = await aggregate_with_retry(trips_collection, pipeline)
 
-        return JSONResponse(content=serialize_for_json(trips))
-
-    except Exception as e:
-        logger.exception("Error fetching time period trips: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return JSONResponse(content=serialize_for_json(trips))
 
 
 @router.get("/api/driver-behavior")
+@api_route(logger)
 async def driver_behavior_analytics(request: Request):
     """Aggregate driving behavior statistics within optional date range filters.
 
     Accepts the same `start_date` and `end_date` query parameters used by other API endpoints.
     If no filters are provided, all trips are considered (back-compat).
     """
-    # Build the Mongo query using the shared helper so filters stay consistent app-wide
-    try:
-        query = await build_query_from_request(request)
-    except Exception as e:
-        logger.exception("Failed to build query for driver behavior analytics: %s", e)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    query = await build_query_from_request(request)
 
-    try:
-        tz_expr = {
-            "$switch": {
-                "branches": [
-                    {"case": {"$in": ["$timeZone", ["", "0000"]]}, "then": "UTC"}
-                ],
-                "default": {"$ifNull": ["$timeZone", "UTC"]},
+    tz_expr = get_mongo_tz_expr()
+
+    pipeline = [
+        {"$match": query},
+        {
+            "$addFields": {
+                "numericDistance": {
+                    "$convert": {
+                        "input": "$distance",
+                        "to": "double",
+                        "onError": 0.0,
+                        "onNull": 0.0,
+                    }
+                },
+                "numericMaxSpeed": {
+                    "$convert": {
+                        "input": "$maxSpeed",
+                        "to": "double",
+                        "onError": 0.0,
+                        "onNull": 0.0,
+                    }
+                },
+                "speedValue": {
+                    "$convert": {
+                        "input": {"$ifNull": ["$avgSpeed", "$averageSpeed"]},
+                        "to": "double",
+                        "onError": None,
+                        "onNull": None,
+                    }
+                },
+                "hardBrakingVal": {
+                    "$ifNull": [
+                        "$hardBrakingCounts",
+                        {"$ifNull": ["$hardBrakingCount", 0]},
+                    ]
+                },
+                "hardAccelVal": {
+                    "$ifNull": [
+                        "$hardAccelerationCounts",
+                        {"$ifNull": ["$hardAccelerationCount", 0]},
+                    ]
+                },
+                "idleSeconds": {
+                    "$convert": {
+                        "input": "$totalIdleDuration",
+                        "to": "double",
+                        "onError": 0.0,
+                        "onNull": 0.0,
+                    }
+                },
+                "fuelDouble": {
+                    "$convert": {
+                        "input": "$fuelConsumed",
+                        "to": "double",
+                        "onError": 0.0,
+                        "onNull": 0.0,
+                    }
+                },
+                "dtParts": {
+                    "$dateToParts": {
+                        "date": "$startTime",
+                        "timezone": tz_expr,
+                        "iso8601": True,
+                    }
+                },
             }
-        }
-
-        pipeline = [
-            {"$match": query},
-            {
-                "$addFields": {
-                    "numericDistance": {
-                        "$convert": {
-                            "input": "$distance",
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        }
-                    },
-                    "numericMaxSpeed": {
-                        "$convert": {
-                            "input": "$maxSpeed",
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        }
-                    },
-                    "speedValue": {
-                        "$convert": {
-                            "input": {"$ifNull": ["$avgSpeed", "$averageSpeed"]},
-                            "to": "double",
-                            "onError": None,
-                            "onNull": None,
-                        }
-                    },
-                    "hardBrakingVal": {
-                        "$ifNull": [
-                            "$hardBrakingCounts",
-                            {"$ifNull": ["$hardBrakingCount", 0]},
-                        ]
-                    },
-                    "hardAccelVal": {
-                        "$ifNull": [
-                            "$hardAccelerationCounts",
-                            {"$ifNull": ["$hardAccelerationCount", 0]},
-                        ]
-                    },
-                    "idleSeconds": {
-                        "$convert": {
-                            "input": "$totalIdleDuration",
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        }
-                    },
-                    "fuelDouble": {
-                        "$convert": {
-                            "input": "$fuelConsumed",
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        }
-                    },
-                    "dtParts": {
-                        "$dateToParts": {
-                            "date": "$startTime",
-                            "timezone": tz_expr,
-                            "iso8601": True,
-                        }
-                    },
-                }
-            },
-            {
-                "$facet": {
-                    "totals": [
-                        {
-                            "$group": {
-                                "_id": None,
-                                "totalTrips": {"$sum": 1},
-                                "totalDistance": {"$sum": "$numericDistance"},
-                                "speedSum": {
-                                    "$sum": {
-                                        "$cond": [
-                                            {"$ne": ["$speedValue", None]},
-                                            "$speedValue",
-                                            0,
-                                        ]
-                                    }
-                                },
-                                "speedCount": {
-                                    "$sum": {
-                                        "$cond": [{"$ne": ["$speedValue", None]}, 1, 0]
-                                    }
-                                },
-                                "maxSpeed": {"$max": "$numericMaxSpeed"},
-                                "hardBrakingCounts": {"$sum": "$hardBrakingVal"},
-                                "hardAccelerationCounts": {"$sum": "$hardAccelVal"},
-                                "totalIdlingTime": {"$sum": "$idleSeconds"},
-                                "fuelConsumed": {"$sum": "$fuelDouble"},
-                            }
-                        },
-                        {
-                            "$project": {
-                                "_id": 0,
-                                "totalTrips": 1,
-                                "totalDistance": 1,
-                                "avgSpeed": {
+        },
+        {
+            "$facet": {
+                "totals": [
+                    {
+                        "$group": {
+                            "_id": None,
+                            "totalTrips": {"$sum": 1},
+                            "totalDistance": {"$sum": "$numericDistance"},
+                            "speedSum": {
+                                "$sum": {
                                     "$cond": [
-                                        {"$gt": ["$speedCount", 0]},
-                                        {"$divide": ["$speedSum", "$speedCount"]},
+                                        {"$ne": ["$speedValue", None]},
+                                        "$speedValue",
                                         0,
                                     ]
-                                },
-                                "maxSpeed": 1,
-                                "hardBrakingCounts": 1,
-                                "hardAccelerationCounts": 1,
-                                "totalIdlingTime": 1,
-                                "fuelConsumed": 1,
-                            }
-                        },
-                    ],
-                    "weekly": [
-                        {
-                            "$group": {
-                                "_id": {
-                                    "wy": "$dtParts.isoWeekYear",
-                                    "wk": "$dtParts.isoWeek",
-                                },
-                                "trips": {"$sum": 1},
-                                "distance": {"$sum": "$numericDistance"},
-                                "hardBraking": {"$sum": "$hardBrakingVal"},
-                                "hardAccel": {"$sum": "$hardAccelVal"},
-                            }
-                        },
-                        {"$sort": {"_id.wy": 1, "_id.wk": 1}},
-                        {
-                            "$project": {
-                                "_id": 0,
-                                "week": {
-                                    "$concat": [
-                                        {"$toString": "$_id.wy"},
-                                        "-W",
-                                        {"$cond": [{"$lt": ["$_id.wk", 10]}, "0", ""]},
-                                        {"$toString": "$_id.wk"},
-                                    ]
-                                },
-                                "trips": 1,
-                                "distance": 1,
-                                "hardBraking": 1,
-                                "hardAccel": 1,
-                            }
-                        },
-                    ],
-                    "monthly": [
-                        {
-                            "$group": {
-                                "_id": {"y": "$dtParts.year", "m": "$dtParts.month"},
-                                "trips": {"$sum": 1},
-                                "distance": {"$sum": "$numericDistance"},
-                                "hardBraking": {"$sum": "$hardBrakingVal"},
-                                "hardAccel": {"$sum": "$hardAccelVal"},
-                            }
-                        },
-                        {"$sort": {"_id.y": 1, "_id.m": 1}},
-                        {
-                            "$project": {
-                                "_id": 0,
-                                "month": {
-                                    "$concat": [
-                                        {"$toString": "$_id.y"},
-                                        "-",
-                                        {"$cond": [{"$lt": ["$_id.m", 10]}, "0", ""]},
-                                        {"$toString": "$_id.m"},
-                                    ]
-                                },
-                                "trips": 1,
-                                "distance": 1,
-                                "hardBraking": 1,
-                                "hardAccel": 1,
-                            }
-                        },
-                    ],
-                }
-            },
-            {
-                "$project": {
-                    "totals": {
-                        "$ifNull": [
-                            {"$arrayElemAt": ["$totals", 0]},
-                            {
-                                "totalTrips": 0,
-                                "totalDistance": 0.0,
-                                "avgSpeed": 0.0,
-                                "maxSpeed": 0.0,
-                                "hardBrakingCounts": 0,
-                                "hardAccelerationCounts": 0,
-                                "totalIdlingTime": 0.0,
-                                "fuelConsumed": 0.0,
+                                }
                             },
-                        ]
+                            "speedCount": {
+                                "$sum": {
+                                    "$cond": [{"$ne": ["$speedValue", None]}, 1, 0]
+                                }
+                            },
+                            "maxSpeed": {"$max": "$numericMaxSpeed"},
+                            "hardBrakingCounts": {"$sum": "$hardBrakingVal"},
+                            "hardAccelerationCounts": {"$sum": "$hardAccelVal"},
+                            "totalIdlingTime": {"$sum": "$idleSeconds"},
+                            "fuelConsumed": {"$sum": "$fuelDouble"},
+                        }
                     },
-                    "weekly": 1,
-                    "monthly": 1,
-                }
-            },
-            {
-                "$project": {
-                    "totalTrips": "$totals.totalTrips",
-                    "totalDistance": {"$round": ["$totals.totalDistance", 2]},
-                    "avgSpeed": {"$round": ["$totals.avgSpeed", 2]},
-                    "maxSpeed": {"$round": ["$totals.maxSpeed", 2]},
-                    "hardBrakingCounts": "$totals.hardBrakingCounts",
-                    "hardAccelerationCounts": "$totals.hardAccelerationCounts",
-                    "totalIdlingTime": {"$round": ["$totals.totalIdlingTime", 2]},
-                    "fuelConsumed": {"$round": ["$totals.fuelConsumed", 2]},
-                    "weekly": 1,
-                    "monthly": 1,
-                }
-            },
-        ]
-
-        results = await aggregate_with_retry(trips_collection, pipeline)
-        if not results:
-            payload = {
-                "totalTrips": 0,
-                "totalDistance": 0,
-                "avgSpeed": 0,
-                "maxSpeed": 0,
-                "hardBrakingCounts": 0,
-                "hardAccelerationCounts": 0,
-                "totalIdlingTime": 0,
-                "fuelConsumed": 0,
-                "weekly": [],
-                "monthly": [],
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "totalTrips": 1,
+                            "totalDistance": 1,
+                            "avgSpeed": {
+                                "$cond": [
+                                    {"$gt": ["$speedCount", 0]},
+                                    {"$divide": ["$speedSum", "$speedCount"]},
+                                    0,
+                                ]
+                            },
+                            "maxSpeed": 1,
+                            "hardBrakingCounts": 1,
+                            "hardAccelerationCounts": 1,
+                            "totalIdlingTime": 1,
+                            "fuelConsumed": 1,
+                        }
+                    },
+                ],
+                "weekly": [
+                    {
+                        "$group": {
+                            "_id": {
+                                "wy": "$dtParts.isoWeekYear",
+                                "wk": "$dtParts.isoWeek",
+                            },
+                            "trips": {"$sum": 1},
+                            "distance": {"$sum": "$numericDistance"},
+                            "hardBraking": {"$sum": "$hardBrakingVal"},
+                            "hardAccel": {"$sum": "$hardAccelVal"},
+                        }
+                    },
+                    {"$sort": {"_id.wy": 1, "_id.wk": 1}},
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "week": {
+                                "$concat": [
+                                    {"$toString": "$_id.wy"},
+                                    "-W",
+                                    {"$cond": [{"$lt": ["$_id.wk", 10]}, "0", ""]},
+                                    {"$toString": "$_id.wk"},
+                                ]
+                            },
+                            "trips": 1,
+                            "distance": 1,
+                            "hardBraking": 1,
+                            "hardAccel": 1,
+                        }
+                    },
+                ],
+                "monthly": [
+                    {
+                        "$group": {
+                            "_id": {"y": "$dtParts.year", "m": "$dtParts.month"},
+                            "trips": {"$sum": 1},
+                            "distance": {"$sum": "$numericDistance"},
+                            "hardBraking": {"$sum": "$hardBrakingVal"},
+                            "hardAccel": {"$sum": "$hardAccelVal"},
+                        }
+                    },
+                    {"$sort": {"_id.y": 1, "_id.m": 1}},
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "month": {
+                                "$concat": [
+                                    {"$toString": "$_id.y"},
+                                    "-",
+                                    {"$cond": [{"$lt": ["$_id.m", 10]}, "0", ""]},
+                                    {"$toString": "$_id.m"},
+                                ]
+                            },
+                            "trips": 1,
+                            "distance": 1,
+                            "hardBraking": 1,
+                            "hardAccel": 1,
+                        }
+                    },
+                ],
             }
-            return JSONResponse(content=payload)
+        },
+        {
+            "$project": {
+                "totals": {
+                    "$ifNull": [
+                        {"$arrayElemAt": ["$totals", 0]},
+                        {
+                            "totalTrips": 0,
+                            "totalDistance": 0.0,
+                            "avgSpeed": 0.0,
+                            "maxSpeed": 0.0,
+                            "hardBrakingCounts": 0,
+                            "hardAccelerationCounts": 0,
+                            "totalIdlingTime": 0.0,
+                            "fuelConsumed": 0.0,
+                        },
+                    ]
+                },
+                "weekly": 1,
+                "monthly": 1,
+            }
+        },
+        {
+            "$project": {
+                "totalTrips": "$totals.totalTrips",
+                "totalDistance": {"$round": ["$totals.totalDistance", 2]},
+                "avgSpeed": {"$round": ["$totals.avgSpeed", 2]},
+                "maxSpeed": {"$round": ["$totals.maxSpeed", 2]},
+                "hardBrakingCounts": "$totals.hardBrakingCounts",
+                "hardAccelerationCounts": "$totals.hardAccelerationCounts",
+                "totalIdlingTime": {"$round": ["$totals.totalIdlingTime", 2]},
+                "fuelConsumed": {"$round": ["$totals.fuelConsumed", 2]},
+                "weekly": 1,
+                "monthly": 1,
+            }
+        },
+    ]
 
-        combined = results[0]
-        return JSONResponse(content=serialize_for_json(combined))
-    except Exception as e:
-        logger.exception("Error aggregating driver behavior analytics: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    results = await aggregate_with_retry(trips_collection, pipeline)
+    if not results:
+        payload = {
+            "totalTrips": 0,
+            "totalDistance": 0,
+            "avgSpeed": 0,
+            "maxSpeed": 0,
+            "hardBrakingCounts": 0,
+            "hardAccelerationCounts": 0,
+            "totalIdlingTime": 0,
+            "fuelConsumed": 0,
+            "weekly": [],
+            "monthly": [],
+        }
+        return JSONResponse(content=payload)
+
+    combined = results[0]
+    return JSONResponse(content=serialize_for_json(combined))
 
 
 @router.get("/api/driving-insights")
