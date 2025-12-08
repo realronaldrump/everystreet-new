@@ -220,7 +220,9 @@ class GasFillupModel(BaseModel):
     calculated_mpg: float | None = None  # MPG since last fill-up
 
     # Metadata
-    is_full_tank: bool = Field(True, description="Whether the tank was filled completely")
+    is_full_tank: bool = Field(
+        True, description="Whether the tank was filled completely"
+    )
     missed_previous: bool = Field(
         False,
         description="Whether a previous fill-up was missed/forgotten, resetting MPG stats",
