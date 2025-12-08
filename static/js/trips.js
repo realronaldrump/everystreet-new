@@ -62,7 +62,6 @@ function waitForDependencies() {
 class TripsManager {
   constructor() {
     this.tripsTable = null;
-    this.selectedTripId = null;
     this.tripsCache = new Map();
     this.isInitialized = false;
 
@@ -72,22 +71,6 @@ class TripsManager {
     this.mobileCurrentPage = 0;
     this.mobilePageSize = 10;
     this.mobileTotalTrips = 0;
-
-    this.config = {
-      tables: {
-        order: [[3, "desc"]],
-        language: {
-          emptyTable: "No trips found in the selected date range",
-        },
-      },
-      dateFormats: {
-        display: {
-          dateStyle: "medium",
-          timeStyle: "short",
-          hour12: true,
-        },
-      },
-    };
 
     // Listen for window resize
     window.addEventListener("resize", () => {

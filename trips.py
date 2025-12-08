@@ -226,22 +226,44 @@ async def get_trips_datatable(request: Request):
         total_count = await trips_collection.count_documents({})
         filtered_count = await trips_collection.count_documents(query)
 
-        sort_params = []
+        sort_column = None
+        sort_direction = -1
         if order and columns:
             column_index = order[0].get("column")
             column_dir = order[0].get("dir", "asc")
             if column_index is not None and column_index < len(columns):
-                column_name = columns[column_index].get("data")
-                if column_name:
-                    sort_params.append((column_name, -1 if column_dir == "desc" else 1))
+                sort_column = columns[column_index].get("data")
+                sort_direction = -1 if column_dir == "desc" else 1
 
-        if not sort_params:
-            sort_params = [("startTime", -1)]
+        if not sort_column:
+            sort_column = "startTime"
+            sort_direction = -1
 
-        cursor = (
-            trips_collection.find(query).sort(sort_params).skip(start).limit(length)
-        )
-        trips_list = await cursor.to_list(length=length)
+        # Duration is a computed field (endTime - startTime), not stored in DB.
+        # Use aggregation pipeline to compute and sort by it.
+        if sort_column == "duration":
+            pipeline = [
+                {"$match": query},
+                {
+                    "$addFields": {
+                        "duration": {
+                            "$subtract": ["$endTime", "$startTime"]
+                        }
+                    }
+                },
+                {"$sort": {"duration": sort_direction}},
+                {"$skip": start},
+                {"$limit": length},
+            ]
+            trips_list = await trips_collection.aggregate(pipeline).to_list(length=length)
+        else:
+            cursor = (
+                trips_collection.find(query)
+                .sort([(sort_column, sort_direction)])
+                .skip(start)
+                .limit(length)
+            )
+            trips_list = await cursor.to_list(length=length)
 
         formatted_data = []
         for trip in trips_list:
