@@ -56,7 +56,6 @@ from live_tracking import (
 )
 from route_solver import generate_optimal_route_with_progress, save_optimal_route
 from street_coverage_calculation import compute_incremental_coverage
-from trip_processor import TripProcessor, TripState
 from trip_service import TripService
 from utils import run_async_from_sync
 from utils import validate_trip_data as validate_trip_data_logic
@@ -92,17 +91,18 @@ TASK_METADATA = {
         "dependencies": [],
         "description": "Archives trips that haven't been updated recently",
     },
-    "cleanup_invalid_trips": {
-        "display_name": "Cleanup Invalid Trips",
-        "default_interval_minutes": 1440,
+    "validate_trips": {
+        "display_name": "Validate Trips",
+        "default_interval_minutes": 720,
         "dependencies": [],
         "description": (
-            "Scans all trips and marks those that appear invalid. A trip is "
-            "considered invalid if: (1) it's missing required data like GPS "
-            "coordinates, start time, or end time, OR (2) the car was turned "
-            "on and off briefly without actually driving (zero distance, same "
-            "start/end location, no movement, and lasted less than 5 minutes). "
-            "Longer idle sessions are kept."
+            "Scans all trips and validates their data. A trip is marked invalid if: "
+            "(1) it's missing required data like GPS coordinates, start time, or end "
+            "time, (2) it has malformed or out-of-range GPS data, OR (3) the car was "
+            "turned on briefly without actually driving (zero distance, same start/end "
+            "location, no movement, and lasted less than 5 minutes). Longer idle "
+            "sessions are preserved. This task also updates validation timestamps "
+            "and syncs invalid status to matched trips."
         ),
     },
     "remap_unmatched_trips": {
@@ -110,12 +110,6 @@ TASK_METADATA = {
         "default_interval_minutes": 360,
         "dependencies": ["periodic_fetch_trips"],
         "description": "Attempts to map-match trips that previously failed",
-    },
-    "validate_trip_data": {
-        "display_name": "Validate Trip Data",
-        "default_interval_minutes": 720,
-        "dependencies": [],
-        "description": "Validates and corrects trip data inconsistencies",
     },
     "update_coverage_for_new_trips": {
         "display_name": "Incremental Progress Updates",
@@ -1112,8 +1106,14 @@ def cleanup_stale_trips(_self, *_args, **_kwargs):
 
 
 @task_runner
-async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
-    """Async logic for identifying and marking invalid trip records."""
+async def validate_trips_async(_self) -> dict[str, Any]:
+    """Async logic for validating trip data and marking invalid records.
+
+    This comprehensive validation task checks:
+    1. Required fields (transactionId, startTime, endTime, gps)
+    2. GPS data structure and coordinate validity
+    3. Stationary trips (brief engine on/off without driving)
+    """
     processed_count = 0
     modified_count = 0
     batch_size = 500
@@ -1238,8 +1238,7 @@ async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
     return {
         "status": "success",
         "message": (
-            f"Processed {processed_count} trips, "
-            f"marked {modified_count} as potentially invalid"
+            f"Processed {processed_count} trips, marked {modified_count} as invalid"
         ),
         "processed_count": processed_count,
         "modified_count": modified_count,
@@ -1252,11 +1251,11 @@ async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
     default_retry_delay=300,
     time_limit=7200,
     soft_time_limit=7000,
-    name="tasks.cleanup_invalid_trips",
+    name="tasks.validate_trips",
 )
-def cleanup_invalid_trips(_self, *_args, **_kwargs):
-    """Celery task wrapper for cleaning up invalid trip data."""
-    return run_async_from_sync(cleanup_invalid_trips_async(_self))
+def validate_trips(_self, *_args, **_kwargs):
+    """Celery task wrapper for validating trip data."""
+    return run_async_from_sync(validate_trips_async(_self))
 
 
 @task_runner
@@ -1341,158 +1340,6 @@ def remap_unmatched_trips(_self, *_args, **_kwargs):
     return run_async_from_sync(remap_unmatched_trips_async(_self))
 
 
-@task_runner
-async def validate_trip_data_async(_self) -> dict[str, Any]:
-    """Async logic for validating trip data integrity."""
-    processed_count = 0
-    failed_count = 0
-    modified_count = 0
-    limit = 100
-
-    validation_threshold = datetime.now(UTC) - timedelta(days=7)
-    query = {
-        "$or": [
-            {"validated_at": {"$exists": False}},
-            {"validated_at": {"$lt": validation_threshold}},
-        ],
-    }
-
-    trips_to_process = await find_with_retry(trips_collection, query, limit=limit)
-    logger.info(
-        "Found %d trips needing validation (limit %d).",
-        len(trips_to_process),
-        limit,
-    )
-
-    mapbox_token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
-
-    batch_updates = []
-    for trip in trips_to_process:
-        trip_id = str(trip.get("_id"))
-        logger.debug("Validating trip %s", trip_id)
-        processed_count += 1
-
-        try:
-            source = trip.get("source", "unknown")
-            processor = TripProcessor(mapbox_token=mapbox_token, source=source)
-            processor.set_trip_data(trip)
-
-            await processor.validate()
-
-            status_info = processor.get_processing_status()
-            is_valid = processor.state == TripState.VALIDATED
-            validation_message = None
-            if not is_valid:
-                validation_message = status_info.get("errors", {}).get(
-                    TripState.NEW.value,
-                    "Validation failed",
-                )
-
-            update_data = {
-                "validated_at": datetime.now(UTC),
-                "validation_status": processor.state.value,
-                "invalid": not is_valid,
-                "validation_message": validation_message if not is_valid else None,
-            }
-            batch_updates.append(UpdateOne({"_id": trip["_id"]}, {"$set": update_data}))
-            if not is_valid:
-                modified_count += 1
-
-        except Exception as e:
-            logger.error(
-                "Unexpected error validating trip %s: %s",
-                trip_id,
-                e,
-                exc_info=False,
-            )
-            failed_count += 1
-            batch_updates.append(
-                UpdateOne(
-                    {"_id": trip["_id"]},
-                    {
-                        "$set": {
-                            "validated_at": datetime.now(UTC),
-                            "validation_status": TaskStatus.FAILED.value,
-                            "invalid": True,
-                            "validation_message": f"Task Error: {e}",
-                        },
-                    },
-                ),
-            )
-            modified_count += 1
-
-        if len(batch_updates) >= 50:
-            if batch_updates:
-                try:
-                    result = await trips_collection.bulk_write(
-                        batch_updates, ordered=False
-                    )
-                    logger.debug(
-                        "Executed validation update batch: Matched=%d, Modified=%d",
-                        result.matched_count,
-                        result.modified_count,
-                    )
-                except BulkWriteError as bwe:
-                    logger.error(
-                        "Bulk write error during validation update: %s",
-                        bwe.details,
-                    )
-                except Exception as bulk_err:
-                    logger.error(
-                        "Error executing validation update batch: %s", bulk_err
-                    )
-            batch_updates = []
-            await asyncio.sleep(0.1)
-
-    if batch_updates:
-        try:
-            result = await trips_collection.bulk_write(batch_updates, ordered=False)
-            logger.debug(
-                "Executed final validation update batch: Matched=%d, Modified=%d",
-                result.matched_count,
-                result.modified_count,
-            )
-        except BulkWriteError as bwe:
-            logger.error(
-                "Bulk write error during final validation update: %s",
-                bwe.details,
-            )
-        except Exception as bulk_err:
-            logger.error("Error executing final validation update batch: %s", bulk_err)
-
-    logger.info(
-        "Validation attempt finished. Processed: %d, Marked Invalid: %d, "
-        "Failed Processing: %d",
-        processed_count,
-        modified_count,
-        failed_count,
-    )
-
-    return {
-        "status": "success",
-        "processed_count": processed_count,
-        "marked_invalid_count": modified_count,
-        "failed_count": failed_count,
-        "message": (
-            f"Validated {processed_count} trips. "
-            f"Marked {modified_count} as invalid, {failed_count} failed processing."
-        ),
-    }
-
-
-@shared_task(
-    bind=True,
-    max_retries=3,
-    default_retry_delay=300,
-    time_limit=7200,
-    soft_time_limit=7000,
-    name="tasks.validate_trip_data",
-)
-def validate_trip_data(_self, *_args, **_kwargs):
-    """Celery task wrapper for validating trip data."""
-    return run_async_from_sync(validate_trip_data_async(_self))
-
-
 async def run_task_scheduler_async() -> None:
     """Async logic for the main task scheduler.
 
@@ -1522,9 +1369,8 @@ async def run_task_scheduler_async() -> None:
         task_name_mapping = {
             "periodic_fetch_trips": "tasks.periodic_fetch_trips",
             "cleanup_stale_trips": "tasks.cleanup_stale_trips",
-            "cleanup_invalid_trips": "tasks.cleanup_invalid_trips",
+            "validate_trips": "tasks.validate_trips",
             "remap_unmatched_trips": "tasks.remap_unmatched_trips",
-            "validate_trip_data": "tasks.validate_trip_data",
             "update_coverage_for_new_trips": "tasks.update_coverage_for_new_trips",
         }
 
@@ -1785,9 +1631,8 @@ async def manual_run_task(task_id: str) -> dict[str, Any]:
     task_mapping = {
         "periodic_fetch_trips": "tasks.periodic_fetch_trips",
         "cleanup_stale_trips": "tasks.cleanup_stale_trips",
-        "cleanup_invalid_trips": "tasks.cleanup_invalid_trips",
+        "validate_trips": "tasks.validate_trips",
         "remap_unmatched_trips": "tasks.remap_unmatched_trips",
-        "validate_trip_data": "tasks.validate_trip_data",
         "update_coverage_for_new_trips": "tasks.update_coverage_for_new_trips",
     }
 
