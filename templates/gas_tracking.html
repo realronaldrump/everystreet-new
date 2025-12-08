@@ -349,15 +349,26 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label">Odometer</label>
-                <input
-                  type="number"
-                  class="form-control"
-                  id="odometer"
-                  name="odometer"
-                  step="0.1"
-                  min="0"
-                  placeholder="miles"
-                />
+                <div class="input-group">
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="odometer"
+                    name="odometer"
+                    step="0.1"
+                    min="0"
+                    placeholder="miles"
+                  />
+                  <div class="input-group-text bg-transparent">
+                    <input
+                      class="form-check-input mt-0"
+                      type="checkbox"
+                      id="odometer-not-recorded"
+                      title="Odometer not recorded"
+                    />
+                    <label class="form-check-label ms-1 small" for="odometer-not-recorded">No Rec</label>
+                  </div>
+                </div>
               </div>
               <div class="col-12">
                 <div class="form-check">

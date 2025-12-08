@@ -316,7 +316,23 @@ function setupEventListeners() {
   document
     .getElementById("cancel-edit-btn")
     .addEventListener("click", resetFormState);
+
+  // Odometer Not Recorded toggle
+  document
+    .getElementById("odometer-not-recorded")
+    .addEventListener("change", (e) => {
+        const odoInput = document.getElementById("odometer");
+        if (e.target.checked) {
+            odoInput.value = "";
+            odoInput.disabled = true;
+            odoInput.placeholder = "Not recorded";
+        } else {
+            odoInput.disabled = false;
+            odoInput.placeholder = "miles";
+        }
+    });
 }
+
 
 /**
  * Handle form submission
@@ -335,6 +351,8 @@ async function handleFormSubmit(e) {
     spinner.classList.add("active");
 
     // Gather form data
+    const isNoOdo = document.getElementById("odometer-not-recorded").checked;
+
     const formData = {
       imei: document.getElementById("vehicle-select").value,
       fillup_time: new Date(document.getElementById("fillup-time").value).toISOString(),
@@ -342,12 +360,13 @@ async function handleFormSubmit(e) {
       price_per_gallon:
         parseFloat(document.getElementById("price-per-gallon").value) || null,
       total_cost: parseFloat(document.getElementById("total-cost").value) || null,
-      odometer: parseFloat(document.getElementById("odometer").value) || null,
+      odometer: isNoOdo ? null : (parseFloat(document.getElementById("odometer").value) || null),
       latitude: currentLocation?.latitude || null,
       longitude: currentLocation?.longitude || null,
       is_full_tank: document.getElementById("full-tank").checked,
       notes: document.getElementById("notes").value || null,
     };
+
 
     // Validate
     if (!formData.imei) {
@@ -420,6 +439,13 @@ function resetFormState() {
   document.getElementById("fillup-id").value = "";
   document.getElementById("cancel-edit-btn").style.display = "none";
   document.querySelector(".btn-save").childNodes[0].nodeValue = "Save Fill-Up"; // keep spinner
+
+  // Reset Odometer check
+  const odoInput = document.getElementById("odometer");
+  const odoCheck = document.getElementById("odometer-not-recorded");
+  odoCheck.checked = false;
+  odoInput.disabled = false;
+  odoInput.placeholder = "miles";
 
   // Reset helper text
   document.getElementById("location-text").textContent = "Select vehicle...";
@@ -562,7 +588,23 @@ window.editFillup = function(id) {
     document.getElementById("gallons").value = fillup.gallons;
     document.getElementById("price-per-gallon").value = fillup.price_per_gallon || "";
     document.getElementById("total-cost").value = fillup.total_cost || "";
-    document.getElementById("odometer").value = fillup.odometer || "";
+    
+    // Odometer handling
+    const odoInput = document.getElementById("odometer");
+    const odoCheck = document.getElementById("odometer-not-recorded");
+    
+    if (fillup.odometer === null || fillup.odometer === undefined) {
+        odoCheck.checked = true;
+        odoInput.value = "";
+        odoInput.disabled = true;
+        odoInput.placeholder = "Not recorded";
+    } else {
+        odoCheck.checked = false;
+        odoInput.value = fillup.odometer;
+        odoInput.disabled = false;
+        odoInput.placeholder = "miles";
+    }
+
     document.getElementById("full-tank").checked = fillup.is_full_tank !== false; // Default to true if undefined
     document.getElementById("notes").value = fillup.notes || "";
 

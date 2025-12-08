@@ -288,6 +288,10 @@ async def create_gas_fillup(
         result = await insert_one_with_retry(gas_fillups_collection, fillup_doc)
         fillup_doc["_id"] = result.inserted_id
 
+        # TRIGGER RECALCULATION OF NEXT ENTRY
+        # Because inserting a new entry might fill a gap or create a new interval
+        await recalculate_subsequent_fillup(fillup_data.imei, fillup_time)
+
         return serialize_document(fillup_doc)
 
     except ValidationError as e:
@@ -315,18 +319,34 @@ async def update_gas_fillup(
 
         # Update document
         update_data = fillup_data.model_dump(exclude_none=True)
+        # Explicitly handle setting odometer to None if it's not in the update payload but was passed as None in the model?
+        # Actually pydantic's exclude_none=True might filter it out if we pass None.
+        # But if the user wants to UNSET odometer, we need to handle that.
+        # Ideally the frontend sends null, which pydantic parses as None.
+        # If exclude_none is True, it is removed from the dict.
+        # So we should probably check if it was explicitly set to None in the request model.
+        # However, GasFillupCreateModel probably marks odometer as Optional[float] = None.
+        # If the user sends null, it comes as None.
+        # WE NEED `exclude_none=False` for fields we want to be able to set to null?
+        # OR we just manually handle it.
+        # Let's check model dump without exclude_none.
+        full_dump = fillup_data.model_dump()
+        if "odometer" in full_dump: # It will be there as None if not provided or provided as null
+             # But wait, if it's not provided in JSON, it defaults to None in Pydantic logic if default is None.
+             # We can't distinguish "not provided" vs "provided null" easily without using `exclude_unset=True`.
+             pass
+
+        # Let's use exclude_unset=True to know what the user actually sent
+        update_data = fillup_data.model_dump(exclude_unset=True)
         update_data["updated_at"] = datetime.now(UTC)
 
-        # Handle time updates - if time changes, we might need to recalc THIS entry too
-        # based on its new position, but let's assume for now we just recalc attributes
-        # based on the *new* values provided.
-
-        # Recalculate MPG for THIS entry if gallons or odometer changed
-        # We need to find the previous fillup based on the *new* time (or existing if not changed)
         current_time = update_data.get("fillup_time", existing["fillup_time"])
         imei = update_data.get("imei", existing["imei"])
 
-        if "gallons" in update_data or "odometer" in update_data or "fillup_time" in update_data:
+        # Recalculate MPG for THIS entry
+        # We need to find previous fillup if we are updating fields that affect it
+        fields_affecting_mpg = ["gallons", "odometer", "fillup_time"]
+        if any(f in update_data for f in fields_affecting_mpg):
             previous_fillup = await find_one_with_retry(
                 gas_fillups_collection,
                 {
@@ -337,31 +357,35 @@ async def update_gas_fillup(
                 sort=[("fillup_time", -1)],
             )
 
-            current_odometer = update_data.get("odometer", existing.get("odometer"))
+            # Use new values or fallback to existing
+            # If 'odometer' is in update_data and is None, we use None.
+            # If it is NOT in update_data, we use existing.
+            current_odometer = update_data.get("odometer", existing.get("odometer")) if "odometer" in update_data else existing.get("odometer")
             current_gallons = update_data.get("gallons", existing.get("gallons"))
 
-            if previous_fillup and current_odometer:
+            # Calculate stats
+            calculated_mpg = None
+            miles_since_last = None
+            previous_odometer = None
+
+            if previous_fillup and current_odometer is not None:
                 previous_odometer = previous_fillup.get("odometer")
-                if previous_odometer:
+                if previous_odometer is not None:
                     miles_since_last = current_odometer - previous_odometer
                     if miles_since_last > 0 and current_gallons > 0:
-                        update_data["calculated_mpg"] = miles_since_last / current_gallons
-                        update_data["miles_since_last_fillup"] = miles_since_last
-                        update_data["previous_odometer"] = previous_odometer
-            else:
-                # If no previous fillup or missing data, clear derived fields
-                if "gallons" in update_data or "odometer" in update_data:
-                     # Only clear if we are actively changing values that would invalidate it
-                     # But safer to just recalculate if we are touching these fields.
-                     # If we went from having a previous to not having one (e.g. moved date earlier),
-                     # we should clear these.
-                     pass
+                        calculated_mpg = miles_since_last / current_gallons
+            
+            # Update derived fields
+            update_data["calculated_mpg"] = calculated_mpg
+            update_data["miles_since_last_fillup"] = miles_since_last
+            update_data["previous_odometer"] = previous_odometer
 
         if update_data.get("price_per_gallon") and update_data.get("gallons"):
             update_data["total_cost"] = (
                 update_data["price_per_gallon"] * update_data["gallons"]
             )
 
+        # Explicitly allow setting odometer to None in MongoDB if it's None in update_data
         await update_one_with_retry(
             gas_fillups_collection,
             {"_id": ObjectId(fillup_id)},
@@ -451,7 +475,13 @@ async def recalculate_subsequent_fillup(imei: str, after_time: datetime) -> None
         )
 
         updates = {}
-        if prev_fillup and next_fillup.get("odometer") and prev_fillup.get("odometer"):
+        # Need:
+        # 1. next_fillup has odometer
+        # 2. prev_fillup exists AND has odometer
+        if (prev_fillup and 
+            next_fillup.get("odometer") is not None and 
+            prev_fillup.get("odometer") is not None):
+            
              miles_diff = next_fillup["odometer"] - prev_fillup["odometer"]
              if miles_diff > 0 and next_fillup.get("gallons", 0) > 0:
                  updates["miles_since_last_fillup"] = miles_diff
@@ -463,11 +493,10 @@ async def recalculate_subsequent_fillup(imei: str, after_time: datetime) -> None
                  updates["calculated_mpg"] = None
                  updates["previous_odometer"] = prev_fillup["odometer"]
         else:
-            # No previous fillup found (maybe next_fillup is now the first one)
-            # OR missing odometer data
+            # Broken chain
             updates["miles_since_last_fillup"] = None
             updates["calculated_mpg"] = None
-            updates["previous_odometer"] = None
+            updates["previous_odometer"] = prev_fillup.get("odometer") if prev_fillup else None
 
         if updates:
             await update_one_with_retry(
