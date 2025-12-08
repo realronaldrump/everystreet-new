@@ -310,10 +310,11 @@ const layerManager = {
       state.map.addSource(sourceId, {
         type: "geojson",
         data,
-        tolerance: 0.5,
-        buffer: 128,
-        maxzoom: 14,
+        tolerance: 0.375, // Slightly more aggressive simplification at lower zooms
+        buffer: 64, // Reduced from 128 for memory savings
+        maxzoom: 18, // Increased from 14 for better tile generation at high zoom
         generateId: true,
+        promoteId: "transactionId", // Use transactionId for feature state
       });
 
       const layerConfig = {

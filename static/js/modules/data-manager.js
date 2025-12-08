@@ -17,6 +17,68 @@ const DEFAULT_HEATMAP_STOPS = CONFIG.LAYER_DEFAULTS?.trips?.heatmapStops || [
 
 const DEFAULT_HEATMAP_PRECISION = CONFIG.LAYER_DEFAULTS?.trips?.heatmapPrecision ?? 5;
 
+// Web Worker for heatmap calculation (lazy initialized)
+let heatmapWorker = null;
+let workerMessageId = 0;
+const pendingWorkerCallbacks = new Map();
+
+/**
+ * Initialize the heatmap Web Worker
+ */
+function initHeatmapWorker() {
+  if (heatmapWorker) return heatmapWorker;
+  if (!CONFIG.PERFORMANCE?.heatmapWorkerEnabled) return null;
+
+  try {
+    heatmapWorker = new Worker("/static/js/workers/heatmap-worker.js");
+    heatmapWorker.onmessage = (e) => {
+      const { type, id, features, stats, error } = e.data;
+      const callback = pendingWorkerCallbacks.get(id);
+      if (callback) {
+        pendingWorkerCallbacks.delete(id);
+        if (type === "error") {
+          callback.reject(new Error(error));
+        } else {
+          callback.resolve({ features, stats });
+        }
+      }
+    };
+    heatmapWorker.onerror = (err) => {
+      console.warn("Heatmap worker error:", err);
+    };
+    return heatmapWorker;
+  } catch (err) {
+    console.warn("Failed to initialize heatmap worker:", err);
+    return null;
+  }
+}
+
+/**
+ * Calculate heatmap asynchronously using Web Worker
+ */
+function calculateHeatmapAsync(features, precision = DEFAULT_HEATMAP_PRECISION) {
+  return new Promise((resolve, reject) => {
+    const worker = initHeatmapWorker();
+    if (!worker) {
+      // Fallback to sync calculation if worker unavailable
+      resolve(null);
+      return;
+    }
+
+    const id = ++workerMessageId;
+    pendingWorkerCallbacks.set(id, { resolve, reject });
+
+    // Send features to worker (transferable would be better but complex with objects)
+    worker.postMessage({
+      type: "calculate",
+      id,
+      features,
+      precision,
+    });
+  });
+}
+
+// Keep original helper functions for fallback sync calculation
 const makeSegmentKey = (a, b, precision = DEFAULT_HEATMAP_PRECISION) => {
   if (!Array.isArray(a) || !Array.isArray(b)) return null;
   if (a.length < 2 || b.length < 2) return null;
@@ -207,7 +269,7 @@ const dataManager = {
     try {
       const { start, end } = dateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end });
-      dataStage.update(30, `Loading trips from ${start} to ${end}...`);
+      dataStage.update(20, `Loading trips from ${start} to ${end}...`);
 
       const fullCollection = await utils.fetchWithRetry(`/api/trips?${params}`);
       if (fullCollection?.type !== "FeatureCollection") {
@@ -216,34 +278,101 @@ const dataManager = {
         return null;
       }
 
-      dataStage.update(75, `Processing ${fullCollection.features.length} trips...`);
+      const {features} = fullCollection;
+      const totalCount = features.length;
+      const chunkSize = CONFIG.PERFORMANCE?.tripChunkSize || 500;
+      const delay = CONFIG.PERFORMANCE?.progressiveLoadingDelay || 16;
 
-      // Mark recent trips for styling later
+      dataStage.update(40, `Processing ${totalCount} trips...`);
+
+      // Mark recent trips for styling (fast operation, do synchronously)
       try {
         const now = Date.now();
         const threshold = CONFIG.MAP.recentTripThreshold;
-        fullCollection.features.forEach((f) => {
-          const end = f?.properties?.endTime;
-          const endTs = end ? new Date(end).getTime() : null;
+        for (const f of features) {
+          const endTime = f?.properties?.endTime;
+          const endTs = endTime ? new Date(endTime).getTime() : null;
           f.properties = f.properties || {};
           f.properties.isRecent =
             typeof endTs === "number" && !Number.isNaN(endTs)
               ? now - endTs <= threshold
               : false;
-        });
+        }
       } catch (err) {
         console.warn("Failed to tag recent trips:", err);
       }
 
+      // Progressive rendering: show trips immediately in chunks
+      if (totalCount > chunkSize) {
+        dataStage.update(50, `Rendering ${totalCount} trips progressively...`);
+
+        // Render first chunk immediately for fast visual feedback
+        const firstChunk = {
+          type: "FeatureCollection",
+          features: features.slice(0, chunkSize),
+        };
+        await layerManager.updateMapLayer("trips", firstChunk);
+
+        // Schedule remaining chunks to yield to browser
+        let loadedCount = chunkSize;
+        const renderChunk = async (startIdx) => {
+          const endIdx = Math.min(startIdx + chunkSize, totalCount);
+          const partialCollection = {
+            type: "FeatureCollection",
+            features: features.slice(0, endIdx), // Cumulative to update source
+          };
+          await layerManager.updateMapLayer("trips", partialCollection);
+          loadedCount = endIdx;
+
+          const progress = 50 + Math.round((loadedCount / totalCount) * 30);
+          dataStage.update(
+            progress,
+            `Rendered ${loadedCount} of ${totalCount} trips...`
+          );
+        };
+
+        // Progressive chunk loading with browser yielding
+        for (let i = chunkSize; i < totalCount; i += chunkSize) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          await renderChunk(i);
+        }
+      } else {
+        // Small dataset - render directly
+        await layerManager.updateMapLayer("trips", fullCollection);
+      }
+
+      dataStage.update(85, "Computing heatmap...");
+
+      // Apply heatmap asynchronously (via Web Worker if available)
       try {
-        this.applyTripHeatmap(fullCollection);
+        const workerResult = await calculateHeatmapAsync(features);
+        if (workerResult?.features) {
+          // Worker returned enriched features - update collection
+          fullCollection.features = workerResult.features;
+
+          // Apply heatmap color expression
+          const stops = state.mapLayers?.trips?.heatmapStops || DEFAULT_HEATMAP_STOPS;
+          const colorExpression = buildHeatmapExpression(stops);
+          if (colorExpression && state.mapLayers?.trips) {
+            state.mapLayers.trips.color = colorExpression;
+            state.mapLayers.trips.colorStops = stops;
+            state.mapLayers.trips.heatmapStats = workerResult.stats;
+          }
+
+          // Final update with heatmap colors
+          await layerManager.updateMapLayer("trips", fullCollection);
+        } else {
+          // Fallback to synchronous heatmap
+          this.applyTripHeatmap(fullCollection);
+          await layerManager.updateMapLayer("trips", fullCollection);
+        }
       } catch (err) {
-        console.warn("Failed to apply trip heatmap:", err);
+        console.warn("Async heatmap failed, using sync fallback:", err);
+        this.applyTripHeatmap(fullCollection);
+        await layerManager.updateMapLayer("trips", fullCollection);
       }
 
       metricsManager.updateTripsTable(fullCollection);
-      await layerManager.updateMapLayer("trips", fullCollection);
-
       dataStage.complete();
       return fullCollection;
     } catch (error) {

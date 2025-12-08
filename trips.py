@@ -98,7 +98,7 @@ async def get_trips(request: Request):
         "averageSpeed": 1,
     }
     cursor = (
-        trips_collection.find(query, projection).sort("endTime", -1).batch_size(500)
+        trips_collection.find(query, projection).sort("endTime", -1).batch_size(1000)
     )
 
     async def stream():

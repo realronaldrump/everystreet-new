@@ -105,6 +105,9 @@ export const CONFIG = {
     enableWorkers: true,
     workerCount: navigator.hardwareConcurrency || 4,
     maxParallelRequests: 6,
+    tripChunkSize: 500, // Features per render batch for progressive loading
+    heatmapWorkerEnabled: true, // Use web worker for heatmap calculation
+    progressiveLoadingDelay: 16, // ms between chunks (one frame at 60fps)
   },
 };
 

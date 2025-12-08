@@ -21,9 +21,7 @@ from bson import ObjectId
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-EARTH_RADIUS_METERS = 6371000.0
-EARTH_RADIUS_MILES = 3958.8
-EARTH_RADIUS_KM = 6371.0
+from geopy.distance import great_circle as _geopy_great_circle
 
 T = TypeVar("T")
 
@@ -542,30 +540,15 @@ def haversine(
     lat2: float,
     unit: str = "meters",
 ) -> float:
-    """Calculate the great-circle distance between two points."""
-    lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
-
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
+    """Calculate the great-circle distance between two points using geopy."""
+    dist = _geopy_great_circle((lat1, lon1), (lat2, lon2))
     if unit == "meters":
-        radius = EARTH_RADIUS_METERS
-    elif unit == "miles":
-        radius = EARTH_RADIUS_MILES
-    elif unit == "km":
-        radius = EARTH_RADIUS_KM
-    else:
-        raise ValueError(
-            "Invalid unit specified. Use 'meters', 'miles', or 'km'.",
-        )
-
-    distance = radius * c
-    return distance
+        return dist.meters
+    if unit == "miles":
+        return dist.miles
+    if unit == "km":
+        return dist.km
+    raise ValueError("Invalid unit. Use 'meters', 'miles', or 'km'.")
 
 
 def meters_to_miles(meters: float) -> float:

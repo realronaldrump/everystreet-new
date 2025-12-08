@@ -5,6 +5,7 @@ certifi
 fastapi
 geojson
 geopandas
+geopy
 gpxpy
 httpx
 kombu
