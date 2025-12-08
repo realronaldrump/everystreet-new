@@ -1,12 +1,10 @@
-{% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %} 
-{% block extra_css %}
+{% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %} {%
+block extra_css %}
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}"
 />
-{% endblock %}
-{%
-block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid px-4 py-3">
   <h1 class="mb-4">Trips</h1>
 
@@ -58,10 +56,17 @@ block content %}
         <span>Select All</span>
       </label>
       <div class="trips-mobile-actions">
-        <button id="bulk-delete-trips-mobile-btn" class="btn btn-sm btn-danger" disabled>
+        <button
+          id="bulk-delete-trips-mobile-btn"
+          class="btn btn-sm btn-danger"
+          disabled
+        >
           <i class="fas fa-trash"></i> Delete
         </button>
-        <button id="refresh-geocoding-mobile-btn" class="btn btn-sm btn-primary">
+        <button
+          id="refresh-geocoding-mobile-btn"
+          class="btn btn-sm btn-primary"
+        >
           <i class="fas fa-sync"></i> Refresh
         </button>
       </div>
@@ -73,15 +78,25 @@ block content %}
     </div>
 
     <!-- Mobile Pagination -->
-    <div id="trips-mobile-pagination" class="trips-mobile-pagination" style="display: none;">
+    <div
+      id="trips-mobile-pagination"
+      class="trips-mobile-pagination"
+      style="display: none"
+    >
       <div class="trips-mobile-pagination-info">
         <span id="trips-mobile-page-info"></span>
       </div>
       <div class="trips-mobile-pagination-controls">
-        <button id="trips-mobile-prev-btn" class="btn btn-outline-primary trips-mobile-pagination-btn">
+        <button
+          id="trips-mobile-prev-btn"
+          class="btn btn-outline-primary trips-mobile-pagination-btn"
+        >
           <i class="fas fa-chevron-left"></i> Previous
         </button>
-        <button id="trips-mobile-next-btn" class="btn btn-outline-primary trips-mobile-pagination-btn">
+        <button
+          id="trips-mobile-next-btn"
+          class="btn btn-outline-primary trips-mobile-pagination-btn"
+        >
           Next <i class="fas fa-chevron-right"></i>
         </button>
       </div>
