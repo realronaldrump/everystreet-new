@@ -345,29 +345,42 @@ def validate_trip_is_meaningful(
                 and len(first_coord) >= 2
                 and len(last_coord) >= 2
             ):
-                # Check if coordinates are within a small tolerance (approx 10 meters)
+                # Check if coordinates are within a small tolerance (approx 50 meters)
                 lon_diff = abs(first_coord[0] - last_coord[0])
                 lat_diff = abs(first_coord[1] - last_coord[1])
-                # ~0.0001 degrees is approximately 10 meters
-                same_location = lon_diff < 0.0001 and lat_diff < 0.0001
+                # ~0.0005 degrees is approximately 50-60 meters
+                same_location = lon_diff < 0.0005 and lat_diff < 0.0005
 
-    # A trip is "stationary" (invalid) if ALL conditions are met:
-    # - Distance is essentially 0 (< 0.01 miles)
-    # - Same start/end location
-    # - Max speed is 0
-    # - Duration is less than 5 minutes
-    is_stationary = (
-        distance < 0.01
-        and same_location
-        and max_speed < 0.1
-        and duration_minutes is not None
-        and duration_minutes < 5
-    )
+    # A trip is "stationary" (invalid) if it meets ALL conditions for a stationary event:
+    # 1. Very short distance (<= 0.05 miles)
+    # 2. Same start/end location (approx 50m radius)
+    # 3. Very low max speed (<= 0.5 mph)
+    # 4. Short duration (< 10 minutes)
+    # OR if it's extremely short duration (< 2 min) and zero distance
+    
+    is_stationary = False
+    
+    if duration_minutes is not None:
+        # Condition 1: Standard stationary check
+        if (
+            distance <= 0.05
+            and same_location
+            and max_speed <= 0.5
+            and duration_minutes < 10
+        ):
+            is_stationary = True
+        
+        # Condition 2: Extremely short zero-distance events (noise)
+        elif (
+            distance <= 0.01
+            and duration_minutes < 2
+        ):
+            is_stationary = True
 
     if is_stationary:
         return (
             False,
-            f"Stationary trip: car turned on briefly without driving "
+            f"Stationary trip: car turned on possibly without driving "
             f"(distance: {distance:.2f} mi, duration: {duration_minutes:.1f} min)",
         )
 
