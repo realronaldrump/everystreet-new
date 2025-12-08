@@ -732,4 +732,9 @@ async def save_optimal_route(location_id: str, route_result: dict[str, Any]) -> 
 # Import build_gpx_from_coords from export_helpers to avoid code duplication
 from export_helpers import build_gpx_from_coords
 
-__all__ = ["generate_optimal_route", "generate_optimal_route_with_progress", "save_optimal_route", "build_gpx_from_coords"]
+__all__ = [
+    "generate_optimal_route",
+    "generate_optimal_route_with_progress",
+    "save_optimal_route",
+    "build_gpx_from_coords",
+]
