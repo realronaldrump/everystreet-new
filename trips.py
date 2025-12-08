@@ -288,6 +288,31 @@ async def bulk_delete_trips(request: Request):
     }
 
 
+@router.get("/api/trips/invalid", tags=["Trips API"])
+@api_route(logger)
+async def get_invalid_trips():
+    """Get all invalid trips for review."""
+    cursor = trips_collection.find(
+        {"invalid": True},
+        {
+            "transactionId": 1,
+            "startTime": 1,
+            "endTime": 1,
+            "distance": 1,
+            "validation_message": 1,
+            "source": 1,
+            "validated_at": 1,
+        },
+    ).sort("validated_at", -1)
+
+    trips = await cursor.to_list(length=1000)
+    return {
+        "status": "success",
+        "trips": [serialize_document(t) for t in trips],
+        "count": len(trips),
+    }
+
+
 @router.get("/api/trips/{trip_id}", tags=["Trips API"])
 @api_route(logger)
 async def get_single_trip(trip_id: str):
@@ -641,29 +666,7 @@ async def regeocode_single_trip(trip_id: str):
     )
 
 
-@router.get("/api/trips/invalid", tags=["Trips API"])
-@api_route(logger)
-async def get_invalid_trips():
-    """Get all invalid trips for review."""
-    cursor = trips_collection.find(
-        {"invalid": True},
-        {
-            "transactionId": 1,
-            "startTime": 1,
-            "endTime": 1,
-            "distance": 1,
-            "validation_message": 1,
-            "source": 1,
-            "validated_at": 1,
-        },
-    ).sort("validated_at", -1)
 
-    trips = await cursor.to_list(length=1000)
-    return {
-        "status": "success",
-        "trips": [serialize_document(t) for t in trips],
-        "count": len(trips),
-    }
 
 
 @router.post("/api/trips/{trip_id}/restore", tags=["Trips API"])
