@@ -326,13 +326,17 @@ async def update_gas_fillup(
         current_time = update_data.get("fillup_time", existing["fillup_time"])
         imei = update_data.get("imei", existing["imei"])
 
-        if "gallons" in update_data or "odometer" in update_data or "fillup_time" in update_data:
+        if (
+            "gallons" in update_data
+            or "odometer" in update_data
+            or "fillup_time" in update_data
+        ):
             previous_fillup = await find_one_with_retry(
                 gas_fillups_collection,
                 {
                     "imei": imei,
                     "fillup_time": {"$lt": current_time},
-                    "_id": {"$ne": ObjectId(fillup_id)}, # Exclude self
+                    "_id": {"$ne": ObjectId(fillup_id)},  # Exclude self
                 },
                 sort=[("fillup_time", -1)],
             )
@@ -345,17 +349,19 @@ async def update_gas_fillup(
                 if previous_odometer:
                     miles_since_last = current_odometer - previous_odometer
                     if miles_since_last > 0 and current_gallons > 0:
-                        update_data["calculated_mpg"] = miles_since_last / current_gallons
+                        update_data["calculated_mpg"] = (
+                            miles_since_last / current_gallons
+                        )
                         update_data["miles_since_last_fillup"] = miles_since_last
                         update_data["previous_odometer"] = previous_odometer
             else:
                 # If no previous fillup or missing data, clear derived fields
                 if "gallons" in update_data or "odometer" in update_data:
-                     # Only clear if we are actively changing values that would invalidate it
-                     # But safer to just recalculate if we are touching these fields.
-                     # If we went from having a previous to not having one (e.g. moved date earlier),
-                     # we should clear these.
-                     pass
+                    # Only clear if we are actively changing values that would invalidate it
+                    # But safer to just recalculate if we are touching these fields.
+                    # If we went from having a previous to not having one (e.g. moved date earlier),
+                    # we should clear these.
+                    pass
 
         if update_data.get("price_per_gallon") and update_data.get("gallons"):
             update_data["total_cost"] = (
@@ -396,7 +402,7 @@ async def delete_gas_fillup(fillup_id: str) -> dict[str, str]:
             gas_fillups_collection, {"_id": ObjectId(fillup_id)}
         )
         if not existing:
-             raise HTTPException(status_code=404, detail="Fill-up not found")
+            raise HTTPException(status_code=404, detail="Fill-up not found")
 
         result = await delete_one_with_retry(
             gas_fillups_collection, {"_id": ObjectId(fillup_id)}
@@ -429,11 +435,8 @@ async def recalculate_subsequent_fillup(imei: str, after_time: datetime) -> None
         # Find the immediately following fill-up
         next_fillup = await find_one_with_retry(
             gas_fillups_collection,
-            {
-                "imei": imei,
-                "fillup_time": {"$gt": after_time}
-            },
-            sort=[("fillup_time", 1)]
+            {"imei": imei, "fillup_time": {"$gt": after_time}},
+            sort=[("fillup_time", 1)],
         )
 
         if not next_fillup:
@@ -443,25 +446,22 @@ async def recalculate_subsequent_fillup(imei: str, after_time: datetime) -> None
         # (This effectively bridges the gap if the middle one was deleted)
         prev_fillup = await find_one_with_retry(
             gas_fillups_collection,
-            {
-                "imei": imei,
-                "fillup_time": {"$lt": next_fillup["fillup_time"]}
-            },
-            sort=[("fillup_time", -1)]
+            {"imei": imei, "fillup_time": {"$lt": next_fillup["fillup_time"]}},
+            sort=[("fillup_time", -1)],
         )
 
         updates = {}
         if prev_fillup and next_fillup.get("odometer") and prev_fillup.get("odometer"):
-             miles_diff = next_fillup["odometer"] - prev_fillup["odometer"]
-             if miles_diff > 0 and next_fillup.get("gallons", 0) > 0:
-                 updates["miles_since_last_fillup"] = miles_diff
-                 updates["calculated_mpg"] = miles_diff / next_fillup["gallons"]
-                 updates["previous_odometer"] = prev_fillup["odometer"]
-             else:
-                 # valid data but non-positive distance?
-                 updates["miles_since_last_fillup"] = None
-                 updates["calculated_mpg"] = None
-                 updates["previous_odometer"] = prev_fillup["odometer"]
+            miles_diff = next_fillup["odometer"] - prev_fillup["odometer"]
+            if miles_diff > 0 and next_fillup.get("gallons", 0) > 0:
+                updates["miles_since_last_fillup"] = miles_diff
+                updates["calculated_mpg"] = miles_diff / next_fillup["gallons"]
+                updates["previous_odometer"] = prev_fillup["odometer"]
+            else:
+                # valid data but non-positive distance?
+                updates["miles_since_last_fillup"] = None
+                updates["calculated_mpg"] = None
+                updates["previous_odometer"] = prev_fillup["odometer"]
         else:
             # No previous fillup found (maybe next_fillup is now the first one)
             # OR missing odometer data
@@ -471,15 +471,12 @@ async def recalculate_subsequent_fillup(imei: str, after_time: datetime) -> None
 
         if updates:
             await update_one_with_retry(
-                gas_fillups_collection,
-                {"_id": next_fillup["_id"]},
-                {"$set": updates}
+                gas_fillups_collection, {"_id": next_fillup["_id"]}, {"$set": updates}
             )
             logger.info(f"Recalculated stats for fill-up {next_fillup['_id']}")
 
     except Exception as e:
         logger.error(f"Error recalculating subsequent fillup: {e}")
-
 
 
 # === Vehicle Location and Odometer Lookup ===
