@@ -321,6 +321,7 @@ class CoverageCalculator:
                 "$ne": None,
                 "$not": {"$size": 0},
             },
+            "invalid": {"$ne": True},
         }
 
         # Filter by location bounding box if available

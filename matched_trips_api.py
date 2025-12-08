@@ -30,6 +30,7 @@ async def get_matched_trips(request: Request):
     """Get map-matched trips as GeoJSON."""
     try:
         query = await build_query_from_request(request)
+        query["invalid"] = {"$ne": True}
 
         matched = await find_with_retry(
             matched_trips_collection, query, sort=[("startTime", -1)]
@@ -258,6 +259,7 @@ async def get_trips_in_bounds(
                     },
                 },
             },
+            "invalid": {"$ne": True},
         }
 
         projection = {

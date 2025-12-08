@@ -309,7 +309,6 @@ def validate_trip_is_meaningful(
 
     if start_time and end_time:
         try:
-
             if isinstance(start_time, str):
                 from date_utils import parse_timestamp
 

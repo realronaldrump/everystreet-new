@@ -58,8 +58,9 @@ from route_solver import generate_optimal_route_with_progress, save_optimal_rout
 from street_coverage_calculation import compute_incremental_coverage
 from trip_processor import TripProcessor, TripState
 from trip_service import TripService
-from utils import run_async_from_sync, validate_trip_is_meaningful
+from utils import run_async_from_sync
 from utils import validate_trip_data as validate_trip_data_logic
+from utils import validate_trip_is_meaningful
 
 logger = get_task_logger(__name__)
 T = TypeVar("T")
@@ -1154,6 +1155,7 @@ async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
             valid, message = validate_trip_is_meaningful(trip)
 
         if not valid:
+            # Mark as invalid in both collections
             batch_updates.append(
                 UpdateOne(
                     {"_id": trip["_id"]},
@@ -1166,6 +1168,25 @@ async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
                     },
                 ),
             )
+            # Also invalidate matched trip if it exists
+            if trip.get("transactionId"):
+                try:
+                    await matched_trips_collection.update_one(
+                        {"transactionId": trip["transactionId"]},
+                        {
+                            "$set": {
+                                "invalid": True,
+                                "validation_message": message
+                                or "Invalid data detected",
+                            }
+                        },
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Error invalidating matched trip %s: %s",
+                        trip["transactionId"],
+                        e,
+                    )
             modified_count += 1
 
         if len(batch_updates) >= batch_size:

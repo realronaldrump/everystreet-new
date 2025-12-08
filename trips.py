@@ -78,6 +78,8 @@ async def trips_page(request: Request):
 async def get_trips(request: Request):
     """Stream all trips as GeoJSON to improve performance."""
     query = await build_query_from_request(request)
+    # Exclude invalid trips by default
+    query["invalid"] = {"$ne": True}
     projection = {
         "gps": 1,
         "startTime": 1,
@@ -168,7 +170,7 @@ async def get_trips_datatable(request: Request):
     start_date = body.get("start_date")
     end_date = body.get("end_date")
 
-    query = {}
+    query = {"invalid": {"$ne": True}}
 
     if start_date or end_date:
         range_expr = build_calendar_date_expr(start_date, end_date)
@@ -637,3 +639,62 @@ async def regeocode_single_trip(trip_id: str):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail=f"Failed to re-geocode trip {trip_id}. Check logs for details.",
     )
+
+
+@router.get("/api/trips/invalid", tags=["Trips API"])
+@api_route(logger)
+async def get_invalid_trips():
+    """Get all invalid trips for review."""
+    cursor = trips_collection.find(
+        {"invalid": True},
+        {
+            "transactionId": 1,
+            "startTime": 1,
+            "endTime": 1,
+            "distance": 1,
+            "validation_message": 1,
+            "source": 1,
+            "validated_at": 1,
+        },
+    ).sort("validated_at", -1)
+
+    trips = await cursor.to_list(length=1000)
+    return {
+        "status": "success",
+        "trips": [serialize_document(t) for t in trips],
+        "count": len(trips),
+    }
+
+
+@router.post("/api/trips/{trip_id}/restore", tags=["Trips API"])
+@api_route(logger)
+async def restore_trip(trip_id: str):
+    """Restore an invalid trip."""
+    trip = await get_trip_by_id(trip_id, trips_collection)
+    if not trip:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+        )
+
+    # Unset invalid flag in trips_collection
+    await trips_collection.update_one(
+        {"_id": trip["_id"]},
+        {"$unset": {"invalid": "", "validation_message": "", "validated_at": ""}},
+    )
+
+    # Unset invalid flag in matched_trips_collection
+    if trip.get("transactionId"):
+        await matched_trips_collection.update_one(
+            {"transactionId": trip["transactionId"]},
+            {"$unset": {"invalid": "", "validation_message": ""}},
+        )
+
+    return {"status": "success", "message": "Trip allocated as valid."}
+
+
+@router.delete("/api/trips/{trip_id}/permanent", tags=["Trips API"])
+@api_route(logger)
+async def permanent_delete_trip(trip_id: str):
+    """Permanently delete a trip and its matched data."""
+    # Re-use existing delete logic but explicitly for this purpose
+    return await delete_trip(trip_id)

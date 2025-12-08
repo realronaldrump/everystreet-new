@@ -758,7 +758,21 @@
     <script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
 
     <!-- Critical libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <!-- Day.js - lightweight date library (~2KB) + plugins -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/duration.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/weekOfYear.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isoWeek.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isBetween.js"></script>
+    <script>
+      // Initialize Day.js plugins
+      dayjs.extend(dayjs_plugin_relativeTime);
+      dayjs.extend(dayjs_plugin_duration);
+      dayjs.extend(dayjs_plugin_weekOfYear);
+      dayjs.extend(dayjs_plugin_isoWeek);
+      dayjs.extend(dayjs_plugin_isBetween);
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 
     <!-- DataTables - Load before page-specific scripts -->

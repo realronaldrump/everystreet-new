@@ -2683,8 +2683,221 @@
     });
   }
 
+  class InvalidTripReview {
+    constructor() {
+      this.tableBody = document.querySelector("#invalidTripsTable tbody");
+      this.paginationContainer = document.getElementById("invalidTripsPagination");
+      this.trips = [];
+      this.currentPage = 1;
+      this.itemsPerPage = 10;
+      this.init();
+    }
+
+    async init() {
+      if (!this.tableBody) return;
+      await this.fetchInvalidTrips();
+    }
+
+    async fetchInvalidTrips() {
+      try {
+        const response = await fetch("/api/trips/invalid");
+        if (!response.ok) throw new Error("Failed to fetch invalid trips");
+        const data = await response.json();
+        this.trips = data.trips;
+        this.renderTable();
+        this.renderPagination();
+      } catch (error) {
+        console.error("Error fetching invalid trips:", error);
+        window.notificationManager?.show("Failed to load invalid trips", "danger");
+      }
+    }
+
+    renderTable() {
+      if (!this.tableBody) return;
+      this.tableBody.innerHTML = "";
+
+      if (this.trips.length === 0) {
+        this.tableBody.innerHTML =
+          '<tr><td colspan="4" class="text-center text-muted">No invalid trips found.</td></tr>';
+        return;
+      }
+
+      const start = (this.currentPage - 1) * this.itemsPerPage;
+      const end = start + this.itemsPerPage;
+      const pageTrips = this.trips.slice(start, end);
+
+      pageTrips.forEach((trip) => {
+        const row = document.createElement("tr");
+        const dateStr = trip.startTime
+          ? new Date(trip.startTime).toLocaleString()
+          : "N/A";
+
+        row.innerHTML = `
+          <td>
+            <div>${dateStr}</div>
+            <small class="text-muted">${trip.transactionId || "Unknown ID"}</small>
+          </td>
+          <td>${trip.source || "unknown"}</td>
+          <td>${trip.validation_message || "No reason provided"}</td>
+          <td>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-success restore-btn" data-id="${trip.transactionId}" title="Restore Trip">
+                <i class="fas fa-check"></i>
+              </button>
+              <button class="btn btn-danger delete-btn" data-id="${trip.transactionId}" title="Delete Permanently">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        this.tableBody.appendChild(row);
+      });
+
+      this.attachEventListeners();
+    }
+
+    attachEventListeners() {
+      this.tableBody.querySelectorAll(".restore-btn").forEach((btn) => {
+        btn.addEventListener("click", () => this.restoreTrip(btn.dataset.id));
+      });
+
+      this.tableBody.querySelectorAll(".delete-btn").forEach((btn) => {
+        btn.addEventListener("click", () => this.deleteTrip(btn.dataset.id));
+      });
+    }
+
+    async restoreTrip(tripId) {
+      if (
+        !confirm(
+          "Are you sure you want to restore this trip? It will appear on maps again."
+        )
+      )
+        return;
+
+      try {
+        const response = await fetch(`/api/trips/${tripId}/restore`, {
+          method: "POST",
+        });
+        const result = await response.json();
+
+        if (response.ok) {
+          window.notificationManager?.show("Trip restored successfully", "success");
+          await this.fetchInvalidTrips();
+        } else {
+          throw new Error(result.detail || "Failed to restore trip");
+        }
+      } catch (error) {
+        console.error("Error restoring trip:", error);
+        window.notificationManager?.show(error.message, "danger");
+      }
+    }
+
+    async deleteTrip(tripId) {
+      if (
+        !confirm(
+          "Are you sure you want to PERMANENTLY delete this trip? This cannot be undone."
+        )
+      )
+        return;
+
+      try {
+        const response = await fetch(`/api/trips/${tripId}/permanent`, {
+          method: "DELETE",
+        });
+        const result = await response.json();
+
+        if (response.ok) {
+          window.notificationManager?.show("Trip deleted permanently", "success");
+          await this.fetchInvalidTrips();
+        } else {
+          throw new Error(result.detail || "Failed to delete trip");
+        }
+      } catch (error) {
+        console.error("Error deleting trip:", error);
+        window.notificationManager?.show(error.message, "danger");
+      }
+    }
+
+    renderPagination() {
+      if (!this.paginationContainer) return;
+      this.paginationContainer.innerHTML = "";
+
+      const totalPages = Math.ceil(this.trips.length / this.itemsPerPage);
+      if (totalPages <= 1) return;
+
+      const pagination = document.createElement("ul");
+      pagination.className = "pagination justify-content-center";
+
+      // Previous
+      const prevLi = document.createElement("li");
+      prevLi.className = `page-item ${this.currentPage === 1 ? "disabled" : ""}`;
+      prevLi.innerHTML = `<a class="page-link" href="#">Previous</a>`;
+      prevLi.onclick = (e) => {
+        e.preventDefault();
+        if (this.currentPage > 1) {
+          this.currentPage--;
+          this.renderTable();
+          this.renderPagination();
+        }
+      };
+      pagination.appendChild(prevLi);
+
+      // Page numbers (simple version)
+      for (let i = 1; i <= totalPages; i++) {
+        // Show first, last, current, and surrounding
+        if (
+          i === 1 ||
+          i === totalPages ||
+          (i >= this.currentPage - 1 && i <= this.currentPage + 1)
+        ) {
+          const li = document.createElement("li");
+          li.className = `page-item ${i === this.currentPage ? "active" : ""}`;
+          li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+          li.onclick = (e) => {
+            e.preventDefault();
+            this.currentPage = i;
+            this.renderTable();
+            this.renderPagination();
+          };
+          pagination.appendChild(li);
+        } else if (i === this.currentPage - 2 || i === this.currentPage + 2) {
+          const li = document.createElement("li");
+          li.className = "page-item disabled";
+          li.innerHTML = `<span class="page-link">...</span>`;
+          pagination.appendChild(li);
+        }
+      }
+
+      // Next
+      const nextLi = document.createElement("li");
+      nextLi.className = `page-item ${this.currentPage === totalPages ? "disabled" : ""}`;
+      nextLi.innerHTML = `<a class="page-link" href="#">Next</a>`;
+      nextLi.onclick = (e) => {
+        e.preventDefault();
+        if (this.currentPage < totalPages) {
+          this.currentPage++;
+          this.renderTable();
+          this.renderPagination();
+        }
+      };
+      pagination.appendChild(nextLi);
+
+      this.paginationContainer.appendChild(pagination);
+    }
+  }
+
   // Initialize mobile UI on load
   document.addEventListener("DOMContentLoaded", () => {
-    setTimeout(setupMobileUI, 100);
+    window.taskManager = new TaskManager();
+    window.taskManager.loadTaskConfig();
+
+    setupGeocodeTrips();
+    setupRemapMatchedTrips();
+
+    // Setup Mobile UI
+    setupMobileUI();
+
+    // Initialize Invalid Trip Review
+    new InvalidTripReview();
   });
 })();
