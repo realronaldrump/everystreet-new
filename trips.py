@@ -666,9 +666,6 @@ async def regeocode_single_trip(trip_id: str):
     )
 
 
-
-
-
 @router.post("/api/trips/{trip_id}/restore", tags=["Trips API"])
 @api_route(logger)
 async def restore_trip(trip_id: str):
