@@ -67,11 +67,23 @@ async def _get_fillup_price_map(query=None):
         if imei not in price_map:
             price_map[imei] = ([], [])
             
-        # Ensure timestamp is timezone-aware if possible, or consistent with trip times
-        # Mongo stores as ISODate (UTC), trip.startTime is usually python datetime (UTC)
         if ts and price:
+            # Robustly handle string timestamps
+            if isinstance(ts, str):
+                try:
+                    ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                except ValueError:
+                    continue
+            
             price_map[imei][0].append(ts)
             price_map[imei][1].append(price)
+    
+    # Ensure lists are strictly sorted by timestamp (in case mixed types messed up Mongo sort or order)
+    for imei in price_map:
+        if price_map[imei][0]:
+            # Zip and sort by timestamp
+            combined = sorted(zip(price_map[imei][0], price_map[imei][1]), key=lambda x: x[0])
+            price_map[imei] = ([x[0] for x in combined], [x[1] for x in combined])
             
     return price_map
 
@@ -92,6 +104,13 @@ def _calculate_trip_cost(trip, price_map):
     if not (fuel_consumed and imei and start_time and imei in price_map):
         return None
         
+    # Ensure start_time is datetime
+    if isinstance(start_time, str):
+        try:
+            start_time = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        
     timestamps, prices = price_map[imei]
     if not timestamps:
         return None
@@ -99,15 +118,16 @@ def _calculate_trip_cost(trip, price_map):
     # Find the insertion point for start_time in timestamps to get the most recent past fill-up
     # bisect_right returns an insertion point after (to the right of) any existing entries of x in a.
     # The element to the left of this index is the one <= start_time
-    idx = bisect.bisect_right(timestamps, start_time)
-    
-    if idx > 0:
-        # We found a fill-up that happened before (or at) the trip start
-        relevant_price = prices[idx - 1]
-        try:
+    try:
+        idx = bisect.bisect_right(timestamps, start_time)
+        
+        if idx > 0:
+            # We found a fill-up that happened before (or at) the trip start
+            relevant_price = prices[idx - 1]
             return float(fuel_consumed) * float(relevant_price)
-        except (ValueError, TypeError):
-            return None
+    except (TypeError, ValueError):
+        # Fallback for any remaining type comparison issues
+        return None
             
     return None
 
