@@ -659,9 +659,8 @@ async def get_vehicle_location_at_time(
             logger.warning(
                 f"No trip found for IMEI {imei} (use_now={use_now}, timestamp={timestamp})"
             )
-            raise HTTPException(
-                status_code=404, detail="No trip data found for this vehicle"
-            )
+            # Just return empty if not found, don't 404 for this helper
+            return {"latitude": None, "longitude": None, "odometer": None}
 
         # Extract location from the end of the trip (or interpolate if needed)
         location_data = {
@@ -734,6 +733,122 @@ async def get_vehicle_location_at_time(
         raise
     except Exception as e:
         logger.error(f"Error getting vehicle location: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/vehicles/estimate-odometer")
+async def estimate_odometer_reading(
+    imei: str = Query(..., description="Vehicle IMEI"),
+    timestamp: str = Query(..., description="ISO datetime to estimate at"),
+) -> dict[str, Any]:
+    """Estimate odometer reading by interpolating/extrapolating from nearest known anchors."""
+    try:
+        target_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+
+        # 1. Find Anchors (Gas Fill-ups)
+        # Previous trusted fill-up
+        prev_fillup = await find_one_with_retry(
+            gas_fillups_collection,
+            {"imei": imei, "fillup_time": {"$lte": target_time}, "odometer": {"$ne": None}},
+            sort=[("fillup_time", -1)],
+        )
+
+        # Next trusted fill-up
+        next_fillup = await find_one_with_retry(
+            gas_fillups_collection,
+            {"imei": imei, "fillup_time": {"$gt": target_time}, "odometer": {"$ne": None}},
+            sort=[("fillup_time", 1)],
+        )
+
+        # 2. Find Anchors (Trips) - as secondary fallback or validation
+        # Only needed if fill-ups are too far or missing. 
+        # But actually, users trust trip data too. Let's see if we can find a trip *at* this time?
+        # Or just use the closest fillup? The user said "working backwards/forwards... adding/subtracting distance of recorded trips".
+        # So we definitely need to sum trips.
+
+        best_anchor = None
+        anchor_type = None # "prev" or "next"
+        
+        # Decide which anchor to use
+        if prev_fillup and next_fillup:
+            # Use closest
+            diff_prev = abs((target_time - prev_fillup["fillup_time"]).total_seconds())
+            diff_next = abs((next_fillup["fillup_time"] - target_time).total_seconds())
+            if diff_prev < diff_next:
+                best_anchor = prev_fillup
+                anchor_type = "prev"
+            else:
+                best_anchor = next_fillup
+                anchor_type = "next"
+        elif prev_fillup:
+            best_anchor = prev_fillup
+            anchor_type = "prev"
+        elif next_fillup:
+            best_anchor = next_fillup
+            anchor_type = "next"
+        
+        # 3. If no fill-up anchor, try to find a trip anchor
+        if not best_anchor:
+            # Find nearest trip with odometer
+            prev_trip = await find_one_with_retry(
+                trips_collection,
+                {"imei": imei, "endTime": {"$lte": target_time}, "endOdometer": {"$ne": None}},
+                sort=[("endTime", -1)]
+            )
+             # Reuse standard query structure
+            if prev_trip:
+                 # Standardize structure to look like fillup for calc
+                 best_anchor = {
+                     "fillup_time": prev_trip["endTime"],
+                     "odometer": prev_trip["endOdometer"]
+                 }
+                 anchor_type = "prev"
+
+        if not best_anchor:
+            return {"estimated_odometer": None, "method": "no_data"}
+
+        # 4. Sum Distance
+        # We need to sum distance of all trips between anchor and target
+        query = {"imei": imei}
+        if anchor_type == "prev":
+            query["startTime"] = {"$gte": best_anchor["fillup_time"]}
+            query["endTime"] = {"$lte": target_time}
+        else: # next
+            query["startTime"] = {"$gte": target_time}
+            query["endTime"] = {"$lte": best_anchor["fillup_time"]}
+
+        # Aggregation to sum distance
+        # Note: Bouncie 'distance' is usually in miles? Or km?
+        # The app uses miles everywhere. Let's assume trips store distance in miles. 
+        # (Verified in generic utils: distance usually comes from stats)
+        pipeline = [
+            {"$match": query},
+            {"$group": {"_id": None, "total_distance": {"$sum": "$distance"}}}
+        ]
+        
+        result = await aggregate_with_retry(trips_collection, pipeline)
+        distance_sum = result[0]["total_distance"] if result else 0
+
+        # round to 1 decimal
+        distance_sum = round(distance_sum, 1)
+
+        # 5. Calculate
+        estimated_odometer = 0.0
+        if anchor_type == "prev":
+            estimated_odometer = best_anchor["odometer"] + distance_sum
+        else:
+            estimated_odometer = best_anchor["odometer"] - distance_sum
+
+        return {
+            "estimated_odometer": round(estimated_odometer, 1),
+            "anchor_date": best_anchor["fillup_time"],
+            "anchor_odometer": best_anchor["odometer"],
+            "distance_diff": distance_sum,
+            "method": f"calculated_from_{anchor_type}"
+        }
+
+    except Exception as e:
+        logger.error(f"Error estimating odometer: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

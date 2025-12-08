@@ -331,7 +331,69 @@ function setupEventListeners() {
             odoInput.placeholder = "miles";
         }
     });
+
+  // Auto-calc Odometer
+  document
+    .getElementById("auto-calc-odometer")
+    .addEventListener("click", autoCalcOdometer);
 }
+
+/**
+ * Auto-calculate odometer
+ */
+async function autoCalcOdometer() {
+    const imei = document.getElementById("vehicle-select").value;
+    const fillupTime = document.getElementById("fillup-time").value;
+    const odoInput = document.getElementById("odometer");
+    const odoCheck = document.getElementById("odometer-not-recorded");
+    const autoCalcBtn = document.getElementById("auto-calc-odometer");
+
+    if (!imei) {
+        showError("Please select a vehicle first");
+        return;
+    }
+    if (odoCheck.checked) {
+        showError("Please uncheck 'Not Recorded' first");
+        return;
+    }
+
+    try {
+        // Show loading state
+        const originalIcon = autoCalcBtn.innerHTML;
+        autoCalcBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        autoCalcBtn.disabled = true;
+
+        const timestamp = new Date(fillupTime).toISOString();
+        const response = await fetch(`/api/vehicles/estimate-odometer?imei=${encodeURIComponent(imei)}&timestamp=${encodeURIComponent(timestamp)}`);
+        
+        if (!response.ok) {
+            throw new Error("Failed to estimate odometer");
+        }
+
+        const result = await response.json();
+
+        if (result.estimated_odometer !== null) {
+            odoInput.value = result.estimated_odometer;
+            // Visual feedback
+            odoInput.classList.add("bg-success", "text-white", "bg-opacity-25");
+            setTimeout(() => {
+                odoInput.classList.remove("bg-success", "text-white", "bg-opacity-25");
+            }, 1000);
+            showSuccess(`Estimated from ${result.method} (Anchor: ${result.anchor_odometer}, Diff: ${result.distance_diff} mi)`);
+        } else {
+            showError("Could not estimate: No previous/next trusted odometer found.");
+        }
+
+    } catch (error) {
+        console.error("Error estimating odometer:", error);
+        showError("Failed to auto-calculate odometer");
+    } finally {
+        // Restore button
+        autoCalcBtn.innerHTML = '<i class="fas fa-magic"></i>';
+        autoCalcBtn.disabled = false;
+    }
+}
+
 
 
 /**
