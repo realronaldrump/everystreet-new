@@ -254,7 +254,16 @@ async def create_gas_fillup(
 
         if fillup_data.odometer and previous_fillup:
             previous_odometer = previous_fillup.get("odometer")
-            if previous_odometer:
+            # Strict MPG Rules:
+            # 1. Previous fill-up must exist and have odometer.
+            # 2. Previous fill-up must be IS_FULL_TANK (establishes known full state).
+            # 3. Current fill-up must be IS_FULL_TANK (measures usage to return to full).
+            # 4. Use must NOT have marked "Missed Previous".
+            if (previous_odometer and 
+                previous_fillup.get("is_full_tank") is not False and # Default to True if missing
+                fillup_data.is_full_tank and 
+                not fillup_data.missed_previous):
+                
                 miles_since_last = fillup_data.odometer - previous_odometer
                 if miles_since_last > 0 and fillup_data.gallons > 0:
                     calculated_mpg = miles_since_last / fillup_data.gallons
@@ -276,6 +285,7 @@ async def create_gas_fillup(
             "latitude": fillup_data.latitude,
             "longitude": fillup_data.longitude,
             "is_full_tank": fillup_data.is_full_tank,
+            "missed_previous": fillup_data.missed_previous,
             "notes": fillup_data.notes,
             "previous_odometer": previous_odometer,
             "miles_since_last_fillup": miles_since_last,
@@ -370,7 +380,22 @@ async def update_gas_fillup(
 
             if previous_fillup and current_odometer is not None:
                 previous_odometer = previous_fillup.get("odometer")
-                if previous_odometer is not None:
+                
+                # Strict MPG Rules (Same as create)
+                # We need 'is_full_tank' status of previous fillup
+                prev_is_full = previous_fillup.get("is_full_tank")
+                if prev_is_full is None: prev_is_full = True # Default legacy to true
+                
+                curr_is_full = update_data.get("is_full_tank", existing.get("is_full_tank"))
+                if curr_is_full is None: curr_is_full = True
+
+                curr_missed_prev = update_data.get("missed_previous", existing.get("missed_previous"))
+                
+                if (previous_odometer is not None and 
+                    prev_is_full and 
+                    curr_is_full and 
+                    not curr_missed_prev):
+                    
                     miles_since_last = current_odometer - previous_odometer
                     if miles_since_last > 0 and current_gallons > 0:
                         calculated_mpg = miles_since_last / current_gallons
@@ -478,15 +503,32 @@ async def recalculate_subsequent_fillup(imei: str, after_time: datetime) -> None
         # Need:
         # 1. next_fillup has odometer
         # 2. prev_fillup exists AND has odometer
+        # 3. prev_fillup was FULL TANK
+        # 4. next_fillup is FULL TANK
+        # 5. next_fillup NOT missed previous
+        
+        # Get attributes safely
+        next_odo = next_fillup.get("odometer")
+        prev_odo = prev_fillup.get("odometer") if prev_fillup else None
+        
+        prev_is_full = prev_fillup.get("is_full_tank") if prev_fillup else True
+        if prev_is_full is None: prev_is_full = True
+        
+        next_is_full = next_fillup.get("is_full_tank", True)
+        next_missed_prev = next_fillup.get("missed_previous", False)
+
         if (prev_fillup and 
-            next_fillup.get("odometer") is not None and 
-            prev_fillup.get("odometer") is not None):
+            next_odo is not None and 
+            prev_odo is not None and
+            prev_is_full and 
+            next_is_full and 
+            not next_missed_prev):
             
-             miles_diff = next_fillup["odometer"] - prev_fillup["odometer"]
+             miles_diff = next_odo - prev_odo
              if miles_diff > 0 and next_fillup.get("gallons", 0) > 0:
                  updates["miles_since_last_fillup"] = miles_diff
                  updates["calculated_mpg"] = miles_diff / next_fillup["gallons"]
-                 updates["previous_odometer"] = prev_fillup["odometer"]
+                 updates["previous_odometer"] = prev_odo
              else:
                  # valid data but non-positive distance?
                  updates["miles_since_last_fillup"] = None

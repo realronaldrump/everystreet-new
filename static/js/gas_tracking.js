@@ -426,6 +426,7 @@ async function handleFormSubmit(e) {
       latitude: currentLocation?.latitude || null,
       longitude: currentLocation?.longitude || null,
       is_full_tank: document.getElementById("full-tank").checked,
+      missed_previous: document.getElementById("missed-previous").checked,
       notes: document.getElementById("notes").value || null,
     };
 
@@ -667,7 +668,8 @@ window.editFillup = function(id) {
         odoInput.placeholder = "miles";
     }
 
-    document.getElementById("full-tank").checked = fillup.is_full_tank !== false; // Default to true if undefined
+    document.getElementById("full-tank").checked = fillup.is_full_tank !== false; // Default to true
+    document.getElementById("missed-previous").checked = fillup.missed_previous === true; // Default to false
     document.getElementById("notes").value = fillup.notes || "";
 
     // Set location state
