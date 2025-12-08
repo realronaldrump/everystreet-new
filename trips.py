@@ -179,40 +179,9 @@ async def get_trips_datatable(request: Request):
         query = {}
 
         if start_date or end_date:
-            # Build an expression that converts startTime to the trip's local
-            # calendar date string ("YYYY-MM-DD") using the timeZone stored on
-            # the document (or UTC if missing) and then compares that string
-            # to the supplied start/end date strings.
-            tz_expr = {
-                "$switch": {
-                    "branches": [
-                        {
-                            "case": {"$in": ["$timeZone", ["", "0000"]]},
-                            "then": "UTC",
-                        }
-                    ],
-                    "default": {"$ifNull": ["$timeZone", "UTC"]},
-                }
-            }
-
-            date_expr = {
-                "$dateToString": {
-                    "format": "%Y-%m-%d",
-                    "date": "$startTime",
-                    "timezone": tz_expr,
-                }
-            }
-
-            expr_clauses = []
-            if start_date:
-                expr_clauses.append({"$gte": [date_expr, start_date]})
-            if end_date:
-                expr_clauses.append({"$lte": [date_expr, end_date]})
-
-            if expr_clauses:
-                query["$expr"] = (
-                    {"$and": expr_clauses} if len(expr_clauses) > 1 else expr_clauses[0]
-                )
+            range_expr = build_calendar_date_expr(start_date, end_date)
+            if range_expr:
+                query["$expr"] = range_expr
 
         if search_value:
             search_regex = {"$regex": search_value, "$options": "i"}

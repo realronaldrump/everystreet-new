@@ -211,27 +211,9 @@ const utils = {
   // Cached fetch (existing implementation)
   _apiCache: new Map(),
 
-  async cachedFetch(url, options = {}, cacheTime = 10000) {
-    const key = url + JSON.stringify(options);
-    const now = Date.now();
-    const cached = this._apiCache.get(key);
-    if (cached && now - cached.ts < cacheTime) {
-      return cached.data;
-    }
-    const response = await fetch(url, options);
-    if (!response.ok) {
-      let errorMsg = `API request failed for ${url} (Status: ${response.status})`;
-      try {
-        const errData = await response.json();
-        errorMsg += `: ${errData.detail || errData.message || response.statusText}`;
-      } catch (error) {
-        void error;
-      }
-      throw new Error(errorMsg);
-    }
-    const data = await response.json();
-    this._apiCache.set(key, { data, ts: now });
-    return data;
+  // Delegate to fetchWithRetry with no retries for backward compatibility
+  cachedFetch(url, options = {}, cacheTime = 10000) {
+    return this.fetchWithRetry(url, options, 0, cacheTime);
   },
 
   // Connection monitoring (moved from coverage-management.js)
