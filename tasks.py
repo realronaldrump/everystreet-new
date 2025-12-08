@@ -58,7 +58,7 @@ from route_solver import generate_optimal_route_with_progress, save_optimal_rout
 from street_coverage_calculation import compute_incremental_coverage
 from trip_processor import TripProcessor, TripState
 from trip_service import TripService
-from utils import run_async_from_sync
+from utils import run_async_from_sync, validate_trip_is_meaningful
 from utils import validate_trip_data as validate_trip_data_logic
 
 logger = get_task_logger(__name__)
@@ -95,7 +95,14 @@ TASK_METADATA = {
         "display_name": "Cleanup Invalid Trips",
         "default_interval_minutes": 1440,
         "dependencies": [],
-        "description": "Identifies and marks invalid trip records",
+        "description": (
+            "Scans all trips and marks those that appear invalid. A trip is "
+            "considered invalid if: (1) it's missing required data like GPS "
+            "coordinates, start time, or end time, OR (2) the car was turned "
+            "on and off briefly without actually driving (zero distance, same "
+            "start/end location, no movement, and lasted less than 5 minutes). "
+            "Longer idle sessions are kept."
+        ),
     },
     "remap_unmatched_trips": {
         "display_name": "Remap Unmatched Trips",
@@ -1125,9 +1132,12 @@ async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
     cursor = trips_collection.find(
         query,
         {
+            "transactionId": 1,
             "startTime": 1,
             "endTime": 1,
             "gps": 1,
+            "distance": 1,
+            "maxSpeed": 1,
             "_id": 1,
         },
     ).batch_size(batch_size)
@@ -1135,7 +1145,13 @@ async def cleanup_invalid_trips_async(_self) -> dict[str, Any]:
     batch_updates = []
     async for trip in cursor:
         processed_count += 1
+
+        # First check: required data validation
         valid, message = validate_trip_data_logic(trip)
+
+        # Second check: stationary trip validation (only if first check passed)
+        if valid:
+            valid, message = validate_trip_is_meaningful(trip)
 
         if not valid:
             batch_updates.append(

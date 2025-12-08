@@ -278,7 +278,7 @@ const dataManager = {
         return null;
       }
 
-      const {features} = fullCollection;
+      const { features } = fullCollection;
       const totalCount = features.length;
       const chunkSize = CONFIG.PERFORMANCE?.tripChunkSize || 500;
       const delay = CONFIG.PERFORMANCE?.progressiveLoadingDelay || 16;

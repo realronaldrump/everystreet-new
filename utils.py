@@ -272,6 +272,109 @@ def validate_trip_data(
     return True, None
 
 
+def validate_trip_is_meaningful(
+    trip: dict[str, Any],
+) -> tuple[bool, str | None]:
+    """Validate that a trip represents actual driving, not just engine on/off.
+
+    Flags trips as invalid if ALL of these conditions are met:
+    - Distance is 0 (or very close to 0)
+    - Start and end locations are the same (or very close)
+    - Maximum speed is 0 MPH
+    - Duration is less than 5 minutes
+
+    Trips with duration >= 5 minutes are kept even if stationary (legitimate idling).
+
+    Returns:
+        Tuple of (is_valid, error_message). True if trip is meaningful.
+    """
+    # Get distance - treat missing as 0
+    distance = trip.get("distance", 0)
+    try:
+        distance = float(distance) if distance is not None else 0
+    except (TypeError, ValueError):
+        distance = 0
+
+    # Get max speed - treat missing as 0
+    max_speed = trip.get("maxSpeed", 0)
+    try:
+        max_speed = float(max_speed) if max_speed is not None else 0
+    except (TypeError, ValueError):
+        max_speed = 0
+
+    # Calculate duration in minutes
+    start_time = trip.get("startTime")
+    end_time = trip.get("endTime")
+    duration_minutes = None
+
+    if start_time and end_time:
+        try:
+
+            if isinstance(start_time, str):
+                from date_utils import parse_timestamp
+
+                start_time = parse_timestamp(start_time)
+            if isinstance(end_time, str):
+                from date_utils import parse_timestamp
+
+                end_time = parse_timestamp(end_time)
+
+            if start_time and end_time:
+                duration_seconds = (end_time - start_time).total_seconds()
+                duration_minutes = duration_seconds / 60
+        except Exception:
+            duration_minutes = None
+
+    # Check if start and end locations are the same
+    same_location = False
+    gps = trip.get("gps")
+    if gps:
+        coords = None
+        if isinstance(gps, dict) and "coordinates" in gps:
+            coords = gps.get("coordinates")
+        elif isinstance(gps, list):
+            coords = gps
+
+        if coords and isinstance(coords, list) and len(coords) >= 2:
+            # Get first and last coordinates
+            first_coord = coords[0]
+            last_coord = coords[-1]
+
+            if (
+                isinstance(first_coord, list)
+                and isinstance(last_coord, list)
+                and len(first_coord) >= 2
+                and len(last_coord) >= 2
+            ):
+                # Check if coordinates are within a small tolerance (approx 10 meters)
+                lon_diff = abs(first_coord[0] - last_coord[0])
+                lat_diff = abs(first_coord[1] - last_coord[1])
+                # ~0.0001 degrees is approximately 10 meters
+                same_location = lon_diff < 0.0001 and lat_diff < 0.0001
+
+    # A trip is "stationary" (invalid) if ALL conditions are met:
+    # - Distance is essentially 0 (< 0.01 miles)
+    # - Same start/end location
+    # - Max speed is 0
+    # - Duration is less than 5 minutes
+    is_stationary = (
+        distance < 0.01
+        and same_location
+        and max_speed < 0.1
+        and duration_minutes is not None
+        and duration_minutes < 5
+    )
+
+    if is_stationary:
+        return (
+            False,
+            f"Stationary trip: car turned on briefly without driving "
+            f"(distance: {distance:.2f} mi, duration: {duration_minutes:.1f} min)",
+        )
+
+    return True, None
+
+
 def validate_coordinate_pair(coord_pair: Any) -> tuple[bool, list[float] | None]:
     """Validate a single coordinate pair [lon, lat].
 
