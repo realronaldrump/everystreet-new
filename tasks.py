@@ -58,8 +58,9 @@ from route_solver import generate_optimal_route_with_progress, save_optimal_rout
 from street_coverage_calculation import compute_incremental_coverage
 from trip_processor import TripProcessor, TripState
 from trip_service import TripService
-from utils import run_async_from_sync, validate_trip_is_meaningful
+from utils import run_async_from_sync
 from utils import validate_trip_data as validate_trip_data_logic
+from utils import validate_trip_is_meaningful
 
 logger = get_task_logger(__name__)
 T = TypeVar("T")
