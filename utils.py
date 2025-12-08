@@ -357,9 +357,9 @@ def validate_trip_is_meaningful(
     # 3. Very low max speed (<= 0.5 mph)
     # 4. Short duration (< 10 minutes)
     # OR if it's extremely short duration (< 2 min) and zero distance
-    
+
     is_stationary = False
-    
+
     if duration_minutes is not None:
         # Condition 1: Standard stationary check
         if (
@@ -369,12 +369,9 @@ def validate_trip_is_meaningful(
             and duration_minutes < 10
         ):
             is_stationary = True
-        
+
         # Condition 2: Extremely short zero-distance events (noise)
-        elif (
-            distance <= 0.01
-            and duration_minutes < 2
-        ):
+        elif distance <= 0.01 and duration_minutes < 2:
             is_stationary = True
 
     if is_stationary:
