@@ -244,18 +244,14 @@ async def get_trips_datatable(request: Request):
         if sort_column == "duration":
             pipeline = [
                 {"$match": query},
-                {
-                    "$addFields": {
-                        "duration": {
-                            "$subtract": ["$endTime", "$startTime"]
-                        }
-                    }
-                },
+                {"$addFields": {"duration": {"$subtract": ["$endTime", "$startTime"]}}},
                 {"$sort": {"duration": sort_direction}},
                 {"$skip": start},
                 {"$limit": length},
             ]
-            trips_list = await trips_collection.aggregate(pipeline).to_list(length=length)
+            trips_list = await trips_collection.aggregate(pipeline).to_list(
+                length=length
+            )
         else:
             cursor = (
                 trips_collection.find(query)
