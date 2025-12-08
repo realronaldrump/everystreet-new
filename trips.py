@@ -3,6 +3,7 @@
 import json
 import logging
 import uuid
+import bisect
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -27,9 +28,89 @@ from db import (
     serialize_document,
     trips_collection,
     update_one_with_retry,
+    gas_fillups_collection,
 )
 from models import DateRangeModel
 from trip_service import TripService
+
+# ==============================================================================
+# Helper Functions
+# ==============================================================================
+
+async def _get_fillup_price_map(query=None):
+    """Fetches valid gas fill-ups and organizes them by IMEI for efficient lookup.
+    
+    Returns:
+        dict: { imei: ([timestamps], [prices]) } where lists are sorted by timestamp.
+    """
+    if query is None:
+        query = {}
+    
+    # Ensure we only get fill-ups with valid price, time, and IMEI
+    fillup_query = {
+        **query,
+        "price_per_gallon": {"$ne": None},
+        "fillup_time": {"$ne": None},
+        "imei": {"$ne": None}
+    }
+    
+    projection = {"imei": 1, "fillup_time": 1, "price_per_gallon": 1}
+    # Sort by time to ensure ordered lists
+    cursor = gas_fillups_collection.find(fillup_query, projection).sort("fillup_time", 1)
+    
+    price_map = {}
+    async for fillup in cursor:
+        imei = fillup.get("imei")
+        ts = fillup.get("fillup_time")
+        price = fillup.get("price_per_gallon")
+        
+        if imei not in price_map:
+            price_map[imei] = ([], [])
+            
+        # Ensure timestamp is timezone-aware if possible, or consistent with trip times
+        # Mongo stores as ISODate (UTC), trip.startTime is usually python datetime (UTC)
+        if ts and price:
+            price_map[imei][0].append(ts)
+            price_map[imei][1].append(price)
+            
+    return price_map
+
+def _calculate_trip_cost(trip, price_map):
+    """Calculates estimated cost for a trip based on fuel consumed and historical gas prices.
+    
+    Args:
+        trip (dict): Trip document with 'fuelConsumed', 'imei', 'startTime'
+        price_map (dict): Output from _get_fillup_price_map
+        
+    Returns:
+        float | None: Estimated cost or None if data is missing
+    """
+    fuel_consumed = trip.get("fuelConsumed")
+    imei = trip.get("imei")
+    start_time = trip.get("startTime")
+    
+    if not (fuel_consumed and imei and start_time and imei in price_map):
+        return None
+        
+    timestamps, prices = price_map[imei]
+    if not timestamps:
+        return None
+        
+    # Find the insertion point for start_time in timestamps to get the most recent past fill-up
+    # bisect_right returns an insertion point after (to the right of) any existing entries of x in a.
+    # The element to the left of this index is the one <= start_time
+    idx = bisect.bisect_right(timestamps, start_time)
+    
+    if idx > 0:
+        # We found a fill-up that happened before (or at) the trip start
+        relevant_price = prices[idx - 1]
+        try:
+            return float(fuel_consumed) * float(relevant_price)
+        except (ValueError, TypeError):
+            return None
+            
+    return None
+
 
 # ==============================================================================
 # Setup
@@ -103,6 +184,12 @@ async def get_trips(request: Request):
         trips_collection.find(query, projection).sort("endTime", -1).batch_size(1000)
     )
 
+    # Pre-fetch has prices for cost calculation
+    # Only fetch for relevant time range if possible, but for streaming all, fetching all prices is safer/easier
+    # Optimization: If query has date range, filter fill-ups too. 
+    # But 'query' here is for trips. Let's just fetch all fill-ups for simplicity (usually much fewer than trips)
+    price_map = await _get_fillup_price_map()
+
     async def stream():
         yield '{"type":"FeatureCollection","features":['
         first = True
@@ -135,7 +222,11 @@ async def get_trips(request: Request):
                 "startOdometer": trip.get("startOdometer"),
                 "endOdometer": trip.get("endOdometer"),
                 "averageSpeed": trip.get("averageSpeed"),
+                "startOdometer": trip.get("startOdometer"),
+                "endOdometer": trip.get("endOdometer"),
+                "averageSpeed": trip.get("averageSpeed"),
                 "pointsRecorded": num_points,
+                "estimated_cost": _calculate_trip_cost(trip, price_map),
             }
             feature = {
                 "type": "Feature",
@@ -220,6 +311,9 @@ async def get_trips_datatable(request: Request):
         )
         trips_list = await cursor.to_list(length=length)
 
+    # Fetch gas prices for cost calculation
+    price_map = await _get_fillup_price_map()  # Could optimize to filter by IMEIs in trips_list if page size is large, but for 10 it's negligible.
+
     formatted_data = []
     for trip in trips_list:
         start_time = trip.get("startTime")
@@ -247,7 +341,9 @@ async def get_trips_datatable(request: Request):
             "destination": destination,
             "maxSpeed": float(trip.get("maxSpeed", 0)),
             "totalIdleDuration": trip.get("totalIdleDuration", 0),
+            "totalIdleDuration": trip.get("totalIdleDuration", 0),
             "fuelConsumed": float(trip.get("fuelConsumed", 0)),
+            "estimated_cost": _calculate_trip_cost(trip, price_map),
         }
         formatted_data.append(formatted_trip)
 

@@ -410,6 +410,15 @@ class TripsManager {
             },
           },
           {
+            data: "estimated_cost",
+            title: "Cost",
+            render: (data, type) => {
+               if (data == null) return "--";
+               const val = parseFloat(data).toFixed(2);
+               return `$${val}`;
+            },
+          },
+          {
             data: null,
             title: "Actions",
             orderable: false,
@@ -744,6 +753,7 @@ class TripsManager {
       trip.totalIdleDuration != null ? (trip.totalIdleDuration / 60).toFixed(2) : "N/A";
     const fuelConsumed =
       trip.fuelConsumed != null ? parseFloat(trip.fuelConsumed).toFixed(2) : "N/A";
+    const estimatedCost = trip.estimated_cost != null ? `$${parseFloat(trip.estimated_cost).toFixed(2)}` : "--";
 
     const startLocation = TripsManager.formatLocation(trip.startLocation);
 
@@ -779,6 +789,10 @@ class TripsManager {
             <div class="trip-info-item">
               <div class="trip-info-label">Fuel</div>
               <div class="trip-info-value">${fuelConsumed} gal</div>
+            </div>
+            <div class="trip-info-item">
+               <div class="trip-info-label">Cost</div>
+               <div class="trip-info-value">${estimatedCost}</div>
             </div>
           </div>
           <div class="trip-location">
