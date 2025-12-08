@@ -355,19 +355,20 @@ def validate_trip_is_meaningful(
     # - Distance is essentially 0 (< 0.01 miles)
     # - Same start/end location
     # - Max speed is 0
-    # Note: Duration check removed - if you didn't move, it's not a trip
-    is_stationary = distance < 0.01 and same_location and max_speed < 0.1
+    # - Duration is less than 5 minutes
+    is_stationary = (
+        distance < 0.01
+        and same_location
+        and max_speed < 0.1
+        and duration_minutes is not None
+        and duration_minutes < 5
+    )
 
     if is_stationary:
-        duration_str = (
-            f", duration: {duration_minutes:.1f} min"
-            if duration_minutes is not None
-            else ""
-        )
         return (
             False,
-            f"Stationary trip: car turned on without driving "
-            f"(distance: {distance:.2f} mi{duration_str})",
+            f"Stationary trip: car turned on briefly without driving "
+            f"(distance: {distance:.2f} mi, duration: {duration_minutes:.1f} min)",
         )
 
     return True, None

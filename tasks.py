@@ -98,8 +98,11 @@ TASK_METADATA = {
         "description": (
             "Scans all trips and validates their data. A trip is marked invalid if: "
             "(1) it's missing required data like GPS coordinates, start time, or end "
-            "time, (2) it has malformed GPS data, OR (3) the car was turned on without "
-            "actually driving (zero distance, same start/end location, and no movement)."
+            "time, (2) it has malformed or out-of-range GPS data, OR (3) the car was "
+            "turned on briefly without actually driving (zero distance, same start/end "
+            "location, no movement, and lasted less than 5 minutes). Longer idle "
+            "sessions are preserved. This task also updates validation timestamps "
+            "and syncs invalid status to matched trips."
         ),
     },
     "remap_unmatched_trips": {
