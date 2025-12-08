@@ -8,6 +8,7 @@ let map = null;
 let marker = null;
 let currentLocation = null;
 let vehicles = [];
+let recentFillups = [];
 
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", async () => {
@@ -310,6 +311,11 @@ function setupEventListeners() {
   document
     .getElementById("gas-fillup-form")
     .addEventListener("submit", handleFormSubmit);
+
+  // Cancel edit
+  document
+    .getElementById("cancel-edit-btn")
+    .addEventListener("click", resetFormState);
 }
 
 /**
@@ -320,6 +326,8 @@ async function handleFormSubmit(e) {
 
   const submitButton = document.querySelector(".btn-save");
   const spinner = document.querySelector(".loading-spinner");
+  const fillupId = document.getElementById("fillup-id").value;
+  const isEdit = !!fillupId;
 
   try {
     // Show loading state
@@ -350,8 +358,16 @@ async function handleFormSubmit(e) {
     }
 
     // Submit to API
-    const response = await fetch("/api/gas-fillups", {
-      method: "POST",
+    let url = "/api/gas-fillups";
+    let method = "POST";
+
+    if (isEdit) {
+      url += `/${fillupId}`;
+      method = "PUT";
+    }
+
+    const response = await fetch(url, {
+      method: method,
       headers: {
         "Content-Type": "application/json",
       },
@@ -360,13 +376,13 @@ async function handleFormSubmit(e) {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || "Failed to save fill-up");
+      throw new Error(error.detail || `Failed to ${isEdit ? "update" : "save"} fill-up`);
     }
 
     const result = await response.json();
 
     // Show success message
-    showSuccess("Fill-up recorded successfully!");
+    showSuccess(`Fill-up ${isEdit ? "updated" : "recorded"} successfully!`);
 
     // Show calculated MPG if available
     if (result.calculated_mpg) {
@@ -380,19 +396,52 @@ async function handleFormSubmit(e) {
       }, 5000);
     }
 
-    // Reset form (except vehicle selection)
-    document.getElementById("gas-fillup-form").reset();
-    document.getElementById("vehicle-select").value = formData.imei;
-    setCurrentTime();
+    // Reset form
+    resetFormState();
 
     // Reload data
     await Promise.all([loadRecentFillups(), loadStatistics()]);
   } catch (error) {
     console.error("Error submitting fill-up:", error);
-    showError(error.message || "Failed to save fill-up");
+    showError(error.message || `Failed to ${isEdit ? "update" : "save"} fill-up`);
   } finally {
     submitButton.disabled = false;
     spinner.classList.remove("active");
+  }
+}
+
+/**
+ * Reset form state (clear fields, exit edit mode)
+ */
+function resetFormState() {
+  document.getElementById("gas-fillup-form").reset();
+  
+  // Clear ID and reset buttons
+  document.getElementById("fillup-id").value = "";
+  document.getElementById("cancel-edit-btn").style.display = "none";
+  document.querySelector(".btn-save").childNodes[0].nodeValue = "Save Fill-Up"; // keep spinner
+
+  // Reset helper text
+  document.getElementById("location-text").textContent = "Select vehicle...";
+  document.getElementById("odometer-display").textContent = "--";
+  document.getElementById("calculated-mpg").style.display = "none";
+
+  // Retain vehicle selection if possible, otherwise reset
+  // Actually standard reset clears it, let's see if we want to keep vehicle
+  // Usually better to keep vehicle selected
+  const vehicleSelect = document.getElementById("vehicle-select");
+  const selectedVehicle = vehicleSelect.value;
+  if(selectedVehicle) {
+      // Re-select it after a tick because reset clears it
+      setTimeout(() => {
+          vehicleSelect.value = selectedVehicle;
+          setCurrentTime(); // Reset time to now
+          currentLocation = null; // Clear old location data
+          if(marker) marker.remove();
+          updateLocationAndOdometer(); // Fetch fresh "now" data
+      }, 0);
+  } else {
+      setCurrentTime();
   }
 }
 
@@ -413,6 +462,7 @@ async function loadRecentFillups() {
     if (!response.ok) throw new Error("Failed to load fill-ups");
 
     const fillups = await response.json();
+    recentFillups = fillups; // Store globally
 
     if (fillups.length === 0) {
       fillupList.innerHTML =
@@ -446,13 +496,21 @@ function createFillupItem(fillup) {
     : fillup.vin || fillup.imei || "Unknown Vehicle";
 
   return `
-        <div class="fillup-item">
+        <div class="fillup-item" id="fillup-item-${fillup._id}">
             <div class="fillup-header">
                 <div>
                     <span class="fillup-date">${date}</span>
                     <div class="small text-muted">${vehicleName}</div>
                 </div>
-                <span class="badge bg-primary">${fillup.gallons.toFixed(2)} gal</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary me-2">${fillup.gallons.toFixed(2)} gal</span>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="editFillup('${fillup._id}')" title="Edit">
+                        ✏️
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteFillup('${fillup._id}')" title="Delete">
+                        🗑️
+                    </button>
+                </div>
             </div>
             <div class="fillup-details">
                 <div class="fillup-detail">
@@ -476,6 +534,86 @@ function createFillupItem(fillup) {
         </div>
     `;
 }
+
+/**
+ * Edit a fill-up
+ */
+window.editFillup = function(id) {
+    const fillup = recentFillups.find(f => f._id === id);
+    if (!fillup) return;
+
+    // Switch to edit mode UI
+    document.getElementById("fillup-id").value = fillup._id;
+    document.querySelector(".btn-save").childNodes[0].nodeValue = "Update Fill-Up";
+    document.getElementById("cancel-edit-btn").style.display = "inline-block";
+
+    // Populate form
+    document.getElementById("vehicle-select").value = fillup.imei;
+    
+    // Format date for datetime-local input (remove seconds/milliseconds if needed, or just slice)
+    // fillup.fillup_time is ISO string from JSON (e.g. 2023-12-01T12:00:00Z)
+    // datetime-local needs YYYY-MM-DDTHH:MM
+    // We need to convert it to local time for the input because the input is "local"
+    const dateObj = new Date(fillup.fillup_time);
+    const offset = dateObj.getTimezoneOffset();
+    const localTime = new Date(dateObj.getTime() - offset * 60 * 1000);
+    document.getElementById("fillup-time").value = localTime.toISOString().slice(0, 16);
+
+    document.getElementById("gallons").value = fillup.gallons;
+    document.getElementById("price-per-gallon").value = fillup.price_per_gallon || "";
+    document.getElementById("total-cost").value = fillup.total_cost || "";
+    document.getElementById("odometer").value = fillup.odometer || "";
+    document.getElementById("full-tank").checked = fillup.is_full_tank !== false; // Default to true if undefined
+    document.getElementById("notes").value = fillup.notes || "";
+
+    // Set location state
+    currentLocation = {
+        latitude: fillup.latitude,
+        longitude: fillup.longitude,
+        odometer: fillup.odometer
+    };
+    
+    // Update map marker
+    if (fillup.latitude && fillup.longitude) {
+        updateMap(fillup.latitude, fillup.longitude);
+        document.getElementById("location-text").textContent = "Location from record";
+        document.getElementById("odometer-display").textContent = fillup.odometer ? Math.round(fillup.odometer) : "--";
+    }
+
+    // Scroll to form
+    document.querySelector(".gas-form-container").scrollIntoView({ behavior: "smooth" });
+};
+
+/**
+ * Delete a fill-up
+ */
+window.deleteFillup = async function(id) {
+    if (!confirm("Are you sure you want to delete this fill-up record?")) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/gas-fillups/${id}`, {
+            method: "DELETE"
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to delete fill-up");
+        }
+
+        showSuccess("Fill-up deleted successfully");
+        
+        // If we were editing this one, reset the form
+        if (document.getElementById("fillup-id").value === id) {
+            resetFormState();
+        }
+
+        await Promise.all([loadRecentFillups(), loadStatistics()]);
+    } catch (error) {
+        console.error("Error deleting fill-up:", error);
+        showError("Failed to delete fill-up");
+    }
+};
 
 /**
  * Load statistics
