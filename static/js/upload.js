@@ -959,5 +959,6 @@ class UploadManager {
   }
 }
 
-// UploadManager is instantiated elsewhere and assigned to window.uploadManager
-// This class definition is used by other modules
+// Instantiate and expose globally for onclick handlers in templates
+const uploadManager = new UploadManager();
+window.uploadManager = uploadManager;

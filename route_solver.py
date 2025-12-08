@@ -13,6 +13,7 @@ The algorithm:
 5. Find an Eulerian circuit through the augmented graph
 """
 
+import contextlib
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -189,7 +190,7 @@ def _solve_rpp(
     # Convert edge circuit to node circuit
     if circuit:
         node_circuit = [circuit[0][0]]
-        for u, v in circuit:
+        for _u, v in circuit:
             node_circuit.append(v)
     else:
         node_circuit = list(augmented.nodes())
@@ -415,12 +416,10 @@ async def generate_optimal_route_with_progress(
         # 5. Determine start node
         start_node_id = None
         if start_coords:
-            try:
+            with contextlib.suppress(Exception):
                 start_node_id = ox.distance.nearest_nodes(
                     G, start_coords[0], start_coords[1]
                 )
-            except Exception:
-                pass
 
         await update_progress(
             "computing_matching",
@@ -662,10 +661,8 @@ async def generate_optimal_route(
     # 5. Determine start node
     start_node = None
     if start_coords:
-        try:
+        with contextlib.suppress(Exception):
             start_node = ox.distance.nearest_nodes(G, start_coords[0], start_coords[1])
-        except Exception:
-            pass
 
     # 6. Solve RPP
     logger.info(
@@ -766,4 +763,5 @@ def build_gpx_from_coords(
         lon, lat = coord[0], coord[1]
         points.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
 
-    return f"{gpx_header}{'\n'.join(points)}\n{gpx_footer}"
+    points_str = "\n".join(points)
+    return f"{gpx_header}{points_str}\n{gpx_footer}"

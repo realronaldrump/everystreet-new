@@ -8,7 +8,6 @@ let map = null;
 let marker = null;
 let currentLocation = null;
 let vehicles = [];
-let _selectedVehicle = null;
 
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", async () => {
@@ -125,7 +124,6 @@ async function loadVehicles() {
     // If only one vehicle, auto-select it
     if (vehicles.length === 1) {
       vehicleSelect.value = vehicles[0].imei;
-      _selectedVehicle = vehicles[0];
       await updateLocationAndOdometer();
     } else if (vehicles.length > 0) {
       // Optional: restore last selected vehicle from localStorage if needed
@@ -285,8 +283,7 @@ function setCurrentTime() {
  */
 function setupEventListeners() {
   // Vehicle selection change
-  document.getElementById("vehicle-select").addEventListener("change", async (e) => {
-    _selectedVehicle = vehicles.find((v) => v.imei === e.target.value);
+  document.getElementById("vehicle-select").addEventListener("change", async () => {
     await updateLocationAndOdometer();
     await loadRecentFillups();
     await loadStatistics();

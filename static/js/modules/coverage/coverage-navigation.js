@@ -615,7 +615,9 @@ class CoverageNavigation {
 
       // Fit map to route bounds
       const bounds = new mapboxgl.LngLatBounds();
-      route.coordinates.forEach((coord) => bounds.extend(coord));
+      for (const coord of route.coordinates) {
+        bounds.extend(coord);
+      }
 
       if (!bounds.isEmpty()) {
         map.fitBounds(bounds, {

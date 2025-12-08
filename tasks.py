@@ -22,8 +22,10 @@ from typing import TYPE_CHECKING, Any, TypeVar
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+from bson import ObjectId
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from dateutil.parser import parse
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError, ConnectionFailure
 
@@ -2043,9 +2045,6 @@ async def force_reset_task(
     }
 
 
-from dateutil.parser import parse
-
-
 async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, Any]:
     """Updates the task scheduling configuration (enabled status, interval) in the.
 
@@ -2387,9 +2386,6 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
                 celery_task_id,
             )
             raise e
-    except Exception as e:
-        logger.exception("Unexpected error in webhook processing wrapper: %s", e)
-        raise e
 
 
 async def trigger_fetch_all_missing_trips(
@@ -2424,7 +2420,6 @@ async def generate_optimal_route_async(
     location_id: str,
     start_lon: float | None = None,
     start_lat: float | None = None,
-    manual_run: bool = False,
 ) -> dict[str, Any]:
     """Generate optimal completion route for a coverage area.
 

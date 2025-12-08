@@ -6,6 +6,7 @@ UTM projection.
 """
 
 import asyncio
+import contextlib
 import gc
 import logging
 from datetime import UTC, datetime
@@ -126,10 +127,7 @@ def _is_drivable_street(tags: dict[str, Any]) -> bool:
         return False
     if tags.get("vehicle") == "no":
         return False
-    if tags.get("area") == "yes":
-        return False
-
-    return True
+    return tags.get("area") != "yes"
 
 
 def segment_street(
@@ -286,10 +284,7 @@ async def _fetch_streets_with_osmnx(
                 continue
 
             # Extract OSM ID from index (OSMnx uses (type, id) tuple index)
-            if isinstance(idx, tuple):
-                osm_id = idx[1]
-            else:
-                osm_id = idx
+            osm_id = idx[1] if isinstance(idx, tuple) else idx
 
             filtered_features.append(
                 {
@@ -477,10 +472,8 @@ async def preprocess_streets(
 
         # Insert remaining
         if batch_to_insert:
-            try:
+            with contextlib.suppress(BulkWriteError):
                 await streets_collection.insert_many(batch_to_insert, ordered=False)
-            except BulkWriteError:
-                pass
 
         # 7. Update coverage metadata
         await update_one_with_retry(

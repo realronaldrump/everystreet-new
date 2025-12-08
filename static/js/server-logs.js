@@ -1,4 +1,4 @@
-/* global confirmationDialog */
+/* global */
 
 document.addEventListener("DOMContentLoaded", () => {
   // DOM elements
