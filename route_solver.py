@@ -729,39 +729,7 @@ async def save_optimal_route(location_id: str, route_result: dict[str, Any]) -> 
     logger.info("Saved optimal route for location %s", location_id)
 
 
-def build_gpx_from_coords(
-    coords: list[list[float]], name: str = "Optimal Route"
-) -> str:
-    """Build GPX XML from coordinate list.
+# Import build_gpx_from_coords from export_helpers to avoid code duplication
+from export_helpers import build_gpx_from_coords
 
-    Args:
-        coords: List of [lon, lat] coordinate pairs
-        name: Name for the GPX track
-
-    Returns:
-        GPX XML string
-    """
-    gpx_header = f"""<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="EveryStreet"
-     xmlns="http://www.topografix.com/GPX/1/1"
-     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
-  <metadata>
-    <name>{name}</name>
-    <time>{datetime.now(UTC).isoformat()}</time>
-  </metadata>
-  <trk>
-    <name>{name}</name>
-    <trkseg>
-"""
-    gpx_footer = """    </trkseg>
-  </trk>
-</gpx>"""
-
-    points = []
-    for coord in coords:
-        lon, lat = coord[0], coord[1]
-        points.append(f'      <trkpt lat="{lat}" lon="{lon}"></trkpt>')
-
-    points_str = "\n".join(points)
-    return f"{gpx_header}{points_str}\n{gpx_footer}"
+__all__ = ["generate_optimal_route", "generate_optimal_route_with_progress", "save_optimal_route", "build_gpx_from_coords"]

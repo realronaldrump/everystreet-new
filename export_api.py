@@ -16,6 +16,7 @@ from db import (
 )
 from export_helpers import (
     create_export_response,
+    create_gpx,
     get_location_filename,
     process_trip_for_export,
 )
@@ -93,43 +94,20 @@ async def _stream_json_array_from_cursor(cursor) -> Any:
     return generator()
 
 
-def _xml_escape(text: str) -> str:
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&apos;")
-    )
-
-
 async def _stream_gpx_from_cursor(cursor) -> Any:
+    """Generate GPX from trip cursor using gpxpy library.
+
+    Collects trips from cursor and uses the gpxpy-based create_gpx function
+    for proper GPX generation with validation and proper XML structure.
+    """
+    trips = []
+    async for trip in cursor:
+        trips.append(trip)
+
+    gpx_content = await create_gpx(trips)
+
     async def generator():
-        yield '<?xml version="1.0" encoding="UTF-8"?>\n'
-        yield '<gpx version="1.1" creator="EveryStreet" xmlns="http://www.topografix.com/GPX/1/1">\n'
-        async for trip in cursor:
-            try:
-                geom = trip.get("gps")
-                if not isinstance(geom, dict) or "type" not in geom:
-                    continue
-                name = _xml_escape(str(trip.get("transactionId", "trip")))
-                yield f"  <trk><name>{name}</name><trkseg>\n"
-                if geom.get("type") == "LineString":
-                    coords = geom.get("coordinates", [])
-                    for c in coords:
-                        if isinstance(c, list | tuple) and len(c) >= 2:
-                            lon, lat = c[0], c[1]
-                            yield f'    <trkpt lat="{lat}" lon="{lon}"/>\n'
-                elif geom.get("type") == "Point":
-                    coords = geom.get("coordinates", [])
-                    if isinstance(coords, list | tuple) and len(coords) >= 2:
-                        lon, lat = coords[0], coords[1]
-                        yield f'    <trkpt lat="{lat}" lon="{lon}"/>\n'
-                yield "  </trkseg></trk>\n"
-            except Exception as e:
-                logger.warning("Skipping trip in GPX stream: %s", e)
-                continue
-        yield "</gpx>\n"
+        yield gpx_content
 
     return generator()
 

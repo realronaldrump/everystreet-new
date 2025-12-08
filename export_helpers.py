@@ -24,6 +24,41 @@ from utils import default_serializer
 logger = logging.getLogger(__name__)
 
 
+def build_gpx_from_coords(
+    coords: list[list[float]],
+    name: str = "Track",
+    description: str | None = None,
+) -> str:
+    """Build GPX XML from coordinate list using gpxpy.
+
+    Args:
+        coords: List of [lon, lat] coordinate pairs
+        name: Name for the GPX track
+        description: Optional description
+
+    Returns:
+        GPX XML string
+    """
+    gpx = gpxpy.gpx.GPX()
+    gpx.creator = "EveryStreet"
+
+    track = gpxpy.gpx.GPXTrack()
+    track.name = name
+    if description:
+        track.description = description
+    gpx.tracks.append(track)
+
+    segment = gpxpy.gpx.GPXTrackSegment()
+    track.segments.append(segment)
+
+    for coord in coords:
+        if len(coord) >= 2:
+            lon, lat = coord[0], coord[1]
+            segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
+
+    return gpx.to_xml()
+
+
 async def create_geojson(
     trips: list[dict[str, Any]],
 ) -> str:
