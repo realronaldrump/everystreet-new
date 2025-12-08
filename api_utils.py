@@ -53,9 +53,7 @@ def get_mongo_tz_expr() -> dict[str, Any]:
     """
     return {
         "$switch": {
-            "branches": [
-                {"case": {"$in": ["$timeZone", ["", "0000"]]}, "then": "UTC"}
-            ],
+            "branches": [{"case": {"$in": ["$timeZone", ["", "0000"]]}, "then": "UTC"}],
             "default": {"$ifNull": ["$timeZone", "UTC"]},
         }
     }
