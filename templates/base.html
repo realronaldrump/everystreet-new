@@ -312,6 +312,17 @@
                   </li>
                   <li role="none">
                     <a
+                      class="dropdown-item {% if request.url.path == '/county-map' %}active{% endif %}"
+                      href="/county-map"
+                      role="menuitem"
+                      {% if request.url.path == '/county-map' %}aria-current="page"{% endif %}
+                    >
+                      <i class="fas fa-globe-americas me-2" aria-hidden="true"></i>
+                      County Map
+                    </a>
+                  </li>
+                  <li role="none">
+                    <a
                       class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
                       href="/export"
                       role="menuitem"
@@ -521,6 +532,16 @@
               >
                 <i class="fas fa-route me-2" aria-hidden="true"></i>
                 Optimal Routes
+              </a>
+            </li>
+            <li role="none">
+              <a
+                href="/county-map"
+                class="{% if request.url.path == '/county-map' %}active{% endif %}"
+                {% if request.url.path == '/county-map' %}aria-current="page"{% endif %}
+              >
+                <i class="fas fa-globe-americas me-2" aria-hidden="true"></i>
+                County Map
               </a>
             </li>
             <li role="none">

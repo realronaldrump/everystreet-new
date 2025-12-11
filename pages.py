@@ -181,3 +181,17 @@ async def optimal_routes_page(request: Request):
         request,
         MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
     )
+
+
+@router.get(
+    "/county-map",
+    response_class=HTMLResponse,
+)
+async def county_map_page(request: Request):
+    """Render the county map visualization page."""
+    return _render_page(
+        "county_map.html",
+        request,
+        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+    )
+

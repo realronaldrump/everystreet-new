@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Every Street - County Map{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="county-map-wrapper">
+  <!-- Map Container -->
+  <div id="county-map" class="county-map-container" role="application" aria-label="US Counties Map"></div>
+
+  <!-- Stats Panel -->
+  <div class="county-stats-panel" id="stats-panel">
+    <div class="stats-header">
+      <h2 class="stats-title">
+        <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
+        County Coverage
+      </h2>
+      <button class="stats-toggle-btn" id="stats-toggle" aria-label="Toggle stats panel" aria-expanded="true">
+        <i class="fas fa-chevron-up" aria-hidden="true"></i>
+      </button>
+    </div>
+    
+    <div class="stats-content" id="stats-content">
+      <div class="stats-grid">
+        <div class="stat-card stat-card--primary">
+          <div class="stat-value" id="counties-visited">0</div>
+          <div class="stat-label">Counties Visited</div>
+        </div>
+        <div class="stat-card stat-card--secondary">
+          <div class="stat-value" id="counties-total">3,143</div>
+          <div class="stat-label">Total US Counties</div>
+        </div>
+        <div class="stat-card stat-card--accent">
+          <div class="stat-value" id="coverage-percent">0%</div>
+          <div class="stat-label">Coverage</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="states-visited">0</div>
+          <div class="stat-label">States Visited</div>
+        </div>
+      </div>
+
+      <!-- Last updated and recalculate -->
+      <div class="cache-info">
+        <span class="last-updated" id="last-updated"></span>
+        <button class="btn btn-sm btn-outline-secondary" id="recalculate-btn" title="Recalculate from trip data">
+          <i class="fas fa-sync-alt me-1"></i>Refresh
+        </button>
+      </div>
+
+      <!-- Legend -->
+      <div class="map-legend">
+        <h3 class="legend-title">Legend</h3>
+        <div class="legend-items">
+          <div class="legend-item">
+            <span class="legend-color legend-color--visited"></span>
+            <span class="legend-label">Driven Through</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color legend-color--unvisited"></span>
+            <span class="legend-label">Not Yet Visited</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color legend-color--state-border"></span>
+            <span class="legend-label">State Border</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- County Info Tooltip -->
+  <div id="county-tooltip" class="county-tooltip" style="display: none;">
+    <div class="tooltip-county-name"></div>
+    <div class="tooltip-state-name"></div>
+    <div class="tooltip-status"></div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="map-loading" class="map-loading-overlay">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading county data...</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script>
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
+<script src="{{ url_for('static', path='js/county-map.js') | replace('http://', '//') }}"></script>
+{% endblock %}
