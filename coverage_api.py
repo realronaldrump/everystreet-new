@@ -49,6 +49,25 @@ osm_data_collection = db_manager.db["osm_data"]
 optimal_route_progress_collection = db_manager.db["optimal_route_progress"]
 
 
+def _sanitize_value(value):
+    """Sanitize a value to be JSON-compliant (handle NaN, Infinity)."""
+    import math
+
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return 0.0  # Replace NaN/Infinity with 0
+    elif isinstance(value, dict):
+        return {k: _sanitize_value(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [_sanitize_value(v) for v in value]
+    return value
+
+
+def _sanitize_features(features: list) -> list:
+    """Sanitize a list of GeoJSON features to ensure valid JSON (no NaN/Infinity)."""
+    return [_sanitize_value(feature) for feature in features]
+
+
 async def _recalculate_coverage_stats(
     location_id: ObjectId,
 ) -> dict | None:
@@ -1036,6 +1055,8 @@ async def get_coverage_area_streets(
         },
     )
     features = await cursor.to_list(length=None)
+    # Sanitize NaN values to produce valid JSON
+    features = _sanitize_features(features)
     return {"type": "FeatureCollection", "features": features}
 
 
@@ -1104,7 +1125,8 @@ async def get_coverage_area_streets_viewport(
 
     cursor = streets_collection.find(query, projection).limit(5000)
     features = await cursor.to_list(length=5000)
-
+    # Sanitize NaN values to produce valid JSON
+    features = _sanitize_features(features)
     return {"type": "FeatureCollection", "features": features}
 
 
