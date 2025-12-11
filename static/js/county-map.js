@@ -16,30 +16,71 @@
 
   // FIPS code to state name mapping
   const stateFipsToName = {
-    "01": "Alabama", "02": "Alaska", "04": "Arizona", "05": "Arkansas",
-    "06": "California", "08": "Colorado", "09": "Connecticut", "10": "Delaware",
-    "11": "District of Columbia", "12": "Florida", "13": "Georgia", "15": "Hawaii",
-    "16": "Idaho", "17": "Illinois", "18": "Indiana", "19": "Iowa",
-    "20": "Kansas", "21": "Kentucky", "22": "Louisiana", "23": "Maine",
-    "24": "Maryland", "25": "Massachusetts", "26": "Michigan", "27": "Minnesota",
-    "28": "Mississippi", "29": "Missouri", "30": "Montana", "31": "Nebraska",
-    "32": "Nevada", "33": "New Hampshire", "34": "New Jersey", "35": "New Mexico",
-    "36": "New York", "37": "North Carolina", "38": "North Dakota", "39": "Ohio",
-    "40": "Oklahoma", "41": "Oregon", "42": "Pennsylvania", "44": "Rhode Island",
-    "45": "South Carolina", "46": "South Dakota", "47": "Tennessee", "48": "Texas",
-    "49": "Utah", "50": "Vermont", "51": "Virginia", "53": "Washington",
-    "54": "West Virginia", "55": "Wisconsin", "56": "Wyoming",
-    "60": "American Samoa", "66": "Guam", "69": "Northern Mariana Islands",
-    "72": "Puerto Rico", "78": "Virgin Islands"
+    "01": "Alabama",
+    "02": "Alaska",
+    "04": "Arizona",
+    "05": "Arkansas",
+    "06": "California",
+    "08": "Colorado",
+    "09": "Connecticut",
+    10: "Delaware",
+    11: "District of Columbia",
+    12: "Florida",
+    13: "Georgia",
+    15: "Hawaii",
+    16: "Idaho",
+    17: "Illinois",
+    18: "Indiana",
+    19: "Iowa",
+    20: "Kansas",
+    21: "Kentucky",
+    22: "Louisiana",
+    23: "Maine",
+    24: "Maryland",
+    25: "Massachusetts",
+    26: "Michigan",
+    27: "Minnesota",
+    28: "Mississippi",
+    29: "Missouri",
+    30: "Montana",
+    31: "Nebraska",
+    32: "Nevada",
+    33: "New Hampshire",
+    34: "New Jersey",
+    35: "New Mexico",
+    36: "New York",
+    37: "North Carolina",
+    38: "North Dakota",
+    39: "Ohio",
+    40: "Oklahoma",
+    41: "Oregon",
+    42: "Pennsylvania",
+    44: "Rhode Island",
+    45: "South Carolina",
+    46: "South Dakota",
+    47: "Tennessee",
+    48: "Texas",
+    49: "Utah",
+    50: "Vermont",
+    51: "Virginia",
+    53: "Washington",
+    54: "West Virginia",
+    55: "Wisconsin",
+    56: "Wyoming",
+    60: "American Samoa",
+    66: "Guam",
+    69: "Northern Mariana Islands",
+    72: "Puerto Rico",
+    78: "Virgin Islands",
   };
 
   // Initialize the map
   async function init() {
     updateLoadingText("Initializing map...");
-    
+
     // Create map with standard projection (not Albers - TopoJSON is unprojected)
     mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
-    
+
     map = new mapboxgl.Map({
       container: "county-map",
       style: getMapStyle(),
@@ -57,13 +98,13 @@
       try {
         updateLoadingText("Loading county boundaries...");
         await loadCountyData();
-        
+
         updateLoadingText("Loading visited counties...");
         await loadVisitedCounties();
-        
+
         updateLoadingText("Rendering map...");
         addMapLayers();
-        
+
         hideLoading();
         setupInteractions();
         updateStats();
@@ -80,10 +121,11 @@
 
   // Get appropriate map style based on theme
   function getMapStyle() {
-    const isDark = document.documentElement.getAttribute("data-bs-theme") === "dark" ||
-                   document.documentElement.classList.contains("dark-mode") ||
-                   !document.documentElement.classList.contains("light-mode");
-    return isDark 
+    const isDark =
+      document.documentElement.getAttribute("data-bs-theme") === "dark" ||
+      document.documentElement.classList.contains("dark-mode") ||
+      !document.documentElement.classList.contains("light-mode");
+    return isDark
       ? "mapbox://styles/mapbox/dark-v11"
       : "mapbox://styles/mapbox/light-v11";
   }
@@ -92,13 +134,13 @@
   async function loadCountyData() {
     const response = await fetch("/static/data/counties-10m.json");
     const topology = await response.json();
-    
+
     // Convert TopoJSON to GeoJSON using topojson-client library
     countyData = topojson.feature(topology, topology.objects.counties);
     statesData = topojson.feature(topology, topology.objects.states);
-    
+
     // Add state FIPS and names to each county
-    countyData.features.forEach(feature => {
+    countyData.features.forEach((feature) => {
       const fips = String(feature.id).padStart(5, "0");
       const stateFips = fips.substring(0, 2);
       feature.properties = feature.properties || {};
@@ -116,25 +158,31 @@
     try {
       const response = await fetch("/api/counties/visited");
       const data = await response.json();
-      
-      if (data.success && data.counties && Object.keys(data.counties).length > 0) {
+
+      if (
+        data.success &&
+        data.counties &&
+        Object.keys(data.counties).length > 0
+      ) {
         // Store county visits data (includes dates)
         countyVisits = data.counties;
 
         // Mark counties as visited
-        countyData.features.forEach(feature => {
+        countyData.features.forEach((feature) => {
           const fips = feature.properties.fips;
           if (countyVisits[fips]) {
             feature.properties.visited = true;
           }
         });
 
-        console.log(`Marked ${Object.keys(countyVisits).length} counties as visited`);
-        
+        console.log(
+          `Marked ${Object.keys(countyVisits).length} counties as visited`,
+        );
+
         // Show last updated time if available
         if (data.lastUpdated) {
           const lastUpdated = new Date(data.lastUpdated);
-          document.getElementById("last-updated").textContent = 
+          document.getElementById("last-updated").textContent =
             `Last updated: ${lastUpdated.toLocaleDateString()} ${lastUpdated.toLocaleTimeString()}`;
         }
       } else if (!data.cached) {
@@ -155,7 +203,7 @@
       return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
-        day: "numeric"
+        day: "numeric",
       });
     } catch {
       return "Unknown";
@@ -175,28 +223,34 @@
         </button>
       `;
       statsContent.insertBefore(prompt, statsContent.firstChild);
-      
-      document.getElementById("trigger-recalculate").addEventListener("click", triggerRecalculate);
+
+      document
+        .getElementById("trigger-recalculate")
+        .addEventListener("click", triggerRecalculate);
     }
   }
 
   // Trigger recalculation
   async function triggerRecalculate() {
     if (isRecalculating) return;
-    
+
     isRecalculating = true;
-    const btn = document.getElementById("trigger-recalculate") || 
-                document.getElementById("recalculate-btn");
-    
+    const btn =
+      document.getElementById("trigger-recalculate") ||
+      document.getElementById("recalculate-btn");
+
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Calculating...';
+      btn.innerHTML =
+        '<i class="fas fa-spinner fa-spin me-2"></i>Calculating...';
     }
-    
+
     try {
-      const response = await fetch("/api/counties/recalculate", { method: "POST" });
+      const response = await fetch("/api/counties/recalculate", {
+        method: "POST",
+      });
       const data = await response.json();
-      
+
       if (data.success) {
         // Poll for completion
         setTimeout(checkAndRefresh, 3000);
@@ -219,7 +273,7 @@
     try {
       const response = await fetch("/api/counties/cache-status");
       const data = await response.json();
-      
+
       if (data.cached && data.totalVisited > 0) {
         // Refresh the page to show new data
         window.location.reload();
@@ -243,7 +297,7 @@
 
     // Add states source for borders
     map.addSource("states", {
-      type: "geojson", 
+      type: "geojson",
       data: statesData,
     });
 
@@ -327,7 +381,9 @@
     const tooltipDates = tooltip.querySelector(".tooltip-dates");
 
     // Mouse move - show tooltip
-    map.on("mousemove", "counties-unvisited-fill", (e) => showTooltip(e, false));
+    map.on("mousemove", "counties-unvisited-fill", (e) =>
+      showTooltip(e, false),
+    );
     map.on("mousemove", "counties-visited-fill", (e) => showTooltip(e, true));
 
     function showTooltip(e, isVisited) {
@@ -344,16 +400,16 @@
       // Update tooltip content
       tooltipCounty.textContent = countyName;
       tooltipState.textContent = stateName;
-      
+
       if (isVisited && countyVisits[fips]) {
         const visits = countyVisits[fips];
         tooltipStatus.textContent = "✓ Visited";
         tooltipStatus.className = "tooltip-status tooltip-status--visited";
-        
+
         // Show dates
         const firstDate = formatDate(visits.firstVisit);
         const lastDate = formatDate(visits.lastVisit);
-        
+
         if (firstDate === lastDate) {
           tooltipDates.innerHTML = `<div class="tooltip-date">Visited: ${firstDate}</div>`;
         } else {
@@ -393,19 +449,24 @@
   function updateStats() {
     const totalCounties = countyData.features.length;
     const visitedCount = Object.keys(countyVisits).length;
-    const percentage = totalCounties > 0 ? ((visitedCount / totalCounties) * 100).toFixed(1) : "0.0";
+    const percentage =
+      totalCounties > 0
+        ? ((visitedCount / totalCounties) * 100).toFixed(1)
+        : "0.0";
 
     // Count unique states
     const visitedStates = new Set();
-    countyData.features.forEach(feature => {
+    countyData.features.forEach((feature) => {
       if (feature.properties.visited) {
         visitedStates.add(feature.properties.stateFips);
       }
     });
 
     // Update DOM
-    document.getElementById("counties-visited").textContent = visitedCount.toLocaleString();
-    document.getElementById("counties-total").textContent = totalCounties.toLocaleString();
+    document.getElementById("counties-visited").textContent =
+      visitedCount.toLocaleString();
+    document.getElementById("counties-total").textContent =
+      totalCounties.toLocaleString();
     document.getElementById("coverage-percent").textContent = `${percentage}%`;
     document.getElementById("states-visited").textContent = visitedStates.size;
   }

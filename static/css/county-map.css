@@ -27,7 +27,9 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   z-index: 100;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease;
 }
 
 .stats-header {
@@ -93,7 +95,9 @@
   border-radius: 12px;
   padding: 1rem;
   text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .stat-card:hover {
@@ -102,17 +106,29 @@
 }
 
 .stat-card--primary {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.2),
+    rgba(16, 185, 129, 0.1)
+  );
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .stat-card--secondary {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.2),
+    rgba(99, 102, 241, 0.1)
+  );
   border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
 .stat-card--accent {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.2),
+    rgba(245, 158, 11, 0.1)
+  );
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
@@ -156,7 +172,11 @@
 }
 
 .recalculate-prompt {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.2),
+    rgba(59, 130, 246, 0.1)
+  );
   border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 12px;
   padding: 1rem;

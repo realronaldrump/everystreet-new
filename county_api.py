@@ -11,8 +11,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks
-from shapely.geometry import shape
 from shapely import STRtree
+from shapely.geometry import shape
 
 from db import db_manager, trips_collection
 
@@ -26,23 +26,25 @@ county_cache_collection = db_manager.db["county_visited_cache"]
 @router.get("/visited")
 async def get_visited_counties() -> dict[str, Any]:
     """Get cached list of visited county FIPS codes with visit dates.
-    
+
     Returns cached data if available, otherwise triggers a recalculation.
     """
     try:
         # Try to get cached data
         cache = await county_cache_collection.find_one({"_id": "visited_counties"})
-        
+
         if cache:
             return {
                 "success": True,
-                "counties": cache.get("counties", {}),  # {fips: {firstVisit, lastVisit}}
+                "counties": cache.get(
+                    "counties", {}
+                ),  # {fips: {firstVisit, lastVisit}}
                 "totalVisited": len(cache.get("counties", {})),
                 "lastUpdated": cache.get("updated_at"),
                 "totalTripsAnalyzed": cache.get("trips_analyzed", 0),
                 "cached": True,
             }
-        
+
         # No cache - return empty and suggest recalculation
         return {
             "success": True,
@@ -52,7 +54,7 @@ async def get_visited_counties() -> dict[str, Any]:
             "cached": False,
             "message": "No cached data. Call POST /api/counties/recalculate to compute.",
         }
-        
+
     except Exception as e:
         logger.exception("Error fetching visited counties: %s", e)
         return {
@@ -64,16 +66,18 @@ async def get_visited_counties() -> dict[str, Any]:
 
 
 @router.post("/recalculate")
-async def recalculate_visited_counties(background_tasks: BackgroundTasks) -> dict[str, Any]:
+async def recalculate_visited_counties(
+    background_tasks: BackgroundTasks,
+) -> dict[str, Any]:
     """Trigger recalculation of visited counties.
-    
+
     This performs geospatial intersection between trip geometries and county polygons.
     The calculation runs in the background.
     """
     try:
         # Start background calculation
         background_tasks.add_task(calculate_visited_counties_task)
-        
+
         return {
             "success": True,
             "message": "Recalculation started in background. Refresh the page in a few moments.",
@@ -88,34 +92,33 @@ async def recalculate_visited_counties(background_tasks: BackgroundTasks) -> dic
 
 async def calculate_visited_counties_task():
     """Background task to calculate which counties have been driven through.
-    
+
     Tracks first visit date and most recent visit date for each county.
     """
     import json
     import os
-    
+
     logger.info("Starting county visited calculation...")
     start_time = datetime.now(UTC)
-    
+
     try:
         # Load county boundaries from the TopoJSON file
         topojson_path = os.path.join(
-            os.path.dirname(__file__), 
-            "static", "data", "counties-10m.json"
+            os.path.dirname(__file__), "static", "data", "counties-10m.json"
         )
-        
+
         with open(topojson_path, "r") as f:
             topology = json.load(f)
-        
+
         # Convert TopoJSON to GeoJSON features
         counties_geojson = topojson_to_geojson(topology, "counties")
-        
+
         logger.info("Loaded %d county polygons", len(counties_geojson))
-        
+
         # Build spatial index of counties using shapely
         county_shapes = []
         county_fips = []
-        
+
         for feature in counties_geojson:
             try:
                 geom = shape(feature["geometry"])
@@ -126,14 +129,14 @@ async def calculate_visited_counties_task():
                     county_fips.append(fips)
             except Exception as e:
                 logger.warning("Invalid county geometry: %s", e)
-        
+
         tree = STRtree(county_shapes)
         logger.info("Built spatial index for %d counties", len(county_shapes))
-        
+
         # Dictionary to track visit dates per county
         # {fips: {"firstVisit": datetime, "lastVisit": datetime}}
         county_visits: dict[str, dict[str, datetime]] = {}
-        
+
         # Query all valid trips with GPS data, ordered by time
         trips_cursor = trips_collection.find(
             {
@@ -141,44 +144,44 @@ async def calculate_visited_counties_task():
                 "$or": [
                     {"gps.type": "LineString"},
                     {"matchedGps.type": "LineString"},
-                ]
+                ],
             },
-            {"gps": 1, "matchedGps": 1, "transactionId": 1, "startTime": 1}
+            {"gps": 1, "matchedGps": 1, "transactionId": 1, "startTime": 1},
         )
-        
+
         trips_analyzed = 0
-        
+
         async for trip in trips_cursor:
             trips_analyzed += 1
-            
+
             # Get trip timestamp
             trip_time = trip.get("startTime")
             if not trip_time:
                 continue
-            
+
             # Ensure trip_time is a datetime
             if isinstance(trip_time, str):
                 try:
                     trip_time = datetime.fromisoformat(trip_time.replace("Z", "+00:00"))
                 except Exception:
                     continue
-            
+
             # Prefer matched GPS if available
             gps_data = trip.get("matchedGps") or trip.get("gps")
             if not gps_data or gps_data.get("type") != "LineString":
                 continue
-            
+
             try:
                 trip_geom = shape(gps_data)
                 if not trip_geom.is_valid:
                     continue
-                
+
                 # Find all counties this trip intersects
                 potential_matches = tree.query(trip_geom)
                 for idx in potential_matches:
                     if county_shapes[idx].intersects(trip_geom):
                         fips = county_fips[idx]
-                        
+
                         if fips not in county_visits:
                             county_visits[fips] = {
                                 "firstVisit": trip_time,
@@ -190,28 +193,34 @@ async def calculate_visited_counties_task():
                                 county_visits[fips]["firstVisit"] = trip_time
                             if trip_time > county_visits[fips]["lastVisit"]:
                                 county_visits[fips]["lastVisit"] = trip_time
-                        
+
             except Exception as e:
                 logger.warning(
-                    "Error processing trip %s: %s", 
-                    trip.get("transactionId", "unknown"), e
+                    "Error processing trip %s: %s",
+                    trip.get("transactionId", "unknown"),
+                    e,
                 )
-            
+
             # Log progress every 500 trips
             if trips_analyzed % 500 == 0:
                 logger.info(
                     "Processed %d trips, found %d visited counties so far",
-                    trips_analyzed, len(county_visits)
+                    trips_analyzed,
+                    len(county_visits),
                 )
-        
+
         # Convert datetime objects to ISO strings for JSON serialization
         counties_serializable = {}
         for fips, visits in county_visits.items():
             counties_serializable[fips] = {
-                "firstVisit": visits["firstVisit"].isoformat() if visits["firstVisit"] else None,
-                "lastVisit": visits["lastVisit"].isoformat() if visits["lastVisit"] else None,
+                "firstVisit": (
+                    visits["firstVisit"].isoformat() if visits["firstVisit"] else None
+                ),
+                "lastVisit": (
+                    visits["lastVisit"].isoformat() if visits["lastVisit"] else None
+                ),
             }
-        
+
         # Save to cache
         await county_cache_collection.update_one(
             {"_id": "visited_counties"},
@@ -220,35 +229,38 @@ async def calculate_visited_counties_task():
                     "counties": counties_serializable,
                     "trips_analyzed": trips_analyzed,
                     "updated_at": datetime.now(UTC),
-                    "calculation_time_seconds": (datetime.now(UTC) - start_time).total_seconds(),
+                    "calculation_time_seconds": (
+                        datetime.now(UTC) - start_time
+                    ).total_seconds(),
                 }
             },
             upsert=True,
         )
-        
+
         logger.info(
             "County calculation complete: %d counties visited from %d trips in %.1f seconds",
-            len(county_visits), trips_analyzed,
-            (datetime.now(UTC) - start_time).total_seconds()
+            len(county_visits),
+            trips_analyzed,
+            (datetime.now(UTC) - start_time).total_seconds(),
         )
-        
+
     except Exception as e:
         logger.exception("Error in county calculation task: %s", e)
 
 
 def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
     """Convert TopoJSON to GeoJSON features.
-    
+
     Simple implementation that handles the arc-based geometry encoding.
     """
     features = []
-    
+
     if "objects" not in topology or object_name not in topology["objects"]:
         return features
-    
+
     arcs = topology.get("arcs", [])
     transform_data = topology.get("transform")
-    
+
     def decode_arc(arc_index: int) -> list:
         """Decode a single arc to coordinates."""
         if arc_index < 0:
@@ -259,16 +271,16 @@ def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
         else:
             arc = arcs[arc_index]
             return decode_coordinates(arc)
-    
+
     def decode_coordinates(arc: list) -> list:
         """Decode delta-encoded coordinates."""
         coords = []
         x, y = 0, 0
-        
+
         for point in arc:
             x += point[0]
             y += point[1]
-            
+
             if transform_data:
                 # Apply transform: coord = coord * scale + translate
                 scale = transform_data.get("scale", [1, 1])
@@ -278,9 +290,9 @@ def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
                 coords.append([lon, lat])
             else:
                 coords.append([x, y])
-        
+
         return coords
-    
+
     def arcs_to_coordinates(arc_indices: list) -> list:
         """Convert arc indices to a coordinate ring."""
         coords = []
@@ -292,14 +304,14 @@ def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
             else:
                 coords.extend(arc_coords)
         return coords
-    
+
     obj = topology["objects"][object_name]
     geometries = obj.get("geometries", [])
-    
+
     for geom in geometries:
         geom_type = geom.get("type")
         arcs_data = geom.get("arcs", [])
-        
+
         try:
             if geom_type == "Polygon":
                 rings = [arcs_to_coordinates(ring) for ring in arcs_data]
@@ -310,10 +322,10 @@ def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": rings,
-                    }
+                    },
                 }
                 features.append(feature)
-                
+
             elif geom_type == "MultiPolygon":
                 polygons = []
                 for polygon_arcs in arcs_data:
@@ -326,13 +338,13 @@ def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
                     "geometry": {
                         "type": "MultiPolygon",
                         "coordinates": polygons,
-                    }
+                    },
                 }
                 features.append(feature)
-                
+
         except Exception as e:
             logger.warning("Error converting geometry: %s", e)
-    
+
     return features
 
 
@@ -341,7 +353,7 @@ async def get_cache_status() -> dict[str, Any]:
     """Get the status of the county cache."""
     try:
         cache = await county_cache_collection.find_one({"_id": "visited_counties"})
-        
+
         if cache:
             return {
                 "cached": True,
