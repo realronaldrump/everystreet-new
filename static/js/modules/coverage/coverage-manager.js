@@ -1830,7 +1830,7 @@ class CoverageManager {
         const locationLink = row.querySelector(".location-name-link");
         if (!locationLink) return;
 
-        const {locationId} = locationLink.dataset;
+        const { locationId } = locationLink.dataset;
         const area = areas.find((a) => a._id === locationId);
 
         if (!area) return;
