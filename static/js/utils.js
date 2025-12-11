@@ -219,8 +219,9 @@ const utils = {
   // Connection monitoring (moved from coverage-management.js)
   setupConnectionMonitoring() {
     let offlineTimer = null;
+    let wasOffline = false; // Track if we were actually offline
 
-    const handleConnectionChange = () => {
+    const handleConnectionChange = (isInitialCheck = false) => {
       const isOnline = navigator.onLine;
       const alertsContainer = document.querySelector("#alerts-container");
       if (!alertsContainer) return;
@@ -231,6 +232,7 @@ const utils = {
       });
 
       if (!isOnline) {
+        wasOffline = true;
         // Show persistent offline warning
         const statusBar = document.createElement("div");
         statusBar.className = "connection-status alert alert-danger fade show";
@@ -247,11 +249,11 @@ const utils = {
         offlineTimer = setInterval(() => {
           if (navigator.onLine) {
             clearInterval(offlineTimer);
-            handleConnectionChange();
+            handleConnectionChange(false);
           }
         }, 5000);
-      } else {
-        // Show temporary online confirmation
+      } else if (wasOffline && !isInitialCheck) {
+        // Only show "Connected" notification when recovering from offline state
         if (offlineTimer) {
           clearInterval(offlineTimer);
           offlineTimer = null;
@@ -274,12 +276,17 @@ const utils = {
             bsAlert.close();
           }
         }, 5000);
+
+        wasOffline = false;
       }
+      // If online and was never offline (initial check), do nothing - no notification needed
     };
 
-    window.addEventListener("online", handleConnectionChange);
-    window.addEventListener("offline", handleConnectionChange);
-    handleConnectionChange();
+    window.addEventListener("online", () => handleConnectionChange(false));
+    window.addEventListener("offline", () => handleConnectionChange(false));
+
+    // Initial check - don't show notification if already online
+    handleConnectionChange(true);
   },
 
   // Accessibility announcements for screen readers

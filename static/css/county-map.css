@@ -22,7 +22,6 @@
   max-width: calc(100vw - 2rem);
   background: var(--card-bg, rgb(30 30 35 / 95%));
   backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgb(0 0 0 / 30%);
   border: 1px solid var(--border-color, rgb(255 255 255 / 10%));
@@ -385,7 +384,6 @@
 .county-tooltip {
   position: absolute;
   background: var(--card-bg, rgb(30 30 35 / 95%));
-  backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   padding: 0.75rem 1rem;
   border-radius: 8px;

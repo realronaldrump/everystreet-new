@@ -164,7 +164,7 @@
 
         // Mark counties as visited
         countyData.features.forEach((feature) => {
-          const {fips} = feature.properties;
+          const { fips } = feature.properties;
           if (countyVisits[fips]) {
             feature.properties.visited = true;
           }
@@ -378,7 +378,7 @@
       if (e.features.length === 0) return;
 
       const feature = e.features[0];
-      const {fips} = feature.properties;
+      const { fips } = feature.properties;
       const countyName = feature.properties.name || "Unknown County";
       const stateName = feature.properties.stateName || "Unknown State";
 
@@ -485,8 +485,8 @@
     const stateStats = {};
 
     countyData.features.forEach((feature) => {
-      const {stateFips} = feature.properties;
-      const {stateName} = feature.properties;
+      const { stateFips } = feature.properties;
+      const { stateName } = feature.properties;
 
       if (!stateStats[stateFips]) {
         stateStats[stateFips] = {
@@ -601,7 +601,7 @@
     // Add click handlers to zoom to state
     container.querySelectorAll(".state-stat-item").forEach((item) => {
       item.addEventListener("click", () => {
-        const {stateFips} = item.dataset;
+        const { stateFips } = item.dataset;
         zoomToState(stateFips);
       });
     });
