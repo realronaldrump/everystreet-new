@@ -2,6 +2,7 @@
 
 Provides endpoints for county-level coverage visualization.
 Counties are marked as visited if any trip geometry passes through them.
+Tracks first and most recent visit dates for each county.
 Results are cached in MongoDB for fast page loads.
 """
 
@@ -10,9 +11,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks
-from shapely.geometry import LineString, shape, mapping
-from shapely.ops import transform
-import pyproj
+from shapely.geometry import shape
+from shapely import STRtree
 
 from db import db_manager, trips_collection
 
@@ -25,7 +25,7 @@ county_cache_collection = db_manager.db["county_visited_cache"]
 
 @router.get("/visited")
 async def get_visited_counties() -> dict[str, Any]:
-    """Get cached list of visited county FIPS codes.
+    """Get cached list of visited county FIPS codes with visit dates.
     
     Returns cached data if available, otherwise triggers a recalculation.
     """
@@ -36,8 +36,8 @@ async def get_visited_counties() -> dict[str, Any]:
         if cache:
             return {
                 "success": True,
-                "visitedFips": cache.get("fips_codes", []),
-                "totalVisited": len(cache.get("fips_codes", [])),
+                "counties": cache.get("counties", {}),  # {fips: {firstVisit, lastVisit}}
+                "totalVisited": len(cache.get("counties", {})),
                 "lastUpdated": cache.get("updated_at"),
                 "totalTripsAnalyzed": cache.get("trips_analyzed", 0),
                 "cached": True,
@@ -46,7 +46,7 @@ async def get_visited_counties() -> dict[str, Any]:
         # No cache - return empty and suggest recalculation
         return {
             "success": True,
-            "visitedFips": [],
+            "counties": {},
             "totalVisited": 0,
             "lastUpdated": None,
             "cached": False,
@@ -58,7 +58,7 @@ async def get_visited_counties() -> dict[str, Any]:
         return {
             "success": False,
             "error": str(e),
-            "visitedFips": [],
+            "counties": {},
             "totalVisited": 0,
         }
 
@@ -87,15 +87,18 @@ async def recalculate_visited_counties(background_tasks: BackgroundTasks) -> dic
 
 
 async def calculate_visited_counties_task():
-    """Background task to calculate which counties have been driven through."""
+    """Background task to calculate which counties have been driven through.
+    
+    Tracks first visit date and most recent visit date for each county.
+    """
     import json
+    import os
     
     logger.info("Starting county visited calculation...")
     start_time = datetime.now(UTC)
     
     try:
         # Load county boundaries from the TopoJSON file
-        import os
         topojson_path = os.path.join(
             os.path.dirname(__file__), 
             "static", "data", "counties-10m.json"
@@ -105,13 +108,11 @@ async def calculate_visited_counties_task():
             topology = json.load(f)
         
         # Convert TopoJSON to GeoJSON features
-        # Using a simple TopoJSON parser since we can't use topojson-client in Python
         counties_geojson = topojson_to_geojson(topology, "counties")
         
         logger.info("Loaded %d county polygons", len(counties_geojson))
         
         # Build spatial index of counties using shapely
-        from shapely import STRtree
         county_shapes = []
         county_fips = []
         
@@ -129,7 +130,11 @@ async def calculate_visited_counties_task():
         tree = STRtree(county_shapes)
         logger.info("Built spatial index for %d counties", len(county_shapes))
         
-        # Query all valid trips with GPS data
+        # Dictionary to track visit dates per county
+        # {fips: {"firstVisit": datetime, "lastVisit": datetime}}
+        county_visits: dict[str, dict[str, datetime]] = {}
+        
+        # Query all valid trips with GPS data, ordered by time
         trips_cursor = trips_collection.find(
             {
                 "isInvalid": {"$ne": True},
@@ -138,14 +143,25 @@ async def calculate_visited_counties_task():
                     {"matchedGps.type": "LineString"},
                 ]
             },
-            {"gps": 1, "matchedGps": 1, "transactionId": 1}
+            {"gps": 1, "matchedGps": 1, "transactionId": 1, "startTime": 1}
         )
         
-        visited_fips = set()
         trips_analyzed = 0
         
         async for trip in trips_cursor:
             trips_analyzed += 1
+            
+            # Get trip timestamp
+            trip_time = trip.get("startTime")
+            if not trip_time:
+                continue
+            
+            # Ensure trip_time is a datetime
+            if isinstance(trip_time, str):
+                try:
+                    trip_time = datetime.fromisoformat(trip_time.replace("Z", "+00:00"))
+                except Exception:
+                    continue
             
             # Prefer matched GPS if available
             gps_data = trip.get("matchedGps") or trip.get("gps")
@@ -161,7 +177,19 @@ async def calculate_visited_counties_task():
                 potential_matches = tree.query(trip_geom)
                 for idx in potential_matches:
                     if county_shapes[idx].intersects(trip_geom):
-                        visited_fips.add(county_fips[idx])
+                        fips = county_fips[idx]
+                        
+                        if fips not in county_visits:
+                            county_visits[fips] = {
+                                "firstVisit": trip_time,
+                                "lastVisit": trip_time,
+                            }
+                        else:
+                            # Update first/last visit
+                            if trip_time < county_visits[fips]["firstVisit"]:
+                                county_visits[fips]["firstVisit"] = trip_time
+                            if trip_time > county_visits[fips]["lastVisit"]:
+                                county_visits[fips]["lastVisit"] = trip_time
                         
             except Exception as e:
                 logger.warning(
@@ -173,15 +201,23 @@ async def calculate_visited_counties_task():
             if trips_analyzed % 500 == 0:
                 logger.info(
                     "Processed %d trips, found %d visited counties so far",
-                    trips_analyzed, len(visited_fips)
+                    trips_analyzed, len(county_visits)
                 )
+        
+        # Convert datetime objects to ISO strings for JSON serialization
+        counties_serializable = {}
+        for fips, visits in county_visits.items():
+            counties_serializable[fips] = {
+                "firstVisit": visits["firstVisit"].isoformat() if visits["firstVisit"] else None,
+                "lastVisit": visits["lastVisit"].isoformat() if visits["lastVisit"] else None,
+            }
         
         # Save to cache
         await county_cache_collection.update_one(
             {"_id": "visited_counties"},
             {
                 "$set": {
-                    "fips_codes": list(visited_fips),
+                    "counties": counties_serializable,
                     "trips_analyzed": trips_analyzed,
                     "updated_at": datetime.now(UTC),
                     "calculation_time_seconds": (datetime.now(UTC) - start_time).total_seconds(),
@@ -192,7 +228,7 @@ async def calculate_visited_counties_task():
         
         logger.info(
             "County calculation complete: %d counties visited from %d trips in %.1f seconds",
-            len(visited_fips), trips_analyzed,
+            len(county_visits), trips_analyzed,
             (datetime.now(UTC) - start_time).total_seconds()
         )
         
@@ -309,7 +345,7 @@ async def get_cache_status() -> dict[str, Any]:
         if cache:
             return {
                 "cached": True,
-                "totalVisited": len(cache.get("fips_codes", [])),
+                "totalVisited": len(cache.get("counties", {})),
                 "tripsAnalyzed": cache.get("trips_analyzed", 0),
                 "lastUpdated": cache.get("updated_at"),
                 "calculationTime": cache.get("calculation_time_seconds"),

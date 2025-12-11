@@ -1,7 +1,7 @@
 /**
  * County Map JavaScript
  * Renders a US county map with visited counties highlighted
- * Uses unprojected TopoJSON for proper Mapbox alignment
+ * Shows first and most recent visit dates for each county
  */
 
 (function () {
@@ -9,7 +9,7 @@
 
   // State
   let map = null;
-  let visitedFipsSet = new Set();
+  let countyVisits = {}; // {fips: {firstVisit, lastVisit}}
   let countyData = null;
   let statesData = null;
   let isRecalculating = false;
@@ -117,20 +117,19 @@
       const response = await fetch("/api/counties/visited");
       const data = await response.json();
       
-      if (data.success && data.visitedFips && data.visitedFips.length > 0) {
-        // Build set of visited FIPS codes
-        data.visitedFips.forEach(fips => {
-          visitedFipsSet.add(String(fips).padStart(5, "0"));
-        });
+      if (data.success && data.counties && Object.keys(data.counties).length > 0) {
+        // Store county visits data (includes dates)
+        countyVisits = data.counties;
 
         // Mark counties as visited
         countyData.features.forEach(feature => {
-          if (visitedFipsSet.has(feature.properties.fips)) {
+          const fips = feature.properties.fips;
+          if (countyVisits[fips]) {
             feature.properties.visited = true;
           }
         });
 
-        console.log(`Marked ${visitedFipsSet.size} counties as visited`);
+        console.log(`Marked ${Object.keys(countyVisits).length} counties as visited`);
         
         // Show last updated time if available
         if (data.lastUpdated) {
@@ -140,11 +139,26 @@
         }
       } else if (!data.cached) {
         // No cache - prompt user to calculate
-        console.log("No cached county data. Triggering calculation...");
+        console.log("No cached county data. Showing prompt...");
         showRecalculatePrompt();
       }
     } catch (error) {
       console.error("Error loading visited counties:", error);
+    }
+  }
+
+  // Format date for display
+  function formatDate(isoString) {
+    if (!isoString) return "Unknown";
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      });
+    } catch {
+      return "Unknown";
     }
   }
 
@@ -155,7 +169,7 @@
       const prompt = document.createElement("div");
       prompt.className = "recalculate-prompt";
       prompt.innerHTML = `
-        <p>County data needs to be calculated.</p>
+        <p>County data needs to be calculated from your trips.</p>
         <button class="btn btn-primary btn-sm" id="trigger-recalculate">
           <i class="fas fa-calculator me-2"></i>Calculate Now
         </button>
@@ -191,7 +205,7 @@
         isRecalculating = false;
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-calculator me-2"></i>Recalculate';
+          btn.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Refresh';
         }
       }
     } catch (error) {
@@ -310,6 +324,7 @@
     const tooltipCounty = tooltip.querySelector(".tooltip-county-name");
     const tooltipState = tooltip.querySelector(".tooltip-state-name");
     const tooltipStatus = tooltip.querySelector(".tooltip-status");
+    const tooltipDates = tooltip.querySelector(".tooltip-dates");
 
     // Mouse move - show tooltip
     map.on("mousemove", "counties-unvisited-fill", (e) => showTooltip(e, false));
@@ -319,22 +334,39 @@
       if (e.features.length === 0) return;
 
       const feature = e.features[0];
+      const fips = feature.properties.fips;
       const countyName = feature.properties.name || "Unknown County";
       const stateName = feature.properties.stateName || "Unknown State";
 
       // Update highlight
-      map.setFilter("counties-hover", ["==", ["get", "fips"], feature.properties.fips]);
+      map.setFilter("counties-hover", ["==", ["get", "fips"], fips]);
 
       // Update tooltip content
       tooltipCounty.textContent = countyName;
       tooltipState.textContent = stateName;
       
-      if (isVisited) {
-        tooltipStatus.textContent = "✓ Driven Through";
+      if (isVisited && countyVisits[fips]) {
+        const visits = countyVisits[fips];
+        tooltipStatus.textContent = "✓ Visited";
         tooltipStatus.className = "tooltip-status tooltip-status--visited";
+        
+        // Show dates
+        const firstDate = formatDate(visits.firstVisit);
+        const lastDate = formatDate(visits.lastVisit);
+        
+        if (firstDate === lastDate) {
+          tooltipDates.innerHTML = `<div class="tooltip-date">Visited: ${firstDate}</div>`;
+        } else {
+          tooltipDates.innerHTML = `
+            <div class="tooltip-date"><span class="date-label">First:</span> ${firstDate}</div>
+            <div class="tooltip-date"><span class="date-label">Last:</span> ${lastDate}</div>
+          `;
+        }
+        tooltipDates.style.display = "block";
       } else {
         tooltipStatus.textContent = "Not yet visited";
         tooltipStatus.className = "tooltip-status tooltip-status--unvisited";
+        tooltipDates.style.display = "none";
       }
 
       // Position tooltip
@@ -360,7 +392,7 @@
   // Update statistics display
   function updateStats() {
     const totalCounties = countyData.features.length;
-    const visitedCount = visitedFipsSet.size;
+    const visitedCount = Object.keys(countyVisits).length;
     const percentage = totalCounties > 0 ? ((visitedCount / totalCounties) * 100).toFixed(1) : "0.0";
 
     // Count unique states
