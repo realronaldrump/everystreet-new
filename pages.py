@@ -194,4 +194,3 @@ async def county_map_page(request: Request):
         request,
         MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
     )
-

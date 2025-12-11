@@ -1,14 +1,18 @@
-{% extends "base.html" %}
-{% block title %}Every Street - County Map{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}" />
-{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Every Street - County Map{% endblock
+%} {% block extra_css %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 <div class="county-map-wrapper">
   <!-- Map Container -->
-  <div id="county-map" class="county-map-container" role="application" aria-label="US Counties Map"></div>
+  <div
+    id="county-map"
+    class="county-map-container"
+    role="application"
+    aria-label="US Counties Map"
+  ></div>
 
   <!-- Stats Panel -->
   <div class="county-stats-panel" id="stats-panel">
@@ -17,11 +21,16 @@
         <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
         County Coverage
       </h2>
-      <button class="stats-toggle-btn" id="stats-toggle" aria-label="Toggle stats panel" aria-expanded="true">
+      <button
+        class="stats-toggle-btn"
+        id="stats-toggle"
+        aria-label="Toggle stats panel"
+        aria-expanded="true"
+      >
         <i class="fas fa-chevron-up" aria-hidden="true"></i>
       </button>
     </div>
-    
+
     <div class="stats-content" id="stats-content">
       <div class="stats-grid">
         <div class="stat-card stat-card--primary">
@@ -45,7 +54,11 @@
       <!-- Last updated and recalculate -->
       <div class="cache-info">
         <span class="last-updated" id="last-updated"></span>
-        <button class="btn btn-sm btn-outline-secondary" id="recalculate-btn" title="Recalculate from trip data">
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          id="recalculate-btn"
+          title="Recalculate from trip data"
+        >
           <i class="fas fa-sync-alt me-1"></i>Refresh
         </button>
       </div>
@@ -72,7 +85,7 @@
   </div>
 
   <!-- County Info Tooltip -->
-  <div id="county-tooltip" class="county-tooltip" style="display: none;">
+  <div id="county-tooltip" class="county-tooltip" style="display: none">
     <div class="tooltip-county-name"></div>
     <div class="tooltip-state-name"></div>
     <div class="tooltip-status"></div>
@@ -86,9 +99,7 @@
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script>
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
