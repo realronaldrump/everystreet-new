@@ -216,8 +216,11 @@ class CoverageManager {
 
   /**
    * Load coverage areas
+   * @param {boolean} showLoading - Show loading indicator
+   * @param {boolean} silent - Suppress notifications
+   * @param {boolean} skipRebuild - Skip full table rebuild (for incremental updates)
    */
-  async loadCoverageAreas(showLoading = true, silent = false) {
+  async loadCoverageAreas(showLoading = true, silent = false, skipRebuild = false) {
     const tableBody = document.querySelector("#coverage-areas-table tbody");
     if (!tableBody) return;
 
@@ -236,6 +239,19 @@ class CoverageManager {
 
     try {
       const areas = await COVERAGE_API.getAllAreas();
+
+      // For silent updates, check if data actually changed before rebuilding
+      if (skipRebuild && this._lastAreasHash) {
+        const newHash = this._computeAreasHash(areas);
+        if (newHash === this._lastAreasHash) {
+          // No changes, skip rebuild to prevent flicker
+          return;
+        }
+        this._lastAreasHash = newHash;
+      } else {
+        this._lastAreasHash = this._computeAreasHash(areas);
+      }
+
       this.ui.updateCoverageTable(
         areas,
         this.formatRelativeTime.bind(this),
@@ -269,6 +285,15 @@ class CoverageManager {
         `;
       }
     }
+  }
+
+  /**
+   * Compute a simple hash of the areas data to detect changes
+   */
+  _computeAreasHash(areas) {
+    return areas
+      .map((a) => `${a._id}:${a.status}:${a.coverage_percentage}:${a.last_updated}`)
+      .join("|");
   }
 
   /**
@@ -309,7 +334,7 @@ class CoverageManager {
 
       if (cachedData) {
         coverageData = cachedData;
-        this.notificationManager.show("Loaded dashboard from cache.", "info", 1500);
+        // Cache hits are normal operation - no need to notify user
       } else {
         coverageData = await COVERAGE_API.getArea(locationId);
         const streetsGeoJson = await COVERAGE_API.getStreets(locationId, true);
@@ -1344,10 +1369,8 @@ class CoverageManager {
     if (enabled) {
       this.coverageMap.setupTripLayers();
       this.coverageMap.loadTripsForView();
-      this.notificationManager.show("Trip overlay enabled", "info", 2000);
     } else {
       this.coverageMap.clearTripOverlay();
-      this.notificationManager.show("Trip overlay disabled", "info", 2000);
     }
 
     localStorage.setItem("showTripsOverlay", enabled.toString());
@@ -1641,18 +1664,82 @@ class CoverageManager {
 
   /**
    * Setup auto refresh
+   * Uses smart incremental updates instead of full table rebuilds to prevent flickering
    */
   setupAutoRefresh() {
+    this.isAutoRefreshing = false;
+
     setInterval(async () => {
-      const isProcessingRow = document.querySelector(".processing-row");
+      // Skip if already refreshing or if modal is showing (polling handles that)
+      if (this.isAutoRefreshing) return;
+
       const isModalProcessing =
         this.currentProcessingLocation &&
         document.getElementById("taskProgressModal")?.classList.contains("show");
 
-      if (isProcessingRow || isModalProcessing) {
-        await this.loadCoverageAreas(false, true);
+      // Don't auto-refresh while modal is open - polling handles updates there
+      if (isModalProcessing) return;
+
+      const processingRows = document.querySelectorAll(".processing-row");
+      if (processingRows.length === 0) return;
+
+      // Only do incremental status updates, not full table rebuilds
+      this.isAutoRefreshing = true;
+      try {
+        await this.updateProcessingRowsInPlace();
+      } finally {
+        this.isAutoRefreshing = false;
       }
-    }, 10000);
+    }, 30000); // Increased to 30 seconds since polling handles active tasks
+  }
+
+  /**
+   * Update only the processing rows in place without rebuilding the entire table
+   */
+  async updateProcessingRowsInPlace() {
+    try {
+      const areas = await COVERAGE_API.getAllAreas();
+      const processingRows = document.querySelectorAll(".processing-row");
+
+      processingRows.forEach((row) => {
+        const locationLink = row.querySelector(".location-name-link");
+        if (!locationLink) return;
+
+        const locationId = locationLink.dataset.locationId;
+        const area = areas.find((a) => a._id === locationId);
+
+        if (!area) return;
+
+        // Check if no longer processing
+        const status = area.status || "unknown";
+        const isStillProcessing = [
+          "processing_trips",
+          "preprocessing",
+          "calculating",
+          "indexing",
+          "finalizing",
+          "generating_geojson",
+          "completed_stats",
+          "initializing",
+          "loading_streets",
+          "counting_trips",
+        ].includes(status);
+
+        if (!isStillProcessing) {
+          // Item finished processing - do a full refresh once
+          this.loadCoverageAreas(false, true);
+          return;
+        }
+
+        // Update the status text in place
+        const statusDiv = row.querySelector(".text-primary.small");
+        if (statusDiv) {
+          statusDiv.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i>${this.progress.formatStageName(status)}...`;
+        }
+      });
+    } catch (error) {
+      console.warn("Auto-refresh status update failed:", error.message);
+    }
   }
 
   /**

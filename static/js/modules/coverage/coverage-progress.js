@@ -160,12 +160,11 @@ class CoverageProgress {
 
         if (data.stage === lastStage) {
           consecutiveSameStage++;
-          if (consecutiveSameStage > 12) {
-            this.notificationManager.show(
-              `Task seems stalled at: ${this.formatStageName(data.stage)}`,
-              "warning"
+          if (consecutiveSameStage > 12 && consecutiveSameStage % 24 === 0) {
+            // Only warn occasionally and log to console - the modal already shows the status
+            console.warn(
+              `Task appears stalled at: ${this.formatStageName(data.stage)}`
             );
-            consecutiveSameStage = 0;
           }
         } else {
           lastStage = data.stage;
