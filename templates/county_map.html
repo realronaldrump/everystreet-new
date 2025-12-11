@@ -68,6 +68,30 @@
           </div>
         </div>
       </div>
+
+      <!-- State-by-State Stats -->
+      <div class="state-stats-section">
+        <button class="state-stats-header" id="state-stats-toggle" aria-expanded="false" aria-controls="state-stats-list">
+          <span class="state-stats-title">
+            <i class="fas fa-list-ul me-2" aria-hidden="true"></i>
+            Stats by State
+          </span>
+          <i class="fas fa-chevron-down state-stats-chevron" aria-hidden="true"></i>
+        </button>
+        <div class="state-stats-content" id="state-stats-list" style="display: none;">
+          <div class="state-stats-filter">
+            <select id="state-sort" class="form-select form-select-sm">
+              <option value="name">Sort by Name</option>
+              <option value="coverage-desc">Sort by Coverage (High to Low)</option>
+              <option value="coverage-asc">Sort by Coverage (Low to High)</option>
+              <option value="visited-desc">Sort by Visited (High to Low)</option>
+            </select>
+          </div>
+          <div class="state-stats-list" id="state-list">
+            <!-- State items will be populated by JavaScript -->
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

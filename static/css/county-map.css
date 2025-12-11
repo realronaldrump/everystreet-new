@@ -175,6 +175,138 @@
   background: var(--surface-elevated, rgba(255, 255, 255, 0.03));
   border-radius: 12px;
   padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* State-by-State Stats Section */
+.state-stats-section {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 1rem;
+}
+
+.state-stats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: var(--surface-elevated, rgba(255, 255, 255, 0.05));
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  color: var(--text-primary, #fff);
+}
+
+.state-stats-header:hover {
+  background: var(--hover-bg, rgba(255, 255, 255, 0.1));
+}
+
+.state-stats-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.state-stats-chevron {
+  transition: transform 0.3s ease;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+}
+
+.state-stats-content {
+  margin-top: 0.75rem;
+}
+
+.state-stats-filter {
+  margin-bottom: 0.75rem;
+}
+
+.state-stats-filter .form-select {
+  background-color: var(--surface-elevated, rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #fff);
+  font-size: 0.75rem;
+}
+
+.state-stats-list {
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.state-stat-item {
+  background: var(--surface-elevated, rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.state-stat-item:hover {
+  background: var(--hover-bg, rgba(255, 255, 255, 0.08));
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.state-stat-item--complete {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+}
+
+.state-stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.state-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+}
+
+.state-coverage {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.5));
+}
+
+.state-coverage--visited {
+  color: #10b981;
+}
+
+.state-stat-details {
+  margin-bottom: 0.5rem;
+}
+
+.state-counties {
+  font-size: 0.75rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+}
+
+.state-progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.state-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.state-date {
+  font-size: 0.7rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.5));
+  margin-top: 0.5rem;
 }
 
 .legend-title {
