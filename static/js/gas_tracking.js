@@ -313,24 +313,20 @@ function setupEventListeners() {
     .addEventListener("submit", handleFormSubmit);
 
   // Cancel edit
-  document
-    .getElementById("cancel-edit-btn")
-    .addEventListener("click", resetFormState);
+  document.getElementById("cancel-edit-btn").addEventListener("click", resetFormState);
 
   // Odometer Not Recorded toggle
-  document
-    .getElementById("odometer-not-recorded")
-    .addEventListener("change", (e) => {
-        const odoInput = document.getElementById("odometer");
-        if (e.target.checked) {
-            odoInput.value = "";
-            odoInput.disabled = true;
-            odoInput.placeholder = "Not recorded";
-        } else {
-            odoInput.disabled = false;
-            odoInput.placeholder = "miles";
-        }
-    });
+  document.getElementById("odometer-not-recorded").addEventListener("change", (e) => {
+    const odoInput = document.getElementById("odometer");
+    if (e.target.checked) {
+      odoInput.value = "";
+      odoInput.disabled = true;
+      odoInput.placeholder = "Not recorded";
+    } else {
+      odoInput.disabled = false;
+      odoInput.placeholder = "miles";
+    }
+  });
 
   // Auto-calc Odometer
   document
@@ -342,59 +338,61 @@ function setupEventListeners() {
  * Auto-calculate odometer
  */
 async function autoCalcOdometer() {
-    const imei = document.getElementById("vehicle-select").value;
-    const fillupTime = document.getElementById("fillup-time").value;
-    const odoInput = document.getElementById("odometer");
-    const odoCheck = document.getElementById("odometer-not-recorded");
-    const autoCalcBtn = document.getElementById("auto-calc-odometer");
+  const imei = document.getElementById("vehicle-select").value;
+  const fillupTime = document.getElementById("fillup-time").value;
+  const odoInput = document.getElementById("odometer");
+  const odoCheck = document.getElementById("odometer-not-recorded");
+  const autoCalcBtn = document.getElementById("auto-calc-odometer");
 
-    if (!imei) {
-        showError("Please select a vehicle first");
-        return;
+  if (!imei) {
+    showError("Please select a vehicle first");
+    return;
+  }
+  if (odoCheck.checked) {
+    showError("Please uncheck 'Not Recorded' first");
+    return;
+  }
+
+  try {
+    // Show loading state
+    const _originalIcon = autoCalcBtn.innerHTML;
+    autoCalcBtn.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    autoCalcBtn.disabled = true;
+
+    const timestamp = new Date(fillupTime).toISOString();
+    const response = await fetch(
+      `/api/vehicles/estimate-odometer?imei=${encodeURIComponent(imei)}&timestamp=${encodeURIComponent(timestamp)}`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to estimate odometer");
     }
-    if (odoCheck.checked) {
-        showError("Please uncheck 'Not Recorded' first");
-        return;
+
+    const result = await response.json();
+
+    if (result.estimated_odometer !== null) {
+      odoInput.value = result.estimated_odometer;
+      // Visual feedback
+      odoInput.classList.add("bg-success", "text-white", "bg-opacity-25");
+      setTimeout(() => {
+        odoInput.classList.remove("bg-success", "text-white", "bg-opacity-25");
+      }, 1000);
+      showSuccess(
+        `Estimated from ${result.method} (Anchor: ${result.anchor_odometer}, Diff: ${result.distance_diff} mi)`
+      );
+    } else {
+      showError("Could not estimate: No previous/next trusted odometer found.");
     }
-
-    try {
-        // Show loading state
-        const originalIcon = autoCalcBtn.innerHTML;
-        autoCalcBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
-        autoCalcBtn.disabled = true;
-
-        const timestamp = new Date(fillupTime).toISOString();
-        const response = await fetch(`/api/vehicles/estimate-odometer?imei=${encodeURIComponent(imei)}&timestamp=${encodeURIComponent(timestamp)}`);
-        
-        if (!response.ok) {
-            throw new Error("Failed to estimate odometer");
-        }
-
-        const result = await response.json();
-
-        if (result.estimated_odometer !== null) {
-            odoInput.value = result.estimated_odometer;
-            // Visual feedback
-            odoInput.classList.add("bg-success", "text-white", "bg-opacity-25");
-            setTimeout(() => {
-                odoInput.classList.remove("bg-success", "text-white", "bg-opacity-25");
-            }, 1000);
-            showSuccess(`Estimated from ${result.method} (Anchor: ${result.anchor_odometer}, Diff: ${result.distance_diff} mi)`);
-        } else {
-            showError("Could not estimate: No previous/next trusted odometer found.");
-        }
-
-    } catch (error) {
-        console.error("Error estimating odometer:", error);
-        showError("Failed to auto-calculate odometer");
-    } finally {
-        // Restore button
-        autoCalcBtn.innerHTML = '<i class="fas fa-magic"></i>';
-        autoCalcBtn.disabled = false;
-    }
+  } catch (error) {
+    console.error("Error estimating odometer:", error);
+    showError("Failed to auto-calculate odometer");
+  } finally {
+    // Restore button
+    autoCalcBtn.innerHTML = '<i class="fas fa-magic"></i>';
+    autoCalcBtn.disabled = false;
+  }
 }
-
-
 
 /**
  * Handle form submission
@@ -422,14 +420,15 @@ async function handleFormSubmit(e) {
       price_per_gallon:
         parseFloat(document.getElementById("price-per-gallon").value) || null,
       total_cost: parseFloat(document.getElementById("total-cost").value) || null,
-      odometer: isNoOdo ? null : (parseFloat(document.getElementById("odometer").value) || null),
+      odometer: isNoOdo
+        ? null
+        : parseFloat(document.getElementById("odometer").value) || null,
       latitude: currentLocation?.latitude || null,
       longitude: currentLocation?.longitude || null,
       is_full_tank: document.getElementById("full-tank").checked,
       missed_previous: document.getElementById("missed-previous").checked,
       notes: document.getElementById("notes").value || null,
     };
-
 
     // Validate
     if (!formData.imei) {
@@ -449,7 +448,7 @@ async function handleFormSubmit(e) {
     }
 
     const response = await fetch(url, {
-      method: method,
+      method,
       headers: {
         "Content-Type": "application/json",
       },
@@ -458,7 +457,9 @@ async function handleFormSubmit(e) {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || `Failed to ${isEdit ? "update" : "save"} fill-up`);
+      throw new Error(
+        error.detail || `Failed to ${isEdit ? "update" : "save"} fill-up`
+      );
     }
 
     const result = await response.json();
@@ -497,7 +498,7 @@ async function handleFormSubmit(e) {
  */
 function resetFormState() {
   document.getElementById("gas-fillup-form").reset();
-  
+
   // Clear ID and reset buttons
   document.getElementById("fillup-id").value = "";
   document.getElementById("cancel-edit-btn").style.display = "none";
@@ -520,17 +521,17 @@ function resetFormState() {
   // Usually better to keep vehicle selected
   const vehicleSelect = document.getElementById("vehicle-select");
   const selectedVehicle = vehicleSelect.value;
-  if(selectedVehicle) {
-      // Re-select it after a tick because reset clears it
-      setTimeout(() => {
-          vehicleSelect.value = selectedVehicle;
-          setCurrentTime(); // Reset time to now
-          currentLocation = null; // Clear old location data
-          if(marker) marker.remove();
-          updateLocationAndOdometer(); // Fetch fresh "now" data
-      }, 0);
+  if (selectedVehicle) {
+    // Re-select it after a tick because reset clears it
+    setTimeout(() => {
+      vehicleSelect.value = selectedVehicle;
+      setCurrentTime(); // Reset time to now
+      currentLocation = null; // Clear old location data
+      if (marker) marker.remove();
+      updateLocationAndOdometer(); // Fetch fresh "now" data
+    }, 0);
   } else {
-      setCurrentTime();
+    setCurrentTime();
   }
 }
 
@@ -627,98 +628,100 @@ function createFillupItem(fillup) {
 /**
  * Edit a fill-up
  */
-window.editFillup = function(id) {
-    const fillup = recentFillups.find(f => f._id === id);
-    if (!fillup) return;
+window.editFillup = (id) => {
+  const fillup = recentFillups.find((f) => f._id === id);
+  if (!fillup) return;
 
-    // Switch to edit mode UI
-    document.getElementById("fillup-id").value = fillup._id;
-    document.querySelector(".btn-save").childNodes[0].nodeValue = "Update Fill-Up";
-    document.getElementById("cancel-edit-btn").style.display = "inline-block";
+  // Switch to edit mode UI
+  document.getElementById("fillup-id").value = fillup._id;
+  document.querySelector(".btn-save").childNodes[0].nodeValue = "Update Fill-Up";
+  document.getElementById("cancel-edit-btn").style.display = "inline-block";
 
-    // Populate form
-    document.getElementById("vehicle-select").value = fillup.imei;
-    
-    // Format date for datetime-local input (remove seconds/milliseconds if needed, or just slice)
-    // fillup.fillup_time is ISO string from JSON (e.g. 2023-12-01T12:00:00Z)
-    // datetime-local needs YYYY-MM-DDTHH:MM
-    // We need to convert it to local time for the input because the input is "local"
-    const dateObj = new Date(fillup.fillup_time);
-    const offset = dateObj.getTimezoneOffset();
-    const localTime = new Date(dateObj.getTime() - offset * 60 * 1000);
-    document.getElementById("fillup-time").value = localTime.toISOString().slice(0, 16);
+  // Populate form
+  document.getElementById("vehicle-select").value = fillup.imei;
 
-    document.getElementById("gallons").value = fillup.gallons;
-    document.getElementById("price-per-gallon").value = fillup.price_per_gallon || "";
-    document.getElementById("total-cost").value = fillup.total_cost || "";
-    
-    // Odometer handling
-    const odoInput = document.getElementById("odometer");
-    const odoCheck = document.getElementById("odometer-not-recorded");
-    
-    if (fillup.odometer === null || fillup.odometer === undefined) {
-        odoCheck.checked = true;
-        odoInput.value = "";
-        odoInput.disabled = true;
-        odoInput.placeholder = "Not recorded";
-    } else {
-        odoCheck.checked = false;
-        odoInput.value = fillup.odometer;
-        odoInput.disabled = false;
-        odoInput.placeholder = "miles";
-    }
+  // Format date for datetime-local input (remove seconds/milliseconds if needed, or just slice)
+  // fillup.fillup_time is ISO string from JSON (e.g. 2023-12-01T12:00:00Z)
+  // datetime-local needs YYYY-MM-DDTHH:MM
+  // We need to convert it to local time for the input because the input is "local"
+  const dateObj = new Date(fillup.fillup_time);
+  const offset = dateObj.getTimezoneOffset();
+  const localTime = new Date(dateObj.getTime() - offset * 60 * 1000);
+  document.getElementById("fillup-time").value = localTime.toISOString().slice(0, 16);
 
-    document.getElementById("full-tank").checked = fillup.is_full_tank !== false; // Default to true
-    document.getElementById("missed-previous").checked = fillup.missed_previous === true; // Default to false
-    document.getElementById("notes").value = fillup.notes || "";
+  document.getElementById("gallons").value = fillup.gallons;
+  document.getElementById("price-per-gallon").value = fillup.price_per_gallon || "";
+  document.getElementById("total-cost").value = fillup.total_cost || "";
 
-    // Set location state
-    currentLocation = {
-        latitude: fillup.latitude,
-        longitude: fillup.longitude,
-        odometer: fillup.odometer
-    };
-    
-    // Update map marker
-    if (fillup.latitude && fillup.longitude) {
-        updateMap(fillup.latitude, fillup.longitude);
-        document.getElementById("location-text").textContent = "Location from record";
-        document.getElementById("odometer-display").textContent = fillup.odometer ? Math.round(fillup.odometer) : "--";
-    }
+  // Odometer handling
+  const odoInput = document.getElementById("odometer");
+  const odoCheck = document.getElementById("odometer-not-recorded");
 
-    // Scroll to form
-    document.querySelector(".gas-form-container").scrollIntoView({ behavior: "smooth" });
+  if (fillup.odometer === null || fillup.odometer === undefined) {
+    odoCheck.checked = true;
+    odoInput.value = "";
+    odoInput.disabled = true;
+    odoInput.placeholder = "Not recorded";
+  } else {
+    odoCheck.checked = false;
+    odoInput.value = fillup.odometer;
+    odoInput.disabled = false;
+    odoInput.placeholder = "miles";
+  }
+
+  document.getElementById("full-tank").checked = fillup.is_full_tank !== false; // Default to true
+  document.getElementById("missed-previous").checked = fillup.missed_previous === true; // Default to false
+  document.getElementById("notes").value = fillup.notes || "";
+
+  // Set location state
+  currentLocation = {
+    latitude: fillup.latitude,
+    longitude: fillup.longitude,
+    odometer: fillup.odometer,
+  };
+
+  // Update map marker
+  if (fillup.latitude && fillup.longitude) {
+    updateMap(fillup.latitude, fillup.longitude);
+    document.getElementById("location-text").textContent = "Location from record";
+    document.getElementById("odometer-display").textContent = fillup.odometer
+      ? Math.round(fillup.odometer)
+      : "--";
+  }
+
+  // Scroll to form
+  document.querySelector(".gas-form-container").scrollIntoView({ behavior: "smooth" });
 };
 
 /**
  * Delete a fill-up
  */
-window.deleteFillup = async function(id) {
-    if (!confirm("Are you sure you want to delete this fill-up record?")) {
-        return;
+window.deleteFillup = async (id) => {
+  if (!confirm("Are you sure you want to delete this fill-up record?")) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/gas-fillups/${id}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to delete fill-up");
     }
 
-    try {
-        const response = await fetch(`/api/gas-fillups/${id}`, {
-            method: "DELETE"
-        });
+    showSuccess("Fill-up deleted successfully");
 
-        if (!response.ok) {
-            throw new Error("Failed to delete fill-up");
-        }
-
-        showSuccess("Fill-up deleted successfully");
-        
-        // If we were editing this one, reset the form
-        if (document.getElementById("fillup-id").value === id) {
-            resetFormState();
-        }
-
-        await Promise.all([loadRecentFillups(), loadStatistics()]);
-    } catch (error) {
-        console.error("Error deleting fill-up:", error);
-        showError("Failed to delete fill-up");
+    // If we were editing this one, reset the form
+    if (document.getElementById("fillup-id").value === id) {
+      resetFormState();
     }
+
+    await Promise.all([loadRecentFillups(), loadStatistics()]);
+  } catch (error) {
+    console.error("Error deleting fill-up:", error);
+    showError("Failed to delete fill-up");
+  }
 };
 
 /**

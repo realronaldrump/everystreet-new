@@ -259,11 +259,13 @@ async def create_gas_fillup(
             # 2. Previous fill-up must be IS_FULL_TANK (establishes known full state).
             # 3. Current fill-up must be IS_FULL_TANK (measures usage to return to full).
             # 4. Use must NOT have marked "Missed Previous".
-            if (previous_odometer and 
-                previous_fillup.get("is_full_tank") is not False and # Default to True if missing
-                fillup_data.is_full_tank and 
-                not fillup_data.missed_previous):
-                
+            if (
+                previous_odometer
+                and previous_fillup.get("is_full_tank")
+                is not False  # Default to True if missing
+                and fillup_data.is_full_tank
+                and not fillup_data.missed_previous
+            ):
                 miles_since_last = fillup_data.odometer - previous_odometer
                 if miles_since_last > 0 and fillup_data.gallons > 0:
                     calculated_mpg = miles_since_last / fillup_data.gallons
@@ -341,10 +343,12 @@ async def update_gas_fillup(
         # OR we just manually handle it.
         # Let's check model dump without exclude_none.
         full_dump = fillup_data.model_dump()
-        if "odometer" in full_dump: # It will be there as None if not provided or provided as null
-             # But wait, if it's not provided in JSON, it defaults to None in Pydantic logic if default is None.
-             # We can't distinguish "not provided" vs "provided null" easily without using `exclude_unset=True`.
-             pass
+        if (
+            "odometer" in full_dump
+        ):  # It will be there as None if not provided or provided as null
+            # But wait, if it's not provided in JSON, it defaults to None in Pydantic logic if default is None.
+            # We can't distinguish "not provided" vs "provided null" easily without using `exclude_unset=True`.
+            pass
 
         # Let's use exclude_unset=True to know what the user actually sent
         update_data = fillup_data.model_dump(exclude_unset=True)
@@ -362,7 +366,7 @@ async def update_gas_fillup(
                 {
                     "imei": imei,
                     "fillup_time": {"$lt": current_time},
-                    "_id": {"$ne": ObjectId(fillup_id)}, # Exclude self
+                    "_id": {"$ne": ObjectId(fillup_id)},  # Exclude self
                 },
                 sort=[("fillup_time", -1)],
             )
@@ -370,7 +374,11 @@ async def update_gas_fillup(
             # Use new values or fallback to existing
             # If 'odometer' is in update_data and is None, we use None.
             # If it is NOT in update_data, we use existing.
-            current_odometer = update_data.get("odometer", existing.get("odometer")) if "odometer" in update_data else existing.get("odometer")
+            current_odometer = (
+                update_data.get("odometer", existing.get("odometer"))
+                if "odometer" in update_data
+                else existing.get("odometer")
+            )
             current_gallons = update_data.get("gallons", existing.get("gallons"))
 
             # Calculate stats
@@ -380,26 +388,33 @@ async def update_gas_fillup(
 
             if previous_fillup and current_odometer is not None:
                 previous_odometer = previous_fillup.get("odometer")
-                
+
                 # Strict MPG Rules (Same as create)
                 # We need 'is_full_tank' status of previous fillup
                 prev_is_full = previous_fillup.get("is_full_tank")
-                if prev_is_full is None: prev_is_full = True # Default legacy to true
-                
-                curr_is_full = update_data.get("is_full_tank", existing.get("is_full_tank"))
-                if curr_is_full is None: curr_is_full = True
+                if prev_is_full is None:
+                    prev_is_full = True  # Default legacy to true
 
-                curr_missed_prev = update_data.get("missed_previous", existing.get("missed_previous"))
-                
-                if (previous_odometer is not None and 
-                    prev_is_full and 
-                    curr_is_full and 
-                    not curr_missed_prev):
-                    
+                curr_is_full = update_data.get(
+                    "is_full_tank", existing.get("is_full_tank")
+                )
+                if curr_is_full is None:
+                    curr_is_full = True
+
+                curr_missed_prev = update_data.get(
+                    "missed_previous", existing.get("missed_previous")
+                )
+
+                if (
+                    previous_odometer is not None
+                    and prev_is_full
+                    and curr_is_full
+                    and not curr_missed_prev
+                ):
                     miles_since_last = current_odometer - previous_odometer
                     if miles_since_last > 0 and current_gallons > 0:
                         calculated_mpg = miles_since_last / current_gallons
-            
+
             # Update derived fields
             update_data["calculated_mpg"] = calculated_mpg
             update_data["miles_since_last_fillup"] = miles_since_last
@@ -445,7 +460,7 @@ async def delete_gas_fillup(fillup_id: str) -> dict[str, str]:
             gas_fillups_collection, {"_id": ObjectId(fillup_id)}
         )
         if not existing:
-             raise HTTPException(status_code=404, detail="Fill-up not found")
+            raise HTTPException(status_code=404, detail="Fill-up not found")
 
         result = await delete_one_with_retry(
             gas_fillups_collection, {"_id": ObjectId(fillup_id)}
@@ -478,11 +493,8 @@ async def recalculate_subsequent_fillup(imei: str, after_time: datetime) -> None
         # Find the immediately following fill-up
         next_fillup = await find_one_with_retry(
             gas_fillups_collection,
-            {
-                "imei": imei,
-                "fillup_time": {"$gt": after_time}
-            },
-            sort=[("fillup_time", 1)]
+            {"imei": imei, "fillup_time": {"$gt": after_time}},
+            sort=[("fillup_time", 1)],
         )
 
         if not next_fillup:
@@ -492,11 +504,8 @@ async def recalculate_subsequent_fillup(imei: str, after_time: datetime) -> None
         # (This effectively bridges the gap if the middle one was deleted)
         prev_fillup = await find_one_with_retry(
             gas_fillups_collection,
-            {
-                "imei": imei,
-                "fillup_time": {"$lt": next_fillup["fillup_time"]}
-            },
-            sort=[("fillup_time", -1)]
+            {"imei": imei, "fillup_time": {"$lt": next_fillup["fillup_time"]}},
+            sort=[("fillup_time", -1)],
         )
 
         updates = {}
@@ -506,51 +515,52 @@ async def recalculate_subsequent_fillup(imei: str, after_time: datetime) -> None
         # 3. prev_fillup was FULL TANK
         # 4. next_fillup is FULL TANK
         # 5. next_fillup NOT missed previous
-        
+
         # Get attributes safely
         next_odo = next_fillup.get("odometer")
         prev_odo = prev_fillup.get("odometer") if prev_fillup else None
-        
+
         prev_is_full = prev_fillup.get("is_full_tank") if prev_fillup else True
-        if prev_is_full is None: prev_is_full = True
-        
+        if prev_is_full is None:
+            prev_is_full = True
+
         next_is_full = next_fillup.get("is_full_tank", True)
         next_missed_prev = next_fillup.get("missed_previous", False)
 
-        if (prev_fillup and 
-            next_odo is not None and 
-            prev_odo is not None and
-            prev_is_full and 
-            next_is_full and 
-            not next_missed_prev):
-            
-             miles_diff = next_odo - prev_odo
-             if miles_diff > 0 and next_fillup.get("gallons", 0) > 0:
-                 updates["miles_since_last_fillup"] = miles_diff
-                 updates["calculated_mpg"] = miles_diff / next_fillup["gallons"]
-                 updates["previous_odometer"] = prev_odo
-             else:
-                 # valid data but non-positive distance?
-                 updates["miles_since_last_fillup"] = None
-                 updates["calculated_mpg"] = None
-                 updates["previous_odometer"] = prev_fillup["odometer"]
+        if (
+            prev_fillup
+            and next_odo is not None
+            and prev_odo is not None
+            and prev_is_full
+            and next_is_full
+            and not next_missed_prev
+        ):
+            miles_diff = next_odo - prev_odo
+            if miles_diff > 0 and next_fillup.get("gallons", 0) > 0:
+                updates["miles_since_last_fillup"] = miles_diff
+                updates["calculated_mpg"] = miles_diff / next_fillup["gallons"]
+                updates["previous_odometer"] = prev_odo
+            else:
+                # valid data but non-positive distance?
+                updates["miles_since_last_fillup"] = None
+                updates["calculated_mpg"] = None
+                updates["previous_odometer"] = prev_fillup["odometer"]
         else:
             # Broken chain
             updates["miles_since_last_fillup"] = None
             updates["calculated_mpg"] = None
-            updates["previous_odometer"] = prev_fillup.get("odometer") if prev_fillup else None
+            updates["previous_odometer"] = (
+                prev_fillup.get("odometer") if prev_fillup else None
+            )
 
         if updates:
             await update_one_with_retry(
-                gas_fillups_collection,
-                {"_id": next_fillup["_id"]},
-                {"$set": updates}
+                gas_fillups_collection, {"_id": next_fillup["_id"]}, {"$set": updates}
             )
             logger.info(f"Recalculated stats for fill-up {next_fillup['_id']}")
 
     except Exception as e:
         logger.error(f"Error recalculating subsequent fillup: {e}")
-
 
 
 # === Vehicle Location and Odometer Lookup ===
@@ -791,26 +801,34 @@ async def estimate_odometer_reading(
         # Previous trusted fill-up
         prev_fillup = await find_one_with_retry(
             gas_fillups_collection,
-            {"imei": imei, "fillup_time": {"$lte": target_time}, "odometer": {"$ne": None}},
+            {
+                "imei": imei,
+                "fillup_time": {"$lte": target_time},
+                "odometer": {"$ne": None},
+            },
             sort=[("fillup_time", -1)],
         )
 
         # Next trusted fill-up
         next_fillup = await find_one_with_retry(
             gas_fillups_collection,
-            {"imei": imei, "fillup_time": {"$gt": target_time}, "odometer": {"$ne": None}},
+            {
+                "imei": imei,
+                "fillup_time": {"$gt": target_time},
+                "odometer": {"$ne": None},
+            },
             sort=[("fillup_time", 1)],
         )
 
         # 2. Find Anchors (Trips) - as secondary fallback or validation
-        # Only needed if fill-ups are too far or missing. 
+        # Only needed if fill-ups are too far or missing.
         # But actually, users trust trip data too. Let's see if we can find a trip *at* this time?
         # Or just use the closest fillup? The user said "working backwards/forwards... adding/subtracting distance of recorded trips".
         # So we definitely need to sum trips.
 
         best_anchor = None
-        anchor_type = None # "prev" or "next"
-        
+        anchor_type = None  # "prev" or "next"
+
         # Decide which anchor to use
         if prev_fillup and next_fillup:
             # Use closest
@@ -828,23 +846,27 @@ async def estimate_odometer_reading(
         elif next_fillup:
             best_anchor = next_fillup
             anchor_type = "next"
-        
+
         # 3. If no fill-up anchor, try to find a trip anchor
         if not best_anchor:
             # Find nearest trip with odometer
             prev_trip = await find_one_with_retry(
                 trips_collection,
-                {"imei": imei, "endTime": {"$lte": target_time}, "endOdometer": {"$ne": None}},
-                sort=[("endTime", -1)]
+                {
+                    "imei": imei,
+                    "endTime": {"$lte": target_time},
+                    "endOdometer": {"$ne": None},
+                },
+                sort=[("endTime", -1)],
             )
-             # Reuse standard query structure
+            # Reuse standard query structure
             if prev_trip:
-                 # Standardize structure to look like fillup for calc
-                 best_anchor = {
-                     "fillup_time": prev_trip["endTime"],
-                     "odometer": prev_trip["endOdometer"]
-                 }
-                 anchor_type = "prev"
+                # Standardize structure to look like fillup for calc
+                best_anchor = {
+                    "fillup_time": prev_trip["endTime"],
+                    "odometer": prev_trip["endOdometer"],
+                }
+                anchor_type = "prev"
 
         if not best_anchor:
             return {"estimated_odometer": None, "method": "no_data"}
@@ -855,19 +877,19 @@ async def estimate_odometer_reading(
         if anchor_type == "prev":
             query["startTime"] = {"$gte": best_anchor["fillup_time"]}
             query["endTime"] = {"$lte": target_time}
-        else: # next
+        else:  # next
             query["startTime"] = {"$gte": target_time}
             query["endTime"] = {"$lte": best_anchor["fillup_time"]}
 
         # Aggregation to sum distance
         # Note: Bouncie 'distance' is usually in miles? Or km?
-        # The app uses miles everywhere. Let's assume trips store distance in miles. 
+        # The app uses miles everywhere. Let's assume trips store distance in miles.
         # (Verified in generic utils: distance usually comes from stats)
         pipeline = [
             {"$match": query},
-            {"$group": {"_id": None, "total_distance": {"$sum": "$distance"}}}
+            {"$group": {"_id": None, "total_distance": {"$sum": "$distance"}}},
         ]
-        
+
         result = await aggregate_with_retry(trips_collection, pipeline)
         distance_sum = result[0]["total_distance"] if result else 0
 
@@ -886,7 +908,7 @@ async def estimate_odometer_reading(
             "anchor_date": best_anchor["fillup_time"],
             "anchor_odometer": best_anchor["odometer"],
             "distance_diff": distance_sum,
-            "method": f"calculated_from_{anchor_type}"
+            "method": f"calculated_from_{anchor_type}",
         }
 
     except Exception as e:
