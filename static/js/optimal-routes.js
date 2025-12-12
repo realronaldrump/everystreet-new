@@ -11,6 +11,8 @@ class OptimalRoutesManager {
     this.eventSource = null;
     this.elapsedTimer = null;
     this.startTime = null;
+    this.waitingCount = 0; // Track how long we've been waiting
+    this.lastProgressTime = null; // Track last progress update
 
     this.init();
   }
@@ -413,21 +415,45 @@ class OptimalRoutesManager {
       this.eventSource.close();
     }
 
+    // Reset waiting counter
+    this.waitingCount = 0;
+    this.lastProgressTime = Date.now();
+
     this.eventSource = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
 
     this.eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        
+        // Track waiting state
+        if (data.stage === "waiting" || data.status === "pending") {
+          this.waitingCount++;
+          // Warn after 30 seconds of waiting (30 SSE messages at 1/sec)
+          if (this.waitingCount === 30) {
+            this.updateProgressMessage(
+              "Still waiting for worker... Make sure Celery is running."
+            );
+          } else if (this.waitingCount === 60) {
+            this.updateProgressMessage(
+              "Worker not responding. The Celery worker may not be running."
+            );
+          }
+        } else {
+          // Got actual progress, reset waiting counter
+          this.waitingCount = 0;
+          this.lastProgressTime = Date.now();
+        }
+
         this.updateProgress(data);
 
-        if (
-          data.status === "completed" ||
-          data.stage === "complete" ||
-          data.progress >= 100
-        ) {
+        // Check for completion (case-insensitive)
+        const status = (data.status || "").toLowerCase();
+        const stage = (data.stage || "").toLowerCase();
+        
+        if (status === "completed" || stage === "complete" || data.progress >= 100) {
           this.eventSource.close();
           this.onGenerationComplete();
-        } else if (data.status === "failed") {
+        } else if (status === "failed") {
           this.eventSource.close();
           this.showError(data.error || data.message || "Route generation failed");
         }
@@ -441,9 +467,16 @@ class OptimalRoutesManager {
     });
 
     this.eventSource.onerror = (error) => {
-      console.error("SSE error:", error);
+      console.error("SSE connection error:", error);
       this.eventSource.close();
-      // Don't show error immediately - might just be the connection closing normally
+      
+      // If we never got past waiting, show a helpful error
+      if (this.waitingCount > 0) {
+        this.showError(
+          "Connection lost while waiting for task. Ensure the Celery worker is running."
+        );
+      }
+      // Otherwise it might just be normal connection close after completion
     };
   }
 
@@ -454,10 +487,9 @@ class OptimalRoutesManager {
       progressBar.style.width = `${data.progress}%`;
     }
 
-    // Update message
-    const progressMessage = document.getElementById("progress-message");
-    if (progressMessage) {
-      progressMessage.textContent = data.message || "Processing...";
+    // Update message (skip if we're showing a custom waiting message)
+    if (this.waitingCount < 30) {
+      this.updateProgressMessage(data.message || "Processing...");
     }
 
     // Update stage indicators
@@ -472,6 +504,13 @@ class OptimalRoutesManager {
         stage.classList.add("completed");
       }
     });
+  }
+
+  updateProgressMessage(message) {
+    const progressMessage = document.getElementById("progress-message");
+    if (progressMessage) {
+      progressMessage.textContent = message;
+    }
   }
 
   isStageComplete(currentStage, stageNames) {

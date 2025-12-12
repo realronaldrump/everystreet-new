@@ -2377,13 +2377,11 @@ def generate_optimal_route_task(
     **_kwargs,
 ):
     """Celery task wrapper for generating optimal completion route."""
-    manual_run = _kwargs.get("manual_run", True)
     return run_async_from_sync(
         generate_optimal_route_async(
             _self,
             location_id=location_id,
             start_lon=start_lon,
             start_lat=start_lat,
-            manual_run=manual_run,
         )
     )
