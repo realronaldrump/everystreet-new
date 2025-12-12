@@ -13,8 +13,9 @@ from pymongo.collection import Collection
 
 from date_utils import parse_timestamp
 from db import serialize_document
+from models import validate_coordinate_pair
 from trip_event_publisher import publish_trip_state
-from utils import haversine, validate_coordinate_pair
+from utils import haversine
 
 logger = logging.getLogger(__name__)
 

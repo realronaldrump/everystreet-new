@@ -9,7 +9,6 @@ ensures consistent handling of all trip data.
 import asyncio
 import json
 import logging
-import uuid
 from enum import Enum
 from typing import Any
 
@@ -22,12 +21,8 @@ from shapely.geometry import Point
 
 from date_utils import get_current_utc_time, parse_timestamp
 from db import matched_trips_collection, places_collection, trips_collection
-from utils import (
-    haversine,
-    reverse_geocode_mapbox,
-    reverse_geocode_nominatim,
-)
 from models import TripDataModel
+from utils import haversine, reverse_geocode_mapbox, reverse_geocode_nominatim
 
 logger = logging.getLogger(__name__)
 
@@ -230,12 +225,12 @@ class TripProcessor:
             # Validate using Pydantic model
             # This handles type checking, required fields, date parsing, and GPS standardization
             validated_model = TripDataModel(**self.trip_data)
-            
+
             # Update processed_data with the validated/parsed data
             # strict exclusion/inclusion depending on needs, but by_alias=True keeps _id as id etc if needed
             # For now, let's dump everything so we have clean data
-            self.processed_data = validated_model.model_dump(by_alias=True, mode='json')
-            
+            self.processed_data = validated_model.model_dump(by_alias=True, mode="json")
+
             # Since model_dump(mode='json') converts datetimes to strings, we might want to keep them as objects
             # or rely on them being strings and parsing them only when needed?
             # The original code parsed them into datetime objects in `process_basic`.
@@ -265,7 +260,7 @@ class TripProcessor:
             )
             self._set_state(TripState.FAILED, error_message)
             return False
-            
+
         except Exception as e:
             error_message = f"Unexpected validation error: {e!s}"
             logger.exception(

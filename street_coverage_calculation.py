@@ -32,7 +32,7 @@ from db import (
     update_many_with_retry,
     update_one_with_retry,
 )
-from utils import validate_geojson_point_or_linestring
+from models import validate_geojson_point_or_linestring
 
 load_dotenv()
 
