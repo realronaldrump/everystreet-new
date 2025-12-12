@@ -26,6 +26,7 @@ from bson import ObjectId
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from dateutil.parser import parse
+from pydantic import ValidationError
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError, ConnectionFailure
 
@@ -57,9 +58,11 @@ from live_tracking import (
 from route_solver import generate_optimal_route_with_progress, save_optimal_route
 from street_coverage_calculation import compute_incremental_coverage
 from trip_service import TripService
+from route_solver import generate_optimal_route_with_progress, save_optimal_route
+from street_coverage_calculation import compute_incremental_coverage
+from trip_service import TripService
 from utils import run_async_from_sync
-from utils import validate_trip_data as validate_trip_data_logic
-from utils import validate_trip_is_meaningful
+from models import TripDataModel
 
 logger = get_task_logger(__name__)
 T = TypeVar("T")
@@ -1147,12 +1150,24 @@ async def validate_trips_async(_self) -> dict[str, Any]:
     async for trip in cursor:
         processed_count += 1
 
-        # First check: required data validation
-        valid, message = validate_trip_data_logic(trip)
-
-        # Second check: stationary trip validation (only if first check passed)
-        if valid:
-            valid, message = validate_trip_is_meaningful(trip)
+        # First check: required data validation using Pydantic
+        valid = True
+        message = None
+        
+        try:
+            # TripDataModel validation covers required fields, types, and GPS structure
+            model = TripDataModel(**trip)
+            
+            # Second check: functional/semantic validation (stationary logic)
+            valid, message = model.validate_meaningful()
+            
+        except ValidationError as e:
+            valid = False
+            # Simplify error message
+            message = str(e)
+        except Exception as e:
+            valid = False
+            message = f"Unexpected error during validation: {e}"
 
         if not valid:
             # Mark as invalid in both collections

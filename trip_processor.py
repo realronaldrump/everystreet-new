@@ -16,6 +16,7 @@ from typing import Any
 import aiohttp
 import pyproj
 from aiolimiter import AsyncLimiter
+from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError
 from shapely.geometry import Point
 
@@ -25,8 +26,8 @@ from utils import (
     haversine,
     reverse_geocode_mapbox,
     reverse_geocode_nominatim,
-    standardize_and_validate_gps,
 )
+from models import TripDataModel
 
 logger = logging.getLogger(__name__)
 
@@ -147,27 +148,6 @@ class TripProcessor:
             trip_data.copy()
         )  # Keep a copy of original for reference if needed
 
-        # Standardize GPS data early
-        raw_gps = self.processed_data.get("gps")
-        transaction_id = self.processed_data.get(
-            "transactionId", f"unknown-{uuid.uuid4()}"
-        )
-
-        standardized_gps = TripProcessor._standardize_and_validate_gps_data(
-            raw_gps, transaction_id
-        )
-
-        if standardized_gps is None:
-            logger.warning(
-                "Trip %s: GPS data could not be standardized and is invalid. Setting to None.",
-                transaction_id,
-            )
-            # Depending on strictness, you might fail early here or let validation catch it.
-            # For now, set to None and let validation handle if it's missing/invalid.
-        self.processed_data["gps"] = (
-            standardized_gps  # Replace with standardized version or None
-        )
-
         self.state = TripState.NEW
         self._set_state(TripState.NEW)
 
@@ -235,7 +215,7 @@ class TripProcessor:
             return {}
 
     async def validate(self) -> bool:
-        """Validate the trip data.
+        """Validate the trip data using Pydantic model.
 
         Returns:
             True if validation passed, False otherwise
@@ -247,115 +227,25 @@ class TripProcessor:
                 transaction_id,
             )
 
-            required = [
-                "transactionId",
-                "startTime",
-                "endTime",
-                "gps",
-            ]
-            for field in required:
-                if field not in self.trip_data:
-                    error_message = f"Missing required field: {field}"
-                    logger.warning(
-                        "Trip %s: %s",
-                        transaction_id,
-                        error_message,
-                    )
-                    self._set_state(
-                        TripState.FAILED,
-                        error_message,
-                    )
-                    return False
-
-            gps_data = self.processed_data.get(
-                "gps"
-            )  # Use already standardized GPS data
-
-            # Validation of the standardized GPS data
-            if gps_data is None:  # Was set to None by standardization if invalid
-                error_message = "GPS data is missing or invalid after standardization"
-                logger.warning(
-                    "Trip %s: %s",
-                    transaction_id,
-                    error_message,
-                )
-                self._set_state(
-                    TripState.FAILED,
-                    error_message,
-                )
-                return False
-
-            # Further checks if gps_data is not None (i.e., it's a dict from standardization)
-            if (
-                not isinstance(gps_data, dict)
-                or gps_data.get("type") not in ["Point", "LineString"]
-                or not isinstance(gps_data.get("coordinates"), list)
-            ):
-                error_message = (
-                    "Standardized GPS data is not a valid GeoJSON Point or LineString"
-                )
-                logger.warning(
-                    "Trip %s: %s",
-                    transaction_id,
-                    error_message,
-                )
-                self._set_state(
-                    TripState.FAILED,
-                    error_message,
-                )
-                return False
-
-            # Check for minimum points based on type
-            gps_type = gps_data.get("type")
-            gps_coords_list = gps_data.get("coordinates")
-
-            if gps_type == "Point":
-                # For a Point, coordinates should be a list of 2 numbers.
-                # The _standardize_and_validate_gps_data should ensure this.
-                if not (
-                    isinstance(gps_coords_list, list)
-                    and len(gps_coords_list) == 2
-                    and all(isinstance(c, float | int) for c in gps_coords_list)
-                ):
-                    error_message = "GeoJSON Point 'coordinates' must be a list of two numbers [lon, lat]"
-                    logger.warning("Trip %s: %s", transaction_id, error_message)
-                    self._set_state(TripState.FAILED, error_message)
-                    return False
-            elif gps_type == "LineString":
-                # For a LineString, coordinates should be a list of at least two coordinate pairs.
-                if not (
-                    isinstance(gps_coords_list, list) and len(gps_coords_list) >= 2
-                ):
-                    error_message = "GeoJSON LineString 'coordinates' must be a list of at least two points"
-                    logger.warning("Trip %s: %s", transaction_id, error_message)
-                    self._set_state(TripState.FAILED, error_message)
-                    return False
-                # Further check each point in LineString is valid pair (already done by standardize, but good for defense)
-                for point_pair in gps_coords_list:
-                    if not (
-                        isinstance(point_pair, list)
-                        and len(point_pair) == 2
-                        and all(isinstance(c, float | int) for c in point_pair)
-                    ):
-                        error_message = (
-                            "Invalid point found in GeoJSON LineString coordinates"
-                        )
-                        logger.warning("Trip %s: %s", transaction_id, error_message)
-                        self._set_state(TripState.FAILED, error_message)
-                        return False
-            else:  # Should not happen if standardization worked
-                error_message = (
-                    f"Unexpected GeoJSON type after standardization: {gps_type}"
-                )
-                logger.warning("Trip %s: %s", transaction_id, error_message)
-                self._set_state(TripState.FAILED, error_message)
-                return False
-
-            # self.processed_data is already a copy from set_trip_data and gps field is standardized
+            # Validate using Pydantic model
+            # This handles type checking, required fields, date parsing, and GPS standardization
+            validated_model = TripDataModel(**self.trip_data)
+            
+            # Update processed_data with the validated/parsed data
+            # strict exclusion/inclusion depending on needs, but by_alias=True keeps _id as id etc if needed
+            # For now, let's dump everything so we have clean data
+            self.processed_data = validated_model.model_dump(by_alias=True, mode='json')
+            
+            # Since model_dump(mode='json') converts datetimes to strings, we might want to keep them as objects
+            # or rely on them being strings and parsing them only when needed?
+            # The original code parsed them into datetime objects in `process_basic`.
+            # If we want them as objects in `processed_data`, we should use mode='python' but be careful about BSON serialization later if passed directly.
+            # However, `process_basic` expects them to be objects or parseable strings.
+            # Let's keep them as objects for internal processing.
+            self.processed_data = validated_model.model_dump(by_alias=True)
 
             self.processed_data["validated_at"] = get_current_utc_time()
             self.processed_data["validation_status"] = TripState.VALIDATED.value
-            # Clear previous invalid state
             self.processed_data["invalid"] = False
             self.processed_data["validation_message"] = None
 
@@ -366,8 +256,18 @@ class TripProcessor:
             )
             return True
 
+        except ValidationError as e:
+            error_message = f"Validation error: {e}"
+            logger.warning(
+                "Trip %s failed validation: %s",
+                self.trip_data.get("transactionId", "unknown"),
+                error_message,
+            )
+            self._set_state(TripState.FAILED, error_message)
+            return False
+            
         except Exception as e:
-            error_message = f"Validation error: {e!s}"
+            error_message = f"Unexpected validation error: {e!s}"
             logger.exception(
                 "Error validating trip %s",
                 self.trip_data.get("transactionId", "unknown"),
@@ -403,30 +303,17 @@ class TripProcessor:
                 transaction_id,
             )
 
-            for key in ("startTime", "endTime"):
-                val = self.processed_data.get(key)
-                if isinstance(val, str):
-                    self.processed_data[key] = parse_timestamp(val)
+            # Dates are already parsed by Pydantic model
+            # GPS data is already validated and unified by Pydantic model
 
             gps_data = self.processed_data.get("gps")
-            if isinstance(gps_data, str):
-                try:
-                    # gps_data is already standardized GeoJSON dict or None
-                    gps_data = self.processed_data.get("gps")
-
-                    if (
-                        not gps_data
-                    ):  # Should have been caught by validate, but defensive
-                        self._set_state(
-                            TripState.FAILED,
-                            "Missing GPS data for basic processing",
-                        )
-                        return False
-                except Exception as e:
-                    self._set_state(
-                        TripState.FAILED, f"Error processing GPS data: {e!s}"
-                    )
-                    return False
+            # Defensive check
+            if not gps_data:
+                self._set_state(
+                    TripState.FAILED,
+                    "Missing GPS data for basic processing",
+                )
+                return False
 
             gps_type = gps_data.get("type")
             gps_coords = gps_data.get("coordinates")
