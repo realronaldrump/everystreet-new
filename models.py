@@ -167,6 +167,7 @@ class TripDataModel(BaseModel):
         if isinstance(v, str):
             try:
                 import json
+
                 v = json.loads(v)
             except json.JSONDecodeError:
                 raise ValueError("Invalid JSON string for GPS data")
@@ -185,11 +186,11 @@ class TripDataModel(BaseModel):
 
             # Filter valid coordinates
             valid_coords = [c for c in v if valid_coord(c)]
-            
+
             # Deduplicate consecutive points
             unique_coords = []
             for c in valid_coords:
-                c_list = [float(c[0]), float(c[1])] # Ensure float
+                c_list = [float(c[0]), float(c[1])]  # Ensure float
                 if not unique_coords or c_list != unique_coords[-1]:
                     unique_coords.append(c_list)
 
@@ -204,13 +205,13 @@ class TripDataModel(BaseModel):
         if isinstance(v, dict):
             if "type" not in v or "coordinates" not in v:
                 raise ValueError("GPS data missing 'type' or 'coordinates'")
-            
+
             geom_type = v["type"]
             coords = v["coordinates"]
-            
+
             if geom_type not in ["Point", "LineString"]:
                 raise ValueError(f"Unsupported geometry type: {geom_type}")
-                
+
             if not isinstance(coords, list):
                 raise ValueError("Coordinates must be a list")
 
@@ -225,37 +226,39 @@ class TripDataModel(BaseModel):
                     v["coordinates"] = [lon, lat]
                 except (ValueError, TypeError):
                     raise ValueError("Invalid coordinate values")
-                    
+
             elif geom_type == "LineString":
                 if len(coords) < 2:
                     raise ValueError("LineString must have at least 2 points")
-                
+
                 validated = []
                 for point in coords:
                     if not isinstance(point, list) or len(point) < 2:
-                        continue # Skip invalid points, or could raise
+                        continue  # Skip invalid points, or could raise
                     try:
                         lon, lat = float(point[0]), float(point[1])
                         if -180 <= lon <= 180 and -90 <= lat <= 90:
                             validated.append([lon, lat])
                     except (ValueError, TypeError):
                         continue
-                
+
                 # Deduplicate
                 final_coords = []
                 for p in validated:
                     if not final_coords or p != final_coords[-1]:
                         final_coords.append(p)
-                        
+
                 if len(final_coords) < 2:
-                     # If simplified to 1 point, downgrade to Point? 
-                     # Or fail? Existing logic allowed downgrade or fail. 
-                     # Let's return Point if 1, or None if 0
+                    # If simplified to 1 point, downgrade to Point?
+                    # Or fail? Existing logic allowed downgrade or fail.
+                    # Let's return Point if 1, or None if 0
                     if len(final_coords) == 1:
                         return {"type": "Point", "coordinates": final_coords[0]}
                     else:
-                        raise ValueError("LineString has insufficient valid coordinates")
-                
+                        raise ValueError(
+                            "LineString has insufficient valid coordinates"
+                        )
+
                 v["coordinates"] = final_coords
 
             return v
@@ -268,26 +271,26 @@ class TripDataModel(BaseModel):
 
     def validate_meaningful(self) -> tuple[bool, str | None]:
         """Validate that a trip represents actual driving.
-        
+
         Flags trips as invalid if:
         - Very short distance AND same start/end AND low speed AND short duration
         - OR extremely short duration (< 2 min) and zero distance
         """
         # Distances are in miles, speeds in mph, durations in seconds (or processed minutes)
-        
+
         # Self.distance is float | None
         dist = self.distance if self.distance is not None else 0.0
-        
+
         # Self.maxSpeed
         max_speed = self.maxSpeed if self.maxSpeed is not None else 0.0
-        
+
         # Calculate duration in minutes
         duration_minutes = 0.0
         if self.startTime and self.endTime:
             # Pydantic has already ensured these are datetime objects (aware)
             diff = (self.endTime - self.startTime).total_seconds()
             duration_minutes = diff / 60.0
-            
+
         # Check if locations are same
         same_location = False
         if self.gps and self.gps.get("type") == "LineString":
@@ -296,27 +299,37 @@ class TripDataModel(BaseModel):
                 first = coords[0]
                 last = coords[-1]
                 # approx 50m tolerance ~0.0005 deg
-                if abs(first[0] - last[0]) < 0.0005 and abs(first[1] - last[1]) < 0.0005:
+                if (
+                    abs(first[0] - last[0]) < 0.0005
+                    and abs(first[1] - last[1]) < 0.0005
+                ):
                     same_location = True
         elif self.gps and self.gps.get("type") == "Point":
-            same_location = True # Start and end are definitely same
+            same_location = True  # Start and end are definitely same
 
         is_stationary = False
-        
+
         # Condition 1: Standard stationary check
         # Distance <= 0.05 miles, Same location, Max Speed <= 0.5 mph, Duration < 10 mins
-        if (dist <= 0.05 and same_location and max_speed <= 0.5 and duration_minutes < 10):
+        if (
+            dist <= 0.05
+            and same_location
+            and max_speed <= 0.5
+            and duration_minutes < 10
+        ):
             is_stationary = True
-            
+
         # Condition 2: Extremely short/zero distance (e.g. < 2 mins)
-        if (dist <= 0.01 and duration_minutes < 2):
+        if dist <= 0.01 and duration_minutes < 2:
             is_stationary = True
-            
+
         if is_stationary:
-            msg = (f"Stationary trip: car turned on possibly without driving "
-                   f"(distance: {dist:.2f} mi, duration: {duration_minutes:.1f} min)")
+            msg = (
+                f"Stationary trip: car turned on possibly without driving "
+                f"(distance: {dist:.2f} mi, duration: {duration_minutes:.1f} min)"
+            )
             return False, msg
-            
+
         return True, None
 
 

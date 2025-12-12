@@ -55,14 +55,11 @@ from live_tracking import (
     process_trip_metrics,
     process_trip_start,
 )
-from route_solver import generate_optimal_route_with_progress, save_optimal_route
-from street_coverage_calculation import compute_incremental_coverage
-from trip_service import TripService
+from models import TripDataModel
 from route_solver import generate_optimal_route_with_progress, save_optimal_route
 from street_coverage_calculation import compute_incremental_coverage
 from trip_service import TripService
 from utils import run_async_from_sync
-from models import TripDataModel
 
 logger = get_task_logger(__name__)
 T = TypeVar("T")
@@ -1153,14 +1150,14 @@ async def validate_trips_async(_self) -> dict[str, Any]:
         # First check: required data validation using Pydantic
         valid = True
         message = None
-        
+
         try:
             # TripDataModel validation covers required fields, types, and GPS structure
             model = TripDataModel(**trip)
-            
+
             # Second check: functional/semantic validation (stationary logic)
             valid, message = model.validate_meaningful()
-            
+
         except ValidationError as e:
             valid = False
             # Simplify error message
