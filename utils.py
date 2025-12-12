@@ -221,9 +221,6 @@ async def validate_location_osm(
         raise
 
 
-
-
-
 @retry_async(max_retries=3, retry_delay=2.0)
 async def reverse_geocode_nominatim(
     lat: float,
