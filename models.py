@@ -145,7 +145,6 @@ class TripDataModel(BaseModel):
     hardBrakingCounts: int | None = None
     hardAccelerationCounts: int | None = None
     fuelConsumed: float | None = None
-    fuelConsumed: float | None = None
     closed_reason: str | None = None
 
     @field_validator("startTime", "endTime", "lastUpdate", mode="before")
