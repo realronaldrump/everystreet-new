@@ -214,7 +214,7 @@ class TripDataModel(BaseModel):
     prepared for API responses. Includes fields observed in live_tracking.py.
     """
 
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId | None = Field(alias="_id", default=None)
     transactionId: str | None = None
     vin: str | None = None
     imei: str | None = None

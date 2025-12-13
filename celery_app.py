@@ -179,6 +179,11 @@ def beat_init_handler(**_kwargs):
 @signals.worker_init.connect
 def worker_init(**_kwargs):
     from datetime import datetime
+    import sys
+
+    # Ensure the current working directory is in sys.path so we can import modules
+    if os.getcwd() not in sys.path:
+        sys.path.insert(0, os.getcwd())
 
     current_time = datetime.now(UTC)
     logger.debug("Worker starting at UTC time: %s", current_time.isoformat())
