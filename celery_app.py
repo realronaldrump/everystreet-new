@@ -178,8 +178,8 @@ def beat_init_handler(**_kwargs):
 
 @signals.worker_init.connect
 def worker_init(**_kwargs):
-    from datetime import datetime
     import sys
+    from datetime import datetime
 
     # Ensure the current working directory is in sys.path so we can import modules
     if os.getcwd() not in sys.path:
