@@ -90,6 +90,7 @@ function initializeDataTable() {
   tripsTable = $("#trips-table").DataTable({
     processing: true,
     serverSide: true,
+    autoWidth: false,
     ajax: {
       url: "/api/trips/datatable",
       type: "POST",
