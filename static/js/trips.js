@@ -34,9 +34,13 @@ async function initializePage() {
 
   // 3. Setup Filter Listeners & chips
   setupFilterListeners();
-  initializeDatePickers();
-  // Quick ranges setup is now part of initializeDatePickers/setupQuickRanges refactor
-  setupQuickRanges();
+  
+  // Listen for global date filter changes
+  document.addEventListener("filtersApplied", () => {
+    updateFilterChips();
+    tripsTable.ajax.reload();
+  });
+  
   updateFilterChips();
 
   // 4. Setup Bulk Actions
@@ -262,8 +266,8 @@ function getFilterValues() {
     fuel_max:
       (document.getElementById("trip-filter-fuel-max")?.value || "").trim() || null,
     has_fuel: document.getElementById("trip-filter-has-fuel")?.checked || false,
-    start_date: document.getElementById("trip-filter-date-start")?.value || null,
-    end_date: document.getElementById("trip-filter-date-end")?.value || null,
+    start_date: window.utils?.getStorage("startDate") || null,
+    end_date: window.utils?.getStorage("endDate") || null,
   };
 }
 
@@ -274,7 +278,7 @@ function setupFilterListeners() {
   const inputs = document.querySelectorAll(
     "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, " +
       "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, " +
-      "#trip-filter-has-fuel, #trip-filter-date-start, #trip-filter-date-end"
+      "#trip-filter-has-fuel"
   );
 
   inputs.forEach((input) => {
@@ -307,94 +311,7 @@ function setupFilterListeners() {
   }
 }
 
-function setupQuickRanges() {
-  const buttons = document.querySelectorAll(".filter-quick-btn");
 
-  buttons.forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const {range} = btn.dataset; // "7", "30", or "0"
-
-      // Map numeric ranges to presets that DateUtils understands
-      let preset = "";
-      if (range === "7") preset = "last-week";
-      if (range === "30") preset = "last-month";
-
-      const startInput = document.getElementById("trip-filter-date-start");
-      const endInput = document.getElementById("trip-filter-date-end");
-
-      if (range === "0") {
-        // Clear
-        if (startInput?._flatpickr) startInput._flatpickr.clear();
-        if (endInput?._flatpickr) endInput._flatpickr.clear();
-      } else if (preset) {
-        try {
-          // Use shared util
-          const { startDate, endDate } =
-            await window.DateUtils.getDateRangePreset(preset);
-
-          if (startDate && endDate) {
-            if (startInput?._flatpickr) startInput._flatpickr.setDate(startDate, true);
-            if (endInput?._flatpickr) endInput._flatpickr.setDate(endDate, true);
-          }
-        } catch (e) {
-          console.error("Error setting preset:", e);
-        }
-      }
-
-      // Update chips & reload (Handled by Flatpickr onChange event or manually if needed)
-      // Flatpickr triggers change, but let's ensure:
-      updateFilterChips();
-      tripsTable.ajax.reload();
-    });
-  });
-}
-
-/**
- * Initialize DatePickers using shared DateUtils
- */
-function initializeDatePickers() {
-  const startInput = document.getElementById("trip-filter-date-start");
-  const endInput = document.getElementById("trip-filter-date-end");
-
-  if (!startInput || !endInput) return;
-
-  const fpConfig = {
-    enableTime: false,
-    altInput: true,
-    altFormat: "M j, Y",
-    dateFormat: "Y-m-d", // API expects this
-    maxDate: "today",
-    disableMobile: true,
-    allowInput: true,
-    locale: { firstDayOfWeek: 0 },
-  };
-
-  // Init Start
-  if (window.DateUtils?.initDatePicker) {
-    window.DateUtils.initDatePicker(startInput, {
-      ...fpConfig,
-      onChange: (_selectedDates, dateStr) => {
-        if (endInput._flatpickr) {
-          endInput._flatpickr.set("minDate", dateStr);
-        }
-        updateFilterChips();
-      },
-    });
-
-    // Init End
-    window.DateUtils.initDatePicker(endInput, {
-      ...fpConfig,
-      onChange: (_selectedDates, dateStr) => {
-        if (startInput._flatpickr) {
-          startInput._flatpickr.set("maxDate", dateStr);
-        }
-        updateFilterChips();
-      },
-    });
-  } else {
-    console.error("DateUtils not available");
-  }
-}
 
 function updateFilterChips(triggerReload = false) {
   const container = document.getElementById("active-filter-chips");
@@ -407,17 +324,26 @@ function updateFilterChips(triggerReload = false) {
     chips.push(
       makeChip("Vehicle", filters.imei, () => clearInput("trip-filter-vehicle"))
     );
-  if (filters.start_date || filters.end_date)
+  if (filters.start_date || filters.end_date) {
     chips.push(
       makeChip(
         "Date",
         `${filters.start_date || "Any"} → ${filters.end_date || "Any"}`,
         () => {
-          clearInput("trip-filter-date-start");
-          clearInput("trip-filter-date-end");
+           // To clear global date, reset the storage.
+           if (window.utils) {
+             window.utils.setStorage("startDate", null);
+             window.utils.setStorage("endDate", null);
+             // Dispatch event so other components know (like the menu)
+             document.dispatchEvent(new Event("filtersReset"));
+             // Reload
+             updateFilterChips();
+             tripsTable.ajax.reload();
+           }
         }
       )
     );
+  }
   if (filters.distance_min || filters.distance_max)
     chips.push(
       makeChip(
