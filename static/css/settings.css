@@ -158,7 +158,7 @@
   padding-top: var(--space-4);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .settings-tabs {
     padding: var(--space-2);
     gap: var(--space-1);

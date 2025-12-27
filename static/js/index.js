@@ -11,19 +11,14 @@ if ("PerformanceObserver" in window) {
 }
 
 // Script for toggling chevron in metrics collapse
-document.addEventListener("DOMContentLoaded", function () {
-  const metricsButton = document.querySelector(
-    '[data-bs-target="#metrics-content"]',
-  );
+document.addEventListener("DOMContentLoaded", () => {
+  const metricsButton = document.querySelector('[data-bs-target="#metrics-content"]');
   if (metricsButton) {
     const chevron = metricsButton.querySelector(".fa-chevron-down");
-    metricsButton.addEventListener("click", function () {
-      const isExpanded =
-        metricsButton.getAttribute("aria-expanded") === "true";
+    metricsButton.addEventListener("click", () => {
+      const isExpanded = metricsButton.getAttribute("aria-expanded") === "true";
       if (chevron) {
-        chevron.style.transform = isExpanded
-          ? "rotate(0deg)"
-          : "rotate(180deg)";
+        chevron.style.transform = isExpanded ? "rotate(0deg)" : "rotate(180deg)";
       }
     });
     // Initial state check for chevron if panel is collapsed by default
@@ -53,10 +48,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (res.ok) {
           const data = await res.json();
           if (typeof data.showLiveTracking !== "undefined") {
-            window.localStorage.setItem(
-              "showLiveTracking",
-              data.showLiveTracking,
-            );
+            window.localStorage.setItem("showLiveTracking", data.showLiveTracking);
             updateLiveTrackingVisibility();
           }
         }
