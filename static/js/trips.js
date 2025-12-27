@@ -133,14 +133,14 @@ class TripsManager {
 
   updateStats(trips) {
     // Calculate stats from the currently loaded trips (or a subset if paginated server-side)
-    // Note: Since we are using server-side processing for DataTables, 
+    // Note: Since we are using server-side processing for DataTables,
     // ideally we should get these aggregates from the server response.
     // For now, we will sum up what is available in the current page/response or fetch aggregates separately.
     // To support "totals for current filter", we might need a separate API call or extra data in the DT response.
-    
+
     // Simple client-side aggregation of the *cached* data (current page) for immediate feedback
     // Real implementation should likely request these stats from backend with current filters
-    
+
     // Let's rely on what we have locally first
     let totalTrips = 0;
     let totalDist = 0;
@@ -149,37 +149,39 @@ class TripsManager {
 
     // Use trips provided or cache values
     const data = trips || Array.from(this.tripsCache.values());
-    totalTrips = this.tripsTable ? this.tripsTable.page.info().recordsTotal : data.length;
+    totalTrips = this.tripsTable
+      ? this.tripsTable.page.info().recordsTotal
+      : data.length;
 
     // We can't sum all pages client side if using server side pagination without a separate API.
     // For this UI demo, let's just show N/A or try to fetch if possible.
-    // Or we can sum the *visible* rows? 
+    // Or we can sum the *visible* rows?
     // Ideally the API response for the datatable contains 'extra' fields for aggregates.
-    
-    // HACK: For now, we'll just sum the visible trips to show *something* working, 
+
+    // HACK: For now, we'll just sum the visible trips to show *something* working,
     // but ideally we'd want "Total trips found: X".
-    
+
     // Allow the server to send these in the future. For now, just placeholder or current page sums.
-    data.forEach(t => {
+    data.forEach((t) => {
       totalDist += parseFloat(t.distance || 0);
       totalDuration += this.parseDurationToSeconds(t.duration);
       totalCost += parseFloat(t.estimated_cost || 0);
     });
-    
+
     // If we have access to the full 'recordsTotal' we can display that for count
     // But distance/cost totals would need backend support for filtered sums.
     // Let's just update the DOM elements
-    
+
     const countEl = document.getElementById("stats-total-trips");
     const distEl = document.getElementById("stats-total-distance");
     const durEl = document.getElementById("stats-total-duration");
     const costEl = document.getElementById("stats-total-cost");
-    
+
     if (countEl) countEl.textContent = totalTrips.toLocaleString(); // Use total records count
-    
-    // For these, we only know the current page sums unless we add an API. 
+
+    // For these, we only know the current page sums unless we add an API.
     // Marking as "Visible" might be more accurate, or just showing them.
-    if (distEl) distEl.textContent = `${totalDist.toFixed(1)} mi`; 
+    if (distEl) distEl.textContent = `${totalDist.toFixed(1)} mi`;
     if (durEl) durEl.textContent = this.formatSecondsToHours(totalDuration);
     if (costEl) costEl.textContent = `$${totalCost.toFixed(2)}`;
   }
@@ -192,13 +194,13 @@ class TripsManager {
     const hMatch = durationStr.match(/(\d+)h/);
     const mMatch = durationStr.match(/(\d+)m/);
     const sMatch = durationStr.match(/(\d+)s/);
-    
+
     if (hMatch) total += parseInt(hMatch[1]) * 3600;
     if (mMatch) total += parseInt(mMatch[1]) * 60;
     if (sMatch) total += parseInt(sMatch[1]);
     return total;
   }
-  
+
   formatSecondsToHours(seconds) {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -207,8 +209,8 @@ class TripsManager {
   }
 
   static formatDuration(duration) {
-      // Basic pass-through or re-formatting if needed
-      return duration || "--";
+    // Basic pass-through or re-formatting if needed
+    return duration || "--";
   }
 
   async init() {
@@ -315,7 +317,9 @@ class TripsManager {
       speed_max: getNumber("trip-filter-speed-max"),
       fuel_min: getNumber("trip-filter-fuel-min"),
       fuel_max: getNumber("trip-filter-fuel-max"),
-      has_fuel: Boolean(document.getElementById("trip-filter-has-fuel")?.checked),
+      has_fuel: Boolean(
+        document.getElementById("trip-filter-has-fuel")?.checked,
+      ),
     };
   }
 
@@ -345,7 +349,9 @@ class TripsManager {
   }
 
   restoreFilters() {
-    let raw = window.utils?.getStorage("tripsFilters") || localStorage.getItem("tripsFilters");
+    let raw =
+      window.utils?.getStorage("tripsFilters") ||
+      localStorage.getItem("tripsFilters");
     if (!raw) return;
     try {
       const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
@@ -373,7 +379,7 @@ class TripsManager {
             [v.year, v.make, v.model].filter(Boolean).join(" ").trim() ||
             (v.vin ? `VIN ${v.vin}` : `IMEI ${v.imei}`);
           return `<option value="${v.imei}">${label}</option>`;
-        })
+        }),
       );
       select.innerHTML = optionsHtml.join("");
       if (this.filters.imei) select.value = this.filters.imei;
@@ -394,12 +400,12 @@ class TripsManager {
     try {
       this.tripsTable = $(tableEl).DataTable({
         responsive: {
-           details: {
-               // We only want the plus sign to appear on the first column or specific control column
-               // But here we'll let it handle naturally. 
-               // Actually, for the new design, let's keep it clean.
-               type: 'inline'
-           }
+          details: {
+            // We only want the plus sign to appear on the first column or specific control column
+            // But here we'll let it handle naturally.
+            // Actually, for the new design, let's keep it clean.
+            type: "inline",
+          },
         },
         processing: true,
         serverSide: true,
@@ -410,7 +416,8 @@ class TripsManager {
           contentType: "application/json",
           data: (d) => {
             d.start_date =
-              window.utils.getStorage("startDate") || DateUtils.getCurrentDate();
+              window.utils.getStorage("startDate") ||
+              DateUtils.getCurrentDate();
             d.end_date =
               window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
             d.filters = this.getFilters();
@@ -434,7 +441,8 @@ class TripsManager {
             orderable: false,
             searchable: false,
             className: "select-checkbox ps-3",
-            render: () => '<div class="form-check"><input type="checkbox" class="form-check-input trip-checkbox"></div>',
+            render: () =>
+              '<div class="form-check"><input type="checkbox" class="form-check-input trip-checkbox"></div>',
           },
           {
             data: "vehicleLabel",
@@ -453,20 +461,28 @@ class TripsManager {
             data: "startTime",
             title: "When",
             render: (data, type) => {
-                 if (type !== "display") return data;
-                 const date = new Date(data);
-                 const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-                 const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-                 return `<div class="d-flex flex-column">
+              if (type !== "display") return data;
+              const date = new Date(data);
+              const dateStr = date.toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              });
+              const timeStr = date.toLocaleTimeString(undefined, {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              return `<div class="d-flex flex-column">
                     <span class="fw-semibold">${dateStr}</span>
                     <span class="text-muted small">${timeStr}</span>
                  </div>`;
-            }
+            },
           },
           {
             data: "duration",
             title: "Duration",
-             render: (data) => `<span class="badge bg-light text-dark border">${TripsManager.formatDuration(data)}</span>`,
+            render: (data) =>
+              `<span class="badge bg-light text-dark border">${TripsManager.formatDuration(data)}</span>`,
           },
           {
             data: "distance",
@@ -479,7 +495,7 @@ class TripsManager {
           {
             data: "startLocation",
             title: "Start Location",
-             render: (data, type) => {
+            render: (data, type) => {
               const displayValue = TripsManager.formatLocation(data);
               return createEditableCell(displayValue, type, "startLocation");
             },
@@ -487,31 +503,33 @@ class TripsManager {
           {
             data: "destination",
             title: "Destination",
-             render: (data, type) => {
+            render: (data, type) => {
               const displayValue = TripsManager.formatLocation(data);
               return createEditableCell(displayValue, type, "destination");
             },
           },
           {
-             // Combined Stats Column for space efficiency
-             data: null,
-             title: "Details",
-             orderable: false,
-             render: (data, type, row) => {
-                 const speed = parseFloat(row.maxSpeed || 0).toFixed(0);
-                 const fuel = row.fuelConsumed ? parseFloat(row.fuelConsumed).toFixed(1) + 'g' : '--';
-                 return `<div class="d-flex gap-2 text-nowrap">
+            // Combined Stats Column for space efficiency
+            data: null,
+            title: "Details",
+            orderable: false,
+            render: (data, type, row) => {
+              const speed = parseFloat(row.maxSpeed || 0).toFixed(0);
+              const fuel = row.fuelConsumed
+                ? parseFloat(row.fuelConsumed).toFixed(1) + "g"
+                : "--";
+              return `<div class="d-flex gap-2 text-nowrap">
                     <span class="badge-soft bg-info-subtle text-info"><i class="fas fa-tachometer-alt me-1"></i>${speed} mph</span>
                     <span class="badge-soft bg-warning-subtle text-warning"><i class="fas fa-gas-pump me-1"></i>${fuel}</span>
-                 </div>`
-             }
+                 </div>`;
+            },
           },
           {
             data: "estimated_cost",
             title: "Cost",
             render: (data) => {
-               if (data == null) return '<span class="text-muted">--</span>';
-               return `<span class="fw-bold text-success">$${parseFloat(data).toFixed(2)}</span>`;
+              if (data == null) return '<span class="text-muted">--</span>';
+              return `<span class="fw-bold text-success">$${parseFloat(data).toFixed(2)}</span>`;
             },
           },
           {
@@ -523,11 +541,12 @@ class TripsManager {
           },
         ],
         language: {
-          processing: '<div class="spinner-border text-primary" role="status"></div>',
+          processing:
+            '<div class="spinner-border text-primary" role="status"></div>',
           emptyTable: "No trips found",
         },
         pageLength: 25,
-        dom: 'tip', // clean dom, no default search/length inputs if we have custom ones, but we might want pagination
+        dom: "tip", // clean dom, no default search/length inputs if we have custom ones, but we might want pagination
         order: [[2, "desc"]],
         drawCallback: () => {
           this.updateBulkDeleteButton();
@@ -539,9 +558,11 @@ class TripsManager {
         $(".trip-checkbox").prop("checked", e.target.checked);
         this.updateBulkDeleteButton();
       });
-      $(tableEl).on("change", ".trip-checkbox", () => this.updateBulkDeleteButton());
+      $(tableEl).on("change", ".trip-checkbox", () =>
+        this.updateBulkDeleteButton(),
+      );
     } catch (error) {
-       console.error(error);
+      console.error(error);
     }
   }
 
@@ -549,74 +570,83 @@ class TripsManager {
     if (this.tripsTable) {
       this.tripsTable.ajax.reload();
     } else {
-        // Fallback for mobile if table not active or separate mobile fetch logic needed
-        // For now table ajax reload handles both if we used the same data source, 
-        // but mobile view usually needs its own renderer if we are not using datatables responsive mode completely.
-        // Actually, let's keep it simple: if mobile, we might need to fetch data manually if we aren't using the DT as the source.
-        // But since DT is initialized even hidden, we can use its data? 
-        // Better: standard fetch for mobile list to show cards.
-        
-        if (this.isMobile) {
-            this.fetchMobileTrips();
-        }
+      // Fallback for mobile if table not active or separate mobile fetch logic needed
+      // For now table ajax reload handles both if we used the same data source,
+      // but mobile view usually needs its own renderer if we are not using datatables responsive mode completely.
+      // Actually, let's keep it simple: if mobile, we might need to fetch data manually if we aren't using the DT as the source.
+      // But since DT is initialized even hidden, we can use its data?
+      // Better: standard fetch for mobile list to show cards.
+
+      if (this.isMobile) {
+        this.fetchMobileTrips();
+      }
     }
   }
-  
+
   async fetchMobileTrips() {
-      // Implement a direct fetch for mobile cards if we want full custom control
-      // Or just render from tripsCache if we want to sync with table?
-      // Let's do a direct fetch to support pagination logic properly similar to table
-      
-      const loader = document.getElementById("trips-mobile-list");
-      if(loader) loader.innerHTML = '<div class="trips-mobile-loading"><div class="spinner-border text-primary"></div></div>';
-      
-      try {
-          const payload = {
-              start: this.mobileCurrentPage * this.mobilePageSize,
-              length: this.mobilePageSize,
-              start_date: window.utils.getStorage("startDate") || DateUtils.getCurrentDate(),
-              end_date: window.utils.getStorage("endDate") || DateUtils.getCurrentDate(),
-              filters: this.getFilters()
-          };
-          
-          const response = await fetch("/api/trips/datatable", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload)
-          });
-          
-          if(!response.ok) throw new Error("Failed to load");
-          const data = await response.json();
-          this.mobileTotalTrips = data.recordsTotal; // or recordsFiltered
-          this.renderMobileCards(data.data);
-          this.updateMobilePagination(data.recordsFiltered);
-          this.updateStats(data.data); // Update stats based on mobile data too
-      } catch(e) {
-          console.error(e);
-          if(loader) loader.innerHTML = `<div class="text-center text-danger p-4">Failed to load trips</div>`;
-      }
+    // Implement a direct fetch for mobile cards if we want full custom control
+    // Or just render from tripsCache if we want to sync with table?
+    // Let's do a direct fetch to support pagination logic properly similar to table
+
+    const loader = document.getElementById("trips-mobile-list");
+    if (loader)
+      loader.innerHTML =
+        '<div class="trips-mobile-loading"><div class="spinner-border text-primary"></div></div>';
+
+    try {
+      const payload = {
+        start: this.mobileCurrentPage * this.mobilePageSize,
+        length: this.mobilePageSize,
+        start_date:
+          window.utils.getStorage("startDate") || DateUtils.getCurrentDate(),
+        end_date:
+          window.utils.getStorage("endDate") || DateUtils.getCurrentDate(),
+        filters: this.getFilters(),
+      };
+
+      const response = await fetch("/api/trips/datatable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) throw new Error("Failed to load");
+      const data = await response.json();
+      this.mobileTotalTrips = data.recordsTotal; // or recordsFiltered
+      this.renderMobileCards(data.data);
+      this.updateMobilePagination(data.recordsFiltered);
+      this.updateStats(data.data); // Update stats based on mobile data too
+    } catch (e) {
+      console.error(e);
+      if (loader)
+        loader.innerHTML = `<div class="text-center text-danger p-4">Failed to load trips</div>`;
+    }
   }
 
   renderMobileCards(trips) {
-      const container = document.getElementById("trips-mobile-list");
-      if(!container) return;
-      
-      if(!trips || trips.length === 0) {
-          container.innerHTML = `
+    const container = document.getElementById("trips-mobile-list");
+    if (!container) return;
+
+    if (!trips || trips.length === 0) {
+      container.innerHTML = `
             <div class="trips-mobile-empty">
                 <i class="fas fa-road mb-3 text-muted"></i>
                 <h5 class="trips-mobile-empty-title">No trips found</h5>
             </div>
           `;
-          return;
-      }
-      
-      container.innerHTML = trips.map(trip => {
-          const date = new Date(trip.startTime);
-          const dateStr = date.toLocaleDateString();
-          const timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-          
-          return `
+      return;
+    }
+
+    container.innerHTML = trips
+      .map((trip) => {
+        const date = new Date(trip.startTime);
+        const dateStr = date.toLocaleDateString();
+        const timeStr = date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        return `
             <div class="mobile-trip-card">
                 <div class="mobile-trip-header">
                     <div>
@@ -636,7 +666,7 @@ class TripsManager {
                             <div class="text-muted small" style="font-size: 0.7rem">DURATION</div>
                         </div>
                         <div class="text-center">
-                            <div class="h5 mb-0 fw-bold text-success">$${trip.estimated_cost ? parseFloat(trip.estimated_cost).toFixed(2) : '--'}</div>
+                            <div class="h5 mb-0 fw-bold text-success">$${trip.estimated_cost ? parseFloat(trip.estimated_cost).toFixed(2) : "--"}</div>
                             <div class="text-muted small" style="font-size: 0.7rem">COST</div>
                         </div>
                      </div>
@@ -664,42 +694,46 @@ class TripsManager {
                     </div>
                 </div>
             </div>
-          `
-      }).join('');
+          `;
+      })
+      .join("");
   }
-  
+
   updateMobilePagination(total) {
-      const info = document.getElementById("trips-mobile-page-info");
-      const wrapper = document.getElementById("trips-mobile-pagination");
-      if(wrapper) wrapper.style.display = total > 0 ? "block" : "none";
-      
-      const start = this.mobileCurrentPage * this.mobilePageSize + 1;
-      const end = Math.min((this.mobileCurrentPage + 1) * this.mobilePageSize, total);
-      
-      if (info) info.textContent = `Showing ${start}-${end} of ${total}`;
-      
-      const prevBtn = document.getElementById("trips-mobile-prev-btn");
-      const nextBtn = document.getElementById("trips-mobile-next-btn");
-      
-      if(prevBtn) {
-          prevBtn.disabled = this.mobileCurrentPage === 0;
-          prevBtn.onclick = () => {
-              if(this.mobileCurrentPage > 0) {
-                  this.mobileCurrentPage--;
-                  this.fetchMobileTrips();
-              }
-          }
-      }
-      
-      if(nextBtn) {
-          nextBtn.disabled = end >= total;
-          nextBtn.onclick = () => {
-              if(end < total) {
-                  this.mobileCurrentPage++;
-                  this.fetchMobileTrips();
-              }
-          }
-      }
+    const info = document.getElementById("trips-mobile-page-info");
+    const wrapper = document.getElementById("trips-mobile-pagination");
+    if (wrapper) wrapper.style.display = total > 0 ? "block" : "none";
+
+    const start = this.mobileCurrentPage * this.mobilePageSize + 1;
+    const end = Math.min(
+      (this.mobileCurrentPage + 1) * this.mobilePageSize,
+      total,
+    );
+
+    if (info) info.textContent = `Showing ${start}-${end} of ${total}`;
+
+    const prevBtn = document.getElementById("trips-mobile-prev-btn");
+    const nextBtn = document.getElementById("trips-mobile-next-btn");
+
+    if (prevBtn) {
+      prevBtn.disabled = this.mobileCurrentPage === 0;
+      prevBtn.onclick = () => {
+        if (this.mobileCurrentPage > 0) {
+          this.mobileCurrentPage--;
+          this.fetchMobileTrips();
+        }
+      };
+    }
+
+    if (nextBtn) {
+      nextBtn.disabled = end >= total;
+      nextBtn.onclick = () => {
+        if (end < total) {
+          this.mobileCurrentPage++;
+          this.fetchMobileTrips();
+        }
+      };
+    }
   }
 
   renderActionButtons(row) {
@@ -726,46 +760,50 @@ class TripsManager {
 
   updateBulkDeleteButton() {
     // simplified
-    const anyChecked = $(".trip-checkbox:checked").length > 0 || $(".trip-card-checkbox:checked").length > 0;
+    const anyChecked =
+      $(".trip-checkbox:checked").length > 0 ||
+      $(".trip-card-checkbox:checked").length > 0;
     $("#bulk-delete-trips-btn").prop("disabled", !anyChecked);
     $("#bulk-delete-trips-mobile-btn").prop("disabled", !anyChecked);
   }
 
   // .. existing bulk delete logic adapted slightly ..
   async bulkDeleteTrips() {
-      // reuse existing logic but check both selectors
-      let tripIds = [];
-      $(".trip-checkbox:checked").each((_, cb) => {
-          const row = $(cb).closest("tr");
-          const data = this.tripsTable.row(row).data();
-          if(data) tripIds.push(data.transactionId);
-      });
-      
-      $(".trip-card-checkbox:checked").each((_, cb) => {
-          tripIds.push($(cb).data("trip-id"));
-      });
-      
-      if(tripIds.length === 0) return;
-      
-      if(confirm(`Delete ${tripIds.length} trips?`)) {
-          await this.performBulkDelete(tripIds);
-      }
+    // reuse existing logic but check both selectors
+    let tripIds = [];
+    $(".trip-checkbox:checked").each((_, cb) => {
+      const row = $(cb).closest("tr");
+      const data = this.tripsTable.row(row).data();
+      if (data) tripIds.push(data.transactionId);
+    });
+
+    $(".trip-card-checkbox:checked").each((_, cb) => {
+      tripIds.push($(cb).data("trip-id"));
+    });
+
+    if (tripIds.length === 0) return;
+
+    if (confirm(`Delete ${tripIds.length} trips?`)) {
+      await this.performBulkDelete(tripIds);
+    }
   }
-  
+
   async performBulkDelete(tripIds) {
     // ... existing implementation ...
-     try {
+    try {
       const response = await fetch("/api/trips/bulk_delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ trip_ids: tripIds }),
       });
-      if(response.ok) {
-          this.fetchTrips();
+      if (response.ok) {
+        this.fetchTrips();
       }
-     } catch(e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   }
-  
+
   // Method needed for edit handlers
   setRowEditMode(row, editMode) {
     row.toggleClass("editing", editMode);
@@ -785,8 +823,8 @@ class TripsManager {
   }
 
   async saveRowChanges(row) {
-     // ... existing save logic ...
-      try {
+    // ... existing save logic ...
+    try {
       const rowData = this.tripsTable.row(row).data();
       const updatedData = { ...rowData };
       row.find(".edit-input").each(function () {
@@ -796,68 +834,77 @@ class TripsManager {
 
       const tripId = rowData.transactionId;
       // ... api call ...
-       const response = await fetch(`/api/trips/${tripId}`, {
+      const response = await fetch(`/api/trips/${tripId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "trips", properties: {...updatedData, transactionId: tripId} }),
+        body: JSON.stringify({
+          type: "trips",
+          properties: { ...updatedData, transactionId: tripId },
+        }),
       });
-      
+
       if (response.ok) {
-          this.tripsTable.row(row).data(updatedData).draw();
-          this.setRowEditMode(row, false);
+        this.tripsTable.row(row).data(updatedData).draw();
+        this.setRowEditMode(row, false);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   }
-  
+
   async refreshGeocodingForTrip(tripId) {
-      // ... existing ... 
-      try {
-          await fetch(`/api/trips/${tripId}/refresh_geocoding`, {method: 'POST'});
-          this.fetchTrips();
-      } catch(e) { console.error(e); }
-  }
-  
-  initializeBulkActionButtons() {
-      $("#bulk-delete-trips-btn").on("click", () => this.bulkDeleteTrips());
-      $("#bulk-delete-trips-mobile-btn").on("click", () => this.bulkDeleteTrips());
-      $("#refresh-geocoding-btn").on("click", () => this.refreshGeocoding());
-  }
-  
-  refreshGeocoding() {
-      // Stub
-      console.log("Refreshing all geocoding...");
+    // ... existing ...
+    try {
+      await fetch(`/api/trips/${tripId}/refresh_geocoding`, { method: "POST" });
       this.fetchTrips();
+    } catch (e) {
+      console.error(e);
+    }
   }
-  
+
+  initializeBulkActionButtons() {
+    $("#bulk-delete-trips-btn").on("click", () => this.bulkDeleteTrips());
+    $("#bulk-delete-trips-mobile-btn").on("click", () =>
+      this.bulkDeleteTrips(),
+    );
+    $("#refresh-geocoding-btn").on("click", () => this.refreshGeocoding());
+  }
+
+  refreshGeocoding() {
+    // Stub
+    console.log("Refreshing all geocoding...");
+    this.fetchTrips();
+  }
+
   initializeTableEditHandlers() {
-     // ... existing handlers, make sure they use delegated events on the table wrapper ...
-     $(document).on("click", ".edit-trip-btn", (e) => {
-         const row = $(e.target).closest("tr");
-         if(row.length) this.setRowEditMode(row, true);
-     });
-     
-     $(document).on("click", ".save-changes-btn", (e) => {
-         const row = $(e.target).closest("tr");
-         this.saveRowChanges(row);
-     });
-     
-     $(document).on("click", ".cancel-edit-btn", (e) => {
-         const row = $(e.target).closest("tr");
-         this.cancelRowEdit(row);
-     });
-     
-     $(document).on("click", ".delete-trip-btn", (e) => {
-         const id = $(e.target).data("id");
-         if(confirm("Delete this trip?")) {
-             this.performBulkDelete([id]);
-         }
-     });
-     // export ...
+    // ... existing handlers, make sure they use delegated events on the table wrapper ...
+    $(document).on("click", ".edit-trip-btn", (e) => {
+      const row = $(e.target).closest("tr");
+      if (row.length) this.setRowEditMode(row, true);
+    });
+
+    $(document).on("click", ".save-changes-btn", (e) => {
+      const row = $(e.target).closest("tr");
+      this.saveRowChanges(row);
+    });
+
+    $(document).on("click", ".cancel-edit-btn", (e) => {
+      const row = $(e.target).closest("tr");
+      this.cancelRowEdit(row);
+    });
+
+    $(document).on("click", ".delete-trip-btn", (e) => {
+      const id = $(e.target).data("id");
+      if (confirm("Delete this trip?")) {
+        this.performBulkDelete([id]);
+      }
+    });
+    // export ...
   }
 }
 
 // Global initialization
 window.tripsManager = new TripsManager();
 window.addEventListener("DOMContentLoaded", () => {
-    window.tripsManager.init();
+  window.tripsManager.init();
 });
