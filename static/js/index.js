@@ -18,8 +18,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (metricsButton) {
     const chevron = metricsButton.querySelector(".fa-chevron-down");
     metricsButton.addEventListener("click", function () {
-      const isExpanded =
-        metricsButton.getAttribute("aria-expanded") === "true";
+      const isExpanded = metricsButton.getAttribute("aria-expanded") === "true";
       if (chevron) {
         chevron.style.transform = isExpanded
           ? "rotate(0deg)"
