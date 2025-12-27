@@ -1,6 +1,5 @@
-{% extends "base.html" %} {% block title %}Optimal Routes{% endblock %} {%
-block head_content %}
-
+{% extends "base.html" %} {% block title %}Optimal Routes{% endblock %} {% block
+head_content %}
 
 <link
   rel="stylesheet"
@@ -37,7 +36,11 @@ block head_content %}
 
     <!-- Generate Button -->
     <div class="control-section">
-      <button id="generate-route-btn" class="btn btn-primary btn-lg w-100" disabled>
+      <button
+        id="generate-route-btn"
+        class="btn btn-primary btn-lg w-100"
+        disabled
+      >
         <i class="fas fa-magic me-2"></i>Generate Optimal Route
       </button>
       <div class="form-text mt-2">
@@ -97,13 +100,16 @@ block head_content %}
 
       <!-- Elapsed Time -->
       <div id="elapsed-time" class="elapsed-time mt-2">
-        <i class="fas fa-clock me-1"></i>Elapsed: <span id="elapsed-value">0:00</span>
+        <i class="fas fa-clock me-1"></i>Elapsed:
+        <span id="elapsed-value">0:00</span>
       </div>
     </div>
 
     <!-- Route Results -->
     <div id="results-section" class="control-section" style="display: none">
-      <h5 class="mb-3"><i class="fas fa-chart-bar me-2"></i>Route Statistics</h5>
+      <h5 class="mb-3">
+        <i class="fas fa-chart-bar me-2"></i>Route Statistics
+      </h5>
 
       <div class="stats-grid">
         <div class="stat-card">
@@ -148,7 +154,11 @@ block head_content %}
     </div>
 
     <!-- Error Section -->
-    <div id="error-section" class="control-section error-section" style="display: none">
+    <div
+      id="error-section"
+      class="control-section error-section"
+      style="display: none"
+    >
       <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
       <div class="error-message" id="error-message">An error occurred.</div>
       <button id="retry-btn" class="btn btn-outline-danger mt-2">
@@ -181,14 +191,16 @@ block head_content %}
         <span>Undriven Streets</span>
       </div>
       <div class="legend-item">
-        <span class="legend-color" style="background: #9333ea; height: 5px"></span>
+        <span
+          class="legend-color"
+          style="background: #9333ea; height: 5px"
+        ></span>
         <span>Optimal Route</span>
       </div>
     </div>
   </div>
 </div>
 {% endblock %} {% block extra_js %}
-
 
 <script>
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
