@@ -2147,7 +2147,7 @@
           </h6>
           <div class="row g-3">
             <div class="col-md-6">
-              <div class="info-card p-3 bg-surface-2 rounded">
+              <div class="info-card p-3 bg-body-secondary rounded">
                 <h6 class="text-success mb-2">
                   <i class="fas fa-play-circle me-2"></i>Start
                 </h6>
@@ -2158,7 +2158,7 @@
               </div>
             </div>
             <div class="col-md-6">
-              <div class="info-card p-3 bg-surface-2 rounded">
+              <div class="info-card p-3 bg-body-secondary rounded">
                 <h6 class="text-danger mb-2">
                   <i class="fas fa-stop-circle me-2"></i>End
                 </h6>
