@@ -655,10 +655,9 @@ class CoverageNavigation {
       dashboard.appendChild(panel);
     }
 
-    const totalKm = (route.total_distance_m / 1000).toFixed(2);
     const totalMi = (route.total_distance_m / 1609.34).toFixed(2);
-    const requiredKm = ((route.required_distance_m || 0) / 1000).toFixed(2);
-    const deadheadKm = (route.deadhead_distance_m / 1000).toFixed(2);
+    const requiredMi = ((route.required_distance_m || 0) / 1609.34).toFixed(2);
+    const deadheadMi = (route.deadhead_distance_m / 1609.34).toFixed(2);
     const deadheadPct = route.deadhead_percentage.toFixed(1);
 
     const html = `
@@ -676,20 +675,20 @@ class CoverageNavigation {
             <div class="col-6">
               <div class="stat-box p-2 rounded" style="background: rgba(147, 51, 234, 0.2);">
                 <div class="small text-muted">Total Route</div>
-                <div class="fw-bold">${totalMi} mi <span class="text-muted small">(${totalKm} km)</span></div>
+                <div class="fw-bold">${totalMi} mi</div>
               </div>
             </div>
             <div class="col-6">
               <div class="stat-box p-2 rounded" style="background: rgba(234, 179, 8, 0.2);">
                 <div class="small text-muted">Deadhead</div>
-                <div class="fw-bold">${deadheadKm} km <span class="text-warning">(${deadheadPct}%)</span></div>
+                <div class="fw-bold">${deadheadMi} mi <span class="text-warning">(${deadheadPct}%)</span></div>
               </div>
             </div>
           </div>
           
           <div class="small text-muted mb-3">
             <i class="fas fa-info-circle me-1"></i>
-            Streets to cover: ${requiredKm} km. Lower deadhead = more efficient route.
+            Streets to cover: ${requiredMi} mi. Lower deadhead = more efficient route.
           </div>
           
           <div class="d-flex gap-2">

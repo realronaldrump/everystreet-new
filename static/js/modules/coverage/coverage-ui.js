@@ -79,7 +79,7 @@ class CoverageUI {
       }
 
       const lastUpdated = area.last_updated
-        ? new Date(area.last_updated).toLocaleString()
+        ? new Date(area.last_updated).toLocaleString("en-US", { hour12: true })
         : "Never";
       const lastUpdatedOrder = area.last_updated
         ? new Date(area.last_updated).getTime()

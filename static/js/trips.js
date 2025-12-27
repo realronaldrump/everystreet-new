@@ -619,7 +619,7 @@ function extractAjaxErrorMessage(xhr, fallbackError) {
 function formatDateTime(isoString) {
   if (!isoString) return "--";
   const date = new Date(isoString);
-  return date.toLocaleString(); // Use browser locale
+  return date.toLocaleString("en-US", { hour12: true }); // Use US locale
 }
 
 function formatDuration(seconds) {

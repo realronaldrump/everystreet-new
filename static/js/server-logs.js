@@ -168,7 +168,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Build logs HTML
     const logsHtml = logs
       .map((log) => {
-        const timestamp = new Date(log.timestamp).toLocaleString();
+        const timestamp = new Date(log.timestamp).toLocaleString("en-US", {
+          hour12: true,
+        });
         const level = log.level || "INFO";
         const logger = log.logger || "unknown";
         const message = escapeHtml(log.message || "");
@@ -298,12 +300,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       let allLogsText = `Server Logs Export\n`;
-      allLogsText += `Generated: ${new Date().toLocaleString()}\n`;
+      allLogsText += `Generated: ${new Date().toLocaleString("en-US", {
+        hour12: true,
+      })}\n`;
       allLogsText += `Total Logs: ${currentLogs.length}\n`;
       allLogsText += `${"=".repeat(80)}\n\n`;
 
       currentLogs.forEach((log, index) => {
-        const timestamp = new Date(log.timestamp).toLocaleString();
+        const timestamp = new Date(log.timestamp).toLocaleString("en-US", {
+          hour12: true,
+        });
         const level = log.level || "INFO";
         const logger = log.logger || "unknown";
         const message = log.message || "";

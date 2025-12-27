@@ -200,6 +200,11 @@ const dateUtils = {
     if (typeof seconds !== "number" || Number.isNaN(seconds)) return "00:00:00";
     const dur = dayjs.duration(Math.max(0, Math.floor(seconds)), "seconds");
     const h = Math.floor(dur.asHours());
+
+    if (h >= 24) {
+      return this.formatDuration(seconds);
+    }
+
     const m = dur.minutes();
     const s = dur.seconds();
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;

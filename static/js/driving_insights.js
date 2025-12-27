@@ -963,9 +963,11 @@ if (typeof window !== "undefined") {
       tbody.innerHTML = trips
         .map((trip) => {
           const startTime = trip.startTime
-            ? new Date(trip.startTime).toLocaleString()
+            ? new Date(trip.startTime).toLocaleString("en-US", { hour12: true })
             : "-";
-          const endTime = trip.endTime ? new Date(trip.endTime).toLocaleString() : "-";
+          const endTime = trip.endTime
+            ? new Date(trip.endTime).toLocaleString("en-US", { hour12: true })
+            : "-";
           const duration = formatDuration(trip.duration || 0);
           const distance = trip.distance ? `${trip.distance.toFixed(1)} mi` : "-";
           const startLoc =

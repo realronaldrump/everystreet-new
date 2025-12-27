@@ -677,12 +677,6 @@ class OptimalRoutesManager {
 
   formatDistance(meters) {
     if (!meters && meters !== 0) return "--";
-
-    const userUnits = localStorage.getItem("distanceUnits") || "miles";
-
-    if (userUnits === "km") {
-      return `${(meters / 1000).toFixed(2)} km`;
-    }
     return `${(meters / 1609.344).toFixed(2)} mi`;
   }
 

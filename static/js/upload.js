@@ -497,8 +497,14 @@ class UploadManager {
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${entry.filename}</td>
-        <td>${entry.startTime ? entry.startTime.toLocaleString() : "N/A"} - ${
-          entry.endTime ? entry.endTime.toLocaleString() : "N/A"
+        <td>${
+          entry.startTime
+            ? entry.startTime.toLocaleString("en-US", { hour12: true })
+            : "N/A"
+        } - ${
+          entry.endTime
+            ? entry.endTime.toLocaleString("en-US", { hour12: true })
+            : "N/A"
         }</td>
         <td>${entry.points}</td>
         <td>Pending</td>
@@ -596,7 +602,9 @@ class UploadManager {
       if (allTimes.length > 0) {
         const minTime = new Date(Math.min(...allTimes.map((t) => t.getTime())));
         const maxTime = new Date(Math.max(...allTimes.map((t) => t.getTime())));
-        dateRangeSpan.textContent = `${minTime.toLocaleString()} - ${maxTime.toLocaleString()}`;
+        dateRangeSpan.textContent = `${minTime.toLocaleString("en-US", {
+          hour12: true,
+        })} - ${maxTime.toLocaleString("en-US", { hour12: true })}`;
       } else {
         dateRangeSpan.textContent = "N/A";
       }
@@ -775,8 +783,16 @@ class UploadManager {
       row.innerHTML += `
         <td>${trip.transactionId || "N/A"}</td>
         <td>${trip.filename || "N/A"}</td>
-        <td>${trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"}</td>
-        <td>${trip.endTime ? new Date(trip.endTime).toLocaleString() : "-"}</td>
+        <td>${
+          trip.startTime
+            ? new Date(trip.startTime).toLocaleString("en-US", { hour12: true })
+            : "-"
+        }</td>
+        <td>${
+          trip.endTime
+            ? new Date(trip.endTime).toLocaleString("en-US", { hour12: true })
+            : "-"
+        }</td>
         <td>${trip.source || "unknown"}</td>
         <td>
           <button class="btn btn-sm btn-danger delete-trip" data-trip-id="${

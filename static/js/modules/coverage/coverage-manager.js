@@ -488,17 +488,19 @@ class CoverageManager {
     const segLenEl = document.getElementById("segment-length-input");
     if (segLenEl?.value) {
       const val = parseInt(segLenEl.value, 10);
-      if (!Number.isNaN(val) && val > 0) locationToAdd.segment_length_meters = val;
+      if (!Number.isNaN(val) && val > 0)
+        locationToAdd.segment_length_meters = val * 0.3048;
     }
     const bufEl = document.getElementById("match-buffer-input");
     if (bufEl?.value) {
       const v = parseFloat(bufEl.value);
-      if (!Number.isNaN(v) && v > 0) locationToAdd.match_buffer_meters = v;
+      if (!Number.isNaN(v) && v > 0) locationToAdd.match_buffer_meters = v * 0.3048;
     }
     const minEl = document.getElementById("min-match-length-input");
     if (minEl?.value) {
       const v2 = parseFloat(minEl.value);
-      if (!Number.isNaN(v2) && v2 > 0) locationToAdd.min_match_length_meters = v2;
+      if (!Number.isNaN(v2) && v2 > 0)
+        locationToAdd.min_match_length_meters = v2 * 0.3048;
     }
 
     try {
@@ -683,17 +685,19 @@ class CoverageManager {
     const segLenEl2 = document.getElementById("segment-length-input");
     if (segLenEl2?.value) {
       const val2 = parseInt(segLenEl2.value, 10);
-      if (!Number.isNaN(val2) && val2 > 0) customAreaToAdd.segment_length_meters = val2;
+      if (!Number.isNaN(val2) && val2 > 0)
+        customAreaToAdd.segment_length_meters = val2 * 0.3048;
     }
     const bufElC = document.getElementById("match-buffer-input");
     if (bufElC?.value) {
       const v = parseFloat(bufElC.value);
-      if (!Number.isNaN(v) && v > 0) customAreaToAdd.match_buffer_meters = v;
+      if (!Number.isNaN(v) && v > 0) customAreaToAdd.match_buffer_meters = v * 0.3048;
     }
     const minElC = document.getElementById("min-match-length-input");
     if (minElC?.value) {
       const v2 = parseFloat(minElC.value);
-      if (!Number.isNaN(v2) && v2 > 0) customAreaToAdd.min_match_length_meters = v2;
+      if (!Number.isNaN(v2) && v2 > 0)
+        customAreaToAdd.min_match_length_meters = v2 * 0.3048;
     }
 
     try {

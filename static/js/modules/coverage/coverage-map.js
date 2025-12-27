@@ -67,7 +67,7 @@ class CoverageMap {
       this.map = new mapboxgl.Map(mapOptions);
 
       this.map.addControl(new mapboxgl.NavigationControl(), "top-right");
-      this.map.addControl(new mapboxgl.ScaleControl());
+      this.map.addControl(new mapboxgl.ScaleControl({ unit: "imperial" }));
       this.map.addControl(new mapboxgl.FullscreenControl());
       this.map.addControl(
         new mapboxgl.AttributionControl({ compact: true }),

@@ -694,7 +694,9 @@ async function loadRecentFillups() {
  * Create HTML for a fill-up item
  */
 function createFillupItem(fillup) {
-  const date = new Date(fillup.fillup_time).toLocaleString();
+  const date = new Date(fillup.fillup_time).toLocaleString("en-US", {
+    hour12: true,
+  });
   const cost = fillup.total_cost ? `$${fillup.total_cost.toFixed(2)}` : "--";
   const mpg = fillup.calculated_mpg ? fillup.calculated_mpg.toFixed(2) : "--";
   const pricePerGallon = fillup.price_per_gallon

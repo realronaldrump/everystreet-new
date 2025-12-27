@@ -207,23 +207,15 @@
       document.getElementById("total-places-count").textContent = this.places.size;
       document.getElementById("active-places-stat").textContent = this.places.size;
 
-      // Calculate total visits
+      // Calculate total visits to CUSTOM places only
+      // (non-custom location visits are shown separately in the "Other Locations" tab)
       try {
-        const [customRes, otherRes] = await Promise.all([
-          fetch("/api/places/statistics"),
-          fetch("/api/non_custom_places_visits"),
-        ]);
-
+        const response = await fetch("/api/places/statistics");
         let totalVisits = 0;
 
-        if (customRes.ok) {
-          const customStats = await customRes.json();
-          totalVisits += customStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
-        }
-
-        if (otherRes.ok) {
-          const otherStats = await otherRes.json();
-          totalVisits += otherStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
+        if (response.ok) {
+          const customStats = await response.json();
+          totalVisits = customStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
         }
 
         this.animateCounter("total-visits-count", totalVisits);
@@ -233,25 +225,17 @@
     }
 
     async updateMonthlyVisits() {
+      // Count monthly visits to CUSTOM places only
       try {
-        const [customRes, otherRes] = await Promise.all([
-          fetch("/api/places/statistics?timeframe=month"),
-          fetch("/api/non_custom_places_visits?timeframe=month"),
-        ]);
-
+        const response = await fetch("/api/places/statistics?timeframe=month");
         let monthlyVisits = 0;
 
-        if (customRes.ok) {
-          const customStats = await customRes.json();
-          monthlyVisits += customStats.reduce(
+        if (response.ok) {
+          const customStats = await response.json();
+          monthlyVisits = customStats.reduce(
             (sum, p) => sum + (p.monthlyVisits || p.totalVisits || 0),
             0
           );
-        }
-
-        if (otherRes.ok) {
-          const otherStats = await otherRes.json();
-          monthlyVisits += otherStats.reduce((sum, p) => sum + (p.totalVisits || 0), 0);
         }
 
         this.animateCounter("month-visits-stat", monthlyVisits);
@@ -1953,28 +1937,19 @@
 
     async loadNonCustomPlacesVisits() {
       if (!this.nonCustomVisitsTable) return;
-      this.loadingManager.addSubOperation(
-        "Initializing Visits Page",
-        "Loading Other Locations"
-      );
+      this.loadingManager.updateMessage("Loading other locations...");
       try {
         const response = await fetch("/api/non_custom_places_visits");
         if (!response.ok)
           throw new Error(`Failed to fetch non-custom visits: ${response.statusText}`);
         const visitsData = await response.json();
         this.nonCustomVisitsTable.clear().rows.add(visitsData).draw();
-        this.loadingManager.updateSubOperation(
-          "Initializing Visits Page",
-          "Loading Other Locations",
-          100
-        );
       } catch (error) {
         console.error("Error fetching non-custom places visits:", error);
         window.notificationManager?.show(
           "Failed to load non-custom places visits",
           "danger"
         );
-        this.loadingManager.error("Failed during Loading Other Locations");
       }
     }
 

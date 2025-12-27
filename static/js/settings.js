@@ -831,7 +831,7 @@
     static formatDateTime(date) {
       if (!date) return "";
       try {
-        return new Date(date).toLocaleString();
+        return new Date(date).toLocaleString("en-US", { hour12: true });
       } catch (_e) {
         return date;
       }

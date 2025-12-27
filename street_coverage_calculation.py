@@ -102,8 +102,10 @@ class CoverageCalculator:
             enhanced_metrics = {
                 "total_trips_to_process": self.total_trips_to_process,
                 "processed_trips": self.processed_trips_count,
-                "driveable_length_m": round(self.total_driveable_length, 2),
-                "covered_length_m": round(current_covered_length, 2),
+                "driveable_length_mi": round(
+                    self.total_driveable_length * 0.000621371, 2
+                ),
+                "covered_length_mi": round(current_covered_length * 0.000621371, 2),
                 "coverage_percentage": round(coverage_pct, 2),
                 "initial_covered_segments": self.initial_covered_segments_count,
                 "newly_covered_segments": len(self.newly_covered_segments),
@@ -212,11 +214,11 @@ class CoverageCalculator:
                 total_segments = stats.get("total_segments", 0)
 
                 logger.info(
-                    "Task %s: Stats for %s: Driveable=%.2fm, Driven=%.2fm, Segments=%d",
+                    "Task %s: Stats for %s: Driveable=%.2fmi, Driven=%.2fmi, Segments=%d",
                     self.task_id,
                     self.location_name,
-                    self.total_driveable_length,
-                    self.initial_driven_length,
+                    self.total_driveable_length * 0.000621371,
+                    self.initial_driven_length * 0.000621371,
                     total_segments,
                 )
             else:
