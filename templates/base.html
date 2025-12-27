@@ -259,18 +259,9 @@
                   <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
                   <span>More</span>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end" role="menu">
-                  <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/edit_trips' %}active{% endif %}"
-                      href="/edit_trips"
-                      role="menuitem"
-                      {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}
-                    >
-                      <i class="fas fa-edit me-2" aria-hidden="true"></i> Edit
-                      Trips
-                    </a>
-                  </li>
+                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-grouped" role="menu">
+                  <!-- Insights & Tracking -->
+                  <li class="dropdown-header">Insights & Tracking</li>
                   <li role="none">
                     <a
                       class="dropdown-item {% if request.url.path == '/visits' %}active{% endif %}"
@@ -278,13 +269,14 @@
                       role="menuitem"
                       {% if request.url.path == '/visits' %}aria-current="page"{% endif %}
                     >
-                      <i
-                        class="fas fa-map-marker-alt me-2"
-                        aria-hidden="true"
-                      ></i>
+                      <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
                       Visits
                     </a>
                   </li>
+                  <li role="separator"><hr class="dropdown-divider" /></li>
+                  
+                  <!-- Coverage & Routes -->
+                  <li class="dropdown-header">Coverage & Routes</li>
                   <li role="none">
                     <a
                       class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
@@ -292,10 +284,7 @@
                       role="menuitem"
                       {% if request.url.path == '/coverage-management' %}aria-current="page"{% endif %}
                     >
-                      <i
-                        class="fas fa-map-marked-alt me-2"
-                        aria-hidden="true"
-                      ></i>
+                      <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
                       Coverage Areas
                     </a>
                   </li>
@@ -321,6 +310,21 @@
                       County Map
                     </a>
                   </li>
+                  <li role="separator"><hr class="dropdown-divider" /></li>
+                  
+                  <!-- Data -->
+                  <li class="dropdown-header">Data</li>
+                  <li role="none">
+                    <a
+                      class="dropdown-item {% if request.url.path == '/edit_trips' %}active{% endif %}"
+                      href="/edit_trips"
+                      role="menuitem"
+                      {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}
+                    >
+                      <i class="fas fa-edit me-2" aria-hidden="true"></i>
+                      Edit Trips
+                    </a>
+                  </li>
                   <li role="none">
                     <a
                       class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
@@ -344,6 +348,9 @@
                     </a>
                   </li>
                   <li role="separator"><hr class="dropdown-divider" /></li>
+                  
+                  <!-- System -->
+                  <li class="dropdown-header">System</li>
                   <li role="none">
                     <a
                       class="dropdown-item {% if request.url.path == '/database-management' %}active{% endif %}"

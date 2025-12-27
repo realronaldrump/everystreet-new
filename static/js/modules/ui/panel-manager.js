@@ -73,6 +73,9 @@ const panelManager = {
     if (mobileDrawer && "ontouchstart" in window)
       this.initSwipeGestures(mobileDrawer, "mobile");
 
+    // Initialize collapsible drawer nav sections
+    this.initDrawerSections();
+
     eventManager.add(CONFIG.selectors.menuToggle, "click", (e) => {
       e.stopPropagation();
       this.open("mobile");
@@ -98,6 +101,22 @@ const panelManager = {
     });
 
     if (uiState.uiState.filtersOpen) setTimeout(() => this.open("filters"), 100);
+  },
+
+  initDrawerSections() {
+    const headers = document.querySelectorAll(".drawer-nav-section-header");
+    headers.forEach((header) => {
+      header.addEventListener("click", () => {
+        const expanded = header.getAttribute("aria-expanded") === "true";
+        const listId = header.getAttribute("aria-controls");
+        const list = document.getElementById(listId);
+
+        if (list) {
+          header.setAttribute("aria-expanded", !expanded);
+          list.classList.toggle("collapsed", expanded);
+        }
+      });
+    });
   },
 
   initSwipeGestures(element, type) {

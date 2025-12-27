@@ -429,6 +429,21 @@ body {
   border: none;
 }
 
+/* Dropdown Headers for Grouped Menus */
+.dropdown-header {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: default;
+}
+
+.dropdown-menu-grouped {
+  min-width: 240px;
+}
+
 /* Tools Section */
 .tools-section {
   display: flex;
@@ -611,6 +626,102 @@ body {
 }
 
 .drawer-nav-list li a i {
+  margin-right: var(--space-3);
+  width: 20px;
+  text-align: center;
+  color: var(--primary);
+}
+
+/* Drawer Navigation Sections (Grouped) */
+.drawer-nav-section {
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.drawer-nav-section:last-child {
+  border-bottom: none;
+}
+
+.drawer-nav-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.drawer-nav-section-header:hover {
+  background-color: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.drawer-nav-section-title {
+  flex: 1;
+  text-align: left;
+}
+
+.drawer-nav-section-chevron {
+  font-size: var(--font-size-xs);
+  transition: transform var(--transition-normal);
+}
+
+.drawer-nav-section-header[aria-expanded="false"] .drawer-nav-section-chevron {
+  transform: rotate(-90deg);
+}
+
+.drawer-nav-section-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  max-height: 500px;
+  transition:
+    max-height var(--transition-slow),
+    opacity var(--transition-normal);
+  opacity: 1;
+}
+
+.drawer-nav-section-list.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.drawer-nav-section-list li a {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-5);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+  border-left: 3px solid transparent;
+}
+
+.drawer-nav-section-list li a:hover {
+  background-color: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.drawer-nav-section-list li a.active {
+  background-color: var(--surface-2);
+  color: var(--text-primary);
+  border-left-color: var(--primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.drawer-nav-section-list li a i {
   margin-right: var(--space-3);
   width: 20px;
   text-align: center;
