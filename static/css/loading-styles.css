@@ -14,7 +14,9 @@
   z-index: var(--z-loading-overlay, 9999);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
 }
 
 .loading-overlay.visible {

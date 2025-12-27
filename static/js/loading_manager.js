@@ -23,7 +23,7 @@ class LoadingManager {
   init() {
     // Find or create the loading overlay
     this.overlay = document.querySelector(".loading-overlay");
-    
+
     if (!this.overlay) {
       this.createOverlay();
     } else {
@@ -94,7 +94,9 @@ class LoadingManager {
     }
 
     // Ensure minimum show time to prevent flicker
-    const elapsed = this.showStartTime ? Date.now() - this.showStartTime : Infinity;
+    const elapsed = this.showStartTime
+      ? Date.now() - this.showStartTime
+      : Infinity;
     const delay = Math.max(0, this.minShowTime - elapsed);
 
     this.hideTimeout = setTimeout(() => {
@@ -184,7 +186,7 @@ class LoadingManager {
   error(message) {
     console.error("Loading Error:", message);
     this.show(`Error: ${message}`);
-    
+
     // Auto-hide after showing error
     setTimeout(() => this.forceHide(), 3000);
   }
@@ -256,7 +258,10 @@ class LoadingManager {
 }
 
 // Create singleton instance
-if (!window.loadingManager || typeof window.loadingManager.show !== "function") {
+if (
+  !window.loadingManager ||
+  typeof window.loadingManager.show !== "function"
+) {
   window.loadingManager = new LoadingManager();
 }
 
