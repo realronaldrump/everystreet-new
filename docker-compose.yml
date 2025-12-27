@@ -16,7 +16,6 @@ services:
       - redis
     networks:
       - default
-      - web-proxy
 
   worker:
     build: .
@@ -107,5 +106,3 @@ volumes:
 
 networks:
   default:
-  web-proxy:
-    external: true
