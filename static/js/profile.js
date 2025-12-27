@@ -41,14 +41,14 @@
     const toggleSecretBtn = document.getElementById("toggleClientSecret");
     if (toggleSecretBtn) {
       toggleSecretBtn.addEventListener("click", () =>
-        togglePasswordVisibility("clientSecret", "toggleClientSecret")
+        togglePasswordVisibility("clientSecret", "toggleClientSecret"),
       );
     }
 
     const toggleAuthBtn = document.getElementById("toggleAuthCode");
     if (toggleAuthBtn) {
       toggleAuthBtn.addEventListener("click", () =>
-        togglePasswordVisibility("authorizationCode", "toggleAuthCode")
+        togglePasswordVisibility("authorizationCode", "toggleAuthCode"),
       );
     }
 
@@ -64,7 +64,9 @@
       syncVehiclesBtn.addEventListener("click", syncVehiclesFromBouncie);
     }
 
-    const mobileSyncVehiclesBtn = document.getElementById("mobile-syncVehiclesBtn");
+    const mobileSyncVehiclesBtn = document.getElementById(
+      "mobile-syncVehiclesBtn",
+    );
     if (mobileSyncVehiclesBtn) {
       mobileSyncVehiclesBtn.addEventListener("click", syncVehiclesFromBouncie);
     }
@@ -81,20 +83,32 @@
 
     const mobileAddDeviceBtn = document.getElementById("mobile-addDeviceBtn");
     if (mobileAddDeviceBtn) {
-      mobileAddDeviceBtn.addEventListener("click", () => addDeviceInput("mobile"));
-    }
-
-    const mobileToggleSecretBtn = document.getElementById("mobile-toggleClientSecret");
-    if (mobileToggleSecretBtn) {
-      mobileToggleSecretBtn.addEventListener("click", () =>
-        togglePasswordVisibility("mobile-clientSecret", "mobile-toggleClientSecret")
+      mobileAddDeviceBtn.addEventListener("click", () =>
+        addDeviceInput("mobile"),
       );
     }
 
-    const mobileToggleAuthBtn = document.getElementById("mobile-toggleAuthCode");
+    const mobileToggleSecretBtn = document.getElementById(
+      "mobile-toggleClientSecret",
+    );
+    if (mobileToggleSecretBtn) {
+      mobileToggleSecretBtn.addEventListener("click", () =>
+        togglePasswordVisibility(
+          "mobile-clientSecret",
+          "mobile-toggleClientSecret",
+        ),
+      );
+    }
+
+    const mobileToggleAuthBtn = document.getElementById(
+      "mobile-toggleAuthCode",
+    );
     if (mobileToggleAuthBtn) {
       mobileToggleAuthBtn.addEventListener("click", () =>
-        togglePasswordVisibility("mobile-authorizationCode", "mobile-toggleAuthCode")
+        togglePasswordVisibility(
+          "mobile-authorizationCode",
+          "mobile-toggleAuthCode",
+        ),
       );
     }
   }
@@ -103,7 +117,9 @@
    * Initialize mobile section toggles
    */
   function initializeMobileToggles() {
-    const headers = document.querySelectorAll(".mobile-settings-section-header");
+    const headers = document.querySelectorAll(
+      ".mobile-settings-section-header",
+    );
     headers.forEach((header) => {
       header.addEventListener("click", function () {
         const content = this.nextElementSibling;
@@ -138,7 +154,7 @@
       } else {
         showStatus(
           "No credentials found. Please enter your Bouncie credentials.",
-          "warning"
+          "warning",
         );
       }
     } catch (error) {
@@ -183,22 +199,31 @@
     const fetchConcurrencyInput = document.getElementById("fetchConcurrency");
 
     if (clientIdInput) clientIdInput.value = credentials.client_id || "";
-    if (clientSecretInput) clientSecretInput.value = credentials.client_secret || "";
-    if (redirectUriInput) redirectUriInput.value = credentials.redirect_uri || "";
-    if (authCodeInput) authCodeInput.value = credentials.authorization_code || "";
+    if (clientSecretInput)
+      clientSecretInput.value = credentials.client_secret || "";
+    if (redirectUriInput)
+      redirectUriInput.value = credentials.redirect_uri || "";
+    if (authCodeInput)
+      authCodeInput.value = credentials.authorization_code || "";
     if (fetchConcurrencyInput)
       fetchConcurrencyInput.value = credentials.fetch_concurrency || "12";
 
     // Mobile form
     const mobileClientIdInput = document.getElementById("mobile-clientId");
-    const mobileClientSecretInput = document.getElementById("mobile-clientSecret");
-    const mobileRedirectUriInput = document.getElementById("mobile-redirectUri");
-    const mobileAuthCodeInput = document.getElementById("mobile-authorizationCode");
+    const mobileClientSecretInput = document.getElementById(
+      "mobile-clientSecret",
+    );
+    const mobileRedirectUriInput =
+      document.getElementById("mobile-redirectUri");
+    const mobileAuthCodeInput = document.getElementById(
+      "mobile-authorizationCode",
+    );
     const mobileFetchConcurrencyInput = document.getElementById(
-      "mobile-fetchConcurrency"
+      "mobile-fetchConcurrency",
     );
 
-    if (mobileClientIdInput) mobileClientIdInput.value = credentials.client_id || "";
+    if (mobileClientIdInput)
+      mobileClientIdInput.value = credentials.client_id || "";
     if (mobileClientSecretInput)
       mobileClientSecretInput.value = credentials.client_secret || "";
     if (mobileRedirectUriInput)
@@ -214,13 +239,16 @@
 
     // Add CSS class for masked fields
     if (masked) {
-      if (clientSecretInput) clientSecretInput.classList.add("credential-masked");
+      if (clientSecretInput)
+        clientSecretInput.classList.add("credential-masked");
       if (authCodeInput) authCodeInput.classList.add("credential-masked");
       if (mobileClientSecretInput)
         mobileClientSecretInput.classList.add("credential-masked");
-      if (mobileAuthCodeInput) mobileAuthCodeInput.classList.add("credential-masked");
+      if (mobileAuthCodeInput)
+        mobileAuthCodeInput.classList.add("credential-masked");
     } else {
-      if (clientSecretInput) clientSecretInput.classList.remove("credential-masked");
+      if (clientSecretInput)
+        clientSecretInput.classList.remove("credential-masked");
       if (authCodeInput) authCodeInput.classList.remove("credential-masked");
       if (mobileClientSecretInput)
         mobileClientSecretInput.classList.remove("credential-masked");
@@ -323,17 +351,22 @@
 
     // Collect form data
     const clientId = document.getElementById(`${prefix}clientId`).value.trim();
-    const clientSecret = document.getElementById(`${prefix}clientSecret`).value.trim();
-    const redirectUri = document.getElementById(`${prefix}redirectUri`).value.trim();
+    const clientSecret = document
+      .getElementById(`${prefix}clientSecret`)
+      .value.trim();
+    const redirectUri = document
+      .getElementById(`${prefix}redirectUri`)
+      .value.trim();
     const authorizationCode = document
       .getElementById(`${prefix}authorizationCode`)
       .value.trim();
     const fetchConcurrency =
-      document.getElementById(`${prefix}fetchConcurrency`)?.value.trim() || "12";
+      document.getElementById(`${prefix}fetchConcurrency`)?.value.trim() ||
+      "12";
 
     // Collect devices
     const deviceInputs = document.querySelectorAll(
-      `#${isMobile ? "mobile-" : ""}devicesList input`
+      `#${isMobile ? "mobile-" : ""}devicesList input`,
     );
     const devices = Array.from(deviceInputs)
       .map((input) => input.value.trim())
@@ -346,7 +379,11 @@
     }
 
     if (devices.length === 0) {
-      showStatus("At least one authorized device is required", "error", isMobile);
+      showStatus(
+        "At least one authorized device is required",
+        "error",
+        isMobile,
+      );
       return;
     }
 
@@ -382,12 +419,16 @@
         showStatus(
           `Error saving credentials: ${data.detail || data.message || "Unknown error"}`,
           "error",
-          isMobile
+          isMobile,
         );
       }
     } catch (error) {
       console.error("Error saving credentials:", error);
-      showStatus(`Error saving credentials: ${error.message}`, "error", isMobile);
+      showStatus(
+        `Error saving credentials: ${error.message}`,
+        "error",
+        isMobile,
+      );
     }
   }
 
@@ -486,7 +527,8 @@
       if (!response.ok) throw new Error("Failed to load vehicles");
 
       const vehicles = await response.json();
-      const noVehiclesHtml = '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Bouncie" to auto-discover vehicles.</p>';
+      const noVehiclesHtml =
+        '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Bouncie" to auto-discover vehicles.</p>';
 
       // Update Desktop List
       if (vehiclesList) {
@@ -519,11 +561,11 @@
           addVehicleListeners(vehicle.imei, true);
         });
       }
-
     } catch (error) {
       console.error("Error loading vehicles:", error);
-      const errorHtml = '<p class="text-center text-danger py-3">Error loading vehicles</p>';
-      
+      const errorHtml =
+        '<p class="text-center text-danger py-3">Error loading vehicles</p>';
+
       if (vehiclesList) {
         vehiclesList.innerHTML = errorHtml;
       }
@@ -533,14 +575,15 @@
     }
   }
 
-
   /**
    * Add listeners for a vehicle item
    */
   function addVehicleListeners(imei, isMobile = false) {
     const prefix = isMobile ? "mobile-" : "";
     const saveBtn = document.getElementById(`${prefix}save-vehicle-${imei}`);
-    const deleteBtn = document.getElementById(`${prefix}delete-vehicle-${imei}`);
+    const deleteBtn = document.getElementById(
+      `${prefix}delete-vehicle-${imei}`,
+    );
 
     if (saveBtn) {
       saveBtn.addEventListener("click", () => saveVehicle(imei, isMobile));
@@ -555,14 +598,14 @@
    */
   function createVehicleItem(vehicle, isMobile = false) {
     const prefix = isMobile ? "mobile-" : "";
-    
+
     const statusBadge = vehicle.is_active
       ? '<span class="badge bg-success">Active</span>'
       : '<span class="badge bg-secondary">Inactive</span>';
 
     // Different layout for mobile? Or just stacked.
     // We need unique IDs for mobile elements.
-    
+
     return `
       <div class="vehicle-item-container" id="${prefix}vehicle-${vehicle.imei}">
         <div class="row g-3">
@@ -643,7 +686,7 @@
   async function deleteVehicle(imei) {
     if (
       !confirm(
-        "Are you sure you want to delete this vehicle? This will mark it as inactive."
+        "Are you sure you want to delete this vehicle? This will mark it as inactive.",
       )
     ) {
       return;
@@ -709,22 +752,24 @@
   async function syncVehiclesFromBouncie() {
     try {
       showStatus("Syncing vehicles from Bouncie...", "info");
-      
-      const response = await fetch("/api/profile/bouncie-credentials/sync-vehicles", {
-        method: "POST"
-      });
-      
+
+      const response = await fetch(
+        "/api/profile/bouncie-credentials/sync-vehicles",
+        {
+          method: "POST",
+        },
+      );
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.detail || "Failed to sync vehicles");
       }
-      
+
       showStatus(data.message || "Vehicles synced successfully!", "success");
-      
+
       // Reload vehicles and credentials (to update authorized devices)
       await Promise.all([loadVehicles(), loadCredentials()]);
-      
     } catch (error) {
       console.error("Error syncing vehicles:", error);
       showStatus(`Error syncing vehicles: ${error.message}`, "error");

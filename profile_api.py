@@ -163,15 +163,20 @@ async def sync_vehicles_from_bouncie():
         async with session.post(AUTH_URL, data=payload) as auth_response:
             if auth_response.status != 200:
                 error_text = await auth_response.text()
-                logger.error(f"Bouncie auth failed: {auth_response.status} - {error_text}")
+                logger.error(
+                    f"Bouncie auth failed: {auth_response.status} - {error_text}"
+                )
                 raise HTTPException(
-                    status_code=400, detail=f"Failed to authenticate with Bouncie: {error_text}"
+                    status_code=400,
+                    detail=f"Failed to authenticate with Bouncie: {error_text}",
                 )
             auth_data = await auth_response.json()
             token = auth_data.get("access_token")
 
         if not token:
-            raise HTTPException(status_code=500, detail="No access token received from Bouncie")
+            raise HTTPException(
+                status_code=500, detail="No access token received from Bouncie"
+            )
 
         # 2. Fetch Vehicles
         headers = {
@@ -182,13 +187,12 @@ async def sync_vehicles_from_bouncie():
         async with session.get(f"{API_BASE_URL}/vehicles", headers=headers) as resp:
             if resp.status != 200:
                 error_text = await resp.text()
-                logger.error(
-                    f"Failed to fetch vehicles: {resp.status} - {error_text}"
-                )
+                logger.error(f"Failed to fetch vehicles: {resp.status} - {error_text}")
                 raise HTTPException(
-                    status_code=502, detail=f"Failed to fetch vehicles from Bouncie: {error_text}"
+                    status_code=502,
+                    detail=f"Failed to fetch vehicles from Bouncie: {error_text}",
                 )
-            
+
             vehicles_data = await resp.json()
 
         if not vehicles_data:
@@ -206,9 +210,9 @@ async def sync_vehicles_from_bouncie():
             imei = v.get("imei")
             if not imei:
                 continue
-            
+
             found_imeis.append(imei)
-            
+
             # Prepare vehicle document
             vehicle_doc = {
                 "imei": imei,
@@ -219,11 +223,13 @@ async def sync_vehicles_from_bouncie():
                 "nickName": v.get("nickName"),
                 "standardEngine": v.get("standardEngine"),
                 # Helper field for UI display (nickName or Make Model Year)
-                "custom_name": v.get("nickName") or f"{v.get('year', '')} {v.get('make', '')} {v.get('model', '')}".strip() or f"Vehicle {imei}",
+                "custom_name": v.get("nickName")
+                or f"{v.get('year', '')} {v.get('make', '')} {v.get('model', '')}".strip()
+                or f"Vehicle {imei}",
                 "is_active": True,
                 "updated_at": datetime.now(UTC),
                 "last_synced_at": datetime.now(UTC),
-                "bouncie_data": v, # Store raw data just in case
+                "bouncie_data": v,  # Store raw data just in case
             }
 
             # Upsert into vehicles collection
@@ -240,17 +246,19 @@ async def sync_vehicles_from_bouncie():
         # But if the user went through the trouble of syncing, they expect these to be authorized.
         current_devices = credentials.get("authorized_devices", [])
         if isinstance(current_devices, str):
-            current_devices = [d.strip() for d in current_devices.split(",") if d.strip()]
-        
+            current_devices = [
+                d.strip() for d in current_devices.split(",") if d.strip()
+            ]
+
         # Merge and dedup
         updated_devices = list(set(current_devices + found_imeis))
-        
-        # Update credentials
-        await update_bouncie_credentials({
-            "authorized_devices": updated_devices
-        })
 
-        logger.info(f"Synced {len(synced_vehicles)} vehicles from Bouncie. Updated authorized devices.")
+        # Update credentials
+        await update_bouncie_credentials({"authorized_devices": updated_devices})
+
+        logger.info(
+            f"Synced {len(synced_vehicles)} vehicles from Bouncie. Updated authorized devices."
+        )
 
         return {
             "status": "success",
@@ -264,4 +272,3 @@ async def sync_vehicles_from_bouncie():
     except Exception as e:
         logger.exception("Error syncing vehicles from Bouncie")
         raise HTTPException(status_code=500, detail=str(e))
-
