@@ -73,9 +73,9 @@ class TripRepository:
                     trip_to_save["gps"] = None
 
             # Final validation check after any potential parsing
-            if trip_to_save.get("gps") is not None and not self._is_valid_geojson_object(
-                trip_to_save["gps"]
-            ):
+            if trip_to_save.get(
+                "gps"
+            ) is not None and not self._is_valid_geojson_object(trip_to_save["gps"]):
                 logger.error(
                     "Trip %s: 'gps' field is invalid at save time. Value: %s. Setting to null.",
                     trip_to_save.get("transactionId", "unknown"),
@@ -158,11 +158,15 @@ class TripRepository:
                 "averageSpeed": trip_data.get("averageSpeed"),
                 "hardBrakingCount": trip_data.get("hardBrakingCount"),
                 "hardAccelerationCount": trip_data.get("hardAccelerationCount"),
-                "totalIdleDurationFormatted": trip_data.get("totalIdleDurationFormatted"),
+                "totalIdleDurationFormatted": trip_data.get(
+                    "totalIdleDurationFormatted"
+                ),
             }
 
             # Filter out None values
-            matched_trip_data = {k: v for k, v in matched_trip_data.items() if v is not None}
+            matched_trip_data = {
+                k: v for k, v in matched_trip_data.items() if v is not None
+            }
 
             await self.matched_trips_collection.update_one(
                 {"transactionId": transaction_id},

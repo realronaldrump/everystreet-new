@@ -247,42 +247,66 @@ class TripProcessor:
 
             gps_data = self.processed_data.get("gps")
             if not gps_data:
-                self._set_state(TripState.FAILED, "Missing GPS data for basic processing")
+                self._set_state(
+                    TripState.FAILED, "Missing GPS data for basic processing"
+                )
                 return False
 
             gps_type = gps_data.get("type")
             gps_coords = gps_data.get("coordinates")
 
             if gps_type == "Point":
-                if not (gps_coords and isinstance(gps_coords, list) and len(gps_coords) == 2):
-                    self._set_state(TripState.FAILED, "Point GeoJSON has invalid coordinates")
+                if not (
+                    gps_coords and isinstance(gps_coords, list) and len(gps_coords) == 2
+                ):
+                    self._set_state(
+                        TripState.FAILED, "Point GeoJSON has invalid coordinates"
+                    )
                     return False
                 start_coord = gps_coords
                 end_coord = gps_coords
                 self.processed_data["distance"] = 0.0
             elif gps_type == "LineString":
-                if not (gps_coords and isinstance(gps_coords, list) and len(gps_coords) >= 2):
-                    self._set_state(TripState.FAILED, "LineString has insufficient coordinates")
+                if not (
+                    gps_coords and isinstance(gps_coords, list) and len(gps_coords) >= 2
+                ):
+                    self._set_state(
+                        TripState.FAILED, "LineString has insufficient coordinates"
+                    )
                     return False
                 start_coord = gps_coords[0]
                 end_coord = gps_coords[-1]
 
                 # Calculate distance if not provided
-                if "distance" not in self.processed_data or not self.processed_data["distance"]:
+                if (
+                    "distance" not in self.processed_data
+                    or not self.processed_data["distance"]
+                ):
                     total_distance = 0.0
                     for i in range(1, len(gps_coords)):
                         prev = gps_coords[i - 1]
                         curr = gps_coords[i]
-                        if isinstance(prev, list) and len(prev) == 2 and isinstance(curr, list) and len(curr) == 2:
-                            total_distance += haversine(prev[0], prev[1], curr[0], curr[1], unit="miles")
+                        if (
+                            isinstance(prev, list)
+                            and len(prev) == 2
+                            and isinstance(curr, list)
+                            and len(curr) == 2
+                        ):
+                            total_distance += haversine(
+                                prev[0], prev[1], curr[0], curr[1], unit="miles"
+                            )
                     self.processed_data["distance"] = total_distance
             else:
                 self._set_state(TripState.FAILED, f"Unsupported GPS type '{gps_type}'")
                 return False
 
             # Validate coordinates
-            if not (isinstance(start_coord, list) and len(start_coord) == 2 and
-                    isinstance(end_coord, list) and len(end_coord) == 2):
+            if not (
+                isinstance(start_coord, list)
+                and len(start_coord) == 2
+                and isinstance(end_coord, list)
+                and len(end_coord) == 2
+            ):
                 self._set_state(TripState.FAILED, "Invalid start or end coordinates")
                 return False
 
@@ -296,8 +320,10 @@ class TripProcessor:
             }
 
             if "totalIdleDuration" in self.processed_data:
-                self.processed_data["totalIdleDurationFormatted"] = self.format_idle_time(
-                    self.processed_data["totalIdleDuration"],
+                self.processed_data["totalIdleDurationFormatted"] = (
+                    self.format_idle_time(
+                        self.processed_data["totalIdleDuration"],
+                    )
                 )
 
             self._set_state(TripState.PROCESSED)
@@ -349,13 +375,20 @@ class TripProcessor:
             if isinstance(coords, list) and len(coords) >= 2:
                 return coords
         elif geom_type == "Polygon":
-            if (isinstance(coords, list) and coords and
-                isinstance(coords[0], list) and coords[0] and
-                isinstance(coords[0][0], list) and len(coords[0][0]) >= 2):
+            if (
+                isinstance(coords, list)
+                and coords
+                and isinstance(coords[0], list)
+                and coords[0]
+                and isinstance(coords[0][0], list)
+                and len(coords[0][0]) >= 2
+            ):
                 return coords[0][0]
             logger.warning("Invalid polygon format for trip %s", transaction_id)
         else:
-            logger.warning("Unsupported geometry type '%s' for trip %s", geom_type, transaction_id)
+            logger.warning(
+                "Unsupported geometry type '%s' for trip %s", geom_type, transaction_id
+            )
 
         return fallback_coords
 
@@ -374,16 +407,26 @@ class TripProcessor:
                 if self.state == TripState.VALIDATED:
                     await self.process_basic()
                 if self.state != TripState.PROCESSED:
-                    logger.warning("Cannot geocode trip that hasn't been processed: %s", transaction_id)
+                    logger.warning(
+                        "Cannot geocode trip that hasn't been processed: %s",
+                        transaction_id,
+                    )
                     return False
             elif self.state != TripState.PROCESSED:
-                logger.warning("Cannot geocode trip that hasn't been processed: %s", transaction_id)
+                logger.warning(
+                    "Cannot geocode trip that hasn't been processed: %s", transaction_id
+                )
                 return False
 
             logger.debug("Geocoding trip %s", transaction_id)
 
             # Clear any previous location data for fresh geocoding
-            for field in ("startLocation", "destination", "startPlaceId", "destinationPlaceId"):
+            for field in (
+                "startLocation",
+                "destination",
+                "startPlaceId",
+                "destinationPlaceId",
+            ):
                 self.processed_data.pop(field, None)
 
             start_coord = self.processed_data["startGeoPoint"]["coordinates"]
@@ -396,34 +439,50 @@ class TripProcessor:
             if not self.processed_data.get("startLocation"):
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
-                    self.processed_data["startLocation"] = self._build_location_from_place(
-                        start_place, start_coord, transaction_id
+                    self.processed_data["startLocation"] = (
+                        self._build_location_from_place(
+                            start_place, start_coord, transaction_id
+                        )
                     )
-                    self.processed_data["startPlaceId"] = str(start_place.get("_id", ""))
+                    self.processed_data["startPlaceId"] = str(
+                        start_place.get("_id", "")
+                    )
                 else:
                     # Use external geocoding service
-                    rev_start = await self.geo_service.reverse_geocode(start_coord[1], start_coord[0])
+                    rev_start = await self.geo_service.reverse_geocode(
+                        start_coord[1], start_coord[0]
+                    )
                     if rev_start:
-                        self.processed_data["startLocation"] = self.geo_service.parse_geocode_response(
-                            rev_start, start_coord
+                        self.processed_data["startLocation"] = (
+                            self.geo_service.parse_geocode_response(
+                                rev_start, start_coord
+                            )
                         )
 
             # Geocode destination
             if not self.processed_data.get("destination"):
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
-                    self.processed_data["destination"] = self._build_location_from_place(
-                        end_place, end_coord, transaction_id
+                    self.processed_data["destination"] = (
+                        self._build_location_from_place(
+                            end_place, end_coord, transaction_id
+                        )
                     )
-                    self.processed_data["destinationPlaceId"] = str(end_place.get("_id", ""))
+                    self.processed_data["destinationPlaceId"] = str(
+                        end_place.get("_id", "")
+                    )
                 else:
-                    rev_end = await self.geo_service.reverse_geocode(end_coord[1], end_coord[0])
+                    rev_end = await self.geo_service.reverse_geocode(
+                        end_coord[1], end_coord[0]
+                    )
                     if rev_end:
-                        self.processed_data["destination"] = self.geo_service.parse_geocode_response(
-                            rev_end, end_coord
+                        self.processed_data["destination"] = (
+                            self.geo_service.parse_geocode_response(rev_end, end_coord)
                         )
                     else:
-                        logger.warning("Trip %s: Failed to geocode destination", transaction_id)
+                        logger.warning(
+                            "Trip %s: Failed to geocode destination", transaction_id
+                        )
 
             self.processed_data["location_schema_version"] = 2
             self.processed_data["geocoded_at"] = get_current_utc_time()
@@ -434,7 +493,10 @@ class TripProcessor:
 
         except Exception as e:
             error_message = f"Geocoding error: {e!s}"
-            logger.exception("Error geocoding trip %s", self.trip_data.get("transactionId", "unknown"))
+            logger.exception(
+                "Error geocoding trip %s",
+                self.trip_data.get("transactionId", "unknown"),
+            )
             self._set_state(TripState.FAILED, error_message)
             return False
 
@@ -486,55 +548,91 @@ class TripProcessor:
             transaction_id = self.trip_data.get("transactionId", "unknown")
 
             # Ensure proper state
-            if self.state not in [TripState.GEOCODED, TripState.PROCESSED, TripState.VALIDATED]:
-                if self.state in [TripState.NEW, TripState.VALIDATED, TripState.PROCESSED]:
+            if self.state not in [
+                TripState.GEOCODED,
+                TripState.PROCESSED,
+                TripState.VALIDATED,
+            ]:
+                if self.state in [
+                    TripState.NEW,
+                    TripState.VALIDATED,
+                    TripState.PROCESSED,
+                ]:
                     await self.geocode()
                     if self.state != TripState.GEOCODED:
-                        logger.warning("Cannot map match trip %s: pre-requisite steps failed", transaction_id)
+                        logger.warning(
+                            "Cannot map match trip %s: pre-requisite steps failed",
+                            transaction_id,
+                        )
                         return False
                 else:
-                    logger.warning("Cannot map match trip %s in state: %s", transaction_id, self.state.value)
+                    logger.warning(
+                        "Cannot map match trip %s in state: %s",
+                        transaction_id,
+                        self.state.value,
+                    )
                     return False
 
             logger.debug("Starting map matching for trip %s", transaction_id)
 
             if not self.mapbox_token:
-                logger.warning("No Mapbox token provided, skipping map matching for trip %s", transaction_id)
+                logger.warning(
+                    "No Mapbox token provided, skipping map matching for trip %s",
+                    transaction_id,
+                )
                 return True
 
             gps_data = self.processed_data.get("gps")
             if not gps_data or not isinstance(gps_data, dict):
-                self._set_state(TripState.FAILED, "Invalid or missing GPS data for map matching")
+                self._set_state(
+                    TripState.FAILED, "Invalid or missing GPS data for map matching"
+                )
                 return False
 
             gps_type = gps_data.get("type")
 
             if gps_type == "Point":
-                logger.info("Trip %s: GPS is a single Point, skipping map matching", transaction_id)
+                logger.info(
+                    "Trip %s: GPS is a single Point, skipping map matching",
+                    transaction_id,
+                )
                 return True
 
             if gps_type == "LineString":
                 coords = gps_data.get("coordinates", [])
                 if len(coords) < 2:
-                    logger.warning("Trip %s: Insufficient coordinates for map matching", transaction_id)
+                    logger.warning(
+                        "Trip %s: Insufficient coordinates for map matching",
+                        transaction_id,
+                    )
                     return True
             else:
-                logger.warning("Trip %s: Unexpected GPS type '%s'", transaction_id, gps_type)
+                logger.warning(
+                    "Trip %s: Unexpected GPS type '%s'", transaction_id, gps_type
+                )
                 return True
 
             # Extract timestamps and call map matching service
-            timestamps = self.geo_service.extract_timestamps_for_coordinates(coords, self.processed_data)
-            match_result = await self.geo_service.map_match_coordinates(coords, timestamps)
+            timestamps = self.geo_service.extract_timestamps_for_coordinates(
+                coords, self.processed_data
+            )
+            match_result = await self.geo_service.map_match_coordinates(
+                coords, timestamps
+            )
 
             if match_result.get("code") != "Ok":
                 error_msg = match_result.get("message", "Unknown map matching error")
-                logger.error("Map matching failed for trip %s: %s", transaction_id, error_msg)
+                logger.error(
+                    "Map matching failed for trip %s: %s", transaction_id, error_msg
+                )
                 self.errors["map_match"] = f"Map matching API failed: {error_msg}"
                 return True  # Not a processing failure, just couldn't match
 
             # Validate and store matched geometry
             validated_matched_gps = None
-            if match_result.get("matchings") and match_result["matchings"][0].get("geometry"):
+            if match_result.get("matchings") and match_result["matchings"][0].get(
+                "geometry"
+            ):
                 matched_geometry = match_result["matchings"][0]["geometry"]
                 geom_type = matched_geometry.get("type")
                 geom_coords = matched_geometry.get("coordinates")
@@ -544,8 +642,14 @@ class TripProcessor:
                         # Check for degenerate LineString (all identical points)
                         start_point = tuple(geom_coords[0])
                         if all(tuple(p) == start_point for p in geom_coords[1:]):
-                            logger.warning("Trip %s: Matched LineString has identical points", transaction_id)
-                            validated_matched_gps = {"type": "Point", "coordinates": geom_coords[0]}
+                            logger.warning(
+                                "Trip %s: Matched LineString has identical points",
+                                transaction_id,
+                            )
+                            validated_matched_gps = {
+                                "type": "Point",
+                                "coordinates": geom_coords[0],
+                            }
                         else:
                             validated_matched_gps = matched_geometry
                 elif geom_type == "Point":
@@ -564,7 +668,10 @@ class TripProcessor:
 
         except Exception as e:
             error_message = f"Unexpected map matching error: {e!s}"
-            logger.exception("Error map matching trip %s", self.trip_data.get("transactionId", "unknown"))
+            logger.exception(
+                "Error map matching trip %s",
+                self.trip_data.get("transactionId", "unknown"),
+            )
             self._set_state(TripState.FAILED, error_message)
             return False
 
@@ -599,11 +706,15 @@ class TripProcessor:
         )
 
         # Save to matched trips collection if applicable
-        if (map_match_result or self.state == TripState.MAP_MATCHED) and "matchedGps" in self.processed_data:
+        if (
+            map_match_result or self.state == TripState.MAP_MATCHED
+        ) and "matchedGps" in self.processed_data:
             transaction_id = self.processed_data.get("transactionId")
             trip_data_with_source = self.processed_data.copy()
             trip_data_with_source["source"] = self.source
-            await self.repository.save_matched_trip(transaction_id, trip_data_with_source)
+            await self.repository.save_matched_trip(
+                transaction_id, trip_data_with_source
+            )
 
         return saved_id
 

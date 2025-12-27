@@ -95,18 +95,24 @@ class ExternalGeoService:
             for ctx in response.get("context", []):
                 if "id" in ctx:
                     if ctx["id"].startswith("postcode"):
-                        structured["address_components"]["postal_code"] = ctx.get("text", "")
+                        structured["address_components"]["postal_code"] = ctx.get(
+                            "text", ""
+                        )
                     elif ctx["id"].startswith("place"):
                         structured["address_components"]["city"] = ctx.get("text", "")
                     elif ctx["id"].startswith("region"):
                         structured["address_components"]["state"] = ctx.get("text", "")
                     elif ctx["id"].startswith("country"):
-                        structured["address_components"]["country"] = ctx.get("text", "")
+                        structured["address_components"]["country"] = ctx.get(
+                            "text", ""
+                        )
 
             if "text" in response:
                 structured["address_components"]["street"] = response.get("text", "")
             if "address" in response:
-                structured["address_components"]["street_number"] = response.get("address", "")
+                structured["address_components"]["street_number"] = response.get(
+                    "address", ""
+                )
 
         # Handle Nominatim response format
         elif "display_name" in response:
@@ -269,14 +275,23 @@ class ExternalGeoService:
             coordinates_data = []
             for i, (lon, lat) in enumerate(coords):
                 coord = [lon, lat]
-                if timestamps_chunk and i < len(timestamps_chunk) and timestamps_chunk[i] is not None:
+                if (
+                    timestamps_chunk
+                    and i < len(timestamps_chunk)
+                    and timestamps_chunk[i] is not None
+                ):
                     coord.append(timestamps_chunk[i])
                 coordinates_data.append(coord)
 
             # Calculate adaptive radiuses
             radiuses = []
             for i, coord in enumerate(coords):
-                if timestamps_chunk and i > 0 and timestamps_chunk[i] and timestamps_chunk[i - 1]:
+                if (
+                    timestamps_chunk
+                    and i > 0
+                    and timestamps_chunk[i]
+                    and timestamps_chunk[i - 1]
+                ):
                     time_diff = abs(timestamps_chunk[i] - timestamps_chunk[i - 1])
                     if time_diff > 0:
                         radiuses.append(50)
@@ -318,24 +333,42 @@ class ExternalGeoService:
                         pass
 
                     try:
-                        async with session.post(base_url, params=params, json=request_body) as response:
+                        async with session.post(
+                            base_url, params=params, json=request_body
+                        ) as response:
                             if response.status == 429:
                                 retry_after = response.headers.get("Retry-After")
-                                wait = float(retry_after) if retry_after else min_backoff * (2 ** (attempt - 1))
+                                wait = (
+                                    float(retry_after)
+                                    if retry_after
+                                    else min_backoff * (2 ** (attempt - 1))
+                                )
                                 if attempt < max_attempts:
                                     await asyncio.sleep(wait)
                                     continue
-                                return {"code": "Error", "message": "Too Many Requests (exceeded max attempts)"}
+                                return {
+                                    "code": "Error",
+                                    "message": "Too Many Requests (exceeded max attempts)",
+                                }
 
                             if 400 <= response.status < 500:
                                 error_text = await response.text()
-                                return {"code": "Error", "message": f"Mapbox API error: {response.status}", "details": error_text}
+                                return {
+                                    "code": "Error",
+                                    "message": f"Mapbox API error: {response.status}",
+                                    "details": error_text,
+                                }
 
                             if response.status >= 500:
                                 if attempt < max_attempts:
-                                    await asyncio.sleep(min_backoff * (2 ** (attempt - 1)))
+                                    await asyncio.sleep(
+                                        min_backoff * (2 ** (attempt - 1))
+                                    )
                                     continue
-                                return {"code": "Error", "message": f"Mapbox server error: {response.status}"}
+                                return {
+                                    "code": "Error",
+                                    "message": f"Mapbox server error: {response.status}",
+                                }
 
                             response.raise_for_status()
                             return await response.json()
@@ -369,7 +402,11 @@ class ExternalGeoService:
                 logger.warning("Mapbox chunk error: %s", msg)
 
                 if "invalid coordinates" in msg.lower():
-                    filtered = [c for c in chunk_coords if len(c) >= 2 and -180 <= c[0] <= 180 and -90 <= c[1] <= 90]
+                    filtered = [
+                        c
+                        for c in chunk_coords
+                        if len(c) >= 2 and -180 <= c[0] <= 180 and -90 <= c[1] <= 90
+                    ]
                     if len(filtered) >= 2 and len(filtered) < len(chunk_coords):
                         return await match_chunk(filtered, None, depth)
 
@@ -380,10 +417,18 @@ class ExternalGeoService:
                 mid = len(chunk_coords) // 2
                 first_ts = chunk_timestamps[:mid] if chunk_timestamps else None
                 second_ts = chunk_timestamps[mid:] if chunk_timestamps else None
-                matched_first = await match_chunk(chunk_coords[:mid], first_ts, depth + 1)
-                matched_second = await match_chunk(chunk_coords[mid:], second_ts, depth + 1)
+                matched_first = await match_chunk(
+                    chunk_coords[:mid], first_ts, depth + 1
+                )
+                matched_second = await match_chunk(
+                    chunk_coords[mid:], second_ts, depth + 1
+                )
                 if matched_first is not None and matched_second is not None:
-                    if matched_first and matched_second and matched_first[-1] == matched_second[0]:
+                    if (
+                        matched_first
+                        and matched_second
+                        and matched_first[-1] == matched_second[0]
+                    ):
                         matched_second = matched_second[1:]
                     return matched_first + matched_second
 
@@ -406,11 +451,18 @@ class ExternalGeoService:
         final_matched: list[list[float]] = []
         for idx, (start_i, end_i) in enumerate(chunk_indices, 1):
             chunk_coords = coordinates[start_i:end_i]
-            chunk_ts = all_timestamps[start_i:end_i] if all_timestamps and len(all_timestamps) == len(coordinates) else None
+            chunk_ts = (
+                all_timestamps[start_i:end_i]
+                if all_timestamps and len(all_timestamps) == len(coordinates)
+                else None
+            )
 
             result = await match_chunk(chunk_coords, chunk_ts, depth=0)
             if result is None:
-                return {"code": "Error", "message": f"Chunk {idx} of {len(chunk_indices)} failed map matching."}
+                return {
+                    "code": "Error",
+                    "message": f"Chunk {idx} of {len(chunk_indices)} failed map matching.",
+                }
 
             if not final_matched:
                 final_matched = result
@@ -423,7 +475,13 @@ class ExternalGeoService:
         def detect_jumps(coords: list[list[float]], threshold: float) -> list[int]:
             suspicious = []
             for i in range(len(coords) - 1):
-                dist = haversine(coords[i][0], coords[i][1], coords[i+1][0], coords[i+1][1], unit="meters")
+                dist = haversine(
+                    coords[i][0],
+                    coords[i][1],
+                    coords[i + 1][0],
+                    coords[i + 1][1],
+                    unit="meters",
+                )
                 if dist > threshold:
                     suspicious.append(i)
             return suspicious
@@ -439,12 +497,12 @@ class ExternalGeoService:
                 i = j_idx + offset
                 if i < 1 or i >= len(new_coords) - 1:
                     continue
-                sub_coords = new_coords[i-1:i+2]
+                sub_coords = new_coords[i - 1 : i + 2]
                 if len(sub_coords) < 2:
                     continue
                 local_match = await match_chunk(sub_coords, None, depth=0)
                 if local_match and len(local_match) >= 2:
-                    new_coords = new_coords[:i-1] + local_match + new_coords[i+2:]
+                    new_coords = new_coords[: i - 1] + local_match + new_coords[i + 2 :]
                     offset += len(local_match) - 3
             final_matched = new_coords
 
@@ -452,7 +510,9 @@ class ExternalGeoService:
 
         return {
             "code": "Ok",
-            "matchings": [{"geometry": {"type": "LineString", "coordinates": final_matched}}],
+            "matchings": [
+                {"geometry": {"type": "LineString", "coordinates": final_matched}}
+            ],
         }
 
     def extract_timestamps_for_coordinates(
