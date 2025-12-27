@@ -419,7 +419,9 @@ async def get_trips_datatable(request: Request):
         trips_list = await cursor.to_list(length=length)
 
     # Fetch gas prices for cost calculation
-    price_map = await _get_fillup_price_map()  # Could optimize to filter by IMEIs in trips_list if page size is large, but for 10 it's negligible.
+    price_map = (
+        await _get_fillup_price_map()
+    )  # Could optimize to filter by IMEIs in trips_list if page size is large, but for 10 it's negligible.
 
     formatted_data = []
     for trip in trips_list:
