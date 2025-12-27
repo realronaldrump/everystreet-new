@@ -317,7 +317,9 @@ class TripsManager {
       speed_max: getNumber("trip-filter-speed-max"),
       fuel_min: getNumber("trip-filter-fuel-min"),
       fuel_max: getNumber("trip-filter-fuel-max"),
-      has_fuel: Boolean(document.getElementById("trip-filter-has-fuel")?.checked),
+      has_fuel: Boolean(
+        document.getElementById("trip-filter-has-fuel")?.checked,
+      ),
     };
   }
 
@@ -348,7 +350,8 @@ class TripsManager {
 
   restoreFilters() {
     const raw =
-      window.utils?.getStorage("tripsFilters") || localStorage.getItem("tripsFilters");
+      window.utils?.getStorage("tripsFilters") ||
+      localStorage.getItem("tripsFilters");
     if (!raw) return;
     try {
       const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
@@ -376,7 +379,7 @@ class TripsManager {
             [v.year, v.make, v.model].filter(Boolean).join(" ").trim() ||
             (v.vin ? `VIN ${v.vin}` : `IMEI ${v.imei}`);
           return `<option value="${v.imei}">${label}</option>`;
-        })
+        }),
       );
       select.innerHTML = optionsHtml.join("");
       if (this.filters.imei) select.value = this.filters.imei;
@@ -413,7 +416,8 @@ class TripsManager {
           contentType: "application/json",
           data: (d) => {
             d.start_date =
-              window.utils.getStorage("startDate") || DateUtils.getCurrentDate();
+              window.utils.getStorage("startDate") ||
+              DateUtils.getCurrentDate();
             d.end_date =
               window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
             d.filters = this.getFilters();
@@ -537,7 +541,8 @@ class TripsManager {
           },
         ],
         language: {
-          processing: '<div class="spinner-border text-primary" role="status"></div>',
+          processing:
+            '<div class="spinner-border text-primary" role="status"></div>',
           emptyTable: "No trips found",
         },
         pageLength: 25,
@@ -553,7 +558,9 @@ class TripsManager {
         $(".trip-checkbox").prop("checked", e.target.checked);
         this.updateBulkDeleteButton();
       });
-      $(tableEl).on("change", ".trip-checkbox", () => this.updateBulkDeleteButton());
+      $(tableEl).on("change", ".trip-checkbox", () =>
+        this.updateBulkDeleteButton(),
+      );
     } catch (error) {
       console.error(error);
     }
@@ -590,8 +597,10 @@ class TripsManager {
       const payload = {
         start: this.mobileCurrentPage * this.mobilePageSize,
         length: this.mobilePageSize,
-        start_date: window.utils.getStorage("startDate") || DateUtils.getCurrentDate(),
-        end_date: window.utils.getStorage("endDate") || DateUtils.getCurrentDate(),
+        start_date:
+          window.utils.getStorage("startDate") || DateUtils.getCurrentDate(),
+        end_date:
+          window.utils.getStorage("endDate") || DateUtils.getCurrentDate(),
         filters: this.getFilters(),
       };
 
@@ -696,7 +705,10 @@ class TripsManager {
     if (wrapper) wrapper.style.display = total > 0 ? "block" : "none";
 
     const start = this.mobileCurrentPage * this.mobilePageSize + 1;
-    const end = Math.min((this.mobileCurrentPage + 1) * this.mobilePageSize, total);
+    const end = Math.min(
+      (this.mobileCurrentPage + 1) * this.mobilePageSize,
+      total,
+    );
 
     if (info) info.textContent = `Showing ${start}-${end} of ${total}`;
 
@@ -852,7 +864,9 @@ class TripsManager {
 
   initializeBulkActionButtons() {
     $("#bulk-delete-trips-btn").on("click", () => this.bulkDeleteTrips());
-    $("#bulk-delete-trips-mobile-btn").on("click", () => this.bulkDeleteTrips());
+    $("#bulk-delete-trips-mobile-btn").on("click", () =>
+      this.bulkDeleteTrips(),
+    );
     $("#refresh-geocoding-btn").on("click", () => this.refreshGeocoding());
   }
 
