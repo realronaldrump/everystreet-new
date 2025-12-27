@@ -44,8 +44,7 @@ logger = logging.getLogger(__name__)
 
 MAX_TRIPS_PER_BATCH = 500
 BATCH_PROCESS_DELAY = 0.01
-PROCESS_TIMEOUT_OVERALL = 7200
-PROCESS_TIMEOUT_INCREMENTAL = 3600
+
 DEFAULT_MATCH_BUFFER_METERS = 15.0
 DEFAULT_MIN_MATCH_LENGTH_METERS = 5.0
 
@@ -69,12 +68,7 @@ class CoverageCalculator:
             else DEFAULT_MATCH_BUFFER_METERS
         )
 
-        raw_min_match = location.get("min_match_length_meters")
-        self.min_match_length: float = float(
-            raw_min_match
-            if raw_min_match is not None
-            else DEFAULT_MIN_MATCH_LENGTH_METERS
-        )
+
 
         self.trip_batch_size: int = MAX_TRIPS_PER_BATCH
 

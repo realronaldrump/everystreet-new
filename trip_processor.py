@@ -97,14 +97,9 @@ class TripProcessor:
         self.processed_data: dict[str, Any] = {}
 
         self.utm_proj = None
-        self.project_to_utm = None
+        self.utm_proj = None
 
-    @staticmethod
-    def _standardize_and_validate_gps_data(
-        gps_input: Any, transaction_id: str
-    ) -> dict | None:
-        """Delegate GPS validation/standardization to the canonical utils function."""
-        return standardize_and_validate_gps(gps_input, transaction_id)
+
 
     def _set_state(
         self,
@@ -1132,11 +1127,7 @@ class TripProcessor:
         self.utm_proj = pyproj.CRS(
             f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84",
         )
-        self.project_to_utm = pyproj.Transformer.from_crs(
-            pyproj.CRS("EPSG:4326"),
-            self.utm_proj,
-            always_xy=True,
-        ).transform
+
 
     async def _map_match_coordinates(
         self,

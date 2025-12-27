@@ -57,35 +57,7 @@ async def update_progress(
     )
 
 
-async def init_progress(
-    task_id: str,
-    location: str,
-    message: str = "Initializing...",
-) -> None:
-    """Initialize a new progress tracking entry."""
-    await update_progress(
-        task_id,
-        stage="initializing",
-        progress=0,
-        message=message,
-        status="processing",
-        location=location,
-        upsert=True,
-    )
 
 
-async def set_progress_error(
-    task_id: str,
-    error_message: str,
-    *,
-    stage: str = "error",
-) -> None:
-    """Mark a task as failed with an error message."""
-    await update_progress(
-        task_id,
-        stage=stage,
-        progress=0,
-        message=f"Error: {error_message[:500]}",
-        status="error",
-        error=error_message[:200],
-    )
+
+

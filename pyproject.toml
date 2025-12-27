@@ -56,5 +56,37 @@ docstring-code-format = true
 
 
 
+[tool.vulture]
+# Folders to ignore completely
+exclude = [
+    "venv",
+    "node_modules",
+    ".cursor",
+    "__pycache__",
+    "static",
+    "scripts",
+    "whitelist.py"  # Don't scan the whitelist file itself as code
+]
 
+# Patterns to assume are always used (API routes, Tasks, Configs)
+ignore_names = [
+    "*_endpoint",
+    "*_handler",
+    "*_page",
+    "*_route",
+    "*_task",
+    "startup_event",
+    "shutdown_event",
+    "on_starting",   # Gunicorn
+    "on_exit",       # Gunicorn
+    "post_fork",     # Gunicorn
+    "worker_abort",  # Gunicorn
+    "Config",        # Pydantic/SQLAlchemy
+    "Meta"           # Pydantic/SQLAlchemy
+]
 
+# Paths to scan (current directory)
+paths = ["."]
+
+# Minimum confidence (60% is default, 100% is very strict)
+min_confidence = 60
