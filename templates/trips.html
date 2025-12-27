@@ -1,91 +1,168 @@
-{% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %} 
+{% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %}
 {% block extra_css %}
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}"
 />
 {% endblock %}
-{%
-block content %}
-<div class="container-fluid px-4 py-3">
-  <h1 class="mb-4">Trips</h1>
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="display-6 fw-bold mb-1">Trips</h1>
+      <p class="text-muted mb-0">Manage and analyze your travel history</p>
+    </div>
+    <div class="d-flex gap-2">
+      <!-- Future: Add Date Range Picker Here -->
+    </div>
+  </div>
 
-  <div class="card mb-4 filter-panel">
-    <div class="card-body">
-      <div class="row g-3 align-items-end">
-        <div class="col-md-3 col-lg-2">
-          <label for="trip-filter-vehicle" class="form-label">Vehicle</label>
-          <select id="trip-filter-vehicle" class="form-select">
-            <option value="">All vehicles</option>
-          </select>
+  <!-- Summary Stats -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-icon bg-primary-subtle text-primary">
+          <i class="fas fa-route"></i>
         </div>
-        <div class="col-md-3 col-lg-2">
-          <label class="form-label">Distance (mi)</label>
-          <div class="input-group">
-            <input type="number" class="form-control" id="trip-filter-distance-min" placeholder="Min" step="0.1" />
-            <span class="input-group-text">-</span>
-            <input type="number" class="form-control" id="trip-filter-distance-max" placeholder="Max" step="0.1" />
-          </div>
+        <div class="stat-content">
+          <div class="stat-value" id="stats-total-trips">-</div>
+          <div class="stat-label">Total Trips</div>
         </div>
-        <div class="col-md-3 col-lg-2">
-          <label class="form-label">Max Speed (mph)</label>
-          <div class="input-group">
-            <input type="number" class="form-control" id="trip-filter-speed-min" placeholder="Min" step="1" />
-            <span class="input-group-text">-</span>
-            <input type="number" class="form-control" id="trip-filter-speed-max" placeholder="Max" step="1" />
-          </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-icon bg-success-subtle text-success">
+          <i class="fas fa-tachometer-alt"></i>
         </div>
-        <div class="col-md-3 col-lg-2">
-          <label class="form-label">Fuel (gal)</label>
-          <div class="input-group">
-            <input type="number" class="form-control" id="trip-filter-fuel-min" placeholder="Min" step="0.01" />
-            <span class="input-group-text">-</span>
-            <input type="number" class="form-control" id="trip-filter-fuel-max" placeholder="Max" step="0.01" />
-          </div>
+        <div class="stat-content">
+          <div class="stat-value" id="stats-total-distance">-</div>
+          <div class="stat-label">Total Distance</div>
         </div>
-        <div class="col-md-3 col-lg-2">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="trip-filter-has-fuel" />
-            <label class="form-check-label" for="trip-filter-has-fuel">
-              Only show trips with fuel data
-            </label>
-          </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-icon bg-info-subtle text-info">
+          <i class="fas fa-clock"></i>
         </div>
-        <div class="col-md-3 col-lg-2 d-flex gap-2">
-          <button class="btn btn-primary w-100" id="trip-filter-apply">
-            Apply Filters
-          </button>
-          <button class="btn btn-outline-secondary w-100" id="trip-filter-reset">
-            Reset
-          </button>
+        <div class="stat-content">
+          <div class="stat-value" id="stats-total-duration">-</div>
+          <div class="stat-label">Total Duration</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-icon bg-warning-subtle text-warning">
+          <i class="fas fa-dollar-sign"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value" id="stats-total-cost">-</div>
+          <div class="stat-label">Total Cost</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Desktop View (Table) -->
-  <div class="trips-desktop-container">
-    <div class="card">
-      <div class="card-body">
-        <div class="table-responsive-lg">
-          <table id="trips-table" class="table table-striped table-hover w-100">
-            <thead>
+  <!-- Main Content Area -->
+  <div class="glass-container">
+    <!-- Filters Header -->
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h5 class="mb-0 fw-semibold"><i class="fas fa-filter me-2 text-primary"></i>Filters</h5>
+      <button class="btn btn-sm btn-link text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#filterPanel" aria-expanded="true">
+        Toggle Filters <i class="fas fa-chevron-down ms-1"></i>
+      </button>
+    </div>
+
+    <!-- Collapsible Filter Panel -->
+    <div class="collapse show" id="filterPanel">
+      <div class="p-3 bg-light-subtle border-bottom">
+        <div class="row g-3">
+          <!-- Vehicle Select -->
+          <div class="col-md-3 col-lg-2">
+            <label for="trip-filter-vehicle" class="form-label small text-uppercase text-muted fw-bold">Vehicle</label>
+            <select id="trip-filter-vehicle" class="form-select w-100">
+              <option value="">All vehicles</option>
+            </select>
+          </div>
+
+          <!-- Distance Filter -->
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-uppercase text-muted fw-bold">Distance (mi)</label>
+            <div class="input-group input-group-sm">
+              <input type="number" class="form-control" id="trip-filter-distance-min" placeholder="Min" step="0.1" />
+              <span class="input-group-text bg-body text-muted">-</span>
+              <input type="number" class="form-control" id="trip-filter-distance-max" placeholder="Max" step="0.1" />
+            </div>
+          </div>
+
+          <!-- Speed Filter -->
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-uppercase text-muted fw-bold">Max Speed (mph)</label>
+            <div class="input-group input-group-sm">
+              <input type="number" class="form-control" id="trip-filter-speed-min" placeholder="Min" step="1" />
+              <span class="input-group-text bg-body text-muted">-</span>
+              <input type="number" class="form-control" id="trip-filter-speed-max" placeholder="Max" step="1" />
+            </div>
+          </div>
+
+          <!-- Fuel Filter -->
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-uppercase text-muted fw-bold">Fuel (gal)</label>
+            <div class="input-group input-group-sm">
+              <input type="number" class="form-control" id="trip-filter-fuel-min" placeholder="Min" step="0.01" />
+              <span class="input-group-text bg-body text-muted">-</span>
+              <input type="number" class="form-control" id="trip-filter-fuel-max" placeholder="Max" step="0.01" />
+            </div>
+          </div>
+
+          <!-- Checkbox Filter -->
+           <div class="col-md-3 col-lg-2 d-flex align-items-end">
+            <div class="form-check mb-1">
+              <input class="form-check-input" type="checkbox" id="trip-filter-has-fuel" />
+              <label class="form-check-label small" for="trip-filter-has-fuel">
+                Has Fuel Data
+              </label>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="col-md-3 col-lg-2 d-flex gap-2 align-items-end">
+            <button class="btn btn-primary btn-sm flex-grow-1" id="trip-filter-apply">
+              Apply
+            </button>
+            <button class="btn btn-outline-secondary btn-sm flex-grow-1" id="trip-filter-reset">
+              Reset
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Display -->
+    <div class="p-0">
+      <!-- Desktop View (Table) -->
+      <div class="trips-desktop-container p-3">
+        <div class="table-responsive">
+          <table id="trips-table" class="table table-hover align-middle w-100">
+            <thead class="bg-light">
               <tr>
-                <th>
-                  <input type="checkbox" id="select-all-trips" />
+                <th class="ps-3" width="40">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="select-all-trips" />
+                  </div>
                 </th>
                 <th>Vehicle</th>
-                <th>Start Time</th>
-                <th>End Time</th>
+                <th>When</th>
                 <th>Duration</th>
-                <th>Distance (miles)</th>
+                <th>Distance</th>
                 <th>Start Location</th>
                 <th>Destination</th>
-                <th>Max Speed (mph)</th>
-                <th>Idle Duration (min)</th>
-                <th>Fuel Consumed (gal)</th>
+                <th>Details</th>
                 <th>Cost</th>
-                <th>Actions</th>
+                <th class="text-end pe-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -93,55 +170,52 @@ block content %}
             </tbody>
           </table>
         </div>
-        <button id="bulk-delete-trips-btn" class="btn btn-danger mt-3" disabled>
-          Delete Selected
-        </button>
-        <button id="refresh-geocoding-btn" class="btn btn-primary mt-3">
-          Refresh Geocoding
-        </button>
+        <div class="d-flex gap-2 mt-3">
+          <button id="bulk-delete-trips-btn" class="btn btn-danger btn-sm" disabled>
+            <i class="fas fa-trash-alt me-1"></i> Delete Selected
+          </button>
+          <button id="refresh-geocoding-btn" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-sync-alt me-1"></i> Refresh Geocoding
+          </button>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Mobile View (Cards) -->
-  <div class="trips-mobile-container">
-    <!-- Mobile Controls -->
-    <div class="trips-mobile-controls">
-      <label class="trips-mobile-select-all">
-        <input type="checkbox" id="select-all-trips-mobile" />
-        <span>Select All</span>
-      </label>
-      <div class="trips-mobile-actions">
-        <button id="bulk-delete-trips-mobile-btn" class="btn btn-sm btn-danger" disabled>
-          <i class="fas fa-trash"></i> Delete
-        </button>
-        <button id="refresh-geocoding-mobile-btn" class="btn btn-sm btn-primary">
-          <i class="fas fa-sync"></i> Refresh
-        </button>
-      </div>
-    </div>
+      <!-- Mobile View (Cards) -->
+      <div class="trips-mobile-container p-3">
+        <!-- Mobile Controls -->
+        <div class="d-flex justify-content-between align-items-center mb-3 sticky-top bg-body py-2 border-bottom" style="z-index: 10;">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="select-all-trips-mobile" />
+            <label class="form-check-label small text-muted" for="select-all-trips-mobile">Select All</label>
+          </div>
+          <div class="d-flex gap-2">
+            <button id="bulk-delete-trips-mobile-btn" class="btn btn-sm btn-danger" disabled>
+              <i class="fas fa-trash"></i>
+            </button>
+            <button id="refresh-geocoding-mobile-btn" class="btn btn-sm btn-outline-primary">
+              <i class="fas fa-sync"></i>
+            </button>
+          </div>
+        </div>
 
-    <!-- Mobile Trip Cards -->
-    <div id="trips-mobile-list">
-      <!-- Cards will be populated by JavaScript -->
-    </div>
+        <!-- Mobile Trip Cards -->
+        <div id="trips-mobile-list" class="d-flex flex-column gap-3">
+          <!-- Cards will be populated by JavaScript -->
+        </div>
 
-    <!-- Mobile Pagination -->
-    <div id="trips-mobile-pagination" class="trips-mobile-pagination" style="display: none;">
-      <div class="trips-mobile-pagination-info">
-        <span id="trips-mobile-page-info"></span>
-      </div>
-      <div class="trips-mobile-pagination-controls">
-        <button id="trips-mobile-prev-btn" class="btn btn-outline-primary trips-mobile-pagination-btn">
-          <i class="fas fa-chevron-left"></i> Previous
-        </button>
-        <button id="trips-mobile-next-btn" class="btn btn-outline-primary trips-mobile-pagination-btn">
-          Next <i class="fas fa-chevron-right"></i>
-        </button>
+        <!-- Mobile Pagination -->
+        <div id="trips-mobile-pagination" class="mt-4 text-center" style="display: none;">
+          <small class="text-muted d-block mb-2" id="trips-mobile-page-info"></small>
+          <div class="btn-group">
+            <button id="trips-mobile-prev-btn" class="btn btn-outline-secondary btn-sm">Previous</button>
+            <button id="trips-mobile-next-btn" class="btn btn-outline-secondary btn-sm">Next</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %} {% block extra_js %}
+{% endblock %}
+{% block extra_js %}
 <script src="{{ url_for('static', path='js/trips.js') | replace('http://', '//') }}"></script>
 {% endblock %}
