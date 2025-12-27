@@ -1,0 +1,152 @@
+/* Gas Tracking page styles scoped for both dark and light themes */
+
+.gas-tracking-page {
+  color: var(--text-primary);
+}
+
+.gas-hero {
+  background: var(--primary-gradient);
+  color: var(--text-on-primary);
+  border: 1px solid rgba(var(--border-rgb), 0.2);
+  box-shadow: var(--shadow-lg);
+}
+
+.gas-hero .lead {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.stat-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-card .display-6 {
+  color: var(--text-primary);
+}
+
+.stat-card .text-secondary {
+  color: var(--text-secondary) !important;
+}
+
+.gas-panel {
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+.gas-panel .card-title {
+  font-weight: var(--font-weight-semibold);
+}
+
+#fillup-map {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-height: 280px;
+  box-shadow: inset 0 0 0 1px rgba(var(--border-rgb), 0.2);
+}
+
+.location-info {
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.location-info strong {
+  color: var(--text-secondary);
+}
+
+#location-debug {
+  background: #0b0d11;
+}
+
+.vehicle-status {
+  transition: color var(--transition-fast);
+}
+
+.vehicle-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.fillup-item {
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-3);
+}
+
+.fillup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fillup-date {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.fillup-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.fillup-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+}
+
+.fillup-detail-label {
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.fillup-detail-value {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+#fillup-list .text-muted {
+  color: var(--text-secondary) !important;
+}
+
+@media (max-width: 992px) {
+  .gas-hero {
+    text-align: center;
+  }
+
+  .fillup-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Light mode adjustments */
+body.light-mode .gas-hero {
+  color: var(--text-on-light);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .stat-card,
+body.light-mode .gas-panel,
+body.light-mode .fillup-item,
+body.light-mode .location-info {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .location-info {
+  box-shadow: var(--shadow-sm);
+}

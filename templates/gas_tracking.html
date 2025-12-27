@@ -1,20 +1,29 @@
 {% extends "base.html" %}
 {% block title %}Gas Tracking{% endblock %}
 
+{% block extra_css %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/gas_tracking.css') | replace('http://', '//') }}"
+/>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid py-4">
-  <!-- Hero Section -->
-  <div class="p-5 mb-4 bg-light rounded-3 border">
-    <h1 class="display-5 fw-bold mb-3">⛽ Gas Tracking</h1>
-    <p class="lead mb-0 text-muted">
-      Track your fuel consumption, monitor MPG, and calculate trip costs
-    </p>
+<div class="container-fluid gas-tracking-page py-4">
+  <div class="gas-hero card border-0 mb-4">
+    <div class="card-body p-5">
+      <h1 class="display-5 fw-bold mb-3">⛽ Gas Tracking</h1>
+      <p class="lead mb-0">
+        Track your fuel consumption, monitor MPG, and calculate trip costs — all in one
+        place.
+      </p>
+    </div>
   </div>
 
   <!-- Statistics Row -->
   <div class="row g-3 mb-4">
     <div class="col-md-3">
-      <div class="card h-100 text-center">
+      <div class="card stat-card h-100 text-center">
         <div class="card-body">
           <div class="display-6 fw-bold text-primary mb-2" id="total-fillups">0</div>
           <div class="text-secondary small">Total Fill-ups</div>
@@ -22,7 +31,7 @@
       </div>
     </div>
     <div class="col-md-3">
-      <div class="card h-100 text-center">
+      <div class="card stat-card h-100 text-center">
         <div class="card-body">
           <div class="display-6 fw-bold text-primary mb-2" id="total-spent">$0</div>
           <div class="text-secondary small">Total Spent</div>
@@ -30,7 +39,7 @@
       </div>
     </div>
     <div class="col-md-3">
-      <div class="card h-100 text-center">
+      <div class="card stat-card h-100 text-center">
         <div class="card-body">
           <div class="display-6 fw-bold text-primary mb-2" id="avg-mpg">--</div>
           <div class="text-secondary small">Average MPG</div>
@@ -38,7 +47,7 @@
       </div>
     </div>
     <div class="col-md-3">
-      <div class="card h-100 text-center">
+      <div class="card stat-card h-100 text-center">
         <div class="card-body">
           <div class="display-6 fw-bold text-primary mb-2" id="cost-per-mile">$0.00</div>
           <div class="text-secondary small">Cost per Mile</div>
@@ -50,7 +59,7 @@
   <div class="row g-4">
     <!-- Left Column: Form -->
     <div class="col-lg-6">
-      <div class="card mb-4" id="gas-fillup-card">
+      <div class="card gas-panel mb-4" id="gas-fillup-card">
         <div class="card-body">
           <h2 class="card-title mb-4">Record Fill-Up</h2>
 
@@ -64,6 +73,23 @@
               <select class="form-select" id="vehicle-select" name="imei" required>
                 <option value="">Select Vehicle...</option>
               </select>
+              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2">
+                <div id="vehicle-status" class="vehicle-status small text-muted">
+                  We'll automatically detect your vehicles when possible.
+                </div>
+                <div
+                  id="vehicle-loading-state"
+                  class="vehicle-loading small"
+                  style="display: none;"
+                >
+                  <span
+                    class="spinner-border spinner-border-sm"
+                    role="status"
+                    aria-hidden="true"
+                  ></span>
+                  <span id="vehicle-loading-text">Detecting vehicles...</span>
+                </div>
+              </div>
             </div>
 
             <!-- Fill-up Time -->
@@ -111,10 +137,10 @@
                 Location
               </h5>
               
-              <div id="fillup-map" class="mb-3 rounded border" style="height: 300px; width: 100%;"></div>
+              <div id="fillup-map" class="mb-3 rounded" style="height: 300px; width: 100%;"></div>
               
               <!-- Location Info -->
-              <div class="p-3 rounded bg-light border location-info">
+              <div class="p-3 rounded location-info">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <strong><i class="fas fa-map-marker-alt text-primary"></i> Location</strong>
                   <span id="location-text" class="text-muted">Select vehicle...</span>
@@ -266,7 +292,7 @@
 
     <!-- Right Column: History -->
     <div class="col-lg-6">
-      <div class="card mb-4 h-100">
+      <div class="card gas-panel mb-4 h-100">
         <div class="card-header bg-transparent py-3">
           <h2 class="h5 m-0">Recent Fill-Ups</h2>
         </div>
