@@ -1,11 +1,10 @@
-{% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %}
-{% block extra_css %}
+{% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %} {%
+block extra_css %}
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}"
 />
-{% endblock %}
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid px-4 py-4">
   <!-- Header -->
   <div class="d-flex justify-content-between align-items-center mb-4">
@@ -69,9 +68,19 @@
   <!-- Main Content Area -->
   <div class="glass-container">
     <!-- Filters Header -->
-    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
-      <h5 class="mb-0 fw-semibold"><i class="fas fa-filter me-2 text-primary"></i>Filters</h5>
-      <button class="btn btn-sm btn-link text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#filterPanel" aria-expanded="true">
+    <div
+      class="p-3 border-bottom d-flex justify-content-between align-items-center"
+    >
+      <h5 class="mb-0 fw-semibold">
+        <i class="fas fa-filter me-2 text-primary"></i>Filters
+      </h5>
+      <button
+        class="btn btn-sm btn-link text-decoration-none"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#filterPanel"
+        aria-expanded="true"
+      >
         Toggle Filters <i class="fas fa-chevron-down ms-1"></i>
       </button>
     </div>
@@ -82,7 +91,11 @@
         <div class="row g-3">
           <!-- Vehicle Select -->
           <div class="col-md-3 col-lg-2">
-            <label for="trip-filter-vehicle" class="form-label small text-uppercase text-muted fw-bold">Vehicle</label>
+            <label
+              for="trip-filter-vehicle"
+              class="form-label small text-uppercase text-muted fw-bold"
+              >Vehicle</label
+            >
             <select id="trip-filter-vehicle" class="form-select w-100">
               <option value="">All vehicles</option>
             </select>
@@ -90,38 +103,84 @@
 
           <!-- Distance Filter -->
           <div class="col-md-3 col-lg-2">
-            <label class="form-label small text-uppercase text-muted fw-bold">Distance (mi)</label>
+            <label class="form-label small text-uppercase text-muted fw-bold"
+              >Distance (mi)</label
+            >
             <div class="input-group input-group-sm">
-              <input type="number" class="form-control" id="trip-filter-distance-min" placeholder="Min" step="0.1" />
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-distance-min"
+                placeholder="Min"
+                step="0.1"
+              />
               <span class="input-group-text bg-body text-muted">-</span>
-              <input type="number" class="form-control" id="trip-filter-distance-max" placeholder="Max" step="0.1" />
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-distance-max"
+                placeholder="Max"
+                step="0.1"
+              />
             </div>
           </div>
 
           <!-- Speed Filter -->
           <div class="col-md-3 col-lg-2">
-            <label class="form-label small text-uppercase text-muted fw-bold">Max Speed (mph)</label>
+            <label class="form-label small text-uppercase text-muted fw-bold"
+              >Max Speed (mph)</label
+            >
             <div class="input-group input-group-sm">
-              <input type="number" class="form-control" id="trip-filter-speed-min" placeholder="Min" step="1" />
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-speed-min"
+                placeholder="Min"
+                step="1"
+              />
               <span class="input-group-text bg-body text-muted">-</span>
-              <input type="number" class="form-control" id="trip-filter-speed-max" placeholder="Max" step="1" />
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-speed-max"
+                placeholder="Max"
+                step="1"
+              />
             </div>
           </div>
 
           <!-- Fuel Filter -->
           <div class="col-md-3 col-lg-2">
-            <label class="form-label small text-uppercase text-muted fw-bold">Fuel (gal)</label>
+            <label class="form-label small text-uppercase text-muted fw-bold"
+              >Fuel (gal)</label
+            >
             <div class="input-group input-group-sm">
-              <input type="number" class="form-control" id="trip-filter-fuel-min" placeholder="Min" step="0.01" />
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-fuel-min"
+                placeholder="Min"
+                step="0.01"
+              />
               <span class="input-group-text bg-body text-muted">-</span>
-              <input type="number" class="form-control" id="trip-filter-fuel-max" placeholder="Max" step="0.01" />
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-fuel-max"
+                placeholder="Max"
+                step="0.01"
+              />
             </div>
           </div>
 
           <!-- Checkbox Filter -->
-           <div class="col-md-3 col-lg-2 d-flex align-items-end">
+          <div class="col-md-3 col-lg-2 d-flex align-items-end">
             <div class="form-check mb-1">
-              <input class="form-check-input" type="checkbox" id="trip-filter-has-fuel" />
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="trip-filter-has-fuel"
+              />
               <label class="form-check-label small" for="trip-filter-has-fuel">
                 Has Fuel Data
               </label>
@@ -130,10 +189,16 @@
 
           <!-- Actions -->
           <div class="col-md-3 col-lg-2 d-flex gap-2 align-items-end">
-            <button class="btn btn-primary btn-sm flex-grow-1" id="trip-filter-apply">
+            <button
+              class="btn btn-primary btn-sm flex-grow-1"
+              id="trip-filter-apply"
+            >
               Apply
             </button>
-            <button class="btn btn-outline-secondary btn-sm flex-grow-1" id="trip-filter-reset">
+            <button
+              class="btn btn-outline-secondary btn-sm flex-grow-1"
+              id="trip-filter-reset"
+            >
               Reset
             </button>
           </div>
@@ -151,7 +216,11 @@
               <tr>
                 <th class="ps-3" width="40">
                   <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="select-all-trips" />
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="select-all-trips"
+                    />
                   </div>
                 </th>
                 <th>Vehicle</th>
@@ -171,10 +240,17 @@
           </table>
         </div>
         <div class="d-flex gap-2 mt-3">
-          <button id="bulk-delete-trips-btn" class="btn btn-danger btn-sm" disabled>
+          <button
+            id="bulk-delete-trips-btn"
+            class="btn btn-danger btn-sm"
+            disabled
+          >
             <i class="fas fa-trash-alt me-1"></i> Delete Selected
           </button>
-          <button id="refresh-geocoding-btn" class="btn btn-outline-primary btn-sm">
+          <button
+            id="refresh-geocoding-btn"
+            class="btn btn-outline-primary btn-sm"
+          >
             <i class="fas fa-sync-alt me-1"></i> Refresh Geocoding
           </button>
         </div>
@@ -183,16 +259,34 @@
       <!-- Mobile View (Cards) -->
       <div class="trips-mobile-container p-3">
         <!-- Mobile Controls -->
-        <div class="d-flex justify-content-between align-items-center mb-3 sticky-top bg-body py-2 border-bottom" style="z-index: 10;">
+        <div
+          class="d-flex justify-content-between align-items-center mb-3 sticky-top bg-body py-2 border-bottom"
+          style="z-index: 10"
+        >
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="select-all-trips-mobile" />
-            <label class="form-check-label small text-muted" for="select-all-trips-mobile">Select All</label>
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="select-all-trips-mobile"
+            />
+            <label
+              class="form-check-label small text-muted"
+              for="select-all-trips-mobile"
+              >Select All</label
+            >
           </div>
           <div class="d-flex gap-2">
-            <button id="bulk-delete-trips-mobile-btn" class="btn btn-sm btn-danger" disabled>
+            <button
+              id="bulk-delete-trips-mobile-btn"
+              class="btn btn-sm btn-danger"
+              disabled
+            >
               <i class="fas fa-trash"></i>
             </button>
-            <button id="refresh-geocoding-mobile-btn" class="btn btn-sm btn-outline-primary">
+            <button
+              id="refresh-geocoding-mobile-btn"
+              class="btn btn-sm btn-outline-primary"
+            >
               <i class="fas fa-sync"></i>
             </button>
           </div>
@@ -204,18 +298,34 @@
         </div>
 
         <!-- Mobile Pagination -->
-        <div id="trips-mobile-pagination" class="mt-4 text-center" style="display: none;">
-          <small class="text-muted d-block mb-2" id="trips-mobile-page-info"></small>
+        <div
+          id="trips-mobile-pagination"
+          class="mt-4 text-center"
+          style="display: none"
+        >
+          <small
+            class="text-muted d-block mb-2"
+            id="trips-mobile-page-info"
+          ></small>
           <div class="btn-group">
-            <button id="trips-mobile-prev-btn" class="btn btn-outline-secondary btn-sm">Previous</button>
-            <button id="trips-mobile-next-btn" class="btn btn-outline-secondary btn-sm">Next</button>
+            <button
+              id="trips-mobile-prev-btn"
+              class="btn btn-outline-secondary btn-sm"
+            >
+              Previous
+            </button>
+            <button
+              id="trips-mobile-next-btn"
+              class="btn btn-outline-secondary btn-sm"
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %}
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', path='js/trips.js') | replace('http://', '//') }}"></script>
 {% endblock %}
