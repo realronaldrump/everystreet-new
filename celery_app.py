@@ -5,8 +5,8 @@ broker and result backend. It also configures Celery Beat to run the single
 dynamic task scheduler.
 
 **Important Security Note:** Celery workers should NOT be run with superuser
-(root) privileges. Ensure your deployment environment (e.g., Dockerfile,
-Railway configuration) is set up to run Celery workers as a non-root user. You
+(root) privileges. Ensure your deployment environment (e.g., Dockerfile)
+is set up to run Celery workers as a non-root user. You
 can use the `--uid` option when starting Celery workers to specify a different
 user.
 """
@@ -178,8 +178,8 @@ def beat_init_handler(**_kwargs):
 
 @signals.worker_init.connect
 def worker_init(**_kwargs):
-    from datetime import datetime
     import sys
+    from datetime import datetime
 
     # Ensure the current working directory is in sys.path so we can import modules
     if os.getcwd() not in sys.path:

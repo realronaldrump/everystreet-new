@@ -1,6 +1,6 @@
 """Gunicorn configuration file.
 
-Optimized for Railway deployment with memory and resource constraints.
+Optimized for Docker deployment with resource constraints.
 """
 
 import logging

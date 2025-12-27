@@ -147,8 +147,10 @@ async def database_management_page(request: Request):
 
 @router.get("/app-settings", response_class=HTMLResponse)
 async def app_settings_page(request: Request):
-    """Render app settings page."""
-    return _render_page("app_settings.html", request)
+    """Redirect old app-settings to unified settings page."""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url="/settings", status_code=301)
 
 
 @router.get("/server-logs", response_class=HTMLResponse)

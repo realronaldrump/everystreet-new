@@ -424,7 +424,7 @@ class OptimalRoutesManager {
     this.eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        
+
         // Track waiting state
         if (data.stage === "waiting" || data.status === "pending") {
           this.waitingCount++;
@@ -449,7 +449,7 @@ class OptimalRoutesManager {
         // Check for completion (case-insensitive)
         const status = (data.status || "").toLowerCase();
         const stage = (data.stage || "").toLowerCase();
-        
+
         if (status === "completed" || stage === "complete" || data.progress >= 100) {
           this.eventSource.close();
           this.onGenerationComplete();
@@ -469,7 +469,7 @@ class OptimalRoutesManager {
     this.eventSource.onerror = (error) => {
       console.error("SSE connection error:", error);
       this.eventSource.close();
-      
+
       // If we never got past waiting, show a helpful error
       if (this.waitingCount > 0) {
         this.showError(

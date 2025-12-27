@@ -379,17 +379,6 @@
                   </li>
                   <li role="none">
                     <a
-                      class="dropdown-item {% if request.url.path == '/app-settings' %}active{% endif %}"
-                      href="/app-settings"
-                      role="menuitem"
-                      {% if request.url.path == '/app-settings' %}aria-current="page"{% endif %}
-                    >
-                      <i class="fas fa-sliders-h me-2" aria-hidden="true"></i>
-                      App Settings
-                    </a>
-                  </li>
-                  <li role="none">
-                    <a
                       class="dropdown-item {% if request.url.path == '/profile' %}active{% endif %}"
                       href="/profile"
                       role="menuitem"
@@ -589,16 +578,6 @@
                 {% if request.url.path == '/settings' %}aria-current="page"{% endif %}
               >
                 <i class="fas fa-cog me-2" aria-hidden="true"></i> Settings
-              </a>
-            </li>
-            <li role="none">
-              <a
-                href="/app-settings"
-                class="{% if request.url.path == '/app-settings' %}active{% endif %}"
-                {% if request.url.path == '/app-settings' %}aria-current="page"{% endif %}
-              >
-                <i class="fas fa-sliders-h me-2" aria-hidden="true"></i> App
-                Settings
               </a>
             </li>
             <li role="none">

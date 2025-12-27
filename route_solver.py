@@ -14,9 +14,8 @@ import contextlib
 import heapq
 import logging
 import math
-from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Iterable
+from typing import Any
 
 import networkx as nx
 import osmnx as ox
@@ -36,7 +35,9 @@ logger = logging.getLogger(__name__)
 MAX_SEGMENTS = 5000
 
 EdgeRef = tuple[int, int, int]  # (u, v, key)
-ReqId = frozenset[EdgeRef]      # physical-ish edge requirement; can include reverse if present
+ReqId = frozenset[
+    EdgeRef
+]  # physical-ish edge requirement; can include reverse if present
 
 
 def _haversine_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
@@ -46,7 +47,10 @@ def _haversine_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     phi2 = math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlmb = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
+    )
     return 2 * r * math.asin(min(1.0, math.sqrt(a)))
 
 
@@ -90,6 +94,7 @@ def _get_edge_geometry(
 ) -> list[list[float]]:
     """
     Extract road geometry for an edge, automatically oriented u->v.
+
     Returns a list of [lon, lat] coordinates.
     """
     coords: list[list[float]] = []
@@ -101,7 +106,10 @@ def _get_edge_geometry(
             (vx, vy) = node_xy[v]
             return [[ux, uy], [vx, vy]]
         if u in G.nodes and v in G.nodes:
-            return [[G.nodes[u]["x"], G.nodes[u]["y"]], [G.nodes[v]["x"], G.nodes[v]["y"]]]
+            return [
+                [G.nodes[u]["x"], G.nodes[u]["y"]],
+                [G.nodes[v]["x"], G.nodes[v]["y"]],
+            ]
         return []
 
     try:
@@ -147,6 +155,7 @@ def _dijkstra_to_any_target(
 ) -> tuple[int, float, list[EdgeRef]] | None:
     """
     Early-exit Dijkstra: find shortest path from source to ANY node in targets.
+
     Returns (target_node, distance, path_edges[(u,v,key), ...]) or None.
     """
     if source in targets:
@@ -203,7 +212,9 @@ def _dijkstra_to_any_target(
     return None
 
 
-def _reverse_candidates_for_edge(G: nx.MultiDiGraph, u: int, v: int, key: int) -> list[EdgeRef]:
+def _reverse_candidates_for_edge(
+    G: nx.MultiDiGraph, u: int, v: int, key: int
+) -> list[EdgeRef]:
     """Find plausible reverse edges v->u (keys) if present."""
     if not G.has_edge(v, u):
         return []
@@ -225,6 +236,7 @@ def _reverse_candidates_for_edge(G: nx.MultiDiGraph, u: int, v: int, key: int) -
 def _make_req_id(G: nx.MultiDiGraph, edge: EdgeRef) -> tuple[ReqId, list[EdgeRef]]:
     """
     Build a requirement ID for a physical-ish segment:
+
     include the mapped directed edge, and include reverse edge(s) if they exist.
     ReqId is a frozenset of EdgeRef(s); options is the list of directed edges you can traverse to satisfy it.
     """
@@ -247,6 +259,7 @@ def _solve_greedy_route(
 ) -> tuple[list[list[float]], dict[str, float]]:
     """
     Solve with greedy strategy:
+
     Repeatedly deadhead to the nearest reachable required-start node (by graph distance),
     traverse one required edge, mark it visited.
     """
@@ -334,7 +347,7 @@ def _solve_greedy_route(
         if path_edges:
             deadhead_dist += d_dead
             total_dist += d_dead
-            for (u, v, k) in path_edges:
+            for u, v, k in path_edges:
                 key = None if k == -1 else k
                 geo = _get_edge_geometry(G, u, v, key, node_xy=node_xy)
                 _append_coords(geo)
@@ -356,7 +369,10 @@ def _solve_greedy_route(
             opts = [e for e in required_reqs[rid] if e[0] == target_start]
             return min(opts, key=lambda e: _edge_length_m(G, e[0], e[1], e[2]))
 
-        chosen_rid = min(candidates, key=lambda rid: _edge_length_m(G, *_best_service_edge_from_start(rid)))
+        chosen_rid = min(
+            candidates,
+            key=lambda rid: _edge_length_m(G, *_best_service_edge_from_start(rid)),
+        )
         service_edge = _best_service_edge_from_start(chosen_rid)
         su, sv, sk = service_edge
 
@@ -384,7 +400,9 @@ def _solve_greedy_route(
         "deadhead_distance": float(deadhead_dist),
         "teleport_distance": float(teleport_dist),
         "teleport_count": float(teleport_count),
-        "deadhead_percentage": float((deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0),
+        "deadhead_percentage": float(
+            (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0
+        ),
         "required_reqs": float(len(required_reqs)),
         "iterations": float(iterations),
     }
@@ -450,7 +468,9 @@ async def generate_optimal_route_with_progress(
         location_info = area.get("location", {})
         location_name = location_info.get("display_name", "Unknown")
 
-        await update_progress("loading_area", 10, f"Loading coverage area: {location_name}")
+        await update_progress(
+            "loading_area", 10, f"Loading coverage area: {location_name}"
+        )
 
         boundary_geom = location_info.get("geojson", {}).get("geometry")
         if boundary_geom:
@@ -458,11 +478,15 @@ async def generate_optimal_route_with_progress(
         else:
             bbox = location_info.get("boundingbox")
             if bbox and len(bbox) >= 4:
-                polygon = box(float(bbox[2]), float(bbox[0]), float(bbox[3]), float(bbox[1]))
+                polygon = box(
+                    float(bbox[2]), float(bbox[0]), float(bbox[3]), float(bbox[1])
+                )
             else:
                 raise ValueError("No valid boundary for coverage area")
 
-        await update_progress("loading_segments", 20, "Loading undriven street segments...")
+        await update_progress(
+            "loading_segments", 20, "Loading undriven street segments..."
+        )
 
         cursor = streets_collection.find(
             {
@@ -489,9 +513,14 @@ async def generate_optimal_route_with_progress(
                 "All streets already driven!",
                 "completed",
             )
-            return {"status": "already_complete", "message": "All streets already driven!"}
+            return {
+                "status": "already_complete",
+                "message": "All streets already driven!",
+            }
 
-        await update_progress("loading_segments", 30, f"Found {len(undriven)} undriven segments to route")
+        await update_progress(
+            "loading_segments", 30, f"Found {len(undriven)} undriven segments to route"
+        )
 
         await update_progress("fetching_osm", 40, "Downloading OSM street network...")
 
@@ -515,7 +544,11 @@ async def generate_optimal_route_with_progress(
             logger.error("Failed to download OSM data: %s", e)
             raise ValueError(f"Failed to download street network: {e}")
 
-        await update_progress("mapping_segments", 50, "Mapping segments to street network (nearest_edges)...")
+        await update_progress(
+            "mapping_segments",
+            50,
+            "Mapping segments to street network (nearest_edges)...",
+        )
 
         required_reqs: dict[ReqId, list[EdgeRef]] = {}
         skipped = 0
@@ -524,7 +557,9 @@ async def generate_optimal_route_with_progress(
         for idx, seg in enumerate(undriven):
             if idx % 250 == 0 and idx > 0:
                 pct = 50 + int((idx / total_segs) * 15)
-                await update_progress("mapping_segments", pct, f"Mapping segment {idx}/{total_segs}...")
+                await update_progress(
+                    "mapping_segments", pct, f"Mapping segment {idx}/{total_segs}..."
+                )
 
             geom = seg.get("geometry", {})
             coords = geom.get("coordinates", [])
@@ -568,9 +603,15 @@ async def generate_optimal_route_with_progress(
         start_node_id: int | None = None
         if start_coords:
             with contextlib.suppress(Exception):
-                start_node_id = int(ox.distance.nearest_nodes(G, start_coords[0], start_coords[1]))
+                start_node_id = int(
+                    ox.distance.nearest_nodes(G, start_coords[0], start_coords[1])
+                )
 
-        await update_progress("routing", 75, f"Computing greedy route for {len(required_reqs)} required edges...")
+        await update_progress(
+            "routing",
+            75,
+            f"Computing greedy route for {len(required_reqs)} required edges...",
+        )
 
         try:
             route_coords, stats = _solve_greedy_route(G, required_reqs, start_node_id)
@@ -643,7 +684,9 @@ async def generate_optimal_route(
     progress_callback: Any | None = None,
 ) -> dict[str, Any]:
     task_id = f"manual_{ObjectId()}"
-    return await generate_optimal_route_with_progress(location_id, task_id, start_coords)
+    return await generate_optimal_route_with_progress(
+        location_id, task_id, start_coords
+    )
 
 
 async def save_optimal_route(location_id: str, route_result: dict[str, Any]) -> None:
@@ -661,7 +704,9 @@ async def save_optimal_route(location_id: str, route_result: dict[str, Any]) -> 
                         "generated_at": datetime.now(UTC),
                         "distance_meters": route_result.get("total_distance_m"),
                         "required_edge_count": route_result.get("required_edge_count"),
-                        "undriven_segments_loaded": route_result.get("undriven_segments_loaded"),
+                        "undriven_segments_loaded": route_result.get(
+                            "undriven_segments_loaded"
+                        ),
                     },
                 }
             },

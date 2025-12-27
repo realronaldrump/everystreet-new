@@ -22,7 +22,7 @@ def get_redis_url() -> str:
 
     Environment Variables:
         REDIS_URL: Complete Redis URL (if provided, used directly)
-        REDISHOST or RAILWAY_PRIVATE_DOMAIN: Redis host
+        REDISHOST: Redis host
         REDISPORT: Redis port (default: 6379)
         REDISPASSWORD or REDIS_PASSWORD: Redis password
         REDISUSER: Redis username (default: "default")
@@ -38,7 +38,7 @@ def get_redis_url() -> str:
         return redis_url
 
     # Construct URL from components
-    redis_host = os.getenv("REDISHOST") or os.getenv("RAILWAY_PRIVATE_DOMAIN")
+    redis_host = os.getenv("REDISHOST")
     redis_port = os.getenv("REDISPORT", "6379")
     redis_password = os.getenv("REDISPASSWORD") or os.getenv("REDIS_PASSWORD")
     redis_user = os.getenv("REDISUSER", "default")
