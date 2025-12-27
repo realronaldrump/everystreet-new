@@ -236,7 +236,7 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .search-results-dropdown {
     max-height: min(350px, 40vh);
     min-width: 250px;
@@ -255,7 +255,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .search-results-dropdown {
     max-height: min(300px, 35vh);
     left: 0.5rem !important;

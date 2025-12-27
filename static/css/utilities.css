@@ -460,7 +460,7 @@
 }
 
 /* === Responsive Utilities === */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .d-mobile-none {
     display: none !important;
   }
@@ -474,7 +474,7 @@
   }
 }
 
-@media (min-width: 769px) {
+@media (width > 768px) {
   .d-desktop-none {
     display: none !important;
   }

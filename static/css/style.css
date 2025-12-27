@@ -1454,7 +1454,7 @@ body.light-mode .table-striped tbody tr:nth-of-type(odd) {
 }
 
 /* Mobile responsive adjustments */
-@media (max-width: 576px) {
+@media (width <= 576px) {
   .live-trip-metrics .metric-row {
     flex-direction: column;
     align-items: flex-start;
@@ -2204,7 +2204,7 @@ body.light-mode .legend-indicator--undriven {
 /* === Media Queries for Responsiveness === */
 
 /* Desktop: Hide mobile map elements */
-@media (min-width: 769px) {
+@media (width >= 769px) {
   .mobile-map-overlay,
   .mobile-fab-container,
   .mobile-bottom-sheet,
@@ -2213,7 +2213,7 @@ body.light-mode .legend-indicator--undriven {
   }
 }
 
-@media (max-width: 992px) {
+@media (width <= 992px) {
   /* Tablet and smaller */
   .main-content.sidebar-active {
     /* If sidebar class is on body or wrapper */
@@ -2255,7 +2255,7 @@ body.light-mode .legend-indicator--undriven {
   }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   /* Mobile landscape and smaller */
   .header-container {
     padding: 0 var(--space-2);
@@ -2397,7 +2397,8 @@ body.light-mode .legend-indicator--undriven {
     position: fixed;
     bottom: 0;
     left: 0;
-    right: 0;    background: var(--surface-1);
+    right: 0;
+    background: var(--surface-1);
     border-radius: 20px 20px 0 0;
     box-shadow:
       0 -4px 30px rgb(0 0 0 / 40%),
@@ -2964,14 +2965,14 @@ body.light-mode .legend-indicator--undriven {
   }
 }
 
-@media (max-width: 576px) {
+@media (width <= 576px) {
   /* Mobile portrait */
   :root {
     /* Adjust base font size for very small screens */
     --font-size-md: 0.9375rem; /* 15px */
   }
 
-  /* Note: .control-panel mobile styles handled above in @media (max-width: 768px) */
+  /* Note: .control-panel mobile styles handled above in @media (width <= 768px) */
 
   .notification-container {
     left: var(--space-2);
@@ -3011,7 +3012,7 @@ body.light-mode .legend-indicator--undriven {
   } /* Hide connecting line on small screens */
 }
 
-@media (max-width: 375px) {
+@media (width <= 375px) {
   /* Very small devices */
   .mobile-fab {
     width: 50px;

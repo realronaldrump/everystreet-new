@@ -10,7 +10,7 @@
 }
 
 /* Mobile: Hide desktop, show mobile UI */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .settings-desktop-container {
     display: none !important;
   }
@@ -642,7 +642,7 @@
   }
 
   /* Responsive adjustments */
-  @media (max-width: 480px) {
+  @media (width <= 480px) {
     .mobile-action-grid {
       grid-template-columns: 1fr;
     }
