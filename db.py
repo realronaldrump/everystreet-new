@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from fastapi import Request
     from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
-from date_utils import normalize_calendar_date, normalize_to_utc_datetime
+from date_utils import parse_timestamp, normalize_calendar_date, normalize_to_utc_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -509,10 +509,15 @@ optimal_route_progress_collection = _get_collection("optimal_route_progress")
 
 
 def serialize_datetime(
-    dt: datetime | None,
+    dt: datetime | str | None,
 ) -> str | None:
     if dt is None:
         return None
+    if isinstance(dt, str):
+        parsed = parse_timestamp(dt)
+        if parsed is None:
+            return None
+        dt = parsed
     dt = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
     return dt.isoformat().replace("+00:00", "Z")
 

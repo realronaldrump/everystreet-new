@@ -11,6 +11,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
+    if (window.$?.fn?.dataTable?.ext) {
+      $.fn.dataTable.ext.errMode = "none";
+    }
+
     await initializePage();
   } catch (e) {
     console.error("Trips Page: Critical initialization error:", e);
@@ -105,6 +109,7 @@ function initializeDataTable() {
       // When sending JSON with `contentType: "application/json"`, we need to handle the data processing differently or ensure backend expects it.
       // The backend `get_trips_datatable` expects `await request.json()`, so sending JSON string is correct.
       // However, jQuery ajax `data` needs to be stringified manually if contentType is json.
+      error: (xhr, _textStatus, error) => handleTripsAjaxError(xhr, error),
     },
     columns: [
       {
@@ -566,6 +571,46 @@ async function bulkDeleteTrips(ids) {
     if (window.notificationManager)
       window.notificationManager.show("Failed to delete trips", "danger");
   }
+}
+
+function handleTripsAjaxError(xhr, error) {
+  const message = extractAjaxErrorMessage(xhr, error);
+
+  console.error("Trips DataTable load failed:", {
+    status: xhr?.status,
+    message,
+  });
+
+  const helper = document.getElementById("filter-helper-text");
+  if (helper) {
+    helper.textContent = `Unable to load trips right now. ${message}`;
+    helper.classList.add("text-danger");
+  }
+
+  if (window.notificationManager) {
+    window.notificationManager.show(`Failed to load trips: ${message}`, "danger");
+  }
+}
+
+function extractAjaxErrorMessage(xhr, fallbackError) {
+  const fallback = fallbackError || "Unexpected error";
+  if (!xhr) return fallback;
+
+  if (xhr.responseJSON?.detail) return xhr.responseJSON.detail;
+  if (xhr.responseJSON?.message) return xhr.responseJSON.message;
+
+  if (xhr.responseText) {
+    try {
+      const parsed = JSON.parse(xhr.responseText);
+      if (parsed?.detail) return parsed.detail;
+      if (parsed?.message) return parsed.message;
+    } catch (e) {
+      // Not JSON, fall back to text
+      return xhr.responseText;
+    }
+  }
+
+  return xhr.statusText || fallback;
 }
 
 /**
