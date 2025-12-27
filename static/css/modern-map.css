@@ -1009,7 +1009,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 
 /* === Responsive Adjustments for Map Elements === */
 
-@media (width <= 768px) {
+@media (max-width: 768px) {
   /* Hide desktop control panel on mobile */
   .control-panel#map-controls {
     display: none;
@@ -1041,7 +1041,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   }
 }
 
-@media (width <= 576px) {
+@media (max-width: 576px) {
   /* Keep Mapbox control adjustments for very small screens */
   .mapboxgl-ctrl-group button {
     width: 28px !important;
@@ -1064,7 +1064,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 /* Desktop only - show control panel */
-@media (width > 768px) {
+@media (min-width: 769px) {
   .control-panel#map-controls {
     display: flex;
   }

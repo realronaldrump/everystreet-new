@@ -435,7 +435,7 @@
 /* Note: @keyframes loading moved to animations.css */
 
 /* Responsive Enhancements */
-@media (width <= 992px) {
+@media (max-width: 992px) {
   .map-container {
     height: 450px;
   }
@@ -445,7 +445,7 @@
   }
 }
 
-@media (width <= 768px) {
+@media (max-width: 768px) {
   .map-container {
     height: 350px;
   }

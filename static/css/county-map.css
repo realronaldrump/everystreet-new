@@ -490,7 +490,7 @@
 }
 
 /* Mobile Responsive */
-@media (width <= 768px) {
+@media (max-width: 768px) {
   .county-stats-panel {
     inset: auto 1rem 1rem;
     width: auto;

@@ -10,7 +10,7 @@
 }
 
 /* Mobile: Hide table, show cards */
-@media (width <= 768px) {
+@media (max-width: 768px) {
   .trips-desktop-container {
     display: none !important;
   }
@@ -310,7 +310,7 @@
 }
 
 /* Very small mobile devices */
-@media (width <= 480px) {
+@media (max-width: 480px) {
   .trip-info-grid {
     grid-template-columns: 1fr !important;
   }

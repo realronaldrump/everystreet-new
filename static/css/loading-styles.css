@@ -275,7 +275,7 @@ body.light-mode .skeleton-loader::after {
 }
 
 /* === Responsive Adjustments === */
-@media (width <= 576px) {
+@media (max-width: 576px) {
   .loading-content {
     padding: var(--space-4);
   }
