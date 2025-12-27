@@ -2114,8 +2114,6 @@ body.light-mode .legend-indicator--undriven {
   color: var(--text-on-primary) !important;
 }
 
-/* Note: Utility classes moved to utilities.css */
-
 .text-truncate {
   overflow: hidden;
   text-overflow: ellipsis;
