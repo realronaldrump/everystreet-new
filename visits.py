@@ -8,11 +8,9 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-import pymongo
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-from shapely.geometry import shape
 
 from date_utils import parse_timestamp
 from db import (
@@ -241,9 +239,6 @@ def parse_time(time_value):
     if time_value.tzinfo is None:
         return time_value.astimezone(UTC)
     return time_value
-
-
-
 
 
 async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:

@@ -469,9 +469,6 @@ class VehicleModel(BaseModel):
         extra = "allow"
 
 
-
-
-
 class GasFillupCreateModel(BaseModel):
     """Model for creating a new gas fill-up record."""
 
@@ -488,6 +485,3 @@ class GasFillupCreateModel(BaseModel):
 
     class Config:
         extra = "allow"
-
-
-

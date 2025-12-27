@@ -99,8 +99,6 @@ class TripProcessor:
         self.utm_proj = None
         self.utm_proj = None
 
-
-
     def _set_state(
         self,
         new_state: TripState,
@@ -1127,7 +1125,6 @@ class TripProcessor:
         self.utm_proj = pyproj.CRS(
             f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84",
         )
-
 
     async def _map_match_coordinates(
         self,

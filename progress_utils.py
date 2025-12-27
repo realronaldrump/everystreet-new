@@ -55,9 +55,3 @@ async def update_progress(
         {"$set": update_data},
         upsert=upsert,
     )
-
-
-
-
-
-

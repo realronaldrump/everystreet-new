@@ -68,8 +68,6 @@ class CoverageCalculator:
             else DEFAULT_MATCH_BUFFER_METERS
         )
 
-
-
         self.trip_batch_size: int = MAX_TRIPS_PER_BATCH
 
         # Stats tracking
