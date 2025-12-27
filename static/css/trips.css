@@ -1,5 +1,21 @@
 /* Trips Page - Mobile Responsive Styles */
 
+.filter-panel {
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-panel .form-label {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.filter-panel .input-group-text {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
 /* Desktop: Show table, hide mobile cards */
 .trips-mobile-container {
   display: none;
@@ -40,8 +56,9 @@
     padding: var(--space-3);
     border-bottom: 1px solid var(--border-color);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: var(--space-2);
   }
 
   .trip-card-checkbox {
@@ -56,6 +73,10 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
+  }
+
+  .trip-card-vehicle {
+    min-width: 140px;
   }
 
   .trip-card-start-time {

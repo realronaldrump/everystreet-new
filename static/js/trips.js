@@ -64,6 +64,16 @@ class TripsManager {
     this.tripsTable = null;
     this.tripsCache = new Map();
     this.isInitialized = false;
+    this.filters = {
+      imei: "",
+      distance_min: null,
+      distance_max: null,
+      speed_min: null,
+      speed_max: null,
+      fuel_min: null,
+      fuel_max: null,
+      has_fuel: false,
+    };
 
     // Mobile-specific state
     this.isMobile = window.innerWidth <= 768;
@@ -112,6 +122,15 @@ class TripsManager {
     return cleanedAddress || "Unknown";
   }
 
+  static formatVehicleLabel(trip) {
+    if (!trip) return "Unknown vehicle";
+    if (trip.vehicleLabel) return trip.vehicleLabel;
+    if (trip.custom_name) return trip.custom_name;
+    if (trip.vin) return `VIN ${trip.vin}`;
+    if (trip.imei) return `IMEI ${trip.imei}`;
+    return "Unknown vehicle";
+  }
+
   async init() {
     if (this.isInitialized) return;
 
@@ -120,6 +139,8 @@ class TripsManager {
       await waitForDependencies();
 
       this.initializeTripsTable();
+      await this.loadVehicleOptions();
+      this.initializeFilters();
       this.initializeEventListeners();
       this.initializeMobileEventListeners();
       this.isInitialized = true;
@@ -142,6 +163,164 @@ class TripsManager {
 
     this.initializeBulkActionButtons();
     this.initializeTableEditHandlers();
+  }
+
+  initializeFilters() {
+    this.restoreFilters();
+    this.applyFiltersToInputs();
+
+    const applyBtn = document.getElementById("trip-filter-apply");
+    const resetBtn = document.getElementById("trip-filter-reset");
+
+    const apply = () => {
+      this.readFiltersFromInputs();
+      this.persistFilters();
+      this.fetchTrips();
+    };
+
+    if (applyBtn) {
+      applyBtn.addEventListener("click", apply);
+    }
+
+    const inputs = [
+      "trip-filter-vehicle",
+      "trip-filter-distance-min",
+      "trip-filter-distance-max",
+      "trip-filter-speed-min",
+      "trip-filter-speed-max",
+      "trip-filter-fuel-min",
+      "trip-filter-fuel-max",
+      "trip-filter-has-fuel",
+    ];
+
+    inputs.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const handler = id === "trip-filter-has-fuel" ? apply : null;
+      el.addEventListener("change", handler || (() => {}));
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          apply();
+        }
+      });
+    });
+
+    if (resetBtn) {
+      resetBtn.addEventListener("click", () => {
+        this.filters = {
+          imei: "",
+          distance_min: null,
+          distance_max: null,
+          speed_min: null,
+          speed_max: null,
+          fuel_min: null,
+          fuel_max: null,
+          has_fuel: false,
+        };
+        this.applyFiltersToInputs();
+        this.persistFilters();
+        this.fetchTrips();
+      });
+    }
+  }
+
+  readFiltersFromInputs() {
+    const getNumber = (id) => {
+      const el = document.getElementById(id);
+      if (!el || el.value === "") return null;
+      const parsed = parseFloat(el.value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    this.filters = {
+      imei: document.getElementById("trip-filter-vehicle")?.value || "",
+      distance_min: getNumber("trip-filter-distance-min"),
+      distance_max: getNumber("trip-filter-distance-max"),
+      speed_min: getNumber("trip-filter-speed-min"),
+      speed_max: getNumber("trip-filter-speed-max"),
+      fuel_min: getNumber("trip-filter-fuel-min"),
+      fuel_max: getNumber("trip-filter-fuel-max"),
+      has_fuel: Boolean(
+        document.getElementById("trip-filter-has-fuel")?.checked
+      ),
+    };
+  }
+
+  applyFiltersToInputs() {
+    const setVal = (id, value) => {
+      const el = document.getElementById(id);
+      if (el !== null && el !== undefined) {
+        el.value = value ?? "";
+      }
+    };
+    setVal("trip-filter-vehicle", this.filters.imei || "");
+    setVal("trip-filter-distance-min", this.filters.distance_min);
+    setVal("trip-filter-distance-max", this.filters.distance_max);
+    setVal("trip-filter-speed-min", this.filters.speed_min);
+    setVal("trip-filter-speed-max", this.filters.speed_max);
+    setVal("trip-filter-fuel-min", this.filters.fuel_min);
+    setVal("trip-filter-fuel-max", this.filters.fuel_max);
+    const hasFuel = document.getElementById("trip-filter-has-fuel");
+    if (hasFuel) hasFuel.checked = !!this.filters.has_fuel;
+  }
+
+  persistFilters() {
+    const payload = JSON.stringify(this.filters);
+    if (window.utils?.setStorage) {
+      window.utils.setStorage("tripsFilters", payload);
+    } else {
+      localStorage.setItem("tripsFilters", payload);
+    }
+  }
+
+  restoreFilters() {
+    let raw = null;
+    if (window.utils?.getStorage) {
+      raw = window.utils.getStorage("tripsFilters");
+    } else {
+      raw = localStorage.getItem("tripsFilters");
+    }
+
+    if (!raw) return;
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      this.filters = { ...this.filters, ...(parsed || {}) };
+    } catch (_err) {
+      // ignore parse errors
+    }
+  }
+
+  getFilters() {
+    return { ...this.filters };
+  }
+
+  async loadVehicleOptions() {
+    const select = document.getElementById("trip-filter-vehicle");
+    if (!select) return;
+
+    try {
+      const response = await fetch("/api/vehicles?active_only=true");
+      if (!response.ok) throw new Error("Failed to load vehicles");
+      const vehicles = await response.json();
+
+      const optionsHtml = ["<option value=''>All vehicles</option>"].concat(
+        vehicles.map((v) => {
+          const label =
+            v.custom_name ||
+            [v.year, v.make, v.model].filter(Boolean).join(" ").trim() ||
+            (v.vin ? `VIN ${v.vin}` : `IMEI ${v.imei}`);
+          return `<option value="${v.imei}">${label}</option>`;
+        })
+      );
+      select.innerHTML = optionsHtml.join("");
+      // Re-apply restored selection
+      if (this.filters.imei) {
+        select.value = this.filters.imei;
+      }
+    } catch (error) {
+      console.error("Error loading vehicles for filters:", error);
+    }
   }
 
   initializeBulkActionButtons() {
@@ -316,6 +495,7 @@ class TripsManager {
               window.utils.getStorage("startDate") || DateUtils.getCurrentDate();
             d.end_date =
               window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
+            d.filters = this.getFilters();
             return JSON.stringify(d);
           },
           dataSrc: (json) => {
@@ -345,6 +525,21 @@ class TripsManager {
             searchable: false,
             className: "select-checkbox",
             render: () => '<input type="checkbox" class="trip-checkbox">',
+          },
+          {
+            data: "vehicleLabel",
+            title: "Vehicle",
+            render: (data, type, row) => {
+              const label = data || TripsManager.formatVehicleLabel(row);
+              if (type !== "display") return label;
+              const imei = row.imei || "";
+              const vin = row.vin || "";
+              const meta = vin ? `VIN ${vin}` : imei ? `IMEI ${imei}` : "—";
+              return `<div class="d-flex flex-column">
+                <span class="fw-semibold">${label}</span>
+                <span class="text-muted small">${meta}</span>
+              </div>`;
+            },
           },
           {
             data: "startTime",
@@ -441,7 +636,7 @@ class TripsManager {
           [10, 25, 50, 100],
           [10, 25, 50, 100],
         ],
-        order: [[1, "desc"]], // Sort by start time descending
+        order: [[2, "desc"]], // Sort by start time descending
         drawCallback: () => {
           // Update bulk delete button state
           this.updateBulkDeleteButton();
@@ -677,9 +872,10 @@ class TripsManager {
       const requestData = {
         start: this.mobileCurrentPage * this.mobilePageSize,
         length: this.mobilePageSize,
-        order: [{ column: 1, dir: "desc" }],
+        order: [{ column: 2, dir: "desc" }],
         start_date: startDate,
         end_date: endDate,
+        filters: this.getFilters(),
       };
 
       const response = await fetch("/api/trips/datatable", {
@@ -761,6 +957,8 @@ class TripsManager {
     const startLocation = TripsManager.formatLocation(trip.startLocation);
 
     const destination = TripsManager.formatLocation(trip.destination);
+    const vehicleLabel = TripsManager.formatVehicleLabel(trip);
+    const vehicleMeta = trip.vin || trip.imei || "";
 
     return `
       <div class="trip-card" data-trip-id="${transactionId}">
@@ -769,6 +967,10 @@ class TripsManager {
           <div class="trip-card-time">
             <div class="trip-card-start-time">${startTime}</div>
             <div class="trip-card-end-time">to ${endTime}</div>
+          </div>
+          <div class="trip-card-vehicle text-end">
+            <div class="fw-semibold">${vehicleLabel}</div>
+            <div class="text-muted small">${vehicleMeta || ""}</div>
           </div>
         </div>
         <div class="trip-card-body">

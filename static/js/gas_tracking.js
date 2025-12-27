@@ -9,6 +9,7 @@ let marker = null;
 let currentLocation = null;
 let vehicles = [];
 let recentFillups = [];
+let vehicleDiscoveryAttempted = false;
 
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", async () => {
@@ -87,26 +88,83 @@ async function initializeMap() {
 }
 
 /**
+ * Update inline vehicle status helper
+ */
+function setVehicleStatus(message, tone = "muted") {
+  const statusEl = document.getElementById("vehicle-status");
+  if (!statusEl) return;
+
+  const toneClassMap = {
+    success: "text-success",
+    warning: "text-warning",
+    danger: "text-danger",
+    muted: "text-muted",
+    info: "text-info",
+  };
+
+  const toneClass = toneClassMap[tone] || toneClassMap.muted;
+  statusEl.className = `vehicle-status small ${toneClass}`;
+  statusEl.textContent = message;
+}
+
+/**
+ * Toggle vehicle loading indicator and selection state
+ */
+function toggleVehicleLoading(isLoading, message = "Detecting vehicles...") {
+  const loadingEl = document.getElementById("vehicle-loading-state");
+  const loadingText = document.getElementById("vehicle-loading-text");
+  const vehicleSelect = document.getElementById("vehicle-select");
+
+  if (loadingEl) {
+    loadingEl.style.display = isLoading ? "inline-flex" : "none";
+  }
+  if (loadingText && message) {
+    loadingText.textContent = message;
+  }
+  if (vehicleSelect) {
+    vehicleSelect.disabled = isLoading && !vehicleSelect.value;
+  }
+}
+
+function formatVehicleName(vehicle) {
+  return (
+    vehicle.custom_name ||
+    (vehicle.vin ? `VIN: ${vehicle.vin}` : `IMEI: ${vehicle.imei}`)
+  );
+}
+
+/**
  * Load vehicles from API
  */
-async function loadVehicles() {
+async function loadVehicles(options = {}) {
+  const { skipDiscovery = false } = options;
+  const vehicleSelect = document.getElementById("vehicle-select");
+
   try {
+    toggleVehicleLoading(true, "Loading vehicles...");
+    setVehicleStatus("Loading your vehicles...", "muted");
+
     const response = await fetch("/api/vehicles?active_only=true");
     if (!response.ok) throw new Error("Failed to load vehicles");
 
     vehicles = await response.json();
 
-    const vehicleSelect = document.getElementById("vehicle-select");
     vehicleSelect.innerHTML = '<option value="">Select Vehicle...</option>';
 
+    if (vehicles.length === 0 && !vehicleDiscoveryAttempted && !skipDiscovery) {
+      vehicleDiscoveryAttempted = true;
+      const discovered = await attemptVehicleDiscovery();
+      if (discovered) {
+        return loadVehicles({ skipDiscovery: true });
+      }
+    }
+
     if (vehicles.length === 0) {
-      // Option for empty state
       vehicleSelect.innerHTML =
         '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
-
-      // Also show a clearer visual warning if possible
-      showError(
-        "No active vehicles found. Please go to Settings > Profile to manage vehicles."
+      setVehicleStatus(
+        "No vehicles detected yet. We tried auto-discovery—please sync from Profile.",
+        "warning"
       );
       return;
     }
@@ -114,10 +172,7 @@ async function loadVehicles() {
     vehicles.forEach((vehicle) => {
       const option = document.createElement("option");
       option.value = vehicle.imei;
-      const displayName =
-        vehicle.custom_name ||
-        (vehicle.vin ? `VIN: ${vehicle.vin}` : `IMEI: ${vehicle.imei}`);
-      option.textContent = displayName;
+      option.textContent = formatVehicleName(vehicle);
       option.dataset.vin = vehicle.vin || "";
       vehicleSelect.appendChild(option);
     });
@@ -126,14 +181,80 @@ async function loadVehicles() {
     if (vehicles.length === 1) {
       vehicleSelect.value = vehicles[0].imei;
       await updateLocationAndOdometer();
+      setVehicleStatus(
+        `Detected ${formatVehicleName(vehicles[0])} automatically.`,
+        "success"
+      );
     } else if (vehicles.length > 0) {
-      // Optional: restore last selected vehicle from localStorage if needed
-      // For now, just leave as "Select Vehicle..."
+      setVehicleStatus(
+        "Vehicles detected. Select one to see its latest location and odometer.",
+        "success"
+      );
     }
   } catch (error) {
     console.error("Error loading vehicles:", error);
+    setVehicleStatus(
+      "Could not load vehicles automatically. Please sync from Profile.",
+      "danger"
+    );
     showError("Failed to load vehicles");
+  } finally {
+    toggleVehicleLoading(false);
   }
+}
+
+/**
+ * Attempt to auto-discover vehicles via Bouncie or trip history
+ */
+async function attemptVehicleDiscovery() {
+  const discoverySteps = [
+    {
+      label: "Connecting to Bouncie…",
+      url: "/api/profile/bouncie-credentials/sync-vehicles",
+      method: "POST",
+      successMessage: "Pulled vehicles directly from Bouncie.",
+      tolerateStatuses: [400, 401],
+      hasVehicles: (data) =>
+        Array.isArray(data?.vehicles) && data.vehicles.length > 0,
+    },
+    {
+      label: "Scanning trip history…",
+      url: "/api/vehicles/sync-from-trips",
+      method: "POST",
+      successMessage: "Created vehicles from your recorded trips.",
+      hasVehicles: (data) =>
+        (data?.synced ?? 0) > 0 ||
+        (data?.updated ?? 0) > 0 ||
+        (data?.total_vehicles ?? 0) > 0,
+    },
+  ];
+
+  for (const step of discoverySteps) {
+    try {
+      toggleVehicleLoading(true, step.label);
+      const response = await fetch(step.url, { method: step.method });
+
+      if (!response.ok) {
+        if (step.tolerateStatuses?.includes(response.status)) {
+          continue;
+        }
+        const errorText = await response.text();
+        console.warn(`Vehicle discovery failed (${step.label}):`, errorText);
+        continue;
+      }
+
+      const data = await response.json().catch(() => ({}));
+      if (step.hasVehicles?.(data)) {
+        setVehicleStatus(step.successMessage, "success");
+        showSuccess(step.successMessage);
+        return true;
+      }
+    } catch (err) {
+      console.warn(`Vehicle discovery error during ${step.label}:`, err);
+    }
+  }
+
+  return false;
 }
 
 /**
