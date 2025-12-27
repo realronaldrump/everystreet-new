@@ -568,14 +568,24 @@ body {
 .mobile-nav-drawer a,
 .mobile-nav-drawer a:link,
 .mobile-nav-drawer a:visited {
-  color: var(--text-secondary);
-  text-decoration: none;
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
 }
 
 .mobile-nav-drawer a:hover,
 .mobile-nav-drawer a:focus {
-  color: var(--text-primary);
-  text-decoration: none;
+  color: var(--text-primary) !important;
+  text-decoration: none !important;
+}
+
+/* Ensure all lists in mobile nav drawer have no bullets */
+.mobile-nav-drawer ul,
+.mobile-nav-drawer ol,
+.mobile-nav-drawer li {
+  list-style: none !important;
+  list-style-type: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
 }
 
 .drawer-header {
@@ -611,8 +621,20 @@ body {
   padding: var(--space-2) 0; /* Reduced top/bottom padding */
 }
 
+.mobile-nav-drawer .drawer-nav-list,
 .drawer-nav-list {
-  list-style: none;
+  list-style: none !important;
+  list-style-type: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.mobile-nav-drawer .drawer-nav-list li,
+.drawer-nav-list li {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .mobile-nav-drawer .drawer-nav-list li a,
@@ -706,16 +728,31 @@ body {
   transform: rotate(-90deg);
 }
 
-.drawer-nav-section-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.mobile-nav-drawer .drawer-nav-section-list,
+.drawer-nav-section-list,
+.mobile-nav-drawer ul,
+.drawer-nav ul {
+  list-style: none !important;
+  list-style-type: none !important;
+  padding: 0 !important;
+  padding-left: 0 !important;
+  margin: 0 !important;
   overflow: hidden;
   max-height: 500px;
   transition:
     max-height var(--transition-slow),
     opacity var(--transition-normal);
   opacity: 1;
+}
+
+.mobile-nav-drawer .drawer-nav-section-list li,
+.drawer-nav-section-list li,
+.mobile-nav-drawer ul li,
+.drawer-nav ul li {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .drawer-nav-section-list.collapsed {

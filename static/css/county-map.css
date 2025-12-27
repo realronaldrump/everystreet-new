@@ -446,7 +446,7 @@
   margin-right: 0.25rem;
 }
 
-/* Loading Overlay - Fixed to be fully visible */
+/* Map Loading Overlay - uses global loading styles from loading-styles.css */
 .map-loading-overlay {
   position: absolute;
   inset: 0;
@@ -461,32 +461,6 @@
 .map-loading-overlay.hidden {
   opacity: 0;
   pointer-events: none;
-}
-
-.loading-content {
-  text-align: center;
-  padding: 2rem;
-}
-
-.loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 3px solid rgb(255 255 255 / 10%);
-  border-top-color: #10b981;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.loading-text {
-  font-size: 1rem;
-  color: var(--text-primary, #fff);
 }
 
 /* Mobile Responsive */

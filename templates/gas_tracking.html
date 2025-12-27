@@ -169,12 +169,13 @@
     box-shadow: var(--shadow-md);
   }
 
-  .loading-spinner {
+  /* Button loading spinner - uses global .btn-loading styles */
+  .btn-save .spinner-border {
     display: none;
     margin-left: var(--space-2);
   }
 
-  .loading-spinner.active {
+  .btn-save.loading .spinner-border {
     display: inline-block;
   }
 </style>
