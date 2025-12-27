@@ -241,9 +241,7 @@ class TripsManager {
       speed_max: getNumber("trip-filter-speed-max"),
       fuel_min: getNumber("trip-filter-fuel-min"),
       fuel_max: getNumber("trip-filter-fuel-max"),
-      has_fuel: Boolean(
-        document.getElementById("trip-filter-has-fuel")?.checked
-      ),
+      has_fuel: Boolean(document.getElementById("trip-filter-has-fuel")?.checked),
     };
   }
 

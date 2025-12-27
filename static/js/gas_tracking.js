@@ -214,8 +214,7 @@ async function attemptVehicleDiscovery() {
       method: "POST",
       successMessage: "Pulled vehicles directly from Bouncie.",
       tolerateStatuses: [400, 401],
-      hasVehicles: (data) =>
-        Array.isArray(data?.vehicles) && data.vehicles.length > 0,
+      hasVehicles: (data) => Array.isArray(data?.vehicles) && data.vehicles.length > 0,
     },
     {
       label: "Scanning trip history…",
