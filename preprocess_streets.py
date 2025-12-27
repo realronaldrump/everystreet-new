@@ -493,9 +493,9 @@ async def preprocess_streets(
         )
 
         logger.info(
-            "Processed %d segments (%.1f km) for %s",
+            "Processed %d segments (%.1f mi) for %s",
             total_segments,
-            total_length / 1000,
+            total_length * 0.000621371,
             location_name,
         )
 
