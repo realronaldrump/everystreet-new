@@ -241,7 +241,7 @@
   .settings-container {
     padding: var(--space-2);
   }
-  
+
   .settings-tabs {
     padding: var(--space-2);
     gap: var(--space-1);
@@ -260,7 +260,7 @@
   .settings-tab i {
     font-size: var(--font-size-lg);
   }
-  
+
   /* Stack setting items vertically on mobile */
   .setting-item {
     flex-direction: column;
@@ -271,14 +271,14 @@
   .setting-control {
     width: 100%;
   }
-  
+
   /* Form check switch should be right-aligned */
   .setting-control .form-check.form-switch {
     display: flex;
     justify-content: flex-start;
     padding-left: 0;
   }
-  
+
   .setting-control .form-check-input {
     margin-left: 0;
     margin-right: var(--space-2);
@@ -289,11 +289,11 @@
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .opacity-slider {
     width: 100%;
   }
-  
+
   .opacity-slider input[type="range"] {
     flex: 1;
   }
@@ -305,51 +305,51 @@
   .preferences-actions .btn {
     width: 100%;
   }
-  
+
   /* Hide less important table columns on mobile */
   .col-hide-mobile {
     display: none !important;
   }
-  
+
   /* Task action buttons grid */
   .task-action-buttons {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-2);
   }
-  
+
   .task-action-buttons .btn {
     justify-content: center;
     padding: var(--space-2) var(--space-3);
     font-size: var(--font-size-sm);
   }
-  
+
   .task-action-buttons .btn .btn-text {
     display: none;
   }
-  
+
   /* Table adjustments */
   .settings-group .table th,
   .settings-group .table td {
     padding: var(--space-2);
     font-size: var(--font-size-sm);
   }
-  
+
   /* Form layouts */
   .settings-group .row.g-3 {
     flex-direction: column;
   }
-  
+
   .settings-group [class^="col-"] {
     width: 100%;
   }
-  
+
   /* Button groups */
   .btn-group {
     flex-direction: column;
     width: 100%;
   }
-  
+
   .btn-group .btn {
     width: 100%;
     margin-bottom: var(--space-1);
@@ -362,11 +362,11 @@
   .task-action-buttons {
     grid-template-columns: 1fr;
   }
-  
+
   .settings-group {
     padding: var(--space-3);
   }
-  
+
   .settings-group-title {
     font-size: var(--font-size-md);
   }

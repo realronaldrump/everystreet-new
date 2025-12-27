@@ -1,11 +1,10 @@
-{% extends "base.html" %} {% block title %}Settings{% endblock %} 
-{% block extra_css %}
+{% extends "base.html" %} {% block title %}Settings{% endblock %} {% block
+extra_css %}
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}"
 />
-{% endblock %}
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid settings-container">
   <!-- Tab Navigation -->
   <div class="settings-tabs">
@@ -36,11 +35,19 @@
           <div class="setting-item">
             <div class="setting-label">
               <div class="setting-label-title">Dark Mode</div>
-              <div class="setting-label-description">Use dark theme for the application interface</div>
+              <div class="setting-label-description">
+                Use dark theme for the application interface
+              </div>
             </div>
             <div class="setting-control">
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="dark-mode-toggle" checked />
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="dark-mode-toggle"
+                  checked
+                />
               </div>
             </div>
           </div>
@@ -55,22 +62,41 @@
           <div class="setting-item">
             <div class="setting-label">
               <div class="setting-label-title">Highlight Recent Trips</div>
-              <div class="setting-label-description">Visually emphasize recently completed trips on the map</div>
+              <div class="setting-label-description">
+                Visually emphasize recently completed trips on the map
+              </div>
             </div>
             <div class="setting-control">
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="highlight-recent-trips" checked />
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="highlight-recent-trips"
+                  checked
+                />
               </div>
             </div>
           </div>
           <div class="setting-item">
             <div class="setting-label">
-              <div class="setting-label-title">Auto-Center on Live Location</div>
-              <div class="setting-label-description">Automatically center the map on your current location during live tracking</div>
+              <div class="setting-label-title">
+                Auto-Center on Live Location
+              </div>
+              <div class="setting-label-description">
+                Automatically center the map on your current location during
+                live tracking
+              </div>
             </div>
             <div class="setting-control">
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="auto-center-toggle" checked />
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="auto-center-toggle"
+                  checked
+                />
               </div>
             </div>
           </div>
@@ -85,26 +111,45 @@
           <div class="setting-item">
             <div class="setting-label">
               <div class="setting-label-title">Show Live Tracking Panel</div>
-              <div class="setting-label-description">Display the live tracking panel on the main map</div>
+              <div class="setting-label-description">
+                Display the live tracking panel on the main map
+              </div>
             </div>
             <div class="setting-control">
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="show-live-tracking" checked />
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="show-live-tracking"
+                  checked
+                />
               </div>
             </div>
           </div>
           <div class="setting-item">
             <div class="setting-label">
               <div class="setting-label-title">Tracking Path Style</div>
-              <div class="setting-label-description">Customize the color and opacity of the live tracking path</div>
+              <div class="setting-label-description">
+                Customize the color and opacity of the live tracking path
+              </div>
             </div>
             <div class="setting-control">
               <div class="color-picker-row">
                 <input type="color" id="polyline-color" value="#00FF00" />
                 <div class="opacity-slider">
                   <span>Opacity:</span>
-                  <input type="range" min="0.1" max="1" step="0.1" id="polyline-opacity" value="0.8" />
-                  <span id="opacity-value" class="opacity-slider-value">0.8</span>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1"
+                    step="0.1"
+                    id="polyline-opacity"
+                    value="0.8"
+                  />
+                  <span id="opacity-value" class="opacity-slider-value"
+                    >0.8</span
+                  >
                 </div>
               </div>
             </div>
@@ -120,11 +165,20 @@
           <div class="setting-item">
             <div class="setting-label">
               <div class="setting-label-title">Geocode Trips on Fetch</div>
-              <div class="setting-label-description">Automatically reverse geocode trips when fetched from Bouncie to get start and end locations. Disable to reduce processing time.</div>
+              <div class="setting-label-description">
+                Automatically reverse geocode trips when fetched from Bouncie to
+                get start and end locations. Disable to reduce processing time.
+              </div>
             </div>
             <div class="setting-control">
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="geocode-trips-on-fetch" checked />
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="geocode-trips-on-fetch"
+                  checked
+                />
               </div>
             </div>
           </div>
@@ -153,17 +207,27 @@
       <div class="setting-item">
         <div class="setting-label">
           <div class="setting-label-title">Globally Disable Tasks</div>
-          <div class="setting-label-description">Pause all automated background tasks</div>
+          <div class="setting-label-description">
+            Pause all automated background tasks
+          </div>
         </div>
         <div class="setting-control">
           <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="globalDisableSwitch" />
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="globalDisableSwitch"
+            />
           </div>
         </div>
       </div>
-      
+
       <div class="task-action-buttons">
-        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#pauseModal">
+        <button
+          class="btn btn-warning"
+          data-bs-toggle="modal"
+          data-bs-target="#pauseModal"
+        >
           <i class="fas fa-pause"></i>
           <span class="btn-text">Pause Tasks</span>
         </button>
@@ -230,28 +294,46 @@
         Manual Trip Fetch
       </h3>
       <p class="text-muted small">
-        Schedule an on-demand trip fetch for a specific date range. Map
-        matching can be toggled for the fetched trips.
+        Schedule an on-demand trip fetch for a specific date range. Map matching
+        can be toggled for the fetched trips.
       </p>
       <form id="manualFetchTripsForm" class="row g-3">
         <div class="col-md-4">
           <label for="manual-fetch-start" class="form-label">Start</label>
-          <input type="datetime-local" class="form-control" id="manual-fetch-start" required />
+          <input
+            type="datetime-local"
+            class="form-control"
+            id="manual-fetch-start"
+            required
+          />
         </div>
         <div class="col-md-4">
           <label for="manual-fetch-end" class="form-label">End</label>
-          <input type="datetime-local" class="form-control" id="manual-fetch-end" required />
+          <input
+            type="datetime-local"
+            class="form-control"
+            id="manual-fetch-end"
+            required
+          />
         </div>
         <div class="col-md-4 d-flex align-items-end">
           <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="manual-fetch-map-match" />
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="manual-fetch-map-match"
+            />
             <label class="form-check-label" for="manual-fetch-map-match">
               Enable map matching
             </label>
           </div>
         </div>
         <div class="col-12 d-flex align-items-center gap-3 flex-wrap">
-          <button type="submit" class="btn btn-success" id="manual-fetch-submit">
+          <button
+            type="submit"
+            class="btn btn-success"
+            id="manual-fetch-submit"
+          >
             <i class="fas fa-cloud-download-alt"></i> Fetch Trips
           </button>
           <span class="text-muted" id="manual-fetch-status"></span>
@@ -266,10 +348,16 @@
         Fetch All Missing Trips
       </h3>
       <p class="text-muted small">
-        Fetches all trips from a configurable start date to now. Useful for filling gaps.
+        Fetches all trips from a configurable start date to now. Useful for
+        filling gaps.
       </p>
       <div class="d-flex align-items-center gap-3 flex-wrap">
-        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#fetchAllMissingModal" id="openFetchAllMissingModalBtn">
+        <button
+          class="btn btn-warning"
+          data-bs-toggle="modal"
+          data-bs-target="#fetchAllMissingModal"
+          id="openFetchAllMissingModalBtn"
+        >
           <i class="fas fa-sync-alt"></i> Fetch All Missing Trips
         </button>
         <span class="text-muted" id="fetchAllMissingStatus"></span>
@@ -282,7 +370,9 @@
         <i class="fas fa-history"></i>
         Task History
       </h3>
-      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <div
+        class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"
+      >
         <button class="btn btn-danger btn-sm" id="clearHistoryBtn">
           <i class="fas fa-trash"></i> Clear History
         </button>
@@ -319,7 +409,8 @@
         Invalid Trips Review
       </h3>
       <p class="text-muted small">
-        Review trips that were marked as invalid. You can restore them if they are valid or permanently delete them.
+        Review trips that were marked as invalid. You can restore them if they
+        are valid or permanently delete them.
       </p>
       <div class="table-responsive">
         <table class="table table-dark table-hover" id="invalidTripsTable">
@@ -345,7 +436,10 @@
         <i class="fas fa-map-marker-alt"></i>
         Re-geocode Trips
       </h3>
-      <p class="text-muted small">Re-geocode trips within a date range. Only trips without addresses will be geocoded. Efficiently checks against custom places.</p>
+      <p class="text-muted small">
+        Re-geocode trips within a date range. Only trips without addresses will
+        be geocoded. Efficiently checks against custom places.
+      </p>
 
       <div class="mb-3">
         <label for="geocode-type" class="form-label">Select Method:</label>
@@ -360,18 +454,28 @@
         <div class="row g-3">
           <div class="col-md-6">
             <label for="geocode-start" class="form-label">Start Date:</label>
-            <input type="text" id="geocode-start" class="form-control datepicker" />
+            <input
+              type="text"
+              id="geocode-start"
+              class="form-control datepicker"
+            />
           </div>
           <div class="col-md-6">
             <label for="geocode-end" class="form-label">End Date:</label>
-            <input type="text" id="geocode-end" class="form-control datepicker" />
+            <input
+              type="text"
+              id="geocode-end"
+              class="form-control datepicker"
+            />
           </div>
         </div>
       </div>
 
       <div id="geocode-interval" style="display: none">
         <div class="mb-3">
-          <label for="geocode-interval-select" class="form-label">Select Interval:</label>
+          <label for="geocode-interval-select" class="form-label"
+            >Select Interval:</label
+          >
           <select id="geocode-interval-select" class="form-select">
             <option value="1">Last Day</option>
             <option value="3">Last 3 Days</option>
@@ -391,7 +495,7 @@
         </button>
         <div id="geocode-trips-status" class="mt-2"></div>
       </div>
-      
+
       <!-- Progress Panel -->
       <div id="geocode-progress-panel" class="mt-3" style="display: none">
         <div class="card bg-secondary">
@@ -439,7 +543,11 @@
         <div class="row g-3">
           <div class="col-md-6">
             <label for="remap-start" class="form-label">Start Date:</label>
-            <input type="text" id="remap-start" class="form-control datepicker" />
+            <input
+              type="text"
+              id="remap-start"
+              class="form-control datepicker"
+            />
           </div>
           <div class="col-md-6">
             <label for="remap-end" class="form-label">End Date:</label>
@@ -450,7 +558,9 @@
 
       <div id="remap-interval" style="display: none">
         <div class="mb-3">
-          <label for="remap-interval-select" class="form-label">Select Interval:</label>
+          <label for="remap-interval-select" class="form-label"
+            >Select Interval:</label
+          >
           <select id="remap-interval-select" class="form-select">
             <option value="1">Last Day</option>
             <option value="3">Last 3 Days</option>
@@ -481,13 +591,19 @@
     <div class="modal-content bg-dark text-white">
       <div class="modal-header">
         <h5 class="modal-title">Task Details</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
       </div>
       <div class="modal-body">
         <div class="task-details-content"></div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Close
+        </button>
         <button type="button" class="btn btn-primary run-task-btn">
           <i class="fas fa-play"></i> Run Now
         </button>
@@ -502,21 +618,37 @@
     <div class="modal-content bg-dark text-white">
       <div class="modal-header">
         <h5 class="modal-title">Pause Tasks</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
       </div>
       <div class="modal-body">
         <p>
-          Pausing tasks will temporarily stop scheduled task execution.
-          Running tasks will complete, but no new tasks will start.
+          Pausing tasks will temporarily stop scheduled task execution. Running
+          tasks will complete, but no new tasks will start.
         </p>
         <div class="mb-3">
-          <label for="pauseDuration" class="form-label">Pause Duration (minutes):</label>
-          <input type="number" class="form-control" id="pauseDuration" min="1" value="60" />
+          <label for="pauseDuration" class="form-label"
+            >Pause Duration (minutes):</label
+          >
+          <input
+            type="number"
+            class="form-control"
+            id="pauseDuration"
+            min="1"
+            value="60"
+          />
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-warning" id="confirmPause">Pause Tasks</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-warning" id="confirmPause">
+          Pause Tasks
+        </button>
       </div>
     </div>
   </div>
@@ -528,16 +660,25 @@
     <div class="modal-content bg-dark text-white">
       <div class="modal-header">
         <h5 class="modal-title">Clear Task History</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
       </div>
       <div class="modal-body">
         <p>
-          Are you sure you want to clear the task history? This action cannot be undone.
+          Are you sure you want to clear the task history? This action cannot be
+          undone.
         </p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-danger" id="confirmClearHistory">Clear History</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-danger" id="confirmClearHistory">
+          Clear History
+        </button>
       </div>
     </div>
   </div>
@@ -551,37 +692,66 @@
     </div>
     <span class="status-text">Running...</span>
     <div class="progress ms-2" style="width: 100px; height: 6px">
-      <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+      <div
+        class="progress-bar progress-bar-striped progress-bar-animated"
+        role="progressbar"
+        style="width: 0%"
+      ></div>
     </div>
   </div>
 </template>
 
 <!-- Fetch All Missing Trips Modal -->
-<div class="modal fade" id="fetchAllMissingModal" tabindex="-1" aria-labelledby="fetchAllMissingModalLabel" aria-hidden="true">
+<div
+  class="modal fade"
+  id="fetchAllMissingModal"
+  tabindex="-1"
+  aria-labelledby="fetchAllMissingModalLabel"
+  aria-hidden="true"
+>
   <div class="modal-dialog">
     <div class="modal-content bg-dark text-white">
       <div class="modal-header">
         <h5 class="modal-title" id="fetchAllMissingModalLabel">
           Fetch All Missing Trips
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
       </div>
       <div class="modal-body">
         <p>
-          This will fetch all trips from the selected start date up to now.
-          This process may take a while.
+          This will fetch all trips from the selected start date up to now. This
+          process may take a while.
         </p>
         <div class="mb-3">
-          <label for="fetchAllMissingStart" class="form-label">Start Date</label>
-          <input type="datetime-local" class="form-control" id="fetchAllMissingStart" />
+          <label for="fetchAllMissingStart" class="form-label"
+            >Start Date</label
+          >
+          <input
+            type="datetime-local"
+            class="form-control"
+            id="fetchAllMissingStart"
+          />
           <div class="form-text text-muted">
             Defaults to the earliest trip found in your database.
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-warning" id="confirmFetchAllMissing">Start Fetch</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn btn-warning"
+          id="confirmFetchAllMissing"
+        >
+          Start Fetch
+        </button>
       </div>
     </div>
   </div>
