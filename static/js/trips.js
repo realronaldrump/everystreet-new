@@ -242,7 +242,7 @@ class TripsManager {
       fuel_min: getNumber("trip-filter-fuel-min"),
       fuel_max: getNumber("trip-filter-fuel-max"),
       has_fuel: Boolean(
-        document.getElementById("trip-filter-has-fuel")?.checked
+        document.getElementById("trip-filter-has-fuel")?.checked,
       ),
     };
   }
@@ -311,7 +311,7 @@ class TripsManager {
             [v.year, v.make, v.model].filter(Boolean).join(" ").trim() ||
             (v.vin ? `VIN ${v.vin}` : `IMEI ${v.imei}`);
           return `<option value="${v.imei}">${label}</option>`;
-        })
+        }),
       );
       select.innerHTML = optionsHtml.join("");
       // Re-apply restored selection
@@ -332,7 +332,9 @@ class TripsManager {
       });
     }
 
-    const refreshGeocodingBtn = document.getElementById("refresh-geocoding-btn");
+    const refreshGeocodingBtn = document.getElementById(
+      "refresh-geocoding-btn",
+    );
     if (refreshGeocodingBtn) {
       refreshGeocodingBtn.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
@@ -492,7 +494,8 @@ class TripsManager {
           data: (d) => {
             // Add date filters
             d.start_date =
-              window.utils.getStorage("startDate") || DateUtils.getCurrentDate();
+              window.utils.getStorage("startDate") ||
+              DateUtils.getCurrentDate();
             d.end_date =
               window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
             d.filters = this.getFilters();
@@ -513,7 +516,7 @@ class TripsManager {
             if (typeof handleError === "function") {
               handleError(
                 new Error(`Error fetching trips: ${thrown || error}`),
-                "Trips data loading"
+                "Trips data loading",
               );
             }
           },
@@ -544,12 +547,14 @@ class TripsManager {
           {
             data: "startTime",
             title: "Start Time",
-            render: (data, type) => this.renderDateTime(data, type, null, "startTime"),
+            render: (data, type) =>
+              this.renderDateTime(data, type, null, "startTime"),
           },
           {
             data: "endTime",
             title: "End Time",
-            render: (data, type) => this.renderDateTime(data, type, null, "endTime"),
+            render: (data, type) =>
+              this.renderDateTime(data, type, null, "endTime"),
           },
           {
             data: "duration",
@@ -593,7 +598,12 @@ class TripsManager {
             title: "Idle Duration (min)",
             render: (data, type) => {
               const value = data != null ? (data / 60).toFixed(2) : "N/A";
-              return createEditableCell(value, type, "totalIdleDuration", "number");
+              return createEditableCell(
+                value,
+                type,
+                "totalIdleDuration",
+                "number",
+              );
             },
           },
           {
@@ -717,22 +727,30 @@ class TripsManager {
 
     if (fromMobile) {
       const checkedCheckboxes = document.querySelectorAll(
-        ".trip-card-checkbox:checked"
+        ".trip-card-checkbox:checked",
       );
       if (checkedCheckboxes.length === 0) {
         if (window.notificationManager) {
-          window.notificationManager.show("Please select trips to delete.", "info");
+          window.notificationManager.show(
+            "Please select trips to delete.",
+            "info",
+          );
         }
         return;
       }
       tripIds = Array.from(checkedCheckboxes).map((checkbox) =>
-        checkbox.getAttribute("data-trip-id")
+        checkbox.getAttribute("data-trip-id"),
       );
     } else {
-      const checkedCheckboxes = document.querySelectorAll(".trip-checkbox:checked");
+      const checkedCheckboxes = document.querySelectorAll(
+        ".trip-checkbox:checked",
+      );
       if (checkedCheckboxes.length === 0) {
         if (window.notificationManager) {
-          window.notificationManager.show("Please select trips to delete.", "info");
+          window.notificationManager.show(
+            "Please select trips to delete.",
+            "info",
+          );
         }
         return;
       }
@@ -763,7 +781,7 @@ class TripsManager {
       // Fallback for environments where confirmationDialog is not available
       if (
         confirm(
-          `Are you sure you want to delete ${tripIds.length} selected trip(s)? This action cannot be undone.`
+          `Are you sure you want to delete ${tripIds.length} selected trip(s)? This action cannot be undone.`,
         )
       ) {
         await this.performBulkDelete(tripIds);
@@ -785,7 +803,9 @@ class TripsManager {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete one or more trips");
+        throw new Error(
+          errorData.error || "Failed to delete one or more trips",
+        );
       }
 
       const result = await response.json();
@@ -793,7 +813,7 @@ class TripsManager {
       if (window.notificationManager) {
         window.notificationManager.show(
           result.message || "Trips deleted successfully",
-          "success"
+          "success",
         );
       }
 
@@ -832,7 +852,7 @@ class TripsManager {
       if (window.notificationManager) {
         window.notificationManager.show(
           "Geocoding refresh started successfully. It may take some time to see the changes.",
-          "success"
+          "success",
         );
       }
     } catch (error) {
@@ -867,7 +887,8 @@ class TripsManager {
     try {
       const startDate =
         window.utils.getStorage("startDate") || DateUtils.getCurrentDate();
-      const endDate = window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
+      const endDate =
+        window.utils.getStorage("endDate") || DateUtils.getCurrentDate();
 
       const requestData = {
         start: this.mobileCurrentPage * this.mobilePageSize,
@@ -946,9 +967,13 @@ class TripsManager {
     const distance = parseFloat(trip.distance || 0).toFixed(2);
     const maxSpeed = parseFloat(trip.maxSpeed || 0).toFixed(1);
     const idleDuration =
-      trip.totalIdleDuration != null ? (trip.totalIdleDuration / 60).toFixed(2) : "N/A";
+      trip.totalIdleDuration != null
+        ? (trip.totalIdleDuration / 60).toFixed(2)
+        : "N/A";
     const fuelConsumed =
-      trip.fuelConsumed != null ? parseFloat(trip.fuelConsumed).toFixed(2) : "N/A";
+      trip.fuelConsumed != null
+        ? parseFloat(trip.fuelConsumed).toFixed(2)
+        : "N/A";
     const estimatedCost =
       trip.estimated_cost != null
         ? `$${parseFloat(trip.estimated_cost).toFixed(2)}`
@@ -1050,7 +1075,7 @@ class TripsManager {
     const start = this.mobileCurrentPage * this.mobilePageSize + 1;
     const end = Math.min(
       (this.mobileCurrentPage + 1) * this.mobilePageSize,
-      this.mobileTotalTrips
+      this.mobileTotalTrips,
     );
     pageInfo.textContent = `Showing ${start}-${end} of ${this.mobileTotalTrips} trips`;
 
@@ -1087,7 +1112,9 @@ class TripsManager {
     });
 
     // Mobile bulk delete
-    const bulkDeleteMobile = document.getElementById("bulk-delete-trips-mobile-btn");
+    const bulkDeleteMobile = document.getElementById(
+      "bulk-delete-trips-mobile-btn",
+    );
     if (bulkDeleteMobile) {
       bulkDeleteMobile.addEventListener("click", () => {
         this.bulkDeleteTrips(true);
@@ -1095,7 +1122,9 @@ class TripsManager {
     }
 
     // Mobile refresh geocoding
-    const refreshMobile = document.getElementById("refresh-geocoding-mobile-btn");
+    const refreshMobile = document.getElementById(
+      "refresh-geocoding-mobile-btn",
+    );
     if (refreshMobile) {
       refreshMobile.addEventListener("click", () => {
         this.refreshGeocoding();
@@ -1117,7 +1146,8 @@ class TripsManager {
 
     if (nextBtn) {
       nextBtn.addEventListener("click", () => {
-        const maxPage = Math.ceil(this.mobileTotalTrips / this.mobilePageSize) - 1;
+        const maxPage =
+          Math.ceil(this.mobileTotalTrips / this.mobilePageSize) - 1;
         if (this.mobileCurrentPage < maxPage) {
           this.mobileCurrentPage++;
           this.fetchMobileTrips();
@@ -1129,7 +1159,9 @@ class TripsManager {
   updateMobileBulkDeleteButton() {
     const anyChecked =
       document.querySelectorAll(".trip-card-checkbox:checked").length > 0;
-    const bulkDeleteBtn = document.getElementById("bulk-delete-trips-mobile-btn");
+    const bulkDeleteBtn = document.getElementById(
+      "bulk-delete-trips-mobile-btn",
+    );
     if (bulkDeleteBtn) {
       bulkDeleteBtn.disabled = !anyChecked;
     }
@@ -1138,7 +1170,10 @@ class TripsManager {
   async deleteTrip(tripId) {
     if (!tripId) {
       if (window.notificationManager) {
-        window.notificationManager.show("Cannot delete trip: ID is missing", "warning");
+        window.notificationManager.show(
+          "Cannot delete trip: ID is missing",
+          "warning",
+        );
       }
       return;
     }
@@ -1161,8 +1196,8 @@ class TripsManager {
           // Fallback for environments where confirmationDialog is not available
           resolve(
             confirm(
-              `Are you sure you want to delete trip ${tripId}? This action cannot be undone.`
-            )
+              `Are you sure you want to delete trip ${tripId}? This action cannot be undone.`,
+            ),
           );
         }
       });
@@ -1179,7 +1214,10 @@ class TripsManager {
         }
 
         if (window.notificationManager) {
-          window.notificationManager.show("Trip deleted successfully", "success");
+          window.notificationManager.show(
+            "Trip deleted successfully",
+            "success",
+          );
         }
 
         this.fetchTrips();
@@ -1194,7 +1232,10 @@ class TripsManager {
   exportTrip(tripId, format) {
     if (!tripId) {
       if (window.notificationManager) {
-        window.notificationManager.show("Cannot export trip: ID is missing", "warning");
+        window.notificationManager.show(
+          "Cannot export trip: ID is missing",
+          "warning",
+        );
       }
       return;
     }
@@ -1202,7 +1243,7 @@ class TripsManager {
     if (window.notificationManager) {
       window.notificationManager.show(
         `Exporting trip ${tripId} as ${format}...`,
-        "info"
+        "info",
       );
     }
 
@@ -1228,7 +1269,7 @@ class TripsManager {
         if (window.notificationManager) {
           window.notificationManager.show(
             `Trip ${tripId} exported successfully`,
-            "success"
+            "success",
           );
         }
       })
@@ -1244,14 +1285,17 @@ class TripsManager {
       if (window.notificationManager) {
         window.notificationManager.show(
           "Cannot refresh geocoding: trip ID missing",
-          "warning"
+          "warning",
         );
       }
       return;
     }
 
     if (window.notificationManager) {
-      window.notificationManager.show(`Refreshing geocoding for ${tripId}...`, "info");
+      window.notificationManager.show(
+        `Refreshing geocoding for ${tripId}...`,
+        "info",
+      );
     }
 
     try {
@@ -1261,13 +1305,15 @@ class TripsManager {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to refresh geocoding for ${tripId}`);
+        throw new Error(
+          errorData.error || `Failed to refresh geocoding for ${tripId}`,
+        );
       }
 
       if (window.notificationManager) {
         window.notificationManager.show(
           `Trip ${tripId} geocoding refreshed successfully`,
-          "success"
+          "success",
         );
       }
 
@@ -1281,7 +1327,8 @@ class TripsManager {
   }
 
   static formatDuration(rawValue) {
-    const metricsManager = window.metricsManager || window.EveryStreet?.MetricsManager;
+    const metricsManager =
+      window.metricsManager || window.EveryStreet?.MetricsManager;
 
     const parsedSeconds = Number(rawValue);
 
