@@ -2397,7 +2397,8 @@ body.light-mode .legend-indicator--undriven {
     position: fixed;
     bottom: 0;
     left: 0;
-    right: 0;    background: var(--surface-1);
+    right: 0;
+    background: var(--surface-1);
     border-radius: 20px 20px 0 0;
     box-shadow:
       0 -4px 30px rgb(0 0 0 / 40%),
