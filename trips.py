@@ -28,6 +28,7 @@ from db import (
     serialize_datetime,
     serialize_document,
     trips_collection,
+    vehicles_collection,
     update_one_with_retry,
 )
 from models import DateRangeModel
@@ -287,6 +288,7 @@ async def get_trips_datatable(request: Request):
     columns = body.get("columns", [])
     start_date = body.get("start_date")
     end_date = body.get("end_date")
+    filters = body.get("filters", {}) or {}
 
     query = {"invalid": {"$ne": True}}
 
@@ -294,6 +296,55 @@ async def get_trips_datatable(request: Request):
         range_expr = build_calendar_date_expr(start_date, end_date)
         if range_expr:
             query["$expr"] = range_expr
+
+    # Vehicle filter
+    imei_filter = filters.get("imei")
+    if imei_filter:
+        query["imei"] = imei_filter
+
+    def _parse_number(value):
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    # Numeric filters
+    def _apply_range(field: str, min_val, max_val):
+        if min_val is None and max_val is None:
+            return
+        range_query = {}
+        if min_val is not None:
+            range_query["$gte"] = min_val
+        if max_val is not None:
+            range_query["$lte"] = max_val
+        if range_query:
+            query[field] = range_query
+
+    _apply_range(
+        "distance",
+        _parse_number(filters.get("distance_min")),
+        _parse_number(filters.get("distance_max")),
+    )
+    _apply_range(
+        "maxSpeed",
+        _parse_number(filters.get("speed_min")),
+        _parse_number(filters.get("speed_max")),
+    )
+    _apply_range(
+        "fuelConsumed",
+        _parse_number(filters.get("fuel_min")),
+        _parse_number(filters.get("fuel_max")),
+    )
+
+    # Presence filters
+    if filters.get("has_fuel"):
+        existing = query.get("fuelConsumed") or {}
+        if not isinstance(existing, dict):
+            existing = {}
+        existing["$gt"] = 0
+        query["fuelConsumed"] = existing
 
     if search_value:
         search_regex = {"$regex": search_value, "$options": "i"}
@@ -319,6 +370,9 @@ async def get_trips_datatable(request: Request):
     if not sort_column:
         sort_column = "startTime"
         sort_direction = -1
+    elif sort_column == "vehicleLabel":
+        # Sort by IMEI to approximate vehicle ordering
+        sort_column = "imei"
 
     if sort_column == "duration":
         pipeline = [
@@ -351,6 +405,7 @@ async def get_trips_datatable(request: Request):
             (end_time - start_time).total_seconds() if start_time and end_time else None
         )
 
+        imei = trip.get("imei", "")
         start_location = trip.get("startLocation", "Unknown")
         if isinstance(start_location, dict):
             start_location = start_location.get("formatted_address", "Unknown")
@@ -361,7 +416,7 @@ async def get_trips_datatable(request: Request):
 
         formatted_trip = {
             "transactionId": trip.get("transactionId", ""),
-            "imei": trip.get("imei", ""),
+            "imei": imei,
             "startTime": serialize_datetime(start_time),
             "endTime": serialize_datetime(end_time),
             "duration": duration,
@@ -375,6 +430,39 @@ async def get_trips_datatable(request: Request):
             "estimated_cost": _calculate_trip_cost(trip, price_map),
         }
         formatted_data.append(formatted_trip)
+
+    # Enrich with vehicle metadata if available
+    imeis = {trip.get("imei") for trip in formatted_data if trip.get("imei")}
+    vehicle_map: dict[str, dict] = {}
+    if imeis:
+        vehicles = await vehicles_collection.find({"imei": {"$in": list(imeis)}}).to_list(
+            None
+        )
+        for vehicle in vehicles:
+            vehicle_map[vehicle.get("imei")] = vehicle
+
+    for trip in formatted_data:
+        imei = trip.get("imei")
+        vehicle = vehicle_map.get(imei) if imei else None
+        vin = vehicle.get("vin") if vehicle else None
+        custom_name = vehicle.get("custom_name") if vehicle else None
+        make = (vehicle or {}).get("make")
+        model = (vehicle or {}).get("model")
+        year = (vehicle or {}).get("year")
+
+        if custom_name:
+            vehicle_label = custom_name
+        elif make or model or year:
+            vehicle_label = " ".join(str(part) for part in [year, make, model] if part).strip()
+        elif vin:
+            vehicle_label = f"VIN {vin}"
+        elif imei:
+            vehicle_label = f"IMEI {imei}"
+        else:
+            vehicle_label = "Unknown vehicle"
+
+        trip["vehicleLabel"] = vehicle_label
+        trip["vin"] = vin
 
     return {
         "draw": draw,

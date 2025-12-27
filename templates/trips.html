@@ -10,6 +10,59 @@ block content %}
 <div class="container-fluid px-4 py-3">
   <h1 class="mb-4">Trips</h1>
 
+  <div class="card mb-4 filter-panel">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3 col-lg-2">
+          <label for="trip-filter-vehicle" class="form-label">Vehicle</label>
+          <select id="trip-filter-vehicle" class="form-select">
+            <option value="">All vehicles</option>
+          </select>
+        </div>
+        <div class="col-md-3 col-lg-2">
+          <label class="form-label">Distance (mi)</label>
+          <div class="input-group">
+            <input type="number" class="form-control" id="trip-filter-distance-min" placeholder="Min" step="0.1" />
+            <span class="input-group-text">-</span>
+            <input type="number" class="form-control" id="trip-filter-distance-max" placeholder="Max" step="0.1" />
+          </div>
+        </div>
+        <div class="col-md-3 col-lg-2">
+          <label class="form-label">Max Speed (mph)</label>
+          <div class="input-group">
+            <input type="number" class="form-control" id="trip-filter-speed-min" placeholder="Min" step="1" />
+            <span class="input-group-text">-</span>
+            <input type="number" class="form-control" id="trip-filter-speed-max" placeholder="Max" step="1" />
+          </div>
+        </div>
+        <div class="col-md-3 col-lg-2">
+          <label class="form-label">Fuel (gal)</label>
+          <div class="input-group">
+            <input type="number" class="form-control" id="trip-filter-fuel-min" placeholder="Min" step="0.01" />
+            <span class="input-group-text">-</span>
+            <input type="number" class="form-control" id="trip-filter-fuel-max" placeholder="Max" step="0.01" />
+          </div>
+        </div>
+        <div class="col-md-3 col-lg-2">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="trip-filter-has-fuel" />
+            <label class="form-check-label" for="trip-filter-has-fuel">
+              Only show trips with fuel data
+            </label>
+          </div>
+        </div>
+        <div class="col-md-3 col-lg-2 d-flex gap-2">
+          <button class="btn btn-primary w-100" id="trip-filter-apply">
+            Apply Filters
+          </button>
+          <button class="btn btn-outline-secondary w-100" id="trip-filter-reset">
+            Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Desktop View (Table) -->
   <div class="trips-desktop-container">
     <div class="card">
@@ -21,6 +74,7 @@ block content %}
                 <th>
                   <input type="checkbox" id="select-all-trips" />
                 </th>
+                <th>Vehicle</th>
                 <th>Start Time</th>
                 <th>End Time</th>
                 <th>Duration</th>
