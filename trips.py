@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from api_utils import api_route
 from config import CLARITY_PROJECT_ID, MAPBOX_ACCESS_TOKEN
-from date_utils import normalize_calendar_date
+from date_utils import normalize_calendar_date, parse_timestamp
 from db import (
     build_calendar_date_expr,
     build_query_from_request,
@@ -74,9 +74,8 @@ async def _get_fillup_price_map(query=None):
         if ts and price:
             # Robustly handle string timestamps
             if isinstance(ts, str):
-                try:
-                    ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                except ValueError:
+                ts = parse_timestamp(ts)
+                if ts is None:
                     continue
 
             price_map[imei][0].append(ts)
@@ -105,19 +104,12 @@ def _calculate_trip_cost(trip, price_map):
     Returns:
         float | None: Estimated cost or None if data is missing
     """
-    fuel_consumed = trip.get("fuelConsumed")
+    fuel_consumed = _safe_float(trip.get("fuelConsumed"), None)
     imei = trip.get("imei")
-    start_time = trip.get("startTime")
+    start_time = parse_timestamp(trip.get("startTime"))
 
-    if not (fuel_consumed and imei and start_time and imei in price_map):
+    if fuel_consumed is None or not imei or not start_time or imei not in price_map:
         return None
-
-    # Ensure start_time is datetime
-    if isinstance(start_time, str):
-        try:
-            start_time = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-        except ValueError:
-            return None
 
     timestamps, prices = price_map[imei]
     if not timestamps:
@@ -132,12 +124,28 @@ def _calculate_trip_cost(trip, price_map):
         if idx > 0:
             # We found a fill-up that happened before (or at) the trip start
             relevant_price = prices[idx - 1]
-            return float(fuel_consumed) * float(relevant_price)
+            return _safe_float(fuel_consumed, 0) * _safe_float(relevant_price, 0)
     except (TypeError, ValueError):
         # Fallback for any remaining type comparison issues
         return None
 
     return None
+
+
+def _safe_float(value, default=0.0):
+    """Safely cast values to float, returning a fallback on failure."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_int(value, default=0):
+    """Safely cast values to int, returning a fallback on failure."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 # ==============================================================================
@@ -222,8 +230,8 @@ async def get_trips(request: Request):
         yield '{"type":"FeatureCollection","features":['
         first = True
         async for trip in cursor:
-            st = trip.get("startTime")
-            et = trip.get("endTime")
+            st = parse_timestamp(trip.get("startTime"))
+            et = parse_timestamp(trip.get("endTime"))
             duration = (et - st).total_seconds() if st and et else None
             geom = trip.get("gps")
             num_points = (
@@ -234,16 +242,16 @@ async def get_trips(request: Request):
             props = {
                 "transactionId": trip.get("transactionId"),
                 "imei": trip.get("imei"),
-                "startTime": st.isoformat() if hasattr(st, "isoformat") else None,
-                "endTime": et.isoformat() if hasattr(et, "isoformat") else None,
+                "startTime": st.isoformat() if st else None,
+                "endTime": et.isoformat() if et else None,
                 "duration": duration,
-                "distance": float(trip.get("distance", 0)),
-                "maxSpeed": float(trip.get("maxSpeed", 0)),
+                "distance": _safe_float(trip.get("distance"), 0),
+                "maxSpeed": _safe_float(trip.get("maxSpeed"), 0),
                 "timeZone": trip.get("timeZone"),
                 "startLocation": trip.get("startLocation"),
                 "destination": trip.get("destination"),
                 "totalIdleDuration": trip.get("totalIdleDuration"),
-                "fuelConsumed": float(trip.get("fuelConsumed", 0)),
+                "fuelConsumed": _safe_float(trip.get("fuelConsumed"), 0),
                 "source": trip.get("source"),
                 "hardBrakingCount": trip.get("hardBrakingCount"),
                 "hardAccelerationCount": trip.get("hardAccelerationCount"),
@@ -279,16 +287,28 @@ async def get_trips(request: Request):
 @api_route(logger)
 async def get_trips_datatable(request: Request):
     """Get trips data formatted for DataTables server-side processing."""
-    body = await request.json()
-    draw = body.get("draw", 1)
-    start = body.get("start", 0)
-    length = body.get("length", 10)
+    try:
+        body = await request.json()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON payload for trips datatable request.",
+        ) from exc
+
+    draw = _safe_int(body.get("draw"), 1)
+    start = _safe_int(body.get("start"), 0)
+    length = _safe_int(body.get("length"), 10)
     search_value = body.get("search", {}).get("value", "")
-    order = body.get("order", [])
-    columns = body.get("columns", [])
+    order = body.get("order", []) or []
+    columns = body.get("columns", []) or []
     filters = body.get("filters", {}) or {}
     start_date = body.get("start_date") or filters.get("start_date")
     end_date = body.get("end_date") or filters.get("end_date")
+
+    start = max(0, start)
+    length = max(0, min(length, 500))  # prevent unbounded queries
+    if not isinstance(columns, list):
+        columns = []
 
     query = {"invalid": {"$ne": True}}
 
@@ -360,10 +380,16 @@ async def get_trips_datatable(request: Request):
 
     sort_column = None
     sort_direction = -1
-    if order and columns:
-        column_index = order[0].get("column")
-        column_dir = order[0].get("dir", "asc")
-        if column_index is not None and column_index < len(columns):
+    if isinstance(order, list) and order and isinstance(columns, list):
+        first_order = order[0] if isinstance(order[0], dict) else {}
+        column_index = first_order.get("column")
+        column_dir = first_order.get("dir", "asc")
+        if (
+            column_index is not None
+            and isinstance(column_index, int)
+            and 0 <= column_index < len(columns)
+            and isinstance(columns[column_index], dict)
+        ):
             sort_column = columns[column_index].get("data")
             sort_direction = -1 if column_dir == "desc" else 1
 
@@ -399,8 +425,8 @@ async def get_trips_datatable(request: Request):
 
     formatted_data = []
     for trip in trips_list:
-        start_time = trip.get("startTime")
-        end_time = trip.get("endTime")
+        start_time = parse_timestamp(trip.get("startTime"))
+        end_time = parse_timestamp(trip.get("endTime"))
         duration = (
             (end_time - start_time).total_seconds() if start_time and end_time else None
         )
@@ -420,12 +446,12 @@ async def get_trips_datatable(request: Request):
             "startTime": serialize_datetime(start_time),
             "endTime": serialize_datetime(end_time),
             "duration": duration,
-            "distance": float(trip.get("distance", 0)),
+            "distance": _safe_float(trip.get("distance"), 0),
             "startLocation": start_location,
             "destination": destination,
-            "maxSpeed": float(trip.get("maxSpeed", 0)),
+            "maxSpeed": _safe_float(trip.get("maxSpeed"), 0),
             "totalIdleDuration": trip.get("totalIdleDuration", 0),
-            "fuelConsumed": float(trip.get("fuelConsumed", 0)),
+            "fuelConsumed": _safe_float(trip.get("fuelConsumed"), 0),
             "estimated_cost": _calculate_trip_cost(trip, price_map),
         }
         formatted_data.append(formatted_trip)
