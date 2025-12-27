@@ -7,6 +7,7 @@ and other user-specific settings.
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -16,6 +17,9 @@ from bouncie_credentials import (
     update_bouncie_credentials,
     validate_bouncie_credentials,
 )
+from config import API_BASE_URL, AUTH_URL
+from db import update_one_with_retry, vehicles_collection
+from utils import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -115,3 +119,149 @@ async def get_credentials_unmasked():
     except Exception as e:
         logger.exception("Error retrieving unmasked Bouncie credentials")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/profile/bouncie-credentials/sync-vehicles")
+async def sync_vehicles_from_bouncie():
+    """Fetch all vehicles from Bouncie and update local records.
+
+    This will:
+    1. Authenticate with Bouncie using stored credentials
+    2. Fetch all vehicles associated with the account
+    3. Update the 'authorized_devices' list in credentials
+    4. Create/Update records in the 'vehicles' collection
+    """
+    try:
+        credentials = await get_bouncie_credentials()
+        client_id = credentials.get("client_id")
+        client_secret = credentials.get("client_secret")
+        auth_code = credentials.get("authorization_code")
+        redirect_uri = credentials.get("redirect_uri")
+
+        if not all([client_id, client_secret, auth_code]):
+            raise HTTPException(
+                status_code=400,
+                detail="Bouncie credentials (Client ID, Secret, Auth Code) are missing",
+            )
+
+        session = await get_session()
+
+        # 1. Get Access Token
+        payload = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "authorization_code",
+            "code": auth_code,
+            "redirect_uri": redirect_uri,
+        }
+
+        # Handle optional redirect_uri
+        if not redirect_uri:
+            payload.pop("redirect_uri", None)
+
+        token = None
+        async with session.post(AUTH_URL, data=payload) as auth_response:
+            if auth_response.status != 200:
+                error_text = await auth_response.text()
+                logger.error(f"Bouncie auth failed: {auth_response.status} - {error_text}")
+                raise HTTPException(
+                    status_code=400, detail=f"Failed to authenticate with Bouncie: {error_text}"
+                )
+            auth_data = await auth_response.json()
+            token = auth_data.get("access_token")
+
+        if not token:
+            raise HTTPException(status_code=500, detail="No access token received from Bouncie")
+
+        # 2. Fetch Vehicles
+        headers = {
+            "Authorization": token,
+            "Content-Type": "application/json",
+        }
+        # Call without params to get all vehicles
+        async with session.get(f"{API_BASE_URL}/vehicles", headers=headers) as resp:
+            if resp.status != 200:
+                error_text = await resp.text()
+                logger.error(
+                    f"Failed to fetch vehicles: {resp.status} - {error_text}"
+                )
+                raise HTTPException(
+                    status_code=502, detail=f"Failed to fetch vehicles from Bouncie: {error_text}"
+                )
+            
+            vehicles_data = await resp.json()
+
+        if not vehicles_data:
+            return {
+                "status": "success",
+                "message": "No vehicles found in Bouncie account",
+                "vehicles": [],
+            }
+
+        # 3. Process Vehicles
+        synced_vehicles = []
+        found_imeis = []
+
+        for v in vehicles_data:
+            imei = v.get("imei")
+            if not imei:
+                continue
+            
+            found_imeis.append(imei)
+            
+            # Prepare vehicle document
+            vehicle_doc = {
+                "imei": imei,
+                "vin": v.get("vin"),
+                "make": v.get("make"),
+                "model": v.get("model"),
+                "year": v.get("year"),
+                "nickName": v.get("nickName"),
+                "standardEngine": v.get("standardEngine"),
+                # Helper field for UI display (nickName or Make Model Year)
+                "custom_name": v.get("nickName") or f"{v.get('year', '')} {v.get('make', '')} {v.get('model', '')}".strip() or f"Vehicle {imei}",
+                "is_active": True,
+                "updated_at": datetime.now(UTC),
+                "last_synced_at": datetime.now(UTC),
+                "bouncie_data": v, # Store raw data just in case
+            }
+
+            # Upsert into vehicles collection
+            await update_one_with_retry(
+                vehicles_collection,
+                {"imei": imei},
+                {"$set": vehicle_doc},
+                upsert=True,
+            )
+            synced_vehicles.append(vehicle_doc)
+
+        # 4. Update Authorized Devices in Credentials
+        # We merge with existing to avoid removing manually added ones if any (though usually we want to match Bouncie)
+        # But if the user went through the trouble of syncing, they expect these to be authorized.
+        current_devices = credentials.get("authorized_devices", [])
+        if isinstance(current_devices, str):
+            current_devices = [d.strip() for d in current_devices.split(",") if d.strip()]
+        
+        # Merge and dedup
+        updated_devices = list(set(current_devices + found_imeis))
+        
+        # Update credentials
+        await update_bouncie_credentials({
+            "authorized_devices": updated_devices
+        })
+
+        logger.info(f"Synced {len(synced_vehicles)} vehicles from Bouncie. Updated authorized devices.")
+
+        return {
+            "status": "success",
+            "message": f"Successfully synced {len(synced_vehicles)} vehicles",
+            "vehicles": list(synced_vehicles),
+            "authorized_devices": updated_devices,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error syncing vehicles from Bouncie")
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -58,6 +58,22 @@
       mobileForm.addEventListener("submit", handleSaveCredentials);
     }
 
+    // Vehicle Management Listeners
+    const syncVehiclesBtn = document.getElementById("syncVehiclesBtn");
+    if (syncVehiclesBtn) {
+      syncVehiclesBtn.addEventListener("click", syncVehiclesFromBouncie);
+    }
+
+    const mobileSyncVehiclesBtn = document.getElementById("mobile-syncVehiclesBtn");
+    if (mobileSyncVehiclesBtn) {
+      mobileSyncVehiclesBtn.addEventListener("click", syncVehiclesFromBouncie);
+    }
+
+    const mobileAddVehicleBtn = document.getElementById("mobile-addVehicleBtn");
+    if (mobileAddVehicleBtn) {
+      mobileAddVehicleBtn.addEventListener("click", addNewVehicle);
+    }
+
     const mobileLoadBtn = document.getElementById("mobile-loadCredentialsBtn");
     if (mobileLoadBtn) {
       mobileLoadBtn.addEventListener("click", loadCredentials);
@@ -463,52 +479,92 @@
    */
   async function loadVehicles() {
     const vehiclesList = document.getElementById("vehiclesList");
+    const mobileVehiclesList = document.getElementById("mobile-vehiclesList");
 
     try {
       const response = await fetch("/api/vehicles?active_only=false");
       if (!response.ok) throw new Error("Failed to load vehicles");
 
       const vehicles = await response.json();
+      const noVehiclesHtml = '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Bouncie" to auto-discover vehicles.</p>';
 
-      if (vehicles.length === 0) {
-        vehiclesList.innerHTML =
-          '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Trips" to auto-discover vehicles.</p>';
-        return;
+      // Update Desktop List
+      if (vehiclesList) {
+        if (vehicles.length === 0) {
+          vehiclesList.innerHTML = noVehiclesHtml;
+        } else {
+          vehiclesList.innerHTML = vehicles
+            .map((vehicle) => createVehicleItem(vehicle, false))
+            .join("");
+        }
       }
 
-      vehiclesList.innerHTML = vehicles
-        .map((vehicle) => createVehicleItem(vehicle))
-        .join("");
-
-      // Add event listeners
-      vehicles.forEach((vehicle) => {
-        const saveBtn = document.getElementById(`save-vehicle-${vehicle.imei}`);
-        const deleteBtn = document.getElementById(`delete-vehicle-${vehicle.imei}`);
-
-        if (saveBtn) {
-          saveBtn.addEventListener("click", () => saveVehicle(vehicle.imei));
+      // Update Mobile List
+      if (mobileVehiclesList) {
+        if (vehicles.length === 0) {
+          mobileVehiclesList.innerHTML = noVehiclesHtml;
+        } else {
+          mobileVehiclesList.innerHTML = vehicles
+            .map((vehicle) => createVehicleItem(vehicle, true))
+            .join("");
         }
-        if (deleteBtn) {
-          deleteBtn.addEventListener("click", () => deleteVehicle(vehicle.imei));
-        }
-      });
+      }
+
+      // Add event listeners if we have vehicles
+      if (vehicles.length > 0) {
+        vehicles.forEach((vehicle) => {
+          // Add listeners for Desktop
+          addVehicleListeners(vehicle.imei, false);
+          // Add listeners for Mobile
+          addVehicleListeners(vehicle.imei, true);
+        });
+      }
+
     } catch (error) {
       console.error("Error loading vehicles:", error);
-      vehiclesList.innerHTML =
-        '<p class="text-center text-danger py-3">Error loading vehicles</p>';
+      const errorHtml = '<p class="text-center text-danger py-3">Error loading vehicles</p>';
+      
+      if (vehiclesList) {
+        vehiclesList.innerHTML = errorHtml;
+      }
+      if (mobileVehiclesList) {
+        mobileVehiclesList.innerHTML = errorHtml;
+      }
+    }
+  }
+
+
+  /**
+   * Add listeners for a vehicle item
+   */
+  function addVehicleListeners(imei, isMobile = false) {
+    const prefix = isMobile ? "mobile-" : "";
+    const saveBtn = document.getElementById(`${prefix}save-vehicle-${imei}`);
+    const deleteBtn = document.getElementById(`${prefix}delete-vehicle-${imei}`);
+
+    if (saveBtn) {
+      saveBtn.addEventListener("click", () => saveVehicle(imei, isMobile));
+    }
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", () => deleteVehicle(imei));
     }
   }
 
   /**
    * Create HTML for a vehicle item
    */
-  function createVehicleItem(vehicle) {
+  function createVehicleItem(vehicle, isMobile = false) {
+    const prefix = isMobile ? "mobile-" : "";
+    
     const statusBadge = vehicle.is_active
       ? '<span class="badge bg-success">Active</span>'
       : '<span class="badge bg-secondary">Inactive</span>';
 
+    // Different layout for mobile? Or just stacked.
+    // We need unique IDs for mobile elements.
+    
     return `
-      <div class="vehicle-item-container" id="vehicle-${vehicle.imei}">
+      <div class="vehicle-item-container" id="${prefix}vehicle-${vehicle.imei}">
         <div class="row g-3">
           <div class="col-md-3">
             <label class="form-label small text-muted">IMEI</label>
@@ -520,23 +576,23 @@
           </div>
           <div class="col-md-4">
             <label class="form-label small text-muted">Custom Name</label>
-            <input type="text" class="form-control form-control-sm" id="name-${vehicle.imei}"
+            <input type="text" class="form-control form-control-sm" id="${prefix}name-${vehicle.imei}"
                    value="${vehicle.custom_name || ""}" placeholder="Enter friendly name..." />
           </div>
           <div class="col-md-2">
             <label class="form-label small text-muted">Status</label>
             <div>${statusBadge}</div>
             <div class="form-check form-switch mt-1">
-              <input class="form-check-input" type="checkbox" id="active-${vehicle.imei}"
+              <input class="form-check-input" type="checkbox" id="${prefix}active-${vehicle.imei}"
                      ${vehicle.is_active ? "checked" : ""} />
-              <label class="form-check-label small" for="active-${vehicle.imei}">Active</label>
+              <label class="form-check-label small" for="${prefix}active-${vehicle.imei}">Active</label>
             </div>
           </div>
           <div class="col-12">
-            <button type="button" class="btn btn-sm btn-primary" id="save-vehicle-${vehicle.imei}">
+            <button type="button" class="btn btn-sm btn-primary" id="${prefix}save-vehicle-${vehicle.imei}">
               <i class="fas fa-save"></i> Save Changes
             </button>
-            <button type="button" class="btn btn-sm btn-outline-danger" id="delete-vehicle-${vehicle.imei}">
+            <button type="button" class="btn btn-sm btn-outline-danger" id="${prefix}delete-vehicle-${vehicle.imei}">
               <i class="fas fa-trash"></i> Deactivate
             </button>
           </div>
@@ -548,9 +604,10 @@
   /**
    * Save vehicle changes
    */
-  async function saveVehicle(imei) {
-    const nameInput = document.getElementById(`name-${imei}`);
-    const activeInput = document.getElementById(`active-${imei}`);
+  async function saveVehicle(imei, isMobile = false) {
+    const prefix = isMobile ? "mobile-" : "";
+    const nameInput = document.getElementById(`${prefix}name-${imei}`);
+    const activeInput = document.getElementById(`${prefix}active-${imei}`);
 
     try {
       const vehicleData = {
@@ -643,6 +700,34 @@
     } catch (error) {
       console.error("Error adding vehicle:", error);
       showStatus(error.message || "Failed to add vehicle", "error");
+    }
+  }
+
+  /**
+   * Sync vehicles from Bouncie
+   */
+  async function syncVehiclesFromBouncie() {
+    try {
+      showStatus("Syncing vehicles from Bouncie...", "info");
+      
+      const response = await fetch("/api/profile/bouncie-credentials/sync-vehicles", {
+        method: "POST"
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.detail || "Failed to sync vehicles");
+      }
+      
+      showStatus(data.message || "Vehicles synced successfully!", "success");
+      
+      // Reload vehicles and credentials (to update authorized devices)
+      await Promise.all([loadVehicles(), loadCredentials()]);
+      
+    } catch (error) {
+      console.error("Error syncing vehicles:", error);
+      showStatus(`Error syncing vehicles: ${error.message}`, "error");
     }
   }
 

@@ -1,14 +1,7 @@
 {% extends "base.html" %} {% block title %}Driving Navigation{% endblock %} {%
   block head_content %}
 
-  <link
-    href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
-    rel="stylesheet"
-  />
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-  />
+
   <style>
     /* General Layout */
     .main-container {
@@ -332,7 +325,7 @@
     </div>
   </div>
   {% endblock %} {% block extra_js %}
-  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
   
   <script>
     window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
