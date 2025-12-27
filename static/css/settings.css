@@ -1,13 +1,24 @@
-/* Settings Tab Navigation */
+/* Settings Page - Unified Responsive Styles */
+
+/* === Settings Container === */
+.settings-container {
+  padding: var(--space-4);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* === Tab Navigation === */
 .settings-tabs {
   display: flex;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) 0;
   background: var(--surface-1);
   border-bottom: 1px solid var(--border-color);
   margin-bottom: var(--space-4);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
 }
 
 .settings-tab {
@@ -49,11 +60,7 @@
   display: block;
 }
 
-/* Preferences Section Styles */
-.preferences-section {
-  padding: var(--space-4);
-}
-
+/* === Settings Groups (Cards) === */
 .settings-group {
   background: var(--surface-1);
   border: 1px solid var(--border-color);
@@ -77,12 +84,14 @@
   opacity: 0.8;
 }
 
+/* === Setting Items (Form Rows) === */
 .setting-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border-color);
+  gap: var(--space-4);
 }
 
 .setting-item:last-child {
@@ -112,11 +121,15 @@
 }
 
 .setting-control {
-  margin-left: var(--space-4);
   flex-shrink: 0;
 }
 
-/* Color picker inline */
+/* === Preferences Section === */
+.preferences-section {
+  padding: 0;
+}
+
+/* === Color Picker Row === */
 .color-picker-row {
   display: flex;
   align-items: center;
@@ -150,7 +163,7 @@
   min-width: 30px;
 }
 
-/* Save button for preferences */
+/* === Preferences Actions === */
 .preferences-actions {
   display: flex;
   gap: var(--space-3);
@@ -158,7 +171,77 @@
   padding-top: var(--space-4);
 }
 
-@media (width <= 768px) {
+/* === Task Action Buttons Grid === */
+.task-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+  margin-top: var(--space-3);
+}
+
+.task-action-buttons .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* === Table Styling === */
+.settings-group .table {
+  margin-bottom: 0;
+}
+
+.settings-group .table th {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-3);
+  border-bottom: 2px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.settings-group .table td {
+  padding: var(--space-3);
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--surface-1);
+}
+
+.settings-group .table tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+/* === Form Controls === */
+.settings-group .form-control,
+.settings-group .form-select {
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.settings-group .form-control:focus,
+.settings-group .form-select:focus {
+  background: var(--surface-3);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgb(var(--primary-rgb), 0.2);
+}
+
+.settings-group .form-label {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--space-1);
+}
+
+/* === Mobile Responsive === */
+@media (max-width: 768px) {
+  .settings-container {
+    padding: var(--space-2);
+  }
+  
   .settings-tabs {
     padding: var(--space-2);
     gap: var(--space-1);
@@ -169,6 +252,7 @@
     font-size: var(--font-size-xs);
   }
 
+  /* Hide text on mobile, show only icons */
   .settings-tab span {
     display: none;
   }
@@ -176,7 +260,8 @@
   .settings-tab i {
     font-size: var(--font-size-lg);
   }
-
+  
+  /* Stack setting items vertically on mobile */
   .setting-item {
     flex-direction: column;
     align-items: flex-start;
@@ -184,12 +269,33 @@
   }
 
   .setting-control {
-    margin-left: 0;
     width: 100%;
+  }
+  
+  /* Form check switch should be right-aligned */
+  .setting-control .form-check.form-switch {
+    display: flex;
+    justify-content: flex-start;
+    padding-left: 0;
+  }
+  
+  .setting-control .form-check-input {
+    margin-left: 0;
+    margin-right: var(--space-2);
   }
 
   .color-picker-row {
     width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .opacity-slider {
+    width: 100%;
+  }
+  
+  .opacity-slider input[type="range"] {
+    flex: 1;
   }
 
   .preferences-actions {
@@ -199,4 +305,115 @@
   .preferences-actions .btn {
     width: 100%;
   }
+  
+  /* Hide less important table columns on mobile */
+  .col-hide-mobile {
+    display: none !important;
+  }
+  
+  /* Task action buttons grid */
+  .task-action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+  }
+  
+  .task-action-buttons .btn {
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+  
+  .task-action-buttons .btn .btn-text {
+    display: none;
+  }
+  
+  /* Table adjustments */
+  .settings-group .table th,
+  .settings-group .table td {
+    padding: var(--space-2);
+    font-size: var(--font-size-sm);
+  }
+  
+  /* Form layouts */
+  .settings-group .row.g-3 {
+    flex-direction: column;
+  }
+  
+  .settings-group [class^="col-"] {
+    width: 100%;
+  }
+  
+  /* Button groups */
+  .btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .btn-group .btn {
+    width: 100%;
+    margin-bottom: var(--space-1);
+    border-radius: var(--radius-md) !important;
+  }
+}
+
+/* === Very Small Mobile === */
+@media (max-width: 480px) {
+  .task-action-buttons {
+    grid-template-columns: 1fr;
+  }
+  
+  .settings-group {
+    padding: var(--space-3);
+  }
+  
+  .settings-group-title {
+    font-size: var(--font-size-md);
+  }
+}
+
+/* === Progress Panel === */
+#geocode-progress-panel .card,
+.progress-panel .card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+}
+
+/* === Task Status Badge Colors === */
+.task-status-idle {
+  color: var(--text-secondary);
+}
+
+.task-status-running {
+  color: var(--primary);
+}
+
+.task-status-completed {
+  color: var(--success);
+}
+
+.task-status-failed {
+  color: var(--danger);
+}
+
+.task-status-paused {
+  color: var(--warning);
+}
+
+/* === Custom Form Switch === */
+.form-check.form-switch .form-check-input {
+  width: 51px;
+  height: 27px;
+  margin-top: 0;
+  background-color: var(--surface-4);
+  border: none;
+  cursor: pointer;
+}
+
+.form-check.form-switch .form-check-input:checked {
+  background-color: var(--success);
+}
+
+.form-check.form-switch .form-check-input:focus {
+  box-shadow: 0 0 0 2px rgb(var(--primary-rgb), 0.2);
 }

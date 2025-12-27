@@ -1831,20 +1831,8 @@
     }
   }
 
-  // Mobile-specific functions
-  function setupMobileUI() {
-    // Check if mobile container exists
-    const mobileContainer = document.querySelector(".settings-mobile-container");
-    if (!mobileContainer) return;
-
-    setupMobileAccordions();
-    setupMobileTaskList();
-    setupMobileHistoryList();
-    setupMobileGlobalControls();
-    setupMobileManualFetch();
-    setupMobileDataManagement();
-    setupMobileSaveFAB();
-  }
+  // Mobile-specific functions removed - now using responsive CSS
+  // The unified DOM structure handles all screen sizes
 
   function setupMobileAccordions() {
     const headers = document.querySelectorAll(".mobile-settings-section-header");
@@ -2902,7 +2890,7 @@
   });
 })();
 
-// Tab switching logic
+// Tab switching logic - unified for all screen sizes
 document.addEventListener("DOMContentLoaded", () => {
   const tabs = document.querySelectorAll(".settings-tab");
 
@@ -2910,28 +2898,17 @@ document.addEventListener("DOMContentLoaded", () => {
     tab.addEventListener("click", function () {
       const tabName = this.dataset.tab;
 
-      // Update tab buttons in both desktop and mobile
+      // Update tab buttons
       document.querySelectorAll(".settings-tab").forEach((t) => {
         t.classList.toggle("active", t.dataset.tab === tabName);
       });
 
-      // Update tab content - desktop
-      document
-        .querySelectorAll(".settings-desktop-container .settings-tab-content")
-        .forEach((content) => {
-          content.classList.remove("active");
-        });
-      const desktopContent = document.getElementById(`${tabName}-tab`);
-      if (desktopContent) desktopContent.classList.add("active");
-
-      // Update tab content - mobile
-      document
-        .querySelectorAll(".settings-mobile-container .settings-tab-content")
-        .forEach((content) => {
-          content.classList.remove("active");
-        });
-      const mobileContent = document.getElementById(`mobile-${tabName}-tab`);
-      if (mobileContent) mobileContent.classList.add("active");
+      // Update tab content
+      document.querySelectorAll(".settings-tab-content").forEach((content) => {
+        content.classList.remove("active");
+      });
+      const tabContent = document.getElementById(`${tabName}-tab`);
+      if (tabContent) tabContent.classList.add("active");
     });
   });
 
@@ -2947,21 +2924,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("app-settings-form");
   const themeToggleCheckbox = document.getElementById("theme-toggle-checkbox");
 
-  // Mobile elements
-  const mobileDarkModeToggle = document.getElementById("mobile-dark-mode-toggle");
-  const mobileHighlightRecentTrips = document.getElementById(
-    "mobile-highlight-recent-trips"
-  );
-  const mobileAutoCenterToggle = document.getElementById("mobile-auto-center-toggle");
-  const mobileShowLiveTracking = document.getElementById("mobile-show-live-tracking");
-  const mobilePolylineColor = document.getElementById("mobile-polyline-color");
-  const mobilePolylineOpacity = document.getElementById("mobile-polyline-opacity");
-  const mobileOpacityValue = document.getElementById("mobile-opacity-value");
-  const mobileGeocodeTripsOnFetch = document.getElementById(
-    "mobile-geocode-trips-on-fetch"
-  );
-  const mobileSaveBtn = document.getElementById("mobile-save-preferences");
-
   // Function to apply settings to UI
   function applySettings(settings = {}) {
     const {
@@ -2976,7 +2938,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const isDarkMode =
       document.documentElement.getAttribute("data-bs-theme") === "dark";
 
-    // Desktop
+    // Apply settings to form elements
     if (darkModeToggle) darkModeToggle.checked = isDarkMode;
     if (highlightRecentTrips) highlightRecentTrips.checked = hrt !== false;
     if (autoCenterToggle) autoCenterToggle.checked = autoCenter !== false;
@@ -2987,22 +2949,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (polylineOpacity) {
       polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
       if (opacityValue) opacityValue.textContent = polylineOpacity.value;
-    }
-
-    // Mobile
-    if (mobileDarkModeToggle) mobileDarkModeToggle.checked = isDarkMode;
-    if (mobileHighlightRecentTrips) mobileHighlightRecentTrips.checked = hrt !== false;
-    if (mobileAutoCenterToggle) mobileAutoCenterToggle.checked = autoCenter !== false;
-    if (mobileShowLiveTracking) mobileShowLiveTracking.checked = slt !== false;
-    if (mobileGeocodeTripsOnFetch) mobileGeocodeTripsOnFetch.checked = gtof !== false;
-    if (mobilePolylineColor)
-      mobilePolylineColor.value =
-        pc || localStorage.getItem("polylineColor") || "#00FF00";
-    if (mobilePolylineOpacity) {
-      mobilePolylineOpacity.value =
-        po || localStorage.getItem("polylineOpacity") || "0.8";
-      if (mobileOpacityValue)
-        mobileOpacityValue.textContent = mobilePolylineOpacity.value;
     }
   }
 
@@ -3029,31 +2975,16 @@ document.addEventListener("DOMContentLoaded", () => {
       opacityValue.textContent = this.value;
     });
   }
-  if (mobilePolylineOpacity && mobileOpacityValue) {
-    mobilePolylineOpacity.addEventListener("input", function () {
-      mobileOpacityValue.textContent = this.value;
-    });
-  }
 
   // Save preferences function
-  async function savePreferences(isDesktop = true) {
+  async function savePreferences() {
     const payload = {
-      highlightRecentTrips: isDesktop
-        ? highlightRecentTrips?.checked
-        : mobileHighlightRecentTrips?.checked,
-      autoCenter: isDesktop
-        ? autoCenterToggle?.checked
-        : mobileAutoCenterToggle?.checked,
-      showLiveTracking: isDesktop
-        ? showLiveTracking?.checked
-        : mobileShowLiveTracking?.checked,
-      polylineColor: isDesktop ? polylineColor?.value : mobilePolylineColor?.value,
-      polylineOpacity: isDesktop
-        ? polylineOpacity?.value
-        : mobilePolylineOpacity?.value,
-      geocodeTripsOnFetch: isDesktop
-        ? geocodeTripsOnFetch?.checked
-        : mobileGeocodeTripsOnFetch?.checked,
+      highlightRecentTrips: highlightRecentTrips?.checked,
+      autoCenter: autoCenterToggle?.checked,
+      showLiveTracking: showLiveTracking?.checked,
+      polylineColor: polylineColor?.value,
+      polylineOpacity: polylineOpacity?.value,
+      geocodeTripsOnFetch: geocodeTripsOnFetch?.checked,
     };
 
     try {
@@ -3097,32 +3028,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Desktop form submission
+  // Form submission
   if (form) {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      await savePreferences(true);
-    });
-  }
-
-  // Mobile save button
-  if (mobileSaveBtn) {
-    mobileSaveBtn.addEventListener("click", async () => {
-      await savePreferences(false);
+      await savePreferences();
     });
   }
 
   // Dark mode toggle sync
   if (darkModeToggle) {
     darkModeToggle.addEventListener("change", function () {
-      if (themeToggleCheckbox) {
-        themeToggleCheckbox.checked = !this.checked;
-        themeToggleCheckbox.dispatchEvent(new Event("change"));
-      }
-    });
-  }
-  if (mobileDarkModeToggle) {
-    mobileDarkModeToggle.addEventListener("change", function () {
       if (themeToggleCheckbox) {
         themeToggleCheckbox.checked = !this.checked;
         themeToggleCheckbox.dispatchEvent(new Event("change"));

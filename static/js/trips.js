@@ -474,14 +474,13 @@ function setupRowActions() {
 function updateBulkDeleteButton() {
   const checkedCount = $(".trip-checkbox:checked").length;
   const btn = $("#bulk-delete-trips-btn");
-  const mobileBtn = $("#bulk-delete-trips-mobile-btn"); // If we implement mobile view later
 
   if (checkedCount > 0) {
-    btn.prop("disabled", false).text(`Delete Selected (${checkedCount})`);
-    if (mobileBtn) mobileBtn.prop("disabled", false);
+    btn.prop("disabled", false);
+    btn.find(".btn-text").text(`Delete Selected (${checkedCount})`);
   } else {
-    btn.prop("disabled", true).text("Delete Selected");
-    if (mobileBtn) mobileBtn.prop("disabled", true);
+    btn.prop("disabled", true);
+    btn.find(".btn-text").text("Delete Selected");
   }
 }
 

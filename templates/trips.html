@@ -181,22 +181,40 @@ block extra_css %}
     </div>
   </div>
 
-  <!-- Desktop View (Table) -->
-  <div class="trips-desktop-container">
+  <!-- Single Trips Container - CSS handles responsive layout -->
+  <div class="trips-container">
     <div class="card">
       <div class="card-body">
-        <div class="table-responsive-lg">
+        <!-- Bulk Actions Bar -->
+        <div class="trips-actions-bar">
+          <label class="trips-select-all">
+            <input type="checkbox" id="select-all-trips" />
+            <span class="trips-select-all-text">Select All</span>
+          </label>
+          <div class="trips-actions-buttons">
+            <button id="bulk-delete-trips-btn" class="btn btn-danger btn-sm" disabled>
+              <i class="fas fa-trash"></i>
+              <span class="btn-text">Delete Selected</span>
+            </button>
+            <button id="refresh-geocoding-btn" class="btn btn-primary btn-sm">
+              <i class="fas fa-sync"></i>
+              <span class="btn-text">Refresh Geocoding</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
           <table id="trips-table" class="table table-striped table-hover w-100">
             <thead>
               <tr>
-                <th>
-                  <input type="checkbox" id="select-all-trips" />
+                <th class="col-checkbox">
+                  <!-- Select all moved to action bar -->
                 </th>
                 <th>Trip</th>
                 <th>Date</th>
                 <th>Route</th>
-                <th>Performance</th>
-                <th>Fuel &amp; Cost</th>
+                <th class="col-hide-mobile">Performance</th>
+                <th class="col-hide-mobile">Fuel &amp; Cost</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -205,68 +223,6 @@ block extra_css %}
             </tbody>
           </table>
         </div>
-        <button id="bulk-delete-trips-btn" class="btn btn-danger mt-3" disabled>
-          Delete Selected
-        </button>
-        <button id="refresh-geocoding-btn" class="btn btn-primary mt-3">
-          Refresh Geocoding
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Mobile View (Cards) -->
-  <div class="trips-mobile-container">
-    <!-- Mobile Controls -->
-    <div class="trips-mobile-controls">
-      <label class="trips-mobile-select-all">
-        <input type="checkbox" id="select-all-trips-mobile" />
-        <span>Select All</span>
-      </label>
-      <div class="trips-mobile-actions">
-        <button
-          id="bulk-delete-trips-mobile-btn"
-          class="btn btn-sm btn-danger"
-          disabled
-        >
-          <i class="fas fa-trash"></i> Delete
-        </button>
-        <button
-          id="refresh-geocoding-mobile-btn"
-          class="btn btn-sm btn-primary"
-        >
-          <i class="fas fa-sync"></i> Refresh
-        </button>
-      </div>
-    </div>
-
-    <!-- Mobile Trip Cards -->
-    <div id="trips-mobile-list">
-      <!-- Cards will be populated by JavaScript -->
-    </div>
-
-    <!-- Mobile Pagination -->
-    <div
-      id="trips-mobile-pagination"
-      class="trips-mobile-pagination"
-      style="display: none"
-    >
-      <div class="trips-mobile-pagination-info">
-        <span id="trips-mobile-page-info"></span>
-      </div>
-      <div class="trips-mobile-pagination-controls">
-        <button
-          id="trips-mobile-prev-btn"
-          class="btn btn-outline-primary trips-mobile-pagination-btn"
-        >
-          <i class="fas fa-chevron-left"></i> Previous
-        </button>
-        <button
-          id="trips-mobile-next-btn"
-          class="btn btn-outline-primary trips-mobile-pagination-btn"
-        >
-          Next <i class="fas fa-chevron-right"></i>
-        </button>
       </div>
     </div>
   </div>

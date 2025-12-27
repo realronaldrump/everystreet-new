@@ -1,5 +1,6 @@
-/* Trips Page - Mobile Responsive Styles */
+/* Trips Page - Responsive Styles */
 
+/* === Filter Panel === */
 .filter-panel {
   background: var(--surface-1);
   border: 1px solid var(--border-color);
@@ -71,6 +72,7 @@
   color: var(--text-tertiary);
 }
 
+/* === Pills === */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -92,6 +94,7 @@
   color: var(--text-tertiary);
 }
 
+/* === Trip Cells (Table Data Styling) === */
 .trip-cell {
   display: flex;
   flex-direction: column;
@@ -112,331 +115,299 @@
   align-items: center;
 }
 
-/* Desktop: Show table, hide mobile cards */
-.trips-mobile-container {
-  display: none;
+/* === Trips Container === */
+.trips-container {
+  width: 100%;
 }
 
-.trips-desktop-container {
-  display: block;
+/* === Actions Bar === */
+.trips-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
-/* Mobile: Hide table, show cards */
-@media (width <= 768px) {
-  .trips-desktop-container {
+.trips-select-all {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.trips-select-all input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.trips-actions-buttons {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* === Table Styling === */
+#trips-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+#trips-table th {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-3);
+  border-bottom: 2px solid var(--border-color);
+  white-space: nowrap;
+}
+
+#trips-table td {
+  padding: var(--space-3);
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--surface-1);
+}
+
+#trips-table tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+.col-checkbox {
+  width: 40px;
+  text-align: center;
+}
+
+/* === DataTables Overrides === */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+  color: var(--text-secondary);
+  padding: var(--space-3);
+}
+
+.dataTables_wrapper .dataTables_filter input {
+  background: var(--surface-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-primary);
+}
+
+.dataTables_wrapper .dataTables_length select {
+  background: var(--surface-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  color: var(--text-primary);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-secondary) !important;
+  padding: var(--space-2) var(--space-3) !important;
+  margin: 0 2px !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: var(--surface-3) !important;
+  color: var(--text-primary) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: var(--primary) !important;
+  color: var(--text-on-primary) !important;
+  border-color: var(--primary) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* === Responsive: Tablet and below === */
+@media (max-width: 992px) {
+  .filter-quick-ranges {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .filter-panel .row {
+    flex-direction: column;
+  }
+}
+
+/* === Responsive: Mobile === */
+@media (max-width: 768px) {
+  /* Hide columns that aren't essential on mobile */
+  .col-hide-mobile,
+  #trips-table th.col-hide-mobile,
+  #trips-table td:nth-child(5),
+  #trips-table td:nth-child(6) {
     display: none !important;
   }
-
-  .trips-mobile-container {
-    display: block;
-  }
-
-  /* Mobile trip cards */
-  .trip-card {
-    background-color: var(--surface-1);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
-    border: 1px solid var(--border-color);
-    margin-bottom: var(--space-4);
-    overflow: hidden;
-    transition: all var(--transition-normal);
-  }
-
-  .trip-card.selected {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgb(var(--primary-rgb), 0.2);
-  }
-
-  .trip-card-header {
-    background-color: var(--surface-2);
-    padding: var(--space-3);
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+  
+  /* Make action buttons smaller */
+  .trips-actions-bar {
+    flex-direction: column;
+    align-items: stretch;
     gap: var(--space-2);
   }
-
-  .trip-card-checkbox {
-    margin-right: var(--space-3);
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
+  
+  .trips-select-all {
+    justify-content: center;
+    padding: var(--space-2);
+    background: var(--surface-3);
+    border-radius: var(--radius-sm);
   }
-
-  .trip-card-time {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
+  
+  .trips-actions-buttons {
+    justify-content: center;
   }
-
-  .trip-card-vehicle {
-    min-width: 140px;
+  
+  .trips-actions-buttons .btn-text {
+    display: none;
   }
-
-  .trip-card-start-time {
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-    font-size: var(--font-size-md);
+  
+  .trips-actions-buttons .btn {
+    padding: var(--space-2) var(--space-3);
   }
-
-  .trip-card-end-time {
+  
+  /* Table cell adjustments for mobile */
+  #trips-table th,
+  #trips-table td {
+    padding: var(--space-2);
     font-size: var(--font-size-sm);
-    color: var(--text-secondary);
   }
-
-  .trip-card-body {
-    padding: var(--space-3);
+  
+  .trip-cell {
+    gap: 2px;
   }
-
-  .trip-info-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-3);
-    margin-bottom: var(--space-3);
+  
+  .trip-title {
+    font-size: var(--font-size-sm);
   }
-
-  .trip-info-item {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-
-  .trip-info-item.full-width {
-    grid-column: 1 / -1;
-  }
-
-  .trip-info-label {
+  
+  .trip-meta {
     font-size: var(--font-size-xs);
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: var(--font-weight-medium);
   }
-
-  .trip-info-value {
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-    font-weight: var(--font-weight-medium);
+  
+  .pill {
+    font-size: 10px;
+    padding: 2px 6px;
   }
+  
+  /* DataTables mobile optimizations */
+  .dataTables_wrapper .dataTables_filter,
+  .dataTables_wrapper .dataTables_length {
+    float: none !important;
+    text-align: center !important;
+    padding: var(--space-2);
+  }
+  
+  .dataTables_wrapper .dataTables_info {
+    text-align: center;
+    font-size: var(--font-size-xs);
+  }
+  
+  .dataTables_wrapper .dataTables_paginate {
+    text-align: center;
+  }
+  
+  .dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: var(--space-2) !important;
+    font-size: var(--font-size-xs);
+  }
+  
+  /* Button groups in action column */
+  .btn-group-sm .btn {
+    padding: var(--space-1) var(--space-2);
+  }
+}
 
-  .trip-location {
-    display: flex;
+/* === Responsive: Very small mobile === */
+@media (max-width: 480px) {
+  /* Stack filter panel elements */
+  .filter-panel .d-flex {
     flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-3);
-    background-color: var(--surface-0);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--space-3);
   }
-
-  .trip-location-item {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-2);
+  
+  .filter-quick-ranges {
+    justify-content: center;
   }
-
-  .trip-location-icon {
-    color: var(--primary);
-    font-size: var(--font-size-md);
-    margin-top: 2px;
-    flex-shrink: 0;
-  }
-
-  .trip-location-text {
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-    line-height: var(--line-height-normal);
-    overflow-wrap: anywhere;
-  }
-
-  .trip-card-actions {
-    display: flex;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--border-color);
-  }
-
-  .trip-card-actions .btn {
+  
+  .filter-quick-btn {
     flex: 1;
     min-width: 0;
     font-size: var(--font-size-xs);
-    padding: var(--space-2) var(--space-3);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: var(--space-2);
   }
-
-  .trip-card-actions .btn i {
-    margin-right: var(--space-1);
+  
+  /* Make the table horizontally scrollable */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
-
-  /* Mobile controls */
-  .trips-mobile-controls {
-    position: sticky;
-    top: var(--header-height);
-    background-color: var(--surface-1);
-    padding: var(--space-3);
-    border-bottom: 1px solid var(--border-color);
-    z-index: var(--z-sticky);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .trips-mobile-select-all {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .trips-mobile-select-all input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-  }
-
-  .trips-mobile-actions {
-    display: flex;
-    gap: var(--space-2);
-  }
-
-  /* Mobile pagination */
-  .trips-mobile-pagination {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-3);
-    background-color: var(--surface-1);
-    border-radius: var(--radius-lg);
-    margin-top: var(--space-4);
-  }
-
-  .trips-mobile-pagination-info {
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-  }
-
-  .trips-mobile-pagination-controls {
-    display: flex;
-    justify-content: center;
-    gap: var(--space-2);
-  }
-
-  .trips-mobile-pagination-btn {
-    min-width: 80px;
-  }
-
-  /* Loading state */
-  .trips-mobile-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-8);
-    gap: var(--space-3);
-  }
-
-  .trips-mobile-loading .spinner-border {
-    width: 3rem;
-    height: 3rem;
-    color: var(--primary);
-  }
-
-  .trips-mobile-loading-text {
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-  }
-
-  /* Empty state */
-  .trips-mobile-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-8);
-    gap: var(--space-3);
-    text-align: center;
-  }
-
-  .trips-mobile-empty i {
-    font-size: 4rem;
-    color: var(--text-tertiary);
-  }
-
-  .trips-mobile-empty-title {
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-  }
-
-  .trips-mobile-empty-text {
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    max-width: 300px;
-  }
-
-  /* Action dropdown for export */
-  .trip-card-actions .dropdown {
-    flex: 1;
-  }
-
-  .trip-card-actions .dropdown-toggle {
-    width: 100%;
-  }
-
-  /* Badge for trip stats */
-  .trip-stat-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-    background-color: rgb(var(--primary-rgb), 0.1);
-    color: var(--primary);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-medium);
-  }
-
-  /* Swipe to delete indicator (optional enhancement) */
-  .trip-card.swipe-left {
-    transform: translateX(-80px);
-  }
-
-  .trip-card-delete-zone {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 80px;
-    background-color: var(--danger);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
+  
+  #trips-table {
+    min-width: 500px;
   }
 }
 
-/* Very small mobile devices */
-@media (width <= 480px) {
-  .trip-info-grid {
-    grid-template-columns: 1fr !important;
-  }
+/* === Loading & Empty States === */
+.trips-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  gap: var(--space-3);
+}
 
-  .trip-card-actions {
-    flex-direction: column;
-  }
+.trips-loading .spinner-border {
+  width: 3rem;
+  height: 3rem;
+  color: var(--primary);
+}
 
-  .trip-card-actions .btn {
-    width: 100%;
-  }
+.trips-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.trips-empty i {
+  font-size: 4rem;
+  color: var(--text-tertiary);
+}
+
+.trips-empty-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.trips-empty-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  max-width: 300px;
 }
