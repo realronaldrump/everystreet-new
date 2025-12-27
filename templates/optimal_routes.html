@@ -1,7 +1,8 @@
 {% extends "base.html" %} {% block title %}Optimal Routes{% endblock %} {%
 block head_content %}
 
-
+<!-- Mapbox GL CSS -->
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" />
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/optimal-routes.css') | replace('http://', '//') }}"
@@ -189,7 +190,10 @@ block head_content %}
 </div>
 {% endblock %} {% block extra_js %}
 
-
+<!-- Mapbox GL JS -->
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
+<script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
 <script>
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
 </script>

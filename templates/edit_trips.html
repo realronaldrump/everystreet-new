@@ -59,6 +59,8 @@
   </div>
 </div>
 {% endblock %} {% block extra_css %}
+<!-- Mapbox GL CSS -->
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" />
 <link
   rel="stylesheet"
   href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css"
@@ -68,6 +70,10 @@
   href="{{ url_for('static', path='css/edit_trips.css') | replace('http://', '//') }}"
 />
 {% endblock %} {% block extra_js %}
+<!-- Mapbox GL JS -->
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
+<script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
 <script>
   // Make Mapbox access token available globally
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";

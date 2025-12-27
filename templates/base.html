@@ -84,11 +84,7 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <!-- Mapbox GL JS CSS -->
-    <link
-      rel="stylesheet"
-      href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css"
-    />
+    <!-- Core CSS -->
     <link
       rel="stylesheet"
       href="{{ url_for('static', path='css/style.css') | replace('http://', '//') }}"
@@ -99,25 +95,7 @@
     />
     <link
       rel="stylesheet"
-      href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}"
-    />
-    <link
-      rel="stylesheet"
       href="{{ url_for('static', path='css/loading-styles.css') | replace('http://', '//') }}"
-    />
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', path='css/search.css') | replace('http://', '//') }}"
-    />
-
-    <!-- DataTables CSS - Load early for critical rendering -->
-    <link
-      rel="stylesheet"
-      href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"
     />
 
     <!-- Non-critical CSS loaded asynchronously -->
@@ -808,15 +786,7 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 
-    <!-- DataTables - Load before page-specific scripts -->
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
-
-    <!-- Map libraries -->
-    <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
-    <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
-    <script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
+    <!-- Page-specific scripts (DataTables, Mapbox) are loaded via extra_js blocks -->
 
     <!-- Other libraries -->
 

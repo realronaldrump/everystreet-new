@@ -550,7 +550,6 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
         pipeline = [
             {"$match": match_stage},
             # Consolidate a single 'placeName' field
-            # Priority: destinationPlaceName > formatted_address > street
             {
                 "$addFields": {
                     "placeName": {

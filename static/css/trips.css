@@ -241,19 +241,19 @@
 }
 
 /* === Responsive: Tablet and below === */
-@media (max-width: 992px) {
+@media (width <= 992px) {
   .filter-quick-ranges {
     width: 100%;
     justify-content: flex-start;
   }
-  
+
   .filter-panel .row {
     flex-direction: column;
   }
 }
 
 /* === Responsive: Mobile === */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   /* Hide columns that aren't essential on mobile */
   .col-hide-mobile,
   #trips-table th.col-hide-mobile,
@@ -261,57 +261,57 @@
   #trips-table td:nth-child(6) {
     display: none !important;
   }
-  
+
   /* Make action buttons smaller */
   .trips-actions-bar {
     flex-direction: column;
     align-items: stretch;
     gap: var(--space-2);
   }
-  
+
   .trips-select-all {
     justify-content: center;
     padding: var(--space-2);
     background: var(--surface-3);
     border-radius: var(--radius-sm);
   }
-  
+
   .trips-actions-buttons {
     justify-content: center;
   }
-  
+
   .trips-actions-buttons .btn-text {
     display: none;
   }
-  
+
   .trips-actions-buttons .btn {
     padding: var(--space-2) var(--space-3);
   }
-  
+
   /* Table cell adjustments for mobile */
   #trips-table th,
   #trips-table td {
     padding: var(--space-2);
     font-size: var(--font-size-sm);
   }
-  
+
   .trip-cell {
     gap: 2px;
   }
-  
+
   .trip-title {
     font-size: var(--font-size-sm);
   }
-  
+
   .trip-meta {
     font-size: var(--font-size-xs);
   }
-  
+
   .pill {
     font-size: 10px;
     padding: 2px 6px;
   }
-  
+
   /* DataTables mobile optimizations */
   .dataTables_wrapper .dataTables_filter,
   .dataTables_wrapper .dataTables_length {
@@ -319,21 +319,21 @@
     text-align: center !important;
     padding: var(--space-2);
   }
-  
+
   .dataTables_wrapper .dataTables_info {
     text-align: center;
     font-size: var(--font-size-xs);
   }
-  
+
   .dataTables_wrapper .dataTables_paginate {
     text-align: center;
   }
-  
+
   .dataTables_wrapper .dataTables_paginate .paginate_button {
     padding: var(--space-2) !important;
     font-size: var(--font-size-xs);
   }
-  
+
   /* Button groups in action column */
   .btn-group-sm .btn {
     padding: var(--space-1) var(--space-2);
@@ -341,29 +341,29 @@
 }
 
 /* === Responsive: Very small mobile === */
-@media (max-width: 480px) {
+@media (width <= 480px) {
   /* Stack filter panel elements */
   .filter-panel .d-flex {
     flex-direction: column;
   }
-  
+
   .filter-quick-ranges {
     justify-content: center;
   }
-  
+
   .filter-quick-btn {
     flex: 1;
     min-width: 0;
     font-size: var(--font-size-xs);
     padding: var(--space-2);
   }
-  
+
   /* Make the table horizontally scrollable */
   .table-responsive {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   #trips-table {
     min-width: 500px;
   }

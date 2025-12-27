@@ -1834,7 +1834,7 @@
   // Mobile-specific functions removed - now using responsive CSS
   // The unified DOM structure handles all screen sizes
 
-  function setupMobileAccordions() {
+  function _setupMobileAccordions() {
     const headers = document.querySelectorAll(".mobile-settings-section-header");
 
     headers.forEach((header) => {
@@ -1853,7 +1853,7 @@
     });
   }
 
-  function setupMobileTaskList() {
+  function _setupMobileTaskList() {
     // This will be updated whenever desktop task list updates
     // Hook into the existing updateTaskConfigTable function
     const originalUpdate = window.taskManager?.updateTaskConfigTable;
@@ -1984,7 +1984,7 @@
     });
   }
 
-  function setupMobileHistoryList() {
+  function _setupMobileHistoryList() {
     const originalUpdate = window.taskManager?.updateTaskHistoryTable;
     if (!originalUpdate) return;
 
@@ -2134,7 +2134,7 @@
     };
   }
 
-  function setupMobileGlobalControls() {
+  function _setupMobileGlobalControls() {
     // Global disable switch
     const mobileGlobalSwitch = document.getElementById("mobile-globalDisableSwitch");
     const desktopGlobalSwitch = document.getElementById("globalDisableSwitch");
@@ -2192,7 +2192,7 @@
     }
   }
 
-  function setupMobileManualFetch() {
+  function _setupMobileManualFetch() {
     const form = document.getElementById("mobile-manualFetchTripsForm");
     if (!form) return;
 
@@ -2278,7 +2278,7 @@
     });
   }
 
-  function setupMobileDataManagement() {
+  function _setupMobileDataManagement() {
     // Unified Geocoding
     setupMobileGeocodeTrips();
 
@@ -2620,7 +2620,7 @@
     }
   }
 
-  function setupMobileSaveFAB() {
+  function _setupMobileSaveFAB() {
     const fab = document.getElementById("mobile-save-config-fab");
     if (!fab) return;
 
