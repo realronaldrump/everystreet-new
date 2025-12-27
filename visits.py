@@ -243,9 +243,6 @@ def parse_time(time_value):
     return time_value
 
 
-
-
-
 async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:
     """Calculate visits for a place using a single MongoDB aggregation.
 
