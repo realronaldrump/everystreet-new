@@ -23,7 +23,7 @@ class LoadingManager {
   init() {
     // Find or create the loading overlay
     this.overlay = document.querySelector(".loading-overlay");
-    
+
     if (!this.overlay) {
       this.createOverlay();
     } else {
@@ -184,7 +184,7 @@ class LoadingManager {
   error(message) {
     console.error("Loading Error:", message);
     this.show(`Error: ${message}`);
-    
+
     // Auto-hide after showing error
     setTimeout(() => this.forceHide(), 3000);
   }
@@ -200,7 +200,7 @@ class LoadingManager {
   startStage(stageName, message) {
     this.show(message || `Loading ${stageName}...`);
     return {
-      update: (progress, msg) => {
+      update: (_progress, msg) => {
         if (msg) this.updateMessage(msg);
       },
       complete: () => this.hide(),
@@ -212,7 +212,7 @@ class LoadingManager {
    * Complete a stage (legacy compatibility)
    * @param {string} stageName - Name of the stage to complete
    */
-  completeStage(stageName) {
+  completeStage(_stageName) {
     this.hide();
   }
 
@@ -221,7 +221,7 @@ class LoadingManager {
    * @param {string} stageName - Stage name
    * @param {string} message - Error message
    */
-  stageError(stageName, message) {
+  stageError(_stageName, message) {
     this.error(message);
   }
 
@@ -234,7 +234,7 @@ class LoadingManager {
     this.show(`Loading ${name}...`);
     return {
       id: Date.now(),
-      update: (progress, msg) => {
+      update: (_progress, msg) => {
         if (msg) this.updateMessage(msg);
       },
       finish: () => this.hide(),

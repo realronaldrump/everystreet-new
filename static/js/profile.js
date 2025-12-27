@@ -486,7 +486,8 @@
       if (!response.ok) throw new Error("Failed to load vehicles");
 
       const vehicles = await response.json();
-      const noVehiclesHtml = '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Bouncie" to auto-discover vehicles.</p>';
+      const noVehiclesHtml =
+        '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Bouncie" to auto-discover vehicles.</p>';
 
       // Update Desktop List
       if (vehiclesList) {
@@ -519,11 +520,11 @@
           addVehicleListeners(vehicle.imei, true);
         });
       }
-
     } catch (error) {
       console.error("Error loading vehicles:", error);
-      const errorHtml = '<p class="text-center text-danger py-3">Error loading vehicles</p>';
-      
+      const errorHtml =
+        '<p class="text-center text-danger py-3">Error loading vehicles</p>';
+
       if (vehiclesList) {
         vehiclesList.innerHTML = errorHtml;
       }
@@ -532,7 +533,6 @@
       }
     }
   }
-
 
   /**
    * Add listeners for a vehicle item
@@ -555,14 +555,14 @@
    */
   function createVehicleItem(vehicle, isMobile = false) {
     const prefix = isMobile ? "mobile-" : "";
-    
+
     const statusBadge = vehicle.is_active
       ? '<span class="badge bg-success">Active</span>'
       : '<span class="badge bg-secondary">Inactive</span>';
 
     // Different layout for mobile? Or just stacked.
     // We need unique IDs for mobile elements.
-    
+
     return `
       <div class="vehicle-item-container" id="${prefix}vehicle-${vehicle.imei}">
         <div class="row g-3">
@@ -709,22 +709,21 @@
   async function syncVehiclesFromBouncie() {
     try {
       showStatus("Syncing vehicles from Bouncie...", "info");
-      
+
       const response = await fetch("/api/profile/bouncie-credentials/sync-vehicles", {
-        method: "POST"
+        method: "POST",
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.detail || "Failed to sync vehicles");
       }
-      
+
       showStatus(data.message || "Vehicles synced successfully!", "success");
-      
+
       // Reload vehicles and credentials (to update authorized devices)
       await Promise.all([loadVehicles(), loadCredentials()]);
-      
     } catch (error) {
       console.error("Error syncing vehicles:", error);
       showStatus(`Error syncing vehicles: ${error.message}`, "error");

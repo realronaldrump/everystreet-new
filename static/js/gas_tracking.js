@@ -402,7 +402,7 @@ async function handleFormSubmit(e) {
 
   const submitButton = document.getElementById("submit-btn");
   const spinner = submitButton.querySelector(".loading-spinner");
-  const buttonText = document.getElementById("submit-btn-text");
+  const _buttonText = document.getElementById("submit-btn-text");
   const fillupId = document.getElementById("fillup-id").value;
   const isEdit = !!fillupId;
 
