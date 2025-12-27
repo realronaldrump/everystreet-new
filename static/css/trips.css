@@ -4,6 +4,7 @@
   background: var(--surface-1);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
 }
 
 .filter-panel .form-label {
@@ -14,6 +15,101 @@
 .filter-panel .input-group-text {
   background: var(--surface-2);
   color: var(--text-secondary);
+}
+
+.filter-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.filter-subtitle {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.filter-quick-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.filter-quick-btn {
+  border-radius: var(--radius-pill);
+}
+
+.filter-helper-text {
+  color: var(--text-secondary);
+}
+
+.filter-chip-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  padding: 6px 10px;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-chip button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+}
+
+.filter-empty {
+  color: var(--text-tertiary);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  background: rgb(var(--primary-rgb), 0.1);
+  color: var(--primary);
+}
+
+.pill-subtle {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.pill-muted {
+  background: var(--surface-0);
+  color: var(--text-tertiary);
+}
+
+.trip-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trip-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.trip-meta {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 /* Desktop: Show table, hide mobile cards */

@@ -286,9 +286,9 @@ async def get_trips_datatable(request: Request):
     search_value = body.get("search", {}).get("value", "")
     order = body.get("order", [])
     columns = body.get("columns", [])
-    start_date = body.get("start_date")
-    end_date = body.get("end_date")
     filters = body.get("filters", {}) or {}
+    start_date = body.get("start_date") or filters.get("start_date")
+    end_date = body.get("end_date") or filters.get("end_date")
 
     query = {"invalid": {"$ne": True}}
 
@@ -424,7 +424,6 @@ async def get_trips_datatable(request: Request):
             "startLocation": start_location,
             "destination": destination,
             "maxSpeed": float(trip.get("maxSpeed", 0)),
-            "totalIdleDuration": trip.get("totalIdleDuration", 0),
             "totalIdleDuration": trip.get("totalIdleDuration", 0),
             "fuelConsumed": float(trip.get("fuelConsumed", 0)),
             "estimated_cost": _calculate_trip_cost(trip, price_map),
