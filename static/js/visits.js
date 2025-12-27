@@ -2813,7 +2813,7 @@
       errorDiv.innerHTML = `
         <i class="fas fa-exclamation-triangle me-2"></i>
         <strong>Error:</strong> Could not load necessary components for the Visits page. 
-        Please refresh the page or contact support.
+        Please refresh the page.
       `;
       document.body.prepend(errorDiv);
     }

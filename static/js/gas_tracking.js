@@ -163,7 +163,7 @@ async function loadVehicles(options = {}) {
       vehicleSelect.innerHTML =
         '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
       setVehicleStatus(
-        "No vehicles detected yet. We tried auto-discovery—please sync from Profile.",
+        "No vehicles detected yet. Auto-discovery attempted—please sync from Profile.",
         "warning"
       );
       return;
