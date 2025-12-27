@@ -28,8 +28,8 @@ from db import (
     serialize_datetime,
     serialize_document,
     trips_collection,
-    vehicles_collection,
     update_one_with_retry,
+    vehicles_collection,
 )
 from models import DateRangeModel
 from trip_service import TripService
@@ -435,9 +435,9 @@ async def get_trips_datatable(request: Request):
     imeis = {trip.get("imei") for trip in formatted_data if trip.get("imei")}
     vehicle_map: dict[str, dict] = {}
     if imeis:
-        vehicles = await vehicles_collection.find({"imei": {"$in": list(imeis)}}).to_list(
-            None
-        )
+        vehicles = await vehicles_collection.find(
+            {"imei": {"$in": list(imeis)}}
+        ).to_list(None)
         for vehicle in vehicles:
             vehicle_map[vehicle.get("imei")] = vehicle
 
@@ -453,7 +453,9 @@ async def get_trips_datatable(request: Request):
         if custom_name:
             vehicle_label = custom_name
         elif make or model or year:
-            vehicle_label = " ".join(str(part) for part in [year, make, model] if part).strip()
+            vehicle_label = " ".join(
+                str(part) for part in [year, make, model] if part
+            ).strip()
         elif vin:
             vehicle_label = f"VIN {vin}"
         elif imei:
