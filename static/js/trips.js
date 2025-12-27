@@ -34,6 +34,8 @@ async function initializePage() {
 
   // 3. Setup Filter Listeners & chips
   setupFilterListeners();
+  initializeDatePickers();
+  // Quick ranges setup is now part of initializeDatePickers/setupQuickRanges refactor
   setupQuickRanges();
   updateFilterChips();
 
@@ -307,30 +309,90 @@ function setupFilterListeners() {
 
 function setupQuickRanges() {
   const buttons = document.querySelectorAll(".filter-quick-btn");
-  const startInput = document.getElementById("trip-filter-date-start");
-  const endInput = document.getElementById("trip-filter-date-end");
-
+  
   buttons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const range = Number(btn.dataset.range);
-      if (!startInput || !endInput || Number.isNaN(range)) return;
-
-      if (range === 0) {
-        startInput.value = "";
-        endInput.value = "";
-      } else {
-        const today = new Date();
-        const startDate = new Date();
-        startDate.setDate(today.getDate() - range + 1);
-
-        startInput.value = startDate.toISOString().slice(0, 10);
-        endInput.value = today.toISOString().slice(0, 10);
+    btn.addEventListener("click", async () => {
+      const range = btn.dataset.range; // "7", "30", or "0"
+      
+      // Map numeric ranges to presets that DateUtils understands
+      let preset = "";
+      if (range === "7") preset = "last-week";
+      if (range === "30") preset = "last-month";
+      
+      const startInput = document.getElementById("trip-filter-date-start");
+      const endInput = document.getElementById("trip-filter-date-end");
+      
+      if (range === "0") {
+        // Clear
+        if (startInput?._flatpickr) startInput._flatpickr.clear();
+        if (endInput?._flatpickr) endInput._flatpickr.clear();
+      } else if (preset) {
+        try {
+          // Use shared util
+          const { startDate, endDate } = await window.DateUtils.getDateRangePreset(preset);
+          
+          if (startDate && endDate) {
+             if (startInput?._flatpickr) startInput._flatpickr.setDate(startDate, true);
+             if (endInput?._flatpickr) endInput._flatpickr.setDate(endDate, true);
+          }
+        } catch (e) {
+          console.error("Error setting preset:", e);
+        }
       }
-
+      
+      // Update chips & reload (Handled by Flatpickr onChange event or manually if needed)
+      // Flatpickr triggers change, but let's ensure:
       updateFilterChips();
       tripsTable.ajax.reload();
     });
   });
+}
+
+/**
+ * Initialize DatePickers using shared DateUtils
+ */
+function initializeDatePickers() {
+  const startInput = document.getElementById("trip-filter-date-start");
+  const endInput = document.getElementById("trip-filter-date-end");
+  
+  if (!startInput || !endInput) return;
+
+  const fpConfig = {
+    enableTime: false,
+    altInput: true,
+    altFormat: "M j, Y",
+    dateFormat: "Y-m-d", // API expects this
+    maxDate: "today",
+    disableMobile: true,
+    allowInput: true,
+    locale: { firstDayOfWeek: 0 },
+  };
+
+  // Init Start
+  if (window.DateUtils && window.DateUtils.initDatePicker) {
+    window.DateUtils.initDatePicker(startInput, {
+      ...fpConfig,
+      onChange: (selectedDates, dateStr) => {
+        if (endInput._flatpickr) {
+            endInput._flatpickr.set("minDate", dateStr);
+        }
+        updateFilterChips();
+      }
+    });
+    
+    // Init End
+    window.DateUtils.initDatePicker(endInput, {
+      ...fpConfig,
+      onChange: (selectedDates, dateStr) => {
+        if (startInput._flatpickr) {
+            startInput._flatpickr.set("maxDate", dateStr);
+        }
+        updateFilterChips();
+      }
+    });
+  } else {
+    console.error("DateUtils not available");
+  }
 }
 
 function updateFilterChips(triggerReload = false) {

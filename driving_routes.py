@@ -207,6 +207,13 @@ async def get_next_driving_route(request: Request):
         target_segment_id = data.get("segment_id")
         current_lat, current_lon, location_source = await get_current_position(data)
 
+        # Validate coordinates are valid numbers
+        if not all(math.isfinite(v) for v in [current_lat, current_lon]):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid position: coordinates contain NaN or infinite values.",
+            )
+
     except (ValueError, TypeError, json.JSONDecodeError) as e:
         raise HTTPException(status_code=400, detail=f"Invalid request format: {e!s}")
     except HTTPException as e:
@@ -439,6 +446,14 @@ async def get_coverage_driving_route(request: Request):
         location = LocationModel(**location_data)
         location_name = location.display_name
         current_lat, current_lon, location_source = await get_current_position(data)
+
+        # Validate coordinates are valid numbers
+        if not all(math.isfinite(v) for v in [current_lat, current_lon]):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid position: coordinates contain NaN or infinite values.",
+            )
+
         start_point = (current_lon, current_lat)
 
     except (ValueError, TypeError, json.JSONDecodeError) as e:
