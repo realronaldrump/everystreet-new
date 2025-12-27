@@ -1,21 +1,17 @@
-{% extends "base.html" %}
-{% block title %}Gas Tracking{% endblock %}
-
-{% block extra_css %}
+{% extends "base.html" %} {% block title %}Gas Tracking{% endblock %} {% block
+extra_css %}
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/gas_tracking.css') | replace('http://', '//') }}"
 />
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid gas-tracking-page py-4">
   <div class="gas-hero card border-0 mb-4">
     <div class="card-body p-5">
       <h1 class="display-5 fw-bold mb-3">⛽ Gas Tracking</h1>
       <p class="lead mb-0">
-        Track your fuel consumption, monitor MPG, and calculate trip costs — all in one
-        place.
+        Track your fuel consumption, monitor MPG, and calculate trip costs — all
+        in one place.
       </p>
     </div>
   </div>
@@ -25,7 +21,9 @@
     <div class="col-md-3">
       <div class="card stat-card h-100 text-center">
         <div class="card-body">
-          <div class="display-6 fw-bold text-primary mb-2" id="total-fillups">0</div>
+          <div class="display-6 fw-bold text-primary mb-2" id="total-fillups">
+            0
+          </div>
           <div class="text-secondary small">Total Fill-ups</div>
         </div>
       </div>
@@ -33,7 +31,9 @@
     <div class="col-md-3">
       <div class="card stat-card h-100 text-center">
         <div class="card-body">
-          <div class="display-6 fw-bold text-primary mb-2" id="total-spent">$0</div>
+          <div class="display-6 fw-bold text-primary mb-2" id="total-spent">
+            $0
+          </div>
           <div class="text-secondary small">Total Spent</div>
         </div>
       </div>
@@ -49,7 +49,9 @@
     <div class="col-md-3">
       <div class="card stat-card h-100 text-center">
         <div class="card-body">
-          <div class="display-6 fw-bold text-primary mb-2" id="cost-per-mile">$0.00</div>
+          <div class="display-6 fw-bold text-primary mb-2" id="cost-per-mile">
+            $0.00
+          </div>
           <div class="text-secondary small">Cost per Mile</div>
         </div>
       </div>
@@ -67,20 +69,34 @@
             <!-- Vehicle Selection -->
             <div class="mb-4">
               <h5 class="mb-3 d-flex align-items-center gap-2">
-                <span class="badge bg-primary rounded-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">🚗</span>
+                <span
+                  class="badge bg-primary rounded-1 d-flex align-items-center justify-content-center"
+                  style="width: 32px; height: 32px"
+                  >🚗</span
+                >
                 Vehicle
               </h5>
-              <select class="form-select" id="vehicle-select" name="imei" required>
+              <select
+                class="form-select"
+                id="vehicle-select"
+                name="imei"
+                required
+              >
                 <option value="">Select Vehicle...</option>
               </select>
-              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2">
-                <div id="vehicle-status" class="vehicle-status small text-muted">
+              <div
+                class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2"
+              >
+                <div
+                  id="vehicle-status"
+                  class="vehicle-status small text-muted"
+                >
                   We'll automatically detect your vehicles when possible.
                 </div>
                 <div
                   id="vehicle-loading-state"
                   class="vehicle-loading small"
-                  style="display: none;"
+                  style="display: none"
                 >
                   <span
                     class="spinner-border spinner-border-sm"
@@ -95,7 +111,11 @@
             <!-- Fill-up Time -->
             <div class="mb-4">
               <h5 class="mb-3 d-flex align-items-center gap-2">
-                <span class="badge bg-primary rounded-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">📅</span>
+                <span
+                  class="badge bg-primary rounded-1 d-flex align-items-center justify-content-center"
+                  style="width: 32px; height: 32px"
+                  >📅</span
+                >
                 Fill-up Time
               </h5>
               <div class="row g-3">
@@ -117,11 +137,11 @@
                   >
                     Use Now
                   </button>
-                   <button
+                  <button
                     type="button"
                     class="btn btn-outline-secondary w-100"
                     id="cancel-edit-btn"
-                    style="display: none;"
+                    style="display: none"
                   >
                     Cancel
                   </button>
@@ -133,31 +153,57 @@
             <!-- Location Section -->
             <div class="mb-4">
               <h5 class="mb-3 d-flex align-items-center gap-2">
-                <span class="badge bg-primary rounded-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">📍</span>
+                <span
+                  class="badge bg-primary rounded-1 d-flex align-items-center justify-content-center"
+                  style="width: 32px; height: 32px"
+                  >📍</span
+                >
                 Location
               </h5>
-              
-              <div id="fillup-map" class="mb-3 rounded" style="height: 300px; width: 100%;"></div>
-              
+
+              <div
+                id="fillup-map"
+                class="mb-3 rounded"
+                style="height: 300px; width: 100%"
+              ></div>
+
               <!-- Location Info -->
               <div class="p-3 rounded location-info">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <strong><i class="fas fa-map-marker-alt text-primary"></i> Location</strong>
-                  <span id="location-text" class="text-muted">Select vehicle...</span>
+                <div
+                  class="d-flex justify-content-between align-items-center mb-2"
+                >
+                  <strong
+                    ><i class="fas fa-map-marker-alt text-primary"></i>
+                    Location</strong
+                  >
+                  <span id="location-text" class="text-muted"
+                    >Select vehicle...</span
+                  >
                 </div>
                 <div class="d-flex justify-content-between align-items-center">
-                  <strong><i class="fas fa-tachometer-alt text-primary"></i> Odometer</strong>
+                  <strong
+                    ><i class="fas fa-tachometer-alt text-primary"></i>
+                    Odometer</strong
+                  >
                   <span id="odometer-display">--</span>
                 </div>
                 <!-- Debug Panel -->
-                <pre id="location-debug" class="mt-2 p-2 rounded small text-white bg-dark" style="display:none; font-size: 0.7rem;"></pre>
+                <pre
+                  id="location-debug"
+                  class="mt-2 p-2 rounded small text-white bg-dark"
+                  style="display: none; font-size: 0.7rem"
+                ></pre>
               </div>
             </div>
 
             <!-- Fill-up Details -->
             <div class="mb-4">
               <h5 class="mb-3 d-flex align-items-center gap-2">
-                <span class="badge bg-primary rounded-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">⛽</span>
+                <span
+                  class="badge bg-primary rounded-1 d-flex align-items-center justify-content-center"
+                  style="width: 32px; height: 32px"
+                  >⛽</span
+                >
                 Fill-up Details
               </h5>
               <div class="row g-3">
@@ -224,7 +270,11 @@
                         id="odometer-not-recorded"
                         title="Odometer not recorded"
                       />
-                      <label class="form-check-label ms-1 small" for="odometer-not-recorded">No Rec</label>
+                      <label
+                        class="form-check-label ms-1 small"
+                        for="odometer-not-recorded"
+                        >No Rec</label
+                      >
                     </div>
                     <button
                       class="btn btn-outline-secondary"
@@ -255,9 +305,16 @@
                       type="checkbox"
                       id="missed-previous"
                     />
-                    <label class="form-check-label text-muted small" for="missed-previous">
+                    <label
+                      class="form-check-label text-muted small"
+                      for="missed-previous"
+                    >
                       Missed previous fill-up?
-                      <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Check this if you forgot to log a fill-up. This will reset MPG calculations to prevent errors."></i>
+                      <i
+                        class="fas fa-info-circle ms-1"
+                        data-bs-toggle="tooltip"
+                        title="Check this if you forgot to log a fill-up. This will reset MPG calculations to prevent errors."
+                      ></i>
                     </label>
                   </div>
                 </div>
@@ -272,16 +329,28 @@
                   ></textarea>
                 </div>
               </div>
-              
-              <div id="calculated-mpg" class="alert alert-success mt-3 py-2 px-3 fw-bold d-inline-block" style="display: none">
+
+              <div
+                id="calculated-mpg"
+                class="alert alert-success mt-3 py-2 px-3 fw-bold d-inline-block"
+                style="display: none"
+              >
                 Calculated MPG: <span id="mpg-value">--</span>
               </div>
             </div>
 
             <!-- Submit Button -->
-            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm" id="submit-btn">
+            <button
+              type="submit"
+              class="btn btn-primary w-100 py-3 fw-bold shadow-sm"
+              id="submit-btn"
+            >
               <span id="submit-btn-text">Save Fill-Up</span>
-              <span class="loading-spinner spinner-border spinner-border-sm ms-2" role="status" style="display: none;">
+              <span
+                class="loading-spinner spinner-border spinner-border-sm ms-2"
+                role="status"
+                style="display: none"
+              >
                 <span class="visually-hidden">Loading...</span>
               </span>
             </button>
@@ -305,9 +374,7 @@
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script>
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
 </script>
