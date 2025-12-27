@@ -1,8 +1,14 @@
 {% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %} {%
 block extra_css %}
 <!-- DataTables CSS -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css" />
-<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css" />
+<link
+  rel="stylesheet"
+  href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css"
+/>
+<link
+  rel="stylesheet"
+  href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css"
+/>
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}"
@@ -24,7 +30,6 @@ block extra_css %}
           </div>
           <div id="active-filter-chips" class="filter-chip-row mt-2"></div>
         </div>
-
       </div>
 
       <div class="row g-3 align-items-end">
@@ -34,8 +39,6 @@ block extra_css %}
             <option value="">All vehicles</option>
           </select>
         </div>
-
-
 
         <div class="col-md-3 col-lg-2">
           <label class="form-label">Distance (mi)</label>
@@ -147,7 +150,11 @@ block extra_css %}
             <span class="trips-select-all-text">Select All</span>
           </label>
           <div class="trips-actions-buttons">
-            <button id="bulk-delete-trips-btn" class="btn btn-danger btn-sm" disabled>
+            <button
+              id="bulk-delete-trips-btn"
+              class="btn btn-danger btn-sm"
+              disabled
+            >
               <i class="fas fa-trash"></i>
               <span class="btn-text">Delete Selected</span>
             </button>
