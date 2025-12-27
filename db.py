@@ -38,7 +38,11 @@ if TYPE_CHECKING:
     from fastapi import Request
     from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
-from date_utils import parse_timestamp, normalize_calendar_date, normalize_to_utc_datetime
+from date_utils import (
+    normalize_calendar_date,
+    normalize_to_utc_datetime,
+    parse_timestamp,
+)
 
 logger = logging.getLogger(__name__)
 
