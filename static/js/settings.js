@@ -2901,3 +2901,217 @@
     new InvalidTripReview();
   });
 })();
+
+// Tab switching logic
+document.addEventListener('DOMContentLoaded', function() {
+  const tabs = document.querySelectorAll('.settings-tab');
+  
+  tabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+      const tabName = this.dataset.tab;
+      
+      // Update tab buttons in both desktop and mobile
+      document.querySelectorAll('.settings-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === tabName);
+      });
+      
+      // Update tab content - desktop
+      document.querySelectorAll('.settings-desktop-container .settings-tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      const desktopContent = document.getElementById(`${tabName}-tab`);
+      if (desktopContent) desktopContent.classList.add('active');
+      
+      // Update tab content - mobile
+      document.querySelectorAll('.settings-mobile-container .settings-tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      const mobileContent = document.getElementById(`mobile-${tabName}-tab`);
+      if (mobileContent) mobileContent.classList.add('active');
+    });
+  });
+
+  // App Settings Form Functionality
+  const darkModeToggle = document.getElementById('dark-mode-toggle');
+  const highlightRecentTrips = document.getElementById('highlight-recent-trips');
+  const autoCenterToggle = document.getElementById('auto-center-toggle');
+  const showLiveTracking = document.getElementById('show-live-tracking');
+  const polylineColor = document.getElementById('polyline-color');
+  const polylineOpacity = document.getElementById('polyline-opacity');
+  const opacityValue = document.getElementById('opacity-value');
+  const geocodeTripsOnFetch = document.getElementById('geocode-trips-on-fetch');
+  const form = document.getElementById('app-settings-form');
+  const themeToggleCheckbox = document.getElementById('theme-toggle-checkbox');
+
+  // Mobile elements
+  const mobileDarkModeToggle = document.getElementById('mobile-dark-mode-toggle');
+  const mobileHighlightRecentTrips = document.getElementById('mobile-highlight-recent-trips');
+  const mobileAutoCenterToggle = document.getElementById('mobile-auto-center-toggle');
+  const mobileShowLiveTracking = document.getElementById('mobile-show-live-tracking');
+  const mobilePolylineColor = document.getElementById('mobile-polyline-color');
+  const mobilePolylineOpacity = document.getElementById('mobile-polyline-opacity');
+  const mobileOpacityValue = document.getElementById('mobile-opacity-value');
+  const mobileGeocodeTripsOnFetch = document.getElementById('mobile-geocode-trips-on-fetch');
+  const mobileSaveBtn = document.getElementById('mobile-save-preferences');
+
+  // Function to apply settings to UI
+  function applySettings(settings = {}) {
+    const {
+      highlightRecentTrips: hrt,
+      autoCenter,
+      showLiveTracking: slt,
+      polylineColor: pc,
+      polylineOpacity: po,
+      geocodeTripsOnFetch: gtof,
+    } = settings;
+
+    const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    
+    // Desktop
+    if (darkModeToggle) darkModeToggle.checked = isDarkMode;
+    if (highlightRecentTrips) highlightRecentTrips.checked = hrt !== false;
+    if (autoCenterToggle) autoCenterToggle.checked = autoCenter !== false;
+    if (showLiveTracking) showLiveTracking.checked = slt !== false;
+    if (geocodeTripsOnFetch) geocodeTripsOnFetch.checked = gtof !== false;
+    if (polylineColor) polylineColor.value = pc || localStorage.getItem('polylineColor') || '#00FF00';
+    if (polylineOpacity) {
+      polylineOpacity.value = po || localStorage.getItem('polylineOpacity') || '0.8';
+      if (opacityValue) opacityValue.textContent = polylineOpacity.value;
+    }
+
+    // Mobile
+    if (mobileDarkModeToggle) mobileDarkModeToggle.checked = isDarkMode;
+    if (mobileHighlightRecentTrips) mobileHighlightRecentTrips.checked = hrt !== false;
+    if (mobileAutoCenterToggle) mobileAutoCenterToggle.checked = autoCenter !== false;
+    if (mobileShowLiveTracking) mobileShowLiveTracking.checked = slt !== false;
+    if (mobileGeocodeTripsOnFetch) mobileGeocodeTripsOnFetch.checked = gtof !== false;
+    if (mobilePolylineColor) mobilePolylineColor.value = pc || localStorage.getItem('polylineColor') || '#00FF00';
+    if (mobilePolylineOpacity) {
+      mobilePolylineOpacity.value = po || localStorage.getItem('polylineOpacity') || '0.8';
+      if (mobileOpacityValue) mobileOpacityValue.textContent = mobilePolylineOpacity.value;
+    }
+  }
+
+  // Load settings from server
+  (async () => {
+    try {
+      const res = await fetch('/api/app_settings');
+      if (res.ok) {
+        const data = await res.json();
+        applySettings(data);
+      } else {
+        console.warn('Failed to fetch app settings. HTTP', res.status);
+        applySettings();
+      }
+    } catch (err) {
+      console.error('Error fetching app settings:', err);
+      applySettings();
+    }
+  })();
+
+  // Sync opacity display
+  if (polylineOpacity && opacityValue) {
+    polylineOpacity.addEventListener('input', function() {
+      opacityValue.textContent = this.value;
+    });
+  }
+  if (mobilePolylineOpacity && mobileOpacityValue) {
+    mobilePolylineOpacity.addEventListener('input', function() {
+      mobileOpacityValue.textContent = this.value;
+    });
+  }
+
+  // Save preferences function
+  async function savePreferences(isDesktop = true) {
+    const payload = {
+      highlightRecentTrips: isDesktop 
+        ? highlightRecentTrips?.checked 
+        : mobileHighlightRecentTrips?.checked,
+      autoCenter: isDesktop 
+        ? autoCenterToggle?.checked 
+        : mobileAutoCenterToggle?.checked,
+      showLiveTracking: isDesktop 
+        ? showLiveTracking?.checked 
+        : mobileShowLiveTracking?.checked,
+      polylineColor: isDesktop 
+        ? polylineColor?.value 
+        : mobilePolylineColor?.value,
+      polylineOpacity: isDesktop 
+        ? polylineOpacity?.value 
+        : mobilePolylineOpacity?.value,
+      geocodeTripsOnFetch: isDesktop 
+        ? geocodeTripsOnFetch?.checked 
+        : mobileGeocodeTripsOnFetch?.checked,
+    };
+
+    try {
+      const resp = await fetch('/api/app_settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Server returned ${resp.status}`);
+      }
+    } catch (err) {
+      console.error('Error saving settings to server:', err);
+      window.notificationManager?.show('Failed to save settings on server', 'danger');
+      return;
+    }
+
+    // Mirror to localStorage
+    localStorage.setItem('highlightRecentTrips', payload.highlightRecentTrips);
+    localStorage.setItem('autoCenter', payload.autoCenter);
+    localStorage.setItem('showLiveTracking', payload.showLiveTracking);
+    localStorage.setItem('polylineColor', payload.polylineColor);
+    localStorage.setItem('polylineOpacity', payload.polylineOpacity);
+
+    // Show success
+    if (window.notificationManager) {
+      window.notificationManager.show('Settings saved successfully', 'success');
+    }
+
+    // Update live tracker if active
+    if (window.liveTracker) {
+      try {
+        window.liveTracker.updatePolylineStyle(payload.polylineColor, payload.polylineOpacity);
+      } catch (err) {
+        console.error('Error updating live tracker style:', err);
+      }
+    }
+  }
+
+  // Desktop form submission
+  if (form) {
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      await savePreferences(true);
+    });
+  }
+
+  // Mobile save button
+  if (mobileSaveBtn) {
+    mobileSaveBtn.addEventListener('click', async function() {
+      await savePreferences(false);
+    });
+  }
+
+  // Dark mode toggle sync
+  if (darkModeToggle) {
+    darkModeToggle.addEventListener('change', function() {
+      if (themeToggleCheckbox) {
+        themeToggleCheckbox.checked = !this.checked;
+        themeToggleCheckbox.dispatchEvent(new Event('change'));
+      }
+    });
+  }
+  if (mobileDarkModeToggle) {
+    mobileDarkModeToggle.addEventListener('change', function() {
+      if (themeToggleCheckbox) {
+        themeToggleCheckbox.checked = !this.checked;
+        themeToggleCheckbox.dispatchEvent(new Event('change'));
+      }
+    });
+  }
+});
