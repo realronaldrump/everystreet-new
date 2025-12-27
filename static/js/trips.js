@@ -76,7 +76,10 @@ async function loadVehicles() {
   } catch (error) {
     console.error("Error loading vehicles:", error);
     if (window.notificationManager) {
-      window.notificationManager.show("Failed to load vehicles list", "warning");
+      window.notificationManager.show(
+        "Failed to load vehicles list",
+        "warning",
+      );
     }
   }
 }
@@ -118,8 +121,12 @@ function initializeDataTable() {
         name: "vehicleLabel",
         render: (_data, _type, row) => {
           const name = row.vehicleLabel || "Unknown vehicle";
-          const idTag = row.transactionId ? `<span class="pill pill-muted">${row.transactionId}</span>` : "";
-          const vin = row.vin ? `<span class="pill pill-subtle">VIN ${row.vin}</span>` : "";
+          const idTag = row.transactionId
+            ? `<span class="pill pill-muted">${row.transactionId}</span>`
+            : "";
+          const vin = row.vin
+            ? `<span class="pill pill-subtle">VIN ${row.vin}</span>`
+            : "";
           return `
             <div class="trip-cell">
               <div class="trip-title">${name}</div>
@@ -147,7 +154,9 @@ function initializeDataTable() {
         data: "distance",
         name: "distance",
         render: (_data, _type, row) => {
-          const distance = row.distance ? `${parseFloat(row.distance).toFixed(1)} mi` : "--";
+          const distance = row.distance
+            ? `${parseFloat(row.distance).toFixed(1)} mi`
+            : "--";
           const startLocation = sanitizeLocation(row.startLocation);
           const destination = sanitizeLocation(row.destination);
           return `
@@ -163,7 +172,9 @@ function initializeDataTable() {
         name: "maxSpeed",
         render: (_data, _type, row) => {
           const speed = row.maxSpeed ? `${Math.round(row.maxSpeed)} mph` : "--";
-          const idle = row.totalIdleDuration ? `${Math.round(row.totalIdleDuration / 60)} min idle` : "Minimal idle";
+          const idle = row.totalIdleDuration
+            ? `${Math.round(row.totalIdleDuration / 60)} min idle`
+            : "Minimal idle";
           return `
             <div class="trip-cell">
               <div class="trip-title">${speed}</div>
@@ -176,8 +187,12 @@ function initializeDataTable() {
         data: "fuelConsumed",
         name: "fuelConsumed",
         render: (_data, _type, row) => {
-          const fuel = row.fuelConsumed ? `${parseFloat(row.fuelConsumed).toFixed(2)} gal` : "--";
-          const cost = row.estimated_cost ? `$${parseFloat(row.estimated_cost).toFixed(2)}` : "--";
+          const fuel = row.fuelConsumed
+            ? `${parseFloat(row.fuelConsumed).toFixed(2)} gal`
+            : "--";
+          const cost = row.estimated_cost
+            ? `$${parseFloat(row.estimated_cost).toFixed(2)}`
+            : "--";
           return `
             <div class="trip-cell">
               <div class="trip-title">${fuel}</div>
@@ -228,15 +243,32 @@ function initializeDataTable() {
 
 function getFilterValues() {
   return {
-    imei: (document.getElementById("trip-filter-vehicle")?.value || "").trim() || null,
-    distance_min: (document.getElementById("trip-filter-distance-min")?.value || "").trim() || null,
-    distance_max: (document.getElementById("trip-filter-distance-max")?.value || "").trim() || null,
-    speed_min: (document.getElementById("trip-filter-speed-min")?.value || "").trim() || null,
-    speed_max: (document.getElementById("trip-filter-speed-max")?.value || "").trim() || null,
-    fuel_min: (document.getElementById("trip-filter-fuel-min")?.value || "").trim() || null,
-    fuel_max: (document.getElementById("trip-filter-fuel-max")?.value || "").trim() || null,
+    imei:
+      (document.getElementById("trip-filter-vehicle")?.value || "").trim() ||
+      null,
+    distance_min:
+      (
+        document.getElementById("trip-filter-distance-min")?.value || ""
+      ).trim() || null,
+    distance_max:
+      (
+        document.getElementById("trip-filter-distance-max")?.value || ""
+      ).trim() || null,
+    speed_min:
+      (document.getElementById("trip-filter-speed-min")?.value || "").trim() ||
+      null,
+    speed_max:
+      (document.getElementById("trip-filter-speed-max")?.value || "").trim() ||
+      null,
+    fuel_min:
+      (document.getElementById("trip-filter-fuel-min")?.value || "").trim() ||
+      null,
+    fuel_max:
+      (document.getElementById("trip-filter-fuel-max")?.value || "").trim() ||
+      null,
     has_fuel: document.getElementById("trip-filter-has-fuel")?.checked || false,
-    start_date: document.getElementById("trip-filter-date-start")?.value || null,
+    start_date:
+      document.getElementById("trip-filter-date-start")?.value || null,
     end_date: document.getElementById("trip-filter-date-end")?.value || null,
   };
 }
@@ -248,7 +280,7 @@ function setupFilterListeners() {
   const inputs = document.querySelectorAll(
     "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, " +
       "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, " +
-      "#trip-filter-has-fuel, #trip-filter-date-start, #trip-filter-date-end"
+      "#trip-filter-has-fuel, #trip-filter-date-start, #trip-filter-date-end",
   );
 
   inputs.forEach((input) => {
@@ -261,11 +293,13 @@ function setupFilterListeners() {
   });
 
   // Apply button
-  document.getElementById("trip-filter-apply")?.addEventListener("click", () => {
-    tripsTable.ajax.reload();
-    showFilterAppliedMessage();
-    updateFilterChips();
-  });
+  document
+    .getElementById("trip-filter-apply")
+    ?.addEventListener("click", () => {
+      tripsTable.ajax.reload();
+      showFilterAppliedMessage();
+      updateFilterChips();
+    });
 
   // Reset button
   const resetBtn = document.getElementById("trip-filter-reset");
@@ -316,7 +350,12 @@ function updateFilterChips(triggerReload = false) {
   const filters = getFilterValues();
   const chips = [];
 
-  if (filters.imei) chips.push(makeChip("Vehicle", filters.imei, () => clearInput("trip-filter-vehicle")));
+  if (filters.imei)
+    chips.push(
+      makeChip("Vehicle", filters.imei, () =>
+        clearInput("trip-filter-vehicle"),
+      ),
+    );
   if (filters.start_date || filters.end_date)
     chips.push(
       makeChip(
@@ -325,8 +364,8 @@ function updateFilterChips(triggerReload = false) {
         () => {
           clearInput("trip-filter-date-start");
           clearInput("trip-filter-date-end");
-        }
-      )
+        },
+      ),
     );
   if (filters.distance_min || filters.distance_max)
     chips.push(
@@ -336,8 +375,8 @@ function updateFilterChips(triggerReload = false) {
         () => {
           clearInput("trip-filter-distance-min");
           clearInput("trip-filter-distance-max");
-        }
-      )
+        },
+      ),
     );
   if (filters.speed_min || filters.speed_max)
     chips.push(
@@ -347,8 +386,8 @@ function updateFilterChips(triggerReload = false) {
         () => {
           clearInput("trip-filter-speed-min");
           clearInput("trip-filter-speed-max");
-        }
-      )
+        },
+      ),
     );
   if (filters.fuel_min || filters.fuel_max)
     chips.push(
@@ -358,15 +397,15 @@ function updateFilterChips(triggerReload = false) {
         () => {
           clearInput("trip-filter-fuel-min");
           clearInput("trip-filter-fuel-max");
-        }
-      )
+        },
+      ),
     );
   if (filters.has_fuel)
     chips.push(
       makeChip("Has fuel", "Only trips with fuel data", () => {
         const cb = document.getElementById("trip-filter-has-fuel");
         if (cb) cb.checked = false;
-      })
+      }),
     );
 
   container.innerHTML = "";
@@ -406,7 +445,8 @@ function showFilterAppliedMessage() {
   helper.textContent = "Filters applied. Showing the newest matching trips.";
   helper.classList.add("text-success");
   setTimeout(() => {
-    helper.textContent = "Adjust filters then apply to refresh results. Active filters appear as chips above.";
+    helper.textContent =
+      "Adjust filters then apply to refresh results. Active filters appear as chips above.";
     helper.classList.remove("text-success");
   }, 2000);
 }
@@ -485,7 +525,10 @@ function setupBulkActions() {
     // For now, let's just trigger a full recent refresh via API.
     try {
       if (window.notificationManager)
-        window.notificationManager.show("Starting geocoding refresh...", "info");
+        window.notificationManager.show(
+          "Starting geocoding refresh...",
+          "info",
+        );
 
       const response = await fetch("/api/geocode_trips", {
         method: "POST",
@@ -535,7 +578,10 @@ async function bulkDeleteTrips(ids) {
     const result = await response.json();
 
     if (window.notificationManager)
-      window.notificationManager.show(result.message || "Trips deleted", "success");
+      window.notificationManager.show(
+        result.message || "Trips deleted",
+        "success",
+      );
     tripsTable.ajax.reload(null, false);
     $("#select-all-trips").prop("checked", false);
   } catch (e) {
@@ -571,7 +617,9 @@ function sanitizeLocation(location) {
     return (
       location.formatted_address ||
       location.name ||
-      [location.street, location.city, location.state].filter(Boolean).join(", ") ||
+      [location.street, location.city, location.state]
+        .filter(Boolean)
+        .join(", ") ||
       "Unknown"
     );
   }

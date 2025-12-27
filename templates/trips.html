@@ -1,31 +1,50 @@
-{% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %} 
-{% block extra_css %}
+{% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %} {%
+block extra_css %}
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}"
 />
-{% endblock %}
-{%
-block content %}
+{% endblock %} {% block content %}
 <div class="container-fluid px-4 py-3">
   <h1 class="mb-4">Trips</h1>
 
   <div class="card mb-4 filter-panel">
     <div class="card-body">
-      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+      <div
+        class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3"
+      >
         <div>
           <div class="filter-title">Filter and narrow down your trips</div>
-          <div class="filter-subtitle">Choose a vehicle, date window, and any performance limits. Apply to see instant results.</div>
+          <div class="filter-subtitle">
+            Choose a vehicle, date window, and any performance limits. Apply to
+            see instant results.
+          </div>
           <div id="active-filter-chips" class="filter-chip-row mt-2"></div>
         </div>
-        <div class="filter-quick-ranges" role="group" aria-label="Quick date ranges">
-          <button class="btn btn-outline-primary filter-quick-btn" data-range="7" type="button">
+        <div
+          class="filter-quick-ranges"
+          role="group"
+          aria-label="Quick date ranges"
+        >
+          <button
+            class="btn btn-outline-primary filter-quick-btn"
+            data-range="7"
+            type="button"
+          >
             <i class="fas fa-history"></i> Last 7 days
           </button>
-          <button class="btn btn-outline-primary filter-quick-btn" data-range="30" type="button">
+          <button
+            class="btn btn-outline-primary filter-quick-btn"
+            data-range="30"
+            type="button"
+          >
             <i class="fas fa-calendar"></i> Last 30 days
           </button>
-          <button class="btn btn-outline-secondary filter-quick-btn" data-range="0" type="button">
+          <button
+            class="btn btn-outline-secondary filter-quick-btn"
+            data-range="0"
+            type="button"
+          >
             Clear range
           </button>
         </div>
@@ -42,10 +61,24 @@ block content %}
         <div class="col-md-3 col-lg-3">
           <label class="form-label">Date Range</label>
           <div class="input-group">
-            <span class="input-group-text"><i class="far fa-calendar"></i></span>
-            <input type="date" class="form-control" id="trip-filter-date-start" placeholder="Start" aria-label="Trip start date" />
+            <span class="input-group-text"
+              ><i class="far fa-calendar"></i
+            ></span>
+            <input
+              type="date"
+              class="form-control"
+              id="trip-filter-date-start"
+              placeholder="Start"
+              aria-label="Trip start date"
+            />
             <span class="input-group-text">to</span>
-            <input type="date" class="form-control" id="trip-filter-date-end" placeholder="End" aria-label="Trip end date" />
+            <input
+              type="date"
+              class="form-control"
+              id="trip-filter-date-end"
+              placeholder="End"
+              aria-label="Trip end date"
+            />
           </div>
         </div>
 
@@ -53,40 +86,89 @@ block content %}
           <label class="form-label">Distance (mi)</label>
           <div class="input-group">
             <span class="input-group-text"><i class="fas fa-road"></i></span>
-            <input type="number" class="form-control" id="trip-filter-distance-min" placeholder="Min" step="0.1" />
+            <input
+              type="number"
+              class="form-control"
+              id="trip-filter-distance-min"
+              placeholder="Min"
+              step="0.1"
+            />
             <span class="input-group-text">-</span>
-            <input type="number" class="form-control" id="trip-filter-distance-max" placeholder="Max" step="0.1" />
+            <input
+              type="number"
+              class="form-control"
+              id="trip-filter-distance-max"
+              placeholder="Max"
+              step="0.1"
+            />
           </div>
         </div>
         <div class="col-md-3 col-lg-2">
           <label class="form-label">Max Speed (mph)</label>
           <div class="input-group">
-            <span class="input-group-text"><i class="fas fa-tachometer-alt"></i></span>
-            <input type="number" class="form-control" id="trip-filter-speed-min" placeholder="Min" step="1" />
+            <span class="input-group-text"
+              ><i class="fas fa-tachometer-alt"></i
+            ></span>
+            <input
+              type="number"
+              class="form-control"
+              id="trip-filter-speed-min"
+              placeholder="Min"
+              step="1"
+            />
             <span class="input-group-text">-</span>
-            <input type="number" class="form-control" id="trip-filter-speed-max" placeholder="Max" step="1" />
+            <input
+              type="number"
+              class="form-control"
+              id="trip-filter-speed-max"
+              placeholder="Max"
+              step="1"
+            />
           </div>
         </div>
         <div class="col-md-3 col-lg-2">
           <label class="form-label">Fuel (gal)</label>
           <div class="input-group">
-            <span class="input-group-text"><i class="fas fa-gas-pump"></i></span>
-            <input type="number" class="form-control" id="trip-filter-fuel-min" placeholder="Min" step="0.01" />
+            <span class="input-group-text"
+              ><i class="fas fa-gas-pump"></i
+            ></span>
+            <input
+              type="number"
+              class="form-control"
+              id="trip-filter-fuel-min"
+              placeholder="Min"
+              step="0.01"
+            />
             <span class="input-group-text">-</span>
-            <input type="number" class="form-control" id="trip-filter-fuel-max" placeholder="Max" step="0.01" />
+            <input
+              type="number"
+              class="form-control"
+              id="trip-filter-fuel-max"
+              placeholder="Max"
+              step="0.01"
+            />
           </div>
         </div>
         <div class="col-md-3 col-lg-1 d-flex align-items-center">
           <div class="form-check mt-4">
-            <input class="form-check-input" type="checkbox" id="trip-filter-has-fuel" />
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="trip-filter-has-fuel"
+            />
             <label class="form-check-label" for="trip-filter-has-fuel">
               Has Fuel
             </label>
           </div>
         </div>
       </div>
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
-        <div class="filter-helper-text" id="filter-helper-text">Adjust filters then apply to refresh results. Active filters appear as chips above.</div>
+      <div
+        class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3"
+      >
+        <div class="filter-helper-text" id="filter-helper-text">
+          Adjust filters then apply to refresh results. Active filters appear as
+          chips above.
+        </div>
         <div class="d-flex gap-2">
           <button class="btn btn-primary" id="trip-filter-apply">
             <i class="fas fa-check"></i> Apply filters
@@ -142,10 +224,17 @@ block content %}
         <span>Select All</span>
       </label>
       <div class="trips-mobile-actions">
-        <button id="bulk-delete-trips-mobile-btn" class="btn btn-sm btn-danger" disabled>
+        <button
+          id="bulk-delete-trips-mobile-btn"
+          class="btn btn-sm btn-danger"
+          disabled
+        >
           <i class="fas fa-trash"></i> Delete
         </button>
-        <button id="refresh-geocoding-mobile-btn" class="btn btn-sm btn-primary">
+        <button
+          id="refresh-geocoding-mobile-btn"
+          class="btn btn-sm btn-primary"
+        >
           <i class="fas fa-sync"></i> Refresh
         </button>
       </div>
@@ -157,15 +246,25 @@ block content %}
     </div>
 
     <!-- Mobile Pagination -->
-    <div id="trips-mobile-pagination" class="trips-mobile-pagination" style="display: none;">
+    <div
+      id="trips-mobile-pagination"
+      class="trips-mobile-pagination"
+      style="display: none"
+    >
       <div class="trips-mobile-pagination-info">
         <span id="trips-mobile-page-info"></span>
       </div>
       <div class="trips-mobile-pagination-controls">
-        <button id="trips-mobile-prev-btn" class="btn btn-outline-primary trips-mobile-pagination-btn">
+        <button
+          id="trips-mobile-prev-btn"
+          class="btn btn-outline-primary trips-mobile-pagination-btn"
+        >
           <i class="fas fa-chevron-left"></i> Previous
         </button>
-        <button id="trips-mobile-next-btn" class="btn btn-outline-primary trips-mobile-pagination-btn">
+        <button
+          id="trips-mobile-next-btn"
+          class="btn btn-outline-primary trips-mobile-pagination-btn"
+        >
           Next <i class="fas fa-chevron-right"></i>
         </button>
       </div>
