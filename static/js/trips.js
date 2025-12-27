@@ -604,7 +604,7 @@ function extractAjaxErrorMessage(xhr, fallbackError) {
       const parsed = JSON.parse(xhr.responseText);
       if (parsed?.detail) return parsed.detail;
       if (parsed?.message) return parsed.message;
-    } catch (e) {
+    } catch (_e) {
       // Not JSON, fall back to text
       return xhr.responseText;
     }
