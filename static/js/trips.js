@@ -76,7 +76,10 @@ async function loadVehicles() {
   } catch (error) {
     console.error("Error loading vehicles:", error);
     if (window.notificationManager) {
-      window.notificationManager.show("Failed to load vehicles list", "warning");
+      window.notificationManager.show(
+        "Failed to load vehicles list",
+        "warning",
+      );
     }
   }
 }
@@ -241,21 +244,32 @@ function initializeDataTable() {
 
 function getFilterValues() {
   return {
-    imei: (document.getElementById("trip-filter-vehicle")?.value || "").trim() || null,
+    imei:
+      (document.getElementById("trip-filter-vehicle")?.value || "").trim() ||
+      null,
     distance_min:
-      (document.getElementById("trip-filter-distance-min")?.value || "").trim() || null,
+      (
+        document.getElementById("trip-filter-distance-min")?.value || ""
+      ).trim() || null,
     distance_max:
-      (document.getElementById("trip-filter-distance-max")?.value || "").trim() || null,
+      (
+        document.getElementById("trip-filter-distance-max")?.value || ""
+      ).trim() || null,
     speed_min:
-      (document.getElementById("trip-filter-speed-min")?.value || "").trim() || null,
+      (document.getElementById("trip-filter-speed-min")?.value || "").trim() ||
+      null,
     speed_max:
-      (document.getElementById("trip-filter-speed-max")?.value || "").trim() || null,
+      (document.getElementById("trip-filter-speed-max")?.value || "").trim() ||
+      null,
     fuel_min:
-      (document.getElementById("trip-filter-fuel-min")?.value || "").trim() || null,
+      (document.getElementById("trip-filter-fuel-min")?.value || "").trim() ||
+      null,
     fuel_max:
-      (document.getElementById("trip-filter-fuel-max")?.value || "").trim() || null,
+      (document.getElementById("trip-filter-fuel-max")?.value || "").trim() ||
+      null,
     has_fuel: document.getElementById("trip-filter-has-fuel")?.checked || false,
-    start_date: document.getElementById("trip-filter-date-start")?.value || null,
+    start_date:
+      document.getElementById("trip-filter-date-start")?.value || null,
     end_date: document.getElementById("trip-filter-date-end")?.value || null,
   };
 }
@@ -267,7 +281,7 @@ function setupFilterListeners() {
   const inputs = document.querySelectorAll(
     "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, " +
       "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, " +
-      "#trip-filter-has-fuel, #trip-filter-date-start, #trip-filter-date-end"
+      "#trip-filter-has-fuel, #trip-filter-date-start, #trip-filter-date-end",
   );
 
   inputs.forEach((input) => {
@@ -280,11 +294,13 @@ function setupFilterListeners() {
   });
 
   // Apply button
-  document.getElementById("trip-filter-apply")?.addEventListener("click", () => {
-    tripsTable.ajax.reload();
-    showFilterAppliedMessage();
-    updateFilterChips();
-  });
+  document
+    .getElementById("trip-filter-apply")
+    ?.addEventListener("click", () => {
+      tripsTable.ajax.reload();
+      showFilterAppliedMessage();
+      updateFilterChips();
+    });
 
   // Reset button
   const resetBtn = document.getElementById("trip-filter-reset");
@@ -337,7 +353,9 @@ function updateFilterChips(triggerReload = false) {
 
   if (filters.imei)
     chips.push(
-      makeChip("Vehicle", filters.imei, () => clearInput("trip-filter-vehicle"))
+      makeChip("Vehicle", filters.imei, () =>
+        clearInput("trip-filter-vehicle"),
+      ),
     );
   if (filters.start_date || filters.end_date)
     chips.push(
@@ -347,8 +365,8 @@ function updateFilterChips(triggerReload = false) {
         () => {
           clearInput("trip-filter-date-start");
           clearInput("trip-filter-date-end");
-        }
-      )
+        },
+      ),
     );
   if (filters.distance_min || filters.distance_max)
     chips.push(
@@ -358,8 +376,8 @@ function updateFilterChips(triggerReload = false) {
         () => {
           clearInput("trip-filter-distance-min");
           clearInput("trip-filter-distance-max");
-        }
-      )
+        },
+      ),
     );
   if (filters.speed_min || filters.speed_max)
     chips.push(
@@ -369,8 +387,8 @@ function updateFilterChips(triggerReload = false) {
         () => {
           clearInput("trip-filter-speed-min");
           clearInput("trip-filter-speed-max");
-        }
-      )
+        },
+      ),
     );
   if (filters.fuel_min || filters.fuel_max)
     chips.push(
@@ -380,15 +398,15 @@ function updateFilterChips(triggerReload = false) {
         () => {
           clearInput("trip-filter-fuel-min");
           clearInput("trip-filter-fuel-max");
-        }
-      )
+        },
+      ),
     );
   if (filters.has_fuel)
     chips.push(
       makeChip("Has fuel", "Only trips with fuel data", () => {
         const cb = document.getElementById("trip-filter-has-fuel");
         if (cb) cb.checked = false;
-      })
+      }),
     );
 
   container.innerHTML = "";
@@ -508,7 +526,10 @@ function setupBulkActions() {
     // For now, let's just trigger a full recent refresh via API.
     try {
       if (window.notificationManager)
-        window.notificationManager.show("Starting geocoding refresh...", "info");
+        window.notificationManager.show(
+          "Starting geocoding refresh...",
+          "info",
+        );
 
       const response = await fetch("/api/geocode_trips", {
         method: "POST",
@@ -558,7 +579,10 @@ async function bulkDeleteTrips(ids) {
     const result = await response.json();
 
     if (window.notificationManager)
-      window.notificationManager.show(result.message || "Trips deleted", "success");
+      window.notificationManager.show(
+        result.message || "Trips deleted",
+        "success",
+      );
     tripsTable.ajax.reload(null, false);
     $("#select-all-trips").prop("checked", false);
   } catch (e) {
@@ -594,7 +618,9 @@ function sanitizeLocation(location) {
     return (
       location.formatted_address ||
       location.name ||
-      [location.street, location.city, location.state].filter(Boolean).join(", ") ||
+      [location.street, location.city, location.state]
+        .filter(Boolean)
+        .join(", ") ||
       "Unknown"
     );
   }
