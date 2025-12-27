@@ -564,6 +564,20 @@ body {
   transform: translateX(0);
 }
 
+/* Ensure all links in mobile nav drawer are properly styled */
+.mobile-nav-drawer a,
+.mobile-nav-drawer a:link,
+.mobile-nav-drawer a:visited {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.mobile-nav-drawer a:hover,
+.mobile-nav-drawer a:focus {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
 .drawer-header {
   display: flex;
   align-items: center;
@@ -601,12 +615,13 @@ body {
   list-style: none;
 }
 
+.mobile-nav-drawer .drawer-nav-list li a,
 .drawer-nav-list li a {
   display: flex;
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  color: var(--text-secondary);
-  text-decoration: none;
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
   font-size: var(--font-size-md);
   transition:
     background-color var(--transition-fast),
@@ -614,17 +629,29 @@ body {
   border-left: 3px solid transparent; /* For active state */
 }
 
+.mobile-nav-drawer .drawer-nav-list li a:link,
+.mobile-nav-drawer .drawer-nav-list li a:visited,
+.drawer-nav-list li a:link,
+.drawer-nav-list li a:visited {
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
+}
+
+.mobile-nav-drawer .drawer-nav-list li a.active,
+.mobile-nav-drawer .drawer-nav-list li a:hover,
 .drawer-nav-list li a.active,
 .drawer-nav-list li a:hover {
   background-color: var(--surface-2);
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
 }
 
+.mobile-nav-drawer .drawer-nav-list li a.active,
 .drawer-nav-list li a.active {
   border-left-color: var(--primary);
   font-weight: var(--font-weight-medium);
 }
 
+.mobile-nav-drawer .drawer-nav-list li a i,
 .drawer-nav-list li a i {
   margin-right: var(--space-3);
   width: 20px;
@@ -696,12 +723,13 @@ body {
   opacity: 0;
 }
 
+.mobile-nav-drawer .drawer-nav-section-list li a,
 .drawer-nav-section-list li a {
   display: flex;
   align-items: center;
   padding: var(--space-2) var(--space-4) var(--space-2) var(--space-5);
-  color: var(--text-secondary);
-  text-decoration: none;
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
   font-size: var(--font-size-sm);
   transition:
     background-color var(--transition-fast),
@@ -709,18 +737,29 @@ body {
   border-left: 3px solid transparent;
 }
 
-.drawer-nav-section-list li a:hover {
-  background-color: var(--surface-2);
-  color: var(--text-primary);
+.mobile-nav-drawer .drawer-nav-section-list li a:link,
+.mobile-nav-drawer .drawer-nav-section-list li a:visited,
+.drawer-nav-section-list li a:link,
+.drawer-nav-section-list li a:visited {
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
 }
 
+.mobile-nav-drawer .drawer-nav-section-list li a:hover,
+.drawer-nav-section-list li a:hover {
+  background-color: var(--surface-2);
+  color: var(--text-primary) !important;
+}
+
+.mobile-nav-drawer .drawer-nav-section-list li a.active,
 .drawer-nav-section-list li a.active {
   background-color: var(--surface-2);
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
   border-left-color: var(--primary);
   font-weight: var(--font-weight-medium);
 }
 
+.mobile-nav-drawer .drawer-nav-section-list li a i,
 .drawer-nav-section-list li a i {
   margin-right: var(--space-3);
   width: 20px;
