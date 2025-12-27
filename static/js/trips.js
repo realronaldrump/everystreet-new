@@ -74,7 +74,10 @@ async function loadVehicles() {
   } catch (error) {
     console.error("Error loading vehicles:", error);
     if (window.notificationManager) {
-      window.notificationManager.show("Failed to load vehicles list", "warning");
+      window.notificationManager.show(
+        "Failed to load vehicles list",
+        "warning",
+      );
     }
   }
 }
@@ -132,7 +135,11 @@ function initializeDataTable() {
         name: "distance",
         render: (data) => (data ? `${parseFloat(data).toFixed(1)} mi` : "--"),
       },
-      { data: "startLocation", name: "startLocation", defaultContent: "Unknown" },
+      {
+        data: "startLocation",
+        name: "startLocation",
+        defaultContent: "Unknown",
+      },
       { data: "destination", name: "destination", defaultContent: "Unknown" },
       {
         data: "maxSpeed",
@@ -197,15 +204,18 @@ function initializeDataTable() {
 function getFilterValues() {
   return {
     imei: document.getElementById("trip-filter-vehicle")?.value || null,
-    distance_min: document.getElementById("trip-filter-distance-min")?.value || null,
-    distance_max: document.getElementById("trip-filter-distance-max")?.value || null,
+    distance_min:
+      document.getElementById("trip-filter-distance-min")?.value || null,
+    distance_max:
+      document.getElementById("trip-filter-distance-max")?.value || null,
     speed_min: document.getElementById("trip-filter-speed-min")?.value || null,
     speed_max: document.getElementById("trip-filter-speed-max")?.value || null,
     fuel_min: document.getElementById("trip-filter-fuel-min")?.value || null,
     fuel_max: document.getElementById("trip-filter-fuel-max")?.value || null,
     has_fuel: document.getElementById("trip-filter-has-fuel")?.checked || false,
     // Add date filters (will be added to HTML next)
-    start_date: document.getElementById("trip-filter-date-start")?.value || null,
+    start_date:
+      document.getElementById("trip-filter-date-start")?.value || null,
     end_date: document.getElementById("trip-filter-date-end")?.value || null,
   };
 }
@@ -217,7 +227,7 @@ function setupFilterListeners() {
   const inputs = document.querySelectorAll(
     "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, " +
       "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, " +
-      "#trip-filter-has-fuel, #trip-filter-date-start, #trip-filter-date-end"
+      "#trip-filter-has-fuel, #trip-filter-date-start, #trip-filter-date-end",
   );
 
   const debouncedReload = utils.debounce(() => {
@@ -318,7 +328,10 @@ function setupBulkActions() {
     // For now, let's just trigger a full recent refresh via API.
     try {
       if (window.notificationManager)
-        window.notificationManager.show("Starting geocoding refresh...", "info");
+        window.notificationManager.show(
+          "Starting geocoding refresh...",
+          "info",
+        );
 
       const response = await fetch("/api/geocode_trips", {
         method: "POST",
@@ -368,7 +381,10 @@ async function bulkDeleteTrips(ids) {
     const result = await response.json();
 
     if (window.notificationManager)
-      window.notificationManager.show(result.message || "Trips deleted", "success");
+      window.notificationManager.show(
+        result.message || "Trips deleted",
+        "success",
+      );
     tripsTable.ajax.reload(null, false);
     $("#select-all-trips").prop("checked", false);
   } catch (e) {
