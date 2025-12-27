@@ -400,15 +400,16 @@ async function autoCalcOdometer() {
 async function handleFormSubmit(e) {
   e.preventDefault();
 
-  const submitButton = document.querySelector(".btn-save");
-  const spinner = document.querySelector(".loading-spinner");
+  const submitButton = document.getElementById("submit-btn");
+  const spinner = submitButton.querySelector(".loading-spinner");
+  const buttonText = document.getElementById("submit-btn-text");
   const fillupId = document.getElementById("fillup-id").value;
   const isEdit = !!fillupId;
 
   try {
     // Show loading state
     submitButton.disabled = true;
-    spinner.classList.add("active");
+    spinner.style.display = "inline-block";
 
     // Gather form data
     const isNoOdo = document.getElementById("odometer-not-recorded").checked;
@@ -489,7 +490,7 @@ async function handleFormSubmit(e) {
     showError(error.message || `Failed to ${isEdit ? "update" : "save"} fill-up`);
   } finally {
     submitButton.disabled = false;
-    spinner.classList.remove("active");
+    spinner.style.display = "none";
   }
 }
 
@@ -500,9 +501,10 @@ function resetFormState() {
   document.getElementById("gas-fillup-form").reset();
 
   // Clear ID and reset buttons
+  // Clear ID and reset buttons
   document.getElementById("fillup-id").value = "";
   document.getElementById("cancel-edit-btn").style.display = "none";
-  document.querySelector(".btn-save").childNodes[0].nodeValue = "Save Fill-Up"; // keep spinner
+  document.getElementById("submit-btn-text").textContent = "Save Fill-Up";
 
   // Reset Odometer check
   const odoInput = document.getElementById("odometer");
@@ -634,7 +636,7 @@ window.editFillup = (id) => {
 
   // Switch to edit mode UI
   document.getElementById("fillup-id").value = fillup._id;
-  document.querySelector(".btn-save").childNodes[0].nodeValue = "Update Fill-Up";
+  document.getElementById("submit-btn-text").textContent = "Update Fill-Up";
   document.getElementById("cancel-edit-btn").style.display = "inline-block";
 
   // Populate form
@@ -690,7 +692,8 @@ window.editFillup = (id) => {
   }
 
   // Scroll to form
-  document.querySelector(".gas-form-container").scrollIntoView({ behavior: "smooth" });
+  // Scroll to form
+  document.getElementById("gas-fillup-card").scrollIntoView({ behavior: "smooth" });
 };
 
 /**
