@@ -498,19 +498,16 @@ async def get_trips_for_place(place_id: str):
 async def get_non_custom_places_visits(timeframe: str | None = None):
     """Aggregate visits to *non-custom* destinations.
 
-    The logic has been enhanced to:
+    The logic derives a human-readable *place name* from destination information,
+    prioritizing actual place names over addresses:
 
-    1. Derive a human-readable *place name* from the destination information
-       even when ``destinationPlaceName`` is not populated.  It attempts, in
-       order, to use:
+       1. ``destinationPlaceName`` (if present - explicitly set place name)
+       2. ``destination.formatted_address`` (full address from Mapbox, includes POI names)
+       3. ``destination.address_components.street`` (street name as last resort)
 
-       • ``destinationPlaceName`` (if present)
-       • the city field from ``destination.address_components``
-       • ``destination.formatted_address``
-
-    2. Support an optional ``timeframe`` query-param (``day`` | ``week`` |
-       ``month`` | ``year``).  When supplied, only trips whose *endTime* falls
-       inside that rolling window are considered.
+    Supports an optional ``timeframe`` query-param (``day`` | ``week`` |
+    ``month`` | ``year``). When supplied, only trips whose *endTime* falls
+    inside that rolling window are considered.
     """
     from datetime import datetime, timedelta  # Local import to avoid circular issues
 
@@ -524,8 +521,8 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
             # Require that we at least have *some* destination information
             "$or": [
                 {"destinationPlaceName": {"$exists": True, "$ne": None}},
-                {"destination.address_components.city": {"$exists": True, "$ne": ""}},
                 {"destination.formatted_address": {"$exists": True, "$ne": ""}},
+                {"destination.address_components.street": {"$exists": True, "$ne": ""}},
             ],
         }
 
@@ -553,6 +550,7 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
         pipeline = [
             {"$match": match_stage},
             # Consolidate a single 'placeName' field
+            # Priority: destinationPlaceName > formatted_address > street
             {
                 "$addFields": {
                     "placeName": {
@@ -560,10 +558,10 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
                             "$destinationPlaceName",
                             {
                                 "$ifNull": [
-                                    "$destination.address_components.city",
+                                    "$destination.formatted_address",
                                     {
                                         "$ifNull": [
-                                            "$destination.formatted_address",
+                                            "$destination.address_components.street",
                                             "Unknown",
                                         ]
                                     },
