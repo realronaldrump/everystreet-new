@@ -6,8 +6,7 @@ import metricsManager from "./metrics-manager.js";
 import state from "./state.js";
 import utils from "./utils.js";
 
-const RECENCY_WINDOW_MS =
-  CONFIG.MAP?.recencyWindowMs ?? 30 * 24 * 60 * 60 * 1000;
+const RECENCY_WINDOW_MS = CONFIG.MAP?.recencyWindowMs ?? 30 * 24 * 60 * 60 * 1000;
 
 const deviceProfile =
   typeof utils.getDeviceProfile === "function"
@@ -71,14 +70,10 @@ const dataManager = {
   async fetchTrips() {
     if (!state.mapInitialized) return null;
 
-    const dataStage = window.loadingManager.startStage(
-      "data",
-      "Loading trips...",
-      {
-        blocking: false,
-        compact: true,
-      },
-    );
+    const dataStage = window.loadingManager.startStage("data", "Loading trips...", {
+      blocking: false,
+      compact: true,
+    });
     mapLoadingIndicator.show("Loading trips...");
 
     try {
@@ -90,10 +85,7 @@ const dataManager = {
       const fullCollection = await utils.fetchWithRetry(`/api/trips?${params}`);
       if (fullCollection?.type !== "FeatureCollection") {
         dataStage.error("Invalid trip data received from server.");
-        window.notificationManager.show(
-          "Failed to load valid trip data",
-          "danger",
-        );
+        window.notificationManager.show("Failed to load valid trip data", "danger");
         return null;
       }
 
@@ -114,7 +106,7 @@ const dataManager = {
 
       dataStage.update(40, `Processing ${totalCount} trips...`);
       mapLoadingIndicator.update(
-        `Processing ${totalCount.toLocaleString()} trips for display...`,
+        `Processing ${totalCount.toLocaleString()} trips for display...`
       );
 
       // Mark recent trips for styling (fast operation, do synchronously)
@@ -139,7 +131,7 @@ const dataManager = {
       if (totalCount > chunkSize) {
         dataStage.update(50, `Rendering ${totalCount} trips progressively...`);
         mapLoadingIndicator.update(
-          `Rendering ${totalCount.toLocaleString()} trips... (0%)`,
+          `Rendering ${totalCount.toLocaleString()} trips... (0%)`
         );
 
         // Render first chunk immediately for fast visual feedback
@@ -157,14 +149,11 @@ const dataManager = {
           const progress = 50 + Math.round((loadedCount / totalCount) * 30);
           dataStage.update(
             progress,
-            `Rendered ${loadedCount} of ${totalCount} trips...`,
+            `Rendered ${loadedCount} of ${totalCount} trips...`
           );
-          const percent = Math.min(
-            99,
-            Math.round((loadedCount / totalCount) * 100),
-          );
+          const percent = Math.min(99, Math.round((loadedCount / totalCount) * 100));
           mapLoadingIndicator.update(
-            `Rendering ${loadedCount.toLocaleString()} of ${totalCount.toLocaleString()} trips... (${percent}%)`,
+            `Rendering ${loadedCount.toLocaleString()} of ${totalCount.toLocaleString()} trips... (${percent}%)`
           );
         };
 
@@ -238,20 +227,14 @@ const dataManager = {
   },
 
   async fetchUndrivenStreets() {
-    const selectedLocationId = utils.getStorage(
-      CONFIG.STORAGE_KEYS.selectedLocation,
-    );
-    if (
-      !selectedLocationId ||
-      !state.mapInitialized ||
-      state.undrivenStreetsLoaded
-    )
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded)
       return null;
 
     window.loadingManager.pulse("Loading undriven streets...");
     try {
       const data = await utils.fetchWithRetry(
-        `/api/coverage_areas/${selectedLocationId}/streets?undriven=true`,
+        `/api/coverage_areas/${selectedLocationId}/streets?undriven=true`
       );
       if (data?.type === "FeatureCollection") {
         state.mapLayers.undrivenStreets.layer = data;
@@ -268,20 +251,14 @@ const dataManager = {
   },
 
   async fetchDrivenStreets() {
-    const selectedLocationId = utils.getStorage(
-      CONFIG.STORAGE_KEYS.selectedLocation,
-    );
-    if (
-      !selectedLocationId ||
-      !state.mapInitialized ||
-      state.drivenStreetsLoaded
-    )
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded)
       return null;
 
     window.loadingManager.pulse("Loading driven streets...");
     try {
       const data = await utils.fetchWithRetry(
-        `/api/coverage_areas/${selectedLocationId}/streets?driven=true`,
+        `/api/coverage_areas/${selectedLocationId}/streets?driven=true`
       );
       if (data?.type === "FeatureCollection") {
         state.mapLayers.drivenStreets.layer = data;
@@ -298,16 +275,14 @@ const dataManager = {
   },
 
   async fetchAllStreets() {
-    const selectedLocationId = utils.getStorage(
-      CONFIG.STORAGE_KEYS.selectedLocation,
-    );
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded)
       return null;
 
     window.loadingManager.pulse("Loading all streets...");
     try {
       const data = await utils.fetchWithRetry(
-        `/api/coverage_areas/${selectedLocationId}/streets`,
+        `/api/coverage_areas/${selectedLocationId}/streets`
       );
       if (data?.type === "FeatureCollection") {
         state.mapLayers.allStreets.layer = data;
@@ -329,9 +304,7 @@ const dataManager = {
       const params = new URLSearchParams({ start_date: start, end_date: end });
       const data = await utils.fetchWithRetry(`/api/trip-analytics?${params}`);
       if (data)
-        document.dispatchEvent(
-          new CustomEvent("metricsUpdated", { detail: data }),
-        );
+        document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
       return data;
     } catch (error) {
       console.error("Error fetching metrics:", error);
@@ -342,10 +315,7 @@ const dataManager = {
   async updateMap(fitBounds = false) {
     if (!state.mapInitialized) return;
 
-    const renderStage = window.loadingManager.startStage(
-      "render",
-      "Updating map...",
-    );
+    const renderStage = window.loadingManager.startStage("render", "Updating map...");
 
     try {
       renderStage.update(20, "Fetching map data...");
@@ -354,13 +324,9 @@ const dataManager = {
       const promises = [];
       // Always fetch visible trip layers (they may need refresh after date range changes)
       if (state.mapLayers.trips.visible) promises.push(this.fetchTrips());
-      if (state.mapLayers.matchedTrips.visible)
-        promises.push(this.fetchMatchedTrips());
+      if (state.mapLayers.matchedTrips.visible) promises.push(this.fetchMatchedTrips());
       // Street layers only fetch if not already loaded (they're location-specific)
-      if (
-        state.mapLayers.undrivenStreets.visible &&
-        !state.undrivenStreetsLoaded
-      )
+      if (state.mapLayers.undrivenStreets.visible && !state.undrivenStreetsLoaded)
         promises.push(this.fetchUndrivenStreets());
       if (state.mapLayers.drivenStreets.visible && !state.drivenStreetsLoaded)
         promises.push(this.fetchDrivenStreets());
@@ -382,7 +348,7 @@ const dataManager = {
                 state.map.setLayoutProperty(
                   layerId,
                   "visibility",
-                  info.visible ? "visible" : "none",
+                  info.visible ? "visible" : "none"
                 );
               }
             }

@@ -34,8 +34,7 @@ const layerManager = {
 
     sortedLayers.forEach(([name, info]) => {
       const div = document.createElement("div");
-      div.className =
-        "layer-control d-flex align-items-center mb-2 p-2 rounded";
+      div.className = "layer-control d-flex align-items-center mb-2 p-2 rounded";
       div.dataset.layerName = name;
       div.draggable = true;
       div.style.cursor = "move";
@@ -45,8 +44,7 @@ const layerManager = {
         info.supportsColorPicker !== false && name !== "customPlaces";
       const supportsOpacitySlider =
         info.supportsOpacitySlider !== false && name !== "customPlaces";
-      const colorValue =
-        typeof info.color === "string" ? info.color : "#ffffff";
+      const colorValue = typeof info.color === "string" ? info.color : "#ffffff";
 
       const controls = [];
 
@@ -112,7 +110,7 @@ const layerManager = {
         }
 
         this.saveLayerSettings();
-      }, 200),
+      }, 200)
     );
   },
 
@@ -155,10 +153,7 @@ const layerManager = {
 
       if (!draggedElement) return;
 
-      const afterElement = this.getDragAfterElementForLayers(
-        container,
-        e.clientY,
-      );
+      const afterElement = this.getDragAfterElementForLayers(container, e.clientY);
       if (afterElement == null) {
         container.appendChild(draggedElement);
       } else {
@@ -186,7 +181,7 @@ const layerManager = {
         }
         return closest;
       },
-      { offset: Number.NEGATIVE_INFINITY },
+      { offset: Number.NEGATIVE_INFINITY }
     ).element;
   },
 
@@ -203,7 +198,7 @@ const layerManager = {
 
     if (state.map && state.mapInitialized) {
       const sortedLayers = Object.entries(state.mapLayers).sort(
-        ([, a], [, b]) => (b.order || 0) - (a.order || 0),
+        ([, a], [, b]) => (b.order || 0) - (a.order || 0)
       );
 
       let beforeLayer = null;
@@ -246,11 +241,7 @@ const layerManager = {
     // Apply visibility - ensure map is ready and layer exists
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
-      state.map.setLayoutProperty(
-        layerId,
-        "visibility",
-        visible ? "visible" : "none",
-      );
+      state.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
     } else if (visible && layerInfo.layer) {
       // If layer data exists but layer isn't on map yet, update it
       await this.updateMapLayer(name, layerInfo.layer);
@@ -267,8 +258,7 @@ const layerManager = {
 
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
-      const paintProperty =
-        property === "color" ? "line-color" : "line-opacity";
+      const paintProperty = property === "color" ? "line-color" : "line-opacity";
       state.map.setPaintProperty(layerId, paintProperty, value);
     }
   },
@@ -315,11 +305,7 @@ const layerManager = {
             ? layerInfo.color
             : layerInfo.color || "#331107";
           state.map.setPaintProperty(layerId, "line-color", colorValue);
-          state.map.setPaintProperty(
-            layerId,
-            "line-opacity",
-            layerInfo.opacity,
-          );
+          state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
           state.map.setPaintProperty(layerId, "line-width", [
             "interpolate",
             ["linear"],
@@ -335,16 +321,13 @@ const layerManager = {
           state.map.setLayoutProperty(
             layerId,
             "visibility",
-            layerInfo.visible ? "visible" : "none",
+            layerInfo.visible ? "visible" : "none"
           );
 
           layerInfo.layer = data;
           return;
         } catch (updateError) {
-          console.warn(
-            `Falling back to layer rebuild for ${layerName}:`,
-            updateError,
-          );
+          console.warn(`Falling back to layer rebuild for ${layerName}:`, updateError);
         }
       }
 
@@ -416,13 +399,12 @@ const layerManager = {
         state.map.setLayoutProperty(
           layerId,
           "visibility",
-          layerInfo.visible ? "visible" : "none",
+          layerInfo.visible ? "visible" : "none"
         );
       }
 
       if (layerName === "trips" || layerName === "matchedTrips") {
-        const tripInteractions = (await import("./trip-interactions.js"))
-          .default;
+        const tripInteractions = (await import("./trip-interactions.js")).default;
         const clickHandler = (e) => {
           e.originalEvent.stopPropagation();
           if (e.features?.length > 0) {
@@ -460,10 +442,7 @@ const layerManager = {
       layerInfo.layer = data;
     } catch (error) {
       console.error(`Error updating ${layerName} layer:`, error);
-      window.notificationManager.show(
-        `Failed to update ${layerName} layer`,
-        "warning",
-      );
+      window.notificationManager.show(`Failed to update ${layerName} layer`, "warning");
     }
   },
 

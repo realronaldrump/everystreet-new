@@ -34,13 +34,13 @@ async function initializePage() {
 
   // 3. Setup Filter Listeners & chips
   setupFilterListeners();
-  
+
   // Listen for global date filter changes
   document.addEventListener("filtersApplied", () => {
     updateFilterChips();
     tripsTable.ajax.reload();
   });
-  
+
   updateFilterChips();
 
   // 4. Setup Bulk Actions
@@ -311,8 +311,6 @@ function setupFilterListeners() {
   }
 }
 
-
-
 function updateFilterChips(triggerReload = false) {
   const container = document.getElementById("active-filter-chips");
   if (!container) return;
@@ -330,16 +328,16 @@ function updateFilterChips(triggerReload = false) {
         "Date",
         `${filters.start_date || "Any"} → ${filters.end_date || "Any"}`,
         () => {
-           // To clear global date, reset the storage.
-           if (window.utils) {
-             window.utils.setStorage("startDate", null);
-             window.utils.setStorage("endDate", null);
-             // Dispatch event so other components know (like the menu)
-             document.dispatchEvent(new Event("filtersReset"));
-             // Reload
-             updateFilterChips();
-             tripsTable.ajax.reload();
-           }
+          // To clear global date, reset the storage.
+          if (window.utils) {
+            window.utils.setStorage("startDate", null);
+            window.utils.setStorage("endDate", null);
+            // Dispatch event so other components know (like the menu)
+            document.dispatchEvent(new Event("filtersReset"));
+            // Reload
+            updateFilterChips();
+            tripsTable.ajax.reload();
+          }
         }
       )
     );
