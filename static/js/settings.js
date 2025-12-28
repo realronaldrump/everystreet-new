@@ -2882,8 +2882,7 @@
     setupGeocodeTrips();
     setupRemapMatchedTrips();
 
-    // Setup Mobile UI
-    setupMobileUI();
+    // Note: Mobile-specific UI setup functions were removed - responsive CSS handles this now
 
     // Initialize Invalid Trip Review
     new InvalidTripReview();

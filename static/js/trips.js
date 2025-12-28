@@ -1,3 +1,4 @@
+/* global $ */
 /**
  * Trips Page Logic
  * Handles vehicle fetching, DataTable initialization, and filtering.

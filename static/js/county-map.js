@@ -1,3 +1,4 @@
+/* global topojson, mapboxgl */
 /**
  * County Map JavaScript
  * Renders a US county map with visited counties highlighted

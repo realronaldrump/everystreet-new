@@ -652,9 +652,12 @@ class TripProcessor:
                             }
                         else:
                             validated_matched_gps = matched_geometry
-                elif geom_type == "Point" and isinstance(geom_coords, list):
-                    if len(geom_coords) == 2:
-                        validated_matched_gps = matched_geometry
+                elif (
+                    geom_type == "Point"
+                    and isinstance(geom_coords, list)
+                    and len(geom_coords) == 2
+                ):
+                    validated_matched_gps = matched_geometry
 
             if validated_matched_gps:
                 self.processed_data["matchedGps"] = validated_matched_gps

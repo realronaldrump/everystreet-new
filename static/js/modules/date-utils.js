@@ -1,3 +1,4 @@
+/* global dayjs */
 /**
  * Date Utilities Module - Day.js Implementation
  *
