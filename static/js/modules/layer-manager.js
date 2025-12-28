@@ -293,15 +293,53 @@ const layerManager = {
         });
       }
 
-      // Clean up existing layer and source completely
-      if (state.map.getLayer(layerId)) {
+      const existingSource = state.map.getSource(sourceId);
+      const existingLayer = state.map.getLayer(layerId);
+
+      // Fast path: update the existing layer/source in place to avoid costly rebuilds
+      if (existingSource && existingLayer) {
+        try {
+          existingSource.setData(data);
+
+          const colorValue = Array.isArray(layerInfo.color)
+            ? layerInfo.color
+            : layerInfo.color || "#331107";
+          state.map.setPaintProperty(layerId, "line-color", colorValue);
+          state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
+          state.map.setPaintProperty(layerId, "line-width", [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            layerInfo.weight * 0.5,
+            15,
+            layerInfo.weight,
+            20,
+            layerInfo.weight * 2,
+          ]);
+
+          state.map.setLayoutProperty(
+            layerId,
+            "visibility",
+            layerInfo.visible ? "visible" : "none"
+          );
+
+          layerInfo.layer = data;
+          return;
+        } catch (updateError) {
+          console.warn(`Falling back to layer rebuild for ${layerName}:`, updateError);
+        }
+      }
+
+      // Clean up existing layer and source completely when rebuild is required
+      if (existingLayer) {
         const events = ["click", "mouseenter", "mouseleave"];
         events.forEach((event) => {
           state.map.off(event, layerId);
         });
         state.map.removeLayer(layerId);
       }
-      if (state.map.getSource(sourceId)) {
+      if (existingSource) {
         state.map.removeSource(sourceId);
       }
 

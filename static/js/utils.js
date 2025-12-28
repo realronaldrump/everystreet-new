@@ -140,6 +140,20 @@ const utils = {
     });
   },
 
+  /**
+   * Yield control back to the browser to keep the UI responsive.
+   * @param {number} delay - Optional delay in milliseconds before yielding.
+   */
+  async yieldToBrowser(delay = 0) {
+    return new Promise((resolve) => {
+      if (delay > 0) {
+        setTimeout(() => requestAnimationFrame(resolve), delay);
+      } else {
+        requestAnimationFrame(resolve);
+      }
+    });
+  },
+
   // Storage utilities (moved from app.js)
   getStorage(key, defaultValue = null) {
     try {

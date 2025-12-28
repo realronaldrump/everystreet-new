@@ -22,6 +22,38 @@ let heatmapWorker = null;
 let workerMessageId = 0;
 const pendingWorkerCallbacks = new Map();
 
+const mapLoadingIndicator = (() => {
+  let indicatorEl = null;
+  let textEl = null;
+
+  const ensureElements = () => {
+    if (!indicatorEl) {
+      indicatorEl = document.getElementById("map-loading-indicator");
+      textEl = indicatorEl?.querySelector(".map-loading-text") || indicatorEl;
+    }
+    return indicatorEl;
+  };
+
+  return {
+    show(message = "Loading map data...") {
+      if (!ensureElements()) return;
+      indicatorEl.classList.remove("d-none");
+      indicatorEl.setAttribute("aria-busy", "true");
+      indicatorEl.setAttribute("aria-live", "polite");
+      this.update(message);
+    },
+    update(message) {
+      if (!ensureElements()) return;
+      if (textEl) textEl.textContent = message;
+    },
+    hide() {
+      if (!ensureElements()) return;
+      indicatorEl.classList.add("d-none");
+      indicatorEl.removeAttribute("aria-busy");
+    },
+  };
+})();
+
 /**
  * Initialize the heatmap Web Worker
  */
@@ -264,12 +296,17 @@ const dataManager = {
   async fetchTrips() {
     if (!state.mapInitialized) return null;
 
-    const dataStage = window.loadingManager.startStage("data", "Loading trips...");
+    const dataStage = window.loadingManager.startStage("data", "Loading trips...", {
+      blocking: false,
+      compact: true,
+    });
+    mapLoadingIndicator.show("Loading trips...");
 
     try {
       const { start, end } = dateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end });
       dataStage.update(20, `Loading trips from ${start} to ${end}...`);
+      mapLoadingIndicator.update(`Loading trips from ${start} to ${end}...`);
 
       const fullCollection = await utils.fetchWithRetry(`/api/trips?${params}`);
       if (fullCollection?.type !== "FeatureCollection") {
@@ -280,10 +317,13 @@ const dataManager = {
 
       const { features } = fullCollection;
       const totalCount = features.length;
-      const chunkSize = CONFIG.PERFORMANCE?.tripChunkSize || 500;
-      const delay = CONFIG.PERFORMANCE?.progressiveLoadingDelay || 16;
+      const chunkSize = CONFIG.PERFORMANCE?.tripChunkSize || 400;
+      const delay = CONFIG.PERFORMANCE?.progressiveLoadingDelay || 12;
 
       dataStage.update(40, `Processing ${totalCount} trips...`);
+      mapLoadingIndicator.update(
+        `Processing ${totalCount.toLocaleString()} trips for display...`
+      );
 
       // Mark recent trips for styling (fast operation, do synchronously)
       try {
@@ -305,6 +345,9 @@ const dataManager = {
       // Progressive rendering: show trips immediately in chunks
       if (totalCount > chunkSize) {
         dataStage.update(50, `Rendering ${totalCount} trips progressively...`);
+        mapLoadingIndicator.update(
+          `Rendering ${totalCount.toLocaleString()} trips... (0%)`
+        );
 
         // Render first chunk immediately for fast visual feedback
         const firstChunk = {
@@ -329,11 +372,18 @@ const dataManager = {
             progress,
             `Rendered ${loadedCount} of ${totalCount} trips...`
           );
+          const percent = Math.min(
+            99,
+            Math.round((loadedCount / totalCount) * 100)
+          );
+          mapLoadingIndicator.update(
+            `Rendering ${loadedCount.toLocaleString()} of ${totalCount.toLocaleString()} trips... (${percent}%)`
+          );
         };
 
         // Progressive chunk loading with browser yielding
         for (let i = chunkSize; i < totalCount; i += chunkSize) {
-          await new Promise((resolve) => setTimeout(resolve, delay));
+          await utils.yieldToBrowser(delay);
           await renderChunk(i);
         }
       } else {
@@ -342,6 +392,7 @@ const dataManager = {
       }
 
       dataStage.update(85, "Computing heatmap...");
+      mapLoadingIndicator.update("Computing heatmap intensity...");
 
       // Apply heatmap asynchronously (via Web Worker if available)
       try {
@@ -374,11 +425,15 @@ const dataManager = {
 
       metricsManager.updateTripsTable(fullCollection);
       dataStage.complete();
+      mapLoadingIndicator.update("Trips loaded");
+      setTimeout(() => mapLoadingIndicator.hide(), 300);
       return fullCollection;
     } catch (error) {
       dataStage.error(error.message);
       window.notificationManager.show("Failed to load trips", "danger");
       return null;
+    } finally {
+      setTimeout(() => mapLoadingIndicator.hide(), 300);
     }
   },
 

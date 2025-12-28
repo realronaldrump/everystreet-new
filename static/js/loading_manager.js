@@ -8,6 +8,7 @@ class LoadingManager {
     this.textElement = null;
     this.isVisible = false;
     this.activeCount = 0;
+    this.activeOptions = { blocking: true, compact: false };
     this.hideTimeout = null;
     this.minShowTime = 200; // Minimum time to show overlay (prevents flicker)
     this.showStartTime = null;
@@ -57,9 +58,19 @@ class LoadingManager {
   /**
    * Show the loading overlay
    * @param {string} message - Optional message to display
+   * @param {Object} options - Optional display options
+   * @param {boolean} options.blocking - Whether overlay should block interactions
+   * @param {boolean} options.compact - Use compact positioning (top-right badge)
    * @returns {LoadingManager} - Returns this for chaining
    */
-  show(message = "Loading...") {
+  show(message = "Loading...", options = {}) {
+    if (typeof message === "object" && message !== null) {
+      options = message;
+      message = options.message || "Loading...";
+    }
+    const { blocking = true, compact = false } = options;
+    this.activeOptions = { blocking, compact };
+
     // Cancel any pending hide
     if (this.hideTimeout) {
       clearTimeout(this.hideTimeout);
@@ -74,6 +85,16 @@ class LoadingManager {
 
     if (!this.isVisible) {
       this.showStartTime = Date.now();
+      if (blocking === false) {
+        this.overlay?.classList.add("non-blocking");
+      } else {
+        this.overlay?.classList.remove("non-blocking");
+      }
+      if (compact) {
+        this.overlay?.classList.add("compact");
+      } else {
+        this.overlay?.classList.remove("compact");
+      }
       this.overlay?.classList.add("visible");
       this.isVisible = true;
     }
@@ -100,6 +121,8 @@ class LoadingManager {
     this.hideTimeout = setTimeout(() => {
       if (this.activeCount === 0) {
         this.overlay?.classList.remove("visible");
+        this.overlay?.classList.remove("non-blocking");
+        this.overlay?.classList.remove("compact");
         this.isVisible = false;
         this.showStartTime = null;
       }
@@ -119,6 +142,8 @@ class LoadingManager {
       this.hideTimeout = null;
     }
     this.overlay?.classList.remove("visible");
+    this.overlay?.classList.remove("non-blocking");
+    this.overlay?.classList.remove("compact");
     this.isVisible = false;
     this.showStartTime = null;
     return this;
@@ -195,10 +220,15 @@ class LoadingManager {
    * Start a named stage (legacy compatibility)
    * @param {string} stageName - Name of the stage
    * @param {string} message - Message to show
+   * @param {Object} options - Display options
    * @returns {Object} - Stage control object
    */
-  startStage(stageName, message) {
-    this.show(message || `Loading ${stageName}...`);
+  startStage(stageName, message, options = {}) {
+    if (typeof message === "object" && message !== null) {
+      options = message;
+      message = undefined;
+    }
+    this.show(message || `Loading ${stageName}...`, options);
     return {
       update: (_progress, msg) => {
         if (msg) this.updateMessage(msg);
