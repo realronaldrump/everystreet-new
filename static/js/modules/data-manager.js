@@ -18,6 +18,28 @@ const DEFAULT_HEATMAP_STOPS = CONFIG.LAYER_DEFAULTS?.trips?.heatmapStops || [
 const DEFAULT_HEATMAP_PRECISION =
   CONFIG.LAYER_DEFAULTS?.trips?.heatmapPrecision ?? 5;
 
+const deviceProfile =
+  typeof utils.getDeviceProfile === "function"
+    ? utils.getDeviceProfile()
+    : {
+        isMobile: false,
+        lowMemory: false,
+        saveData: false,
+        isConstrained: false,
+      };
+
+const BASE_CHUNK_SIZE = CONFIG.PERFORMANCE?.tripChunkSize || 400;
+const PROGRESSIVE_CHUNK_SIZE = deviceProfile.isConstrained
+  ? Math.max(150, Math.floor(BASE_CHUNK_SIZE * 0.6))
+  : BASE_CHUNK_SIZE;
+const PROGRESSIVE_DELAY = deviceProfile.isConstrained
+  ? Math.max(20, (CONFIG.PERFORMANCE?.progressiveLoadingDelay || 12) * 1.5)
+  : CONFIG.PERFORMANCE?.progressiveLoadingDelay || 12;
+const USE_HEATMAP_WORKER =
+  CONFIG.PERFORMANCE?.heatmapWorkerEnabled &&
+  !deviceProfile.lowMemory &&
+  !deviceProfile.saveData;
+
 // Web Worker for heatmap calculation (lazy initialized)
 let heatmapWorker = null;
 let workerMessageId = 0;
@@ -60,7 +82,7 @@ const mapLoadingIndicator = (() => {
  */
 function initHeatmapWorker() {
   if (heatmapWorker) return heatmapWorker;
-  if (!CONFIG.PERFORMANCE?.heatmapWorkerEnabled) return null;
+  if (!USE_HEATMAP_WORKER) return null;
 
   try {
     heatmapWorker = new Worker("/static/js/workers/heatmap-worker.js");
@@ -328,8 +350,18 @@ const dataManager = {
 
       const { features } = fullCollection;
       const totalCount = features.length;
-      const chunkSize = CONFIG.PERFORMANCE?.tripChunkSize || 400;
-      const delay = CONFIG.PERFORMANCE?.progressiveLoadingDelay || 12;
+      const chunkSize = PROGRESSIVE_CHUNK_SIZE;
+      const delay = PROGRESSIVE_DELAY;
+      const incrementalCollection = {
+        type: "FeatureCollection",
+        features: [],
+      };
+      const appendChunk = (startIdx, endIdx) => {
+        for (let i = startIdx; i < endIdx; i += 1) {
+          const feature = features[i];
+          if (feature) incrementalCollection.features.push(feature);
+        }
+      };
 
       dataStage.update(40, `Processing ${totalCount} trips...`);
       mapLoadingIndicator.update(
@@ -361,21 +393,15 @@ const dataManager = {
         );
 
         // Render first chunk immediately for fast visual feedback
-        const firstChunk = {
-          type: "FeatureCollection",
-          features: features.slice(0, chunkSize),
-        };
-        await layerManager.updateMapLayer("trips", firstChunk);
+        appendChunk(0, chunkSize);
+        await layerManager.updateMapLayer("trips", incrementalCollection);
 
         // Schedule remaining chunks to yield to browser
         let loadedCount = chunkSize;
         const renderChunk = async (startIdx) => {
           const endIdx = Math.min(startIdx + chunkSize, totalCount);
-          const partialCollection = {
-            type: "FeatureCollection",
-            features: features.slice(0, endIdx), // Cumulative to update source
-          };
-          await layerManager.updateMapLayer("trips", partialCollection);
+          appendChunk(startIdx, endIdx);
+          await layerManager.updateMapLayer("trips", incrementalCollection);
           loadedCount = endIdx;
 
           const progress = 50 + Math.round((loadedCount / totalCount) * 30);
