@@ -384,7 +384,7 @@ const layerManager = {
           "line-cap": "round",
         },
         paint: {
-          // Support both static colors (strings) and dynamic expressions (arrays) for heatmaps
+          // Support both static colors (strings) and dynamic expressions (arrays)
           "line-color": Array.isArray(layerInfo.color)
             ? layerInfo.color
             : layerInfo.color || "#331107",

@@ -4,6 +4,7 @@ export const CONFIG = {
     defaultZoom: 4,
     maxZoom: 19,
     recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours
+    recencyWindowMs: 30 * 24 * 60 * 60 * 1000, // 30 days window for recency styling
     debounceDelay: 150,
     throttleDelay: 50,
     styles: {
@@ -43,20 +44,18 @@ export const CONFIG = {
       visible: true,
       highlightColor: "#FFD700",
       colorRecent: "#FFB703",
+      recencyColorStops: [
+        [0, "#9CA3AF"],
+        [0.25, "#67C7D0"],
+        [0.5, "#5FA3E7"],
+        [0.75, "#4F46E5"],
+        [1, "#22C55E"],
+      ],
       name: "Trips",
       weight: 2,
       minzoom: 0,
       maxzoom: 22,
       supportsColorPicker: false,
-      heatmapStops: [
-        [0, "#331107"],
-        [0.08, "#651500"],
-        [0.2, "#A23403"],
-        [0.45, "#E04B12"],
-        [0.7, "#F67E26"],
-        [1, "#FFEFA0"],
-      ],
-      heatmapPrecision: 5,
     },
     matchedTrips: {
       order: 3,
@@ -106,7 +105,6 @@ export const CONFIG = {
     workerCount: navigator.hardwareConcurrency || 4,
     maxParallelRequests: 6,
     tripChunkSize: 500, // Features per render batch for progressive loading
-    heatmapWorkerEnabled: true, // Use web worker for heatmap calculation
     progressiveLoadingDelay: 16, // ms between chunks (one frame at 60fps)
   },
 };

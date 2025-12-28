@@ -168,8 +168,8 @@ const mapManager = {
     }
   },
 
-  // Helper function to build heatmap color expression from stops
-  buildHeatmapColorExpression(stops) {
+  // Helper to build recency-based color expression for trips
+  buildRecencyColorExpression(stops) {
     if (!Array.isArray(stops) || stops.length === 0) return null;
 
     const sanitizedStops = stops
@@ -190,7 +190,7 @@ const mapManager = {
     return [
       "interpolate",
       ["linear"],
-      ["coalesce", ["get", "heatIntensity"], 0],
+      ["coalesce", ["get", "recencyScore"], 0],
       ...flattenedStops,
     ];
   },
@@ -213,8 +213,10 @@ const mapManager = {
       const colorExpr = ["case"];
       const baseColor =
         layerInfo.color || window.MapStyles.MAP_LAYER_COLORS.trips.default;
-      const intensityProperty = ["coalesce", ["get", "heatIntensity"], 0];
-      const clampedIntensity = ["max", 0, ["min", 1, intensityProperty]];
+      const recencyProperty = ["coalesce", ["get", "recencyScore"], 0];
+      const recencyStops =
+        layerInfo.recencyColorStops ||
+        CONFIG.LAYER_DEFAULTS?.[layerName]?.recencyColorStops;
 
       if (selectedId) {
         colorExpr.push([
@@ -235,7 +237,7 @@ const mapManager = {
         const recentColor = layerInfo.colorRecentExpression || [
           "interpolate",
           ["linear"],
-          intensityProperty,
+          recencyProperty,
           0,
           window.MapStyles.MAP_LAYER_COLORS.trips.recent.light,
           1,
@@ -244,26 +246,20 @@ const mapManager = {
         colorExpr.push(recentColor);
       }
 
-      // Default color - use heatmap expression if available, otherwise fall back to base color
-      if (layerInfo.colorStops && Array.isArray(layerInfo.colorStops)) {
-        const heatmapExpr = mapManager.buildHeatmapColorExpression(
-          layerInfo.colorStops
-        );
-        if (heatmapExpr) {
-          colorExpr.push(heatmapExpr);
-        } else {
-          colorExpr.push(baseColor);
-        }
+      // Default color - use recency gradient if available, otherwise fall back to base color
+      if (recencyStops && Array.isArray(recencyStops)) {
+        const recencyExpr = mapManager.buildRecencyColorExpression(recencyStops);
+        colorExpr.push(recencyExpr || baseColor);
       } else {
         colorExpr.push(baseColor);
       }
 
       // Build width expression (slightly thicker for selected)
       const baseWeight = layerInfo.weight || 2;
-      const intensityWidthExpr = [
-        "*",
+      const recencyWidthExpr = [
+        "+",
         baseWeight,
-        ["+", 0.6, ["*", 1.4, clampedIntensity]],
+        ["*", recencyProperty, baseWeight * 0.75],
       ];
       const widthExpr = ["case"];
       if (selectedId) {
@@ -279,7 +275,7 @@ const mapManager = {
       }
       widthExpr.push(["==", ["get", "isRecent"], true]);
       widthExpr.push(baseWeight * 1.5);
-      widthExpr.push(intensityWidthExpr);
+      widthExpr.push(recencyWidthExpr);
 
       // Apply paint updates
       try {
