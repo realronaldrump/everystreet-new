@@ -325,7 +325,26 @@ async def get_street_coverage(
 ):
     """Calculate street coverage for a location."""
     try:
+        display_name = location.display_name or "Unknown Location"
         task_id = str(uuid.uuid4())
+
+        # Create progress record BEFORE starting async task to avoid race condition
+        await update_one_with_retry(
+            progress_collection,
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "initializing",
+                    "progress": 0,
+                    "message": "Task queued, starting...",
+                    "updated_at": datetime.now(UTC),
+                    "location": display_name,
+                    "status": "queued",
+                },
+            },
+            upsert=True,
+        )
+
         asyncio.create_task(
             process_coverage_calculation(location.dict(), task_id),
         )
@@ -387,7 +406,26 @@ async def get_incremental_street_coverage(
     last update.
     """
     try:
+        display_name = location.display_name or "Unknown Location"
         task_id = str(uuid.uuid4())
+
+        # Create progress record BEFORE starting async task to avoid race condition
+        await update_one_with_retry(
+            progress_collection,
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "initializing",
+                    "progress": 0,
+                    "message": "Task queued, starting...",
+                    "updated_at": datetime.now(UTC),
+                    "location": display_name,
+                    "status": "queued",
+                },
+            },
+            upsert=True,
+        )
+
         asyncio.create_task(
             process_incremental_coverage_calculation(location.dict(), task_id),
         )
@@ -454,6 +492,25 @@ async def preprocess_streets_route(
         )
 
         task_id = str(uuid.uuid4())
+
+        # Create progress record BEFORE starting async task to avoid race condition
+        # where frontend polls before the task has a chance to create its record
+        await update_one_with_retry(
+            progress_collection,
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "initializing",
+                    "progress": 0,
+                    "message": "Task queued, starting...",
+                    "updated_at": datetime.now(UTC),
+                    "location": display_name,
+                    "status": "queued",
+                },
+            },
+            upsert=True,
+        )
+
         asyncio.create_task(process_area(validated_location_dict, task_id))
         return {
             "status": "success",
@@ -1760,6 +1817,24 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
 
     # Kick off async processing task
     task_id = str(uuid.uuid4())
+
+    # Create progress record BEFORE starting async task to avoid race condition
+    await update_one_with_retry(
+        progress_collection,
+        {"_id": task_id},
+        {
+            "$set": {
+                "stage": "initializing",
+                "progress": 0,
+                "message": "Task queued, starting...",
+                "updated_at": datetime.now(UTC),
+                "location": display_name,
+                "status": "queued",
+            },
+        },
+        upsert=True,
+    )
+
     asyncio.create_task(
         process_area(location_dict, task_id, data.segment_length_meters)
     )

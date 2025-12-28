@@ -107,9 +107,14 @@ class CoverageProgress {
    */
   async pollCoverageProgress(taskId, onUpdate) {
     const maxRetries = 360; // ~30 minutes
+    const maxInitial404Retries = 5; // Allow up to 5 404s during initial polling
     let retries = 0;
+    let initial404Count = 0;
     let lastStage = null;
     let consecutiveSameStage = 0;
+
+    // Small initial delay to give the backend task time to start
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     while (retries < maxRetries) {
       if (!this.activeTaskIds.has(taskId)) {
@@ -123,6 +128,9 @@ class CoverageProgress {
 
       try {
         const data = await COVERAGE_API.getTaskProgress(taskId);
+
+        // Reset 404 counter on successful response
+        initial404Count = 0;
 
         if (onUpdate) {
           onUpdate(data);
@@ -175,6 +183,20 @@ class CoverageProgress {
         await new Promise((resolve) => setTimeout(resolve, pollInterval));
         retries++;
       } catch (error) {
+        // Handle 404 gracefully during initial polling - the task may still be starting
+        const is404 = error.message && error.message.includes("Task not found");
+        if (is404 && initial404Count < maxInitial404Retries) {
+          initial404Count++;
+          console.log(
+            `Task ${taskId.substring(0, 8)}... not ready yet (attempt ${initial404Count}/${maxInitial404Retries}), retrying...`
+          );
+          // Wait a bit longer for the task to initialize
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          retries++;
+          continue;
+        }
+
+        // For non-404 errors or after max 404 retries, show error
         this.notificationManager.show(
           `Error polling progress: ${error.message}`,
           "danger"
@@ -317,6 +339,15 @@ class CoverageProgress {
     if (modal) {
       modalElement.style.opacity = "0";
       modalElement.style.transform = "scale(0.95)";
+
+      // Remove focus from any element inside the modal to prevent
+      // "Blocked aria-hidden" errors when Bootstrap adds aria-hidden=true
+      if (
+        document.activeElement &&
+        modalElement.contains(document.activeElement)
+      ) {
+        document.activeElement.blur();
+      }
 
       setTimeout(() => {
         modal.hide();
