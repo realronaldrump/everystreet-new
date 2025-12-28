@@ -97,7 +97,10 @@ export class InvalidTripReview {
       this.fetchInvalidTrips();
     } catch (error) {
       console.error("Error restoring trip:", error);
-      window.notificationManager?.show(`Failed to restore trip: ${error.message}`, "danger");
+      window.notificationManager?.show(
+        `Failed to restore trip: ${error.message}`,
+        "danger"
+      );
     }
   }
 
@@ -110,7 +113,8 @@ export class InvalidTripReview {
     ) {
       confirmed = await window.confirmationDialog.show({
         title: "Delete Trip",
-        message: "Are you sure you want to permanently delete this trip? This cannot be undone.",
+        message:
+          "Are you sure you want to permanently delete this trip? This cannot be undone.",
         confirmLabel: "Delete",
         confirmVariant: "danger",
       });
@@ -133,7 +137,10 @@ export class InvalidTripReview {
       this.fetchInvalidTrips();
     } catch (error) {
       console.error("Error deleting trip:", error);
-      window.notificationManager?.show(`Failed to delete trip: ${error.message}`, "danger");
+      window.notificationManager?.show(
+        `Failed to delete trip: ${error.message}`,
+        "danger"
+      );
     }
   }
 

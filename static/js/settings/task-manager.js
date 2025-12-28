@@ -79,7 +79,8 @@ export class TaskManager {
                   (newStatus === "COMPLETED" || newStatus === "FAILED")
                 ) {
                   const taskName = row.querySelector(".task-name-display").textContent;
-                  const notificationType = newStatus === "COMPLETED" ? "success" : "danger";
+                  const notificationType =
+                    newStatus === "COMPLETED" ? "success" : "danger";
                   const message =
                     newStatus === "COMPLETED"
                       ? `Task ${taskName} completed successfully`
@@ -369,7 +370,8 @@ export class TaskManager {
 
     if (history.length === 0) {
       const row = document.createElement("tr");
-      row.innerHTML = '<td colspan="6" class="text-center">No task history available</td>';
+      row.innerHTML =
+        '<td colspan="6" class="text-center">No task history available</td>';
       tbody.appendChild(row);
       return;
     }
@@ -791,13 +793,21 @@ export class TaskManager {
         throw new Error(result.detail || result.message || "Failed to schedule fetch");
       }
 
-      this.notifier.show("Success", result.message || "Fetch scheduled successfully", "success");
+      this.notifier.show(
+        "Success",
+        result.message || "Fetch scheduled successfully",
+        "success"
+      );
       await this.loadTaskConfig();
       return true;
     } catch (error) {
       hideLoadingOverlay();
       console.error("Error scheduling manual fetch:", error);
-      this.notifier.show("Error", `Failed to schedule fetch: ${error.message}`, "danger");
+      this.notifier.show(
+        "Error",
+        `Failed to schedule fetch: ${error.message}`,
+        "danger"
+      );
       throw error;
     }
   }
@@ -849,7 +859,8 @@ export class TaskManager {
       runBtn.dataset.taskId = taskId;
     }
 
-    modalBody.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    modalBody.innerHTML =
+      '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
 
     const bsModal = new bootstrap.Modal(modal);
     bsModal.show();
@@ -940,7 +951,8 @@ export class TaskManager {
     ) {
       confirmed = await window.confirmationDialog.show({
         title: "Clear Task History",
-        message: "Are you sure you want to clear all task history? This cannot be undone.",
+        message:
+          "Are you sure you want to clear all task history? This cannot be undone.",
         confirmLabel: "Clear History",
         confirmVariant: "danger",
       });
@@ -966,7 +978,11 @@ export class TaskManager {
     } catch (error) {
       hideLoadingOverlay();
       console.error("Error clearing task history:", error);
-      this.notifier.show("Error", `Failed to clear history: ${error.message}`, "danger");
+      this.notifier.show(
+        "Error",
+        `Failed to clear history: ${error.message}`,
+        "danger"
+      );
     }
   }
 

@@ -546,9 +546,7 @@ export function setupMobileGeocodeTrips() {
       // Start polling for progress
       const pollInterval = setInterval(async () => {
         try {
-          const progressResponse = await fetch(
-            `/api/geocode_trips/progress/${taskId}`
-          );
+          const progressResponse = await fetch(`/api/geocode_trips/progress/${taskId}`);
           if (!progressResponse.ok) {
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
@@ -666,9 +664,7 @@ export function setupMobileGeocodeTrips() {
 }
 
 export function setupMobileRemapTrips() {
-  const dateTab = document.querySelector(
-    '.mobile-date-method-tab[data-method="date"]'
-  );
+  const dateTab = document.querySelector('.mobile-date-method-tab[data-method="date"]');
   const intervalTab = document.querySelector(
     '.mobile-date-method-tab[data-method="interval"]'
   );

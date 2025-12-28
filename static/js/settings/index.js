@@ -2,7 +2,7 @@
 
 /**
  * Settings Page Entry Point
- * 
+ *
  * This module imports and initializes all settings page components:
  * - TaskManager: Background task management with SSE updates
  * - InvalidTripReview: Invalid trip table management
@@ -11,15 +11,15 @@
  * - App Settings: Tab switching and preferences
  */
 
-import { TaskManager } from "./task-manager.js";
-import { InvalidTripReview } from "./invalid-trip-review.js";
+import { initAppSettings } from "./app-settings.js";
 import {
-  setupManualFetchTripsForm,
   setupGeocodeTrips,
+  setupManualFetchTripsForm,
   setupRemapMatchedTrips,
 } from "./geocode-remap.js";
+import { InvalidTripReview } from "./invalid-trip-review.js";
 import { initMobileUI } from "./mobile-ui.js";
-import { initAppSettings } from "./app-settings.js";
+import { TaskManager } from "./task-manager.js";
 
 // Initialize task manager globally
 window.taskManager = null;
@@ -337,14 +337,11 @@ function setupFetchAllMissingModal(taskManager) {
         if (statusSpan) statusSpan.textContent = "Starting task...";
 
         showLoadingOverlay();
-        const response = await fetch(
-          "/api/background_tasks/fetch_all_missing_trips",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ start_date: startDate }),
-          }
-        );
+        const response = await fetch("/api/background_tasks/fetch_all_missing_trips", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ start_date: startDate }),
+        });
         const result = await response.json();
         hideLoadingOverlay();
 

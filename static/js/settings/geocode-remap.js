@@ -152,9 +152,7 @@ export function setupGeocodeTrips() {
       // Start polling for progress
       const pollInterval = setInterval(async () => {
         try {
-          const progressResponse = await fetch(
-            `/api/geocode_trips/progress/${taskId}`
-          );
+          const progressResponse = await fetch(`/api/geocode_trips/progress/${taskId}`);
           if (!progressResponse.ok) {
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
@@ -325,8 +323,7 @@ export function setupRemapMatchedTrips() {
     } catch (error) {
       hideLoadingOverlay();
       console.error("Error re-matching trips:", error);
-      document.getElementById("remap-status").textContent =
-        "Error re-matching trips.";
+      document.getElementById("remap-status").textContent = "Error re-matching trips.";
       window.notificationManager.show("Failed to re-match trips", "danger");
     }
   });
