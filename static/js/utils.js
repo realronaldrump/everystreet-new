@@ -158,6 +158,37 @@ const utils = {
     });
   },
 
+  getDeviceProfile() {
+    if (this._deviceProfile) return this._deviceProfile;
+
+    const hasTouch =
+      typeof window !== "undefined" &&
+      ("ontouchstart" in window || navigator.maxTouchPoints > 1);
+    const smallViewport =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 820px)").matches;
+    const deviceMemory =
+      typeof navigator !== "undefined" && "deviceMemory" in navigator
+        ? navigator.deviceMemory
+        : null;
+    const lowMemory = Number.isFinite(deviceMemory) && deviceMemory <= 4;
+    const saveData =
+      typeof navigator !== "undefined" &&
+      navigator.connection &&
+      navigator.connection.saveData === true;
+
+    this._deviceProfile = {
+      isMobile: Boolean(hasTouch || smallViewport),
+      lowMemory,
+      deviceMemory: deviceMemory || null,
+      saveData,
+      isConstrained: Boolean(hasTouch || smallViewport || lowMemory || saveData),
+    };
+
+    return this._deviceProfile;
+  },
+
   // Storage utilities (moved from app.js)
   getStorage(key, defaultValue = null) {
     try {
