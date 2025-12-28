@@ -1,16 +1,20 @@
-{% extends "base.html" %}
-{% block title %}Every Street - County Map{% endblock %}
-
-{% block extra_css %}
+{% extends "base.html" %} {% block title %}Every Street - County Map{% endblock
+%} {% block extra_css %}
 <!-- Mapbox GL CSS -->
 <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-<link rel="stylesheet" href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}" />
-{% endblock %}
-
-{% block content %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 <div class="county-map-wrapper">
   <!-- Map Container -->
-  <div id="county-map" class="county-map-container" role="application" aria-label="US Counties Map"></div>
+  <div
+    id="county-map"
+    class="county-map-container"
+    role="application"
+    aria-label="US Counties Map"
+  ></div>
 
   <!-- Stats Panel -->
   <div class="county-stats-panel" id="stats-panel">
@@ -19,11 +23,16 @@
         <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
         County Coverage
       </h2>
-      <button class="stats-toggle-btn" id="stats-toggle" aria-label="Toggle stats panel" aria-expanded="true">
+      <button
+        class="stats-toggle-btn"
+        id="stats-toggle"
+        aria-label="Toggle stats panel"
+        aria-expanded="true"
+      >
         <i class="fas fa-chevron-up" aria-hidden="true"></i>
       </button>
     </div>
-    
+
     <div class="stats-content" id="stats-content">
       <div class="stats-grid">
         <div class="stat-card stat-card--primary">
@@ -47,7 +56,11 @@
       <!-- Last updated and recalculate -->
       <div class="cache-info">
         <span class="last-updated" id="last-updated"></span>
-        <button class="btn btn-sm btn-outline-secondary" id="recalculate-btn" title="Recalculate from trip data">
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          id="recalculate-btn"
+          title="Recalculate from trip data"
+        >
           <i class="fas fa-sync-alt me-1"></i>Refresh
         </button>
       </div>
@@ -88,20 +101,38 @@
 
       <!-- State-by-State Stats -->
       <div class="state-stats-section">
-        <button class="state-stats-header" id="state-stats-toggle" aria-expanded="false" aria-controls="state-stats-list">
+        <button
+          class="state-stats-header"
+          id="state-stats-toggle"
+          aria-expanded="false"
+          aria-controls="state-stats-list"
+        >
           <span class="state-stats-title">
             <i class="fas fa-list-ul me-2" aria-hidden="true"></i>
             Stats by State
           </span>
-          <i class="fas fa-chevron-down state-stats-chevron" aria-hidden="true"></i>
+          <i
+            class="fas fa-chevron-down state-stats-chevron"
+            aria-hidden="true"
+          ></i>
         </button>
-        <div class="state-stats-content" id="state-stats-list" style="display: none;">
+        <div
+          class="state-stats-content"
+          id="state-stats-list"
+          style="display: none"
+        >
           <div class="state-stats-filter">
             <select id="state-sort" class="form-select form-select-sm">
               <option value="name">Sort by Name</option>
-              <option value="coverage-desc">Sort by Coverage (High to Low)</option>
-              <option value="coverage-asc">Sort by Coverage (Low to High)</option>
-              <option value="visited-desc">Sort by Visited (High to Low)</option>
+              <option value="coverage-desc">
+                Sort by Coverage (High to Low)
+              </option>
+              <option value="coverage-asc">
+                Sort by Coverage (Low to High)
+              </option>
+              <option value="visited-desc">
+                Sort by Visited (High to Low)
+              </option>
             </select>
           </div>
           <div class="state-stats-list" id="state-list">
@@ -113,7 +144,7 @@
   </div>
 
   <!-- County Info Tooltip -->
-  <div id="county-tooltip" class="county-tooltip" style="display: none;">
+  <div id="county-tooltip" class="county-tooltip" style="display: none">
     <div class="tooltip-county-name"></div>
     <div class="tooltip-state-name"></div>
     <div class="tooltip-status"></div>
@@ -128,9 +159,7 @@
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <!-- Mapbox GL JS -->
 <script src="{{ CDN.mapbox_gl_js }}"></script>
 <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
