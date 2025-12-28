@@ -515,10 +515,28 @@ async def get_coverage_areas():
                 "status": area.get("status", "completed"),
                 "last_error": area.get("last_error"),
             }
+            route_meta = area.get("optimal_route_metadata")
+            if isinstance(route_meta, dict):
+                processed_area["optimal_route"] = {
+                    "generated_at": route_meta.get("generated_at"),
+                    "distance_meters": route_meta.get("distance_meters"),
+                    "required_edge_count": route_meta.get("required_edge_count"),
+                }
+            elif isinstance(area.get("optimal_route"), dict):
+                processed_area["optimal_route"] = {
+                    "generated_at": area["optimal_route"].get("generated_at")
+                }
             if isinstance(processed_area["last_updated"], datetime):
                 processed_area["last_updated"] = processed_area[
                     "last_updated"
                 ].isoformat()
+            if (
+                "optimal_route" in processed_area
+                and isinstance(processed_area["optimal_route"].get("generated_at"), datetime)
+            ):
+                processed_area["optimal_route"]["generated_at"] = processed_area[
+                    "optimal_route"
+                ]["generated_at"].isoformat()
             processed_areas.append(processed_area)
 
         return {
@@ -1827,6 +1845,8 @@ async def get_optimal_route(location_id: str):
 
     route = coverage_doc.get("optimal_route")
     if not route:
+        route = coverage_doc.get("location", {}).get("optimal_route_data")
+    if not route:
         raise HTTPException(
             status_code=404,
             detail="No optimal route generated yet. Use POST to generate one.",
@@ -1835,6 +1855,8 @@ async def get_optimal_route(location_id: str):
     # Serialize datetime if present
     if isinstance(route.get("generated_at"), datetime):
         route["generated_at"] = route["generated_at"].isoformat()
+    if not route.get("coordinates") and route.get("route_coordinates"):
+        route["coordinates"] = route["route_coordinates"]
 
     return {
         "status": "success",
@@ -1846,7 +1868,7 @@ async def get_optimal_route(location_id: str):
 @router.get("/api/coverage_areas/{location_id}/optimal-route/gpx")
 async def export_optimal_route_gpx(location_id: str):
     """Export optimal route as GPX file for navigation apps."""
-    from route_solver import build_gpx_from_coords
+    from export_helpers import build_gpx_from_coords
 
     try:
         obj_location_id = ObjectId(location_id)
@@ -1863,6 +1885,10 @@ async def export_optimal_route_gpx(location_id: str):
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
     route = coverage_doc.get("optimal_route")
+    if not route:
+        route = coverage_doc.get("location", {}).get("optimal_route_data")
+    if route and not route.get("coordinates") and route.get("route_coordinates"):
+        route["coordinates"] = route["route_coordinates"]
     if not route or not route.get("coordinates"):
         raise HTTPException(
             status_code=404,
