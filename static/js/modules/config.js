@@ -39,18 +39,11 @@ export const CONFIG = {
   LAYER_DEFAULTS: {
     trips: {
       order: 1,
-      color: "#331107",
-      opacity: 0.6,
+      color: "#4A90D9",
+      opacity: 0.7,
       visible: true,
       highlightColor: "#FFD700",
-      colorRecent: "#FFB703",
-      recencyColorStops: [
-        [0, "#9CA3AF"],
-        [0.25, "#67C7D0"],
-        [0.5, "#5FA3E7"],
-        [0.75, "#4F46E5"],
-        [1, "#22C55E"],
-      ],
+      colorRecent: "#22C55E",
       name: "Trips",
       weight: 2,
       minzoom: 0,

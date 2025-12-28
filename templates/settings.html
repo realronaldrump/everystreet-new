@@ -587,6 +587,9 @@
   </div>
 </div>
 
-{% endblock %} {% block extra_js %}
-<script src="{{ url_for('static', path='js/settings.js') | replace('http://', '//') }}"></script>
 {% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{{ url_for('static', path='js/settings/index.js') | replace('http://', '//') }}"></script>
+{% endblock %}
+

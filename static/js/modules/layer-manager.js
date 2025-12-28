@@ -6,7 +6,7 @@ import utils from "./utils.js";
 
 // Extracted from app.js – unchanged except minimal path updates.
 const layerManager = {
-  // Add cleanup tracking
+  // Track event handlers for cleanup
   _layerCleanupMap: new Map(),
 
   initializeControls() {
@@ -283,7 +283,6 @@ const layerManager = {
       if (!state.map.isStyleLoaded()) {
         await new Promise((resolve) => {
           state.map.once("styledata", resolve);
-          // Fallback timeout
           setTimeout(resolve, 1000);
         });
       }

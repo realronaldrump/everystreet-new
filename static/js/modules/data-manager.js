@@ -6,26 +6,6 @@ import metricsManager from "./metrics-manager.js";
 import state from "./state.js";
 import utils from "./utils.js";
 
-const RECENCY_WINDOW_MS = CONFIG.MAP?.recencyWindowMs ?? 30 * 24 * 60 * 60 * 1000;
-
-const deviceProfile =
-  typeof utils.getDeviceProfile === "function"
-    ? utils.getDeviceProfile()
-    : {
-        isMobile: false,
-        lowMemory: false,
-        saveData: false,
-        isConstrained: false,
-      };
-
-const BASE_CHUNK_SIZE = CONFIG.PERFORMANCE?.tripChunkSize || 400;
-const PROGRESSIVE_CHUNK_SIZE = deviceProfile.isConstrained
-  ? Math.max(150, Math.floor(BASE_CHUNK_SIZE * 0.6))
-  : BASE_CHUNK_SIZE;
-const PROGRESSIVE_DELAY = deviceProfile.isConstrained
-  ? Math.max(20, (CONFIG.PERFORMANCE?.progressiveLoadingDelay || 12) * 1.5)
-  : CONFIG.PERFORMANCE?.progressiveLoadingDelay || 12;
-
 const mapLoadingIndicator = (() => {
   let indicatorEl = null;
   let textEl = null;
@@ -58,14 +38,6 @@ const mapLoadingIndicator = (() => {
   };
 })();
 
-const computeRecencyScore = (endTimestamp, now = Date.now()) => {
-  if (!Number.isFinite(endTimestamp)) return 0;
-  const ageMs = Math.max(0, now - endTimestamp);
-  if (ageMs === 0) return 1;
-  const normalized = 1 - Math.min(1, ageMs / RECENCY_WINDOW_MS);
-  return Number.isFinite(normalized) ? Number(normalized.toFixed(3)) : 0;
-};
-
 const dataManager = {
   async fetchTrips() {
     if (!state.mapInitialized) return null;
@@ -79,109 +51,34 @@ const dataManager = {
     try {
       const { start, end } = dateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end });
-      dataStage.update(20, `Loading trips from ${start} to ${end}...`);
-      mapLoadingIndicator.update(`Loading trips from ${start} to ${end}...`);
+      dataStage.update(30, `Loading trips from ${start} to ${end}...`);
 
-      const fullCollection = await utils.fetchWithRetry(`/api/trips?${params}`);
-      if (fullCollection?.type !== "FeatureCollection") {
+      const tripData = await utils.fetchWithRetry(`/api/trips?${params}`);
+      if (tripData?.type !== "FeatureCollection") {
         dataStage.error("Invalid trip data received from server.");
         window.notificationManager.show("Failed to load valid trip data", "danger");
         return null;
       }
 
-      const { features } = fullCollection;
-      const totalCount = features.length;
-      const chunkSize = PROGRESSIVE_CHUNK_SIZE;
-      const delay = PROGRESSIVE_DELAY;
-      const incrementalCollection = {
-        type: "FeatureCollection",
-        features: [],
-      };
-      const appendChunk = (startIdx, endIdx) => {
-        for (let i = startIdx; i < endIdx; i += 1) {
-          const feature = features[i];
-          if (feature) incrementalCollection.features.push(feature);
-        }
-      };
+      dataStage.update(70, `Rendering ${tripData.features.length} trips...`);
+      mapLoadingIndicator.update(`Rendering ${tripData.features.length} trips...`);
 
-      dataStage.update(40, `Processing ${totalCount} trips...`);
-      mapLoadingIndicator.update(
-        `Processing ${totalCount.toLocaleString()} trips for display...`
-      );
+      // Simple: just render all trips at once
+      await layerManager.updateMapLayer("trips", tripData);
 
-      // Mark recent trips for styling (fast operation, do synchronously)
-      try {
-        const now = Date.now();
-        const threshold = CONFIG.MAP.recentTripThreshold;
-        for (const f of features) {
-          const endTime = f?.properties?.endTime;
-          const endTs = endTime ? new Date(endTime).getTime() : null;
-          f.properties = f.properties || {};
-          f.properties.isRecent =
-            typeof endTs === "number" && !Number.isNaN(endTs)
-              ? now - endTs <= threshold
-              : false;
-          f.properties.recencyScore = computeRecencyScore(endTs, now);
-        }
-      } catch (err) {
-        console.warn("Failed to tag recent trips:", err);
-      }
-
-      // Progressive rendering: show trips immediately in chunks
-      if (totalCount > chunkSize) {
-        dataStage.update(50, `Rendering ${totalCount} trips progressively...`);
-        mapLoadingIndicator.update(
-          `Rendering ${totalCount.toLocaleString()} trips... (0%)`
-        );
-
-        // Render first chunk immediately for fast visual feedback
-        appendChunk(0, chunkSize);
-        await layerManager.updateMapLayer("trips", incrementalCollection);
-
-        // Schedule remaining chunks to yield to browser
-        let loadedCount = chunkSize;
-        const renderChunk = async (startIdx) => {
-          const endIdx = Math.min(startIdx + chunkSize, totalCount);
-          appendChunk(startIdx, endIdx);
-          await layerManager.updateMapLayer("trips", incrementalCollection);
-          loadedCount = endIdx;
-
-          const progress = 50 + Math.round((loadedCount / totalCount) * 30);
-          dataStage.update(
-            progress,
-            `Rendered ${loadedCount} of ${totalCount} trips...`
-          );
-          const percent = Math.min(99, Math.round((loadedCount / totalCount) * 100));
-          mapLoadingIndicator.update(
-            `Rendering ${loadedCount.toLocaleString()} of ${totalCount.toLocaleString()} trips... (${percent}%)`
-          );
-        };
-
-        // Progressive chunk loading with browser yielding
-        for (let i = chunkSize; i < totalCount; i += chunkSize) {
-          await utils.yieldToBrowser(delay);
-          await renderChunk(i);
-        }
-      } else {
-        // Small dataset - render directly
-        await layerManager.updateMapLayer("trips", fullCollection);
-      }
-
-      dataStage.update(85, "Applying trip styling...");
-      mapLoadingIndicator.update("Applying trip styling...");
+      dataStage.update(90, "Finalizing...");
       mapManager.refreshTripStyles();
+      metricsManager.updateTripsTable(tripData);
 
-      metricsManager.updateTripsTable(fullCollection);
       dataStage.complete();
-      mapLoadingIndicator.update("Trips loaded");
-      setTimeout(() => mapLoadingIndicator.hide(), 300);
-      return fullCollection;
+      mapLoadingIndicator.hide();
+      return tripData;
     } catch (error) {
       dataStage.error(error.message);
       window.notificationManager.show("Failed to load trips", "danger");
       return null;
     } finally {
-      setTimeout(() => mapLoadingIndicator.hide(), 300);
+      mapLoadingIndicator.hide();
     }
   },
 

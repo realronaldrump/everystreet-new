@@ -168,38 +168,10 @@ const mapManager = {
     }
   },
 
-  // Helper to build recency-based color expression for trips
-  buildRecencyColorExpression(stops) {
-    if (!Array.isArray(stops) || stops.length === 0) return null;
-
-    const sanitizedStops = stops
-      .filter(
-        (stop) =>
-          Array.isArray(stop) &&
-          stop.length >= 2 &&
-          Number.isFinite(stop[0]) &&
-          typeof stop[1] === "string"
-      )
-      .map(([value, color]) => [Math.max(0, Math.min(1, value)), color])
-      .sort((a, b) => a[0] - b[0]);
-
-    if (sanitizedStops.length < 2) return null;
-
-    const flattenedStops = sanitizedStops.flat();
-
-    return [
-      "interpolate",
-      ["linear"],
-      ["coalesce", ["get", "recencyScore"], 0],
-      ...flattenedStops,
-    ];
-  },
-
   refreshTripStyles: utils.throttle(() => {
     if (!state.map || !state.mapInitialized) return;
 
     const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
-    const highlightRecent = state.mapSettings.highlightRecentTrips;
 
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
@@ -208,92 +180,40 @@ const mapManager = {
       const layerId = `${layerName}-layer`;
       if (!state.map.getLayer(layerId)) return;
 
-      // Build dynamic color expression
-      // Priority: selected trip > recent trip > default
-      const colorExpr = ["case"];
-      const baseColor =
-        layerInfo.color || window.MapStyles.MAP_LAYER_COLORS.trips.default;
-      const recencyProperty = ["coalesce", ["get", "recencyScore"], 0];
-      const recencyStops =
-        layerInfo.recencyColorStops ||
-        CONFIG.LAYER_DEFAULTS?.[layerName]?.recencyColorStops;
-
-      if (selectedId) {
-        colorExpr.push([
-          "==",
-          [
-            "to-string",
-            ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]],
-          ],
-          selectedId,
-        ]);
-        colorExpr.push(
-          layerInfo.highlightColor || window.MapStyles.MAP_LAYER_COLORS.trips.selected
-        );
-      }
-
-      if (highlightRecent) {
-        colorExpr.push(["==", ["get", "isRecent"], true]);
-        const recentColor = layerInfo.colorRecentExpression || [
-          "interpolate",
-          ["linear"],
-          recencyProperty,
-          0,
-          window.MapStyles.MAP_LAYER_COLORS.trips.recent.light,
-          1,
-          layerInfo.colorRecent || window.MapStyles.MAP_LAYER_COLORS.trips.recent.dark,
-        ];
-        colorExpr.push(recentColor);
-      }
-
-      // Default color - use recency gradient if available, otherwise fall back to base color
-      if (recencyStops && Array.isArray(recencyStops)) {
-        const recencyExpr = mapManager.buildRecencyColorExpression(recencyStops);
-        colorExpr.push(recencyExpr || baseColor);
-      } else {
-        colorExpr.push(baseColor);
-      }
-
-      // Build width expression (slightly thicker for selected)
+      const baseColor = layerInfo.color || "#4A90D9";
       const baseWeight = layerInfo.weight || 2;
-      const recencyWidthExpr = [
-        "+",
-        baseWeight,
-        ["*", recencyProperty, baseWeight * 0.75],
-      ];
-      const widthExpr = ["case"];
-      if (selectedId) {
-        widthExpr.push([
-          "==",
-          [
-            "to-string",
-            ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]],
-          ],
-          selectedId,
-        ]);
-        widthExpr.push(baseWeight * 2);
-      }
-      widthExpr.push(["==", ["get", "isRecent"], true]);
-      widthExpr.push(baseWeight * 1.5);
-      widthExpr.push(recencyWidthExpr);
 
-      // Apply paint updates
+      // Simple styling: highlight selected trip, otherwise use base color
+      const colorExpr = selectedId
+        ? [
+            "case",
+            [
+              "==",
+              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              selectedId,
+            ],
+            layerInfo.highlightColor || "#FFD700",
+            baseColor,
+          ]
+        : baseColor;
+
+      const widthExpr = selectedId
+        ? [
+            "case",
+            [
+              "==",
+              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              selectedId,
+            ],
+            baseWeight * 2,
+            baseWeight,
+          ]
+        : baseWeight;
+
       try {
         state.map.setPaintProperty(layerId, "line-color", colorExpr);
         state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
-        // Maintain zoom-interpolated width by wrapping expression with interpolate if necessary
-        const zoomWidthExpr = [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          10,
-          ["*", 0.5, widthExpr],
-          15,
-          widthExpr,
-          20,
-          ["*", 2, widthExpr],
-        ];
-        state.map.setPaintProperty(layerId, "line-width", zoomWidthExpr);
+        state.map.setPaintProperty(layerId, "line-width", widthExpr);
       } catch (error) {
         console.warn("Failed to update trip styles:", error);
       }
