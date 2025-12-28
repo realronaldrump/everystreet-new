@@ -387,7 +387,9 @@ function updateFilterChips(triggerReload = false) {
   if (chips.length === 0) {
     container.innerHTML = '<span class="filter-empty">No active filters</span>';
   } else {
-    chips.forEach((chip) => container.appendChild(chip));
+    chips.forEach((chip) => {
+      container.appendChild(chip);
+    });
   }
 
   if (triggerReload) tripsTable.ajax.reload();

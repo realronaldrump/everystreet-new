@@ -64,11 +64,14 @@ class LoadingManager {
    * @returns {LoadingManager} - Returns this for chaining
    */
   show(message = "Loading...", options = {}) {
-    if (typeof message === "object" && message !== null) {
-      options = message;
-      message = options.message || "Loading...";
-    }
-    const { blocking = true, compact = false } = options;
+    const messageOptions =
+      typeof message === "object" && message !== null ? message : options;
+    const messageText =
+      typeof message === "object" && message !== null
+        ? messageOptions.message || "Loading..."
+        : message;
+
+    const { blocking = true, compact = false } = messageOptions;
     this.activeOptions = { blocking, compact };
 
     // Cancel any pending hide
@@ -80,7 +83,7 @@ class LoadingManager {
     this.activeCount++;
 
     if (this.textElement) {
-      this.textElement.textContent = message;
+      this.textElement.textContent = messageText;
     }
 
     if (!this.isVisible) {
@@ -224,11 +227,12 @@ class LoadingManager {
    * @returns {Object} - Stage control object
    */
   startStage(stageName, message, options = {}) {
-    if (typeof message === "object" && message !== null) {
-      options = message;
-      message = undefined;
-    }
-    this.show(message || `Loading ${stageName}...`, options);
+    const messageOptions =
+      typeof message === "object" && message !== null ? message : options;
+    const messageText =
+      typeof message === "object" && message !== null ? undefined : message;
+
+    this.show(messageText || `Loading ${stageName}...`, messageOptions);
     return {
       update: (_progress, msg) => {
         if (msg) this.updateMessage(msg);

@@ -31,6 +31,8 @@ def validate_geojson_point_or_linestring(
     Returns:
         Tuple of (is_valid, validated_geojson_dict or None)
     """
+    _ = transaction_id
+
     if not isinstance(gps_data, dict):
         return False, None
 

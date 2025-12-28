@@ -258,9 +258,6 @@ async def get_trips(request: Request):
                 "startOdometer": trip.get("startOdometer"),
                 "endOdometer": trip.get("endOdometer"),
                 "averageSpeed": trip.get("averageSpeed"),
-                "startOdometer": trip.get("startOdometer"),
-                "endOdometer": trip.get("endOdometer"),
-                "averageSpeed": trip.get("averageSpeed"),
                 "pointsRecorded": num_points,
                 "estimated_cost": _calculate_trip_cost(trip, price_map),
             }

@@ -228,9 +228,9 @@ def _reverse_candidates_for_edge(
                 revs.append((v, u, rk))
         if revs:
             return revs
-        return [(v, u, rk) for rk in G[v][u].keys()]
+        return [(v, u, rk) for rk in G[v][u]]
     except Exception:
-        return [(v, u, rk) for rk in G[v][u].keys()]
+        return [(v, u, rk) for rk in G[v][u]]
 
 
 def _make_req_id(G: nx.MultiDiGraph, edge: EdgeRef) -> tuple[ReqId, list[EdgeRef]]:
@@ -301,7 +301,7 @@ def _solve_greedy_route(
     teleport_count = 0
 
     # Required distance: count each requirement once (best of its options)
-    for rid, opts in required_reqs.items():
+    for _rid, opts in required_reqs.items():
         best = min((_edge_length_m(G, u, v, k) for (u, v, k) in opts), default=0.0)
         required_dist += best
 
@@ -365,7 +365,9 @@ def _solve_greedy_route(
             continue
 
         # Choose the candidate whose service edge from this start is shortest (simple tie-breaker)
-        def _best_service_edge_from_start(rid: ReqId) -> EdgeRef:
+        def _best_service_edge_from_start(
+            rid: ReqId, target_start: int = target_start
+        ) -> EdgeRef:
             opts = [e for e in required_reqs[rid] if e[0] == target_start]
             return min(opts, key=lambda e: _edge_length_m(G, e[0], e[1], e[2]))
 
@@ -532,7 +534,7 @@ async def generate_optimal_route_with_progress(
                 simplify=True,
                 truncate_by_edge=True,
             )
-            if not isinstance(G, (nx.MultiDiGraph,)):
+            if not isinstance(G, nx.MultiDiGraph):
                 # OSMnx should give MultiDiGraph; but keep it safe.
                 G = nx.MultiDiGraph(G)
             await update_progress(
@@ -681,7 +683,6 @@ async def generate_optimal_route_with_progress(
 async def generate_optimal_route(
     location_id: str,
     start_coords: tuple[float, float] | None = None,
-    progress_callback: Any | None = None,
 ) -> dict[str, Any]:
     task_id = f"manual_{ObjectId()}"
     return await generate_optimal_route_with_progress(
