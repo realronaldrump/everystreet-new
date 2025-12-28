@@ -264,11 +264,7 @@
           document.getElementById("last-updated").textContent =
             `Last updated: ${lastUpdated.toLocaleDateString()} ${lastUpdated.toLocaleTimeString()}`;
 
-          if (
-            recalcState &&
-            lastUpdated > recalcState.startedAt &&
-            isRecalculating
-          ) {
+          if (recalcState && lastUpdated > recalcState.startedAt && isRecalculating) {
             clearRecalcState();
           }
         }

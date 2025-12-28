@@ -488,8 +488,7 @@ class CoverageManager {
     const segLenEl = document.getElementById("segment-length-input");
     if (segLenEl?.value) {
       const val = parseInt(segLenEl.value, 10);
-      if (!Number.isNaN(val) && val > 0)
-        locationToAdd.segment_length_feet = val;
+      if (!Number.isNaN(val) && val > 0) locationToAdd.segment_length_feet = val;
     }
     const bufEl = document.getElementById("match-buffer-input");
     if (bufEl?.value) {
@@ -499,8 +498,7 @@ class CoverageManager {
     const minEl = document.getElementById("min-match-length-input");
     if (minEl?.value) {
       const v2 = parseFloat(minEl.value);
-      if (!Number.isNaN(v2) && v2 > 0)
-        locationToAdd.min_match_length_feet = v2;
+      if (!Number.isNaN(v2) && v2 > 0) locationToAdd.min_match_length_feet = v2;
     }
 
     try {
@@ -685,8 +683,7 @@ class CoverageManager {
     const segLenEl2 = document.getElementById("segment-length-input");
     if (segLenEl2?.value) {
       const val2 = parseInt(segLenEl2.value, 10);
-      if (!Number.isNaN(val2) && val2 > 0)
-        customAreaToAdd.segment_length_feet = val2;
+      if (!Number.isNaN(val2) && val2 > 0) customAreaToAdd.segment_length_feet = val2;
     }
     const bufElC = document.getElementById("match-buffer-input");
     if (bufElC?.value) {
@@ -696,8 +693,7 @@ class CoverageManager {
     const minElC = document.getElementById("min-match-length-input");
     if (minElC?.value) {
       const v2 = parseFloat(minElC.value);
-      if (!Number.isNaN(v2) && v2 > 0)
-        customAreaToAdd.min_match_length_feet = v2;
+      if (!Number.isNaN(v2) && v2 > 0) customAreaToAdd.min_match_length_feet = v2;
     }
 
     try {

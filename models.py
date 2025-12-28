@@ -122,13 +122,8 @@ class LocationModel(BaseModel):
     osm_id: int
     osm_type: str
     # Relaxed type to float | None to prevent 422 errors if frontend sends floats
-    segment_length_meters: float | None = (
-        None  # Optional override for street segmentation length
-    )
-    match_buffer_meters: float | None = (
-        None  # Optional buffer radius for trip→street match
-    )
-    min_match_length_meters: float | None = None  # Optional minimum overlap length
+    osm_id: int
+    osm_type: str
 
     # New fields for feet-based configuration
     segment_length_feet: float | None = None
@@ -146,9 +141,8 @@ class CustomBoundaryModel(BaseModel):
     boundary_type: str = "custom"
     geometry: dict[str, Any]  # GeoJSON geometry
     area_name: str
-    segment_length_meters: float | None = None  # Optional segmentation length override
-    match_buffer_meters: float | None = None
-    min_match_length_meters: float | None = None
+    geometry: dict[str, Any]  # GeoJSON geometry
+    area_name: str
 
     # New fields for feet-based configuration
     segment_length_feet: float | None = None

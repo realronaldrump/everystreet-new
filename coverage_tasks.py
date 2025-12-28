@@ -229,7 +229,6 @@ async def process_incremental_coverage_calculation(
 async def process_area(
     location: dict[str, Any],
     task_id: str,
-    segment_length_meters: float | None = None,
 ) -> None:
     """Orchestrates the processing of a full area: preprocess streets.
 
@@ -240,7 +239,6 @@ async def process_area(
     Args:
         location: Dictionary with location data.
         task_id: Unique identifier for tracking this combined task run.
-        segment_length_meters: Optional segment length in meters.
     """
     display_name = location.get("display_name", "Unknown Location")
     logger.info(
@@ -300,19 +298,9 @@ async def process_area(
                 },
             },
         )
-        # Determine segment length (defaults handled downstream in preprocess_streets)
-        # We pass the meters override if it exists, or None. 
-        # If segment_length_feet exists in location, preprocess_streets will handle it.
-        seg_len_arg = None
-        if segment_length_meters is not None:
-             seg_len_arg = segment_length_meters
-        elif location.get("segment_length_meters"):
-             seg_len_arg = float(location["segment_length_meters"])
-        
-        # If segment_length_feet is present, we pass None to let preprocess_streets handle it
-        # via the logic we added there.
 
-        await async_preprocess_streets(location, task_id, seg_len_arg)
+        # Preprocess streets (defaults or feet overrides handled internally)
+        await async_preprocess_streets(location, task_id)
 
         metadata = await find_one_with_retry(
             coverage_metadata_collection,
