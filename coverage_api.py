@@ -587,9 +587,8 @@ async def get_coverage_areas():
                 processed_area["last_updated"] = processed_area[
                     "last_updated"
                 ].isoformat()
-            if (
-                "optimal_route" in processed_area
-                and isinstance(processed_area["optimal_route"].get("generated_at"), datetime)
+            if "optimal_route" in processed_area and isinstance(
+                processed_area["optimal_route"].get("generated_at"), datetime
             ):
                 processed_area["optimal_route"]["generated_at"] = processed_area[
                     "optimal_route"
