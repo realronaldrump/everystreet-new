@@ -66,10 +66,6 @@ const layerManager = {
       }
 
       const controlsMarkup = controls.join("");
-      const badgeMarkup =
-        !supportsColorPicker && name !== "customPlaces"
-          ? '<span class="badge bg-warning-subtle text-warning-emphasis ms-2 text-uppercase" style="font-size: 0.65rem;">Heatmap</span>'
-          : "";
 
       div.innerHTML = `
           <i class="fas fa-grip-vertical me-2 text-secondary" style="cursor: move;" aria-hidden="true"></i>
@@ -79,7 +75,6 @@ const layerManager = {
             <label class="form-check-label" for="${checkboxId}">
               ${info.name || name}
               <span class="layer-loading d-none" id="${name}-loading"></span>
-              ${badgeMarkup}
             </label>
           </div>
           ${controlsMarkup}
