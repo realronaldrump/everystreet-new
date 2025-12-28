@@ -14,6 +14,9 @@
   let statesData = null;
   let isRecalculating = false;
   let showStoppedCounties = false;
+  let recalcPollerActive = false;
+
+  const RECALC_STORAGE_KEY = "countyRecalcStatus";
 
   // FIPS code to state name mapping
   const stateFipsToName = {
@@ -75,6 +78,64 @@
     78: "Virgin Islands",
   };
 
+  function getStoredRecalcState() {
+    const raw = localStorage.getItem(RECALC_STORAGE_KEY);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed.startedAt) return null;
+      const startedAt = new Date(parsed.startedAt);
+      if (Number.isNaN(startedAt.getTime())) return null;
+      return { startedAt };
+    } catch {
+      return null;
+    }
+  }
+
+  function storeRecalcState(startedAt) {
+    localStorage.setItem(
+      RECALC_STORAGE_KEY,
+      JSON.stringify({ startedAt: startedAt.toISOString() })
+    );
+  }
+
+  function clearRecalcState() {
+    localStorage.removeItem(RECALC_STORAGE_KEY);
+    isRecalculating = false;
+    recalcPollerActive = false;
+    updateRecalculateUi(false);
+  }
+
+  function getRecalculateButtons() {
+    return ["recalculate-btn", "trigger-recalculate"]
+      .map((id) => document.getElementById(id))
+      .filter(Boolean);
+  }
+
+  function updateRecalculateUi(isActive, message) {
+    const status = document.getElementById("recalculate-status");
+    if (status) {
+      if (isActive) {
+        status.classList.add("recalculate-status--active");
+        status.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${message}</span>`;
+      } else {
+        status.classList.remove("recalculate-status--active");
+        status.textContent = "";
+      }
+    }
+
+    const buttons = getRecalculateButtons();
+    buttons.forEach((btn) => {
+      if (!btn.dataset.defaultLabel) {
+        btn.dataset.defaultLabel = btn.innerHTML;
+      }
+      btn.disabled = isActive;
+      btn.innerHTML = isActive
+        ? '<i class="fas fa-spinner fa-spin me-2"></i>Calculating...'
+        : btn.dataset.defaultLabel;
+    });
+  }
+
   // Initialize the map
   async function init() {
     updateLoadingText("Initializing map...");
@@ -121,6 +182,7 @@
     setupRecalculateButton();
     setupStateStatsToggle();
     setupStopToggle();
+    resumeRecalculateIfNeeded();
   }
 
   // Get appropriate map style based on theme
@@ -169,6 +231,7 @@
     try {
       const response = await fetch("/api/counties/visited");
       const data = await response.json();
+      const recalcState = getStoredRecalcState();
 
       const hasVisits = data.counties && Object.keys(data.counties).length > 0;
       const hasStops =
@@ -200,11 +263,26 @@
           const lastUpdated = new Date(data.lastUpdated);
           document.getElementById("last-updated").textContent =
             `Last updated: ${lastUpdated.toLocaleDateString()} ${lastUpdated.toLocaleTimeString()}`;
+
+          if (
+            recalcState &&
+            lastUpdated > recalcState.startedAt &&
+            isRecalculating
+          ) {
+            clearRecalcState();
+          }
         }
       } else if (!data.cached) {
         // No cache - prompt user to calculate
         console.log("No cached county data. Showing prompt...");
         showRecalculatePrompt();
+        if (recalcState) {
+          updateRecalculateUi(true, "Recalculating county data...");
+        }
+      }
+
+      if (recalcState && isRecalculating) {
+        startRecalculatePolling(recalcState.startedAt);
       }
     } catch (error) {
       console.error("Error loading visited counties:", error);
@@ -250,15 +328,10 @@
   async function triggerRecalculate() {
     if (isRecalculating) return;
 
+    const startedAt = new Date();
     isRecalculating = true;
-    const btn =
-      document.getElementById("trigger-recalculate") ||
-      document.getElementById("recalculate-btn");
-
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Calculating...';
-    }
+    storeRecalcState(startedAt);
+    updateRecalculateUi(true, "Recalculating county data...");
 
     try {
       const response = await fetch("/api/counties/recalculate", {
@@ -268,37 +341,50 @@
 
       if (data.success) {
         // Poll for completion
-        setTimeout(checkAndRefresh, 3000);
+        setTimeout(() => startRecalculatePolling(startedAt), 3000);
       } else {
         alert(`Error starting calculation: ${data.error}`);
-        isRecalculating = false;
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Refresh';
-        }
+        clearRecalcState();
       }
     } catch (error) {
       console.error("Error triggering recalculate:", error);
-      isRecalculating = false;
+      clearRecalcState();
     }
   }
 
+  function startRecalculatePolling(startedAt) {
+    if (recalcPollerActive) return;
+    recalcPollerActive = true;
+    setTimeout(() => checkAndRefresh(startedAt), 2000);
+  }
+
   // Check if calculation is done and refresh
-  async function checkAndRefresh() {
+  async function checkAndRefresh(startedAt) {
+    if (!isRecalculating) {
+      recalcPollerActive = false;
+      return;
+    }
     try {
       const response = await fetch("/api/counties/cache-status");
       const data = await response.json();
 
-      if (data.cached && data.totalVisited > 0) {
-        // Refresh the page to show new data
+      const lastUpdated = data.lastUpdated ? new Date(data.lastUpdated) : null;
+      const isUpdated =
+        data.cached &&
+        (startedAt
+          ? lastUpdated && lastUpdated > startedAt
+          : data.totalVisited > 0 || data.totalStopped > 0);
+
+      if (isUpdated) {
+        clearRecalcState();
         window.location.reload();
-      } else {
-        // Still calculating, check again
-        setTimeout(checkAndRefresh, 2000);
+        return;
       }
+
+      setTimeout(() => checkAndRefresh(startedAt), 2000);
     } catch (error) {
       console.error("Error checking cache status:", error);
-      setTimeout(checkAndRefresh, 3000);
+      setTimeout(() => checkAndRefresh(startedAt), 3000);
     }
   }
 
@@ -804,6 +890,13 @@
         map.setLayoutProperty(layerId, "visibility", visibility);
       }
     });
+  }
+
+  function resumeRecalculateIfNeeded() {
+    const recalcState = getStoredRecalcState();
+    if (!recalcState) return;
+    isRecalculating = true;
+    updateRecalculateUi(true, "Recalculating county data...");
   }
 
   // Loading helpers

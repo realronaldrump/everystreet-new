@@ -158,6 +158,19 @@
   gap: 0.5rem;
 }
 
+.recalculate-status {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, rgb(255 255 255 / 60%));
+  margin: -0.5rem 0 1rem;
+}
+
+.recalculate-status--active {
+  display: flex;
+}
+
 .last-updated {
   font-size: 0.75rem;
   color: var(--text-secondary, rgb(255 255 255 / 50%));
@@ -576,6 +589,11 @@
 
 [data-bs-theme="light"] .last-updated,
 .light-mode .last-updated {
+  color: #6b7280;
+}
+
+[data-bs-theme="light"] .recalculate-status,
+.light-mode .recalculate-status {
   color: #6b7280;
 }
 
