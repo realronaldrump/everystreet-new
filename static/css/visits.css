@@ -417,22 +417,7 @@
   margin-bottom: var(--space-2);
 }
 
-/* Loading States */
-.skeleton-loader {
-  background: linear-gradient(
-    90deg,
-    var(--surface-2) 25%,
-    var(--surface-3) 50%,
-    var(--surface-2) 75%
-  );
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: var(--radius-sm);
-  height: 20px;
-  margin-bottom: var(--space-2);
-}
-
-/* Note: @keyframes loading moved to animations.css */
+/* Loading States - uses skeleton-loader from loading-styles.css */
 
 /* Responsive Enhancements */
 @media (width <= 992px) {

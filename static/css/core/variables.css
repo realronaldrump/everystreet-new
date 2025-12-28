@@ -1,0 +1,187 @@
+/* ============================
+   CSS Variables & Design Tokens
+   ============================ */
+
+/* === CSS Variables === */
+:root {
+  /* Minimalist Color System - Soothing & Nature-Inspired */
+  --primary: #7c9d96;
+  --primary-light: #a0bdb7;
+  --primary-dark: #5f7d78;
+  --primary-rgb: 124, 157, 150;
+  --secondary: #8a8f98;
+  --secondary-light: #a8adb5;
+  --secondary-dark: #6b7079;
+  --secondary-rgb: 138, 143, 152;
+  --success: #6b9d8a;
+  --success-light: #8eb9a8;
+  --success-dark: #4f7a6a;
+  --success-rgb: 107, 157, 138;
+  --warning: #d4a574;
+  --warning-light: #e3c09a;
+  --warning-dark: #b88a59;
+  --warning-rgb: 212, 165, 116;
+  --danger: #d48584;
+  --danger-light: #e3a9a8;
+  --danger-dark: #b86665;
+  --danger-rgb: 212, 133, 132;
+  --info: #8b9dc3;
+  --info-light: #abb9d6;
+  --info-dark: #6a7ea3;
+  --info-rgb: 139, 157, 195;
+
+  /* Gradients */
+  --primary-gradient: linear-gradient(
+    135deg,
+    var(--primary),
+    var(--primary-dark)
+  );
+  --secondary-gradient: linear-gradient(
+    135deg,
+    var(--secondary),
+    var(--secondary-dark)
+  );
+  --success-gradient: linear-gradient(
+    135deg,
+    var(--success),
+    var(--success-dark)
+  );
+  --danger-gradient: linear-gradient(135deg, var(--danger), var(--danger-dark));
+  --warning-gradient: linear-gradient(
+    135deg,
+    var(--warning),
+    var(--warning-dark)
+  );
+  --info-gradient: linear-gradient(135deg, var(--info), var(--info-dark));
+
+  /* Warm Dark Mode Colors (Default) - Softer & More Comfortable */
+  --surface-0: #1a1d23; /* Base background - warm charcoal */
+  --surface-1: #25282f; /* Cards, elevated surfaces */
+  --surface-2: #2f3239; /* Slightly more elevated, or card headers */
+  --surface-3: #3a3d45; /* Inputs, controls */
+  --surface-4: #45484f; /* Hover states for controls */
+  --surface-glass: rgb(37 40 47 / 85%); /* For glassmorphism effects */
+  --text-primary: rgb(225 227 230 / 90%);
+  --text-secondary: rgb(180 185 192 / 78%);
+  --text-tertiary: rgb(160 165 172 / 55%);
+  --text-on-primary: #fafafa; /* Text on primary-bg buttons */
+  --text-on-secondary: #fafafa; /* Text on secondary-bg buttons */
+  --text-on-dark: #fafafa;
+  --text-on-light: #1a1d23;
+  --border-color: rgb(160 165 172 / 15%);
+  --border-color-light: rgb(
+    160 165 172 / 28%
+  ); /* For focused elements or stronger divisions */
+
+  --divider-color: rgb(160 165 172 / 10%);
+  --surface-rgb: 37, 40, 47;
+  --text-rgb: 225, 227, 230;
+  --border-rgb: 160, 165, 172;
+
+  /* Typography */
+  --font-family:
+    "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen,
+    ubuntu, cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --font-size-xs: 0.75rem; /* 12px */
+  --font-size-sm: 0.875rem; /* 14px */
+  --font-size-md: 1rem; /* 16px */
+  --font-size-lg: 1.125rem; /* 18px */
+  --font-size-xl: 1.25rem; /* 20px */
+  --font-size-2xl: 1.5rem; /* 24px */
+  --font-size-3xl: 1.875rem; /* 30px */
+  --font-size-4xl: 2.25rem; /* 36px */
+  --font-size-display: 3rem; /* 48px */
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* Spacing System (based on 4px grid) */
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
+  --space-16: 4rem; /* 64px */
+
+  /* Layout */
+  --header-height: 64px;
+  --content-max-width: 1440px;
+  --sidebar-width: 280px;
+  --panel-width: 340px;
+
+  /* Effects - Minimal & Subtle */
+  --transition-fast: 180ms ease-out;
+  --transition-normal: 280ms ease-out;
+  --transition-slow: 380ms cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 3%);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 6%);
+  --shadow-md: 0 2px 6px rgb(0 0 0 / 8%);
+  --shadow-lg: 0 4px 12px rgb(0 0 0 / 10%);
+  --shadow-xl: 0 8px 24px rgb(0 0 0 / 12%);
+  --shadow-inset: inset 0 1px 3px rgb(0 0 0 / 6%);
+
+  /* Border Radius - Minimal */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-full: 9999px;
+  --radius-pill: 9999px;
+
+  /* Z-Index */
+  --z-base: 1;
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-drawer: 1040;
+  --z-modal-backdrop: 1045;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-overlay: 1080; /* For general overlays like mobile nav backdrop */
+  --z-loading-overlay: 9999;
+
+  /* Scrollbar */
+  --scrollbar-thumb-color: rgb(160 165 172 / 30%);
+  --scrollbar-track-color: transparent;
+  --scrollbar-thumb-hover-color: rgb(160 165 172 / 45%);
+}
+
+/* === Light Mode Overrides - Warm & Soft === */
+body.light-mode {
+  --surface-0: #fafaf8;
+  --surface-1: #fff;
+  --surface-2: #f5f5f3;
+  --surface-3: #ebebe8;
+  --surface-4: #ddddd8;
+  --surface-glass: rgb(250 250 248 / 88%);
+  --text-primary: rgb(40 42 45 / 90%);
+  --text-secondary: rgb(80 82 88 / 75%);
+  --text-tertiary: rgb(110 112 118 / 55%);
+  --text-on-primary: #fafafa;
+  --text-on-secondary: #fafafa;
+  --border-color: rgb(40 42 45 / 10%);
+  --border-color-light: rgb(40 42 45 / 20%);
+  --divider-color: rgb(40 42 45 / 8%);
+  --shadow-xs: 0 1px 2px rgb(40 42 45 / 5%);
+  --shadow-sm: 0 2px 4px rgb(40 42 45 / 6%);
+  --shadow-md: 0 4px 8px rgb(40 42 45 / 8%);
+  --shadow-lg: 0 10px 20px rgb(40 42 45 / 10%);
+  --shadow-xl: 0 20px 40px rgb(40 42 45 / 10%);
+  --scrollbar-thumb-color: rgb(124 157 150 / 25%);
+  --scrollbar-track-color: rgb(160 165 172 / 15%);
+  --scrollbar-thumb-hover-color: rgb(124 157 150 / 40%);
+  --surface-rgb: 250, 250, 248;
+  --text-rgb: 40, 42, 45;
+  --border-rgb: 160, 165, 172;
+}

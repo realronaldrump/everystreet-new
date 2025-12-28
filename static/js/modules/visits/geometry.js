@@ -32,7 +32,12 @@
           maxLat: Math.max(acc.maxLat, lat),
         };
       },
-      { minLng: coords[0][0], minLat: coords[0][1], maxLng: coords[0][0], maxLat: coords[0][1] }
+      {
+        minLng: coords[0][0],
+        minLat: coords[0][1],
+        maxLng: coords[0][0],
+        maxLat: coords[0][1],
+      }
     );
   }
 

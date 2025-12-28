@@ -1,0 +1,375 @@
+/* ============================
+   Layout Structure & Panels
+   ============================ */
+
+/* === Side Panel (e.g., Filters) === */
+.side-panel {
+  position: fixed;
+  top: var(--header-height);
+  right: 0;
+  width: var(--panel-width);
+  height: calc(100vh - var(--header-height));
+  background-color: var(--surface-1);
+  z-index: var(
+    --z-drawer
+  ); /* Same level as mobile drawer, manage visibility via JS */
+
+  transform: translateX(100%);
+  transition: transform var(--transition-slow);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-color);
+  contain: layout style paint; /* Performance hint */
+}
+
+.side-panel.open {
+  transform: translateX(0);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--divider-color);
+  background-color: var(--surface-2); /* Subtle distinction */
+}
+
+.panel-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+
+.panel-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xl);
+  cursor: pointer;
+  padding: var(--space-2);
+  transition: color var(--transition-fast);
+}
+
+.panel-close-btn:hover {
+  color: var(--text-primary);
+}
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.panel-actions {
+  padding: var(--space-4);
+  border-top: 1px solid var(--divider-color);
+  display: flex;
+  gap: var(--space-3);
+  background-color: var(--surface-1); /* Ensure it matches panel bg */
+}
+
+/* === Main Content === */
+.main-content {
+  flex-grow: 1;
+  padding-top: var(--header-height);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden; /* Changed from auto to hidden to prevent double scrollbars if body handles scrolling */
+}
+
+/* === Content Overlay (for mobile nav, side panels) === */
+.content-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgb(0 0 0 / 50%);
+  z-index: calc(var(--z-drawer) - 1); /* Below drawer/panel */
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-normal),
+    visibility var(--transition-normal);
+  pointer-events: none;
+}
+
+.content-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* === Hero Section - Minimal === */
+.hero-section {
+  background: rgb(var(--primary-rgb) / 6%);
+  border-radius: var(--radius-md);
+  padding: var(--space-8) var(--space-6);
+  margin-bottom: var(--space-6);
+  position: relative;
+  color: var(--text-primary);
+  border: 1px solid rgb(var(--primary-rgb) / 10%);
+}
+
+.hero-section h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-3);
+}
+
+.hero-section .lead {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+  max-width: 700px; /* Limit lead text width */
+}
+
+.hero-section .display-4 {
+  /* For large numbers */
+  font-size: var(--font-size-display);
+  color: var(--primary);
+}
+
+body.light-mode .hero-section {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb), 0.08),
+    rgb(var(--primary-rgb), 0.03)
+  );
+}
+
+body.light-mode .hero-section::before {
+  background: radial-gradient(
+    circle,
+    rgb(var(--primary-rgb), 0.05) 0%,
+    transparent 70%
+  );
+}
+
+/* === Stat Item (from coverage_management.html) === */
+.stat-item {
+  padding: var(--space-4);
+  background: var(--surface-1);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  border: 1px solid var(--border-color);
+}
+
+.stat-item .stat-icon {
+  /* Optional icon for stat items */
+  font-size: var(--font-size-2xl);
+  color: var(--primary);
+  margin-bottom: var(--space-2);
+}
+
+.stat-item .stat-value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-1);
+  color: var(--text-primary);
+}
+
+.stat-item .stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* === Live Tracking Panel Styles === */
+.live-tracking-panel-bg {
+  background-color: rgb(var(--surface-rgb, 16, 23, 42), 0.05);
+  border-radius: var(--radius-sm);
+}
+
+body.light-mode .live-tracking-panel-bg {
+  background-color: rgb(var(--surface-rgb, 245, 246, 255), 0.05);
+}
+
+/* === Enhanced Live Trip Metrics Styling === */
+.live-tracking-status {
+  /* Can be a card or a custom component */
+  position: absolute; /* Example positioning */
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: var(--z-sticky);
+  max-width: 300px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border-color);
+  opacity: 0.95;
+  transition: all var(--transition-normal);
+}
+
+.live-tracking-status:hover {
+  opacity: 1;
+  box-shadow: var(--shadow-lg);
+}
+
+.live-tracking-status .card-header {
+  /* If using card structure */
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--surface-3);
+}
+
+.live-tracking-status .card-body {
+  padding: var(--space-3);
+}
+
+/* Enhanced Live Trip Metrics Styling */
+.live-trip-metrics {
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.metric-section {
+  margin-bottom: 1rem;
+}
+
+.metric-section-title {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.metric-section-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 0.75rem 0;
+  opacity: 0.5;
+}
+
+.live-trip-metrics .metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--divider-color);
+  font-size: var(--font-size-xs);
+  animation: fadeInMetric 0.3s ease-in-out;
+}
+
+.live-trip-metrics .metric-row:last-child {
+  border-bottom: none;
+}
+
+.live-trip-metrics .metric-row:hover {
+  background-color: var(--surface-2);
+}
+
+.live-trip-metrics .metric-label {
+  font-weight: 500;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.live-trip-metrics .metric-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Specific styling for base metrics (always shown) */
+.metric-base .metric-value {
+  color: var(--success);
+}
+
+/* Specific styling for advanced metrics (conditionally shown) */
+.metric-advanced .metric-value {
+  color: var(--info);
+}
+
+/* Special highlighting for current speed */
+.metric-row:has(.metric-label:contains("Current Speed")) .metric-value {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: var(--warning);
+}
+
+/* Dark theme adjustments */
+[data-bs-theme="dark"] .live-trip-metrics .metric-row:hover {
+  background-color: var(--surface-4);
+}
+
+[data-bs-theme="dark"] .metric-section-title {
+  color: var(--text-primary);
+}
+
+/* Status indicators for different metric types */
+.metric-base::before {
+  content: "●";
+  color: var(--success);
+  margin-right: 0.5rem;
+  font-size: 0.6rem;
+}
+
+.metric-advanced::before {
+  content: "▶";
+  color: var(--info);
+  margin-right: 0.5rem;
+  font-size: 0.6rem;
+}
+
+/* === Status Indicators === */
+.status-indicator {
+  display: inline-block; /* Allow use in text flow */
+  width: 10px; /* Smaller default size */
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--warning);
+  transition: background-color var(--transition-fast);
+  margin-right: var(--space-2);
+  vertical-align: middle;
+}
+
+.status-indicator.connected {
+  background-color: var(--success);
+}
+
+.status-indicator.disconnected {
+  background-color: var(--danger);
+}
+
+.status-indicator.processing {
+  background-color: var(--info);
+  animation: pulse-indicator 1.5s infinite ease-in-out;
+}
+
+/* === Quick Selections (for filter panels) === */
+.quick-selections {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(80px, 1fr)
+  ); /* Responsive columns */
+
+  gap: var(--space-2);
+}
+
+.quick-select-btn {
+  background-color: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+  font-weight: var(--font-weight-medium);
+}
+
+.quick-select-btn:hover {
+  background-color: var(--surface-3);
+  border-color: var(--border-color-light);
+  color: var(--text-primary);
+}
+
+.quick-select-btn.active {
+  background-color: rgb(var(--primary-rgb) / 12%);
+  border-color: var(--primary);
+  color: var(--primary);
+}

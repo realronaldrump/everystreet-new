@@ -1,0 +1,562 @@
+/* ============================
+   Header & Navigation
+   ============================ */
+
+/* === Layout Structure === */
+.layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* === Header === */
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background-color: var(--surface-1);
+  box-shadow: var(--shadow-sm);
+  z-index: var(--z-fixed);
+  transition:
+    background-color var(--transition-normal),
+    box-shadow var(--transition-normal);
+}
+
+.app-header.scrolled {
+  box-shadow: var(--shadow-sm);
+  background-color: var(--surface-1);
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.header-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 var(--space-4);
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* === Brand Section === */
+.brand-section {
+  display: flex;
+  align-items: center;
+}
+
+.menu-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  margin-right: var(--space-3);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.menu-toggle-btn:hover {
+  background-color: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-xl);
+}
+
+.brand-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  margin-right: var(--space-2);
+  font-size: 1.5em; /* Make icon slightly larger */
+}
+
+.brand-text {
+  color: var(--text-primary);
+}
+
+/* === Main Navigation === */
+.main-nav {
+  height: 100%;
+}
+
+.nav-list {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-item {
+  height: 100%;
+  position: relative;
+}
+
+.nav-item a {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--space-4);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+}
+
+.nav-item.active a,
+.nav-item a:hover {
+  color: var(--text-primary);
+}
+
+.nav-item.active a::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: var(--space-4);
+  right: var(--space-4);
+  height: 2px;
+  background: var(--primary);
+}
+
+.nav-item i {
+  margin-right: var(--space-2);
+  color: var(--primary);
+  font-size: var(--font-size-md);
+}
+
+/* === Dropdown Menus - Minimal === */
+.dropdown-menu {
+  background-color: var(--surface-1);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-2) 0;
+  min-width: 220px;
+  z-index: var(--z-dropdown);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.dropdown-item:hover,
+.dropdown-item.active {
+  background-color: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.dropdown-item i {
+  margin-right: var(--space-3);
+  width: 20px;
+  text-align: center;
+  color: var(--primary);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: var(--divider-color);
+  margin: var(--space-2) 0;
+  border: none;
+}
+
+/* Dropdown Headers for Grouped Menus */
+.dropdown-header {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: default;
+}
+
+.dropdown-menu-grouped {
+  min-width: 240px;
+}
+
+/* === Tools Section === */
+.tools-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.tool-btn:hover {
+  background-color: var(--surface-3);
+  color: var(--text-primary);
+}
+
+/* === Theme Toggle === */
+.theme-toggle {
+  position: relative;
+  display: inline-flex; /* Use flex for better alignment */
+  align-items: center;
+  width: 50px;
+  height: 26px;
+  cursor: pointer;
+}
+
+.theme-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.theme-slider {
+  position: absolute;
+  inset: 0;
+  background-color: var(--surface-3);
+  border-radius: var(--radius-full);
+  transition: background-color var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-1); /* Adjust padding for icons */
+}
+
+.theme-slider::before {
+  /* The toggle knob */
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--surface-1); /* Knob color */
+  box-shadow: var(--shadow-xs);
+  border-radius: 50%;
+  transition:
+    transform var(--transition-normal),
+    background-color var(--transition-normal);
+  z-index: 2;
+}
+
+.theme-toggle input:checked + .theme-slider {
+  background-color: var(--primary); /* Active background */
+}
+
+.theme-toggle input:checked + .theme-slider::before {
+  transform: translateX(24px);
+  background-color: var(--text-on-primary); /* Knob color when active */
+}
+
+.theme-slider .fa-moon,
+.theme-slider .fa-sun {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  z-index: 1;
+  transition: color var(--transition-fast);
+}
+
+.theme-toggle input:checked + .theme-slider .fa-moon {
+  color: var(--text-on-primary);
+}
+
+.theme-toggle input:not(:checked) + .theme-slider .fa-sun {
+  color: var(--warning-dark);
+}
+
+/* === Mobile Navigation Drawer === */
+.mobile-nav-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 85%;
+  max-width: 320px;
+  height: 100%;
+  background-color: var(--surface-1);
+  z-index: var(--z-drawer);
+  transform: translateX(-100%);
+  transition: transform var(--transition-slow);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  contain: layout style paint; /* Performance hint */
+}
+
+.mobile-nav-drawer.open {
+  transform: translateX(0);
+}
+
+/* Ensure all links in mobile nav drawer are properly styled */
+.mobile-nav-drawer a,
+.mobile-nav-drawer a:link,
+.mobile-nav-drawer a:visited {
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
+}
+
+.mobile-nav-drawer a:hover,
+.mobile-nav-drawer a:focus {
+  color: var(--text-primary) !important;
+  text-decoration: none !important;
+}
+
+/* Ensure all lists in mobile nav drawer have no bullets */
+.mobile-nav-drawer ul,
+.mobile-nav-drawer ol,
+.mobile-nav-drawer li {
+  list-style: none !important;
+  list-style-type: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.drawer-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.drawer-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xl);
+  cursor: pointer;
+  padding: var(--space-2); /* Larger tap target */
+  transition: color var(--transition-fast);
+}
+
+.drawer-close-btn:hover {
+  color: var(--text-primary);
+}
+
+.drawer-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) 0; /* Reduced top/bottom padding */
+}
+
+.mobile-nav-drawer .drawer-nav-list,
+.drawer-nav-list {
+  list-style: none !important;
+  list-style-type: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.mobile-nav-drawer .drawer-nav-list li,
+.drawer-nav-list li {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.mobile-nav-drawer .drawer-nav-list li a,
+.drawer-nav-list li a {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
+  font-size: var(--font-size-md);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+  border-left: 3px solid transparent; /* For active state */
+}
+
+.mobile-nav-drawer .drawer-nav-list li a:link,
+.mobile-nav-drawer .drawer-nav-list li a:visited,
+.drawer-nav-list li a:link,
+.drawer-nav-list li a:visited {
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
+}
+
+.mobile-nav-drawer .drawer-nav-list li a.active,
+.mobile-nav-drawer .drawer-nav-list li a:hover,
+.drawer-nav-list li a.active,
+.drawer-nav-list li a:hover {
+  background-color: var(--surface-2);
+  color: var(--text-primary) !important;
+}
+
+.mobile-nav-drawer .drawer-nav-list li a.active,
+.drawer-nav-list li a.active {
+  border-left-color: var(--primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.mobile-nav-drawer .drawer-nav-list li a i,
+.drawer-nav-list li a i {
+  margin-right: var(--space-3);
+  width: 20px;
+  text-align: center;
+  color: var(--primary);
+}
+
+/* === Drawer Navigation Sections (Grouped) === */
+.drawer-nav-section {
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.drawer-nav-section:last-child {
+  border-bottom: none;
+}
+
+.drawer-nav-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.drawer-nav-section-header:hover {
+  background-color: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.drawer-nav-section-title {
+  flex: 1;
+  text-align: left;
+}
+
+.drawer-nav-section-chevron {
+  font-size: var(--font-size-xs);
+  transition: transform var(--transition-normal);
+}
+
+.drawer-nav-section-header[aria-expanded="false"] .drawer-nav-section-chevron {
+  transform: rotate(-90deg);
+}
+
+.mobile-nav-drawer .drawer-nav-section-list,
+.drawer-nav-section-list,
+.mobile-nav-drawer ul,
+.drawer-nav ul {
+  list-style: none !important;
+  list-style-type: none !important;
+  padding: 0 !important;
+  padding-left: 0 !important;
+  margin: 0 !important;
+  overflow: hidden;
+  max-height: 500px;
+  transition:
+    max-height var(--transition-slow),
+    opacity var(--transition-normal);
+  opacity: 1;
+}
+
+.mobile-nav-drawer .drawer-nav-section-list li,
+.drawer-nav-section-list li,
+.mobile-nav-drawer ul li,
+.drawer-nav ul li {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.drawer-nav-section-list.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.mobile-nav-drawer .drawer-nav-section-list li a,
+.drawer-nav-section-list li a {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-5);
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
+  font-size: var(--font-size-sm);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+  border-left: 3px solid transparent;
+}
+
+.mobile-nav-drawer .drawer-nav-section-list li a:link,
+.mobile-nav-drawer .drawer-nav-section-list li a:visited,
+.drawer-nav-section-list li a:link,
+.drawer-nav-section-list li a:visited {
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
+}
+
+.mobile-nav-drawer .drawer-nav-section-list li a:hover,
+.drawer-nav-section-list li a:hover {
+  background-color: var(--surface-2);
+  color: var(--text-primary) !important;
+}
+
+.mobile-nav-drawer .drawer-nav-section-list li a.active,
+.drawer-nav-section-list li a.active {
+  background-color: var(--surface-2);
+  color: var(--text-primary) !important;
+  border-left-color: var(--primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.mobile-nav-drawer .drawer-nav-section-list li a i,
+.drawer-nav-section-list li a i {
+  margin-right: var(--space-3);
+  width: 20px;
+  text-align: center;
+  color: var(--primary);
+}

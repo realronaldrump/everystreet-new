@@ -6,7 +6,8 @@
       this.tripViewMap = null;
       this.startMarker = null;
       this.endMarker = null;
-      this.currentTheme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      this.currentTheme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
     }
 
     showTrip(trip) {
@@ -15,10 +16,16 @@
       if (!modalElement || !tripInfoContainer) return;
 
       const startTime = trip.startTime
-        ? DateUtils.formatForDisplay(trip.startTime, { dateStyle: "medium", timeStyle: "short" })
+        ? DateUtils.formatForDisplay(trip.startTime, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })
         : "Unknown";
       const endTime = trip.endTime
-        ? DateUtils.formatForDisplay(trip.endTime, { dateStyle: "medium", timeStyle: "short" })
+        ? DateUtils.formatForDisplay(trip.endTime, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })
         : "Unknown";
 
       let formattedDistance = "Unknown";
@@ -34,8 +41,10 @@
       }
 
       const transactionId = trip.transactionId || trip.id || trip._id;
-      const startLocation = trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
-      const endLocation = trip.destination?.formatted_address || trip.destinationPlace || "Unknown";
+      const startLocation =
+        trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
+      const endLocation =
+        trip.destination?.formatted_address || trip.destinationPlace || "Unknown";
 
       tripInfoContainer.innerHTML = `
         <div class="trip-details">
@@ -204,7 +213,11 @@
             (b, c) => b.extend(c),
             new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
           );
-          this.tripViewMap.fitBounds(bounds, { padding: 50, maxZoom: 16, duration: 1000 });
+          this.tripViewMap.fitBounds(bounds, {
+            padding: 50,
+            maxZoom: 16,
+            duration: 1000,
+          });
         } catch (error) {
           document.getElementById("trip-info").innerHTML +=
             '<div class="alert alert-danger mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Error displaying trip route.</div>';

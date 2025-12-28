@@ -1,0 +1,220 @@
+/* ============================
+   Notification Components
+   ============================ */
+
+/* === Notifications === */
+.notification-container {
+  position: fixed;
+  top: calc(var(--header-height) + var(--space-4));
+  right: var(--space-4);
+  z-index: var(--z-tooltip);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 380px; /* Slightly wider */
+  pointer-events: none; /* Container itself shouldn't block clicks */
+}
+
+.notification {
+  background-color: var(--surface-1);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  box-shadow: var(--shadow-md);
+  transform: translateX(120%);
+  opacity: 0;
+  transition:
+    transform 0.35s cubic-bezier(0.215, 0.61, 0.355, 1),
+    opacity 0.3s ease;
+  pointer-events: auto;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--primary);
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.notification.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.notification-icon {
+  font-size: var(--font-size-xl);
+  margin-right: var(--space-3);
+  margin-top: var(--space-1); /* Align icon better with text */
+  flex-shrink: 0; /* Prevent icon from shrinking */
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0; /* Allow content to shrink if needed */
+}
+
+.notification-title {
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-1);
+  color: var(--text-primary);
+}
+
+.notification-message {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+.notification-close {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: var(--space-1);
+  margin-left: var(--space-2);
+  font-size: var(--font-size-lg);
+  transition: color var(--transition-fast);
+  align-self: flex-start; /* Align close button to top right */
+}
+
+.notification-close:hover {
+  color: var(--text-secondary);
+}
+
+/* Notification variants */
+.notification-success {
+  border-left-color: var(--success);
+}
+
+.notification-success .notification-icon {
+  color: var(--success);
+}
+
+.notification-error {
+  border-left-color: var(--danger);
+}
+
+.notification-error .notification-icon {
+  color: var(--danger);
+}
+
+.notification-warning {
+  border-left-color: var(--warning);
+}
+
+.notification-warning .notification-icon {
+  color: var(--warning);
+}
+
+.notification-info {
+  border-left-color: var(--info);
+}
+
+.notification-info .notification-icon {
+  color: var(--info);
+}
+
+/* === Alerts - Minimal === */
+.alert {
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: flex-start;
+}
+
+.alert-icon {
+  /* Optional dedicated icon element */
+  margin-right: var(--space-3);
+  font-size: var(--font-size-xl);
+  margin-top: var(--space-1);
+}
+
+.alert-heading {
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-2);
+}
+
+.alert .btn-close {
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+  margin-left: auto; /* Push to the right */
+  padding: var(--space-3); /* Easier to click */
+}
+
+.alert .btn-close:hover {
+  opacity: 1;
+}
+
+.alert-primary {
+  background-color: rgb(var(--primary-rgb), 0.1);
+  border-color: rgb(var(--primary-rgb), 0.3);
+  color: var(--primary-dark);
+}
+
+.alert-primary .alert-icon,
+.alert-primary .alert-heading {
+  color: var(--primary-dark);
+}
+
+body.light-mode .alert-primary {
+  color: var(--primary-dark);
+} /* Ensure text contrast */
+
+.alert-success {
+  background-color: rgb(var(--success-rgb), 0.1);
+  border-color: rgb(var(--success-rgb), 0.3);
+  color: var(--success-dark);
+}
+
+.alert-success .alert-icon,
+.alert-success .alert-heading {
+  color: var(--success-dark);
+}
+
+body.light-mode .alert-success {
+  color: var(--success-dark);
+}
+
+.alert-danger {
+  background-color: rgb(var(--danger-rgb), 0.1);
+  border-color: rgb(var(--danger-rgb), 0.3);
+  color: var(--danger-dark);
+}
+
+.alert-danger .alert-icon,
+.alert-danger .alert-heading {
+  color: var(--danger-dark);
+}
+
+body.light-mode .alert-danger {
+  color: var(--danger-dark);
+}
+
+.alert-warning {
+  background-color: rgb(var(--warning-rgb), 0.1);
+  border-color: rgb(var(--warning-rgb), 0.3);
+  color: var(--warning-dark);
+}
+
+.alert-warning .alert-icon,
+.alert-warning .alert-heading {
+  color: var(--warning-dark);
+}
+
+body.light-mode .alert-warning {
+  color: var(--warning-dark);
+}
+
+.alert-info {
+  background-color: rgb(var(--info-rgb), 0.1);
+  border-color: rgb(var(--info-rgb), 0.3);
+  color: var(--info-dark);
+}
+
+.alert-info .alert-icon,
+.alert-info .alert-heading {
+  color: var(--info-dark);
+}
+
+body.light-mode .alert-info {
+  color: var(--info-dark);
+}

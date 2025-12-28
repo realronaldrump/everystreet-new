@@ -1,0 +1,161 @@
+/* ============================
+   Form Components
+   ============================ */
+
+/* === Forms === */
+.form-group {
+  margin-bottom: var(--space-4);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.form-control,
+.form-select {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  transition: border-color var(--transition-fast);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--primary);
+  outline: 0;
+  box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 15%);
+}
+
+.form-control::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1; /* Firefox fix */
+}
+
+.form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba(255,255,255,0.6)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  background-size: 16px 12px;
+  padding-right: calc(
+    var(--space-3) + 16px + var(--space-3)
+  ); /* Ensure text doesn't overlap arrow */
+}
+
+body.light-mode .form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba(0,0,0,0.6)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+}
+
+.form-control-color {
+  /* For color inputs */
+  height: calc(
+    1.5em + var(--space-2) * 2 + 2px
+  ); /* Match height of other inputs */
+
+  padding: var(--space-2);
+}
+
+.form-check {
+  display: flex; /* Use flex for better alignment */
+  align-items: center;
+  margin-bottom: var(--space-2);
+  min-height: calc(
+    var(--font-size-sm) * var(--line-height-normal)
+  ); /* Ensure consistent height */
+}
+
+.form-check-input {
+  width: 1.25em;
+  height: 1.25em;
+  margin-top: 0; /* Reset Bootstrap default */
+  margin-right: var(--space-2);
+  background-color: var(--surface-3);
+  border: 1px solid var(--border-color);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.form-check-input:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='white' d='M12.736 3.264a.5.5 0 0 0-.707 0L6.5 8.793 4.236 6.529a.5.5 0 0 0-.707.707l2.5 2.5a.5.5 0 0 0 .707 0l6-6a.5.5 0 0 0 0-.707z'/%3e%3c/svg%3e");
+}
+
+.form-check-input:focus {
+  border-color: var(--primary);
+  outline: 0;
+  box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 15%);
+}
+
+.form-check-label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.form-switch .form-check-input {
+  width: 2.5em; /* Standard switch width */
+  background-image: none; /* Remove checkmark for switch */
+  position: relative;
+}
+
+.form-switch .form-check-input::before {
+  /* Switch knob */
+  content: "";
+  position: absolute;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  background-color: var(--surface-1);
+  top: 50%;
+  left: 0.125em; /* Initial position */
+  transform: translateY(-50%);
+  transition:
+    transform var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(1.25em, -50%); /* Move knob to the right */
+}
+
+.form-text {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
+.invalid-feedback {
+  display: none;
+  width: 100%;
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--danger);
+  animation: shake 0.3s ease;
+}
+
+.form-control.is-invalid,
+.form-select.is-invalid {
+  border-color: var(--danger);
+}
+
+.form-control.is-invalid:focus,
+.form-select.is-invalid:focus {
+  box-shadow: 0 0 0 0.2rem rgb(var(--danger-rgb), 0.25);
+}
+
+.form-control.is-invalid ~ .invalid-feedback,
+.form-select.is-invalid ~ .invalid-feedback {
+  display: block;
+}

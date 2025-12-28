@@ -1,0 +1,59 @@
+/* ============================
+   Table Components
+   ============================ */
+
+/* === Tables === */
+.table-container {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--surface-1);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+.table th {
+  background-color: transparent;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.table-hover tbody tr:hover {
+  background-color: var(--surface-2);
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: var(
+    --surface-0
+  ); /* Slightly different from surface-1 for striping */
+}
+
+body.light-mode .table-striped tbody tr:nth-of-type(odd) {
+  background-color: var(--surface-2);
+}
+
+.table .action-cell {
+  /* For cells containing action buttons */
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table .action-cell .btn {
+  margin-left: var(--space-1);
+}

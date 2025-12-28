@@ -1,0 +1,88 @@
+/* ============================
+   Steps/Wizard Component
+   ============================ */
+
+/* === Steps Component (from coverage_management.html) === */
+.steps-container {
+  position: relative;
+  margin-bottom: var(--space-8);
+  display: flex;
+  justify-content: space-between;
+}
+
+.steps-container::after {
+  /* The connecting line */
+  content: "";
+  position: absolute;
+  width: calc(100% - 80px); /* Adjust based on step icon size and padding */
+  height: 2px;
+  background-color: var(--surface-3);
+  top: 20px; /* Vertically center with icon */
+  left: 40px; /* Start after first icon */
+  z-index: var(--z-base);
+}
+
+.step {
+  text-align: center;
+  position: relative;
+  z-index: calc(var(--z-base) + 1); /* Above the line */
+  width: auto; /* Allow natural width or set fixed if needed */
+  transition: all var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.step-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--surface-2);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+  border: 2px solid var(--border-color);
+  transition: all var(--transition-normal);
+  font-size: var(--font-size-lg);
+}
+
+.step-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  transition: all var(--transition-normal);
+  font-weight: var(--font-weight-medium);
+}
+
+.step.active .step-icon {
+  background-color: var(--primary);
+  color: var(--text-on-primary);
+  border-color: var(--primary);
+}
+
+.step.active .step-label {
+  color: var(--primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.step.complete .step-icon {
+  background-color: var(--success);
+  color: var(--text-on-dark);
+  border-color: var(--success-dark);
+}
+
+.step.complete .step-label {
+  color: var(--success);
+}
+
+.step.error .step-icon {
+  background-color: var(--danger);
+  color: var(--text-on-dark);
+  border-color: var(--danger-dark);
+  animation: error-pulse 1s ease infinite alternate;
+}
+
+.step.error .step-label {
+  color: var(--danger);
+}

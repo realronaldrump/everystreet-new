@@ -1,0 +1,62 @@
+/* ============================
+   Modal & Tooltip Components
+   ============================ */
+
+/* === Modal - Minimal === */
+.modal-content {
+  background-color: var(--surface-1);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-md);
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--divider-color);
+  padding: var(--space-4);
+}
+
+.modal-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.modal-body {
+  padding: var(--space-4);
+}
+
+.modal-footer {
+  border-top: 1px solid var(--divider-color);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+.btn-close-white {
+  /* Ensure close button is visible in dark mode */
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+body.light-mode .btn-close-white {
+  filter: none;
+}
+
+/* === Tooltips - Minimal === */
+.tooltip-inner {
+  background-color: var(--surface-2);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+.tooltip.show {
+  opacity: 1;
+}
+
+.bs-tooltip-auto[data-popper-placement^="top"] .tooltip-arrow::before,
+.bs-tooltip-top .tooltip-arrow::before {
+  border-top-color: var(--border-color); /* Match border */
+}

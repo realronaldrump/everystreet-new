@@ -1,0 +1,245 @@
+/* ============================
+   Utility Classes
+   ============================ */
+
+/* === Text Utilities === */
+.text-primary {
+  color: var(--primary) !important;
+}
+
+.text-secondary {
+  color: var(--text-secondary) !important;
+} /* Note: this is different from --secondary color */
+
+.text-success {
+  color: var(--success) !important;
+}
+
+.text-danger {
+  color: var(--danger) !important;
+}
+
+.text-warning {
+  color: var(--warning) !important;
+}
+
+.text-info {
+  color: var(--info) !important;
+}
+
+.text-light {
+  color: var(--text-tertiary) !important;
+} /* For lighter text on dark backgrounds */
+
+.text-dark {
+  color: var(--text-primary) !important;
+} /* For darker text on light backgrounds */
+
+.bg-primary {
+  background-color: var(--primary) !important;
+  color: var(--text-on-primary) !important;
+}
+
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* === Visibility === */
+.visually-hidden,
+.visually-hidden-focusable:not(:focus, :active) {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* === Animation Classes === */
+.fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.slide-up {
+  animation: slideUp 0.4s ease forwards;
+}
+
+.slide-in-down {
+  animation: slideInDown 0.4s ease forwards;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+} /* Generic spinner class */
+
+/* === Icon Transitions === */
+.icon-chevron-transition {
+  transition: transform 0.3s ease;
+}
+
+/* === Legend Indicators === */
+.legend-indicator {
+  display: inline-block;
+  width: 18px;
+  height: 3px;
+  margin-right: 3px;
+  border-radius: 1px;
+}
+
+.legend-indicator--undriven {
+  background-color: #00bfff;
+  border: 1px dashed rgb(255 255 255 / 30%);
+}
+
+body.light-mode .legend-indicator--undriven {
+  border-color: rgb(0 0 0 / 20%);
+}
+
+.legend-indicator--driven {
+  background-color: var(--success);
+}
+
+.legend-indicator--all {
+  background-color: var(--primary-light);
+}
+
+.legend-text-small {
+  font-size: 0.75rem;
+}
+
+/* === Clear Button Styles === */
+.btn-clear-search {
+  padding: 0.25rem 0.5rem;
+  z-index: 10;
+}
+
+.btn-clear-mobile {
+  padding: 0;
+}
+
+/* === Accessibility === */
+
+/* Focus visible for keyboard users, not for mouse users */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 15%);
+}
+
+/* Remove default outline if :focus-visible is supported and not matched */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .card,
+  .side-panel,
+  .control-panel,
+  .modal-content {
+    border: 2px solid currentcolor; /* Use current text color for borders */
+  }
+
+  .btn {
+    border-width: 2px;
+    border-style: solid; /* Ensure border is solid */
+  }
+
+  .btn-primary, .btn-secondary /* etc. */ {
+    border-color: currentcolor; /* Ensure contrast for filled buttons */
+  }
+
+  .btn-outline {
+    border-color: currentcolor;
+  }
+
+  .form-control,
+  .form-select {
+    border-width: 2px;
+    border-color: currentcolor;
+  }
+}
+
+/* === Print Styles === */
+@media print {
+  body {
+    background-color: #fff !important; /* White background for printing */
+    color: #000 !important; /* Black text */
+    font-size: 12pt; /* Readable print size */
+    line-height: 1.4;
+  }
+
+  .app-header,
+  .mobile-nav-drawer,
+  .side-panel,
+  .tools-section, /* Hide theme toggle, etc. */
+  .menu-toggle-btn,
+  .notification-container,
+  .loading-overlay,
+  .control-panel, /* Hide map control panel */
+  .btn, /* Hide most buttons */
+  .quick-selections,
+  .panel-actions,
+  #map-controls /* Hide specific map controls panel if it's different */ {
+    display: none !important;
+  }
+
+  .main-content {
+    padding-top: 0 !important;
+    margin-left: 0 !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    page-break-inside: avoid;
+  }
+
+  .table,
+  .table th,
+  .table td {
+    border-color: #ccc !important;
+  }
+
+  a {
+    text-decoration: none;
+    color: #000 !important;
+  }
+
+  a[href^="http"]::after {
+    content: " (" attr(href) ")"; /* Show URLs for external links */
+    font-size: 90%;
+  }
+
+  #map {
+    /* Ensure map takes up space if it's the primary content */
+    position: static !important;
+    height: auto !important; /* Or specific print height */
+    width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  .container,
+  .container-fluid {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}

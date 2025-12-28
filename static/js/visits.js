@@ -214,7 +214,9 @@
 
     async updateMonthlyVisits() {
       try {
-        const stats = await window.VisitsDataService.fetchPlaceStatistics({ timeframe: "month" });
+        const stats = await window.VisitsDataService.fetchPlaceStatistics({
+          timeframe: "month",
+        });
         const monthlyVisits = stats.reduce(
           (sum, p) => sum + (p.monthlyVisits || p.totalVisits || 0),
           0
@@ -229,7 +231,8 @@
       this.visitsTable = window.VisitsTableFactory.createVisitsTable({
         onPlaceSelected: (placeId) => this.toggleView(placeId),
       });
-      this.nonCustomVisitsTable = window.VisitsTableFactory.createNonCustomVisitsTable();
+      this.nonCustomVisitsTable =
+        window.VisitsTableFactory.createNonCustomVisitsTable();
       this.tripsTable = window.VisitsTableFactory.createTripsTable({
         onTripSelected: (tripId) => this.confirmViewTripOnMap(tripId),
       });
@@ -279,7 +282,9 @@
 
       document
         .getElementById("toggle-custom-places")
-        ?.addEventListener("change", (e) => this.toggleCustomPlacesVisibility(e.target.checked));
+        ?.addEventListener("change", (e) =>
+          this.toggleCustomPlacesVisibility(e.target.checked)
+        );
 
       document
         .getElementById("back-to-places-btn")
@@ -421,7 +426,8 @@
         .map((s) => DateUtils.convertDurationToSeconds(s.averageTimeSpent));
 
       if (avgDurations.length > 0) {
-        const overallAvg = avgDurations.reduce((a, b) => a + b, 0) / avgDurations.length;
+        const overallAvg =
+          avgDurations.reduce((a, b) => a + b, 0) / avgDurations.length;
         const formatted = DateUtils.formatDuration(overallAvg * 1000);
         document.getElementById("avg-visit-duration").textContent = formatted;
       }
@@ -508,7 +514,10 @@
     async deletePlace(placeId) {
       const placeToDelete = this.places.get(placeId);
       if (!placeToDelete) {
-        window.notificationManager?.show("Attempted to delete non-existent place.", "warning");
+        window.notificationManager?.show(
+          "Attempted to delete non-existent place.",
+          "warning"
+        );
         return;
       }
 
@@ -761,7 +770,8 @@
       );
 
       try {
-        const stats = await window.VisitsDataService.fetchPlaceDetailStatistics(placeId);
+        const stats =
+          await window.VisitsDataService.fetchPlaceDetailStatistics(placeId);
         const formatDate = (dateStr) =>
           dateStr
             ? DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" })
@@ -855,7 +865,10 @@
         const place = this.places.get(placeId);
         if (!place) {
           console.error(`Cannot switch to detail view: Place ID ${placeId} not found.`);
-          window.notificationManager?.show("Could not find the selected place.", "warning");
+          window.notificationManager?.show(
+            "Could not find the selected place.",
+            "warning"
+          );
           return;
         }
 
@@ -930,7 +943,10 @@
         this.nonCustomVisitsTable.clear().rows.add(visitsData).draw();
       } catch (error) {
         console.error("Error fetching non-custom places visits:", error);
-        window.notificationManager?.show("Failed to load non-custom places visits", "danger");
+        window.notificationManager?.show(
+          "Failed to load non-custom places visits",
+          "danger"
+        );
       }
     }
 
@@ -992,7 +1008,10 @@
       } catch (error) {
         console.error("Error fetching or showing trip data:", error);
         this.loadingManager.error("Failed to fetch trip data");
-        window.notificationManager?.show("Error loading trip data. Please try again.", "danger");
+        window.notificationManager?.show(
+          "Error loading trip data. Please try again.",
+          "danger"
+        );
       } finally {
         this.loadingManager.finish("Loading Trip");
         document.querySelectorAll(".view-trip-btn.loading").forEach((btn) => {
@@ -1089,7 +1108,10 @@
           requestBody.geometry = this.currentPolygon.geometry;
         }
 
-        const updatedPlace = await window.VisitsDataService.updatePlace(placeId, requestBody);
+        const updatedPlace = await window.VisitsDataService.updatePlace(
+          placeId,
+          requestBody
+        );
         this.places.set(placeId, updatedPlace);
         this.mapController.removePlace(placeId);
         this.mapController.addPlace(updatedPlace);
@@ -1113,7 +1135,10 @@
         );
       } catch (error) {
         console.error("Error updating place:", error);
-        window.notificationManager?.show("Failed to update place. Please try again.", "danger");
+        window.notificationManager?.show(
+          "Failed to update place. Please try again.",
+          "danger"
+        );
       } finally {
         this.loadingManager.finish("Updating Place");
       }
