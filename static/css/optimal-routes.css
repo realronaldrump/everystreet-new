@@ -74,6 +74,7 @@
 /* Progress Stages */
 .progress-stages {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.25rem;
   margin-bottom: 0.5rem;

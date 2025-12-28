@@ -49,6 +49,31 @@ class OptimalRoutesManager {
     document.getElementById("retry-btn")?.addEventListener("click", () => {
       this.generateRoute();
     });
+
+    // Layer toggles
+    document.getElementById("toggle-route-layer")?.addEventListener("change", (e) => {
+      this.toggleLayer(
+        ["optimal-route-line", "optimal-route-arrows"],
+        e.target.checked
+      );
+    });
+
+    document.getElementById("toggle-driven-layer")?.addEventListener("change", (e) => {
+      this.toggleLayer(["streets-driven-layer"], e.target.checked);
+    });
+
+    document.getElementById("toggle-undriven-layer")?.addEventListener("change", (e) => {
+      this.toggleLayer(["streets-undriven-layer"], e.target.checked);
+    });
+  }
+
+  toggleLayer(layerIds, isVisible) {
+    if (!this.map) return;
+    layerIds.forEach((id) => {
+      if (this.map.getLayer(id)) {
+        this.map.setLayoutProperty(id, "visibility", isVisible ? "visible" : "none");
+      }
+    });
   }
 
   initializeMap() {
