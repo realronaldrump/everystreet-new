@@ -2281,6 +2281,8 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
             )
             raise e
 
+    return {"status": "error", "message": "Unknown error (unreachable)"}
+
 
 async def trigger_fetch_all_missing_trips(
     start_date: str | None = None,
