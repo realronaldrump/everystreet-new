@@ -499,11 +499,15 @@ def _solve_greedy_route(
         iterations += 1
 
         # Determine active component
-        if active_comp is None or not (comp_to_rids.get(active_comp, set()) & unvisited):
+        if active_comp is None or not (
+            comp_to_rids.get(active_comp, set()) & unvisited
+        ):
             # Jump to nearest start among all unvisited requirements
             if not global_targets:
                 raise ValueError("No remaining target nodes for routing")
-            result = _dijkstra_to_any_target(G, current_node, global_targets, weight="length")
+            result = _dijkstra_to_any_target(
+                G, current_node, global_targets, weight="length"
+            )
             if result is None:
                 raise ValueError(
                     "Routing graph disconnected from remaining undriven segments"
@@ -514,7 +518,9 @@ def _solve_greedy_route(
                 total_dist += d_dead
                 _append_path_edges(path_edges)
             current_node = target_start
-            candidates = [rid for rid in unvisited if target_start in req_to_starts[rid]]
+            candidates = [
+                rid for rid in unvisited if target_start in req_to_starts[rid]
+            ]
             if not candidates:
                 global_targets.discard(target_start)
                 continue
@@ -533,7 +539,9 @@ def _solve_greedy_route(
             if not comp_target_nodes:
                 active_comp = None
                 continue
-            result = _dijkstra_to_any_target(G, current_node, comp_target_nodes, weight="length")
+            result = _dijkstra_to_any_target(
+                G, current_node, comp_target_nodes, weight="length"
+            )
             if result is None:
                 raise ValueError(
                     "Routing graph disconnected within required-edge component"
@@ -557,8 +565,12 @@ def _solve_greedy_route(
 
         def _candidate_score(rid: ReqId) -> tuple[float, float]:
             service_edge = _best_service_edge_from_start(rid, current_node)
-            seg_count = float(req_segment_counts.get(rid, 1) if req_segment_counts else 1)
-            edge_len = _edge_length_m(G, service_edge[0], service_edge[1], service_edge[2])
+            seg_count = float(
+                req_segment_counts.get(rid, 1) if req_segment_counts else 1
+            )
+            edge_len = _edge_length_m(
+                G, service_edge[0], service_edge[1], service_edge[2]
+            )
             return (-seg_count, -edge_len)
 
         chosen_rid = min(candidates, key=_candidate_score)
@@ -629,9 +641,7 @@ def _validate_route(
         errors.append("Route has insufficient coordinates.")
 
     coverage_ratio = (
-        float(mapped_segments) / float(total_segments)
-        if total_segments > 0
-        else 1.0
+        float(mapped_segments) / float(total_segments) if total_segments > 0 else 1.0
     )
     details["coverage_ratio"] = coverage_ratio
     if total_segments > 0 and coverage_ratio < MIN_SEGMENT_COVERAGE_RATIO:
@@ -654,9 +664,7 @@ def _validate_route(
     )
     details["deadhead_ratio"] = deadhead_ratio
     if deadhead_ratio > MAX_DEADHEAD_RATIO_ERROR:
-        errors.append(
-            f"Deadhead ratio {deadhead_ratio:.2f} exceeds maximum threshold."
-        )
+        errors.append(f"Deadhead ratio {deadhead_ratio:.2f} exceeds maximum threshold.")
     elif deadhead_ratio > MAX_DEADHEAD_RATIO_WARN:
         warnings.append(
             f"Deadhead ratio {deadhead_ratio:.2f} is high; route may be inefficient."
