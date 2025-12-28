@@ -320,22 +320,22 @@ async def preprocess_streets(
     # 2. location-specific feet override (converted)
     # 3. location-specific meter override
     # 4. default (500ft which is ~152.4m)
-    
+
     # Default is roughly 500 feet
     final_segment_length = 152.4
 
     if segment_length_meters is not None:
-         final_segment_length = segment_length_meters
+        final_segment_length = segment_length_meters
     elif validated_location.get("segment_length_feet"):
-         final_segment_length = float(validated_location["segment_length_feet"]) * 0.3048
+        final_segment_length = float(validated_location["segment_length_feet"]) * 0.3048
     elif validated_location.get("segment_length_meters"):
-         final_segment_length = float(validated_location["segment_length_meters"])
+        final_segment_length = float(validated_location["segment_length_meters"])
 
     try:
         logger.info(
-            "Starting street preprocessing for %s with segment_length=%.2fm", 
-            location_name, 
-            final_segment_length
+            "Starting street preprocessing for %s with segment_length=%.2fm",
+            location_name,
+            final_segment_length,
         )
         await _update_task_progress(
             task_id,

@@ -301,14 +301,14 @@ async def process_area(
             },
         )
         # Determine segment length (defaults handled downstream in preprocess_streets)
-        # We pass the meters override if it exists, or None. 
+        # We pass the meters override if it exists, or None.
         # If segment_length_feet exists in location, preprocess_streets will handle it.
         seg_len_arg = None
         if segment_length_meters is not None:
-             seg_len_arg = segment_length_meters
+            seg_len_arg = segment_length_meters
         elif location.get("segment_length_meters"):
-             seg_len_arg = float(location["segment_length_meters"])
-        
+            seg_len_arg = float(location["segment_length_meters"])
+
         # If segment_length_feet is present, we pass None to let preprocess_streets handle it
         # via the logic we added there.
 
