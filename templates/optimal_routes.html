@@ -1,5 +1,5 @@
-{% extends "base.html" %} {% block title %}Optimal Routes{% endblock %} {%
-block head_content %}
+{% extends "base.html" %} {% block title %}Optimal Routes{% endblock %} {% block
+head_content %}
 
 <!-- Mapbox GL CSS -->
 <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
@@ -38,7 +38,11 @@ block head_content %}
 
     <!-- Generate Button -->
     <div class="control-section">
-      <button id="generate-route-btn" class="btn btn-primary btn-lg w-100" disabled>
+      <button
+        id="generate-route-btn"
+        class="btn btn-primary btn-lg w-100"
+        disabled
+      >
         <i class="fas fa-magic me-2"></i>Generate Optimal Route
       </button>
       <div class="form-text mt-2">
@@ -98,13 +102,16 @@ block head_content %}
 
       <!-- Elapsed Time -->
       <div id="elapsed-time" class="elapsed-time mt-2">
-        <i class="fas fa-clock me-1"></i>Elapsed: <span id="elapsed-value">0:00</span>
+        <i class="fas fa-clock me-1"></i>Elapsed:
+        <span id="elapsed-value">0:00</span>
       </div>
     </div>
 
     <!-- Route Results -->
     <div id="results-section" class="control-section" style="display: none">
-      <h5 class="mb-3"><i class="fas fa-chart-bar me-2"></i>Route Statistics</h5>
+      <h5 class="mb-3">
+        <i class="fas fa-chart-bar me-2"></i>Route Statistics
+      </h5>
 
       <div class="stats-grid">
         <div class="stat-card">
@@ -149,29 +156,58 @@ block head_content %}
 
       <!-- Layer Controls -->
       <div class="layer-controls mt-3 border-top pt-3">
-        <h6 class="mb-3 text-muted text-uppercase small" style="letter-spacing: 0.5px;">Map Layers</h6>
-        
+        <h6
+          class="mb-3 text-muted text-uppercase small"
+          style="letter-spacing: 0.5px"
+        >
+          Map Layers
+        </h6>
+
         <div id="layer-list" class="layer-list">
           <!-- Optimal Route -->
           <div class="layer-item" data-layer-id="route">
             <div class="layer-header">
               <div class="d-flex align-items-center">
                 <div class="layer-drag-controls me-2">
-                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up"><i class="fas fa-chevron-up"></i></button>
-                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down"><i class="fas fa-chevron-down"></i></button>
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-up"
+                    title="Move Up"
+                  >
+                    <i class="fas fa-chevron-up"></i>
+                  </button>
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-down"
+                    title="Move Down"
+                  >
+                    <i class="fas fa-chevron-down"></i>
+                  </button>
                 </div>
                 <span class="layer-name fw-medium">Optimal Route</span>
               </div>
               <div class="form-check form-switch m-0">
-                <input class="form-check-input" type="checkbox" id="toggle-route-layer" checked>
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="toggle-route-layer"
+                  checked
+                />
               </div>
             </div>
             <div class="layer-opacity mt-2">
-              <label class="small text-muted mb-1 d-flex justify-content-between">
+              <label
+                class="small text-muted mb-1 d-flex justify-content-between"
+              >
                 <span>Opacity</span>
                 <span class="opacity-value">100%</span>
               </label>
-              <input type="range" class="form-range" id="opacity-route-layer" min="0" max="100" value="100">
+              <input
+                type="range"
+                class="form-range"
+                id="opacity-route-layer"
+                min="0"
+                max="100"
+                value="100"
+              />
             </div>
           </div>
 
@@ -180,21 +216,45 @@ block head_content %}
             <div class="layer-header">
               <div class="d-flex align-items-center">
                 <div class="layer-drag-controls me-2">
-                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up"><i class="fas fa-chevron-up"></i></button>
-                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down"><i class="fas fa-chevron-down"></i></button>
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-up"
+                    title="Move Up"
+                  >
+                    <i class="fas fa-chevron-up"></i>
+                  </button>
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-down"
+                    title="Move Down"
+                  >
+                    <i class="fas fa-chevron-down"></i>
+                  </button>
                 </div>
                 <span class="layer-name fw-medium">Driven Streets</span>
               </div>
               <div class="form-check form-switch m-0">
-                <input class="form-check-input" type="checkbox" id="toggle-driven-layer" checked>
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="toggle-driven-layer"
+                  checked
+                />
               </div>
             </div>
             <div class="layer-opacity mt-2">
-              <label class="small text-muted mb-1 d-flex justify-content-between">
+              <label
+                class="small text-muted mb-1 d-flex justify-content-between"
+              >
                 <span>Opacity</span>
                 <span class="opacity-value">60%</span>
               </label>
-              <input type="range" class="form-range" id="opacity-driven-layer" min="0" max="100" value="60">
+              <input
+                type="range"
+                class="form-range"
+                id="opacity-driven-layer"
+                min="0"
+                max="100"
+                value="60"
+              />
             </div>
           </div>
 
@@ -203,21 +263,45 @@ block head_content %}
             <div class="layer-header">
               <div class="d-flex align-items-center">
                 <div class="layer-drag-controls me-2">
-                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up"><i class="fas fa-chevron-up"></i></button>
-                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down"><i class="fas fa-chevron-down"></i></button>
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-up"
+                    title="Move Up"
+                  >
+                    <i class="fas fa-chevron-up"></i>
+                  </button>
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-down"
+                    title="Move Down"
+                  >
+                    <i class="fas fa-chevron-down"></i>
+                  </button>
                 </div>
                 <span class="layer-name fw-medium">Undriven Streets</span>
               </div>
               <div class="form-check form-switch m-0">
-                <input class="form-check-input" type="checkbox" id="toggle-undriven-layer" checked>
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="toggle-undriven-layer"
+                  checked
+                />
               </div>
             </div>
             <div class="layer-opacity mt-2">
-              <label class="small text-muted mb-1 d-flex justify-content-between">
+              <label
+                class="small text-muted mb-1 d-flex justify-content-between"
+              >
                 <span>Opacity</span>
                 <span class="opacity-value">80%</span>
               </label>
-              <input type="range" class="form-range" id="opacity-undriven-layer" min="0" max="100" value="80">
+              <input
+                type="range"
+                class="form-range"
+                id="opacity-undriven-layer"
+                min="0"
+                max="100"
+                value="80"
+              />
             </div>
           </div>
         </div>
@@ -225,7 +309,11 @@ block head_content %}
     </div>
 
     <!-- Error Section -->
-    <div id="error-section" class="control-section error-section" style="display: none">
+    <div
+      id="error-section"
+      class="control-section error-section"
+      style="display: none"
+    >
       <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
       <div class="error-message" id="error-message">An error occurred.</div>
       <button id="retry-btn" class="btn btn-outline-danger mt-2">
@@ -258,7 +346,10 @@ block head_content %}
         <span>Undriven Streets</span>
       </div>
       <div class="legend-item">
-        <span class="legend-color" style="background: #9333ea; height: 5px"></span>
+        <span
+          class="legend-color"
+          style="background: #9333ea; height: 5px"
+        ></span>
         <span>Optimal Route</span>
       </div>
     </div>
