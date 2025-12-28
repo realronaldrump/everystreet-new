@@ -60,6 +60,24 @@
             <span class="legend-color legend-color--visited"></span>
             <span class="legend-label">Driven Through</span>
           </div>
+          <div class="legend-item legend-item--toggle">
+            <div class="legend-toggle-text">
+              <span class="legend-color legend-color--stopped"></span>
+              <div class="legend-label-group">
+                <span class="legend-label">Stopped In</span>
+                <span class="legend-subtext">Start or end stops (<span id="counties-stopped">0</span>)</span>
+              </div>
+            </div>
+            <div class="form-check form-switch legend-toggle">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="stopped-toggle"
+                aria-label="Highlight counties with stops"
+              />
+            </div>
+          </div>
           <div class="legend-item">
             <span class="legend-color legend-color--unvisited"></span>
             <span class="legend-label">Not Yet Visited</span>

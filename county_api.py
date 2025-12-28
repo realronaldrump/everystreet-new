@@ -13,6 +13,8 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks
 from shapely import STRtree
 from shapely.geometry import shape
+from shapely.ops import unary_union
+from shapely.validation import make_valid
 
 from county_data_service import get_county_topology_document
 from db import db_manager, trips_collection
@@ -67,6 +69,7 @@ async def get_visited_counties() -> dict[str, Any]:
                 "counties": cache.get(
                     "counties", {}
                 ),  # {fips: {firstVisit, lastVisit}}
+                "stoppedCounties": cache.get("stoppedCounties", {}),
                 "totalVisited": len(cache.get("counties", {})),
                 "lastUpdated": cache.get("updated_at"),
                 "totalTripsAnalyzed": cache.get("trips_analyzed", 0),
@@ -77,6 +80,7 @@ async def get_visited_counties() -> dict[str, Any]:
         return {
             "success": True,
             "counties": {},
+            "stoppedCounties": {},
             "totalVisited": 0,
             "lastUpdated": None,
             "cached": False,
@@ -89,6 +93,7 @@ async def get_visited_counties() -> dict[str, Any]:
             "success": False,
             "error": str(e),
             "counties": {},
+            "stoppedCounties": {},
             "totalVisited": 0,
         }
 
@@ -138,16 +143,46 @@ async def calculate_visited_counties_task():
         logger.info("Loaded %d county polygons", len(counties_geojson))
 
         # Build spatial index of counties using shapely
-        county_shapes = []
-        county_fips = []
+        county_shapes: list[Any] = []
+        county_fips: list[str] = []
+
+        def _clean_county_geometry(raw_geometry: dict[str, Any], fips: str):
+            """Convert and repair a county geometry if needed."""
+            geom = shape(raw_geometry)
+
+            if not geom.is_valid:
+                fixed = make_valid(geom)
+                if fixed.is_empty:
+                    logger.warning(
+                        "Skipping county %s: geometry empty after make_valid", fips
+                    )
+                    return None
+                if fixed.geom_type == "GeometryCollection":
+                    polygons = [
+                        g for g in fixed.geoms if g.geom_type in ("Polygon", "MultiPolygon")
+                    ]
+                    if not polygons:
+                        logger.warning(
+                            "Skipping county %s: no polygonal parts in repaired geometry",
+                            fips,
+                        )
+                        return None
+                    geom = unary_union(polygons)
+                else:
+                    geom = fixed
+
+            if geom.is_empty:
+                logger.warning("Skipping county %s: geometry empty", fips)
+                return None
+
+            return geom
 
         for feature in counties_geojson:
             try:
-                geom = shape(feature["geometry"])
-                if geom.is_valid:
+                fips = str(feature.get("id", "")).zfill(5)
+                geom = _clean_county_geometry(feature["geometry"], fips)
+                if geom:
                     county_shapes.append(geom)
-                    # FIPS code is the feature id
-                    fips = str(feature.get("id", "")).zfill(5)
                     county_fips.append(fips)
             except Exception as e:
                 logger.warning("Invalid county geometry: %s", e)
@@ -155,19 +190,28 @@ async def calculate_visited_counties_task():
         tree = STRtree(county_shapes)
         logger.info("Built spatial index for %d counties", len(county_shapes))
 
-        # Dictionary to track visit dates per county
+        # Dictionaries to track visit dates per county
         county_visits: dict[str, dict[str, datetime]] = {}
+        county_stops: dict[str, dict[str, datetime]] = {}
 
         # Query all valid trips with GPS data, ordered by time
         trips_cursor = trips_collection.find(
             {
                 "isInvalid": {"$ne": True},
                 "$or": [
-                    {"gps.type": "LineString"},
-                    {"matchedGps.type": "LineString"},
+                    {"gps.type": {"$in": ["LineString", "MultiLineString"]}},
+                    {"matchedGps.type": {"$in": ["LineString", "MultiLineString"]}},
                 ],
             },
-            {"gps": 1, "matchedGps": 1, "transactionId": 1, "startTime": 1},
+            {
+                "gps": 1,
+                "matchedGps": 1,
+                "transactionId": 1,
+                "startTime": 1,
+                "endTime": 1,
+                "startGeoPoint": 1,
+                "destinationGeoPoint": 1,
+            },
         )
 
         trips_analyzed = 0
@@ -175,21 +219,27 @@ async def calculate_visited_counties_task():
         async for trip in trips_cursor:
             trips_analyzed += 1
 
-            # Get trip timestamp
-            trip_time = trip.get("startTime")
+            def _parse_trip_time(raw_time: Any) -> datetime | None:
+                if not raw_time:
+                    return None
+                if isinstance(raw_time, datetime):
+                    return raw_time
+                if isinstance(raw_time, str):
+                    try:
+                        return datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
+                    except Exception:
+                        return None
+                return None
+
+            # Get trip timestamps
+            trip_time = _parse_trip_time(trip.get("startTime"))
+            end_time = _parse_trip_time(trip.get("endTime")) or trip_time
             if not trip_time:
                 continue
 
-            # Ensure trip_time is a datetime
-            if isinstance(trip_time, str):
-                try:
-                    trip_time = datetime.fromisoformat(trip_time.replace("Z", "+00:00"))
-                except Exception:
-                    continue
-
             # Prefer matched GPS if available
             gps_data = trip.get("matchedGps") or trip.get("gps")
-            if not gps_data or gps_data.get("type") != "LineString":
+            if not gps_data or gps_data.get("type") not in ["LineString", "MultiLineString"]:
                 continue
 
             try:
@@ -214,6 +264,47 @@ async def calculate_visited_counties_task():
                                 county_visits[fips]["firstVisit"] = trip_time
                             if trip_time > county_visits[fips]["lastVisit"]:
                                 county_visits[fips]["lastVisit"] = trip_time
+
+                # Track counties where the trip started or ended (stops)
+                stop_points = [
+                    (trip.get("startGeoPoint"), trip_time),
+                    (trip.get("destinationGeoPoint"), end_time),
+                ]
+
+                for point_data, point_time in stop_points:
+                    if not point_data or point_data.get("type") != "Point":
+                        continue
+                    coords = point_data.get("coordinates")
+                    if (
+                        not coords
+                        or not isinstance(coords, list)
+                        or len(coords) != 2
+                        or point_time is None
+                    ):
+                        continue
+
+                    try:
+                        point_geom = shape(point_data)
+                        stop_matches = tree.query(point_geom)
+                        for idx in stop_matches:
+                            if county_shapes[idx].covers(point_geom):
+                                fips = county_fips[idx]
+                                if fips not in county_stops:
+                                    county_stops[fips] = {
+                                        "firstStop": point_time,
+                                        "lastStop": point_time,
+                                    }
+                                else:
+                                    if point_time < county_stops[fips]["firstStop"]:
+                                        county_stops[fips]["firstStop"] = point_time
+                                    if point_time > county_stops[fips]["lastStop"]:
+                                        county_stops[fips]["lastStop"] = point_time
+                    except Exception as stop_error:
+                        logger.debug(
+                            "Unable to assign stop point for trip %s: %s",
+                            trip.get("transactionId", "unknown"),
+                            stop_error,
+                        )
 
             except Exception as e:
                 logger.warning(
@@ -242,12 +333,24 @@ async def calculate_visited_counties_task():
                 ),
             }
 
+        stopped_serializable = {}
+        for fips, stops in county_stops.items():
+            stopped_serializable[fips] = {
+                "firstStop": (
+                    stops["firstStop"].isoformat() if stops["firstStop"] else None
+                ),
+                "lastStop": (
+                    stops["lastStop"].isoformat() if stops["lastStop"] else None
+                ),
+            }
+
         # Save to cache
         await county_cache_collection.update_one(
             {"_id": "visited_counties"},
             {
                 "$set": {
                     "counties": counties_serializable,
+                    "stoppedCounties": stopped_serializable,
                     "trips_analyzed": trips_analyzed,
                     "updated_at": datetime.now(UTC),
                     "calculation_time_seconds": (
@@ -259,8 +362,9 @@ async def calculate_visited_counties_task():
         )
 
         logger.info(
-            "County calculation complete: %d counties visited from %d trips in %.1f seconds",
+            "County calculation complete: %d counties visited, %d counties with stops from %d trips in %.1f seconds",
             len(county_visits),
+            len(county_stops),
             trips_analyzed,
             (datetime.now(UTC) - start_time).total_seconds(),
         )
@@ -378,6 +482,7 @@ async def get_cache_status() -> dict[str, Any]:
             return {
                 "cached": True,
                 "totalVisited": len(cache.get("counties", {})),
+                "totalStopped": len(cache.get("stoppedCounties", {})),
                 "tripsAnalyzed": cache.get("trips_analyzed", 0),
                 "lastUpdated": cache.get("updated_at"),
                 "calculationTime": cache.get("calculation_time_seconds"),

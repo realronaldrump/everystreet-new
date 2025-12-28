@@ -9,9 +9,11 @@
   // State
   let map = null;
   let countyVisits = {}; // {fips: {firstVisit, lastVisit}}
+  let countyStops = {}; // {fips: {firstStop, lastStop}}
   let countyData = null;
   let statesData = null;
   let isRecalculating = false;
+  let showStoppedCounties = false;
 
   // FIPS code to state name mapping
   const stateFipsToName = {
@@ -106,6 +108,8 @@
 
         hideLoading();
         setupInteractions();
+        setupStoppedToggle();
+        updateStoppedLayerVisibility();
         updateStats();
       } catch (error) {
         console.error("Error initializing county map:", error);
@@ -154,6 +158,7 @@
       feature.properties.stateFips = stateFips;
       feature.properties.stateName = stateFipsToName[stateFips] || "Unknown";
       feature.properties.visited = false;
+      feature.properties.stopped = false;
     });
 
     console.log(`Loaded ${countyData.features.length} counties`);
@@ -171,18 +176,22 @@
         Object.keys(data.counties).length > 0
       ) {
         // Store county visits data (includes dates)
-        countyVisits = data.counties;
+        countyVisits = data.counties || {};
+        countyStops = data.stoppedCounties || {};
 
-        // Mark counties as visited
+        // Mark counties as visited/stopped
         countyData.features.forEach((feature) => {
           const { fips } = feature.properties;
           if (countyVisits[fips]) {
             feature.properties.visited = true;
           }
+          if (countyStops[fips]) {
+            feature.properties.stopped = true;
+          }
         });
 
         console.log(
-          `Marked ${Object.keys(countyVisits).length} counties as visited`,
+          `Marked ${Object.keys(countyVisits).length} counties as visited and ${Object.keys(countyStops).length} with stops`,
         );
 
         // Show last updated time if available
@@ -331,6 +340,21 @@
       },
     });
 
+    // Counties with stops (red overlay)
+    map.addLayer({
+      id: "counties-stopped-fill",
+      type: "fill",
+      source: "counties",
+      filter: ["==", ["get", "stopped"], true],
+      layout: {
+        visibility: showStoppedCounties ? "visible" : "none",
+      },
+      paint: {
+        "fill-color": "#ef4444",
+        "fill-opacity": 0.55,
+      },
+    });
+
     // County borders
     map.addLayer({
       id: "counties-border",
@@ -351,6 +375,21 @@
       paint: {
         "line-color": "#059669",
         "line-width": 1,
+      },
+    });
+
+    // Stopped county borders (more prominent)
+    map.addLayer({
+      id: "counties-stopped-border",
+      type: "line",
+      source: "counties",
+      filter: ["==", ["get", "stopped"], true],
+      layout: {
+        visibility: showStoppedCounties ? "visible" : "none",
+      },
+      paint: {
+        "line-color": "#b91c1c",
+        "line-width": 1.2,
       },
     });
 
@@ -378,6 +417,15 @@
     });
   }
 
+  function updateStoppedLayerVisibility() {
+    const visibility = showStoppedCounties ? "visible" : "none";
+    ["counties-stopped-fill", "counties-stopped-border"].forEach((layerId) => {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, "visibility", visibility);
+      }
+    });
+  }
+
   // Setup hover and click interactions
   function setupInteractions() {
     const tooltip = document.getElementById("county-tooltip");
@@ -387,18 +435,19 @@
     const tooltipDates = tooltip.querySelector(".tooltip-dates");
 
     // Mouse move - show tooltip
-    map.on("mousemove", "counties-unvisited-fill", (e) =>
-      showTooltip(e, false),
-    );
-    map.on("mousemove", "counties-visited-fill", (e) => showTooltip(e, true));
+    map.on("mousemove", "counties-unvisited-fill", (e) => showTooltip(e));
+    map.on("mousemove", "counties-visited-fill", (e) => showTooltip(e));
+    map.on("mousemove", "counties-stopped-fill", (e) => showTooltip(e));
 
-    function showTooltip(e, isVisited) {
+    function showTooltip(e) {
       if (e.features.length === 0) return;
 
       const feature = e.features[0];
       const { fips } = feature.properties;
       const countyName = feature.properties.name || "Unknown County";
       const stateName = feature.properties.stateName || "Unknown State";
+      const isVisited = !!countyVisits[fips];
+      const isStopped = !!countyStops[fips];
 
       // Update highlight
       map.setFilter("counties-hover", ["==", ["get", "fips"], fips]);
@@ -409,21 +458,40 @@
 
       if (isVisited && countyVisits[fips]) {
         const visits = countyVisits[fips];
-        tooltipStatus.textContent = "✓ Visited";
-        tooltipStatus.className = "tooltip-status tooltip-status--visited";
+        tooltipStatus.textContent = isStopped ? "Stopped In" : "✓ Visited";
+        tooltipStatus.className = `tooltip-status ${
+          isStopped ? "tooltip-status--stopped" : "tooltip-status--visited"
+        }`;
 
         // Show dates
         const firstDate = formatDate(visits.firstVisit);
         const lastDate = formatDate(visits.lastVisit);
 
+        let dateHtml = "";
         if (firstDate === lastDate) {
-          tooltipDates.innerHTML = `<div class="tooltip-date">Visited: ${firstDate}</div>`;
+          dateHtml += `<div class="tooltip-date">Visited: ${firstDate}</div>`;
         } else {
-          tooltipDates.innerHTML = `
+          dateHtml += `
             <div class="tooltip-date"><span class="date-label">First:</span> ${firstDate}</div>
             <div class="tooltip-date"><span class="date-label">Last:</span> ${lastDate}</div>
           `;
         }
+
+        if (isStopped && countyStops[fips]) {
+          const stop = countyStops[fips];
+          const firstStop = formatDate(stop.firstStop);
+          const lastStop = formatDate(stop.lastStop);
+          if (firstStop === lastStop) {
+            dateHtml += `<div class="tooltip-date tooltip-date--stop">Stopped: ${firstStop}</div>`;
+          } else {
+            dateHtml += `
+              <div class="tooltip-date tooltip-date--stop"><span class="date-label">First Stop:</span> ${firstStop}</div>
+              <div class="tooltip-date tooltip-date--stop"><span class="date-label">Last Stop:</span> ${lastStop}</div>
+            `;
+          }
+        }
+
+        tooltipDates.innerHTML = dateHtml;
         tooltipDates.style.display = "block";
       } else {
         tooltipStatus.textContent = "Not yet visited";
@@ -443,6 +511,7 @@
     // Mouse leave - hide tooltip
     map.on("mouseleave", "counties-unvisited-fill", hideTooltip);
     map.on("mouseleave", "counties-visited-fill", hideTooltip);
+    map.on("mouseleave", "counties-stopped-fill", hideTooltip);
 
     function hideTooltip() {
       tooltip.style.display = "none";
@@ -455,6 +524,7 @@
   function updateStats() {
     const totalCounties = countyData.features.length;
     const visitedCount = Object.keys(countyVisits).length;
+    const stoppedCount = Object.keys(countyStops).length;
     const percentage =
       totalCounties > 0
         ? ((visitedCount / totalCounties) * 100).toFixed(1)
@@ -475,6 +545,10 @@
       totalCounties.toLocaleString();
     document.getElementById("coverage-percent").textContent = `${percentage}%`;
     document.getElementById("states-visited").textContent = visitedStates.size;
+    const stoppedEl = document.getElementById("counties-stopped");
+    if (stoppedEl) {
+      stoppedEl.textContent = stoppedCount.toLocaleString();
+    }
   }
 
   // Panel toggle functionality
@@ -489,6 +563,17 @@
         toggleBtn.setAttribute("aria-expanded", !isCollapsed);
       });
     }
+  }
+
+  function setupStoppedToggle() {
+    const toggle = document.getElementById("stopped-toggle");
+    if (!toggle) return;
+
+    toggle.checked = showStoppedCounties;
+    toggle.addEventListener("change", () => {
+      showStoppedCounties = toggle.checked;
+      updateStoppedLayerVisibility();
+    });
   }
 
   // Setup recalculate button

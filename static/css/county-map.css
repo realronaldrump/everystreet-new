@@ -353,6 +353,38 @@
   gap: 0.75rem;
 }
 
+.legend-item--toggle {
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.legend-toggle-text {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.legend-label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.legend-subtext {
+  font-size: 0.75rem;
+  color: var(--text-secondary, rgb(255 255 255 / 60%));
+}
+
+.legend-toggle .form-check-input {
+  cursor: pointer;
+}
+
+.legend-toggle .form-check-input:checked {
+  background-color: #ef4444;
+  border-color: #ef4444;
+}
+
 .legend-color {
   width: 20px;
   height: 20px;
@@ -368,6 +400,11 @@
 .legend-color--unvisited {
   background: rgb(255 255 255 / 5%);
   border: 1px solid rgb(255 255 255 / 20%);
+}
+
+.legend-color--stopped {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  box-shadow: 0 0 8px rgb(239 68 68 / 50%);
 }
 
 .legend-color--state-border {
@@ -422,6 +459,12 @@
   border: 1px solid rgb(16 185 129 / 30%);
 }
 
+.tooltip-status--stopped {
+  background: rgb(239 68 68 / 18%);
+  color: #ef4444;
+  border: 1px solid rgb(239 68 68 / 35%);
+}
+
 .tooltip-status--unvisited {
   background: rgb(255 255 255 / 5%);
   color: var(--text-secondary, rgb(255 255 255 / 60%));
@@ -444,6 +487,10 @@
 .tooltip-date .date-label {
   color: var(--text-secondary, rgb(255 255 255 / 50%));
   margin-right: 0.25rem;
+}
+
+.tooltip-date--stop {
+  color: #fca5a5;
 }
 
 /* Map Loading Overlay - uses global loading styles from loading-styles.css */
