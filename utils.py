@@ -10,7 +10,6 @@ from datetime import datetime
 from typing import Any, TypeVar
 
 import aiohttp
-from geopy.distance import great_circle as _geopy_great_circle
 from aiohttp import (
     ClientConnectorError,
     ClientError,
@@ -18,6 +17,7 @@ from aiohttp import (
     ServerDisconnectedError,
 )
 from bson import ObjectId
+from geopy.distance import great_circle as _geopy_great_circle
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
