@@ -159,7 +159,9 @@ async def calculate_visited_counties_task():
                     return None
                 if fixed.geom_type == "GeometryCollection":
                     polygons = [
-                        g for g in fixed.geoms if g.geom_type in ("Polygon", "MultiPolygon")
+                        g
+                        for g in fixed.geoms
+                        if g.geom_type in ("Polygon", "MultiPolygon")
                     ]
                     if not polygons:
                         logger.warning(
@@ -239,7 +241,10 @@ async def calculate_visited_counties_task():
 
             # Prefer matched GPS if available
             gps_data = trip.get("matchedGps") or trip.get("gps")
-            if not gps_data or gps_data.get("type") not in ["LineString", "MultiLineString"]:
+            if not gps_data or gps_data.get("type") not in [
+                "LineString",
+                "MultiLineString",
+            ]:
                 continue
 
             try:
