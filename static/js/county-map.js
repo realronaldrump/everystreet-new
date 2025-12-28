@@ -9,9 +9,11 @@
   // State
   let map = null;
   let countyVisits = {}; // {fips: {firstVisit, lastVisit}}
+  let countyStops = {}; // {fips: {firstStop, lastStop}}
   let countyData = null;
   let statesData = null;
   let isRecalculating = false;
+  let showStoppedCounties = false;
 
   // FIPS code to state name mapping
   const stateFipsToName = {
@@ -103,6 +105,7 @@
 
         updateLoadingText("Rendering map...");
         addMapLayers();
+        updateStopLayerVisibility();
 
         hideLoading();
         setupInteractions();
@@ -117,6 +120,7 @@
     setupPanelToggle();
     setupRecalculateButton();
     setupStateStatsToggle();
+    setupStopToggle();
   }
 
   // Get appropriate map style based on theme
@@ -154,6 +158,7 @@
       feature.properties.stateFips = stateFips;
       feature.properties.stateName = stateFipsToName[stateFips] || "Unknown";
       feature.properties.visited = false;
+      feature.properties.stopped = false;
     });
 
     console.log(`Loaded ${countyData.features.length} counties`);
@@ -165,9 +170,14 @@
       const response = await fetch("/api/counties/visited");
       const data = await response.json();
 
-      if (data.success && data.counties && Object.keys(data.counties).length > 0) {
+      const hasVisits = data.counties && Object.keys(data.counties).length > 0;
+      const hasStops =
+        data.stoppedCounties && Object.keys(data.stoppedCounties).length > 0;
+
+      if (data.success && (hasVisits || hasStops)) {
         // Store county visits data (includes dates)
-        countyVisits = data.counties;
+        countyVisits = data.counties || {};
+        countyStops = data.stoppedCounties || {};
 
         // Mark counties as visited
         countyData.features.forEach((feature) => {
@@ -175,9 +185,15 @@
           if (countyVisits[fips]) {
             feature.properties.visited = true;
           }
+          if (countyStops[fips]) {
+            feature.properties.stopped = true;
+          }
         });
 
         console.log(`Marked ${Object.keys(countyVisits).length} counties as visited`);
+        if (Object.keys(countyStops).length > 0) {
+          console.log(`Marked ${Object.keys(countyStops).length} counties as stopped`);
+        }
 
         // Show last updated time if available
         if (data.lastUpdated) {
@@ -324,6 +340,21 @@
       },
     });
 
+    // Stopped counties fill (optional highlight)
+    map.addLayer({
+      id: "counties-stopped-fill",
+      type: "fill",
+      source: "counties",
+      filter: ["==", ["get", "stopped"], true],
+      layout: {
+        visibility: showStoppedCounties ? "visible" : "none",
+      },
+      paint: {
+        "fill-color": "#ef4444",
+        "fill-opacity": 0.55,
+      },
+    });
+
     // County borders
     map.addLayer({
       id: "counties-border",
@@ -343,6 +374,20 @@
       filter: ["==", ["get", "visited"], true],
       paint: {
         "line-color": "#059669",
+        "line-width": 1,
+      },
+    });
+
+    map.addLayer({
+      id: "counties-stopped-border",
+      type: "line",
+      source: "counties",
+      filter: ["==", ["get", "stopped"], true],
+      layout: {
+        visibility: showStoppedCounties ? "visible" : "none",
+      },
+      paint: {
+        "line-color": "#dc2626",
         "line-width": 1,
       },
     });
@@ -380,16 +425,38 @@
     const tooltipDates = tooltip.querySelector(".tooltip-dates");
 
     // Mouse move - show tooltip
-    map.on("mousemove", "counties-unvisited-fill", (e) => showTooltip(e, false));
-    map.on("mousemove", "counties-visited-fill", (e) => showTooltip(e, true));
+    map.on("mousemove", "counties-unvisited-fill", showTooltip);
+    map.on("mousemove", "counties-visited-fill", showTooltip);
+    map.on("mousemove", "counties-stopped-fill", showTooltip);
 
-    function showTooltip(e, isVisited) {
+    function formatDateRange(label, firstIso, lastIso) {
+      const firstDate = formatDate(firstIso);
+      const lastDate = formatDate(lastIso);
+
+      if (firstDate === "Unknown" && lastDate === "Unknown") {
+        return "";
+      }
+
+      if (firstDate === lastDate || lastDate === "Unknown") {
+        return `<div class="tooltip-date"><span class="date-label">${label}:</span> ${firstDate}</div>`;
+      }
+
+      if (firstDate === "Unknown") {
+        return `<div class="tooltip-date"><span class="date-label">${label}:</span> ${lastDate}</div>`;
+      }
+
+      return `<div class="tooltip-date"><span class="date-label">${label}:</span> ${firstDate} to ${lastDate}</div>`;
+    }
+
+    function showTooltip(e) {
       if (e.features.length === 0) return;
 
       const feature = e.features[0];
       const { fips } = feature.properties;
       const countyName = feature.properties.name || "Unknown County";
       const stateName = feature.properties.stateName || "Unknown State";
+      const isVisited = Boolean(countyVisits[fips]);
+      const isStopped = Boolean(countyStops[fips]);
 
       // Update highlight
       map.setFilter("counties-hover", ["==", ["get", "fips"], fips]);
@@ -398,27 +465,44 @@
       tooltipCounty.textContent = countyName;
       tooltipState.textContent = stateName;
 
-      if (isVisited && countyVisits[fips]) {
-        const visits = countyVisits[fips];
-        tooltipStatus.textContent = "✓ Visited";
+      if (isStopped) {
+        tooltipStatus.textContent = isVisited
+          ? "✓ Stopped In + Driven Through"
+          : "✓ Stopped In";
+        tooltipStatus.className = "tooltip-status tooltip-status--stopped";
+      } else if (isVisited) {
+        tooltipStatus.textContent = "✓ Driven Through";
         tooltipStatus.className = "tooltip-status tooltip-status--visited";
-
-        // Show dates
-        const firstDate = formatDate(visits.firstVisit);
-        const lastDate = formatDate(visits.lastVisit);
-
-        if (firstDate === lastDate) {
-          tooltipDates.innerHTML = `<div class="tooltip-date">Visited: ${firstDate}</div>`;
-        } else {
-          tooltipDates.innerHTML = `
-            <div class="tooltip-date"><span class="date-label">First:</span> ${firstDate}</div>
-            <div class="tooltip-date"><span class="date-label">Last:</span> ${lastDate}</div>
-          `;
-        }
-        tooltipDates.style.display = "block";
       } else {
         tooltipStatus.textContent = "Not yet visited";
         tooltipStatus.className = "tooltip-status tooltip-status--unvisited";
+      }
+
+      const dateLines = [];
+      if (isVisited && countyVisits[fips]) {
+        dateLines.push(
+          formatDateRange(
+            "Driven",
+            countyVisits[fips].firstVisit,
+            countyVisits[fips].lastVisit
+          )
+        );
+      }
+      if (isStopped && countyStops[fips]) {
+        dateLines.push(
+          formatDateRange(
+            "Stopped",
+            countyStops[fips].firstStop,
+            countyStops[fips].lastStop
+          )
+        );
+      }
+
+      const filteredLines = dateLines.filter((line) => line !== "");
+      if (filteredLines.length > 0) {
+        tooltipDates.innerHTML = filteredLines.join("");
+        tooltipDates.style.display = "block";
+      } else {
         tooltipDates.style.display = "none";
       }
 
@@ -434,6 +518,7 @@
     // Mouse leave - hide tooltip
     map.on("mouseleave", "counties-unvisited-fill", hideTooltip);
     map.on("mouseleave", "counties-visited-fill", hideTooltip);
+    map.on("mouseleave", "counties-stopped-fill", hideTooltip);
 
     function hideTooltip() {
       tooltip.style.display = "none";
@@ -698,6 +783,27 @@
         renderStateStatsList(sortSelect.value);
       });
     }
+  }
+
+  function setupStopToggle() {
+    const toggle = document.getElementById("toggle-stops");
+    if (!toggle) return;
+
+    showStoppedCounties = toggle.checked;
+    toggle.addEventListener("change", () => {
+      showStoppedCounties = toggle.checked;
+      updateStopLayerVisibility();
+    });
+  }
+
+  function updateStopLayerVisibility() {
+    if (!map) return;
+    const visibility = showStoppedCounties ? "visible" : "none";
+    ["counties-stopped-fill", "counties-stopped-border"].forEach((layerId) => {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, "visibility", visibility);
+      }
+    });
   }
 
   // Loading helpers

@@ -12,9 +12,10 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks
 from shapely import STRtree
-from shapely.geometry import shape
+from shapely.geometry import Point, shape
 
 from county_data_service import get_county_topology_document
+from date_utils import parse_timestamp
 from db import db_manager, trips_collection
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,14 @@ router = APIRouter(prefix="/api/counties", tags=["counties"])
 
 # Collection for caching visited counties
 county_cache_collection = db_manager.db["county_visited_cache"]
+
+try:
+    from shapely.validation import make_valid as _make_valid
+except Exception:
+    try:
+        from shapely import make_valid as _make_valid
+    except Exception:
+        _make_valid = None
 
 
 @router.get("/topology")
@@ -62,12 +71,15 @@ async def get_visited_counties() -> dict[str, Any]:
         cache = await county_cache_collection.find_one({"_id": "visited_counties"})
 
         if cache:
+            stopped = cache.get("stopped_counties", {})
             return {
                 "success": True,
                 "counties": cache.get(
                     "counties", {}
                 ),  # {fips: {firstVisit, lastVisit}}
+                "stoppedCounties": stopped,  # {fips: {firstStop, lastStop}}
                 "totalVisited": len(cache.get("counties", {})),
+                "totalStopped": len(stopped),
                 "lastUpdated": cache.get("updated_at"),
                 "totalTripsAnalyzed": cache.get("trips_analyzed", 0),
                 "cached": True,
@@ -77,7 +89,9 @@ async def get_visited_counties() -> dict[str, Any]:
         return {
             "success": True,
             "counties": {},
+            "stoppedCounties": {},
             "totalVisited": 0,
+            "totalStopped": 0,
             "lastUpdated": None,
             "cached": False,
             "message": "No cached data. Call POST /api/counties/recalculate to compute.",
@@ -89,7 +103,9 @@ async def get_visited_counties() -> dict[str, Any]:
             "success": False,
             "error": str(e),
             "counties": {},
+            "stoppedCounties": {},
             "totalVisited": 0,
+            "totalStopped": 0,
         }
 
 
@@ -140,34 +156,49 @@ async def calculate_visited_counties_task():
         # Build spatial index of counties using shapely
         county_shapes = []
         county_fips = []
+        invalid_counties = 0
 
         for feature in counties_geojson:
             try:
                 geom = shape(feature["geometry"])
-                if geom.is_valid:
-                    county_shapes.append(geom)
-                    # FIPS code is the feature id
-                    fips = str(feature.get("id", "")).zfill(5)
-                    county_fips.append(fips)
+                geom = _normalize_county_geometry(geom)
+                if not geom:
+                    invalid_counties += 1
+                    continue
+                county_shapes.append(geom)
+                # FIPS code is the feature id
+                fips = str(feature.get("id", "")).zfill(5)
+                county_fips.append(fips)
             except Exception as e:
                 logger.warning("Invalid county geometry: %s", e)
 
         tree = STRtree(county_shapes)
         logger.info("Built spatial index for %d counties", len(county_shapes))
+        if invalid_counties:
+            logger.warning("Skipped %d invalid county geometries", invalid_counties)
 
         # Dictionary to track visit dates per county
-        county_visits: dict[str, dict[str, datetime]] = {}
+        county_visits: dict[str, dict[str, datetime | None]] = {}
+        county_stops: dict[str, dict[str, datetime | None]] = {}
 
         # Query all valid trips with GPS data, ordered by time
         trips_cursor = trips_collection.find(
             {
                 "isInvalid": {"$ne": True},
                 "$or": [
-                    {"gps.type": "LineString"},
-                    {"matchedGps.type": "LineString"},
+                    {"gps.type": {"$in": ["LineString", "Point"]}},
+                    {"matchedGps.type": {"$in": ["LineString", "Point"]}},
                 ],
             },
-            {"gps": 1, "matchedGps": 1, "transactionId": 1, "startTime": 1},
+            {
+                "gps": 1,
+                "matchedGps": 1,
+                "transactionId": 1,
+                "startTime": 1,
+                "endTime": 1,
+                "startGeoPoint": 1,
+                "destinationGeoPoint": 1,
+            },
         )
 
         trips_analyzed = 0
@@ -175,45 +206,41 @@ async def calculate_visited_counties_task():
         async for trip in trips_cursor:
             trips_analyzed += 1
 
-            # Get trip timestamp
-            trip_time = trip.get("startTime")
-            if not trip_time:
-                continue
-
-            # Ensure trip_time is a datetime
-            if isinstance(trip_time, str):
-                try:
-                    trip_time = datetime.fromisoformat(trip_time.replace("Z", "+00:00"))
-                except Exception:
-                    continue
+            # Get trip timestamps
+            trip_start_time = parse_timestamp(trip.get("startTime"))
+            trip_end_time = parse_timestamp(trip.get("endTime"))
+            trip_time = trip_start_time or trip_end_time
 
             # Prefer matched GPS if available
             gps_data = trip.get("matchedGps") or trip.get("gps")
-            if not gps_data or gps_data.get("type") != "LineString":
+            if not gps_data or gps_data.get("type") not in {"LineString", "Point"}:
                 continue
 
             try:
-                trip_geom = shape(gps_data)
-                if not trip_geom.is_valid:
-                    continue
+                gps_type = gps_data.get("type")
 
-                # Find all counties this trip intersects
-                potential_matches = tree.query(trip_geom)
-                for idx in potential_matches:
-                    if county_shapes[idx].intersects(trip_geom):
-                        fips = county_fips[idx]
+                if gps_type == "LineString":
+                    trip_geom = shape(gps_data)
+                    # Find all counties this trip intersects
+                    potential_matches = tree.query(trip_geom)
+                    for idx in potential_matches:
+                        if county_shapes[idx].intersects(trip_geom):
+                            fips = county_fips[idx]
+                            _record_visit(county_visits, fips, trip_time)
 
-                        if fips not in county_visits:
-                            county_visits[fips] = {
-                                "firstVisit": trip_time,
-                                "lastVisit": trip_time,
-                            }
-                        else:
-                            # Update first/last visit
-                            if trip_time < county_visits[fips]["firstVisit"]:
-                                county_visits[fips]["firstVisit"] = trip_time
-                            if trip_time > county_visits[fips]["lastVisit"]:
-                                county_visits[fips]["lastVisit"] = trip_time
+                stop_points = _extract_stop_points(
+                    trip,
+                    gps_data,
+                    trip_start_time,
+                    trip_end_time,
+                    trip_time,
+                )
+                for point, stop_time in stop_points:
+                    potential_matches = tree.query(point)
+                    for idx in potential_matches:
+                        if county_shapes[idx].covers(point):
+                            fips = county_fips[idx]
+                            _record_visit(county_stops, fips, stop_time)
 
             except Exception as e:
                 logger.warning(
@@ -242,12 +269,24 @@ async def calculate_visited_counties_task():
                 ),
             }
 
+        stops_serializable = {}
+        for fips, stops in county_stops.items():
+            stops_serializable[fips] = {
+                "firstStop": (
+                    stops["firstVisit"].isoformat() if stops["firstVisit"] else None
+                ),
+                "lastStop": (
+                    stops["lastVisit"].isoformat() if stops["lastVisit"] else None
+                ),
+            }
+
         # Save to cache
         await county_cache_collection.update_one(
             {"_id": "visited_counties"},
             {
                 "$set": {
                     "counties": counties_serializable,
+                    "stopped_counties": stops_serializable,
                     "trips_analyzed": trips_analyzed,
                     "updated_at": datetime.now(UTC),
                     "calculation_time_seconds": (
@@ -259,8 +298,9 @@ async def calculate_visited_counties_task():
         )
 
         logger.info(
-            "County calculation complete: %d counties visited from %d trips in %.1f seconds",
+            "County calculation complete: %d visited, %d stopped from %d trips in %.1f seconds",
             len(county_visits),
+            len(county_stops),
             trips_analyzed,
             (datetime.now(UTC) - start_time).total_seconds(),
         )
@@ -368,6 +408,100 @@ def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
     return features
 
 
+def _normalize_county_geometry(geom):
+    if geom.is_empty:
+        return None
+    if geom.is_valid:
+        return geom
+    if _make_valid:
+        fixed = _make_valid(geom)
+    else:
+        fixed = geom.buffer(0)
+    if fixed.is_empty:
+        return None
+    if not fixed.is_valid:
+        return None
+    return fixed
+
+
+def _coerce_point_coords(coords):
+    if not isinstance(coords, list | tuple) or len(coords) < 2:
+        return None
+    try:
+        return [float(coords[0]), float(coords[1])]
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_point_coords(geo_point: dict | None):
+    if not geo_point or geo_point.get("type") != "Point":
+        return None
+    return _coerce_point_coords(geo_point.get("coordinates"))
+
+
+def _record_visit(
+    visit_map: dict[str, dict[str, datetime | None]],
+    fips: str,
+    visit_time: datetime | None,
+):
+    if fips not in visit_map:
+        visit_map[fips] = {"firstVisit": visit_time, "lastVisit": visit_time}
+        return
+    if visit_time is None:
+        return
+    if visit_map[fips]["firstVisit"] is None or (
+        visit_time < visit_map[fips]["firstVisit"]
+    ):
+        visit_map[fips]["firstVisit"] = visit_time
+    if visit_map[fips]["lastVisit"] is None or (
+        visit_time > visit_map[fips]["lastVisit"]
+    ):
+        visit_map[fips]["lastVisit"] = visit_time
+
+
+def _extract_stop_points(
+    trip,
+    gps_data,
+    trip_start_time,
+    trip_end_time,
+    fallback_time,
+):
+    stop_points = []
+
+    start_coords = _extract_point_coords(trip.get("startGeoPoint"))
+    end_coords = _extract_point_coords(trip.get("destinationGeoPoint"))
+
+    if start_coords:
+        start_time = trip_start_time or fallback_time
+        stop_points.append((Point(start_coords[0], start_coords[1]), start_time))
+
+    if end_coords and end_coords != start_coords:
+        end_time = trip_end_time or fallback_time
+        stop_points.append((Point(end_coords[0], end_coords[1]), end_time))
+
+    if stop_points:
+        return stop_points
+
+    gps_type = gps_data.get("type")
+    coords = gps_data.get("coordinates")
+
+    if gps_type == "Point":
+        point_coords = _coerce_point_coords(coords)
+        if point_coords:
+            stop_points.append((Point(point_coords[0], point_coords[1]), fallback_time))
+        return stop_points
+
+    if gps_type == "LineString" and isinstance(coords, list) and coords:
+        start_coords = _coerce_point_coords(coords[0])
+        end_coords = _coerce_point_coords(coords[-1])
+        if start_coords:
+            stop_points.append((Point(start_coords[0], start_coords[1]), fallback_time))
+        if end_coords and end_coords != start_coords:
+            stop_points.append((Point(end_coords[0], end_coords[1]), fallback_time))
+
+    return stop_points
+
+
 @router.get("/cache-status")
 async def get_cache_status() -> dict[str, Any]:
     """Get the status of the county cache."""
@@ -375,9 +509,11 @@ async def get_cache_status() -> dict[str, Any]:
         cache = await county_cache_collection.find_one({"_id": "visited_counties"})
 
         if cache:
+            stopped = cache.get("stopped_counties", {})
             return {
                 "cached": True,
                 "totalVisited": len(cache.get("counties", {})),
+                "totalStopped": len(stopped),
                 "tripsAnalyzed": cache.get("trips_analyzed", 0),
                 "lastUpdated": cache.get("updated_at"),
                 "calculationTime": cache.get("calculation_time_seconds"),
