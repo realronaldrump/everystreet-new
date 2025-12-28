@@ -183,7 +183,9 @@ const utils = {
       lowMemory,
       deviceMemory: deviceMemory || null,
       saveData,
-      isConstrained: Boolean(hasTouch || smallViewport || lowMemory || saveData),
+      isConstrained: Boolean(
+        hasTouch || smallViewport || lowMemory || saveData,
+      ),
     };
 
     return this._deviceProfile;
