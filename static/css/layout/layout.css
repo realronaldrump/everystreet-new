@@ -373,3 +373,130 @@ body.light-mode .live-tracking-panel-bg {
   border-color: var(--primary);
   color: var(--primary);
 }
+
+/* ===========================================
+   Responsive Layout Styles (Colocated from mobile.css)
+   =========================================== */
+
+@media (width <= 992px) {
+  /* Steps container adjustments */
+  .steps-container::after {
+    width: calc(100% - 60px);
+    left: 30px;
+  }
+
+  .step-icon {
+    width: 35px;
+    height: 35px;
+    font-size: var(--font-size-md);
+  }
+
+  .step-label {
+    font-size: 0.7rem;
+  }
+}
+
+@media (width <= 768px) {
+  /* Mobile content adjustments */
+  .main-content {
+    padding: var(--space-4);
+  }
+
+  .table-responsive,
+  .table-responsive-lg {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .card-body,
+  .card-header,
+  .card-footer {
+    padding: var(--space-3);
+  }
+
+  .hero-section {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .hero-section h1 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .hero-section .lead {
+    font-size: var(--font-size-md);
+  }
+
+  /* Responsive table from coverage_management.html */
+  .table-responsive-lg thead {
+    display: none;
+  }
+
+  .table-responsive-lg tbody tr {
+    display: block;
+    margin-bottom: var(--space-4);
+    box-shadow: var(--shadow-sm);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--surface-1);
+    border: 1px solid var(--border-color);
+  }
+
+  .table-responsive-lg tbody td {
+    display: block;
+    text-align: right;
+    padding-left: 50%;
+    position: relative;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .table-responsive-lg tbody td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: var(--space-3);
+    width: 45%;
+    text-align: left;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+  }
+
+  .table-responsive-lg tbody td:last-child {
+    border-bottom: none;
+  }
+}
+
+@media (width <= 576px) {
+  /* Very small screen adjustments */
+  :root {
+    --font-size-md: 0.9375rem;
+  }
+
+  .btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .btn-group .btn {
+    width: 100%;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: var(--space-2);
+  }
+
+  .btn-group .btn:last-child {
+    margin-bottom: 0;
+  }
+
+  .steps-container {
+    flex-wrap: wrap;
+  }
+
+  .step {
+    width: 33.33%;
+    margin-bottom: var(--space-4);
+  }
+
+  .steps-container::after {
+    display: none;
+  }
+}

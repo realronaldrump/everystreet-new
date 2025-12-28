@@ -21,29 +21,41 @@ block content %}
       <span class="map-loading-text">Loading map...</span>
     </div>
 
-    <!-- Modern floating control panel -->
+    <!-- Unified Control Panel - transforms based on viewport -->
     <div
       id="map-controls"
-      class="control-panel shadow-lg position-absolute"
+      class="control-panel shadow-lg"
       role="region"
       aria-label="Map controls"
     >
+      <!-- Mobile sheet handle (hidden on desktop via CSS) -->
+      <div class="mobile-sheet-handle-container">
+        <div class="mobile-sheet-handle"></div>
+      </div>
+      
       <!-- Panel Header -->
       <div class="control-panel-header">
         <h2 class="control-panel-title">
           <i class="fas fa-layer-group me-2" aria-hidden="true"></i>
           Map Controls
         </h2>
-        <button
-          id="controls-toggle"
-          class="btn btn-sm btn-icon-only"
-          aria-label="Toggle Controls"
-          aria-expanded="true"
-          aria-controls="controls-content"
-          title="Collapse panel"
-        >
-          <i class="fas fa-chevron-down" aria-hidden="true"></i>
-        </button>
+        <div class="control-panel-actions">
+          <!-- Mobile live status badge (hidden on desktop) -->
+          <span class="mobile-live-badge" id="live-status-badge">
+            <span class="pulse-dot"></span>
+            <span>Live</span>
+          </span>
+          <button
+            id="controls-toggle"
+            class="btn btn-sm btn-icon-only"
+            aria-label="Toggle Controls"
+            aria-expanded="true"
+            aria-controls="controls-content"
+            title="Collapse panel"
+          >
+            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+          </button>
+        </div>
       </div>
 
       <div id="controls-content" class="collapse show control-panel-body">
@@ -337,8 +349,7 @@ block content %}
       aria-label="Search results"
     ></div>
 
-    <!-- Mobile-specific UI -->
-    <!-- Floating Action Buttons -->
+    <!-- Mobile Floating Action Buttons (visible only on mobile) -->
     <div class="mobile-fab-container">
       <button class="mobile-fab secondary" id="mobile-center-location" aria-label="Center on location">
         <i class="fas fa-location-arrow"></i>
@@ -351,171 +362,8 @@ block content %}
       </button>
     </div>
 
-    <!-- Mobile Bottom Sheet -->
+    <!-- Mobile sheet backdrop (for when bottom sheet is expanded) -->
     <div class="mobile-sheet-backdrop"></div>
-    <div class="mobile-bottom-sheet collapsed">
-      <div class="mobile-sheet-handle-container">
-        <div class="mobile-sheet-handle"></div>
-      </div>
-      
-      <div class="mobile-sheet-header">
-        <h2 class="mobile-sheet-title">Map Controls</h2>
-        <div class="mobile-sheet-actions">
-          <span class="mobile-live-badge" id="mobile-live-status">
-            <span class="pulse-dot"></span>
-            <span>Live</span>
-          </span>
-        </div>
-      </div>
-
-      <!-- Quick preview in collapsed state -->
-      <div class="mobile-sheet-expand-hint">
-        <i class="fas fa-chevron-up"></i>
-        <span>Tap to expand controls</span>
-      </div>
-
-      <div class="mobile-sheet-content">
-        <!-- Quick Stats - Visible in collapsed state -->
-        <div class="mobile-section">
-          <div class="mobile-compact-metrics">
-            <div class="mobile-compact-metric">
-              <div class="mobile-compact-metric-value" id="mobile-quick-trips">0</div>
-              <div class="mobile-compact-metric-label">Trips</div>
-            </div>
-            <div class="mobile-compact-metric">
-              <div class="mobile-compact-metric-value" id="mobile-quick-distance">0</div>
-              <div class="mobile-compact-metric-label">Miles</div>
-            </div>
-            <div class="mobile-compact-metric">
-              <div class="mobile-compact-metric-value" id="mobile-quick-speed">0</div>
-              <div class="mobile-compact-metric-label">Avg MPH</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Search Section -->
-        <div class="mobile-section">
-          <div class="mobile-search">
-            <i class="fas fa-search"></i>
-            <input
-              type="text"
-              id="mobile-map-search"
-              placeholder="Search places..."
-              autocomplete="off"
-            />
-            <button id="mobile-clear-search" class="btn btn-sm btn-link d-none btn-clear-mobile">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Full Stats -->
-        <div class="mobile-section">
-          <div class="mobile-section-header">
-            <h3 class="mobile-section-title">Quick Stats</h3>
-            <a href="/insights" class="mobile-section-action">View All</a>
-          </div>
-          <div class="mobile-metrics-grid">
-            <div class="mobile-metric-card">
-              <div class="mobile-metric-value" id="mobile-total-trips">0</div>
-              <div class="mobile-metric-label">Trips</div>
-            </div>
-            <div class="mobile-metric-card">
-              <div class="mobile-metric-value" id="mobile-total-distance">0</div>
-              <div class="mobile-metric-label">Miles</div>
-            </div>
-            <div class="mobile-metric-card">
-              <div class="mobile-metric-value" id="mobile-avg-speed">0</div>
-              <div class="mobile-metric-label">Avg MPH</div>
-            </div>
-            <div class="mobile-metric-card">
-              <div class="mobile-metric-value" id="mobile-max-speed">0</div>
-              <div class="mobile-metric-label">Max MPH</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Live Tracking -->
-        <div class="mobile-section" id="mobile-live-tracking">
-          <div class="mobile-section-header">
-            <h3 class="mobile-section-title">Active Trips</h3>
-            <span class="badge bg-primary rounded-pill" id="mobile-active-count">0</span>
-          </div>
-          <div id="mobile-trip-metrics" class="live-trip-metrics small">
-            <!-- Metrics populated by JS -->
-          </div>
-        </div>
-
-        <!-- Layer Controls -->
-        <div class="mobile-section">
-          <div class="mobile-section-header">
-            <h3 class="mobile-section-title">Map Layers</h3>
-          </div>
-
-          <!-- Map Style Selector -->
-          <select id="mobile-map-type-select" class="mobile-select mb-3" aria-label="Select map style">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-            <option value="satellite">Satellite</option>
-            <option value="streets">Streets</option>
-          </select>
-
-          <div class="mobile-layer-buttons" id="mobile-layer-toggles">
-            <!-- Layer buttons populated by JS -->
-          </div>
-
-          <div class="mobile-toggle">
-            <span class="mobile-toggle-label">Highlight Recent</span>
-            <input type="checkbox" id="mobile-highlight-recent" checked />
-          </div>
-        </div>
-
-        <!-- Street Coverage -->
-        <div class="mobile-section">
-          <div class="mobile-section-header">
-            <h3 class="mobile-section-title">Street Coverage</h3>
-          </div>
-          <select id="mobile-streets-location" class="mobile-select mb-3">
-            <option value="">Select location...</option>
-            <!-- Options populated by JS -->
-          </select>
-          
-          <div class="mobile-street-modes">
-            <button class="mobile-street-mode-btn" data-mode="undriven">
-              <i class="fas fa-road"></i>
-              <span>Undriven</span>
-            </button>
-            <button class="mobile-street-mode-btn" data-mode="driven">
-              <i class="fas fa-check-circle"></i>
-              <span>Driven</span>
-            </button>
-            <button class="mobile-street-mode-btn" data-mode="all">
-              <i class="fas fa-layer-group"></i>
-              <span>All</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="mobile-section">
-          <div class="mobile-section-header">
-            <h3 class="mobile-section-title">Actions</h3>
-          </div>
-          <div class="mobile-action-grid">
-            <button class="mobile-action-btn" id="mobile-download-view">
-              <i class="fas fa-download"></i>
-              <span>Download</span>
-            </button>
-            <button class="mobile-action-btn" id="mobile-view-trips">
-              <i class="fas fa-list"></i>
-              <span>View Trips</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="mobile-pull-hint">Swipe down to close</div>
-      </div>
-    </div>
   </div>
 </div>
 

@@ -560,3 +560,73 @@
   text-align: center;
   color: var(--primary);
 }
+
+/* ===========================================
+   Mobile Header Styles (Colocated from mobile.css)
+   =========================================== */
+
+@media (width <= 992px) {
+  /* Tablet and smaller */
+  .main-content.sidebar-active {
+    margin-left: 0;
+  }
+
+  .main-nav .nav-item span {
+    /* Hide text in main nav, show only icons */
+    display: none;
+  }
+
+  .main-nav .nav-item i {
+    margin-right: 0;
+    font-size: var(--font-size-lg);
+  }
+
+  .header-container {
+    padding: 0 var(--space-3);
+  }
+
+  .side-panel {
+    width: 280px;
+  }
+}
+
+@media (width <= 768px) {
+  /* Mobile landscape and smaller */
+  .header-container {
+    padding: 0 var(--space-2);
+  }
+
+  .brand-text {
+    /* Hide brand text, show only icon */
+    display: none;
+  }
+
+  .main-nav {
+    /* Hide desktop nav, mobile drawer takes over */
+    display: none;
+  }
+
+  .menu-toggle-btn {
+    /* Ensure menu toggle is always visible */
+    display: flex;
+  }
+
+  .side-panel {
+    /* Make side panel full width on mobile if it opens */
+    width: 100%;
+    top: 0;
+    height: 100vh;
+    border-left: none;
+    z-index: var(--z-overlay);
+  }
+}
+
+@media (width <= 576px) {
+  /* Mobile portrait - notification adjustments */
+  .notification-container {
+    left: var(--space-2);
+    right: var(--space-2);
+    top: var(--space-2);
+    max-width: calc(100% - var(--space-4));
+  }
+}

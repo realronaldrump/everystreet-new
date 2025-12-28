@@ -1,4 +1,12 @@
-/* Mobile Map Interface - iOS Native Feel */
+/* Mobile Map Interface - Simplified for Unified DOM
+ *
+ * This file handles mobile-specific behaviors for the map page:
+ * - Bottom sheet drag/gesture handling (targeting unified #map-controls)
+ * - FAB button click handlers
+ * - Mobile viewport detection
+ *
+ * Note: No sync logic needed - DOM is unified between desktop and mobile
+ */
 
 class MobileMapInterface {
   constructor() {
@@ -7,29 +15,15 @@ class MobileMapInterface {
       return;
     }
 
-    // DOM references
+    // DOM references - now targeting unified control panel
     this.sheet = null;
     this.backdrop = null;
     this.handle = null;
     this.header = null;
     this.sheetContent = null;
 
-    this.mobileSearch = null;
-    this.desktopSearch = null;
-    this.mobileClearBtn = null;
-    this.mobileHighlight = null;
-    this.desktopHighlight = null;
-    this.mobileLocation = null;
-    this.desktopLocation = null;
-    this.mobileLayerContainer = null;
-    this.desktopLayerContainer = null;
-
     // State management
-    this.layerBindings = new Map();
     this.cleanupCallbacks = [];
-    this.observers = [];
-    this.syncGuards = Object.create(null);
-
     this.stateOffsets = {
       collapsed: 0,
       peek: 0,
@@ -47,7 +41,6 @@ class MobileMapInterface {
     this.dragCandidateStartY = 0;
     this.dragStartThreshold = 8;
     this.isDragging = false;
-    this.dragSource = null;
     this.flingThreshold = 80;
     this.minStateGap = 40;
 
@@ -67,8 +60,8 @@ class MobileMapInterface {
   init() {
     this.cacheElements();
 
-    if (!this.sheet || !this.backdrop) {
-      console.warn("Mobile sheet elements not found");
+    if (!this.sheet) {
+      console.warn("Unified control panel (#map-controls) not found");
       return;
     }
 
@@ -76,11 +69,8 @@ class MobileMapInterface {
     this.calculateSheetMetrics();
     this.setState(this.currentState, { immediate: true });
 
-    this.setupStaticActions();
     this.setupDragInteractions();
-    this.setupDesktopBridges();
-
-    this.syncAll();
+    this.setupFABActions();
 
     window.addEventListener("resize", this.resizeHandler);
     this.cleanupCallbacks.push(() =>
@@ -89,53 +79,19 @@ class MobileMapInterface {
   }
 
   cacheElements() {
-    this.sheet = document.querySelector(".mobile-bottom-sheet");
+    // Now targeting unified control panel instead of separate mobile sheet
+    this.sheet = document.getElementById("map-controls");
     this.backdrop = document.querySelector(".mobile-sheet-backdrop");
-    this.handle = document.querySelector(".mobile-sheet-handle-container");
-    this.header = document.querySelector(".mobile-sheet-header");
-    this.sheetContent = document.querySelector(".mobile-sheet-content");
-
-    this.mobileSearch = document.getElementById("mobile-map-search");
-    this.desktopSearch = document.getElementById("map-search-input");
-    this.mobileClearBtn = document.getElementById("mobile-clear-search");
-    this.mobileHighlight = document.getElementById("mobile-highlight-recent");
-    this.desktopHighlight = document.getElementById("highlight-recent-trips");
-    this.mobileLocation = document.getElementById("mobile-streets-location");
-    this.desktopLocation = document.getElementById("streets-location");
-    this.mobileLayerContainer = document.getElementById("mobile-layer-toggles");
-    this.desktopLayerContainer = document.getElementById("layer-toggles");
-    this.mobileMapType = document.getElementById("mobile-map-type-select");
-    this.desktopMapType = document.getElementById("map-type-select");
+    this.handle = this.sheet?.querySelector(".mobile-sheet-handle-container");
+    this.header = this.sheet?.querySelector(".control-panel-header");
+    this.sheetContent = this.sheet?.querySelector(".control-panel-body");
   }
 
   addBodyClass() {
     document.body.classList.add("map-page");
   }
 
-  setupStaticActions() {
-    if (this.header) {
-      const onHeaderClick = (event) => {
-        if (event.target.closest("button, a")) return;
-        const collapsedState = this.sortedStates[0]?.state || "collapsed";
-        const expandedState =
-          this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
-
-        if (this.currentState === collapsedState) {
-          this.setState(this.getNextStateUp(collapsedState));
-        } else if (this.currentState === expandedState) {
-          this.setState(collapsedState);
-        } else {
-          this.setState(this.getNextStateUp(this.currentState));
-        }
-      };
-      this.bind(this.header, "click", onHeaderClick);
-    }
-
-    this.bind(this.backdrop, "click", () => {
-      const collapsedState = this.sortedStates[0]?.state || "collapsed";
-      this.setState(collapsedState);
-    });
-
+  setupFABActions() {
     const centerBtn = document.getElementById("mobile-center-location");
     this.bind(centerBtn, "click", () =>
       document.getElementById("center-on-location")?.click()
@@ -149,29 +105,12 @@ class MobileMapInterface {
       document.getElementById("refresh-map")?.click();
       this.showFeedback("Refreshing map...");
     });
-
-    const downloadBtn = document.getElementById("mobile-download-view");
-    this.bind(downloadBtn, "click", () => {
-      document.getElementById("download-view")?.click();
-      this.showFeedback("Preparing download...");
-    });
-
-    const tripsBtn = document.getElementById("mobile-view-trips");
-    this.bind(tripsBtn, "click", () => {
-      window.location.href = "/trips";
-    });
-
-    document.querySelectorAll(".mobile-street-mode-btn").forEach((btn) => {
-      this.bind(btn, "click", () => this.handleMobileStreetToggle(btn));
-    });
   }
 
   setupDragInteractions() {
-    const dragTargets = [this.handle, this.header];
+    const dragTargets = [this.handle, this.header].filter(Boolean);
     dragTargets.forEach((target) => {
-      if (!target) return;
-      const start = (event) =>
-        this.beginDrag(event, target === this.header ? "header" : "handle");
+      const start = (event) => this.beginDrag(event);
       const move = (event) => this.continueDrag(event);
       const end = (event) => this.finishDrag(event);
 
@@ -187,6 +126,34 @@ class MobileMapInterface {
       });
     });
 
+    // Header click to expand/collapse
+    if (this.header) {
+      const onHeaderClick = (event) => {
+        if (event.target.closest("button, a, input, select")) return;
+        const collapsedState = this.sortedStates[0]?.state || "collapsed";
+        const expandedState =
+          this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
+
+        if (this.currentState === collapsedState) {
+          this.setState(this.getNextStateUp(collapsedState));
+        } else if (this.currentState === expandedState) {
+          this.setState(collapsedState);
+        } else {
+          this.setState(this.getNextStateUp(this.currentState));
+        }
+      };
+      this.bind(this.header, "click", onHeaderClick);
+    }
+
+    // Backdrop click to collapse
+    if (this.backdrop) {
+      this.bind(this.backdrop, "click", () => {
+        const collapsedState = this.sortedStates[0]?.state || "collapsed";
+        this.setState(collapsedState);
+      });
+    }
+
+    // Content scroll to drag
     if (this.sheetContent) {
       const onContentStart = (event) => {
         if (!event.touches || event.touches.length > 1) return;
@@ -212,16 +179,15 @@ class MobileMapInterface {
     }
   }
 
-  beginDrag(event, source = "handle") {
+  beginDrag(event) {
     if (!event.touches || event.touches.length > 1) return;
 
     this.isDragging = true;
-    this.dragSource = source;
     this.dragStartY = event.touches[0].clientY;
     this.dragStartOffset = this.currentOffset;
     this.sheet.classList.add("dragging");
     this.sheet.style.transition = "none";
-    this.backdrop.classList.add("visible");
+    this.backdrop?.classList.add("visible");
 
     event.preventDefault();
   }
@@ -229,12 +195,11 @@ class MobileMapInterface {
   beginDragFromContent(currentY) {
     if (this.isDragging) return;
     this.isDragging = true;
-    this.dragSource = "content";
     this.dragStartY = currentY;
     this.dragStartOffset = this.currentOffset;
     this.sheet.classList.add("dragging");
     this.sheet.style.transition = "none";
-    this.backdrop.classList.add("visible");
+    this.backdrop?.classList.add("visible");
   }
 
   handleContentDrag(event) {
@@ -274,16 +239,13 @@ class MobileMapInterface {
 
     let clientY = this.dragStartY;
     if (event.changedTouches?.length > 0) {
-      const { clientY: touchClientY } = event.changedTouches[0];
-      clientY = touchClientY;
+      clientY = event.changedTouches[0].clientY;
     } else if (event.touches?.length > 0) {
-      const { clientY: touchClientY } = event.touches[0];
-      clientY = touchClientY;
+      clientY = event.touches[0].clientY;
     }
 
     const deltaY = clientY - this.dragStartY;
     this.isDragging = false;
-    this.dragSource = null;
     this.sheet.classList.remove("dragging");
     this.sheet.style.transition = "";
 
@@ -452,431 +414,6 @@ class MobileMapInterface {
     this.updateBackdropForOffset(this.currentOffset);
   }
 
-  syncAll() {
-    this.syncMetrics();
-    this.syncLayers();
-    this.syncLocationOptions();
-    this.syncHighlightToggle();
-    this.syncSearchField();
-    this.syncStreetModes();
-    this.syncLiveTracking();
-    this.syncMapType();
-  }
-
-  syncMetrics(detail) {
-    const metricsMap = {
-      "mobile-total-trips": "total-trips",
-      "mobile-total-distance": "total-distance",
-      "mobile-avg-speed": "avg-speed",
-      "mobile-max-speed": "max-speed",
-    };
-
-    Object.entries(metricsMap).forEach(([mobileId, desktopId]) => {
-      const mobileEl = document.getElementById(mobileId);
-      const desktopEl = document.getElementById(desktopId);
-      if (mobileEl && desktopEl) {
-        mobileEl.textContent = desktopEl.textContent;
-      }
-    });
-
-    const quickMap = {
-      "mobile-quick-trips": "total-trips",
-      "mobile-quick-distance": "total-distance",
-      "mobile-quick-speed": "avg-speed",
-    };
-
-    Object.entries(quickMap).forEach(([mobileId, desktopId]) => {
-      const mobileEl = document.getElementById(mobileId);
-      const desktopEl = document.getElementById(desktopId);
-      if (mobileEl && desktopEl) {
-        mobileEl.textContent = desktopEl.textContent;
-      }
-    });
-
-    if (detail && typeof detail === "object") {
-      this.syncQuickMetricsFromData(detail);
-    }
-  }
-
-  syncQuickMetricsFromData(detail) {
-    try {
-      const totals = detail?.totals || detail;
-      if (!totals || typeof totals !== "object") return;
-
-      const assignments = [
-        ["mobile-total-trips", totals.totalTrips ?? totals.trips],
-        ["mobile-quick-trips", totals.totalTrips ?? totals.trips],
-        [
-          "mobile-total-distance",
-          MobileMapInterface.formatNumber(
-            totals.totalDistanceMiles ?? totals.totalDistance
-          ),
-        ],
-        [
-          "mobile-quick-distance",
-          MobileMapInterface.formatNumber(
-            totals.totalDistanceMiles ?? totals.totalDistance
-          ),
-        ],
-        ["mobile-avg-speed", MobileMapInterface.formatNumber(totals.avgSpeed, 1)],
-        ["mobile-quick-speed", MobileMapInterface.formatNumber(totals.avgSpeed, 1)],
-        ["mobile-max-speed", MobileMapInterface.formatNumber(totals.maxSpeed, 1)],
-      ];
-
-      assignments.forEach(([id, value]) => {
-        if (value === undefined || value === null) return;
-        const el = document.getElementById(id);
-        if (el) el.textContent = String(value);
-      });
-    } catch (err) {
-      console.warn("Failed to apply metrics detail to mobile UI", err);
-    }
-  }
-
-  static formatNumber(value, precision = 0) {
-    if (typeof value !== "number" || Number.isNaN(value)) return value;
-    return precision > 0 ? value.toFixed(precision) : Math.round(value);
-  }
-
-  syncLayers() {
-    if (!this.desktopLayerContainer || !this.mobileLayerContainer) return;
-
-    this.resetLayerBindings();
-    this.mobileLayerContainer.innerHTML = "";
-
-    const checkboxes = this.desktopLayerContainer.querySelectorAll(
-      'input[type="checkbox"]'
-    );
-    checkboxes.forEach((checkbox) => {
-      const label = checkbox.closest(".form-check")?.querySelector("label");
-      if (!label) return;
-
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = `mobile-layer-btn ${checkbox.checked ? "active" : ""}`;
-      btn.innerHTML = `<i class="fas fa-layer-group"></i> ${label.textContent.trim()}`;
-
-      btn.addEventListener("click", () => {
-        checkbox.checked = !checkbox.checked;
-        checkbox.dispatchEvent(new Event("change", { bubbles: true }));
-        btn.classList.toggle("active", checkbox.checked);
-      });
-
-      const listener = () => {
-        btn.classList.toggle("active", checkbox.checked);
-      };
-      checkbox.addEventListener("change", listener);
-
-      const bindingKey = checkbox.id || checkbox.name || label.textContent.trim();
-      this.layerBindings.set(bindingKey, { checkbox, listener });
-
-      this.mobileLayerContainer.appendChild(btn);
-    });
-  }
-
-  resetLayerBindings() {
-    if (!this.layerBindings.size) return;
-    this.layerBindings.forEach(({ checkbox, listener }) => {
-      checkbox.removeEventListener("change", listener);
-    });
-    this.layerBindings.clear();
-  }
-
-  syncLocationOptions() {
-    if (!this.desktopLocation || !this.mobileLocation) return;
-
-    const fragment = document.createDocumentFragment();
-    Array.from(this.desktopLocation.options).forEach((option) => {
-      fragment.appendChild(option.cloneNode(true));
-    });
-
-    this.mobileLocation.innerHTML = "";
-    this.mobileLocation.appendChild(fragment);
-    this.mobileLocation.value = this.desktopLocation.value;
-  }
-
-  syncHighlightToggle() {
-    if (!this.desktopHighlight || !this.mobileHighlight) return;
-    this.mobileHighlight.checked = this.desktopHighlight.checked;
-  }
-
-  syncSearchField() {
-    if (!this.desktopSearch || !this.mobileSearch) return;
-    this.mobileSearch.value = this.desktopSearch.value || "";
-    this.updateMobileClearButton();
-  }
-
-  syncMapType() {
-    if (!this.desktopMapType || !this.mobileMapType) return;
-    this.mobileMapType.value = this.desktopMapType.value;
-  }
-
-  syncStreetModes() {
-    const desktopButtons = document.querySelectorAll(".street-mode-btn");
-    if (!desktopButtons.length) return;
-
-    const activeModes = new Set();
-    desktopButtons.forEach((btn) => {
-      if (btn.classList.contains("active")) {
-        const mode = btn.dataset.streetMode;
-        if (mode) activeModes.add(mode);
-      }
-    });
-
-    document.querySelectorAll(".mobile-street-mode-btn").forEach((btn) => {
-      const { mode } = btn.dataset;
-      btn.classList.toggle("active", mode ? activeModes.has(mode) : false);
-    });
-  }
-
-  syncLiveTracking(detail) {
-    const desktopCount = document.getElementById("active-trips-count");
-    const mobileCount = document.getElementById("mobile-active-count");
-    if (mobileCount && desktopCount) {
-      mobileCount.textContent = desktopCount.textContent;
-    }
-
-    const statusBadge = document.getElementById("mobile-live-status");
-    const statusText = document.querySelector(".live-status-text");
-    if (statusBadge) {
-      const { textContent: statusTextContent } = statusText || {};
-      let connected = statusTextContent?.toLowerCase().includes("connected");
-      if (detail && typeof detail.connected === "boolean") {
-        ({ connected } = detail);
-      }
-      statusBadge.classList.toggle("disconnected", connected === false);
-      const label = statusBadge.querySelector("span:last-child");
-      if (label) {
-        label.textContent = connected === false ? "Offline" : "Live";
-      }
-    }
-
-    const mobileMetrics = document.getElementById("mobile-trip-metrics");
-    if (mobileMetrics) {
-      if (detail && typeof detail.metricsHtml === "string") {
-        mobileMetrics.innerHTML = detail.metricsHtml;
-      } else {
-        const desktopMetrics = document.querySelector(
-          "#live-tracking-panel .live-trip-metrics"
-        );
-        if (desktopMetrics) {
-          mobileMetrics.innerHTML = desktopMetrics.innerHTML;
-        }
-      }
-    }
-  }
-
-  setupDesktopBridges() {
-    this.setupSearchBridge();
-    this.setupHighlightBridge();
-    this.setupLocationBridge();
-    this.setupMapTypeBridge();
-    this.attachLayerObserver();
-    this.attachLocationObserver();
-    this.attachStreetModeListeners();
-
-    const metricsHandler = (event) => this.syncMetrics(event?.detail);
-    document.addEventListener("metricsUpdated", metricsHandler);
-    this.cleanupCallbacks.push(() =>
-      document.removeEventListener("metricsUpdated", metricsHandler)
-    );
-
-    const liveTrackingHandler = (event) => this.syncLiveTracking(event?.detail);
-    document.addEventListener("liveTrackingUpdated", liveTrackingHandler);
-    this.cleanupCallbacks.push(() =>
-      document.removeEventListener("liveTrackingUpdated", liveTrackingHandler)
-    );
-
-    const appReadyHandler = () => this.syncAll();
-    document.addEventListener("appReady", appReadyHandler, { once: true });
-  }
-
-  setupSearchBridge() {
-    if (!this.desktopSearch || !this.mobileSearch) return;
-    const key = "search";
-
-    const mobileHandler = (event) => {
-      this.syncGuards[key] = "mobile";
-      this.desktopSearch.value = event.target.value;
-      this.desktopSearch.dispatchEvent(new Event("input", { bubbles: true }));
-      this.updateMobileClearButton();
-      requestAnimationFrame(() => {
-        this.syncGuards[key] = null;
-      });
-    };
-
-    const desktopHandler = (event) => {
-      if (this.syncGuards[key] === "mobile") return;
-      this.mobileSearch.value = event.target.value;
-      this.updateMobileClearButton();
-    };
-
-    this.mobileSearch.addEventListener("input", mobileHandler);
-    this.desktopSearch.addEventListener("input", desktopHandler);
-    this.cleanupCallbacks.push(() =>
-      this.mobileSearch.removeEventListener("input", mobileHandler)
-    );
-    this.cleanupCallbacks.push(() =>
-      this.desktopSearch.removeEventListener("input", desktopHandler)
-    );
-
-    if (this.mobileClearBtn) {
-      const clearHandler = () => {
-        this.syncGuards[key] = "mobile";
-        this.mobileSearch.value = "";
-        this.desktopSearch.value = "";
-        this.desktopSearch.dispatchEvent(new Event("input", { bubbles: true }));
-        this.updateMobileClearButton();
-        requestAnimationFrame(() => {
-          this.syncGuards[key] = null;
-        });
-      };
-      this.mobileClearBtn.addEventListener("click", clearHandler);
-      this.cleanupCallbacks.push(() =>
-        this.mobileClearBtn.removeEventListener("click", clearHandler)
-      );
-    }
-  }
-
-  setupHighlightBridge() {
-    if (!this.desktopHighlight || !this.mobileHighlight) return;
-    const key = "highlight";
-
-    const mobileHandler = (event) => {
-      this.syncGuards[key] = "mobile";
-      this.desktopHighlight.checked = event.target.checked;
-      this.desktopHighlight.dispatchEvent(new Event("change", { bubbles: true }));
-      requestAnimationFrame(() => {
-        this.syncGuards[key] = null;
-      });
-    };
-
-    const desktopHandler = (event) => {
-      if (this.syncGuards[key] === "mobile") return;
-      this.mobileHighlight.checked = event.target.checked;
-    };
-
-    this.mobileHighlight.addEventListener("change", mobileHandler);
-    this.desktopHighlight.addEventListener("change", desktopHandler);
-    this.cleanupCallbacks.push(() =>
-      this.mobileHighlight.removeEventListener("change", mobileHandler)
-    );
-    this.cleanupCallbacks.push(() =>
-      this.desktopHighlight.removeEventListener("change", desktopHandler)
-    );
-  }
-
-  setupLocationBridge() {
-    if (!this.desktopLocation || !this.mobileLocation) return;
-    const key = "location";
-
-    const mobileHandler = (event) => {
-      this.syncGuards[key] = "mobile";
-      this.desktopLocation.value = event.target.value;
-      this.desktopLocation.dispatchEvent(new Event("change", { bubbles: true }));
-      requestAnimationFrame(() => {
-        this.syncGuards[key] = null;
-      });
-    };
-
-    const desktopHandler = (event) => {
-      if (this.syncGuards[key] === "mobile") return;
-      this.mobileLocation.value = event.target.value;
-    };
-
-    this.mobileLocation.addEventListener("change", mobileHandler);
-    this.desktopLocation.addEventListener("change", desktopHandler);
-    this.cleanupCallbacks.push(() =>
-      this.mobileLocation.removeEventListener("change", mobileHandler)
-    );
-    this.cleanupCallbacks.push(() =>
-      this.desktopLocation.removeEventListener("change", desktopHandler)
-    );
-  }
-
-  setupMapTypeBridge() {
-    if (!this.desktopMapType || !this.mobileMapType) return;
-    const key = "mapType";
-
-    const mobileHandler = (event) => {
-      this.syncGuards[key] = "mobile";
-      this.desktopMapType.value = event.target.value;
-      this.desktopMapType.dispatchEvent(new Event("change", { bubbles: true }));
-      requestAnimationFrame(() => {
-        this.syncGuards[key] = null;
-      });
-    };
-
-    const desktopHandler = (event) => {
-      if (this.syncGuards[key] === "mobile") return;
-      this.mobileMapType.value = event.target.value;
-    };
-
-    this.mobileMapType.addEventListener("change", mobileHandler);
-    this.desktopMapType.addEventListener("change", desktopHandler);
-    this.cleanupCallbacks.push(() =>
-      this.mobileMapType.removeEventListener("change", mobileHandler)
-    );
-    this.cleanupCallbacks.push(() =>
-      this.desktopMapType.removeEventListener("change", desktopHandler)
-    );
-  }
-
-  attachLayerObserver() {
-    if (!this.desktopLayerContainer || !("MutationObserver" in window)) return;
-    const observer = new MutationObserver(() => this.syncLayers());
-    observer.observe(this.desktopLayerContainer, {
-      childList: true,
-      subtree: true,
-    });
-    this.observers.push(observer);
-  }
-
-  attachLocationObserver() {
-    if (!this.desktopLocation || !("MutationObserver" in window)) return;
-    const observer = new MutationObserver(() => this.syncLocationOptions());
-    observer.observe(this.desktopLocation, { childList: true });
-    this.observers.push(observer);
-  }
-
-  attachStreetModeListeners() {
-    const desktopButtons = document.querySelectorAll(".street-mode-btn");
-    if (!desktopButtons.length) return;
-
-    desktopButtons.forEach((btn) => {
-      const handler = () => requestAnimationFrame(() => this.syncStreetModes());
-      btn.addEventListener("click", handler);
-      this.cleanupCallbacks.push(() => btn.removeEventListener("click", handler));
-    });
-
-    this.syncStreetModes();
-  }
-
-  handleMobileStreetToggle(button) {
-    if (!button) return;
-    const { mode } = button.dataset;
-    if (!mode) return;
-
-    const desktopBtn = document.querySelector(
-      `.street-mode-btn[data-street-mode="${mode}"]`
-    );
-    if (!desktopBtn) return;
-
-    const willActivate = !button.classList.contains("active");
-    button.classList.toggle("active", willActivate);
-
-    const desktopActive = desktopBtn.classList.contains("active");
-    if (desktopActive !== willActivate) {
-      desktopBtn.click();
-    }
-  }
-
-  updateMobileClearButton() {
-    if (!this.mobileClearBtn) return;
-    const hasValue = Boolean(this.mobileSearch?.value);
-    this.mobileClearBtn.classList.toggle("d-none", !hasValue);
-  }
-
   bind(target, event, handler) {
     if (!target) return;
     target.addEventListener(event, handler);
@@ -903,7 +440,6 @@ class MobileMapInterface {
   }
 
   destroy() {
-    this.resetLayerBindings();
     this.cleanupCallbacks.forEach((fn) => {
       try {
         fn();
@@ -912,10 +448,6 @@ class MobileMapInterface {
       }
     });
     this.cleanupCallbacks = [];
-    this.observers.forEach((observer) => {
-      observer.disconnect();
-    });
-    this.observers = [];
   }
 }
 

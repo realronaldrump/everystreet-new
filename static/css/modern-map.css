@@ -365,6 +365,19 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   flex-direction: column;
 }
 
+/* Desktop: Hide mobile-only elements within control panel */
+.control-panel#map-controls .mobile-sheet-handle-container,
+.control-panel#map-controls .mobile-live-badge {
+  display: none;
+}
+
+/* Control panel actions (contains toggle button and mobile badge) */
+.control-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 /* Panel Header */
 .control-panel-header {
   display: flex;
@@ -1007,15 +1020,97 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   margin-bottom: var(--space-1);
 }
 
-/* === Responsive Adjustments for Map Elements === */
-
 @media (width <= 768px) {
-  /* Hide desktop control panel on mobile */
+  /* Transform control panel into bottom sheet on mobile */
   .control-panel#map-controls {
+    position: fixed;
+    inset: auto 0 0;
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 20px 20px 0 0;
+    z-index: var(--z-drawer);
+    box-shadow:
+      0 -4px 30px rgb(0 0 0 / 40%),
+      0 -1px 0 rgb(255 255 255 / 10%);
+    transform: translateY(var(--sheet-offset, calc(100% - 180px)));
+    transition:
+      transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+      box-shadow 0.3s;
+    will-change: transform;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* Show mobile elements within control panel on mobile */
+  .control-panel#map-controls .mobile-sheet-handle-container {
+    display: flex;
+  }
+
+  .control-panel#map-controls .mobile-live-badge {
+    display: inline-flex;
+  }
+
+  /* Hide desktop collapse toggle on mobile */
+  .control-panel#map-controls #controls-toggle {
     display: none;
   }
 
-  /* Keep Mapbox control adjustments as they're still visible on mobile */
+  /* Sheet states */
+  .control-panel#map-controls.collapsed {
+    --sheet-offset: calc(100% - 180px);
+  }
+
+  .control-panel#map-controls.peek {
+    --sheet-offset: calc(100% - 280px);
+  }
+
+  .control-panel#map-controls.half {
+    --sheet-offset: 45vh;
+  }
+
+  .control-panel#map-controls.expanded {
+    --sheet-offset: 0;
+  }
+
+  .control-panel#map-controls:active,
+  .control-panel#map-controls.dragging {
+    box-shadow:
+      0 -6px 40px rgb(0 0 0 / 50%),
+      0 -1px 0 rgb(255 255 255 / 10%);
+  }
+
+  /* Full-screen map for mobile */
+  .map-wrapper {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100vh;
+    position: fixed;
+    inset: 0;
+  }
+
+  #map {
+    height: 100vh !important;
+    width: 100vw !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+
+  /* Adjust header for map page */
+  body.map-page .app-header {
+    background: transparent;
+    backdrop-filter: blur(10px);
+    box-shadow: none;
+    border-bottom: 1px solid rgb(255 255 255 / 10%);
+  }
+
+  body.light-mode.map-page .app-header {
+    border-bottom: 1px solid rgb(0 0 0 / 10%);
+  }
+
+  /* Keep Mapbox control adjustments */
   .mapboxgl-ctrl-group {
     margin: var(--space-2) !important;
   }
@@ -1038,6 +1133,16 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
     max-width: 200px;
     font-size: var(--font-size-xs);
     padding: var(--space-2);
+  }
+
+  /* Adjust Mapbox controls for mobile */
+  .mapboxgl-ctrl-top-right {
+    top: calc(var(--header-height) + var(--space-2)) !important;
+    right: var(--space-2) !important;
+  }
+
+  .mapboxgl-ctrl-bottom-right {
+    bottom: calc(200px + env(safe-area-inset-bottom, 0)) !important;
   }
 }
 
@@ -1064,8 +1169,608 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 /* Desktop only - show control panel */
-@media (width > 768px) {
+@media (width >= 769px) {
   .control-panel#map-controls {
     display: flex;
+  }
+
+  /* Hide mobile elements on desktop */
+  .mobile-map-overlay,
+  .mobile-fab-container,
+  .mobile-bottom-sheet,
+  .mobile-sheet-handle,
+  .mobile-sheet-backdrop {
+    display: none !important;
+  }
+}
+
+/* ===========================================
+   Mobile Map UI (Colocated from mobile.css)
+   =========================================== */
+
+/* Mobile Bottom Sheet - iOS Style */
+.mobile-bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface-1);
+  border-radius: 20px 20px 0 0;
+  box-shadow:
+    0 -4px 30px rgb(0 0 0 / 40%),
+    0 -1px 0 rgb(255 255 255 / 10%);
+  z-index: var(--z-drawer);
+  transition:
+    transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+    box-shadow 0.3s;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+
+  --sheet-offset: calc(100% - 180px);
+
+  transform: translateY(var(--sheet-offset));
+  will-change: transform;
+}
+
+.mobile-bottom-sheet:active,
+.mobile-bottom-sheet.dragging {
+  box-shadow:
+    0 -6px 40px rgb(0 0 0 / 50%),
+    0 -1px 0 rgb(255 255 255 / 10%);
+}
+
+/* Sheet states */
+.mobile-bottom-sheet.collapsed {
+  --sheet-offset: calc(100% - 180px);
+}
+
+.mobile-bottom-sheet.peek {
+  --sheet-offset: calc(100% - 280px);
+}
+
+.mobile-bottom-sheet.half {
+  --sheet-offset: 45vh;
+}
+
+.mobile-bottom-sheet.expanded {
+  --sheet-offset: 0;
+}
+
+/* iOS-style handle - with larger touch area */
+.mobile-sheet-handle-container {
+  padding: var(--space-3) 0;
+  cursor: grab;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.mobile-sheet-handle-container:active {
+  cursor: grabbing;
+}
+
+.mobile-sheet-handle {
+  width: 40px;
+  height: 5px;
+  background: var(--text-secondary);
+  border-radius: 3px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Sheet header */
+.mobile-sheet-header {
+  padding: 0 var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--divider-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: var(--surface-1);
+  z-index: 10;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mobile-sheet-header:active {
+  background: var(--surface-2);
+}
+
+.mobile-sheet-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.mobile-sheet-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Sheet content */
+.mobile-sheet-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Floating Action Buttons */
+.mobile-fab-container {
+  position: fixed;
+  right: var(--space-3);
+  bottom: calc(200px + env(safe-area-inset-bottom, 0));
+  z-index: calc(var(--z-drawer) - 1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mobile-fab {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  font-size: var(--font-size-xl);
+}
+
+.mobile-fab:active {
+  transform: scale(0.95);
+}
+
+.mobile-fab.secondary {
+  width: 48px;
+  height: 48px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+}
+
+/* iOS-style sections */
+.mobile-section {
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.mobile-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.mobile-section-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.mobile-section-action {
+  font-size: var(--font-size-sm);
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+}
+
+/* iOS-style list items */
+.mobile-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.mobile-list-item:last-child {
+  border-bottom: none;
+}
+
+.mobile-list-item-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.mobile-list-item-value {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  text-align: right;
+}
+
+/* Live tracking status badge */
+.mobile-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: rgb(var(--success-rgb), 0.15);
+  color: var(--success);
+  padding: var(--space-1) var(--space-3);
+  border-radius: 20px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.mobile-live-badge.disconnected {
+  background: rgb(var(--danger-rgb), 0.15);
+  color: var(--danger);
+}
+
+.mobile-live-badge .pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentcolor;
+  animation: mobile-pulse 2s infinite;
+}
+
+@keyframes mobile-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(0.9);
+  }
+}
+
+/* Metrics grid */
+.mobile-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.mobile-metric-card {
+  background: var(--surface-1);
+  border-radius: 10px;
+  padding: var(--space-3);
+  text-align: center;
+}
+
+.mobile-metric-value {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--primary);
+  margin-bottom: var(--space-1);
+}
+
+.mobile-metric-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* iOS-style toggle */
+.mobile-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+}
+
+.mobile-toggle-label {
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+}
+
+.mobile-toggle input[type="checkbox"] {
+  width: 51px;
+  height: 31px;
+  appearance: none;
+  background: var(--surface-4);
+  border-radius: 15.5px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.mobile-toggle input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: white;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+.mobile-toggle input[type="checkbox"]:checked {
+  background: var(--success);
+}
+
+.mobile-toggle input[type="checkbox"]:checked::before {
+  transform: translateX(20px);
+}
+
+/* Layer buttons */
+.mobile-layer-buttons {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--space-2);
+}
+
+.mobile-layer-buttons::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-layer-btn {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: 20px;
+  background: var(--surface-3);
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.mobile-layer-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.mobile-layer-btn i {
+  margin-right: var(--space-1);
+}
+
+/* Street mode selector */
+.mobile-street-modes {
+  display: flex;
+  background: var(--surface-1);
+  border-radius: 10px;
+  padding: var(--space-1);
+  gap: var(--space-1);
+}
+
+.mobile-street-mode-btn {
+  flex: 1;
+  padding: var(--space-2);
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.mobile-street-mode-btn.active {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.mobile-street-mode-btn i {
+  font-size: var(--font-size-md);
+}
+
+/* Action buttons grid */
+.mobile-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.mobile-action-btn {
+  padding: var(--space-3);
+  border-radius: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mobile-action-btn:active {
+  transform: scale(0.97);
+  background: var(--surface-2);
+}
+
+.mobile-action-btn i {
+  font-size: var(--font-size-xl);
+  color: var(--primary);
+}
+
+/* Backdrop for when sheet is expanded */
+.mobile-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 30%);
+  z-index: calc(var(--z-drawer) - 1);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s,
+    visibility 0.3s;
+}
+
+.mobile-sheet-backdrop.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Safe area support */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobile-bottom-sheet {
+    padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-2));
+  }
+
+  .mobile-fab-container {
+    bottom: calc(200px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Expand hint in collapsed state */
+.mobile-sheet-expand-hint {
+  text-align: center;
+  padding: var(--space-2) 0;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.mobile-sheet-expand-hint i {
+  animation: mobile-bounce 2s infinite;
+}
+
+@keyframes mobile-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.mobile-bottom-sheet:not(.collapsed) .mobile-sheet-expand-hint {
+  display: none;
+}
+
+/* Compact metrics for mobile */
+.mobile-compact-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  text-align: center;
+  padding: var(--space-2) 0;
+}
+
+.mobile-compact-metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+
+.mobile-compact-metric-value {
+  font-weight: var(--font-weight-bold);
+  color: var(--primary);
+  font-size: var(--font-size-lg);
+}
+
+.mobile-compact-metric-label {
+  color: var(--text-tertiary);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Location selector mobile */
+.mobile-select {
+  width: 100%;
+  padding: var(--space-3);
+  border-radius: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba(255,255,255,0.6)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 12px;
+  padding-right: 40px;
+}
+
+body.light-mode .mobile-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba(0,0,0,0.6)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+}
+
+/* Pull-to-refresh hint */
+.mobile-pull-hint {
+  text-align: center;
+  padding: var(--space-2);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Mobile responsive adjustments for live trip metrics */
+@media (width <= 768px) {
+  .live-trip-metrics .metric-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+  }
+
+  .live-trip-metrics .metric-value {
+    text-align: left;
+    font-size: 0.95em;
+  }
+
+  .metric-section-title {
+    font-size: 0.75rem;
+  }
+}
+
+/* Very small devices */
+@media (width <= 375px) {
+  .mobile-fab {
+    width: 50px;
+    height: 50px;
+    font-size: var(--font-size-lg);
+  }
+
+  .mobile-fab.secondary {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mobile-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-metric-value {
+    font-size: var(--font-size-lg);
   }
 }
