@@ -61,12 +61,17 @@ class CoverageCalculator:
         self.location_name = location.get("display_name", "Unknown Location")
         self.task_id = task_id
 
-        raw_match_buffer = location.get("match_buffer_meters")
-        self.match_buffer: float = float(
-            raw_match_buffer
-            if raw_match_buffer is not None
-            else DEFAULT_MATCH_BUFFER_METERS
-        )
+        # Priority:
+        # 1. match_buffer_feet (convert to meters)
+        # 2. match_buffer_meters (use as is)
+        # 3. Default (15m ~ 49ft)
+        
+        self.match_buffer: float = DEFAULT_MATCH_BUFFER_METERS
+        
+        if location.get("match_buffer_feet") is not None:
+             self.match_buffer = float(location["match_buffer_feet"]) * 0.3048
+        elif location.get("match_buffer_meters") is not None:
+             self.match_buffer = float(location["match_buffer_meters"])
 
         self.trip_batch_size: int = MAX_TRIPS_PER_BATCH
 

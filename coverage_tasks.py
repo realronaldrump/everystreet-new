@@ -300,14 +300,19 @@ async def process_area(
                 },
             },
         )
-        # Determine segment length (defaults handled downstream)
-        seg_len = (
-            segment_length_meters
-            if segment_length_meters is not None
-            else location.get("segment_length_meters")
-        )
+        # Determine segment length (defaults handled downstream in preprocess_streets)
+        # We pass the meters override if it exists, or None. 
+        # If segment_length_feet exists in location, preprocess_streets will handle it.
+        seg_len_arg = None
+        if segment_length_meters is not None:
+             seg_len_arg = segment_length_meters
+        elif location.get("segment_length_meters"):
+             seg_len_arg = float(location["segment_length_meters"])
+        
+        # If segment_length_feet is present, we pass None to let preprocess_streets handle it
+        # via the logic we added there.
 
-        await async_preprocess_streets(location, task_id, seg_len or 100)
+        await async_preprocess_streets(location, task_id, seg_len_arg)
 
         metadata = await find_one_with_retry(
             coverage_metadata_collection,

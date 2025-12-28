@@ -310,13 +310,33 @@ async def _fetch_streets_with_osmnx(
 async def preprocess_streets(
     validated_location: dict[str, Any],
     task_id: str | None = None,
-    segment_length_meters: float = SEGMENT_LENGTH_METERS,
+    segment_length_meters: float | None = None,
 ) -> None:
     """Orchestrate the fetching and processing of street data using OSMnx."""
     location_name = validated_location["display_name"]
 
+    # Handle segment length priority:
+    # 1. passed argument (if not default/None)
+    # 2. location-specific feet override (converted)
+    # 3. location-specific meter override
+    # 4. default (500ft which is ~152.4m)
+    
+    # Default is roughly 500 feet
+    final_segment_length = 152.4
+
+    if segment_length_meters is not None:
+         final_segment_length = segment_length_meters
+    elif validated_location.get("segment_length_feet"):
+         final_segment_length = float(validated_location["segment_length_feet"]) * 0.3048
+    elif validated_location.get("segment_length_meters"):
+         final_segment_length = float(validated_location["segment_length_meters"])
+
     try:
-        logger.info("Starting street preprocessing for %s", location_name)
+        logger.info(
+            "Starting street preprocessing for %s with segment_length=%.2fm", 
+            location_name, 
+            final_segment_length
+        )
         await _update_task_progress(
             task_id,
             "preprocessing",
@@ -442,7 +462,8 @@ async def preprocess_streets(
                 raw_feat["osm_id"],
                 location_name,
                 boundary_shape,
-                segment_length_meters,
+                boundary_shape,
+                final_segment_length,
             )
 
             for seg in segments:
