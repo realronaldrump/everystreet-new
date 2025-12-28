@@ -4,11 +4,11 @@ block head_content %}
 <!-- Mapbox Draw CSS -->
 <link
   rel="stylesheet"
-  href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css"
+  href="{{ CDN.mapbox_draw_css }}"
   type="text/css"
 />
 <!-- Mapbox GL CSS -->
-<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" />
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/coverage-management.css') | replace('http://', '//') }}"
@@ -823,15 +823,15 @@ block head_content %}
 {% endblock %} {% block extra_js %}
 
 <!-- Mapbox GL JS -->
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
+<script src="{{ CDN.mapbox_gl_js }}"></script>
 <!-- Mapbox Draw -->
-<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.js"></script>
+<script src="{{ CDN.mapbox_draw_js }}"></script>
 <script>
   // Set Mapbox access token from server-injected variable
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
 </script>
 <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ CDN.chartjs }}"></script>
 <!-- Coverage Management Script -->
 <script type="module" src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"></script>
 <!-- Segment Length Modal -->

@@ -1,3 +1,4 @@
+{% include 'partials/_library_versions.html' %}
 <!doctype html>
 <html lang="en" data-bs-theme="dark">
   <head>
@@ -71,19 +72,8 @@
     />
 
     <!-- Critical CSS -->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-      integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
-      crossorigin="anonymous"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-      integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    />
+    <link rel="stylesheet" href="{{ CDN.bootstrap_css }}" crossorigin="anonymous" />
+    <link rel="stylesheet" href="{{ CDN.fontawesome }}" crossorigin="anonymous" />
     <!-- Core CSS -->
     <link
       rel="stylesheet"
@@ -101,15 +91,12 @@
     <!-- Non-critical CSS loaded asynchronously -->
     <link
       rel="preload"
-      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
+      href="{{ CDN.flatpickr_css }}"
       as="style"
       onload="this.onload=null;this.rel='stylesheet'"
     />
     <noscript>
-      <link
-        rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
-      />
+      <link rel="stylesheet" href="{{ CDN.flatpickr_css }}" />
     </noscript>
 
     {% block extra_css %}{% endblock %} {% block head_content %}{% endblock %}
@@ -754,28 +741,20 @@
     <div id="modals-container"></div>
 
     <!-- Core JS - Load in specific order -->
-    <script
-      src="https://code.jquery.com/jquery-3.7.1.min.js"
-      integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
-      integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
-      crossorigin="anonymous"
-    ></script>
+    <script src="{{ CDN.jquery }}" crossorigin="anonymous"></script>
+    <script src="{{ CDN.bootstrap_js }}" crossorigin="anonymous"></script>
 
     <!-- Load utilities first -->
     <script src="{{ url_for('static', path='js/utils.js') | replace('http://', '//') }}"></script>
 
     <!-- Critical libraries -->
     <!-- Day.js - lightweight date library (~2KB) + plugins -->
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/duration.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/weekOfYear.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isoWeek.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isBetween.js"></script>
+    <script src="{{ CDN.dayjs }}"></script>
+    <script src="{{ CDN.dayjs_relativeTime }}"></script>
+    <script src="{{ CDN.dayjs_duration }}"></script>
+    <script src="{{ CDN.dayjs_weekOfYear }}"></script>
+    <script src="{{ CDN.dayjs_isoWeek }}"></script>
+    <script src="{{ CDN.dayjs_isBetween }}"></script>
     <script>
       // Initialize Day.js plugins
       dayjs.extend(dayjs_plugin_relativeTime);
@@ -784,7 +763,7 @@
       dayjs.extend(dayjs_plugin_isoWeek);
       dayjs.extend(dayjs_plugin_isBetween);
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+    <script src="{{ CDN.flatpickr_js }}"></script>
 
     <!-- Page-specific scripts (DataTables, Mapbox) are loaded via extra_js blocks -->
 

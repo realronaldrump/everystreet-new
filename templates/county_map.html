@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <!-- Mapbox GL CSS -->
-<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" />
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
 <link rel="stylesheet" href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}" />
 {% endblock %}
 
@@ -117,10 +117,10 @@
 
 {% block extra_js %}
 <!-- Mapbox GL JS -->
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
+<script src="{{ CDN.mapbox_gl_js }}"></script>
 <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
 <script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
-<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script src="{{ CDN.topojson }}"></script>
 <script>
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
 </script>

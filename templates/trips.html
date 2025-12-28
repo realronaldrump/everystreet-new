@@ -1,8 +1,8 @@
 {% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %} {%
 block extra_css %}
 <!-- DataTables CSS -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css" />
-<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css" />
+<link rel="stylesheet" href="{{ CDN.datatables_css }}" />
+<link rel="stylesheet" href="{{ CDN.datatables_buttons_css }}" />
 <link
   rel="stylesheet"
   href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}"
@@ -184,8 +184,9 @@ block extra_css %}
 </div>
 {% endblock %} {% block extra_js %}
 <!-- DataTables JS -->
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
+<script src="{{ CDN.datatables_js }}"></script>
+<script src="{{ CDN.datatables_buttons_js }}"></script>
+<script src="{{ CDN.datatables_buttons_colvis }}"></script>
 <script src="{{ url_for('static', path='js/trips.js') | replace('http://', '//') }}"></script>
 {% endblock %}
+

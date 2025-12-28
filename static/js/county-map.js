@@ -139,7 +139,7 @@
       throw new Error(data.error || "Unable to load county topology");
     }
 
-    const {topology} = data;
+    const { topology } = data;
 
     // Convert TopoJSON to GeoJSON using topojson-client library
     countyData = topojson.feature(topology, topology.objects.counties);

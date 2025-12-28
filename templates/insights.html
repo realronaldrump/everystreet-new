@@ -838,17 +838,16 @@ endblock %} {% block extra_css %}
 </div>
 {% endblock %} {% block extra_js %}
 <!-- Chart.js and dependencies -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="{{ CDN.chartjs }}"></script>
+<script src="{{ CDN.chartjs_adapter }}"></script>
+<script src="{{ CDN.chartjs_datalabels }}"></script>
 
 <!-- DataTables -->
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="{{ CDN.datatables_js }}"></script>
+<script src="{{ CDN.datatables_bs5_js }}"></script>
 
 <!-- CountUp.js for number animations -->
-<script src="https://cdn.jsdelivr.net/npm/countup.js@2.6.2/dist/countUp.umd.js"></script>
+<script src="{{ CDN.countup }}"></script>
 
 <!-- Custom Scripts -->
 <script src="{{ url_for('static', path='js/driving_insights.js') | replace('http://', '//') }}"></script>
