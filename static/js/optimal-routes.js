@@ -31,9 +31,11 @@ class OptimalRoutesManager {
     });
 
     // Generate button
-    document.getElementById("generate-route-btn")?.addEventListener("click", () => {
-      this.generateRoute();
-    });
+    document
+      .getElementById("generate-route-btn")
+      ?.addEventListener("click", () => {
+        this.generateRoute();
+      });
 
     // Export GPX
     document.getElementById("export-gpx-btn")?.addEventListener("click", () => {
@@ -41,9 +43,11 @@ class OptimalRoutesManager {
     });
 
     // Clear route
-    document.getElementById("clear-route-btn")?.addEventListener("click", () => {
-      this.clearRoute();
-    });
+    document
+      .getElementById("clear-route-btn")
+      ?.addEventListener("click", () => {
+        this.clearRoute();
+      });
 
     // Retry button
     document.getElementById("retry-btn")?.addEventListener("click", () => {
@@ -51,27 +55,37 @@ class OptimalRoutesManager {
     });
 
     // Layer toggles
-    document.getElementById("toggle-route-layer")?.addEventListener("change", (e) => {
-      this.toggleLayer(
-        ["optimal-route-line", "optimal-route-arrows"],
-        e.target.checked
-      );
-    });
+    document
+      .getElementById("toggle-route-layer")
+      ?.addEventListener("change", (e) => {
+        this.toggleLayer(
+          ["optimal-route-line", "optimal-route-arrows"],
+          e.target.checked,
+        );
+      });
 
-    document.getElementById("toggle-driven-layer")?.addEventListener("change", (e) => {
-      this.toggleLayer(["streets-driven-layer"], e.target.checked);
-    });
+    document
+      .getElementById("toggle-driven-layer")
+      ?.addEventListener("change", (e) => {
+        this.toggleLayer(["streets-driven-layer"], e.target.checked);
+      });
 
-    document.getElementById("toggle-undriven-layer")?.addEventListener("change", (e) => {
-      this.toggleLayer(["streets-undriven-layer"], e.target.checked);
-    });
+    document
+      .getElementById("toggle-undriven-layer")
+      ?.addEventListener("change", (e) => {
+        this.toggleLayer(["streets-undriven-layer"], e.target.checked);
+      });
   }
 
   toggleLayer(layerIds, isVisible) {
     if (!this.map) return;
     layerIds.forEach((id) => {
       if (this.map.getLayer(id)) {
-        this.map.setLayoutProperty(id, "visibility", isVisible ? "visible" : "none");
+        this.map.setLayoutProperty(
+          id,
+          "visibility",
+          isVisible ? "visible" : "none",
+        );
       }
     });
   }
@@ -220,7 +234,7 @@ class OptimalRoutesManager {
       }
 
       console.log(
-        `Loaded ${drivenFeatures.length} driven, ${undrivenFeatures.length} undriven streets`
+        `Loaded ${drivenFeatures.length} driven, ${undrivenFeatures.length} undriven streets`,
       );
     } catch (error) {
       console.error("Error loading street network:", error);
@@ -255,7 +269,9 @@ class OptimalRoutesManager {
           // API returns total_length and driven_length (not _m suffix)
           const totalLength = area.total_length || area.total_length_m || 0;
           const drivenLength = area.driven_length || area.driven_length_m || 0;
-          option.dataset.remaining = this.formatDistance(totalLength - drivenLength);
+          option.dataset.remaining = this.formatDistance(
+            totalLength - drivenLength,
+          );
           select.appendChild(option);
         });
 
@@ -326,7 +342,7 @@ class OptimalRoutesManager {
 
     // Show area stats
     const selectedOption = document.querySelector(
-      `#area-select option[value="${areaId}"]`
+      `#area-select option[value="${areaId}"]`,
     );
     if (selectedOption) {
       document.getElementById("area-coverage").textContent =
@@ -361,7 +377,9 @@ class OptimalRoutesManager {
 
   async loadExistingRoute(areaId) {
     try {
-      const response = await fetch(`/api/coverage_areas/${areaId}/optimal-route`);
+      const response = await fetch(
+        `/api/coverage_areas/${areaId}/optimal-route`,
+      );
 
       if (response.status === 404) {
         // No route yet
@@ -398,7 +416,7 @@ class OptimalRoutesManager {
             [west, south],
             [east, north],
           ],
-          { padding: 50, duration: 1000 }
+          { padding: 50, duration: 1000 },
         );
       }
     } catch (error) {
@@ -416,7 +434,7 @@ class OptimalRoutesManager {
       // Start the generation task
       const response = await fetch(
         `/api/coverage_areas/${this.selectedAreaId}/generate-optimal-route`,
-        { method: "POST" }
+        { method: "POST" },
       );
 
       if (!response.ok) {
@@ -445,7 +463,9 @@ class OptimalRoutesManager {
     this.waitingCount = 0;
     this.lastProgressTime = Date.now();
 
-    this.eventSource = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
+    this.eventSource = new EventSource(
+      `/api/optimal-routes/${taskId}/progress/sse`,
+    );
 
     this.eventSource.onmessage = (event) => {
       try {
@@ -457,11 +477,11 @@ class OptimalRoutesManager {
           // Warn after 30 seconds of waiting (30 SSE messages at 1/sec)
           if (this.waitingCount === 30) {
             this.updateProgressMessage(
-              "Still waiting for worker... Make sure Celery is running."
+              "Still waiting for worker... Make sure Celery is running.",
             );
           } else if (this.waitingCount === 60) {
             this.updateProgressMessage(
-              "Worker not responding. The Celery worker may not be running."
+              "Worker not responding. The Celery worker may not be running.",
             );
           }
         } else {
@@ -476,12 +496,18 @@ class OptimalRoutesManager {
         const status = (data.status || "").toLowerCase();
         const stage = (data.stage || "").toLowerCase();
 
-        if (status === "completed" || stage === "complete" || data.progress >= 100) {
+        if (
+          status === "completed" ||
+          stage === "complete" ||
+          data.progress >= 100
+        ) {
           this.eventSource.close();
           this.onGenerationComplete();
         } else if (status === "failed") {
           this.eventSource.close();
-          this.showError(data.error || data.message || "Route generation failed");
+          this.showError(
+            data.error || data.message || "Route generation failed",
+          );
         }
       } catch (e) {
         console.error("SSE parse error:", e);
@@ -499,7 +525,7 @@ class OptimalRoutesManager {
       // If we never got past waiting, show a helpful error
       if (this.waitingCount > 0) {
         this.showError(
-          "Connection lost while waiting for task. Ensure the Celery worker is running."
+          "Connection lost while waiting for task. Ensure the Celery worker is running.",
         );
       }
       // Otherwise it might just be normal connection close after completion
@@ -647,7 +673,7 @@ class OptimalRoutesManager {
     // Fit bounds to route
     const bounds = coordinates.reduce(
       (bounds, coord) => bounds.extend(coord),
-      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
     );
 
     this.map.fitBounds(bounds, { padding: 50, duration: 1000 });
@@ -655,15 +681,12 @@ class OptimalRoutesManager {
 
   showResults(data) {
     // Update stats
-    document.getElementById("stat-total-distance").textContent = this.formatDistance(
-      data.total_distance_m
-    );
-    document.getElementById("stat-required-distance").textContent = this.formatDistance(
-      data.required_distance_m
-    );
-    document.getElementById("stat-deadhead-distance").textContent = this.formatDistance(
-      data.deadhead_distance_m
-    );
+    document.getElementById("stat-total-distance").textContent =
+      this.formatDistance(data.total_distance_m);
+    document.getElementById("stat-required-distance").textContent =
+      this.formatDistance(data.required_distance_m);
+    document.getElementById("stat-deadhead-distance").textContent =
+      this.formatDistance(data.deadhead_distance_m);
     document.getElementById("stat-deadhead-percent").textContent = `${(
       100 - (data.deadhead_percentage || 0)
     ).toFixed(1)}%`;
