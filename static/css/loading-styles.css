@@ -17,6 +17,22 @@
   transition:
     opacity 0.2s ease,
     visibility 0.2s ease;
+  pointer-events: auto;
+}
+
+.loading-overlay.non-blocking {
+  background-color: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 16px;
+}
+
+.loading-overlay.compact .loading-indicator {
+  padding: 12px 14px;
+  gap: 10px;
+  box-shadow: 0 4px 20px rgb(0 0 0 / 25%);
 }
 
 .loading-overlay.visible {
@@ -186,6 +202,7 @@ body.light-mode .skeleton-loader::after {
   backdrop-filter: blur(8px);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
+  pointer-events: none;
 }
 
 .map-loading .spinner-border {
