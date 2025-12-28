@@ -50,20 +50,61 @@ class OptimalRoutesManager {
       this.generateRoute();
     });
 
-    // Layer toggles
-    document.getElementById("toggle-route-layer")?.addEventListener("change", (e) => {
-      this.toggleLayer(
-        ["optimal-route-line", "optimal-route-arrows"],
-        e.target.checked
-      );
+    this.setupLayerControls();
+  }
+
+  setupLayerControls() {
+    // Visibility
+    const toggles = {
+      "toggle-route-layer": ["optimal-route-line", "optimal-route-arrows"],
+      "toggle-driven-layer": ["streets-driven-layer"],
+      "toggle-undriven-layer": ["streets-undriven-layer"],
+    };
+
+    Object.entries(toggles).forEach(([id, layers]) => {
+      document.getElementById(id)?.addEventListener("change", (e) => {
+        this.toggleLayer(layers, e.target.checked);
+      });
     });
 
-    document.getElementById("toggle-driven-layer")?.addEventListener("change", (e) => {
-      this.toggleLayer(["streets-driven-layer"], e.target.checked);
+    // Opacity
+    const opacitySliders = {
+      "opacity-route-layer": ["optimal-route-line", "optimal-route-arrows"],
+      "opacity-driven-layer": ["streets-driven-layer"],
+      "opacity-undriven-layer": ["streets-undriven-layer"],
+    };
+
+    Object.entries(opacitySliders).forEach(([id, layers]) => {
+      const slider = document.getElementById(id);
+      slider?.addEventListener("input", (e) => {
+        const opacity = e.target.value / 100;
+        // Update label
+        const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
+        if (label) label.textContent = `${e.target.value}%`;
+
+        this.setLayerOpacity(layers, opacity);
+      });
     });
 
-    document.getElementById("toggle-undriven-layer")?.addEventListener("change", (e) => {
-      this.toggleLayer(["streets-undriven-layer"], e.target.checked);
+    // Ordering
+    document.querySelectorAll(".layer-up").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const item = e.target.closest(".layer-item");
+        if (item.previousElementSibling) {
+          item.parentNode.insertBefore(item, item.previousElementSibling);
+          this.updateLayerOrder();
+        }
+      });
+    });
+
+    document.querySelectorAll(".layer-down").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const item = e.target.closest(".layer-item");
+        if (item.nextElementSibling) {
+          item.parentNode.insertBefore(item.nextElementSibling, item);
+          this.updateLayerOrder();
+        }
+      });
     });
   }
 
@@ -73,6 +114,56 @@ class OptimalRoutesManager {
       if (this.map.getLayer(id)) {
         this.map.setLayoutProperty(id, "visibility", isVisible ? "visible" : "none");
       }
+    });
+  }
+
+  setLayerOpacity(layerIds, opacity) {
+    if (!this.map) return;
+    layerIds.forEach((id) => {
+      if (this.map.getLayer(id)) {
+        if (this.map.getLayer(id).type === "symbol") {
+          this.map.setPaintProperty(id, "icon-opacity", opacity);
+          this.map.setPaintProperty(id, "text-opacity", opacity);
+        } else {
+          this.map.setPaintProperty(id, "line-opacity", opacity);
+        }
+      }
+    });
+  }
+
+  updateLayerOrder() {
+    if (!this.map) return;
+    
+    // Get new order from DOM
+    // The visual list is top-to-bottom (z-index high to low)
+    // Mapbox adds layers bottom-to-top.
+    // So we iterate the DOM list in reverse to add layers.
+    
+    // BUT we can't easily "re-add" layers. We must use moveLayer.
+    // Logic: 
+    // 1. Get ordered list of layer logical IDs from DOM (top to bottom).
+    // 2. Iterate from bottom of list (lowest z-index) to top.
+    // 3. Move each layer to "beforeId" of the next one? No, just moveLayer(id) without beforeId puts it on top.
+    
+    // Simplest approach: iterate list from bottom (lowest) to top (highest) and moveLayer(id) to put it on top of stack so far.
+    
+    const items = Array.from(document.querySelectorAll(".layer-item"));
+    const layerGroups = {
+      "route": ["optimal-route-line", "optimal-route-arrows"],
+      "driven": ["streets-driven-layer"],
+      "undriven": ["streets-undriven-layer"],
+    };
+
+    // Reverse: bottom of list = bottom of map stack
+    items.reverse().forEach(item => {
+      const groupId = item.dataset.layerId;
+      const layers = layerGroups[groupId];
+      
+      layers?.forEach(layerId => {
+        if (this.map.getLayer(layerId)) {
+          this.map.moveLayer(layerId);
+        }
+      });
     });
   }
 

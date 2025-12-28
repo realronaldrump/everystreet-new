@@ -147,20 +147,79 @@ block head_content %}
         </button>
       </div>
 
-      <!-- Layer Toggles -->
-      <div class="layer-toggles mt-4 pt-3 border-top">
-        <h6 class="mb-2 text-muted text-uppercase small" style="letter-spacing: 0.5px;">Map Layers</h6>
-        <div class="form-check form-switch mb-2">
-          <input class="form-check-input" type="checkbox" id="toggle-route-layer" checked>
-          <label class="form-check-label" for="toggle-route-layer">Optimal Route</label>
-        </div>
-        <div class="form-check form-switch mb-2">
-          <input class="form-check-input" type="checkbox" id="toggle-driven-layer" checked>
-          <label class="form-check-label" for="toggle-driven-layer">Driven Streets</label>
-        </div>
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" id="toggle-undriven-layer" checked>
-          <label class="form-check-label" for="toggle-undriven-layer">Undriven Streets</label>
+      <!-- Layer Controls -->
+      <div class="layer-controls mt-3 border-top pt-3">
+        <h6 class="mb-3 text-muted text-uppercase small" style="letter-spacing: 0.5px;">Map Layers</h6>
+        
+        <div id="layer-list" class="layer-list">
+          <!-- Optimal Route -->
+          <div class="layer-item" data-layer-id="route">
+            <div class="layer-header">
+              <div class="d-flex align-items-center">
+                <div class="layer-drag-controls me-2">
+                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up"><i class="fas fa-chevron-up"></i></button>
+                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down"><i class="fas fa-chevron-down"></i></button>
+                </div>
+                <span class="layer-name fw-medium">Optimal Route</span>
+              </div>
+              <div class="form-check form-switch m-0">
+                <input class="form-check-input" type="checkbox" id="toggle-route-layer" checked>
+              </div>
+            </div>
+            <div class="layer-opacity mt-2">
+              <label class="small text-muted mb-1 d-flex justify-content-between">
+                <span>Opacity</span>
+                <span class="opacity-value">100%</span>
+              </label>
+              <input type="range" class="form-range" id="opacity-route-layer" min="0" max="100" value="100">
+            </div>
+          </div>
+
+          <!-- Driven Streets -->
+          <div class="layer-item" data-layer-id="driven">
+            <div class="layer-header">
+              <div class="d-flex align-items-center">
+                <div class="layer-drag-controls me-2">
+                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up"><i class="fas fa-chevron-up"></i></button>
+                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down"><i class="fas fa-chevron-down"></i></button>
+                </div>
+                <span class="layer-name fw-medium">Driven Streets</span>
+              </div>
+              <div class="form-check form-switch m-0">
+                <input class="form-check-input" type="checkbox" id="toggle-driven-layer" checked>
+              </div>
+            </div>
+            <div class="layer-opacity mt-2">
+              <label class="small text-muted mb-1 d-flex justify-content-between">
+                <span>Opacity</span>
+                <span class="opacity-value">60%</span>
+              </label>
+              <input type="range" class="form-range" id="opacity-driven-layer" min="0" max="100" value="60">
+            </div>
+          </div>
+
+          <!-- Undriven Streets -->
+          <div class="layer-item" data-layer-id="undriven">
+            <div class="layer-header">
+              <div class="d-flex align-items-center">
+                <div class="layer-drag-controls me-2">
+                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up"><i class="fas fa-chevron-up"></i></button>
+                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down"><i class="fas fa-chevron-down"></i></button>
+                </div>
+                <span class="layer-name fw-medium">Undriven Streets</span>
+              </div>
+              <div class="form-check form-switch m-0">
+                <input class="form-check-input" type="checkbox" id="toggle-undriven-layer" checked>
+              </div>
+            </div>
+            <div class="layer-opacity mt-2">
+              <label class="small text-muted mb-1 d-flex justify-content-between">
+                <span>Opacity</span>
+                <span class="opacity-value">80%</span>
+              </label>
+              <input type="range" class="form-range" id="opacity-undriven-layer" min="0" max="100" value="80">
+            </div>
+          </div>
         </div>
       </div>
     </div>
