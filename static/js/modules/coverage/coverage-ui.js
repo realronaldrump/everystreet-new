@@ -3,7 +3,7 @@
  * Handles dashboard, tables, charts, and UI components
  */
 
-/* global Chart, bootstrap, $ */
+/* global Chart, $ */
 
 class CoverageUI {
   constructor(notificationManager) {

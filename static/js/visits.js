@@ -2337,7 +2337,6 @@
       }
     }
 
-    /* eslint-disable-next-line complexity */
     static extractTripGeometry(trip) {
       // Prioritize using trip.gps if it's already a valid GeoJSON object
       if (
@@ -2382,7 +2381,6 @@
       }
     }
 
-    /* eslint-disable-next-line complexity */
     async saveEditedPlace() {
       const placeId = document.getElementById("edit-place-id")?.value;
       const newNameInput = document.getElementById("edit-place-name");

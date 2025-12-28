@@ -642,7 +642,7 @@ class MobileMapInterface {
       const { textContent: statusTextContent } = statusText || {};
       let connected = statusTextContent?.toLowerCase().includes("connected");
       if (detail && typeof detail.connected === "boolean") {
-        connected = detail.connected;
+        ({ connected } = detail);
       }
       statusBadge.classList.toggle("disconnected", connected === false);
       const label = statusBadge.querySelector("span:last-child");

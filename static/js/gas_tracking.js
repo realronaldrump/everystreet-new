@@ -1,3 +1,5 @@
+/* global mapboxgl */
+
 /**
  * Gas Tracking Module
  * Handles gas fill-up recording, MPG calculation, and statistics

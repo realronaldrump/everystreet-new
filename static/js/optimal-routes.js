@@ -1,3 +1,4 @@
+/* global mapboxgl */
 /**
  * Optimal Routes Page - JavaScript Module
  * Handles route generation with real-time SSE progress updates
