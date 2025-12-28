@@ -14,8 +14,8 @@ from fastapi import APIRouter, BackgroundTasks
 from shapely import STRtree
 from shapely.geometry import shape
 
-from db import db_manager, trips_collection
 from county_data_service import get_county_topology_document
+from db import db_manager, trips_collection
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/counties", tags=["counties"])
