@@ -1,51 +1,56 @@
-{# Library Version Definitions - Update versions here to affect entire app #}
-{# Last updated: 2025-12-28 #}
-
-{% set LIB_VERSIONS = {
-    'bootstrap': '5.3.3',
-    'jquery': '3.7.1',
-    'fontawesome': '6.5.1',
-    'dayjs': '1',
-    'flatpickr': '4.6.13',
-    'chartjs': '4.4.7',
-    'chartjs_adapter_date_fns': '3.0.0',
-    'chartjs_datalabels': '2.2.0',
-    'countup': '2.8.0',
-    'datatables': '2.1.8',
-    'datatables_buttons': '3.1.2',
-    'mapbox_gl': '3.11.0',
-    'mapbox_gl_draw': '1.4.3',
-    'topojson': '3'
-} %}
-
-{# CDN URL Templates #}
-{% set CDN = {
-    'bootstrap_css': 'https://cdn.jsdelivr.net/npm/bootstrap@' ~ LIB_VERSIONS.bootstrap ~ '/dist/css/bootstrap.min.css',
-    'bootstrap_js': 'https://cdn.jsdelivr.net/npm/bootstrap@' ~ LIB_VERSIONS.bootstrap ~ '/dist/js/bootstrap.bundle.min.js',
-    'fontawesome': 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/' ~ LIB_VERSIONS.fontawesome ~ '/css/all.min.css',
-    'jquery': 'https://code.jquery.com/jquery-' ~ LIB_VERSIONS.jquery ~ '.min.js',
-    'dayjs': 'https://cdn.jsdelivr.net/npm/dayjs@' ~ LIB_VERSIONS.dayjs ~ '/dayjs.min.js',
-    'dayjs_relativeTime': 'https://cdn.jsdelivr.net/npm/dayjs@' ~ LIB_VERSIONS.dayjs ~ '/plugin/relativeTime.js',
-    'dayjs_duration': 'https://cdn.jsdelivr.net/npm/dayjs@' ~ LIB_VERSIONS.dayjs ~ '/plugin/duration.js',
-    'dayjs_weekOfYear': 'https://cdn.jsdelivr.net/npm/dayjs@' ~ LIB_VERSIONS.dayjs ~ '/plugin/weekOfYear.js',
-    'dayjs_isoWeek': 'https://cdn.jsdelivr.net/npm/dayjs@' ~ LIB_VERSIONS.dayjs ~ '/plugin/isoWeek.js',
-    'dayjs_isBetween': 'https://cdn.jsdelivr.net/npm/dayjs@' ~ LIB_VERSIONS.dayjs ~ '/plugin/isBetween.js',
-    'flatpickr_css': 'https://cdn.jsdelivr.net/npm/flatpickr@' ~ LIB_VERSIONS.flatpickr ~ '/dist/flatpickr.min.css',
-    'flatpickr_js': 'https://cdn.jsdelivr.net/npm/flatpickr@' ~ LIB_VERSIONS.flatpickr ~ '/dist/flatpickr.min.js',
-    'chartjs': 'https://cdn.jsdelivr.net/npm/chart.js@' ~ LIB_VERSIONS.chartjs ~ '/dist/chart.umd.min.js',
-    'chartjs_adapter': 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@' ~ LIB_VERSIONS.chartjs_adapter_date_fns ~ '/dist/chartjs-adapter-date-fns.bundle.min.js',
-    'chartjs_datalabels': 'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@' ~ LIB_VERSIONS.chartjs_datalabels ~ '/dist/chartjs-plugin-datalabels.min.js',
-    'countup': 'https://cdn.jsdelivr.net/npm/countup.js@' ~ LIB_VERSIONS.countup ~ '/dist/countUp.umd.js',
-    'datatables_css': 'https://cdn.datatables.net/' ~ LIB_VERSIONS.datatables ~ '/css/dataTables.dataTables.min.css',
-    'datatables_js': 'https://cdn.datatables.net/' ~ LIB_VERSIONS.datatables ~ '/js/dataTables.min.js',
-    'datatables_bs5_css': 'https://cdn.datatables.net/' ~ LIB_VERSIONS.datatables ~ '/css/dataTables.bootstrap5.min.css',
-    'datatables_bs5_js': 'https://cdn.datatables.net/' ~ LIB_VERSIONS.datatables ~ '/js/dataTables.bootstrap5.min.js',
-    'datatables_buttons_css': 'https://cdn.datatables.net/buttons/' ~ LIB_VERSIONS.datatables_buttons ~ '/css/buttons.dataTables.min.css',
-    'datatables_buttons_js': 'https://cdn.datatables.net/buttons/' ~ LIB_VERSIONS.datatables_buttons ~ '/js/dataTables.buttons.min.js',
-    'datatables_buttons_colvis': 'https://cdn.datatables.net/buttons/' ~ LIB_VERSIONS.datatables_buttons ~ '/js/buttons.colVis.min.js',
-    'mapbox_gl_css': 'https://api.mapbox.com/mapbox-gl-js/v' ~ LIB_VERSIONS.mapbox_gl ~ '/mapbox-gl.css',
-    'mapbox_gl_js': 'https://api.mapbox.com/mapbox-gl-js/v' ~ LIB_VERSIONS.mapbox_gl ~ '/mapbox-gl.js',
-    'mapbox_draw_css': 'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v' ~ LIB_VERSIONS.mapbox_gl_draw ~ '/mapbox-gl-draw.css',
-    'mapbox_draw_js': 'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v' ~ LIB_VERSIONS.mapbox_gl_draw ~ '/mapbox-gl-draw.js',
-    'topojson': 'https://cdn.jsdelivr.net/npm/topojson-client@' ~ LIB_VERSIONS.topojson ~ '/dist/topojson-client.min.js'
-} %}
+{# Library Version Definitions - Update versions here to affect entire app #} {#
+Last updated: 2025-12-28 #} {% set LIB_VERSIONS = { 'bootstrap': '5.3.3',
+'jquery': '3.7.1', 'fontawesome': '6.5.1', 'dayjs': '1', 'flatpickr': '4.6.13',
+'chartjs': '4.4.7', 'chartjs_adapter_date_fns': '3.0.0', 'chartjs_datalabels':
+'2.2.0', 'countup': '2.8.0', 'datatables': '2.1.8', 'datatables_buttons':
+'3.1.2', 'mapbox_gl': '3.11.0', 'mapbox_gl_draw': '1.4.3', 'topojson': '3' } %}
+{# CDN URL Templates #} {% set CDN = { 'bootstrap_css':
+'https://cdn.jsdelivr.net/npm/bootstrap@' ~ LIB_VERSIONS.bootstrap ~
+'/dist/css/bootstrap.min.css', 'bootstrap_js':
+'https://cdn.jsdelivr.net/npm/bootstrap@' ~ LIB_VERSIONS.bootstrap ~
+'/dist/js/bootstrap.bundle.min.js', 'fontawesome':
+'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/' ~
+LIB_VERSIONS.fontawesome ~ '/css/all.min.css', 'jquery':
+'https://code.jquery.com/jquery-' ~ LIB_VERSIONS.jquery ~ '.min.js', 'dayjs':
+'https://cdn.jsdelivr.net/npm/dayjs@' ~ LIB_VERSIONS.dayjs ~ '/dayjs.min.js',
+'dayjs_relativeTime': 'https://cdn.jsdelivr.net/npm/dayjs@' ~ LIB_VERSIONS.dayjs
+~ '/plugin/relativeTime.js', 'dayjs_duration':
+'https://cdn.jsdelivr.net/npm/dayjs@' ~ LIB_VERSIONS.dayjs ~
+'/plugin/duration.js', 'dayjs_weekOfYear': 'https://cdn.jsdelivr.net/npm/dayjs@'
+~ LIB_VERSIONS.dayjs ~ '/plugin/weekOfYear.js', 'dayjs_isoWeek':
+'https://cdn.jsdelivr.net/npm/dayjs@' ~ LIB_VERSIONS.dayjs ~
+'/plugin/isoWeek.js', 'dayjs_isBetween': 'https://cdn.jsdelivr.net/npm/dayjs@' ~
+LIB_VERSIONS.dayjs ~ '/plugin/isBetween.js', 'flatpickr_css':
+'https://cdn.jsdelivr.net/npm/flatpickr@' ~ LIB_VERSIONS.flatpickr ~
+'/dist/flatpickr.min.css', 'flatpickr_js':
+'https://cdn.jsdelivr.net/npm/flatpickr@' ~ LIB_VERSIONS.flatpickr ~
+'/dist/flatpickr.min.js', 'chartjs': 'https://cdn.jsdelivr.net/npm/chart.js@' ~
+LIB_VERSIONS.chartjs ~ '/dist/chart.umd.min.js', 'chartjs_adapter':
+'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@' ~
+LIB_VERSIONS.chartjs_adapter_date_fns ~
+'/dist/chartjs-adapter-date-fns.bundle.min.js', 'chartjs_datalabels':
+'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@' ~
+LIB_VERSIONS.chartjs_datalabels ~ '/dist/chartjs-plugin-datalabels.min.js',
+'countup': 'https://cdn.jsdelivr.net/npm/countup.js@' ~ LIB_VERSIONS.countup ~
+'/dist/countUp.umd.js', 'datatables_css': 'https://cdn.datatables.net/' ~
+LIB_VERSIONS.datatables ~ '/css/dataTables.dataTables.min.css', 'datatables_js':
+'https://cdn.datatables.net/' ~ LIB_VERSIONS.datatables ~
+'/js/dataTables.min.js', 'datatables_bs5_css': 'https://cdn.datatables.net/' ~
+LIB_VERSIONS.datatables ~ '/css/dataTables.bootstrap5.min.css',
+'datatables_bs5_js': 'https://cdn.datatables.net/' ~ LIB_VERSIONS.datatables ~
+'/js/dataTables.bootstrap5.min.js', 'datatables_buttons_css':
+'https://cdn.datatables.net/buttons/' ~ LIB_VERSIONS.datatables_buttons ~
+'/css/buttons.dataTables.min.css', 'datatables_buttons_js':
+'https://cdn.datatables.net/buttons/' ~ LIB_VERSIONS.datatables_buttons ~
+'/js/dataTables.buttons.min.js', 'datatables_buttons_colvis':
+'https://cdn.datatables.net/buttons/' ~ LIB_VERSIONS.datatables_buttons ~
+'/js/buttons.colVis.min.js', 'mapbox_gl_css':
+'https://api.mapbox.com/mapbox-gl-js/v' ~ LIB_VERSIONS.mapbox_gl ~
+'/mapbox-gl.css', 'mapbox_gl_js': 'https://api.mapbox.com/mapbox-gl-js/v' ~
+LIB_VERSIONS.mapbox_gl ~ '/mapbox-gl.js', 'mapbox_draw_css':
+'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v' ~
+LIB_VERSIONS.mapbox_gl_draw ~ '/mapbox-gl-draw.css', 'mapbox_draw_js':
+'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v' ~
+LIB_VERSIONS.mapbox_gl_draw ~ '/mapbox-gl-draw.js', 'topojson':
+'https://cdn.jsdelivr.net/npm/topojson-client@' ~ LIB_VERSIONS.topojson ~
+'/dist/topojson-client.min.js' } %}

@@ -2,11 +2,7 @@
 block head_content %}
 
 <!-- Mapbox Draw CSS -->
-<link
-  rel="stylesheet"
-  href="{{ CDN.mapbox_draw_css }}"
-  type="text/css"
-/>
+<link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" type="text/css" />
 <!-- Mapbox GL CSS -->
 <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
 <link
@@ -262,7 +258,11 @@ block head_content %}
                 <div class="card-body p-0">
                   <!-- Sort controls -->
                   <div class="d-flex justify-content-end p-2">
-                    <select id="undriven-streets-sort" class="form-select form-select-sm w-auto" title="Sort undriven streets">
+                    <select
+                      id="undriven-streets-sort"
+                      class="form-select form-select-sm w-auto"
+                      title="Sort undriven streets"
+                    >
                       <option value="length_desc" selected>Longest</option>
                       <option value="length_asc">Shortest</option>
                       <option value="segments_desc">Most Segments</option>
@@ -270,8 +270,13 @@ block head_content %}
                       <option value="name_asc">Name A–Z</option>
                     </select>
                   </div>
-                  <div id="undriven-streets-list" style="max-height: 200px; overflow-y: auto;">
-                    <div class="placeholder-content text-secondary p-3 text-center">
+                  <div
+                    id="undriven-streets-list"
+                    style="max-height: 200px; overflow-y: auto"
+                  >
+                    <div
+                      class="placeholder-content text-secondary p-3 text-center"
+                    >
                       <i class="fas fa-road fa-2x mb-2"></i>
                       <p class="mt-1 mb-0 small">Loading undriven streets...</p>
                     </div>
@@ -340,14 +345,18 @@ block head_content %}
                       >
                         <i class="fas fa-bullseye me-1"></i>Efficient
                       </button>
-                      
+
                       <a
                         class="btn btn-sm"
                         id="goto-optimal-route-btn"
                         href="/optimal-routes"
                         title="Open Optimal Route Generator"
                         data-bs-toggle="tooltip"
-                        style="background-color: #9333ea; color: white; text-decoration: none;"
+                        style="
+                          background-color: #9333ea;
+                          color: white;
+                          text-decoration: none;
+                        "
                       >
                         <i class="fas fa-route me-1"></i>Optimal Route
                       </a>
@@ -833,7 +842,10 @@ block head_content %}
 <!-- Chart.js -->
 <script src="{{ CDN.chartjs }}"></script>
 <!-- Coverage Management Script -->
-<script type="module" src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"
+></script>
 <!-- Segment Length Modal -->
 <div
   class="modal fade"
