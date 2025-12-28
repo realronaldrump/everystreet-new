@@ -146,7 +146,7 @@ async def database_management_page(request: Request):
 
 
 @router.get("/app-settings", response_class=HTMLResponse)
-async def app_settings_page(request: Request):
+async def app_settings_page():
     """Redirect old app-settings to unified settings page."""
     from fastapi.responses import RedirectResponse
 

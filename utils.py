@@ -17,11 +17,10 @@ from aiohttp import (
     ServerDisconnectedError,
 )
 from bson import ObjectId
+from geopy.distance import great_circle as _geopy_great_circle
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-from geopy.distance import great_circle as _geopy_great_circle
 
 T = TypeVar("T")
 
