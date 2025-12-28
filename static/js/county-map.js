@@ -132,8 +132,14 @@
 
   // Load TopoJSON county data (unprojected version)
   async function loadCountyData() {
-    const response = await fetch("/static/data/counties-10m.json");
-    const topology = await response.json();
+    const response = await fetch("/api/counties/topology");
+    const data = await response.json();
+
+    if (!data.success || !data.topology) {
+      throw new Error(data.error || "Unable to load county topology");
+    }
+
+    const topology = data.topology;
 
     // Convert TopoJSON to GeoJSON using topojson-client library
     countyData = topojson.feature(topology, topology.objects.counties);

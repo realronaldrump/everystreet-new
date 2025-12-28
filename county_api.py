@@ -15,12 +15,40 @@ from shapely import STRtree
 from shapely.geometry import shape
 
 from db import db_manager, trips_collection
+from county_data_service import get_county_topology_document
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/counties", tags=["counties"])
 
 # Collection for caching visited counties
 county_cache_collection = db_manager.db["county_visited_cache"]
+
+
+@router.get("/topology")
+async def get_county_topology(projection: str | None = None) -> dict[str, Any]:
+    """Return county TopoJSON data stored in MongoDB.
+
+    If the requested projection is not yet cached, it will be downloaded and stored.
+    """
+
+    try:
+        document = await get_county_topology_document(projection)
+        if not document:
+            return {
+                "success": False,
+                "error": "County topology not available",
+            }
+
+        return {
+            "success": True,
+            "projection": document.get("projection"),
+            "source": document.get("source"),
+            "updatedAt": document.get("updated_at"),
+            "topology": document.get("topology"),
+        }
+    except Exception as e:
+        logger.exception("Error fetching county topology: %s", e)
+        return {"success": False, "error": str(e)}
 
 
 @router.get("/visited")
@@ -95,20 +123,14 @@ async def calculate_visited_counties_task():
 
     Tracks first visit date and most recent visit date for each county.
     """
-    import json
-    import os
-
     logger.info("Starting county visited calculation...")
     start_time = datetime.now(UTC)
 
     try:
-        # Load county boundaries from the TopoJSON file
-        topojson_path = os.path.join(
-            os.path.dirname(__file__), "static", "data", "counties-10m.json"
-        )
-
-        with open(topojson_path) as f:
-            topology = json.load(f)
+        topology_document = await get_county_topology_document()
+        if not topology_document or "topology" not in topology_document:
+            raise RuntimeError("County topology could not be loaded from database")
+        topology = topology_document["topology"]
 
         # Convert TopoJSON to GeoJSON features
         counties_geojson = topojson_to_geojson(topology, "counties")
