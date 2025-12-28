@@ -706,7 +706,7 @@ async def export_streets(
         if not data:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=error or "No data returned from Overpass",
+                detail=error or "No street data available",
             )
 
         location_name = get_location_filename(loc)
@@ -752,7 +752,7 @@ async def export_boundary(
         if not data:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=error or "No boundary data from Overpass",
+                detail=error or "No boundary data available",
             )
 
         location_name = get_location_filename(loc)

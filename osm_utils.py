@@ -1,18 +1,16 @@
-"""OpenStreetMap (OSM) Utilities Module.
+"""OpenStreetMap (OSM) utilities for boundary and streets GeoJSON."""
 
-Provides functions for interacting with the Overpass API to fetch and process
-OSM data, specifically for generating GeoJSON representations of boundaries and
-streets.
-"""
-
+import asyncio
 import json
 import logging
+import math
 from datetime import UTC, datetime
 from typing import Any
 
-import aiohttp
 import geopandas as gpd
-from shapely.geometry import LineString, Polygon
+import osmnx as ox
+from shapely.geometry import box, shape
+from shapely.geometry.base import BaseGeometry
 
 from db import (
     find_one_with_retry,
@@ -23,259 +21,243 @@ from db import (
 
 logger = logging.getLogger(__name__)
 
-OVERPASS_URL = "http://overpass-api.de/api/interpreter"
+ox.settings.log_console = False
+ox.settings.use_cache = True
+ox.settings.timeout = 300
 
-# Enhanced and centralized regex constants for "public, drivable streets"
-EXCLUDED_HIGHWAY_TYPES_REGEX = (
-    "footway|path|steps|pedestrian|bridleway|cycleway|corridor|"
-    "platform|raceway|proposed|construction|track|"
-    "service|alley|driveway|parking_aisle"  # Enhanced
-)
+EXCLUDED_HIGHWAY_TYPES = {
+    "footway",
+    "path",
+    "steps",
+    "pedestrian",
+    "bridleway",
+    "cycleway",
+    "corridor",
+    "platform",
+    "raceway",
+    "proposed",
+    "construction",
+    "track",
+    "service",
+    "alley",
+    "driveway",
+    "parking_aisle",
+}
 
-EXCLUDED_ACCESS_TYPES_REGEX = (
-    "private|no|customers|delivery|agricultural|forestry|destination|permit"  # Enhanced
-)
+EXCLUDED_ACCESS_TYPES = {
+    "private",
+    "no",
+    "customers",
+    "delivery",
+    "agricultural",
+    "forestry",
+    "destination",
+    "permit",
+}
 
-EXCLUDED_SERVICE_TYPES_REGEX = "parking_aisle|driveway"
-
-
-def build_standard_osm_streets_query(
-    query_target_clause: str, timeout: int = 300
-) -> str:
-    """
-    Builds a standardized Overpass QL query to fetch public, drivable streets.
-
-    Args:
-        query_target_clause: The Overpass QL clause specifying the area or bbox.
-                             Examples:
-                             - For area: f"area({area_id})->.searchArea;"
-                             - For bbox: f"({bbox_str});"
-        timeout: The timeout for the Overpass query in seconds.
-
-    Returns:
-        The complete Overpass QL query string.
-    """
-    # Ensure the target clause ends with a semicolon if it's an area definition
-    if (
-        "->.searchArea" in query_target_clause
-        and not query_target_clause.strip().endswith(";")
-    ):
-        query_target_clause = f"{query_target_clause.strip()};"
-
-    # Determine if we are using .searchArea (for area queries) or direct bbox
-    area_filter_clause = (
-        "(area.searchArea)" if "->.searchArea" in query_target_clause else ""
-    )
-
-    # If using direct bbox, the query_target_clause itself is the bbox filter
-    if not area_filter_clause:
-        bbox_filter_clause = query_target_clause
-        query_target_clause = ""  # Clear it as it's now part of bbox_filter_clause
-    else:
-        bbox_filter_clause = ""
-
-    query = f"""
-    [out:json][timeout:{timeout}];
-    {query_target_clause}
-    (
-      way["highway"]
-         ["highway"!~"{EXCLUDED_HIGHWAY_TYPES_REGEX}"]
-         ["area"!~"yes"]
-         ["access"!~"{EXCLUDED_ACCESS_TYPES_REGEX}"]
-         ["service"!~"{EXCLUDED_SERVICE_TYPES_REGEX}"]
-         ["motor_vehicle"!="no"]
-         ["motorcar"!="no"]
-         ["vehicle"!="no"]
-         {area_filter_clause or bbox_filter_clause};
-    );
-    (._;>;); // Recurse down to nodes
-    out geom; // Output geometry
-    """
-    logger.debug("Generated Standard OSM Streets Query: %s", query)
-    return query
+EXCLUDED_SERVICE_TYPES = {
+    "parking_aisle",
+    "driveway",
+}
 
 
-async def process_elements(
-    elements: list[dict],
-    streets_only: bool,
-) -> list[dict]:
-    """Process OSM elements and convert them to GeoJSON features.
-
-    Args:
-        elements: List of OSM elements
-        streets_only: If True, only include street elements (already pre-filtered)
-
-    Returns:
-        List of GeoJSON features
-    """
-    features = []
-    for e in elements:
-        if e["type"] == "way":
-            geometry = e.get("geometry", [])
-            if not geometry:
-                logger.debug(
-                    "Skipping way %s: No geometry data",
-                    e.get("id"),
-                )
+def _to_value_set(value: Any) -> set[str]:
+    """Normalize tag values to a set of strings."""
+    if value is None:
+        return set()
+    if isinstance(value, float) and math.isnan(value):
+        return set()
+    if isinstance(value, (list, tuple, set)):
+        values = set()
+        for item in value:
+            if item is None:
                 continue
+            if isinstance(item, float) and math.isnan(item):
+                continue
+            values.add(str(item))
+        return values
+    return {str(value)}
 
-            coords = [(n["lon"], n["lat"]) for n in geometry]
-            if len(coords) >= 2:
-                properties = e.get("tags", {})
-                try:
-                    if streets_only:  # This implies it's a LineString from our query
-                        line = LineString(coords)
-                        features.append(
-                            {
-                                "type": "Feature",
-                                "geometry": line.__geo_interface__,
-                                "properties": properties,
-                            },
-                        )
-                    elif coords[0] == coords[-1]:  # For boundary (non-streets_only)
-                        poly = Polygon(coords)
-                        features.append(
-                            {
-                                "type": "Feature",
-                                "geometry": poly.__geo_interface__,
-                                "properties": properties,
-                            },
-                        )
-                    else:  # For boundary (non-streets_only) that isn't a closed polygon
-                        line = LineString(coords)
-                        features.append(
-                            {
-                                "type": "Feature",
-                                "geometry": line.__geo_interface__,
-                                "properties": properties,
-                            },
-                        )
-                except Exception as shape_error:
-                    logger.warning(
-                        "Error creating shape for way %s: %s",
-                        e.get("id"),
-                        shape_error,
-                    )
-                    continue
-            else:
-                logger.debug(
-                    "Skipping way %s: Needs at least 2 coordinates, found %d",
-                    e.get("id"),
-                    len(coords),
-                )
 
-    return features
+def _is_drivable_street(tags: dict[str, Any]) -> bool:
+    """Check if a street feature should be included as drivable."""
+    highway_values = _to_value_set(tags.get("highway"))
+    if not highway_values:
+        return False
+    if highway_values & EXCLUDED_HIGHWAY_TYPES:
+        return False
+    if _to_value_set(tags.get("access")) & EXCLUDED_ACCESS_TYPES:
+        return False
+    if _to_value_set(tags.get("service")) & EXCLUDED_SERVICE_TYPES:
+        return False
+    if "yes" in _to_value_set(tags.get("area")):
+        return False
+    if "no" in _to_value_set(tags.get("motor_vehicle")):
+        return False
+    if "no" in _to_value_set(tags.get("motorcar")):
+        return False
+    if "no" in _to_value_set(tags.get("vehicle")):
+        return False
+    return True
+
+
+def _shape_from_geojson(geojson: dict[str, Any]) -> BaseGeometry | None:
+    """Convert GeoJSON geometry/feature into a shapely geometry."""
+    try:
+        if geojson.get("type") == "Feature":
+            geojson = geojson.get("geometry") or {}
+        elif geojson.get("type") == "FeatureCollection":
+            features = geojson.get("features") or []
+            if features:
+                geojson = features[0].get("geometry") or {}
+        if not geojson:
+            return None
+        geom = shape(geojson)
+        if not geom.is_valid:
+            geom = geom.buffer(0)
+        return geom if not geom.is_empty else None
+    except Exception:
+        return None
+
+
+def _boundary_from_location(location: dict[str, Any]) -> BaseGeometry | None:
+    """Build a boundary geometry from cached GeoJSON or bounding box data."""
+    for key in ("geojson", "geometry"):
+        geojson = location.get(key)
+        if isinstance(geojson, dict):
+            geom = _shape_from_geojson(geojson)
+            if geom is not None:
+                return geom
+
+    bbox = location.get("boundingbox")
+    if bbox and len(bbox) >= 4:
+        try:
+            min_lat, max_lat, min_lon, max_lon = map(float, bbox[:4])
+            return box(min_lon, min_lat, max_lon, max_lat)
+        except Exception:
+            return None
+
+    return None
+
+
+def _features_from_polygon(
+    polygon: BaseGeometry,
+    tags: dict[str, Any],
+) -> gpd.GeoDataFrame:
+    if hasattr(ox, "features_from_polygon"):
+        return ox.features_from_polygon(polygon, tags=tags)
+    return ox.geometries_from_polygon(polygon, tags=tags)
+
+
+async def _geocode_location_gdf(location: dict[str, Any]) -> gpd.GeoDataFrame | None:
+    queries: list[Any] = []
+    osm_id = location.get("osm_id")
+    osm_type = location.get("osm_type")
+    osm_prefix = {"relation": "R", "way": "W", "node": "N"}.get(osm_type)
+    if osm_id and osm_prefix:
+        queries.append({"osm_ids": f"{osm_prefix}{osm_id}"})
+        queries.append({"osm_id": osm_id, "osm_type": osm_type})
+    if location.get("display_name"):
+        queries.append(location["display_name"])
+
+    last_error: Exception | None = None
+    for query in queries:
+        try:
+            gdf = await asyncio.to_thread(ox.geocode_to_gdf, query)
+        except Exception as exc:
+            last_error = exc
+            logger.debug("OSMnx geocode failed for %s: %s", query, exc)
+            continue
+        if gdf is not None and not gdf.empty:
+            return gdf
+    if last_error is not None:
+        logger.warning(
+            "OSMnx geocode failed for %s: %s",
+            location.get("display_name", "unknown location"),
+            last_error,
+        )
+    return None
+
+
+def _features_from_geometry(gdf: gpd.GeoDataFrame) -> dict[str, Any]:
+    if gdf.crs is None:
+        gdf = gdf.set_crs("EPSG:4326")
+    return json.loads(gdf.to_json())
 
 
 async def generate_geojson_osm(
     location: dict[str, Any],
     streets_only: bool = False,
 ) -> tuple[dict | None, str | None]:
-    """Generate GeoJSON data from OpenStreetMap for a location.
-
-    Uses the standard street query if streets_only is True.
-
-    Args:
-        location: Dictionary with location data (must contain osm_id, osm_type)
-        streets_only: If True, only include streets, otherwise fetch boundary
-
-    Returns:
-        Tuple of (GeoJSON data, error message)
-    """
+    """Generate boundary or street GeoJSON using OSMnx."""
     try:
-        if not (
-            isinstance(location, dict)
-            and "osm_id" in location
-            and "osm_type" in location
-        ):
-            return (
-                None,
-                "Invalid location data format",
-            )
+        if not isinstance(location, dict):
+            return None, "Invalid location data format"
 
         osm_type_label = "streets" if streets_only else "boundary"
-        area_id = int(location["osm_id"])
+        location_name = location.get("display_name", "Unknown")
 
-        if location["osm_type"] == "relation":
-            # OSM relation IDs need to be adjusted for Overpass area queries
-            area_id_for_query = area_id + 3600000000
-        else:
-            area_id_for_query = area_id
+        boundary_geom = _boundary_from_location(location)
+        if boundary_geom is None:
+            boundary_gdf = await _geocode_location_gdf(location)
+            if boundary_gdf is None or boundary_gdf.empty:
+                return None, "Unable to resolve boundary geometry"
+            boundary_geom = boundary_gdf.geometry.iloc[0]
 
         if streets_only:
-            # Use the new standard query builder for streets
-            # The area(...) clause is specific to Overpass for defining a search area from an OSM object
-            query_target_clause = f"area({area_id_for_query})->.searchArea;"
-            query = build_standard_osm_streets_query(query_target_clause, timeout=300)
-            logger.info(
-                "Using standard Overpass query for streets.",
+            gdf = await asyncio.to_thread(
+                _features_from_polygon,
+                boundary_geom,
+                {"highway": True},
             )
+            if gdf.empty:
+                logger.warning(
+                    "No street features found for %s",
+                    location_name,
+                )
+                return {"type": "FeatureCollection", "features": []}, None
+
+            gdf = gdf[gdf.geometry.notnull()]
+            gdf = gdf[
+                gdf.geometry.type.isin(
+                    [
+                        "LineString",
+                        "MultiLineString",
+                    ]
+                )
+            ]
+            gdf = gdf[
+                gdf.apply(
+                    lambda row: _is_drivable_street(
+                        {k: v for k, v in row.items() if k != "geometry"}
+                    ),
+                    axis=1,
+                )
+            ]
         else:
-            # Original boundary query
-            query = f"""
-            [out:json][timeout:60];
-            (
-              {location["osm_type"]}({location["osm_id"]});
-            );
-            (._;>;); // Recurse down to nodes
-            out geom; // Output geometry
-            """
-
-        logger.info(
-            "Querying Overpass for %s: %s",
-            osm_type_label,
-            location.get("display_name", "Unknown"),
-        )
-
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
-                OVERPASS_URL,
-                params={"data": query},
-                timeout=90,  # HTTP client timeout
-            ) as response,
-        ):
-            response.raise_for_status()
-            data = await response.json()
-
-        features = await process_elements(
-            data.get("elements", []),
-            streets_only,
-        )
-
-        if not features:
-            logger.warning(
-                "No features found for %s: %s (potentially due to filters or empty area)",
-                osm_type_label,
-                location.get("display_name", "Unknown"),
+            gdf = gpd.GeoDataFrame(
+                [
+                    {
+                        "display_name": location_name,
+                        "osm_id": location.get("osm_id"),
+                        "osm_type": location.get("osm_type"),
+                    }
+                ],
+                geometry=[boundary_geom],
+                crs="EPSG:4326",
             )
-            return {
-                "type": "FeatureCollection",
-                "features": [],
-            }, None
 
-        gdf = gpd.GeoDataFrame.from_features(features)
-        if "geometry" not in gdf.columns and features:
-            gdf = gdf.set_geometry(
-                gpd.GeoSeries.from_features(features, crs="EPSG:4326")["geometry"],
-            )
-        elif "geometry" in gdf.columns:
-            gdf = gdf.set_geometry("geometry")
+        if gdf.empty:
+            return {"type": "FeatureCollection", "features": []}, None
 
-        if gdf.crs is None:
-            gdf.crs = "EPSG:4326"
-
-        geojson_data = json.loads(gdf.to_json())
+        geojson_data = _features_from_geometry(gdf)
 
         try:
             bson_size_estimate = len(json.dumps(geojson_data).encode("utf-8"))
-            if bson_size_estimate <= 16793598:  # MongoDB BSON document limit (approx)
+            if bson_size_estimate <= 16793598:
                 existing_data = await find_one_with_retry(
                     osm_data_collection,
-                    {
-                        "location": location,
-                        "type": osm_type_label,
-                    },
+                    {"location": location, "type": osm_type_label},
                 )
 
                 if existing_data:
@@ -286,15 +268,12 @@ async def generate_geojson_osm(
                             "$set": {
                                 "geojson": geojson_data,
                                 "updated_at": datetime.now(UTC),
-                            },
+                            }
                         },
                     )
                     logger.info(
                         "Updated cached OSM data for %s, type: %s",
-                        location.get(
-                            "display_name",
-                            "Unknown",
-                        ),
+                        location_name,
                         osm_type_label,
                     )
                 else:
@@ -310,16 +289,13 @@ async def generate_geojson_osm(
                     )
                     logger.info(
                         "Stored OSM data to cache for %s, type: %s",
-                        location.get(
-                            "display_name",
-                            "Unknown",
-                        ),
+                        location_name,
                         osm_type_label,
                     )
             else:
                 logger.warning(
                     "OSM data for %s (%s) is too large (%d bytes) to cache in MongoDB.",
-                    location.get("display_name", "Unknown"),
+                    location_name,
                     osm_type_label,
                     bson_size_estimate,
                 )
@@ -332,22 +308,6 @@ async def generate_geojson_osm(
 
         return geojson_data, None
 
-    except aiohttp.ClientResponseError as http_err:
-        error_detail = f"Overpass API error: {http_err.status} - {http_err.message}"
-        logger.error(error_detail, exc_info=True)
-        try:
-            error_body = await http_err.response.text()
-            logger.error(
-                "Overpass error body: %s",
-                error_body[:500],
-            )
-        except Exception:
-            pass
-        return None, error_detail
-    except aiohttp.ClientError as client_err:
-        error_detail = f"Error communicating with Overpass API: {client_err!s}"
-        logger.error(error_detail, exc_info=True)
-        return None, error_detail
     except Exception as e:
         error_detail = f"Unexpected error generating GeoJSON: {e!s}"
         logger.exception(error_detail)
