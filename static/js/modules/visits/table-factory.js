@@ -69,7 +69,8 @@
           data: "avgTimeSpent",
           className: "numeric-cell text-end",
           type: "duration",
-          render: (data) => (data ? `<i class="far fa-clock me-1"></i>${data}` : "N/A"),
+          render: (data) =>
+            data ? `<i class="far fa-clock me-1"></i>${data}` : "N/A",
           createdCell: (td, _cellData, _rowData, _row, col) => {
             $(td).attr("data-label", headers[col]);
           },
@@ -122,7 +123,8 @@
       columns: [
         {
           data: "name",
-          render: (data) => `<i class="fas fa-globe me-2 text-info"></i>${data}`,
+          render: (data) =>
+            `<i class="fas fa-globe me-2 text-info"></i>${data}`,
           createdCell: (td, _cellData, _rowData, _row, col) => {
             $(td).attr("data-label", headers[col]);
           },
@@ -255,7 +257,8 @@
           data: "timeSinceLastVisit",
           className: "numeric-cell text-end",
           type: "duration",
-          render: (data) => data || '<span class="text-muted">First visit</span>',
+          render: (data) =>
+            data || '<span class="text-muted">First visit</span>',
           createdCell: (td, _cellData, _rowData, _row, col) => {
             $(td).attr("data-label", headers[col]);
           },

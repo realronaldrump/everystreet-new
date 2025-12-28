@@ -31,7 +31,7 @@
 
           this.map.addControl(
             new mapboxgl.NavigationControl({ showCompass: false }),
-            "bottom-right"
+            "bottom-right",
           );
 
           this.map.on("load", () => {
@@ -71,7 +71,7 @@
       if (!this.placeFeatures.has(placeId)) return;
       const feature = this.placeFeatures.get(placeId);
       this.customPlacesData.features = this.customPlacesData.features.filter(
-        (f) => f !== feature
+        (f) => f !== feature,
       );
       this.placeFeatures.delete(placeId);
       this._refreshPlacesSource();
@@ -131,13 +131,15 @@
     toggleCustomPlacesVisibility(isVisible) {
       if (!this.map) return;
       const visibility = isVisible ? "visible" : "none";
-      ["custom-places-fill", "custom-places-outline", "custom-places-highlight"].forEach(
-        (layerId) => {
-          if (this.map.getLayer(layerId)) {
-            this.map.setLayoutProperty(layerId, "visibility", visibility);
-          }
+      [
+        "custom-places-fill",
+        "custom-places-outline",
+        "custom-places-highlight",
+      ].forEach((layerId) => {
+        if (this.map.getLayer(layerId)) {
+          this.map.setLayoutProperty(layerId, "visibility", visibility);
         }
-      );
+      });
     }
 
     toggleMapStyle() {
@@ -184,7 +186,11 @@
     showPlacePopup(content, lngLat) {
       if (!this.map) return null;
       this.activePopup?.remove?.();
-      this.activePopup = new mapboxgl.Popup({ offset: 12, className: "custom-popup-enhanced", maxWidth: "320px" })
+      this.activePopup = new mapboxgl.Popup({
+        offset: 12,
+        className: "custom-popup-enhanced",
+        maxWidth: "320px",
+      })
         .setLngLat(lngLat)
         .setHTML(content)
         .addTo(this.map);
@@ -254,7 +260,8 @@
           type: "line",
           source: "custom-places",
           paint: {
-            "line-color": this.mapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
+            "line-color":
+              this.mapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
             "line-width": 4,
             "line-opacity": 0,
           },
@@ -269,17 +276,26 @@
       this.map.on("mousemove", "custom-places-fill", (e) => {
         if (e.features.length > 0) {
           if (hoveredStateId !== null) {
-            this.map.setFeatureState({ source: "custom-places", id: hoveredStateId }, { hover: false });
+            this.map.setFeatureState(
+              { source: "custom-places", id: hoveredStateId },
+              { hover: false },
+            );
           }
           hoveredStateId = e.features[0].id;
-          this.map.setFeatureState({ source: "custom-places", id: hoveredStateId }, { hover: true });
+          this.map.setFeatureState(
+            { source: "custom-places", id: hoveredStateId },
+            { hover: true },
+          );
           this.map.getCanvas().style.cursor = "pointer";
         }
       });
 
       this.map.on("mouseleave", "custom-places-fill", () => {
         if (hoveredStateId !== null) {
-          this.map.setFeatureState({ source: "custom-places", id: hoveredStateId }, { hover: false });
+          this.map.setFeatureState(
+            { source: "custom-places", id: hoveredStateId },
+            { hover: false },
+          );
         }
         hoveredStateId = null;
         this.map.getCanvas().style.cursor = "";
@@ -299,7 +315,11 @@
       if (!this.map?.getLayer("custom-places-highlight")) return;
       this.map.setPaintProperty("custom-places-highlight", "line-opacity", 0.8);
       setTimeout(() => {
-        this.map?.setPaintProperty("custom-places-highlight", "line-opacity", 0);
+        this.map?.setPaintProperty(
+          "custom-places-highlight",
+          "line-opacity",
+          0,
+        );
       }, 300);
     }
 

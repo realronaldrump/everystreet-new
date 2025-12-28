@@ -6,7 +6,8 @@
       this.tripViewMap = null;
       this.startMarker = null;
       this.endMarker = null;
-      this.currentTheme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      this.currentTheme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
     }
 
     showTrip(trip) {
@@ -15,10 +16,16 @@
       if (!modalElement || !tripInfoContainer) return;
 
       const startTime = trip.startTime
-        ? DateUtils.formatForDisplay(trip.startTime, { dateStyle: "medium", timeStyle: "short" })
+        ? DateUtils.formatForDisplay(trip.startTime, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })
         : "Unknown";
       const endTime = trip.endTime
-        ? DateUtils.formatForDisplay(trip.endTime, { dateStyle: "medium", timeStyle: "short" })
+        ? DateUtils.formatForDisplay(trip.endTime, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })
         : "Unknown";
 
       let formattedDistance = "Unknown";
@@ -34,8 +41,12 @@
       }
 
       const transactionId = trip.transactionId || trip.id || trip._id;
-      const startLocation = trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
-      const endLocation = trip.destination?.formatted_address || trip.destinationPlace || "Unknown";
+      const startLocation =
+        trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
+      const endLocation =
+        trip.destination?.formatted_address ||
+        trip.destinationPlace ||
+        "Unknown";
 
       tripInfoContainer.innerHTML = `
         <div class="trip-details">
@@ -77,11 +88,18 @@
       `;
 
       const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-      modalElement.removeEventListener("shown.bs.modal", this._handleTripModalShown);
+      modalElement.removeEventListener(
+        "shown.bs.modal",
+        this._handleTripModalShown,
+      );
       this._handleTripModalShown = () => this._initializeOrUpdateTripMap(trip);
-      modalElement.addEventListener("shown.bs.modal", this._handleTripModalShown, {
-        once: true,
-      });
+      modalElement.addEventListener(
+        "shown.bs.modal",
+        this._handleTripModalShown,
+        {
+          once: true,
+        },
+      );
 
       modal.show();
     }
@@ -158,7 +176,10 @@
 
       if (trip.geometry?.coordinates?.length > 0) {
         try {
-          this.tripViewMap.addSource("trip", { type: "geojson", data: trip.geometry });
+          this.tripViewMap.addSource("trip", {
+            type: "geojson",
+            data: trip.geometry,
+          });
 
           this.tripViewMap.addLayer({
             id: "trip-path-outline",
@@ -187,14 +208,22 @@
           const endCoord = coordinates[coordinates.length - 1];
 
           if (Array.isArray(startCoord) && startCoord.length >= 2) {
-            this.startMarker = new mapboxgl.Marker({ color: "#22c55e", scale: 1.2 })
+            this.startMarker = new mapboxgl.Marker({
+              color: "#22c55e",
+              scale: 1.2,
+            })
               .setLngLat(startCoord)
-              .setPopup(new mapboxgl.Popup({ offset: 25 }).setText("Trip Start"))
+              .setPopup(
+                new mapboxgl.Popup({ offset: 25 }).setText("Trip Start"),
+              )
               .addTo(this.tripViewMap);
           }
 
           if (Array.isArray(endCoord) && endCoord.length >= 2) {
-            this.endMarker = new mapboxgl.Marker({ color: "#ef4444", scale: 1.2 })
+            this.endMarker = new mapboxgl.Marker({
+              color: "#ef4444",
+              scale: 1.2,
+            })
               .setLngLat(endCoord)
               .setPopup(new mapboxgl.Popup({ offset: 25 }).setText("Trip End"))
               .addTo(this.tripViewMap);
@@ -202,9 +231,13 @@
 
           const bounds = coordinates.reduce(
             (b, c) => b.extend(c),
-            new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+            new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
           );
-          this.tripViewMap.fitBounds(bounds, { padding: 50, maxZoom: 16, duration: 1000 });
+          this.tripViewMap.fitBounds(bounds, {
+            padding: 50,
+            maxZoom: 16,
+            duration: 1000,
+          });
         } catch (error) {
           document.getElementById("trip-info").innerHTML +=
             '<div class="alert alert-danger mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Error displaying trip route.</div>';
