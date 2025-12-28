@@ -115,7 +115,6 @@ app.include_router(visits_router)
 trips_collection = db_manager.db["trips"]
 places_collection = db_manager.db["places"]
 live_trips_collection = db_manager.db["live_trips"]
-archived_live_trips_collection = db_manager.db["archived_live_trips"]
 app_settings_collection = db_manager.db["app_settings"]
 
 
