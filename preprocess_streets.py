@@ -455,7 +455,6 @@ async def preprocess_streets(
                 raw_feat["osm_id"],
                 location_name,
                 boundary_shape,
-                boundary_shape,
                 final_segment_length,
             )
 
