@@ -15,7 +15,7 @@ from aiolimiter import AsyncLimiter
 
 from date_utils import parse_timestamp
 from geometry_service import GeometryService
-from utils import reverse_geocode_mapbox, reverse_geocode_nominatim
+from utils import get_session, reverse_geocode_mapbox, reverse_geocode_nominatim
 
 logger = logging.getLogger(__name__)
 
@@ -202,24 +202,17 @@ class ExternalGeoService:
         if not self.utm_proj:
             self._initialize_projections(coordinates)
 
-        timeout = aiohttp.ClientTimeout(
-            total=45,
-            connect=10,
-            sock_connect=10,
-            sock_read=30,
+        session = await get_session()
+        return await self._process_map_matching(
+            session,
+            coordinates,
+            timestamps,
+            chunk_size,
+            overlap,
+            max_retries,
+            min_sub_chunk,
+            jump_threshold_m,
         )
-
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            return await self._process_map_matching(
-                session,
-                coordinates,
-                timestamps,
-                chunk_size,
-                overlap,
-                max_retries,
-                min_sub_chunk,
-                jump_threshold_m,
-            )
 
     def _initialize_projections(self, coords: list[list[float]]) -> None:
         """Initialize projections for map matching.
