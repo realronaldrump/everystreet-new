@@ -57,8 +57,8 @@ class GeometryService:
             math.sin(dphi / 2) ** 2
             + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
         )
-        distance_m = 2 * GeometryService.EARTH_RADIUS_M * math.asin(
-            min(1.0, math.sqrt(a))
+        distance_m = (
+            2 * GeometryService.EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(a)))
         )
         if unit == "meters":
             return distance_m
