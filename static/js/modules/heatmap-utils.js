@@ -170,7 +170,7 @@ const heatmapUtils = {
 
     console.log(
       `Heatmap: ${tripCount} trips, core opacity: ${settings.coreOpacity}, ` +
-        `glow opacity: ${settings.glowOpacity}, base width: ${settings.baseWidth}`,
+        `glow opacity: ${settings.glowOpacity}, base width: ${settings.baseWidth}`
     );
 
     return {

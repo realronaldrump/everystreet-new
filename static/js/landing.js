@@ -3,14 +3,12 @@
  * Fetches live data and animates the landing page
  */
 
-(function () {
-  'use strict';
-
+(() => {
   // Configuration
   const CONFIG = {
     refreshInterval: 60000, // 1 minute
     animationDuration: 500,
-    activityLimit: 5
+    activityLimit: 5,
   };
 
   // DOM Elements (cached after DOMContentLoaded)
@@ -31,14 +29,14 @@
    */
   function cacheElements() {
     elements = {
-      statCoverage: document.getElementById('stat-coverage'),
-      statMiles: document.getElementById('stat-miles'),
-      statTrips: document.getElementById('stat-trips'),
-      liveIndicator: document.getElementById('live-indicator'),
-      undrivenStreets: document.getElementById('undriven-streets'),
-      recentTrip: document.getElementById('recent-trip'),
-      lastFillup: document.getElementById('last-fillup'),
-      activityFeed: document.getElementById('activity-feed')
+      statCoverage: document.getElementById("stat-coverage"),
+      statMiles: document.getElementById("stat-miles"),
+      statTrips: document.getElementById("stat-trips"),
+      liveIndicator: document.getElementById("live-indicator"),
+      undrivenStreets: document.getElementById("undriven-streets"),
+      recentTrip: document.getElementById("recent-trip"),
+      lastFillup: document.getElementById("last-fillup"),
+      activityFeed: document.getElementById("activity-feed"),
     };
   }
 
@@ -52,10 +50,10 @@
         loadCoverageStats(),
         loadRecentTrips(),
         loadGasStats(),
-        checkLiveTracking()
+        checkLiveTracking(),
       ]);
     } catch (error) {
-      console.error('Error loading landing page data:', error);
+      console.error("Error loading landing page data:", error);
     }
   }
 
@@ -64,18 +62,26 @@
    */
   async function loadMetrics() {
     try {
-      const response = await fetch('/api/metrics');
-      if (!response.ok) throw new Error('Failed to fetch metrics');
+      const response = await fetch("/api/metrics");
+      if (!response.ok) throw new Error("Failed to fetch metrics");
 
       const data = await response.json();
 
       // Update stats with animation
-      animateValue(elements.statMiles, parseFloat(data.total_distance) || 0, formatMiles);
-      animateValue(elements.statTrips, parseInt(data.total_trips) || 0, formatNumber);
+      animateValue(
+        elements.statMiles,
+        parseFloat(data.total_distance) || 0,
+        formatMiles
+      );
+      animateValue(
+        elements.statTrips,
+        parseInt(data.total_trips, 10) || 0,
+        formatNumber
+      );
     } catch (error) {
-      console.error('Error loading metrics:', error);
-      if (elements.statMiles) elements.statMiles.textContent = '--';
-      if (elements.statTrips) elements.statTrips.textContent = '--';
+      console.error("Error loading metrics:", error);
+      if (elements.statMiles) elements.statMiles.textContent = "--";
+      if (elements.statTrips) elements.statTrips.textContent = "--";
     }
   }
 
@@ -84,8 +90,8 @@
    */
   async function loadCoverageStats() {
     try {
-      const response = await fetch('/api/coverage_areas');
-      if (!response.ok) throw new Error('Failed to fetch coverage areas');
+      const response = await fetch("/api/coverage_areas");
+      if (!response.ok) throw new Error("Failed to fetch coverage areas");
 
       const data = await response.json();
 
@@ -99,17 +105,17 @@
 
         // Update undriven streets meta
         if (elements.undrivenStreets) {
-          const valueEl = elements.undrivenStreets.querySelector('.meta-value');
+          const valueEl = elements.undrivenStreets.querySelector(".meta-value");
           if (valueEl) {
             valueEl.textContent = formatNumber(undrivenCount);
           }
         }
       } else {
-        if (elements.statCoverage) elements.statCoverage.textContent = '--';
+        if (elements.statCoverage) elements.statCoverage.textContent = "--";
       }
     } catch (error) {
-      console.error('Error loading coverage stats:', error);
-      if (elements.statCoverage) elements.statCoverage.textContent = '--';
+      console.error("Error loading coverage stats:", error);
+      if (elements.statCoverage) elements.statCoverage.textContent = "--";
     }
   }
 
@@ -118,8 +124,8 @@
    */
   async function loadRecentTrips() {
     try {
-      const response = await fetch('/api/trips/history?limit=5');
-      if (!response.ok) throw new Error('Failed to fetch trips');
+      const response = await fetch("/api/trips/history?limit=5");
+      if (!response.ok) throw new Error("Failed to fetch trips");
 
       const data = await response.json();
       const trips = data.trips || data || [];
@@ -129,7 +135,7 @@
         const lastTrip = trips[0];
         const lastTripTime = lastTrip.endTime || lastTrip.startTime;
         if (lastTripTime) {
-          const valueEl = elements.recentTrip.querySelector('.meta-value');
+          const valueEl = elements.recentTrip.querySelector(".meta-value");
           if (valueEl) {
             valueEl.textContent = formatTimeAgo(new Date(lastTripTime));
           }
@@ -138,9 +144,8 @@
 
       // Populate activity feed
       populateActivityFeed(trips);
-
     } catch (error) {
-      console.error('Error loading recent trips:', error);
+      console.error("Error loading recent trips:", error);
       populateActivityFeed([]);
     }
   }
@@ -150,19 +155,19 @@
    */
   async function loadGasStats() {
     try {
-      const response = await fetch('/api/gas-statistics');
-      if (!response.ok) throw new Error('Failed to fetch gas stats');
+      const response = await fetch("/api/gas-statistics");
+      if (!response.ok) throw new Error("Failed to fetch gas stats");
 
       const data = await response.json();
 
       if (elements.lastFillup) {
-        const valueEl = elements.lastFillup.querySelector('.meta-value');
+        const valueEl = elements.lastFillup.querySelector(".meta-value");
         if (valueEl && data.average_mpg) {
           valueEl.textContent = data.average_mpg.toFixed(1);
         }
       }
     } catch (error) {
-      console.error('Error loading gas stats:', error);
+      console.error("Error loading gas stats:", error);
     }
   }
 
@@ -171,24 +176,24 @@
    */
   async function checkLiveTracking() {
     try {
-      const response = await fetch('/api/active_trip');
-      if (!response.ok) throw new Error('Failed to check live tracking');
+      const response = await fetch("/api/active_trip");
+      if (!response.ok) throw new Error("Failed to check live tracking");
 
       const data = await response.json();
 
       if (elements.liveIndicator) {
-        if (data.trip && data.trip.status === 'active') {
-          elements.liveIndicator.classList.add('active');
-          elements.liveIndicator.title = 'Live tracking active';
+        if (data.trip && data.trip.status === "active") {
+          elements.liveIndicator.classList.add("active");
+          elements.liveIndicator.title = "Live tracking active";
         } else {
-          elements.liveIndicator.classList.remove('active');
-          elements.liveIndicator.title = 'No active tracking';
+          elements.liveIndicator.classList.remove("active");
+          elements.liveIndicator.title = "No active tracking";
         }
       }
     } catch (error) {
-      console.error('Error checking live tracking:', error);
+      console.error("Error checking live tracking:", error);
       if (elements.liveIndicator) {
-        elements.liveIndicator.classList.remove('active');
+        elements.liveIndicator.classList.remove("active");
       }
     }
   }
@@ -209,13 +214,15 @@
       return;
     }
 
-    const activityHtml = trips.slice(0, CONFIG.activityLimit).map((trip, index) => {
-      const distance = trip.distance ? parseFloat(trip.distance).toFixed(1) : '?';
-      const destination = formatDestination(trip.destination);
-      const time = trip.endTime || trip.startTime;
-      const timeAgo = time ? formatTimeAgo(new Date(time)) : '';
+    const activityHtml = trips
+      .slice(0, CONFIG.activityLimit)
+      .map((trip, index) => {
+        const distance = trip.distance ? parseFloat(trip.distance).toFixed(1) : "?";
+        const destination = formatDestination(trip.destination);
+        const time = trip.endTime || trip.startTime;
+        const timeAgo = time ? formatTimeAgo(new Date(time)) : "";
 
-      return `
+        return `
         <div class="activity-item" style="animation-delay: ${index * 0.1}s">
           <div class="activity-icon trip">
             <i class="fas fa-car"></i>
@@ -228,7 +235,8 @@
           </div>
         </div>
       `;
-    }).join('');
+      })
+      .join("");
 
     elements.activityFeed.innerHTML = activityHtml;
   }
@@ -237,15 +245,15 @@
    * Format a destination object for display
    */
   function formatDestination(dest) {
-    if (!dest) return 'Unknown';
-    if (typeof dest === 'string') return dest;
+    if (!dest) return "Unknown";
+    if (typeof dest === "string") return dest;
     if (dest.name) return dest.name;
     if (dest.formatted_address) {
       // Shorten the address
-      const parts = dest.formatted_address.split(',');
+      const parts = dest.formatted_address.split(",");
       return parts[0] || dest.formatted_address;
     }
-    return 'Unknown';
+    return "Unknown";
   }
 
   /**
@@ -254,18 +262,18 @@
   function animateValue(element, endValue, formatter) {
     if (!element) return;
 
-    const startValue = parseFloat(element.textContent.replace(/[^0-9.-]/g, '')) || 0;
+    const startValue = parseFloat(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
     const startTime = performance.now();
     const duration = CONFIG.animationDuration;
 
-    element.classList.add('updating');
+    element.classList.add("updating");
 
     function update(currentTime) {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
       // Easing function (ease-out cubic)
-      const eased = 1 - Math.pow(1 - progress, 3);
+      const eased = 1 - (1 - progress) ** 3;
       const current = startValue + (endValue - startValue) * eased;
 
       element.textContent = formatter(current);
@@ -273,7 +281,7 @@
       if (progress < 1) {
         requestAnimationFrame(update);
       } else {
-        element.classList.remove('updating');
+        element.classList.remove("updating");
       }
     }
 
@@ -285,7 +293,7 @@
    */
   function formatMiles(value) {
     if (value >= 1000) {
-      return (value / 1000).toFixed(1) + 'k';
+      return `${(value / 1000).toFixed(1)}k`;
     }
     return Math.round(value).toLocaleString();
   }
@@ -301,7 +309,7 @@
    * Format a percentage
    */
   function formatPercentage(value) {
-    return value.toFixed(1) + '%';
+    return `${value.toFixed(1)}%`;
   }
 
   /**
@@ -315,7 +323,7 @@
     const diffHour = Math.floor(diffMin / 60);
     const diffDay = Math.floor(diffHour / 24);
 
-    if (diffSec < 60) return 'just now';
+    if (diffSec < 60) return "just now";
     if (diffMin < 60) return `${diffMin}m`;
     if (diffHour < 24) return `${diffHour}h`;
     if (diffDay < 7) return `${diffDay}d`;
@@ -339,8 +347,8 @@
   }
 
   // Initialize when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
   } else {
     init();
   }

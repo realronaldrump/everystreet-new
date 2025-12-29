@@ -15,10 +15,7 @@
 /* === Ambient Background === */
 .landing-ambient {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   pointer-events: none;
   overflow: hidden;
   z-index: 0;
@@ -61,15 +58,19 @@
 }
 
 @keyframes ambientFloat {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(0, 0) scale(1);
   }
+
   25% {
     transform: translate(30px, -30px) scale(1.05);
   }
+
   50% {
     transform: translate(-20px, 20px) scale(0.95);
   }
+
   75% {
     transform: translate(-30px, -20px) scale(1.02);
   }
@@ -93,6 +94,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -108,7 +110,7 @@
   padding: var(--space-8) var(--space-6);
   background: var(--surface-glass);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-color);
   animation: fadeInUp 0.6s ease-out 0.1s both;
@@ -124,7 +126,9 @@
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   line-height: 1;
-  transition: transform 0.3s ease, color 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    color 0.3s ease;
 }
 
 .stat-value.updating {
@@ -132,9 +136,18 @@
 }
 
 @keyframes statPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); color: var(--primary); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+    color: var(--primary);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .stat-label {
@@ -170,7 +183,10 @@
   text-decoration: none;
   color: inherit;
   overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
   min-height: 120px;
 }
 
@@ -187,14 +203,12 @@
 /* Tile Background Effect */
 .tile-bg {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   opacity: 0;
   transition: opacity 0.3s ease;
-  background: linear-gradient(135deg,
-    rgba(var(--primary-rgb), 0.08) 0%,
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb), 0.08) 0%,
     transparent 50%
   );
 }
@@ -223,7 +237,9 @@
   border-radius: var(--radius-lg);
   font-size: var(--font-size-xl);
   color: var(--primary);
-  transition: background 0.3s ease, transform 0.3s ease;
+  transition:
+    background 0.3s ease,
+    transform 0.3s ease;
 }
 
 .nav-tile:hover .tile-icon {
@@ -267,16 +283,18 @@
 
 .live-dot.active {
   background: var(--success);
-  box-shadow: 0 0 0 4px rgba(var(--success-rgb), 0.2);
+  box-shadow: 0 0 0 4px rgb(var(--success-rgb), 0.2);
   animation: livePulse 2s ease-in-out infinite;
 }
 
 @keyframes livePulse {
-  0%, 100% {
-    box-shadow: 0 0 0 4px rgba(var(--success-rgb), 0.2);
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgb(var(--success-rgb), 0.2);
   }
+
   50% {
-    box-shadow: 0 0 0 8px rgba(var(--success-rgb), 0.1);
+    box-shadow: 0 0 0 8px rgb(var(--success-rgb), 0.1);
   }
 }
 
@@ -389,10 +407,12 @@
 }
 
 @keyframes loadingPulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(0.95);
     opacity: 0.5;
   }
+
   50% {
     transform: scale(1);
     opacity: 1;
@@ -418,6 +438,7 @@
     opacity: 0;
     transform: translateX(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -437,10 +458,21 @@
   flex-shrink: 0;
 }
 
-.activity-icon.trip { color: var(--primary); }
-.activity-icon.gas { color: var(--warning); }
-.activity-icon.visit { color: var(--info); }
-.activity-icon.coverage { color: var(--success); }
+.activity-icon.trip {
+  color: var(--primary);
+}
+
+.activity-icon.gas {
+  color: var(--warning);
+}
+
+.activity-icon.visit {
+  color: var(--info);
+}
+
+.activity-icon.coverage {
+  color: var(--success);
+}
 
 .activity-text {
   flex: 1;
@@ -470,7 +502,7 @@
 /* === Responsive Design === */
 
 /* Tablet */
-@media (min-width: 768px) {
+@media (width >= 768px) {
   .landing-page {
     padding: var(--space-8);
   }
@@ -494,7 +526,7 @@
 }
 
 /* Desktop */
-@media (min-width: 1024px) {
+@media (width >= 1024px) {
   .landing-page {
     padding: var(--space-10);
     justify-content: center;
@@ -538,7 +570,7 @@
 }
 
 /* Large Desktop */
-@media (min-width: 1440px) {
+@media (width >= 1440px) {
   .landing-content {
     max-width: 1400px;
   }
@@ -553,7 +585,7 @@
 }
 
 /* Mobile Small */
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .landing-page {
     padding: var(--space-4);
   }
@@ -617,16 +649,45 @@
 }
 
 /* === Staggered Animation Delays === */
-.nav-tile:nth-child(1) { animation: fadeInUp 0.5s ease-out 0.1s both; }
-.nav-tile:nth-child(2) { animation: fadeInUp 0.5s ease-out 0.15s both; }
-.nav-tile:nth-child(3) { animation: fadeInUp 0.5s ease-out 0.2s both; }
-.nav-tile:nth-child(4) { animation: fadeInUp 0.5s ease-out 0.25s both; }
-.nav-tile:nth-child(5) { animation: fadeInUp 0.5s ease-out 0.3s both; }
-.nav-tile:nth-child(6) { animation: fadeInUp 0.5s ease-out 0.35s both; }
-.nav-tile:nth-child(7) { animation: fadeInUp 0.5s ease-out 0.4s both; }
-.nav-tile:nth-child(8) { animation: fadeInUp 0.5s ease-out 0.42s both; }
-.nav-tile:nth-child(9) { animation: fadeInUp 0.5s ease-out 0.44s both; }
-.nav-tile:nth-child(10) { animation: fadeInUp 0.5s ease-out 0.46s both; }
+.nav-tile:nth-child(1) {
+  animation: fadeInUp 0.5s ease-out 0.1s both;
+}
+
+.nav-tile:nth-child(2) {
+  animation: fadeInUp 0.5s ease-out 0.15s both;
+}
+
+.nav-tile:nth-child(3) {
+  animation: fadeInUp 0.5s ease-out 0.2s both;
+}
+
+.nav-tile:nth-child(4) {
+  animation: fadeInUp 0.5s ease-out 0.25s both;
+}
+
+.nav-tile:nth-child(5) {
+  animation: fadeInUp 0.5s ease-out 0.3s both;
+}
+
+.nav-tile:nth-child(6) {
+  animation: fadeInUp 0.5s ease-out 0.35s both;
+}
+
+.nav-tile:nth-child(7) {
+  animation: fadeInUp 0.5s ease-out 0.4s both;
+}
+
+.nav-tile:nth-child(8) {
+  animation: fadeInUp 0.5s ease-out 0.42s both;
+}
+
+.nav-tile:nth-child(9) {
+  animation: fadeInUp 0.5s ease-out 0.44s both;
+}
+
+.nav-tile:nth-child(10) {
+  animation: fadeInUp 0.5s ease-out 0.46s both;
+}
 
 /* === Reduce Motion === */
 @media (prefers-reduced-motion: reduce) {

@@ -106,7 +106,7 @@ const layerManager = {
         }
 
         this.saveLayerSettings();
-      }, 200),
+      }, 200)
     );
   },
 
@@ -176,7 +176,7 @@ const layerManager = {
         }
         return closest;
       },
-      { offset: Number.NEGATIVE_INFINITY },
+      { offset: Number.NEGATIVE_INFINITY }
     ).element;
   },
 
@@ -193,7 +193,7 @@ const layerManager = {
 
     if (state.map && state.mapInitialized) {
       const sortedLayers = Object.entries(state.mapLayers).sort(
-        ([, a], [, b]) => (b.order || 0) - (a.order || 0),
+        ([, a], [, b]) => (b.order || 0) - (a.order || 0)
       );
 
       let beforeLayer = null;
@@ -242,7 +242,7 @@ const layerManager = {
             state.map.setLayoutProperty(
               glowLayerId,
               "visibility",
-              visible ? "visible" : "none",
+              visible ? "visible" : "none"
             );
           }
         }
@@ -353,7 +353,7 @@ const layerManager = {
           state.map.setLayoutProperty(
             layerId,
             "visibility",
-            layerInfo.visible ? "visible" : "none",
+            layerInfo.visible ? "visible" : "none"
           );
 
           layerInfo.layer = data;
@@ -426,7 +426,7 @@ const layerManager = {
         state.map.setLayoutProperty(
           layerId,
           "visibility",
-          layerInfo.visible ? "visible" : "none",
+          layerInfo.visible ? "visible" : "none"
         );
       }
 
@@ -475,7 +475,7 @@ const layerManager = {
   /**
    * Update or create a Strava-style heatmap using 2 stacked glow line layers.
    */
-  async _updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo) {
+  async _updateHeatmapLayer(layerName, data, sourceId, _layerId, layerInfo) {
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
 
     const heatmapConfig = heatmapUtils.generateHeatmapConfig(data, {
@@ -485,7 +485,9 @@ const layerManager = {
 
     const { tripCount, glowLayers } = heatmapConfig;
 
-    console.log(`Heatmap: ${tripCount} trips, creating ${glowLayers.length} glow layers`);
+    console.log(
+      `Heatmap: ${tripCount} trips, creating ${glowLayers.length} glow layers`
+    );
 
     const existingSource = state.map.getSource(sourceId);
     const firstGlowLayerId = `${layerName}-layer-0`;
@@ -499,16 +501,32 @@ const layerManager = {
         glowLayers.forEach((glowConfig, index) => {
           const glowLayerId = `${layerName}-layer-${index}`;
           if (state.map.getLayer(glowLayerId)) {
-            state.map.setPaintProperty(glowLayerId, "line-color", glowConfig.paint["line-color"]);
-            state.map.setPaintProperty(glowLayerId, "line-width", glowConfig.paint["line-width"]);
-            state.map.setPaintProperty(glowLayerId, "line-opacity", glowConfig.paint["line-opacity"]);
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-color",
+              glowConfig.paint["line-color"]
+            );
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-width",
+              glowConfig.paint["line-width"]
+            );
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-opacity",
+              glowConfig.paint["line-opacity"]
+            );
             if (glowConfig.paint["line-blur"] !== undefined) {
-              state.map.setPaintProperty(glowLayerId, "line-blur", glowConfig.paint["line-blur"]);
+              state.map.setPaintProperty(
+                glowLayerId,
+                "line-blur",
+                glowConfig.paint["line-blur"]
+              );
             }
             state.map.setLayoutProperty(
               glowLayerId,
               "visibility",
-              layerInfo.visible ? "visible" : "none",
+              layerInfo.visible ? "visible" : "none"
             );
           }
         });
@@ -516,7 +534,10 @@ const layerManager = {
         layerInfo.layer = data;
         return;
       } catch (updateError) {
-        console.warn(`Falling back to heatmap layer rebuild for ${layerName}:`, updateError);
+        console.warn(
+          `Falling back to heatmap layer rebuild for ${layerName}:`,
+          updateError
+        );
       }
     }
 
