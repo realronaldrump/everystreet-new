@@ -273,7 +273,9 @@ class ExternalGeoService:
         session = await get_session()
 
         try:
-            async with mapbox_rate_limiter, session.get(url, params=params, timeout=10) as response:
+            async with mapbox_rate_limiter, session.get(
+                url, params=params, timeout=10
+            ) as response:
                 response.raise_for_status()
                 data = await response.json()
 

@@ -547,7 +547,9 @@ def _solve_greedy_route(
                 global_targets.discard(target_start)
                 continue
 
-        def _candidate_score(rid: ReqId, _node: int = current_node) -> tuple[float, float]:
+        def _candidate_score(
+            rid: ReqId, _node: int = current_node
+        ) -> tuple[float, float]:
             service_edge = _best_service_edge_from_start(rid, _node)
             seg_count = float(
                 req_segment_counts.get(rid, 1) if req_segment_counts else 1
