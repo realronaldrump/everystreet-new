@@ -1,247 +1,194 @@
 /**
  * Heatmap utility module for creating Strava-style line-based heatmap visualization.
  *
- * Unlike point-based heatmaps, this maintains LINE geometry and creates the heat
- * effect through:
- * 1. Stacked semi-transparent layers that blend where routes overlap
- * 2. Glow effect using multiple line layers with decreasing width/opacity
- * 3. Proper Strava-inspired color gradients
+ * The heat effect comes from overlapping semi-transparent lines that compound
+ * in brightness. Routes traveled many times appear brighter than routes
+ * traveled once.
  */
 
 const heatmapUtils = {
   /**
-   * Strava-style color configuration.
-   * The gradient goes from dark/invisible → purple → red → orange → yellow
+   * Strava-style colors - bright orange/yellow core with red/purple glow
    */
-  haversineDistance(coord1, coord2) {
-    const R = 6371000; // Earth's radius in meters
-    const lat1 = (coord1[1] * Math.PI) / 180;
-    const lat2 = (coord2[1] * Math.PI) / 180;
-    const deltaLat = ((coord2[1] - coord1[1]) * Math.PI) / 180;
-    const deltaLng = ((coord2[0] - coord1[0]) * Math.PI) / 180;
-
-    const a =
-      Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-      Math.cos(lat1) *
-        Math.cos(lat2) *
-        Math.sin(deltaLng / 2) *
-        Math.sin(deltaLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
+  COLORS: {
+    dark: {
+      glow: "#ff4400", // Orange-red outer glow
+      core: "#ffaa00", // Bright orange-yellow core
+    },
+    light: {
+      glow: "#ff5500",
+      core: "#ff8800",
+    },
   },
 
   /**
-   * Interpolate a point between two coordinates at a given fraction.
-   * @param {number[]} coord1 - [lng, lat]
-   * @param {number[]} coord2 - [lng, lat]
-   * @param {number} fraction - Value between 0 and 1
-   * @returns {number[]} Interpolated [lng, lat]
-   */
-  interpolate(coord1, coord2, fraction) {
-    return [
-      coord1[0] + (coord2[0] - coord1[0]) * fraction,
-      coord1[1] + (coord2[1] - coord1[1]) * fraction,
-    ];
-  },
-
-  /**
-   * Calculate adaptive line width based on trip count.
-   * More trips = thinner base lines (they stack to create brightness).
-   * Fewer trips = slightly thicker lines so they're visible.
-   * @param {number} tripCount - Number of trips
-   * @returns {number} Base line width
-   */
-  getAdaptiveLineWidth(tripCount) {
-    if (tripCount <= 1) return 3;
-    if (tripCount <= 10) return 2.5;
-    if (tripCount <= 50) return 2;
-    if (tripCount <= 200) return 1.8;
-    if (tripCount <= 500) return 1.5;
-    if (tripCount <= 1000) return 1.2;
-    if (tripCount <= 3000) return 1;
-    return 0.8;
-  },
-
-  /**
-   * Calculate adaptive opacity based on trip count.
-   * More trips = lower individual opacity (prevents oversaturation).
-   * @param {number} tripCount - Number of trips
-   * @returns {number} Base opacity (0-1)
-   */
-  getAdaptiveOpacity(tripCount) {
-    if (tripCount <= 1) return 0.9;
-    if (tripCount <= 5) return 0.8;
-    if (tripCount <= 20) return 0.6;
-    if (tripCount <= 50) return 0.45;
-    if (tripCount <= 100) return 0.35;
-    if (tripCount <= 300) return 0.25;
-    if (tripCount <= 700) return 0.18;
-    if (tripCount <= 1500) return 0.12;
-    if (tripCount <= 3000) return 0.08;
-    if (tripCount <= 5000) return 0.05;
-    return 0.03;
-  },
-
-  /**
-   * Generate the glow layer configurations for Strava-style visualization.
-   * Creates multiple stacked layers that produce a glowing line effect.
+   * Calculate line width and opacity based on trip count.
+   * The key insight: we want individual lines thin and semi-transparent
+   * so that OVERLAP creates the brightness, not the individual line.
    *
-   * @param {number} tripCount - Number of trips for adaptive sizing
-   * @param {number} userOpacity - User-configured opacity (0-1)
-   * @param {string} theme - 'dark' or 'light'
-   * @returns {Array} Array of layer paint configurations (outer to inner)
+   * @param {number} tripCount - Number of trips
+   * @returns {Object} Configuration with width and opacity settings
    */
-  generateGlowLayers(tripCount, userOpacity = 0.85, theme = "dark") {
-    const colors = this.COLORS[theme] || this.COLORS.dark;
-    const baseWidth = this.getAdaptiveLineWidth(tripCount);
-    const baseOpacity = this.getAdaptiveOpacity(tripCount);
+  getAdaptiveSettings(tripCount) {
+    // For heatmap effect, we need:
+    // - Thin lines so they stack nicely
+    // - Moderate opacity so overlapping creates visible brightness
+    // - More trips = slightly thinner lines and lower per-line opacity
 
-    // Apply user opacity as a multiplier
-    const opacityMultiplier = userOpacity;
+    let baseWidth, glowWidth, coreOpacity, glowOpacity;
 
-    // Glow layers from outermost (widest, most transparent) to innermost (narrow, bright)
-    // Each layer stacks on top, and where routes overlap, the effect compounds
-    return [
-      // Layer 0: Outer glow (widest, most transparent)
-      {
-        name: "glow-outer",
-        paint: {
-          "line-color": colors.glow,
-          "line-width": this._zoomInterpolate(baseWidth * 6),
-          "line-opacity": baseOpacity * 0.15 * opacityMultiplier,
-          "line-blur": baseWidth * 2,
-        },
-      },
-      // Layer 1: Middle glow
-      {
-        name: "glow-middle",
-        paint: {
-          "line-color": colors.outer,
-          "line-width": this._zoomInterpolate(baseWidth * 3.5),
-          "line-opacity": baseOpacity * 0.3 * opacityMultiplier,
-          "line-blur": baseWidth * 1,
-        },
-      },
-      // Layer 2: Inner glow
-      {
-        name: "glow-inner",
-        paint: {
-          "line-color": colors.middle,
-          "line-width": this._zoomInterpolate(baseWidth * 2),
-          "line-opacity": baseOpacity * 0.5 * opacityMultiplier,
-          "line-blur": baseWidth * 0.5,
-        },
-      },
-      // Layer 3: Core line (narrowest, brightest)
-      {
-        name: "core",
-        paint: {
-          "line-color": colors.inner,
-          "line-width": this._zoomInterpolate(baseWidth),
-          "line-opacity": baseOpacity * 0.8 * opacityMultiplier,
-          "line-blur": 0,
-        },
-      },
-      // Layer 4: Hot center (very narrow, white-hot for high overlap)
-      {
-        name: "hot-center",
-        paint: {
-          "line-color": colors.core,
-          "line-width": this._zoomInterpolate(baseWidth * 0.5),
-          "line-opacity": baseOpacity * 0.6 * opacityMultiplier,
-          "line-blur": 0,
-        },
-      },
-    ];
+    if (tripCount <= 5) {
+      // Very few trips - make them visible
+      baseWidth = 2.5;
+      glowWidth = 5;
+      coreOpacity = 0.8;
+      glowOpacity = 0.4;
+    } else if (tripCount <= 20) {
+      baseWidth = 2;
+      glowWidth = 4;
+      coreOpacity = 0.6;
+      glowOpacity = 0.3;
+    } else if (tripCount <= 50) {
+      baseWidth = 1.8;
+      glowWidth = 3.5;
+      coreOpacity = 0.5;
+      glowOpacity = 0.25;
+    } else if (tripCount <= 100) {
+      baseWidth = 1.5;
+      glowWidth = 3;
+      coreOpacity = 0.4;
+      glowOpacity = 0.2;
+    } else if (tripCount <= 300) {
+      baseWidth = 1.2;
+      glowWidth = 2.5;
+      coreOpacity = 0.35;
+      glowOpacity = 0.15;
+    } else if (tripCount <= 700) {
+      baseWidth = 1;
+      glowWidth = 2;
+      coreOpacity = 0.3;
+      glowOpacity = 0.12;
+    } else if (tripCount <= 1500) {
+      baseWidth = 0.8;
+      glowWidth = 1.8;
+      coreOpacity = 0.25;
+      glowOpacity = 0.1;
+    } else if (tripCount <= 3000) {
+      baseWidth = 0.7;
+      glowWidth = 1.5;
+      coreOpacity = 0.2;
+      glowOpacity = 0.08;
+    } else if (tripCount <= 5000) {
+      baseWidth = 0.6;
+      glowWidth = 1.3;
+      coreOpacity = 0.15;
+      glowOpacity = 0.06;
+    } else {
+      // 5000+ trips
+      baseWidth = 0.5;
+      glowWidth = 1.2;
+      coreOpacity = 0.12;
+      glowOpacity = 0.05;
+    }
+
+    return { baseWidth, glowWidth, coreOpacity, glowOpacity };
   },
 
   /**
-   * Create a zoom-interpolated width expression.
-   * Lines get wider as you zoom in for better visibility.
-   * @param {number} baseWidth - Base width at zoom level 12
+   * Create zoom-interpolated width expression.
+   * @param {number} baseWidth - Base width at zoom 12
    * @returns {Array} Mapbox interpolate expression
    */
-  _zoomInterpolate(baseWidth) {
+  _zoomWidth(baseWidth) {
     return [
       "interpolate",
       ["exponential", 1.5],
       ["zoom"],
-      5,
-      baseWidth * 0.3,
-      10,
-      baseWidth * 0.6,
+      4,
+      baseWidth * 0.2,
+      8,
+      baseWidth * 0.5,
       12,
       baseWidth,
-      15,
-      baseWidth * 1.8,
-      18,
-      baseWidth * 3,
-      22,
-      baseWidth * 5,
+      16,
+      baseWidth * 2,
+      20,
+      baseWidth * 4,
     ];
   },
 
   /**
-   * Generate complete heatmap configuration for the layer manager.
-   * @param {Object} tripsGeoJSON - GeoJSON FeatureCollection with trip LineStrings
+   * Generate the glow layer configurations.
+   * Simple 2-layer approach: outer glow + bright core
+   *
+   * @param {number} tripCount - Number of trips
+   * @param {number} userOpacity - User opacity multiplier (0-1)
+   * @param {string} theme - 'dark' or 'light'
+   * @returns {Array} Array of layer paint configurations
+   */
+  generateGlowLayers(tripCount, userOpacity = 0.85, theme = "dark") {
+    const colors = this.COLORS[theme] || this.COLORS.dark;
+    const settings = this.getAdaptiveSettings(tripCount);
+
+    const opacityMult = userOpacity;
+
+    return [
+      // Layer 0: Outer glow (wider, more transparent, orange-red)
+      {
+        name: "glow",
+        paint: {
+          "line-color": colors.glow,
+          "line-width": this._zoomWidth(settings.glowWidth),
+          "line-opacity": settings.glowOpacity * opacityMult,
+          "line-blur": settings.baseWidth * 0.5,
+        },
+      },
+      // Layer 1: Core line (narrow, brighter, orange-yellow)
+      {
+        name: "core",
+        paint: {
+          "line-color": colors.core,
+          "line-width": this._zoomWidth(settings.baseWidth),
+          "line-opacity": settings.coreOpacity * opacityMult,
+          "line-blur": 0,
+        },
+      },
+    ];
+  },
+
+  /**
+   * Generate complete heatmap configuration.
+   * @param {Object} tripsGeoJSON - GeoJSON FeatureCollection
    * @param {Object} options - Configuration options
-   * @returns {Object} Configuration object with layer specs
+   * @returns {Object} Configuration with layers
    */
   generateHeatmapConfig(tripsGeoJSON, options = {}) {
-    const { theme = "dark", opacity = 0.85, densifyDistance = 30 } = options;
-
+    const { theme = "dark", opacity = 0.85 } = options;
     const tripCount = tripsGeoJSON?.features?.length || 0;
     const glowLayers = this.generateGlowLayers(tripCount, opacity, theme);
+    const settings = this.getAdaptiveSettings(tripCount);
 
-    // Convert trips to heatmap points
-    const heatmapData = this.tripsToHeatmapPoints(tripsGeoJSON, {
-      densifyDistance,
-      includeWeight: true,
-    });
-
-    const pointCount = heatmapData.features.length;
-
-    // Calculate adaptive intensity
-    const intensityConfig = this.calculateAdaptiveIntensity(
-      pointCount,
-      tripCount,
+    console.log(
+      `Heatmap: ${tripCount} trips, core opacity: ${settings.coreOpacity}, ` +
+        `glow opacity: ${settings.glowOpacity}, base width: ${settings.baseWidth}`,
     );
-
-    // Build the layer paint configuration
-    const paint = {
-      "heatmap-weight": ["coalesce", ["get", "weight"], 1],
-      "heatmap-intensity": [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        ...intensityConfig.zoomStops.flat(),
-      ],
-      "heatmap-color": this.getHeatmapColorRamp(theme),
-      "heatmap-radius": this.getHeatmapRadius(tripCount),
-      "heatmap-opacity": this.getHeatmapOpacity(opacity),
-    };
 
     return {
       tripCount,
       glowLayers,
-      // We use the original trip data directly - no conversion needed
       data: tripsGeoJSON,
     };
   },
 
   /**
-   * Get updated opacity expressions for all glow layers.
-   * Used when user adjusts the opacity slider.
+   * Get updated opacities when user adjusts slider.
    * @param {number} tripCount - Number of trips
-   * @param {number} userOpacity - User-configured opacity
-   * @param {string} theme - Theme name
-   * @returns {Array} Array of opacity values for each layer
+   * @param {number} userOpacity - User opacity (0-1)
+   * @returns {Array} Array of opacity values [glow, core]
    */
-  getUpdatedOpacities(tripCount, userOpacity, theme = "dark") {
-    const baseOpacity = this.getAdaptiveOpacity(tripCount);
-    const multipliers = [0.15, 0.3, 0.5, 0.8, 0.6]; // Matches generateGlowLayers order
-    return multipliers.map((m) => baseOpacity * m * userOpacity);
+  getUpdatedOpacities(tripCount, userOpacity) {
+    const settings = this.getAdaptiveSettings(tripCount);
+    return [settings.glowOpacity * userOpacity, settings.coreOpacity * userOpacity];
   },
 };
 
