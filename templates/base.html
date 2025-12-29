@@ -1,4 +1,5 @@
-{% from 'partials/_library_versions.html' import CDN, LIB_VERSIONS with context %}
+{% from 'partials/_library_versions.html' import CDN, LIB_VERSIONS with context
+%}
 <!doctype html>
 <html lang="en" data-bs-theme="dark">
   <head>
@@ -72,8 +73,16 @@
     />
 
     <!-- Critical CSS -->
-    <link rel="stylesheet" href="{{ CDN.bootstrap_css }}" crossorigin="anonymous" />
-    <link rel="stylesheet" href="{{ CDN.fontawesome }}" crossorigin="anonymous" />
+    <link
+      rel="stylesheet"
+      href="{{ CDN.bootstrap_css }}"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ CDN.fontawesome }}"
+      crossorigin="anonymous"
+    />
     <!-- Core CSS -->
     <link
       rel="stylesheet"
@@ -93,14 +102,16 @@
       rel="preload"
       href="{{ CDN.flatpickr_css }}"
       as="style"
-      onload="this.onload=null;this.rel='stylesheet'"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
     />
     <noscript>
       <link rel="stylesheet" href="{{ CDN.flatpickr_css }}" />
     </noscript>
 
     {% block extra_css %}{% endblock %} {% block head_content %}{% endblock %}
-
     {% if CLARITY_PROJECT_ID %}
     <script type="text/javascript">
       (function (c, l, a, r, i, t, y) {
@@ -155,7 +166,14 @@
                 <a
                   href="/map"
                   title="Map"
-                  {% if request.url.path == '/map' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/map"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-map" aria-hidden="true"></i> <span>Map</span>
                 </a>
@@ -166,7 +184,14 @@
                 <a
                   href="/trips"
                   title="Trips"
-                  {% if request.url.path == '/trips' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/trips"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-road" aria-hidden="true"></i>
                   <span>Trips</span>
@@ -178,7 +203,14 @@
                 <a
                   href="/insights"
                   title="Insights"
-                  {% if request.url.path == '/insights' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/insights"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-chart-line" aria-hidden="true"></i>
                   <span>Insights</span>
@@ -190,7 +222,14 @@
                 <a
                   href="/gas-tracking"
                   title="Gas Tracking"
-                  {% if request.url.path == '/gas-tracking' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/gas-tracking"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-gas-pump" aria-hidden="true"></i>
                   <span>Gas</span>
@@ -202,7 +241,14 @@
                 <a
                   href="/coverage-navigator"
                   title="Coverage Navigator"
-                  {% if request.url.path == '/coverage-navigator' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/coverage-navigator"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-route" aria-hidden="true"></i>
                   <span>Coverage Navigator</span>
@@ -221,7 +267,10 @@
                   <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
                   <span>More</span>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-grouped" role="menu">
+                <ul
+                  class="dropdown-menu dropdown-menu-end dropdown-menu-grouped"
+                  role="menu"
+                >
                   <!-- Insights & Tracking -->
                   <li class="dropdown-header">Insights & Tracking</li>
                   <li role="none">
@@ -229,14 +278,24 @@
                       class="dropdown-item {% if request.url.path == '/visits' %}active{% endif %}"
                       href="/visits"
                       role="menuitem"
-                      {% if request.url.path == '/visits' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/visits"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
-                      <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
+                      <i
+                        class="fas fa-map-marker-alt me-2"
+                        aria-hidden="true"
+                      ></i>
                       Visits
                     </a>
                   </li>
                   <li role="separator"><hr class="dropdown-divider" /></li>
-                  
+
                   <!-- Coverage & Routes -->
                   <li class="dropdown-header">Coverage & Routes</li>
                   <li role="none">
@@ -244,9 +303,19 @@
                       class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
                       href="/coverage-management"
                       role="menuitem"
-                      {% if request.url.path == '/coverage-management' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/coverage-management"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
-                      <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
+                      <i
+                        class="fas fa-map-marked-alt me-2"
+                        aria-hidden="true"
+                      ></i>
                       Coverage Areas
                     </a>
                   </li>
@@ -255,14 +324,24 @@
                       class="dropdown-item {% if request.url.path == '/county-map' %}active{% endif %}"
                       href="/county-map"
                       role="menuitem"
-                      {% if request.url.path == '/county-map' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/county-map"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
-                      <i class="fas fa-globe-americas me-2" aria-hidden="true"></i>
+                      <i
+                        class="fas fa-globe-americas me-2"
+                        aria-hidden="true"
+                      ></i>
                       County Map
                     </a>
                   </li>
                   <li role="separator"><hr class="dropdown-divider" /></li>
-                  
+
                   <!-- Data -->
                   <li class="dropdown-header">Data</li>
                   <li role="none">
@@ -270,7 +349,14 @@
                       class="dropdown-item {% if request.url.path == '/edit_trips' %}active{% endif %}"
                       href="/edit_trips"
                       role="menuitem"
-                      {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/edit_trips"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-edit me-2" aria-hidden="true"></i>
                       Edit Trips
@@ -281,7 +367,14 @@
                       class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
                       href="/export"
                       role="menuitem"
-                      {% if request.url.path == '/export' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/export"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-file-export me-2" aria-hidden="true"></i>
                       Export Data
@@ -292,14 +385,21 @@
                       class="dropdown-item {% if request.url.path == '/upload' %}active{% endif %}"
                       href="/upload"
                       role="menuitem"
-                      {% if request.url.path == '/upload' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/upload"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-upload me-2" aria-hidden="true"></i>
                       Upload GPX
                     </a>
                   </li>
                   <li role="separator"><hr class="dropdown-divider" /></li>
-                  
+
                   <!-- System -->
                   <li class="dropdown-header">System</li>
                   <li role="none">
@@ -307,7 +407,14 @@
                       class="dropdown-item {% if request.url.path == '/database-management' %}active{% endif %}"
                       href="/database-management"
                       role="menuitem"
-                      {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/database-management"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-database me-2" aria-hidden="true"></i>
                       Database
@@ -318,7 +425,14 @@
                       class="dropdown-item {% if request.url.path == '/server-logs' %}active{% endif %}"
                       href="/server-logs"
                       role="menuitem"
-                      {% if request.url.path == '/server-logs' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/server-logs"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-file-alt me-2" aria-hidden="true"></i>
                       Server Logs
@@ -329,7 +443,14 @@
                       class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
                       href="/settings"
                       role="menuitem"
-                      {% if request.url.path == '/settings' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/settings"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-cog me-2" aria-hidden="true"></i>
                       Settings
@@ -340,7 +461,14 @@
                       class="dropdown-item {% if request.url.path == '/profile' %}active{% endif %}"
                       href="/profile"
                       role="menuitem"
-                      {% if request.url.path == '/profile' %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path=""
+                      ="/profile"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-user-circle me-2" aria-hidden="true"></i>
                       Profile
@@ -395,16 +523,34 @@
         <div class="drawer-nav">
           <!-- Core Section -->
           <div class="drawer-nav-section">
-            <button class="drawer-nav-section-header" aria-expanded="true" aria-controls="nav-section-core">
+            <button
+              class="drawer-nav-section-header"
+              aria-expanded="true"
+              aria-controls="nav-section-core"
+            >
               <span class="drawer-nav-section-title">Core</span>
-              <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
+              <i
+                class="fas fa-chevron-down drawer-nav-section-chevron"
+                aria-hidden="true"
+              ></i>
             </button>
-            <ul class="drawer-nav-section-list" id="nav-section-core" role="list">
+            <ul
+              class="drawer-nav-section-list"
+              id="nav-section-core"
+              role="list"
+            >
               <li role="none">
                 <a
                   href="/map"
                   class="{% if request.url.path == '/map' %}active{% endif %}"
-                  {% if request.url.path == '/map' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/map"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-map me-2" aria-hidden="true"></i> Map
                 </a>
@@ -413,7 +559,14 @@
                 <a
                   href="/trips"
                   class="{% if request.url.path == '/trips' %}active{% endif %}"
-                  {% if request.url.path == '/trips' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/trips"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-road me-2" aria-hidden="true"></i> Trips
                 </a>
@@ -423,36 +576,71 @@
 
           <!-- Insights & Tracking Section -->
           <div class="drawer-nav-section">
-            <button class="drawer-nav-section-header" aria-expanded="true" aria-controls="nav-section-insights">
+            <button
+              class="drawer-nav-section-header"
+              aria-expanded="true"
+              aria-controls="nav-section-insights"
+            >
               <span class="drawer-nav-section-title">Insights & Tracking</span>
-              <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
+              <i
+                class="fas fa-chevron-down drawer-nav-section-chevron"
+                aria-hidden="true"
+              ></i>
             </button>
-            <ul class="drawer-nav-section-list" id="nav-section-insights" role="list">
+            <ul
+              class="drawer-nav-section-list"
+              id="nav-section-insights"
+              role="list"
+            >
               <li role="none">
                 <a
                   href="/insights"
                   class="{% if request.url.path == '/insights' %}active{% endif %}"
-                  {% if request.url.path == '/insights' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/insights"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-chart-line me-2" aria-hidden="true"></i> Driving Insights
+                  <i class="fas fa-chart-line me-2" aria-hidden="true"></i>
+                  Driving Insights
                 </a>
               </li>
               <li role="none">
                 <a
                   href="/gas-tracking"
                   class="{% if request.url.path == '/gas-tracking' %}active{% endif %}"
-                  {% if request.url.path == '/gas-tracking' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/gas-tracking"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-gas-pump me-2" aria-hidden="true"></i> Gas Tracking
+                  <i class="fas fa-gas-pump me-2" aria-hidden="true"></i> Gas
+                  Tracking
                 </a>
               </li>
               <li role="none">
                 <a
                   href="/visits"
                   class="{% if request.url.path == '/visits' %}active{% endif %}"
-                  {% if request.url.path == '/visits' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/visits"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i> Visits
+                  <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
+                  Visits
                 </a>
               </li>
             </ul>
@@ -460,36 +648,71 @@
 
           <!-- Coverage & Routes Section -->
           <div class="drawer-nav-section">
-            <button class="drawer-nav-section-header" aria-expanded="true" aria-controls="nav-section-coverage">
+            <button
+              class="drawer-nav-section-header"
+              aria-expanded="true"
+              aria-controls="nav-section-coverage"
+            >
               <span class="drawer-nav-section-title">Coverage & Routes</span>
-              <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
+              <i
+                class="fas fa-chevron-down drawer-nav-section-chevron"
+                aria-hidden="true"
+              ></i>
             </button>
-            <ul class="drawer-nav-section-list" id="nav-section-coverage" role="list">
+            <ul
+              class="drawer-nav-section-list"
+              id="nav-section-coverage"
+              role="list"
+            >
               <li role="none">
                 <a
                   href="/coverage-management"
                   class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
-                  {% if request.url.path == '/coverage-management' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/coverage-management"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i> Coverage Areas
+                  <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
+                  Coverage Areas
                 </a>
               </li>
               <li role="none">
                 <a
                   href="/coverage-navigator"
                   class="{% if request.url.path == '/coverage-navigator' %}active{% endif %}"
-                  {% if request.url.path == '/coverage-navigator' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/coverage-navigator"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-route me-2" aria-hidden="true"></i> Coverage Navigator
+                  <i class="fas fa-route me-2" aria-hidden="true"></i> Coverage
+                  Navigator
                 </a>
               </li>
               <li role="none">
                 <a
                   href="/county-map"
                   class="{% if request.url.path == '/county-map' %}active{% endif %}"
-                  {% if request.url.path == '/county-map' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/county-map"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-globe-americas me-2" aria-hidden="true"></i> County Map
+                  <i class="fas fa-globe-americas me-2" aria-hidden="true"></i>
+                  County Map
                 </a>
               </li>
             </ul>
@@ -497,16 +720,34 @@
 
           <!-- Data Section -->
           <div class="drawer-nav-section">
-            <button class="drawer-nav-section-header" aria-expanded="true" aria-controls="nav-section-data">
+            <button
+              class="drawer-nav-section-header"
+              aria-expanded="true"
+              aria-controls="nav-section-data"
+            >
               <span class="drawer-nav-section-title">Data</span>
-              <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
+              <i
+                class="fas fa-chevron-down drawer-nav-section-chevron"
+                aria-hidden="true"
+              ></i>
             </button>
-            <ul class="drawer-nav-section-list" id="nav-section-data" role="list">
+            <ul
+              class="drawer-nav-section-list"
+              id="nav-section-data"
+              role="list"
+            >
               <li role="none">
                 <a
                   href="/edit_trips"
                   class="{% if request.url.path == '/edit_trips' %}active{% endif %}"
-                  {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/edit_trips"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-edit me-2" aria-hidden="true"></i> Edit Trips
                 </a>
@@ -515,18 +756,34 @@
                 <a
                   href="/export"
                   class="{% if request.url.path == '/export' %}active{% endif %}"
-                  {% if request.url.path == '/export' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/export"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-file-export me-2" aria-hidden="true"></i> Export Data
+                  <i class="fas fa-file-export me-2" aria-hidden="true"></i>
+                  Export Data
                 </a>
               </li>
               <li role="none">
                 <a
                   href="/upload"
                   class="{% if request.url.path == '/upload' %}active{% endif %}"
-                  {% if request.url.path == '/upload' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/upload"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-upload me-2" aria-hidden="true"></i> Upload GPX
+                  <i class="fas fa-upload me-2" aria-hidden="true"></i> Upload
+                  GPX
                 </a>
               </li>
             </ul>
@@ -534,34 +791,68 @@
 
           <!-- System Section -->
           <div class="drawer-nav-section">
-            <button class="drawer-nav-section-header" aria-expanded="true" aria-controls="nav-section-system">
+            <button
+              class="drawer-nav-section-header"
+              aria-expanded="true"
+              aria-controls="nav-section-system"
+            >
               <span class="drawer-nav-section-title">System</span>
-              <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
+              <i
+                class="fas fa-chevron-down drawer-nav-section-chevron"
+                aria-hidden="true"
+              ></i>
             </button>
-            <ul class="drawer-nav-section-list" id="nav-section-system" role="list">
+            <ul
+              class="drawer-nav-section-list"
+              id="nav-section-system"
+              role="list"
+            >
               <li role="none">
                 <a
                   href="/database-management"
                   class="{% if request.url.path == '/database-management' %}active{% endif %}"
-                  {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/database-management"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-database me-2" aria-hidden="true"></i> Database
+                  <i class="fas fa-database me-2" aria-hidden="true"></i>
+                  Database
                 </a>
               </li>
               <li role="none">
                 <a
                   href="/server-logs"
                   class="{% if request.url.path == '/server-logs' %}active{% endif %}"
-                  {% if request.url.path == '/server-logs' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/server-logs"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-file-alt me-2" aria-hidden="true"></i> Server Logs
+                  <i class="fas fa-file-alt me-2" aria-hidden="true"></i> Server
+                  Logs
                 </a>
               </li>
               <li role="none">
                 <a
                   href="/settings"
                   class="{% if request.url.path == '/settings' %}active{% endif %}"
-                  {% if request.url.path == '/settings' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/settings"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-cog me-2" aria-hidden="true"></i> Settings
                 </a>
@@ -570,9 +861,17 @@
                 <a
                   href="/profile"
                   class="{% if request.url.path == '/profile' %}active{% endif %}"
-                  {% if request.url.path == '/profile' %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path=""
+                  ="/profile"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
-                  <i class="fas fa-user-circle me-2" aria-hidden="true"></i> Profile
+                  <i class="fas fa-user-circle me-2" aria-hidden="true"></i>
+                  Profile
                 </a>
               </li>
             </ul>
@@ -748,7 +1047,6 @@
     <!-- Page-specific scripts (DataTables, Mapbox) are loaded via extra_js blocks -->
 
     <!-- Other libraries -->
-
 
     <!-- App scripts - Load in dependency order -->
     <script src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"></script>
