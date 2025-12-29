@@ -1,5 +1,4 @@
-import { CONFIG as MAP_CONFIG } from "../config.js";
-import { UI_CONFIG as CONFIG } from "../ui-config.js";
+import { CONFIG as MAP_CONFIG, UI_CONFIG as CONFIG } from "../config.js";
 import uiState from "../ui-state.js";
 import utils from "../ui-utils.js";
 import eventManager from "./event-manager.js";

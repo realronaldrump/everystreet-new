@@ -1,12 +1,13 @@
 /**
  * Search Manager Module
  * Handles geocoding search for places, addresses, and streets with map highlighting
+ * Fixed race conditions with proper AbortController usage
  */
 /* global mapboxgl */
 
 import { CONFIG } from "./config.js";
 import state from "./state.js";
-import utils from "./utils.js";
+import utils, { escapeHtml } from "./utils.js";
 
 const searchManager = {
   searchInput: null,
@@ -14,10 +15,10 @@ const searchManager = {
   clearSearchBtn: null,
   currentResults: [],
   selectedIndex: -1,
-  searchTimeout: null,
   highlightLayerId: "search-highlight-layer",
   highlightSourceId: "search-highlight-source",
   searchMarkerId: null,
+  currentSearchId: 0, // Track search requests to handle race conditions
 
   initialize() {
     this.searchInput = document.getElementById("map-search-input");
@@ -31,7 +32,7 @@ const searchManager = {
 
     this.setupEventListeners();
 
-    // Reposition dropdown on window resize or scroll
+    // Reposition dropdown on window resize
     window.addEventListener(
       "resize",
       utils.debounce(() => {
@@ -40,16 +41,6 @@ const searchManager = {
         }
       }, 100)
     );
-
-    // Reposition on scroll of parent containers
-    const controlPanel = document.getElementById("map-controls");
-    if (controlPanel) {
-      controlPanel.addEventListener("scroll", () => {
-        if (!this.searchResults.classList.contains("d-none")) {
-          this.positionDropdown();
-        }
-      });
-    }
 
     console.log("Search manager initialized");
   },
@@ -127,50 +118,65 @@ const searchManager = {
   },
 
   async performSearch(query) {
+    // Cancel any pending search requests to prevent race conditions
+    const searchId = ++this.currentSearchId;
+    state.cancelRequest("search");
+
     try {
       this.showLoading();
 
       const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-
       let results = [];
 
-      // ALWAYS try street search first (database search)
-      // Search within selected location if available, otherwise search all locations
-      const streetResults = await this.searchStreets(query, selectedLocationId);
+      // Search streets first
+      const streetResults = await this.searchStreets(query, selectedLocationId, searchId);
+
+      // Check if this search is still current
+      if (searchId !== this.currentSearchId) {
+        return; // A newer search has started, discard these results
+      }
+
       results = streetResults;
 
       // Only fall back to geocoding if no street results found
       if (results.length === 0) {
-        results = await this.geocodeSearch(query);
+        results = await this.geocodeSearch(query, searchId);
+
+        // Check again if this search is still current
+        if (searchId !== this.currentSearchId) {
+          return;
+        }
       }
 
       this.currentResults = results;
       this.displayResults(results);
 
-      // Immediate feedback if no results
       if (!results || results.length === 0) {
         window.notificationManager?.show("No results found", "info", 2000);
       }
     } catch (error) {
+      if (error.name === "AbortError") {
+        return; // Request was aborted, ignore
+      }
       console.error("Search error:", error);
       this.showError("Search failed. Please try again.");
-      window.notificationManager?.show(
-        "Search failed. Please try again.",
-        "danger",
-        2500
-      );
     }
   },
 
-  async searchStreets(query, locationId) {
+  async searchStreets(query, locationId, searchId) {
     try {
-      // Build URL with optional location_id parameter
-      let url = `/api/search/streets?query=${encodeURIComponent(query)}&limit=10`;
+      let url = `${CONFIG.API.searchStreets}?query=${encodeURIComponent(query)}&limit=10`;
       if (locationId) {
         url += `&location_id=${locationId}`;
       }
 
-      const response = await fetch(url);
+      const controller = state.createAbortController("search");
+      const response = await fetch(url, { signal: controller.signal });
+
+      // Check if this search is still current
+      if (searchId !== this.currentSearchId) {
+        return [];
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -179,18 +185,15 @@ const searchManager = {
       const data = await response.json();
       const features = data.features || [];
 
-      // Convert to result format (use street_name if present, fallback to name)
       return features.map((feature) => {
         const locationName =
           feature.properties.location ||
           (locationId ? `Location ${locationId}` : "Unknown location");
         const streetName =
           feature.properties.street_name || feature.properties.name || "Unnamed Street";
-
-        // Add segment count to subtitle if available
         const segmentCount = feature.properties.segment_count;
         const segmentInfo = segmentCount
-          ? ` • ${segmentCount} segment${segmentCount > 1 ? "s" : ""}`
+          ? ` - ${segmentCount} segment${segmentCount > 1 ? "s" : ""}`
           : "";
 
         return {
@@ -203,23 +206,32 @@ const searchManager = {
         };
       });
     } catch (error) {
+      if (error.name === "AbortError") {
+        throw error; // Re-throw abort errors to be handled by caller
+      }
       console.warn("Street search failed:", error);
       return [];
     }
   },
 
-  async geocodeSearch(query) {
+  async geocodeSearch(query, searchId) {
     try {
-      // Get map center to bias results toward user's current view
       let proximityParams = "";
       if (state.map) {
         const center = state.map.getCenter();
         proximityParams = `&proximity_lon=${center.lng}&proximity_lat=${center.lat}`;
       }
 
+      const controller = state.createAbortController("search");
       const response = await fetch(
-        `/api/search/geocode?query=${encodeURIComponent(query)}&limit=5${proximityParams}`
+        `${CONFIG.API.searchGeocode}?query=${encodeURIComponent(query)}&limit=5${proximityParams}`,
+        { signal: controller.signal }
       );
+
+      // Check if this search is still current
+      if (searchId !== this.currentSearchId) {
+        return [];
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -228,14 +240,11 @@ const searchManager = {
       const data = await response.json();
       const results = data.results || [];
 
-      // Convert to result format
       return results.map((result) => {
         const placeType = result.place_type
           ? result.place_type[0]
           : result.type || "place";
-        const isStreet = ["road", "street", "highway", "residential"].includes(
-          placeType
-        );
+        const isStreet = ["road", "street", "highway", "residential"].includes(placeType);
 
         return {
           type: isStreet ? "street" : "place",
@@ -249,6 +258,9 @@ const searchManager = {
         };
       });
     } catch (error) {
+      if (error.name === "AbortError") {
+        throw error;
+      }
       console.error("Geocode search failed:", error);
       throw error;
     }
@@ -262,19 +274,21 @@ const searchManager = {
       return;
     }
 
+    const fragment = document.createDocumentFragment();
+
     results.forEach((result, index) => {
       const item = document.createElement("div");
       item.className = "search-result-item";
       item.setAttribute("role", "option");
-      item.setAttribute("data-index", index);
+      item.setAttribute("data-index", String(index));
 
       const typeLabel = document.createElement("span");
-      typeLabel.className = `search-result-type ${result.type}`;
+      typeLabel.className = `search-result-type ${escapeHtml(result.type)}`;
       typeLabel.textContent = result.type;
 
       const title = document.createElement("div");
       title.className = "search-result-title";
-      title.textContent = result.name;
+      title.textContent = result.name; // textContent is XSS-safe
 
       const subtitle = document.createElement("div");
       subtitle.className = "search-result-subtitle";
@@ -290,9 +304,10 @@ const searchManager = {
         this.updateSelectedItem();
       });
 
-      this.searchResults.appendChild(item);
+      fragment.appendChild(item);
     });
 
+    this.searchResults.appendChild(fragment);
     this.positionDropdown();
     this.searchResults.classList.remove("d-none");
     this.selectedIndex = -1;
@@ -308,33 +323,26 @@ const searchManager = {
     const spaceBelow = viewportHeight - inputRect.bottom;
     const spaceAbove = inputRect.top;
 
-    // Determine if dropdown should appear above or below
     const showAbove =
       spaceBelow < Math.min(dropdownHeight + 20, 200) && spaceAbove > spaceBelow;
 
     if (showAbove) {
-      // Position above the input
       this.searchResults.style.top = "auto";
       this.searchResults.style.bottom = `${viewportHeight - inputRect.top + 8}px`;
       this.searchResults.classList.add("above");
     } else {
-      // Position below the input
       this.searchResults.style.top = `${inputRect.bottom + 8}px`;
       this.searchResults.style.bottom = "auto";
       this.searchResults.classList.remove("above");
     }
 
-    // Horizontal positioning with boundary checks
     const minWidth = 280;
     const preferredWidth = Math.max(inputRect.width, minWidth);
     let leftPosition = inputRect.left;
 
-    // Ensure dropdown doesn't go off-screen on the right
     if (leftPosition + preferredWidth > viewportWidth - 20) {
       leftPosition = Math.max(20, viewportWidth - preferredWidth - 20);
     }
-
-    // Ensure dropdown doesn't go off-screen on the left
     if (leftPosition < 20) {
       leftPosition = 20;
     }
@@ -346,9 +354,7 @@ const searchManager = {
   navigateResults(direction) {
     if (this.currentResults.length === 0) return;
 
-    // Remove previous selection
     const previousIndex = this.selectedIndex;
-
     this.selectedIndex += direction;
 
     if (this.selectedIndex < 0) {
@@ -359,7 +365,6 @@ const searchManager = {
 
     this.updateSelectedItem();
 
-    // Announce to screen readers
     if (
       this.selectedIndex !== previousIndex &&
       this.currentResults[this.selectedIndex]
@@ -384,8 +389,6 @@ const searchManager = {
   },
 
   async selectResult(result) {
-    console.log("Selected result:", result);
-
     this.hideResults();
     this.searchInput.value = result.name;
 
@@ -395,9 +398,7 @@ const searchManager = {
       this.panToLocation(result);
     }
 
-    // Announce to screen readers
-    const announcement = `Selected ${result.type}: ${result.name}`;
-    utils.announce(announcement);
+    utils.announce(`Selected ${result.type}: ${result.name}`);
   },
 
   async highlightStreet(result) {
@@ -406,37 +407,23 @@ const searchManager = {
       return;
     }
 
-    // Clear existing highlights
     this.clearHighlight();
 
     const { geometry } = result;
 
     try {
-      // Add highlight source and layer
       if (!state.map.getSource(this.highlightSourceId)) {
         state.map.addSource(this.highlightSourceId, {
           type: "geojson",
           data: {
             type: "FeatureCollection",
-            features: [
-              {
-                type: "Feature",
-                geometry,
-                properties: { name: result.name },
-              },
-            ],
+            features: [{ type: "Feature", geometry, properties: { name: result.name } }],
           },
         });
       } else {
         state.map.getSource(this.highlightSourceId).setData({
           type: "FeatureCollection",
-          features: [
-            {
-              type: "Feature",
-              geometry,
-              properties: { name: result.name },
-            },
-          ],
+          features: [{ type: "Feature", geometry, properties: { name: result.name } }],
         });
       }
 
@@ -446,121 +433,94 @@ const searchManager = {
           type: "line",
           source: this.highlightSourceId,
           paint: {
-            "line-color": window.MapStyles.MAP_LAYER_COLORS.trips.selected,
+            "line-color": window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
             "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 15, 6, 20, 12],
             "line-opacity": 0.9,
           },
         });
       }
 
-      // Fit bounds to the street - handle both LineString and MultiLineString
-      if (geometry.type === "LineString") {
-        const { coordinates } = geometry;
-        const bounds = coordinates.reduce(
-          (bounds, coord) => bounds.extend(coord),
-          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+      // Fit bounds to the geometry
+      const coords =
+        geometry.type === "LineString"
+          ? geometry.coordinates
+          : geometry.type === "MultiLineString"
+            ? geometry.coordinates.flat()
+            : geometry.type === "Point"
+              ? [geometry.coordinates]
+              : [];
+
+      if (coords.length > 0) {
+        const bounds = coords.reduce(
+          (b, coord) => b.extend(coord),
+          new mapboxgl.LngLatBounds(coords[0], coords[0])
         );
 
-        state.map.fitBounds(bounds, {
-          padding: 100,
-          maxZoom: 16,
-          duration: 1000,
-        });
-      } else if (geometry.type === "MultiLineString") {
-        // For MultiLineString, flatten all coordinates and compute bounds
-        const allCoordinates = geometry.coordinates.flat();
-        if (allCoordinates.length > 0) {
-          const bounds = allCoordinates.reduce(
-            (bounds, coord) => bounds.extend(coord),
-            new mapboxgl.LngLatBounds(allCoordinates[0], allCoordinates[0])
-          );
-
-          state.map.fitBounds(bounds, {
-            padding: 100,
-            maxZoom: 16,
-            duration: 1000,
-          });
-        }
-      } else if (geometry.type === "Point") {
-        state.map.flyTo({
-          center: geometry.coordinates,
-          zoom: 16,
-          duration: 1000,
-        });
+        state.map.fitBounds(bounds, { padding: 100, maxZoom: 16, duration: 1000 });
       }
 
-      // Show additional info if available
       const segmentInfo = result.feature?.properties?.segment_count
         ? ` (${result.feature.properties.segment_count} segments)`
         : "";
 
-      window.notificationManager.show(
-        `Highlighted: ${result.name}${segmentInfo}`,
+      window.notificationManager?.show(
+        `Highlighted: ${escapeHtml(result.name)}${segmentInfo}`,
         "success",
         3000
       );
     } catch (error) {
       console.error("Error highlighting street:", error);
-      window.notificationManager.show("Failed to highlight street", "warning", 3000);
+      window.notificationManager?.show("Failed to highlight street", "warning", 3000);
     }
   },
 
   panToLocation(result) {
-    if (!state.map || !state.mapInitialized || !result.center) {
-      return;
-    }
+    if (!state.map || !state.mapInitialized || !result.center) return;
 
-    // Clear existing highlights
     this.clearHighlight();
 
     const [lng, lat] = result.center;
 
-    // Add a marker
     if (this.searchMarkerId) {
       this.searchMarkerId.remove();
     }
 
+    // Create popup with safe content
+    const popupContent = document.createElement("div");
+    const strong = document.createElement("strong");
+    strong.textContent = result.name;
+    popupContent.appendChild(strong);
+    popupContent.appendChild(document.createElement("br"));
+    popupContent.appendChild(document.createTextNode(result.subtitle));
+
     this.searchMarkerId = new mapboxgl.Marker({
-      color: window.MapStyles.MAP_LAYER_COLORS.trips.selected,
+      color: window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
     })
       .setLngLat([lng, lat])
-      .setPopup(
-        new mapboxgl.Popup({ offset: 25 }).setHTML(
-          `<strong>${result.name}</strong><br>${result.subtitle}`
-        )
-      )
+      .setPopup(new mapboxgl.Popup({ offset: 25 }).setDOMContent(popupContent))
       .addTo(state.map);
 
-    // Fly to location
     if (result.bbox?.length === 4) {
-      // [west, south, east, north] or [minLon, minLat, maxLon, maxLat]
       const [west, south, east, north] = result.bbox;
-      state.map.fitBounds(
-        [
-          [west, south],
-          [east, north],
-        ],
-        {
-          padding: 50,
-          maxZoom: 15,
-          duration: 1000,
-        }
-      );
-    } else {
-      state.map.flyTo({
-        center: [lng, lat],
-        zoom: 14,
+      state.map.fitBounds([[west, south], [east, north]], {
+        padding: 50,
+        maxZoom: 15,
         duration: 1000,
       });
+    } else {
+      state.map.flyTo({ center: [lng, lat], zoom: 14, duration: 1000 });
     }
 
-    window.notificationManager.show(`Navigated to: ${result.name}`, "success", 3000);
+    window.notificationManager?.show(
+      `Navigated to: ${escapeHtml(result.name)}`,
+      "success",
+      3000
+    );
   },
 
   clearHighlight() {
     if (!state.map || !state.mapInitialized) return;
 
-    // Remove highlight layer and source
     if (state.map.getLayer(this.highlightLayerId)) {
       state.map.removeLayer(this.highlightLayerId);
     }
@@ -568,7 +528,6 @@ const searchManager = {
       state.map.removeSource(this.highlightSourceId);
     }
 
-    // Remove marker
     if (this.searchMarkerId) {
       this.searchMarkerId.remove();
       this.searchMarkerId = null;
@@ -581,23 +540,29 @@ const searchManager = {
     this.clearHighlight();
     this.hideClearButton();
     this.currentResults = [];
+    state.cancelRequest("search");
   },
 
   showLoading() {
-    this.searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
+    const loading = utils.createElement("div", "Searching...", "search-loading");
+    this.searchResults.innerHTML = "";
+    this.searchResults.appendChild(loading);
     this.positionDropdown();
     this.searchResults.classList.remove("d-none");
   },
 
   showNoResults() {
-    this.searchResults.innerHTML =
-      '<div class="search-no-results">No results found</div>';
+    const noResults = utils.createElement("div", "No results found", "search-no-results");
+    this.searchResults.innerHTML = "";
+    this.searchResults.appendChild(noResults);
     this.positionDropdown();
     this.searchResults.classList.remove("d-none");
   },
 
   showError(message) {
-    this.searchResults.innerHTML = `<div class="search-error">${message}</div>`;
+    const error = utils.createElement("div", message, "search-error");
+    this.searchResults.innerHTML = "";
+    this.searchResults.appendChild(error);
     this.positionDropdown();
     this.searchResults.classList.remove("d-none");
   },
@@ -619,9 +584,5 @@ const searchManager = {
     }
   },
 };
-
-// Make available globally for debugging
-if (!window.EveryStreet) window.EveryStreet = {};
-window.EveryStreet.SearchManager = searchManager;
 
 export default searchManager;

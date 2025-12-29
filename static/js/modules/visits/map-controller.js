@@ -185,18 +185,55 @@
       });
     }
 
+    /**
+     * Show a popup with XSS-safe DOM content
+     * @param {HTMLElement|string} content - DOM element (safe) or text (will be escaped)
+     * @param {LngLat} lngLat - Map coordinates
+     */
     showPlacePopup(content, lngLat) {
       if (!this.map) return null;
       this.activePopup?.remove?.();
+
       this.activePopup = new mapboxgl.Popup({
         offset: 12,
         className: "custom-popup-enhanced",
         maxWidth: "320px",
-      })
-        .setLngLat(lngLat)
-        .setHTML(content)
-        .addTo(this.map);
+      }).setLngLat(lngLat);
+
+      // Use setDOMContent for safe content instead of setHTML to prevent XSS
+      if (content instanceof HTMLElement) {
+        this.activePopup.setDOMContent(content);
+      } else {
+        const container = document.createElement("div");
+        container.textContent = String(content); // textContent is XSS-safe
+        this.activePopup.setDOMContent(container);
+      }
+
+      this.activePopup.addTo(this.map);
       return this.activePopup;
+    }
+
+    /**
+     * Create safe popup content from place data
+     * @param {Object} place - Place object
+     * @returns {HTMLElement} - Safe DOM content
+     */
+    createPlacePopupContent(place) {
+      const container = document.createElement("div");
+      container.className = "place-popup-content";
+
+      const title = document.createElement("strong");
+      title.textContent = place.name || "Unnamed Place";
+      container.appendChild(title);
+
+      if (place.visitCount) {
+        const visits = document.createElement("div");
+        visits.className = "place-visits";
+        visits.textContent = `${place.visitCount} visit${place.visitCount !== 1 ? "s" : ""}`;
+        container.appendChild(visits);
+      }
+
+      return container;
     }
 
     closePopup() {

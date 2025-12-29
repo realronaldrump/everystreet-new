@@ -1,4 +1,4 @@
-import { UI_CONFIG as CONFIG } from "./ui-config.js";
+import { CONFIG } from "./config.js";
 
 class UIState {
   constructor() {
@@ -9,8 +9,8 @@ class UIState {
     this.activeModals = new Set();
     this.touchStartX = null;
     this.touchStartY = null;
-    this.isMobile = window.innerWidth < CONFIG.mobileBreakpoint;
-    this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.isMobile = typeof window !== "undefined" && window.innerWidth < CONFIG.UI.mobileBreakpoint;
+    this.reducedMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.uiState = this.loadUIState();
   }
 
@@ -29,9 +29,13 @@ class UIState {
     return nodes;
   }
 
+  clearCache() {
+    this.elementCache.clear();
+  }
+
   loadUIState() {
     try {
-      const saved = localStorage.getItem(CONFIG.storage.uiState);
+      const saved = localStorage.getItem(CONFIG.STORAGE_KEYS.uiState);
       return saved
         ? JSON.parse(saved)
         : {
@@ -50,10 +54,15 @@ class UIState {
 
   saveUIState() {
     try {
-      localStorage.setItem(CONFIG.storage.uiState, JSON.stringify(this.uiState));
+      localStorage.setItem(CONFIG.STORAGE_KEYS.uiState, JSON.stringify(this.uiState));
     } catch (e) {
       console.warn("Failed to save UI state:", e);
     }
+  }
+
+  updateMobileState() {
+    this.isMobile = window.innerWidth < CONFIG.UI.mobileBreakpoint;
+    return this.isMobile;
   }
 }
 

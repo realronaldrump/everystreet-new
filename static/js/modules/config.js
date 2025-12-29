@@ -1,10 +1,16 @@
+/**
+ * Centralized Configuration Module
+ * All API endpoints, storage keys, and constants in one place
+ */
+
 export const CONFIG = {
+  // Map configuration
   MAP: {
     defaultCenter: [-95.7129, 37.0902],
     defaultZoom: 4,
     maxZoom: 19,
     recentTripThreshold: 6 * 60 * 60 * 1000, // 6 hours
-    recencyWindowMs: 30 * 24 * 60 * 60 * 1000, // 30 days window for recency styling
+    recencyWindowMs: 30 * 24 * 60 * 60 * 1000, // 30 days
     debounceDelay: 150,
     throttleDelay: 50,
     styles: {
@@ -20,6 +26,8 @@ export const CONFIG = {
       antialias: false,
     },
   },
+
+  // LocalStorage keys
   STORAGE_KEYS: {
     startDate: "startDate",
     endDate: "endDate",
@@ -28,27 +36,62 @@ export const CONFIG = {
     layerVisibility: "layerVisibility",
     layerSettings: "layerSettings",
     streetViewMode: "streetViewMode",
+    theme: "theme",
+    mapView: "mapView",
+    mapType: "mapType",
+    uiState: "uiState",
+    showLiveTracking: "showLiveTracking",
   },
+
+  // API endpoints - centralized location for all backend routes
   API: {
+    // Trip endpoints
+    trips: "/api/trips",
+    tripById: (id) => `/api/trips/${id}`,
+    tripsDataTable: "/api/trips/datatable",
+    tripsBulkDelete: "/api/trips/bulk_delete",
+    matchedTrips: "/api/matched_trips",
+    mapMatchTrips: "/api/map_match_trips",
+    geocodeTrips: "/api/geocode_trips",
+    tripAnalytics: "/api/trip-analytics",
+
+    // Coverage endpoints
+    coverageAreas: "/api/coverage_areas",
+    coverageAreaById: (id) => `/api/coverage_areas/${id}`,
+    coverageAreaStreets: (id, params = "") => `/api/coverage_areas/${id}/streets${params ? `?${params}` : ""}`,
+
+    // Search endpoints
+    searchStreets: "/api/search/streets",
+    searchGeocode: "/api/search/geocode",
+
+    // Vehicle endpoints
+    vehicles: "/api/vehicles",
+
+    // Upload endpoints
+    uploadGpx: "/api/upload_gpx",
+
+    // Caching and retry settings
     cacheTime: 30000,
     retryAttempts: 3,
     retryDelay: 1000,
     timeout: 120000,
     batchSize: 100,
   },
+
+  // Default layer configurations
   LAYER_DEFAULTS: {
     trips: {
       order: 1,
-      color: "#ff6600", // Base color (orange) - used for reference only
+      color: "#ff6600",
       opacity: 0.85,
       visible: true,
       name: "Trips Heatmap",
       weight: 2,
       minzoom: 0,
       maxzoom: 22,
-      supportsColorPicker: false, // Heatmap uses fixed Strava-style color gradient
+      supportsColorPicker: false,
       supportsOpacitySlider: true,
-      isHeatmap: true, // Renders as stacked glow layers for Strava-style effect
+      isHeatmap: true,
     },
     matchedTrips: {
       order: 3,
@@ -92,14 +135,89 @@ export const CONFIG = {
       maxzoom: 22,
     },
   },
+
+  // Performance settings
   PERFORMANCE: {
     enableWebGL: true,
     enableWorkers: true,
     workerCount: navigator.hardwareConcurrency || 4,
     maxParallelRequests: 6,
-    tripChunkSize: 500, // Features per render batch for progressive loading
-    progressiveLoadingDelay: 16, // ms between chunks (one frame at 60fps)
+    tripChunkSize: 500,
+    progressiveLoadingDelay: 16,
   },
+
+  // UI configuration
+  UI: {
+    mobileBreakpoint: 768,
+    debounceDelays: {
+      resize: 250,
+      scroll: 50,
+      input: 300,
+    },
+    transitions: {
+      fast: 150,
+      normal: 300,
+      slow: 500,
+    },
+    tooltipDelay: { show: 500, hide: 100 },
+    selectors: {
+      themeToggle: "#theme-toggle-checkbox",
+      mobileDrawer: "#mobile-nav-drawer",
+      menuToggle: "#menu-toggle",
+      closeBtn: ".drawer-close-btn",
+      contentOverlay: "#content-overlay",
+      filterToggle: "#filters-toggle",
+      filtersPanel: "#filters-panel",
+      filtersClose: ".panel-close-btn",
+      startDate: "#start-date",
+      endDate: "#end-date",
+      applyFiltersBtn: "#apply-filters",
+      resetFilters: "#reset-filters",
+      header: ".app-header",
+      mapControls: "#map-controls",
+      centerOnLocationButton: "#center-on-location",
+      controlsToggle: "#controls-toggle",
+      controlsContent: "#controls-content",
+      filterIndicator: "#filter-indicator",
+      toolsSection: ".tools-section",
+      mapTypeSelect: "#map-type-select",
+    },
+    classes: {
+      active: "active",
+      open: "open",
+      visible: "visible",
+      show: "show",
+      scrolled: "scrolled",
+      lightMode: "light-mode",
+      minimized: "minimized",
+      connected: "connected",
+      disconnected: "disconnected",
+      loading: "loading",
+      unseen: "unseen",
+      applied: "applied",
+    },
+    themeColors: {
+      light: "#f8f9fa",
+      dark: "#121212",
+    },
+    animations: {
+      enabled: typeof window !== "undefined" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    },
+  },
+};
+
+// For backward compatibility with files importing UI_CONFIG
+export const UI_CONFIG = {
+  selectors: CONFIG.UI.selectors,
+  classes: CONFIG.UI.classes,
+  storage: CONFIG.STORAGE_KEYS,
+  transitions: CONFIG.UI.transitions,
+  map: { defaultZoom: CONFIG.MAP.defaultZoom, flyToDuration: 1.5 },
+  themeColors: CONFIG.UI.themeColors,
+  debounceDelays: CONFIG.UI.debounceDelays,
+  mobileBreakpoint: CONFIG.UI.mobileBreakpoint,
+  tooltipDelay: CONFIG.UI.tooltipDelay,
+  animations: CONFIG.UI.animations,
 };
 
 export default CONFIG;

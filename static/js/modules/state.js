@@ -1,53 +1,132 @@
+/**
+ * Unified Application State Management
+ * Single source of truth for all application state
+ */
 import { CONFIG } from "./config.js";
 
 class AppState {
   constructor() {
+    // Core map state
     this.map = null;
     this.mapInitialized = false;
     this.mapLayers = JSON.parse(JSON.stringify(CONFIG.LAYER_DEFAULTS));
+
+    // Map settings
     this.mapSettings = {
       highlightRecentTrips: true,
       autoRefresh: false,
       clusterTrips: false,
     };
+
+    // Selection state
     this.selectedTripId = null;
+    this.selectedLocationId = null;
+
+    // Live tracking
     this.liveTracker = null;
+
+    // Street loading flags
+    this.undrivenStreetsLoaded = false;
+    this.drivenStreetsLoaded = false;
+    this.allStreetsLoaded = false;
+
+    // Caching
     this.dom = new Map();
-    this.listeners = new WeakMap();
     this.apiCache = new Map();
     this.abortControllers = new Map();
     this.loadingStates = new Map();
     this.pendingRequests = new Set();
     this.layerLoadPromises = new Map();
 
+    // UI state
+    this.ui = {
+      theme: null,
+      isMobile: typeof window !== "undefined" && window.innerWidth < CONFIG.UI.mobileBreakpoint,
+      reducedMotion: typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      controlsMinimized: false,
+      filtersOpen: false,
+      activeModals: new Set(),
+    };
+
+    // Performance metrics
     this.metrics = {
       loadStartTime: Date.now(),
       mapLoadTime: null,
       dataLoadTime: null,
       renderTime: null,
     };
+
+    // Load persisted UI state
+    this._loadPersistedState();
   }
 
-  reset() {
-    this.cancelAllRequests();
-
-    if (this.map) {
-      this.map.off();
-      this.map.remove();
-      this.map = null;
+  _loadPersistedState() {
+    try {
+      const saved = localStorage.getItem(CONFIG.STORAGE_KEYS.uiState);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        Object.assign(this.ui, parsed);
+      }
+    } catch {
+      // Ignore storage errors
     }
+  }
 
-    this.mapInitialized = false;
-    this.selectedTripId = null;
+  saveUIState() {
+    try {
+      const persistable = {
+        controlsMinimized: this.ui.controlsMinimized,
+        filtersOpen: this.ui.filtersOpen,
+      };
+      localStorage.setItem(CONFIG.STORAGE_KEYS.uiState, JSON.stringify(persistable));
+    } catch (e) {
+      console.warn("Failed to save UI state:", e);
+    }
+  }
+
+  // DOM element caching
+  getElement(selector) {
+    if (this.dom.has(selector)) {
+      return this.dom.get(selector);
+    }
+    const el = document.querySelector(
+      selector.startsWith("#") || selector.includes(" ") || selector.startsWith(".")
+        ? selector
+        : `#${selector}`
+    );
+    if (el) {
+      this.dom.set(selector, el);
+    }
+    return el;
+  }
+
+  clearElementCache() {
     this.dom.clear();
-    this.apiCache.clear();
-    this.loadingStates.clear();
-    this.pendingRequests.clear();
-    this.layerLoadPromises.clear();
+  }
+
+  // Request management with AbortController
+  createAbortController(key) {
+    // Cancel any existing request with the same key
+    this.cancelRequest(key);
+    const controller = new AbortController();
+    this.abortControllers.set(key, controller);
+    return controller;
+  }
+
+  cancelRequest(key) {
+    const existing = this.abortControllers.get(key);
+    if (existing) {
+      try {
+        existing.abort();
+      } catch (e) {
+        console.warn("Error aborting request:", e);
+      }
+      this.abortControllers.delete(key);
+    }
   }
 
   cancelAllRequests() {
-    this.abortControllers.forEach((controller) => {
+    this.abortControllers.forEach((controller, key) => {
       try {
         controller.abort();
       } catch (e) {
@@ -68,6 +147,38 @@ class AppState {
 
   hasPendingRequests() {
     return this.pendingRequests.size > 0;
+  }
+
+  // Reset state
+  reset() {
+    this.cancelAllRequests();
+
+    if (this.map) {
+      this.map.off();
+      this.map.remove();
+      this.map = null;
+    }
+
+    this.mapInitialized = false;
+    this.selectedTripId = null;
+    this.undrivenStreetsLoaded = false;
+    this.drivenStreetsLoaded = false;
+    this.allStreetsLoaded = false;
+    this.dom.clear();
+    this.apiCache.clear();
+    this.loadingStates.clear();
+    this.pendingRequests.clear();
+    this.layerLoadPromises.clear();
+  }
+
+  // Reset street layer cache when location changes
+  resetStreetCache() {
+    this.undrivenStreetsLoaded = false;
+    this.drivenStreetsLoaded = false;
+    this.allStreetsLoaded = false;
+    this.mapLayers.undrivenStreets.layer = null;
+    this.mapLayers.drivenStreets.layer = null;
+    this.mapLayers.allStreets.layer = null;
   }
 }
 
