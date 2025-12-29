@@ -14,7 +14,7 @@ from typing import Any
 
 import osmnx as ox
 from pymongo.errors import BulkWriteError
-from shapely.geometry import LineString, box, mapping, shape
+from shapely.geometry import LineString, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import substring as shapely_substring
 
@@ -26,6 +26,7 @@ from db import (
     update_many_with_retry,
     update_one_with_retry,
 )
+from geometry_service import GeometryService
 
 logging.basicConfig(
     level=logging.INFO,
@@ -211,10 +212,12 @@ def _process_street_feature(
                 if segment.length < 1e-6:
                     continue
 
-                feature = {
-                    "type": "Feature",
-                    "geometry": mapping(segment),
-                    "properties": {
+                geometry = GeometryService.geometry_from_shapely(segment)
+                if geometry is None:
+                    continue
+                feature = GeometryService.feature_from_geometry(
+                    geometry,
+                    properties={
                         "osm_id": osm_id,
                         "segment_id": f"{osm_id}-{i}",
                         "street_name": tags.get("name", "Unnamed Street"),
@@ -234,7 +237,7 @@ def _process_street_feature(
                         "tags": tags,
                         "segment_length_meters": segment_length_meters,
                     },
-                }
+                )
                 features.append(feature)
 
     return features

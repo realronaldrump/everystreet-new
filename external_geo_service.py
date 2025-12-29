@@ -14,7 +14,8 @@ import pyproj
 from aiolimiter import AsyncLimiter
 
 from date_utils import parse_timestamp
-from utils import haversine, reverse_geocode_mapbox, reverse_geocode_nominatim
+from geometry_service import GeometryService
+from utils import reverse_geocode_mapbox, reverse_geocode_nominatim
 
 logger = logging.getLogger(__name__)
 
@@ -300,7 +301,7 @@ class ExternalGeoService:
                 else:
                     if i > 0:
                         prev_coord = coords[i - 1]
-                        distance = haversine(
+                        distance = GeometryService.haversine_distance(
                             prev_coord[0],
                             prev_coord[1],
                             coord[0],
@@ -405,7 +406,7 @@ class ExternalGeoService:
                     filtered = [
                         c
                         for c in chunk_coords
-                        if len(c) >= 2 and -180 <= c[0] <= 180 and -90 <= c[1] <= 90
+                        if GeometryService.validate_coordinate_pair(c)[0]
                     ]
                     if len(filtered) >= 2 and len(filtered) < len(chunk_coords):
                         return await match_chunk(filtered, None, depth)
@@ -475,7 +476,7 @@ class ExternalGeoService:
         def detect_jumps(coords: list[list[float]], threshold: float) -> list[int]:
             suspicious = []
             for i in range(len(coords) - 1):
-                dist = haversine(
+                dist = GeometryService.haversine_distance(
                     coords[i][0],
                     coords[i][1],
                     coords[i + 1][0],
@@ -508,12 +509,19 @@ class ExternalGeoService:
 
         logger.info("Final matched coords: %d points", len(final_matched))
 
-        return {
-            "code": "Ok",
-            "matchings": [
-                {"geometry": {"type": "LineString", "coordinates": final_matched}}
-            ],
-        }
+        geometry = GeometryService.geometry_from_coordinate_pairs(
+            final_matched,
+            allow_point=False,
+            dedupe=False,
+            validate=False,
+        )
+        if geometry is None:
+            return {
+                "code": "Error",
+                "message": "Map matching produced insufficient coordinates.",
+            }
+
+        return {"code": "Ok", "matchings": [{"geometry": geometry}]}
 
     def extract_timestamps_for_coordinates(
         self,

@@ -184,7 +184,7 @@ class CoverageProgress {
         retries++;
       } catch (error) {
         // Handle 404 gracefully during initial polling - the task may still be starting
-        const is404 = error.message && error.message.includes("Task not found");
+        const is404 = error.message?.includes("Task not found");
         if (is404 && initial404Count < maxInitial404Retries) {
           initial404Count++;
           console.log(
@@ -342,10 +342,7 @@ class CoverageProgress {
 
       // Remove focus from any element inside the modal to prevent
       // "Blocked aria-hidden" errors when Bootstrap adds aria-hidden=true
-      if (
-        document.activeElement &&
-        modalElement.contains(document.activeElement)
-      ) {
+      if (document.activeElement && modalElement.contains(document.activeElement)) {
         document.activeElement.blur();
       }
 

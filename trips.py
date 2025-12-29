@@ -31,6 +31,7 @@ from db import (
     update_one_with_retry,
     vehicles_collection,
 )
+from geometry_service import GeometryService
 from models import DateRangeModel
 from trip_service import TripService
 
@@ -233,12 +234,9 @@ async def get_trips(request: Request):
             st = parse_timestamp(trip.get("startTime"))
             et = parse_timestamp(trip.get("endTime"))
             duration = (et - st).total_seconds() if st and et else None
-            geom = trip.get("gps")
-            num_points = (
-                len(geom.get("coordinates", []))
-                if isinstance(geom, dict) and isinstance(geom.get("coordinates"), list)
-                else 0
-            )
+            geom = GeometryService.parse_geojson(trip.get("gps"))
+            coords = geom.get("coordinates", []) if isinstance(geom, dict) else []
+            num_points = len(coords) if isinstance(coords, list) else 0
             props = {
                 "transactionId": trip.get("transactionId"),
                 "imei": trip.get("imei"),
@@ -261,11 +259,7 @@ async def get_trips(request: Request):
                 "pointsRecorded": num_points,
                 "estimated_cost": _calculate_trip_cost(trip, price_map),
             }
-            feature = {
-                "type": "Feature",
-                "geometry": geom,
-                "properties": props,
-            }
+            feature = GeometryService.feature_from_geometry(geom, props)
             chunk = json.dumps(
                 feature,
                 separators=(",", ":"),

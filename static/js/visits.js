@@ -1,4 +1,4 @@
-/* global Chart, DateUtils, bootstrap, $, MapboxDraw, mapboxgl */
+/* global Chart, DateUtils, bootstrap, $, MapboxDraw */
 
 (() => {
   class VisitsManager {

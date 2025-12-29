@@ -12,7 +12,6 @@ Key updates:
 import contextlib
 import heapq
 import logging
-import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -29,6 +28,7 @@ from db import (
     streets_collection,
     update_one_with_retry,
 )
+from geometry_service import GeometryService
 
 logger = logging.getLogger(__name__)
 
@@ -44,20 +44,6 @@ EdgeRef = tuple[int, int, int]  # (u, v, key)
 ReqId = frozenset[
     EdgeRef
 ]  # physical-ish edge requirement; can include reverse if present
-
-
-def _haversine_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    """Haversine distance in meters for lon/lat degrees."""
-    r = 6371000.0
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlmb = math.radians(lon2 - lon1)
-    a = (
-        math.sin(dphi / 2) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
-    )
-    return 2 * r * math.asin(min(1.0, math.sqrt(a)))
 
 
 def _buffer_polygon_for_routing(polygon: Any, buffer_m: float) -> Any:
@@ -499,11 +485,15 @@ def _solve_greedy_route(
         iterations += 1
 
         # Determine active component
-        if active_comp is None or not (comp_to_rids.get(active_comp, set()) & unvisited):
+        if active_comp is None or not (
+            comp_to_rids.get(active_comp, set()) & unvisited
+        ):
             # Jump to nearest start among all unvisited requirements
             if not global_targets:
                 raise ValueError("No remaining target nodes for routing")
-            result = _dijkstra_to_any_target(G, current_node, global_targets, weight="length")
+            result = _dijkstra_to_any_target(
+                G, current_node, global_targets, weight="length"
+            )
             if result is None:
                 raise ValueError(
                     "Routing graph disconnected from remaining undriven segments"
@@ -514,7 +504,9 @@ def _solve_greedy_route(
                 total_dist += d_dead
                 _append_path_edges(path_edges)
             current_node = target_start
-            candidates = [rid for rid in unvisited if target_start in req_to_starts[rid]]
+            candidates = [
+                rid for rid in unvisited if target_start in req_to_starts[rid]
+            ]
             if not candidates:
                 global_targets.discard(target_start)
                 continue
@@ -533,7 +525,9 @@ def _solve_greedy_route(
             if not comp_target_nodes:
                 active_comp = None
                 continue
-            result = _dijkstra_to_any_target(G, current_node, comp_target_nodes, weight="length")
+            result = _dijkstra_to_any_target(
+                G, current_node, comp_target_nodes, weight="length"
+            )
             if result is None:
                 raise ValueError(
                     "Routing graph disconnected within required-edge component"
@@ -557,8 +551,12 @@ def _solve_greedy_route(
 
         def _candidate_score(rid: ReqId) -> tuple[float, float]:
             service_edge = _best_service_edge_from_start(rid, current_node)
-            seg_count = float(req_segment_counts.get(rid, 1) if req_segment_counts else 1)
-            edge_len = _edge_length_m(G, service_edge[0], service_edge[1], service_edge[2])
+            seg_count = float(
+                req_segment_counts.get(rid, 1) if req_segment_counts else 1
+            )
+            edge_len = _edge_length_m(
+                G, service_edge[0], service_edge[1], service_edge[2]
+            )
             return (-seg_count, -edge_len)
 
         chosen_rid = min(candidates, key=_candidate_score)
@@ -608,7 +606,13 @@ def _max_route_gap_m(route_coords: list[list[float]]) -> float:
         cur = route_coords[idx]
         if len(prev) < 2 or len(cur) < 2:
             continue
-        d = _haversine_m(prev[0], prev[1], cur[0], cur[1])
+        d = GeometryService.haversine_distance(
+            prev[0],
+            prev[1],
+            cur[0],
+            cur[1],
+            unit="meters",
+        )
         if d > max_gap:
             max_gap = d
     return max_gap
@@ -629,9 +633,7 @@ def _validate_route(
         errors.append("Route has insufficient coordinates.")
 
     coverage_ratio = (
-        float(mapped_segments) / float(total_segments)
-        if total_segments > 0
-        else 1.0
+        float(mapped_segments) / float(total_segments) if total_segments > 0 else 1.0
     )
     details["coverage_ratio"] = coverage_ratio
     if total_segments > 0 and coverage_ratio < MIN_SEGMENT_COVERAGE_RATIO:
@@ -654,9 +656,7 @@ def _validate_route(
     )
     details["deadhead_ratio"] = deadhead_ratio
     if deadhead_ratio > MAX_DEADHEAD_RATIO_ERROR:
-        errors.append(
-            f"Deadhead ratio {deadhead_ratio:.2f} exceeds maximum threshold."
-        )
+        errors.append(f"Deadhead ratio {deadhead_ratio:.2f} exceeds maximum threshold.")
     elif deadhead_ratio > MAX_DEADHEAD_RATIO_WARN:
         warnings.append(
             f"Deadhead ratio {deadhead_ratio:.2f} is high; route may be inefficient."
@@ -904,7 +904,7 @@ async def generate_optimal_route_with_progress(
             route_coords, stats, mapped_segments, len(undriven)
         )
         if errors:
-            raise ValueError("Validation failed: " + "; ".join(errors))
+            raise ValueError(f"Validation failed: {'; '.join(errors)}")
 
         logger.info("Route generation finished. Updating DB status to completed.")
         try:

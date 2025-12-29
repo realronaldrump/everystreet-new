@@ -17,7 +17,8 @@ from aiohttp import (
     ServerDisconnectedError,
 )
 from bson import ObjectId
-from geopy.distance import great_circle as _geopy_great_circle
+
+from geometry_service import GeometryService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -298,15 +299,8 @@ def haversine(
     lat2: float,
     unit: str = "meters",
 ) -> float:
-    """Calculate the great-circle distance between two points using geopy."""
-    dist = _geopy_great_circle((lat1, lon1), (lat2, lon2))
-    if unit == "meters":
-        return dist.meters
-    if unit == "miles":
-        return dist.miles
-    if unit == "km":
-        return dist.km
-    raise ValueError("Invalid unit. Use 'meters', 'miles', or 'km'.")
+    """Calculate the great-circle distance between two points."""
+    return GeometryService.haversine_distance(lon1, lat1, lon2, lat2, unit=unit)
 
 
 def meters_to_miles(meters: float) -> float:

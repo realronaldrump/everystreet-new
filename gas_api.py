@@ -21,6 +21,7 @@ from db import (
     update_one_with_retry,
     vehicles_collection,
 )
+from geometry_service import GeometryService
 from models import GasFillupCreateModel, VehicleModel
 from utils import get_session
 
@@ -737,32 +738,48 @@ async def get_vehicle_location_at_time(
                     coords = features[0]["geometry"]["coordinates"]
                     if coords:
                         last_coord = coords[-1]
-                        location_data["longitude"] = last_coord[0]
-                        location_data["latitude"] = last_coord[1]
+                        is_valid, validated = GeometryService.validate_coordinate_pair(
+                            last_coord
+                        )
+                        if is_valid and validated is not None:
+                            location_data["longitude"] = validated[0]
+                            location_data["latitude"] = validated[1]
 
         # 2. Destination GeoPoint
         if not location_data["latitude"] and trip.get("destinationGeoPoint"):
             geo_point = trip["destinationGeoPoint"]
             if geo_point.get("coordinates"):
-                location_data["longitude"] = geo_point["coordinates"][0]
-                location_data["latitude"] = geo_point["coordinates"][1]
-                logger.info("Vehicle Loc Debug: Used destinationGeoPoint fallback")
+                is_valid, validated = GeometryService.validate_coordinate_pair(
+                    geo_point["coordinates"]
+                )
+                if is_valid and validated is not None:
+                    location_data["longitude"] = validated[0]
+                    location_data["latitude"] = validated[1]
+                    logger.info("Vehicle Loc Debug: Used destinationGeoPoint fallback")
 
         # 3. End Location (Direct lat/lon)
         if not location_data["latitude"] and trip.get("endLocation"):
             end_loc = trip["endLocation"]
             if "lat" in end_loc and "lon" in end_loc:
-                location_data["latitude"] = end_loc["lat"]
-                location_data["longitude"] = end_loc["lon"]
-                logger.info("Vehicle Loc Debug: Used endLocation fallback")
+                is_valid, validated = GeometryService.validate_coordinate_pair(
+                    [end_loc["lon"], end_loc["lat"]]
+                )
+                if is_valid and validated is not None:
+                    location_data["longitude"] = validated[0]
+                    location_data["latitude"] = validated[1]
+                    logger.info("Vehicle Loc Debug: Used endLocation fallback")
 
         # 4. Start Location (Fallback if trip has no movement?)
         if not location_data["latitude"] and trip.get("startLocation"):
             start_loc = trip["startLocation"]
             if "lat" in start_loc and "lon" in start_loc:
-                location_data["latitude"] = start_loc["lat"]
-                location_data["longitude"] = start_loc["lon"]
-                logger.info("Vehicle Loc Debug: Used startLocation fallback")
+                is_valid, validated = GeometryService.validate_coordinate_pair(
+                    [start_loc["lon"], start_loc["lat"]]
+                )
+                if is_valid and validated is not None:
+                    location_data["longitude"] = validated[0]
+                    location_data["latitude"] = validated[1]
+                    logger.info("Vehicle Loc Debug: Used startLocation fallback")
 
         # Odometer Fallback
         if location_data["odometer"] is None:

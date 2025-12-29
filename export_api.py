@@ -3,7 +3,6 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-import geojson as geojson_module
 from fastapi import APIRouter, Body, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
@@ -20,6 +19,7 @@ from export_helpers import (
     get_location_filename,
     process_trip_for_export,
 )
+from geometry_service import GeometryService
 from osm_utils import generate_geojson_osm
 from utils import default_serializer
 
@@ -53,11 +53,11 @@ async def _stream_geojson_from_cursor(cursor) -> Any:
         first = True
         async for trip in cursor:
             try:
-                geom = trip.get("gps")
-                if not isinstance(geom, dict) or not geom.get("type"):
+                geom = GeometryService.geometry_from_document(trip, "gps")
+                if not geom:
                     continue
                 props = {k: v for k, v in trip.items() if k != "gps"}
-                feature = {"type": "Feature", "geometry": geom, "properties": props}
+                feature = GeometryService.feature_from_geometry(geom, props)
                 chunk = json.dumps(
                     feature, default=default_serializer, separators=(",", ":")
                 )
@@ -327,14 +327,16 @@ async def export_coverage_route_endpoint(
                         )
                 data_to_export = trips_for_gpx
             elif fmt == "shapefile":
-                features = [
-                    geojson_module.Feature(
-                        geometry=geom, properties={"segment_idx": i + 1}
-                    )
-                    for i, geom in enumerate(route_geometry.get("geometries", []))
-                    if isinstance(geom, dict)
-                ]
-                data_to_export = geojson_module.FeatureCollection(features)
+                features = []
+                for i, geom in enumerate(route_geometry.get("geometries", [])):
+                    if isinstance(geom, dict):
+                        features.append(
+                            GeometryService.feature_from_geometry(
+                                geom,
+                                properties={"segment_idx": i + 1},
+                            )
+                        )
+                data_to_export = GeometryService.feature_collection(features)
             else:  # geojson, json
                 data_to_export = route_geometry
 
@@ -354,10 +356,10 @@ async def export_coverage_route_endpoint(
                     }
                 ]
             elif fmt == "shapefile":
-                feature = geojson_module.Feature(
-                    geometry=route_geometry, properties={"name": "single_route"}
+                feature = GeometryService.feature_from_geometry(
+                    route_geometry, properties={"name": "single_route"}
                 )
-                data_to_export = geojson_module.FeatureCollection([feature])
+                data_to_export = GeometryService.feature_collection([feature])
             else:  # geojson, json
                 data_to_export = route_geometry
         else:

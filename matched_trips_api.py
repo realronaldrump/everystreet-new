@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime, timedelta
 
-import geojson as geojson_module
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 
@@ -15,6 +14,7 @@ from db import (
     find_with_retry,
     serialize_datetime,
 )
+from geometry_service import GeometryService
 from models import DateRangeModel
 
 # Setup
@@ -39,12 +39,11 @@ async def get_matched_trips(request: Request):
 
         for trip in matched:
             try:
-                mgps = trip["matchedGps"]
-                geometry_dict = (
-                    mgps if isinstance(mgps, dict) else geojson_module.loads(mgps)
-                )
-                feature = geojson_module.Feature(
-                    geometry=geometry_dict,
+                geometry_dict = GeometryService.parse_geojson(trip.get("matchedGps"))
+                if geometry_dict is None:
+                    raise ValueError("Invalid matchedGps geometry")
+                feature = GeometryService.feature_from_geometry(
+                    geometry_dict,
                     properties={
                         "transactionId": trip["transactionId"],
                         "imei": trip.get("imei", ""),
@@ -92,8 +91,7 @@ async def get_matched_trips(request: Request):
                 )
                 continue
 
-        fc = geojson_module.FeatureCollection(features)
-        return JSONResponse(content=fc)
+        return JSONResponse(content=GeometryService.feature_collection(features))
     except Exception as e:
         logger.exception(
             "Error in get_matched_trips: %s",
@@ -231,32 +229,33 @@ async def get_trips_in_bounds(
     Uses a spatial query for efficiency.
     """
     try:
-        if not (
-            -90 <= min_lat <= 90
-            and -90 <= max_lat <= 90
-            and -180 <= min_lon <= 180
-            and -180 <= max_lon <= 180
+        if not GeometryService.validate_bounding_box(
+            min_lat,
+            min_lon,
+            max_lat,
+            max_lon,
         ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid bounding box coordinates (lat must be -90 to 90, lon -180 to 180).",
             )
 
-        bounding_box_polygon_coords = [
-            [min_lon, min_lat],
-            [max_lon, min_lat],
-            [max_lon, max_lat],
-            [min_lon, max_lat],
-            [min_lon, min_lat],
-        ]
+        bounding_box_geometry = GeometryService.bounding_box_polygon(
+            min_lat,
+            min_lon,
+            max_lat,
+            max_lon,
+        )
+        if bounding_box_geometry is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid bounding box coordinates (lat must be -90 to 90, lon -180 to 180).",
+            )
 
         query = {
             "matchedGps": {
                 "$geoIntersects": {
-                    "$geometry": {
-                        "type": "Polygon",
-                        "coordinates": [bounding_box_polygon_coords],
-                    },
+                    "$geometry": bounding_box_geometry,
                 },
             },
             "invalid": {"$ne": True},
@@ -274,9 +273,15 @@ async def get_trips_in_bounds(
         async for trip_doc in cursor:
             if trip_doc.get("matchedGps") and trip_doc["matchedGps"].get("coordinates"):
                 coords = trip_doc["matchedGps"]["coordinates"]
-                if isinstance(coords, list) and len(coords) >= 2:
-                    feature = geojson_module.Feature(
-                        geometry=geojson_module.LineString(coords),
+                geometry = GeometryService.geometry_from_coordinate_pairs(
+                    coords,
+                    allow_point=False,
+                    dedupe=False,
+                    validate=False,
+                )
+                if geometry is not None:
+                    feature = GeometryService.feature_from_geometry(
+                        geometry,
                         properties={
                             "transactionId": trip_doc.get("transactionId", "N/A")
                         },
@@ -288,12 +293,11 @@ async def get_trips_in_bounds(
                         trip_doc.get("transactionId", "N/A"),
                     )
 
-        feature_collection = geojson_module.FeatureCollection(trip_features)
         logger.info(
             "Found %d matched trip segments within bounds.",
             len(trip_features),
         )
-        return JSONResponse(content=feature_collection)
+        return JSONResponse(content=GeometryService.feature_collection(trip_features))
 
     except HTTPException as http_exc:
         raise http_exc

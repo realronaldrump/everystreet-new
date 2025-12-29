@@ -12,6 +12,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, BeforeValidator, Field, field_validator
 
 from date_utils import parse_timestamp
+from geometry_service import GeometryService
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
@@ -46,16 +47,7 @@ def validate_geojson_point_or_linestring(
         return False, None
 
     def _validate_coord(coord_pair: Any) -> tuple[bool, list[float] | None]:
-        if not isinstance(coord_pair, list | tuple) or len(coord_pair) < 2:
-            return False, None
-        try:
-            lon = float(coord_pair[0])
-            lat = float(coord_pair[1])
-        except (TypeError, ValueError, IndexError):
-            return False, None
-        if not (-180 <= lon <= 180 and -90 <= lat <= 90):
-            return False, None
-        return True, [lon, lat]
+        return GeometryService.validate_coordinate_pair(coord_pair)
 
     if geom_type == "Point":
         is_valid, validated_coord = _validate_coord(coordinates)
@@ -101,18 +93,7 @@ def validate_coordinate_pair(
     Returns:
         Tuple of (is_valid, [lon, lat] as floats or None)
     """
-    if not isinstance(coord, list | tuple) or len(coord) < 2:
-        return False, None
-    try:
-        lon = float(coord[0])
-        lat = float(coord[1])
-    except (TypeError, ValueError, IndexError):
-        return False, None
-
-    if not (-180 <= lon <= 180 and -90 <= lat <= 90):
-        return False, None
-
-    return True, [lon, lat]
+    return GeometryService.validate_coordinate_pair(coord)
 
 
 class LocationModel(BaseModel):

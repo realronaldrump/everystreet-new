@@ -13,9 +13,8 @@ from pymongo.collection import Collection
 
 from date_utils import parse_timestamp
 from db import serialize_document
-from models import validate_coordinate_pair
+from geometry_service import GeometryService
 from trip_event_publisher import publish_trip_state
-from utils import haversine
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +71,9 @@ def _extract_coordinates_from_data(data_points: list[dict]) -> list[dict[str, An
 
         if timestamp and lat is not None and lon is not None:
             # Use centralized validation for coordinate pairs
-            is_valid, validated_coord = validate_coordinate_pair([lon, lat])
+            is_valid, validated_coord = GeometryService.validate_coordinate_pair(
+                [lon, lat]
+            )
             if is_valid and validated_coord is not None:
                 coord = {
                     "timestamp": timestamp,
@@ -134,7 +135,7 @@ def _calculate_trip_metrics(
         prev = coordinates[i - 1]
         curr = coordinates[i]
 
-        segment_dist = haversine(
+        segment_dist = GeometryService.haversine_distance(
             prev["lon"], prev["lat"], curr["lon"], curr["lat"], unit="miles"
         )
         distance_miles += segment_dist
@@ -154,7 +155,7 @@ def _calculate_trip_metrics(
         curr = coordinates[-1]
         time_diff = (curr["timestamp"] - prev["timestamp"]).total_seconds()
         if time_diff > 0:
-            last_dist = haversine(
+            last_dist = GeometryService.haversine_distance(
                 prev["lon"], prev["lat"], curr["lon"], curr["lat"], unit="miles"
             )
             current_speed = (last_dist / time_diff) * 3600
@@ -173,25 +174,6 @@ def _calculate_trip_metrics(
         "pointsRecorded": len(coordinates),
         "lastUpdate": last_time,
     }
-
-
-def _coordinates_to_geojson(coordinates: list[dict]) -> dict | None:
-    """Convert coordinate list to GeoJSON LineString or Point."""
-    if not coordinates:
-        return None
-
-    # Extract [lon, lat] pairs
-    geojson_coords = [[c["lon"], c["lat"]] for c in coordinates]
-
-    # Remove consecutive duplicates
-    distinct = [geojson_coords[0]]
-    for coord in geojson_coords[1:]:
-        if coord != distinct[-1]:
-            distinct.append(coord)
-
-    if len(distinct) == 1:
-        return {"type": "Point", "coordinates": distinct[0]}
-    return {"type": "LineString", "coordinates": distinct}
 
 
 # ============================================================================
@@ -395,7 +377,7 @@ async def process_trip_end(
 
     # Convert coordinates to GeoJSON for storage
     coordinates = trip.get("coordinates", [])
-    gps = _coordinates_to_geojson(coordinates)
+    gps = GeometryService.geometry_from_coordinate_dicts(coordinates)
 
     # Update trip as completed
     update_fields = {
@@ -505,7 +487,7 @@ async def cleanup_stale_trips_logic(
 
         # Convert to GeoJSON
         coordinates = trip.get("coordinates", [])
-        gps = _coordinates_to_geojson(coordinates)
+        gps = GeometryService.geometry_from_coordinate_dicts(coordinates)
 
         await live_collection.update_one(
             {"transactionId": transaction_id},
