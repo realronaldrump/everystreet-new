@@ -7,7 +7,6 @@ support for Nominatim (OSM) and Mapbox geocoding services.
 import logging
 from typing import Any
 
-from utils import get_session
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
 
@@ -18,6 +17,7 @@ from db import (
     find_one_with_retry,
     streets_collection,
 )
+from utils import get_session
 
 logger = logging.getLogger(__name__)
 
