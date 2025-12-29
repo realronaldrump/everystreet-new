@@ -39,21 +39,16 @@ export const CONFIG = {
   LAYER_DEFAULTS: {
     trips: {
       order: 1,
-      color: "#4A90D9",
+      color: "#ff6600", // Base color (orange) - used for reference only
       opacity: 0.85,
       visible: true,
-      highlightColor: "#FFD700",
-      colorRecent: "#22C55E",
       name: "Trips Heatmap",
       weight: 2,
       minzoom: 0,
       maxzoom: 22,
-      supportsColorPicker: false,
+      supportsColorPicker: false, // Heatmap uses fixed Strava-style color gradient
       supportsOpacitySlider: true,
-      isHeatmap: true,
-      heatmapSettings: {
-        densifyDistance: 30, // Distance between points in meters
-      },
+      isHeatmap: true, // Renders as stacked glow layers for Strava-style effect
     },
     matchedTrips: {
       order: 3,
