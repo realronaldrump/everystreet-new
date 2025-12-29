@@ -65,7 +65,8 @@ class MapPool {
     await this._evictIfNeeded();
 
     // Determine theme and style
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const theme =
+      document.documentElement.getAttribute("data-bs-theme") || "dark";
     const style = options.style || CONFIG.MAP.styles[theme];
 
     // Create new map

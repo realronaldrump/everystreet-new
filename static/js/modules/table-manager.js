@@ -55,11 +55,13 @@ export class TableManager {
   }
 
   _createControls() {
-    const wrapper = this.table.closest(".table-responsive") || this.table.parentElement;
+    const wrapper =
+      this.table.closest(".table-responsive") || this.table.parentElement;
 
     // Create pagination controls
     const paginationContainer = document.createElement("div");
-    paginationContainer.className = "table-pagination d-flex justify-content-between align-items-center mt-3";
+    paginationContainer.className =
+      "table-pagination d-flex justify-content-between align-items-center mt-3";
     paginationContainer.innerHTML = `
       <div class="pagination-info">
         <span class="pagination-showing"></span>
@@ -185,7 +187,9 @@ export class TableManager {
 
     this.state.data = result.data || [];
     this.state.totalRecords = result.recordsTotal || 0;
-    this.state.totalPages = Math.ceil(this.state.totalRecords / this.options.pageSize);
+    this.state.totalPages = Math.ceil(
+      this.state.totalRecords / this.options.pageSize,
+    );
 
     this._render();
     this.options.onDataLoaded?.(result);
@@ -341,7 +345,7 @@ export class TableManager {
 
   getSelectedRows(checkboxSelector = ".row-checkbox:checked") {
     return Array.from(this.tbody.querySelectorAll(checkboxSelector)).map(
-      (cb) => cb.value
+      (cb) => cb.value,
     );
   }
 
