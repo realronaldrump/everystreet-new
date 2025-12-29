@@ -5,6 +5,31 @@ const utils = {
   // Element management with caching
   _elementCache: new Map(),
 
+  // XSS Sanitization - escapes HTML special characters
+  escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    if (typeof str !== "string") str = String(str);
+    const map = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#x27;",
+      "/": "&#x2F;",
+      "`": "&#x60;",
+      "=": "&#x3D;",
+    };
+    return str.replace(/[&<>"'`=/]/g, (char) => map[char]);
+  },
+
+  // Create an element with safe text content
+  createElement(tag, text = "", className = "") {
+    const el = document.createElement(tag);
+    if (text) el.textContent = text;
+    if (className) el.className = className;
+    return el;
+  },
+
   getElement(selector) {
     if (this._elementCache.has(selector)) {
       return this._elementCache.get(selector);

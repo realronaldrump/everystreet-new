@@ -1,280 +1,292 @@
-/* global $ */
 /**
  * Trips Page Logic
- * Handles vehicle fetching, DataTable initialization, and filtering.
+ * Handles trip listing, filtering, and bulk operations
+ * Uses vanilla JS TableManager instead of jQuery DataTables
  */
+import { TableManager } from "./modules/table-manager.js";
+import { CONFIG } from "./modules/config.js";
+import { escapeHtml } from "./modules/utils.js";
+
+let tripsTable = null;
+let selectedTripIds = new Set();
 
 document.addEventListener("DOMContentLoaded", async () => {
-  console.log("Trips Page: DOM Loaded");
   try {
-    if (!window.jQuery) {
-      console.error("jQuery is required but not loaded");
-      return;
-    }
-
-    if (window.$?.fn?.dataTable?.ext) {
-      $.fn.dataTable.ext.errMode = "none";
-    }
-
     await initializePage();
   } catch (e) {
     console.error("Trips Page: Critical initialization error:", e);
-    // Use notification manager if available, otherwise alert or console
-    if (window.notificationManager) {
-      window.notificationManager.show(`Critical Error: ${e.message}`, "danger");
-    }
+    window.notificationManager?.show(`Critical Error: ${e.message}`, "danger");
   }
 });
 
 async function initializePage() {
-  // 1. Load Vehicles
   await loadVehicles();
-
-  // 2. Initialize DataTable
-  initializeDataTable();
-
-  // 3. Setup Filter Listeners & chips
+  initializeTable();
   setupFilterListeners();
-
-  // Listen for global date filter changes
-  document.addEventListener("filtersApplied", () => {
-    updateFilterChips();
-    tripsTable.ajax.reload();
-  });
-
+  setupBulkActions();
   updateFilterChips();
 
-  // 4. Setup Bulk Actions
-  setupBulkActions();
+  document.addEventListener("filtersApplied", () => {
+    updateFilterChips();
+    tripsTable.reload();
+  });
 }
 
-/**
- * Load vehicles into the dropdown
- */
 async function loadVehicles() {
   const vehicleSelect = document.getElementById("trip-filter-vehicle");
   if (!vehicleSelect) return;
 
   try {
-    // Fetch active vehicles
-    const response = await fetch("/api/vehicles?active_only=true");
+    const response = await fetch(`${CONFIG.API.vehicles}?active_only=true`);
     if (!response.ok) throw new Error("Failed to load vehicles");
 
     const vehicles = await response.json();
-
-    // Clear existing options except the first "All vehicles"
     vehicleSelect.innerHTML = '<option value="">All vehicles</option>';
 
-    if (vehicles.length === 0) {
-      // Maybe show a message or just leave it empty
-    } else {
-      vehicles.forEach((v) => {
-        const option = document.createElement("option");
-        option.value = v.imei;
-        // Use custom name or make/model/year or VIN or IMEI
-        let label = v.custom_name;
-        if (!label) {
-          if (v.year || v.make || v.model) {
-            label = `${v.year || ""} ${v.make || ""} ${v.model || ""}`.trim();
-          } else {
-            label = v.vin ? `VIN: ${v.vin}` : `IMEI: ${v.imei}`;
-          }
+    vehicles.forEach((v) => {
+      const option = document.createElement("option");
+      option.value = v.imei;
+      let label = v.custom_name;
+      if (!label) {
+        if (v.year || v.make || v.model) {
+          label = `${v.year || ""} ${v.make || ""} ${v.model || ""}`.trim();
+        } else {
+          label = v.vin ? `VIN: ${v.vin}` : `IMEI: ${v.imei}`;
         }
-        option.textContent = label;
-        vehicleSelect.appendChild(option);
-      });
-    }
+      }
+      option.textContent = label;
+      vehicleSelect.appendChild(option);
+    });
   } catch (error) {
     console.error("Error loading vehicles:", error);
-    if (window.notificationManager) {
-      window.notificationManager.show("Failed to load vehicles list", "warning");
-    }
+    window.notificationManager?.show("Failed to load vehicles list", "warning");
   }
 }
 
-/**
- * Initialize DataTables
- */
-let tripsTable;
-
-function initializeDataTable() {
-  tripsTable = $("#trips-table").DataTable({
-    processing: true,
+function initializeTable() {
+  tripsTable = new TableManager("trips-table", {
     serverSide: true,
-    autoWidth: false,
-    ajax: {
-      url: "/api/trips/datatable",
-      type: "POST",
-      contentType: "application/json",
-      data: (d) => {
-        // Add custom filter params to the payload
-        d.filters = getFilterValues();
-        // Send as JSON body, not form data
-        return JSON.stringify(d);
-      },
-      // DataTables usually expects data to be sent as form-url-encoded or standard ajax query params.
-      // When sending JSON with `contentType: "application/json"`, we need to handle the data processing differently or ensure backend expects it.
-      // The backend `get_trips_datatable` expects `await request.json()`, so sending JSON string is correct.
-      // However, jQuery ajax `data` needs to be stringified manually if contentType is json.
-      error: (xhr, _textStatus, error) => handleTripsAjaxError(xhr, error),
-    },
+    url: CONFIG.API.tripsDataTable,
+    pageSize: 25,
+    defaultSort: { column: 2, dir: "desc" },
+    emptyMessage: "No trips found matching criteria",
+    getFilters: getFilterValues,
     columns: [
       {
         data: null,
         orderable: false,
         className: "text-center",
-        render: (_data, _type, row) =>
-          `<input type="checkbox" class="trip-checkbox form-check-input" value="${row.transactionId}">`,
+        render: (_data, _type, row) => {
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.className = "trip-checkbox form-check-input";
+          checkbox.value = row.transactionId;
+          checkbox.checked = selectedTripIds.has(row.transactionId);
+          checkbox.addEventListener("change", (e) => {
+            if (e.target.checked) {
+              selectedTripIds.add(row.transactionId);
+            } else {
+              selectedTripIds.delete(row.transactionId);
+            }
+            updateBulkDeleteButton();
+          });
+          return checkbox;
+        },
       },
       {
         data: "vehicleLabel",
         name: "vehicleLabel",
         render: (_data, _type, row) => {
-          const name = row.vehicleLabel || "Unknown vehicle";
-          const idTag = row.transactionId
-            ? `<span class="pill pill-muted">${row.transactionId}</span>`
-            : "";
-          const vin = row.vin
-            ? `<span class="pill pill-subtle">VIN ${row.vin}</span>`
-            : "";
-          return `
-            <div class="trip-cell">
-              <div class="trip-title">${name}</div>
-              <div class="trip-meta">${idTag} ${vin}</div>
-            </div>
-          `;
+          const cell = document.createElement("div");
+          cell.className = "trip-cell";
+
+          const title = document.createElement("div");
+          title.className = "trip-title";
+          title.textContent = row.vehicleLabel || "Unknown vehicle";
+          cell.appendChild(title);
+
+          const meta = document.createElement("div");
+          meta.className = "trip-meta";
+          if (row.transactionId) {
+            const idPill = document.createElement("span");
+            idPill.className = "pill pill-muted";
+            idPill.textContent = row.transactionId;
+            meta.appendChild(idPill);
+          }
+          if (row.vin) {
+            const vinPill = document.createElement("span");
+            vinPill.className = "pill pill-subtle";
+            vinPill.textContent = `VIN ${row.vin}`;
+            meta.appendChild(vinPill);
+          }
+          cell.appendChild(meta);
+
+          return cell;
         },
       },
       {
         data: "startTime",
         name: "startTime",
         render: (_data, _type, row) => {
-          const start = formatDateTime(row.startTime);
-          const end = formatDateTime(row.endTime);
-          const duration = formatDuration(row.duration);
-          return `
-            <div class="trip-cell">
-              <div class="trip-title">${start}</div>
-              <div class="trip-meta"><i class="far fa-clock"></i> ${duration} · Ends ${end}</div>
-            </div>
-          `;
+          const cell = document.createElement("div");
+          cell.className = "trip-cell";
+
+          const title = document.createElement("div");
+          title.className = "trip-title";
+          title.textContent = formatDateTime(row.startTime);
+          cell.appendChild(title);
+
+          const meta = document.createElement("div");
+          meta.className = "trip-meta";
+          meta.innerHTML = `<i class="far fa-clock"></i> ${escapeHtml(formatDuration(row.duration))} &middot; Ends ${escapeHtml(formatDateTime(row.endTime))}`;
+          cell.appendChild(meta);
+
+          return cell;
         },
       },
       {
         data: "distance",
         name: "distance",
         render: (_data, _type, row) => {
-          const distance = row.distance
-            ? `${parseFloat(row.distance).toFixed(1)} mi`
-            : "--";
-          const startLocation = sanitizeLocation(row.startLocation);
-          const destination = sanitizeLocation(row.destination);
-          return `
-            <div class="trip-cell">
-              <div class="trip-title">${distance}</div>
-              <div class="trip-meta"><i class="fas fa-map-marker-alt"></i> ${startLocation} → ${destination}</div>
-            </div>
-          `;
+          const cell = document.createElement("div");
+          cell.className = "trip-cell";
+
+          const title = document.createElement("div");
+          title.className = "trip-title";
+          title.textContent = row.distance ? `${parseFloat(row.distance).toFixed(1)} mi` : "--";
+          cell.appendChild(title);
+
+          const meta = document.createElement("div");
+          meta.className = "trip-meta";
+          meta.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${escapeHtml(sanitizeLocation(row.startLocation))} &rarr; ${escapeHtml(sanitizeLocation(row.destination))}`;
+          cell.appendChild(meta);
+
+          return cell;
         },
       },
       {
         data: "maxSpeed",
         name: "maxSpeed",
         render: (_data, _type, row) => {
-          const speed = row.maxSpeed ? `${Math.round(row.maxSpeed)} mph` : "--";
+          const cell = document.createElement("div");
+          cell.className = "trip-cell";
+
+          const title = document.createElement("div");
+          title.className = "trip-title";
+          title.textContent = row.maxSpeed ? `${Math.round(row.maxSpeed)} mph` : "--";
+          cell.appendChild(title);
+
           const idle = row.totalIdleDuration
             ? `${Math.round(row.totalIdleDuration / 60)} min idle`
             : "Minimal idle";
-          return `
-            <div class="trip-cell">
-              <div class="trip-title">${speed}</div>
-              <div class="trip-meta"><i class="fas fa-stopwatch"></i> ${idle}</div>
-            </div>
-          `;
+          const meta = document.createElement("div");
+          meta.className = "trip-meta";
+          meta.innerHTML = `<i class="fas fa-stopwatch"></i> ${escapeHtml(idle)}`;
+          cell.appendChild(meta);
+
+          return cell;
         },
       },
       {
         data: "fuelConsumed",
         name: "fuelConsumed",
         render: (_data, _type, row) => {
-          const fuel = row.fuelConsumed
+          const cell = document.createElement("div");
+          cell.className = "trip-cell";
+
+          const title = document.createElement("div");
+          title.className = "trip-title";
+          title.textContent = row.fuelConsumed
             ? `${parseFloat(row.fuelConsumed).toFixed(2)} gal`
             : "--";
+          cell.appendChild(title);
+
           const cost = row.estimated_cost
             ? `$${parseFloat(row.estimated_cost).toFixed(2)}`
             : "--";
-          return `
-            <div class="trip-cell">
-              <div class="trip-title">${fuel}</div>
-              <div class="trip-meta"><i class="fas fa-dollar-sign"></i> Est. cost ${cost}</div>
-            </div>
-          `;
+          const meta = document.createElement("div");
+          meta.className = "trip-meta";
+          meta.innerHTML = `<i class="fas fa-dollar-sign"></i> Est. cost ${escapeHtml(cost)}`;
+          cell.appendChild(meta);
+
+          return cell;
         },
       },
       {
         data: null,
         orderable: false,
-        render: (_data, _type, row) => `
-          <div class="btn-group btn-group-sm">
-            <a href="/trips/${row.transactionId}" class="btn btn-outline-primary" title="View details">
-              <i class="fas fa-map"></i>
-            </a>
-            <button class="btn btn-outline-danger delete-trip-btn" data-id="${row.transactionId}" title="Delete">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-        `,
+        render: (_data, _type, row) => {
+          const container = document.createElement("div");
+          container.className = "btn-group btn-group-sm no-row-click";
+
+          const viewBtn = document.createElement("a");
+          viewBtn.href = `/trips/${row.transactionId}`;
+          viewBtn.className = "btn btn-outline-primary";
+          viewBtn.title = "View details";
+          viewBtn.innerHTML = '<i class="fas fa-map"></i>';
+          container.appendChild(viewBtn);
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "btn btn-outline-danger";
+          deleteBtn.title = "Delete";
+          deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+          deleteBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const confirmed = await window.confirmationDialog.show({
+              title: "Delete Trip",
+              message: "Are you sure you want to delete this trip?",
+              confirmText: "Delete",
+              confirmButtonClass: "btn-danger",
+            });
+            if (confirmed) {
+              deleteTrip(row.transactionId);
+            }
+          });
+          container.appendChild(deleteBtn);
+
+          return container;
+        },
       },
     ],
-    order: [[2, "desc"]], // Sort by Start Time desc by default
-    dom:
-      '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-      '<"row"<"col-sm-12"tr>>' +
-      '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
-    language: {
-      emptyTable: "No trips found matching criteria",
-      processing:
-        '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>',
-    },
-    drawCallback: () => {
-      // Re-apply event listeners for dynamic content
-      setupRowActions();
+    onDataLoaded: () => {
       updateBulkDeleteButton();
     },
   });
 
-  // Handle "Select All" checkbox in header
-  $("#select-all-trips").on("change", function () {
-    const isChecked = $(this).is(":checked");
-    $(".trip-checkbox").prop("checked", isChecked);
-    updateBulkDeleteButton();
-  });
+  // Select all checkbox
+  const selectAll = document.getElementById("select-all-trips");
+  if (selectAll) {
+    selectAll.addEventListener("change", (e) => {
+      const checkboxes = document.querySelectorAll(".trip-checkbox");
+      checkboxes.forEach((cb) => {
+        cb.checked = e.target.checked;
+        if (e.target.checked) {
+          selectedTripIds.add(cb.value);
+        } else {
+          selectedTripIds.delete(cb.value);
+        }
+      });
+      updateBulkDeleteButton();
+    });
+  }
 }
 
 function getFilterValues() {
+  const getVal = (id) => document.getElementById(id)?.value?.trim() || null;
   return {
-    imei: (document.getElementById("trip-filter-vehicle")?.value || "").trim() || null,
-    distance_min:
-      (document.getElementById("trip-filter-distance-min")?.value || "").trim() || null,
-    distance_max:
-      (document.getElementById("trip-filter-distance-max")?.value || "").trim() || null,
-    speed_min:
-      (document.getElementById("trip-filter-speed-min")?.value || "").trim() || null,
-    speed_max:
-      (document.getElementById("trip-filter-speed-max")?.value || "").trim() || null,
-    fuel_min:
-      (document.getElementById("trip-filter-fuel-min")?.value || "").trim() || null,
-    fuel_max:
-      (document.getElementById("trip-filter-fuel-max")?.value || "").trim() || null,
+    imei: getVal("trip-filter-vehicle"),
+    distance_min: getVal("trip-filter-distance-min"),
+    distance_max: getVal("trip-filter-distance-max"),
+    speed_min: getVal("trip-filter-speed-min"),
+    speed_max: getVal("trip-filter-speed-max"),
+    fuel_min: getVal("trip-filter-fuel-min"),
+    fuel_max: getVal("trip-filter-fuel-max"),
     has_fuel: document.getElementById("trip-filter-has-fuel")?.checked || false,
     start_date: window.utils?.getStorage("startDate") || null,
     end_date: window.utils?.getStorage("endDate") || null,
   };
 }
 
-/**
- * Setup debounced filter listeners
- */
 function setupFilterListeners() {
   const inputs = document.querySelectorAll(
     "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, " +
@@ -283,22 +295,16 @@ function setupFilterListeners() {
   );
 
   inputs.forEach((input) => {
-    input.addEventListener("change", () => {
-      updateFilterChips();
-    });
-    input.addEventListener("input", () => {
-      updateFilterChips(false);
-    });
+    input.addEventListener("change", () => updateFilterChips());
+    input.addEventListener("input", () => updateFilterChips(false));
   });
 
-  // Apply button
   document.getElementById("trip-filter-apply")?.addEventListener("click", () => {
-    tripsTable.ajax.reload();
+    tripsTable.reload();
     showFilterAppliedMessage();
     updateFilterChips();
   });
 
-  // Reset button
   const resetBtn = document.getElementById("trip-filter-reset");
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
@@ -307,7 +313,7 @@ function setupFilterListeners() {
         else input.value = "";
       });
       updateFilterChips();
-      tripsTable.ajax.reload();
+      tripsTable.reload();
     });
   }
 }
@@ -317,104 +323,78 @@ function updateFilterChips(triggerReload = false) {
   if (!container) return;
 
   const filters = getFilterValues();
-  const chips = [];
-
-  if (filters.imei)
-    chips.push(
-      makeChip("Vehicle", filters.imei, () => clearInput("trip-filter-vehicle"))
-    );
-  if (filters.start_date || filters.end_date) {
-    chips.push(
-      makeChip(
-        "Date",
-        `${filters.start_date || "Any"} → ${filters.end_date || "Any"}`,
-        () => {
-          // To clear global date, reset the storage.
-          if (window.utils) {
-            window.utils.setStorage("startDate", null);
-            window.utils.setStorage("endDate", null);
-            // Dispatch event so other components know (like the menu)
-            document.dispatchEvent(new Event("filtersReset"));
-            // Reload
-            updateFilterChips();
-            tripsTable.ajax.reload();
-          }
-        }
-      )
-    );
-  }
-  if (filters.distance_min || filters.distance_max)
-    chips.push(
-      makeChip(
-        "Distance",
-        `${filters.distance_min || "0"} - ${filters.distance_max || "∞"} mi`,
-        () => {
-          clearInput("trip-filter-distance-min");
-          clearInput("trip-filter-distance-max");
-        }
-      )
-    );
-  if (filters.speed_min || filters.speed_max)
-    chips.push(
-      makeChip(
-        "Speed",
-        `${filters.speed_min || "0"} - ${filters.speed_max || "∞"} mph`,
-        () => {
-          clearInput("trip-filter-speed-min");
-          clearInput("trip-filter-speed-max");
-        }
-      )
-    );
-  if (filters.fuel_min || filters.fuel_max)
-    chips.push(
-      makeChip(
-        "Fuel",
-        `${filters.fuel_min || "0"} - ${filters.fuel_max || "∞"} gal`,
-        () => {
-          clearInput("trip-filter-fuel-min");
-          clearInput("trip-filter-fuel-max");
-        }
-      )
-    );
-  if (filters.has_fuel)
-    chips.push(
-      makeChip("Has fuel", "Only trips with fuel data", () => {
-        const cb = document.getElementById("trip-filter-has-fuel");
-        if (cb) cb.checked = false;
-      })
-    );
-
   container.innerHTML = "";
-  if (chips.length === 0) {
-    container.innerHTML = '<span class="filter-empty">No active filters</span>';
-  } else {
-    chips.forEach((chip) => {
-      container.appendChild(chip);
+
+  const addChip = (label, value, onRemove) => {
+    const chip = document.createElement("span");
+    chip.className = "filter-chip";
+
+    const labelEl = document.createElement("strong");
+    labelEl.textContent = `${label}: `;
+    chip.appendChild(labelEl);
+    chip.appendChild(document.createTextNode(value + " "));
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("aria-label", "Remove filter");
+    btn.innerHTML = '<i class="fas fa-times"></i>';
+    btn.addEventListener("click", () => {
+      onRemove();
+      updateFilterChips(true);
+    });
+    chip.appendChild(btn);
+
+    container.appendChild(chip);
+  };
+
+  if (filters.imei) {
+    addChip("Vehicle", filters.imei, () => clearInput("trip-filter-vehicle"));
+  }
+  if (filters.start_date || filters.end_date) {
+    addChip("Date", `${filters.start_date || "Any"} -> ${filters.end_date || "Any"}`, () => {
+      window.utils?.setStorage("startDate", null);
+      window.utils?.setStorage("endDate", null);
+      document.dispatchEvent(new Event("filtersReset"));
+      tripsTable.reload();
+    });
+  }
+  if (filters.distance_min || filters.distance_max) {
+    addChip("Distance", `${filters.distance_min || "0"} - ${filters.distance_max || "inf"} mi`, () => {
+      clearInput("trip-filter-distance-min");
+      clearInput("trip-filter-distance-max");
+    });
+  }
+  if (filters.speed_min || filters.speed_max) {
+    addChip("Speed", `${filters.speed_min || "0"} - ${filters.speed_max || "inf"} mph`, () => {
+      clearInput("trip-filter-speed-min");
+      clearInput("trip-filter-speed-max");
+    });
+  }
+  if (filters.fuel_min || filters.fuel_max) {
+    addChip("Fuel", `${filters.fuel_min || "0"} - ${filters.fuel_max || "inf"} gal`, () => {
+      clearInput("trip-filter-fuel-min");
+      clearInput("trip-filter-fuel-max");
+    });
+  }
+  if (filters.has_fuel) {
+    addChip("Has fuel", "Only trips with fuel data", () => {
+      const cb = document.getElementById("trip-filter-has-fuel");
+      if (cb) cb.checked = false;
     });
   }
 
-  if (triggerReload) tripsTable.ajax.reload();
-}
+  if (container.children.length === 0) {
+    container.innerHTML = '<span class="filter-empty">No active filters</span>';
+  }
 
-function makeChip(label, value, onRemove) {
-  const chip = document.createElement("span");
-  chip.className = "filter-chip";
-  chip.innerHTML = `<strong>${label}:</strong> ${value} <button type="button" aria-label="Remove filter"><i class="fas fa-times"></i></button>`;
-  chip.querySelector("button")?.addEventListener("click", () => {
-    onRemove();
-    updateFilterChips(true);
-  });
-  return chip;
+  if (triggerReload) tripsTable.reload();
 }
 
 function clearInput(id) {
   const el = document.getElementById(id);
   if (!el) return;
-  if (el.type === "checkbox") {
-    el.checked = false;
-  } else {
-    el.value = "";
-  }
+  if (el.type === "checkbox") el.checked = false;
+  else el.value = "";
 }
 
 function showFilterAppliedMessage() {
@@ -423,125 +403,76 @@ function showFilterAppliedMessage() {
   helper.textContent = "Filters applied. Showing the newest matching trips.";
   helper.classList.add("text-success");
   setTimeout(() => {
-    helper.textContent =
-      "Adjust filters then apply to refresh results. Active filters appear as chips above.";
+    helper.textContent = "Adjust filters then apply to refresh results.";
     helper.classList.remove("text-success");
   }, 2000);
 }
 
-/**
- * Setup row actions (delete, etc)
- */
-function setupRowActions() {
-  $(".delete-trip-btn")
-    .off("click")
-    .on("click", async function () {
-      const id = $(this).data("id");
-      if (!id) return;
-
-      const confirmed = await window.confirmationDialog.show({
-        title: "Delete Trip",
-        message: "Are you sure you want to delete this trip?",
-        confirmText: "Delete",
-        confirmButtonClass: "btn-danger",
-      });
-
-      if (confirmed) {
-        deleteTrip(id);
-      }
-    });
-
-  $(".trip-checkbox")
-    .off("change")
-    .on("change", () => {
-      updateBulkDeleteButton();
-    });
-}
-
-/**
- * Update Bulk Delete Button State
- */
 function updateBulkDeleteButton() {
-  const checkedCount = $(".trip-checkbox:checked").length;
-  const btn = $("#bulk-delete-trips-btn");
+  const btn = document.getElementById("bulk-delete-trips-btn");
+  if (!btn) return;
 
-  if (checkedCount > 0) {
-    btn.prop("disabled", false);
-    btn.find(".btn-text").text(`Delete Selected (${checkedCount})`);
-  } else {
-    btn.prop("disabled", true);
-    btn.find(".btn-text").text("Delete Selected");
+  const count = selectedTripIds.size;
+  btn.disabled = count === 0;
+  const textEl = btn.querySelector(".btn-text");
+  if (textEl) {
+    textEl.textContent = count > 0 ? `Delete Selected (${count})` : "Delete Selected";
   }
 }
 
 function setupBulkActions() {
-  $("#bulk-delete-trips-btn").on("click", async () => {
-    const selectedIds = $(".trip-checkbox:checked")
-      .map(function () {
-        return $(this).val();
-      })
-      .get();
-
-    if (selectedIds.length === 0) return;
+  document.getElementById("bulk-delete-trips-btn")?.addEventListener("click", async () => {
+    if (selectedTripIds.size === 0) return;
 
     const confirmed = await window.confirmationDialog.show({
       title: "Delete Trips",
-      message: `Are you sure you want to delete ${selectedIds.length} trips?`,
+      message: `Are you sure you want to delete ${selectedTripIds.size} trips?`,
       confirmText: "Delete All",
       confirmButtonClass: "btn-danger",
     });
 
     if (confirmed) {
-      bulkDeleteTrips(selectedIds);
+      await bulkDeleteTrips([...selectedTripIds]);
     }
   });
 
-  // Refresh Geocoding Button
-  $("#refresh-geocoding-btn").on("click", async () => {
-    // Just trigger basic refresh for now, or open modal if needed.
-    // For now, let's just trigger a full recent refresh via API.
+  document.getElementById("refresh-geocoding-btn")?.addEventListener("click", async () => {
     try {
-      if (window.notificationManager)
-        window.notificationManager.show("Starting geocoding refresh...", "info");
-
-      const response = await fetch("/api/geocode_trips", {
+      window.notificationManager?.show("Starting geocoding refresh...", "info");
+      const response = await fetch(CONFIG.API.geocodeTrips, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ interval_days: 7 }), // Default to last 7 days
+        body: JSON.stringify({ interval_days: 7 }),
       });
-
       const result = await response.json();
       if (response.ok) {
-        if (window.notificationManager)
-          window.notificationManager.show("Geocoding task started.", "success");
+        window.notificationManager?.show("Geocoding task started.", "success");
       } else {
         throw new Error(result.detail || "Failed to start geocoding");
       }
     } catch (e) {
-      if (window.notificationManager)
-        window.notificationManager.show(e.message, "danger");
+      window.notificationManager?.show(e.message, "danger");
     }
   });
 }
 
 async function deleteTrip(id) {
   try {
-    const response = await fetch(`/api/trips/${id}`, { method: "DELETE" });
+    const response = await fetch(CONFIG.API.tripById(id), { method: "DELETE" });
     if (!response.ok) throw new Error("Failed to delete trip");
 
-    if (window.notificationManager)
-      window.notificationManager.show("Trip deleted successfully", "success");
-    tripsTable.ajax.reload(null, false); // Reload but keep page
+    window.notificationManager?.show("Trip deleted successfully", "success");
+    selectedTripIds.delete(id);
+    tripsTable.reload();
   } catch (e) {
     console.error("Delete failed", e);
-    if (window.notificationManager)
-      window.notificationManager.show("Failed to delete trip", "danger");
+    window.notificationManager?.show("Failed to delete trip", "danger");
   }
 }
 
 async function bulkDeleteTrips(ids) {
   try {
-    const response = await fetch("/api/trips/bulk_delete", {
+    const response = await fetch(CONFIG.API.tripsBulkDelete, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ trip_ids: ids }),
@@ -550,65 +481,19 @@ async function bulkDeleteTrips(ids) {
     if (!response.ok) throw new Error("Failed to bulk delete trips");
 
     const result = await response.json();
-
-    if (window.notificationManager)
-      window.notificationManager.show(result.message || "Trips deleted", "success");
-    tripsTable.ajax.reload(null, false);
-    $("#select-all-trips").prop("checked", false);
+    window.notificationManager?.show(result.message || "Trips deleted", "success");
+    selectedTripIds.clear();
+    document.getElementById("select-all-trips").checked = false;
+    tripsTable.reload();
   } catch (e) {
     console.error("Bulk delete failed", e);
-    if (window.notificationManager)
-      window.notificationManager.show("Failed to delete trips", "danger");
+    window.notificationManager?.show("Failed to delete trips", "danger");
   }
 }
 
-function handleTripsAjaxError(xhr, error) {
-  const message = extractAjaxErrorMessage(xhr, error);
-
-  console.error("Trips DataTable load failed:", {
-    status: xhr?.status,
-    message,
-  });
-
-  const helper = document.getElementById("filter-helper-text");
-  if (helper) {
-    helper.textContent = `Unable to load trips right now. ${message}`;
-    helper.classList.add("text-danger");
-  }
-
-  if (window.notificationManager) {
-    window.notificationManager.show(`Failed to load trips: ${message}`, "danger");
-  }
-}
-
-function extractAjaxErrorMessage(xhr, fallbackError) {
-  const fallback = fallbackError || "Unexpected error";
-  if (!xhr) return fallback;
-
-  if (xhr.responseJSON?.detail) return xhr.responseJSON.detail;
-  if (xhr.responseJSON?.message) return xhr.responseJSON.message;
-
-  if (xhr.responseText) {
-    try {
-      const parsed = JSON.parse(xhr.responseText);
-      if (parsed?.detail) return parsed.detail;
-      if (parsed?.message) return parsed.message;
-    } catch (_e) {
-      // Not JSON, fall back to text
-      return xhr.responseText;
-    }
-  }
-
-  return xhr.statusText || fallback;
-}
-
-/**
- * Format Helpers
- */
 function formatDateTime(isoString) {
   if (!isoString) return "--";
-  const date = new Date(isoString);
-  return date.toLocaleString("en-US", { hour12: true }); // Use US locale
+  return new Date(isoString).toLocaleString("en-US", { hour12: true });
 }
 
 function formatDuration(seconds) {
@@ -616,7 +501,6 @@ function formatDuration(seconds) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
-
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m ${s}s`;
 }

@@ -1,4 +1,4 @@
-import { UI_CONFIG as CONFIG } from "../ui-config.js";
+import { UI_CONFIG as CONFIG } from "../config.js";
 import uiState from "../ui-state.js";
 import dateManager from "./date-manager.js";
 // utils is not used here; avoid unused import
