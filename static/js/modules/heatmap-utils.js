@@ -16,20 +16,20 @@ const heatmapUtils = {
   COLORS: {
     dark: {
       // Core glow colors (innermost to outermost)
-      core: "#ffffff",        // White-hot center
-      inner: "#ffdd00",       // Bright yellow
-      middle: "#ff6600",      // Orange
-      outer: "#cc0033",       // Red
-      glow: "#660066",        // Purple glow
-      base: "#330033",        // Dark purple base
+      core: "#ffffff", // White-hot center
+      inner: "#ffdd00", // Bright yellow
+      middle: "#ff6600", // Orange
+      outer: "#cc0033", // Red
+      glow: "#660066", // Purple glow
+      base: "#330033", // Dark purple base
     },
     light: {
-      core: "#ff3300",        // Red-orange center
-      inner: "#ff6600",       // Orange
-      middle: "#ff9933",      // Light orange
-      outer: "#cc3366",       // Pink-red
-      glow: "#993366",        // Purple
-      base: "#663366",        // Dark purple
+      core: "#ff3300", // Red-orange center
+      inner: "#ff6600", // Orange
+      middle: "#ff9933", // Light orange
+      outer: "#cc3366", // Pink-red
+      glow: "#993366", // Purple
+      base: "#663366", // Dark purple
     },
   },
 
@@ -155,12 +155,18 @@ const heatmapUtils = {
       "interpolate",
       ["exponential", 1.5],
       ["zoom"],
-      5, baseWidth * 0.3,
-      10, baseWidth * 0.6,
-      12, baseWidth,
-      15, baseWidth * 1.8,
-      18, baseWidth * 3,
-      22, baseWidth * 5,
+      5,
+      baseWidth * 0.3,
+      10,
+      baseWidth * 0.6,
+      12,
+      baseWidth,
+      15,
+      baseWidth * 1.8,
+      18,
+      baseWidth * 3,
+      22,
+      baseWidth * 5,
     ];
   },
 
@@ -171,15 +177,14 @@ const heatmapUtils = {
    * @returns {Object} Configuration object with layer specs
    */
   generateHeatmapConfig(tripsGeoJSON, options = {}) {
-    const {
-      theme = "dark",
-      opacity = 0.85,
-    } = options;
+    const { theme = "dark", opacity = 0.85 } = options;
 
     const tripCount = tripsGeoJSON?.features?.length || 0;
     const glowLayers = this.generateGlowLayers(tripCount, opacity, theme);
 
-    console.log(`Heatmap config: ${tripCount} trips, base opacity: ${this.getAdaptiveOpacity(tripCount).toFixed(3)}, base width: ${this.getAdaptiveLineWidth(tripCount)}`);
+    console.log(
+      `Heatmap config: ${tripCount} trips, base opacity: ${this.getAdaptiveOpacity(tripCount).toFixed(3)}, base width: ${this.getAdaptiveLineWidth(tripCount)}`,
+    );
 
     return {
       tripCount,
@@ -200,7 +205,7 @@ const heatmapUtils = {
   getUpdatedOpacities(tripCount, userOpacity, theme = "dark") {
     const baseOpacity = this.getAdaptiveOpacity(tripCount);
     const multipliers = [0.15, 0.3, 0.5, 0.8, 0.6]; // Matches generateGlowLayers order
-    return multipliers.map(m => baseOpacity * m * userOpacity);
+    return multipliers.map((m) => baseOpacity * m * userOpacity);
   },
 };
 
