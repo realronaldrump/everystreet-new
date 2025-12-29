@@ -847,7 +847,7 @@ async def generate_optimal_route_with_progress(
         )
 
         try:
-            route_coords, stats, route_edges = _solve_greedy_route(
+            route_coords, stats, _ = _solve_greedy_route(
                 G,
                 required_reqs,
                 start_node_id,

@@ -163,8 +163,8 @@ class ExternalGeoService:
             },
         }
 
+    @staticmethod
     async def forward_geocode_nominatim(
-        self,
         query: str,
         limit: int = 5,
         proximity: tuple[float, float] | None = None,
@@ -682,8 +682,8 @@ class ExternalGeoService:
 
         return {"code": "Ok", "matchings": [{"geometry": geometry}]}
 
+    @staticmethod
     def extract_timestamps_for_coordinates(
-        self,
         coordinates: list[list[float]],
         trip_data: dict[str, Any],
     ) -> list[int | None]:
