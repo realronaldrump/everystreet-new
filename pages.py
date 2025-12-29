@@ -29,8 +29,14 @@ def _render_page(template_name: str, request: Request, **context: Any) -> HTMLRe
 
 
 @router.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    """Render main index page."""
+async def landing(request: Request):
+    """Render landing page."""
+    return _render_page("landing.html", request)
+
+
+@router.get("/map", response_class=HTMLResponse)
+async def map_page(request: Request):
+    """Render main map page."""
     return _render_page(
         "index.html",
         request,

@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 import pytz
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from api_utils import api_route, get_mongo_tz_expr
@@ -855,3 +855,30 @@ async def get_metrics(request: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
+
+@router.get("/api/trips/history")
+@api_route(logger)
+async def get_recent_trips(
+    limit: int = Query(5, ge=1, le=20, description="Number of trips to return"),
+):
+    """Get recent trips for landing page activity feed."""
+    pipeline = [
+        {"$match": {"invalid": {"$ne": True}}},
+        {"$sort": {"endTime": -1}},
+        {"$limit": limit},
+        {
+            "$project": {
+                "transactionId": 1,
+                "startTime": 1,
+                "endTime": 1,
+                "distance": 1,
+                "destination": 1,
+                "startLocation": 1,
+                "maxSpeed": 1,
+            }
+        },
+    ]
+
+    trips = await aggregate_with_retry(trips_collection, pipeline)
+    return JSONResponse(content={"trips": serialize_for_json(trips)})
