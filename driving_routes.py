@@ -16,9 +16,9 @@ from sklearn.cluster import KMeans
 
 from config import MAPBOX_ACCESS_TOKEN
 from db import db_manager, find_one_with_retry, streets_collection, trips_collection
+from geometry_service import GeometryService
 from live_tracking import get_active_trip
 from models import LocationModel
-from utils import haversine
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -369,7 +369,7 @@ async def _optimize_route_for_clusters(
 
     # Sort clusters by distance from the start point to determine the first cluster
     clusters.sort(
-        key=lambda c: haversine(
+        key=lambda c: GeometryService.haversine_distance(
             start_point[0], start_point[1], c[0]["start_node"][0], c[0]["start_node"][1]
         )
     )
@@ -381,7 +381,9 @@ async def _optimize_route_for_clusters(
         # Find the nearest point in the current cluster to the current position
         nearest_point_in_cluster = min(
             (seg["start_node"] for seg in cluster_segments),
-            key=lambda p: haversine(current_lon, current_lat, p[0], p[1]),
+            key=lambda p: GeometryService.haversine_distance(
+                current_lon, current_lat, p[0], p[1]
+            ),
         )
 
         # 1. Get a simple route to the nearest point of the cluster
@@ -593,10 +595,18 @@ async def find_connected_undriven_clusters(
             end2 = tuple(geom2["coordinates"][-1])
 
             distances = [
-                haversine(start1[0], start1[1], start2[0], start2[1], unit="km"),
-                haversine(start1[0], start1[1], end2[0], end2[1], unit="km"),
-                haversine(end1[0], end1[1], start2[0], start2[1], unit="km"),
-                haversine(end1[0], end1[1], end2[0], end2[1], unit="km"),
+                GeometryService.haversine_distance(
+                    start1[0], start1[1], start2[0], start2[1], unit="km"
+                ),
+                GeometryService.haversine_distance(
+                    start1[0], start1[1], end2[0], end2[1], unit="km"
+                ),
+                GeometryService.haversine_distance(
+                    end1[0], end1[1], start2[0], start2[1], unit="km"
+                ),
+                GeometryService.haversine_distance(
+                    end1[0], end1[1], end2[0], end2[1], unit="km"
+                ),
             ]
             if min(distances) <= max_distance_km:
                 adjacency[id1].add(id2)
@@ -703,7 +713,7 @@ async def suggest_next_efficient_street(
 
     scored_clusters = []
     for cluster in viable_clusters:
-        distance_km = haversine(
+        distance_km = GeometryService.haversine_distance(
             current_lon,
             current_lat,
             cluster["centroid"][0],
@@ -718,7 +728,7 @@ async def suggest_next_efficient_street(
 
         nearest_segment = min(
             cluster["segments"],
-            key=lambda s: haversine(
+            key=lambda s: GeometryService.haversine_distance(
                 current_lon,
                 current_lat,
                 s["geometry"]["coordinates"][0][0],

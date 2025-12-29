@@ -15,8 +15,12 @@ from db import (
     parse_query_date,
 )
 from export_helpers import (
+    CSV_BASE_FIELDS,
+    CSV_GEOMETRY_FIELDS,
+    CSV_LOCATION_FIELDS,
     create_export_response,
     create_gpx,
+    flatten_trip_for_csv,
     get_location_filename,
     process_trip_for_export,
 )
@@ -113,59 +117,21 @@ async def _stream_csv_from_cursor(
 ) -> Any:
     """Stream CSV data from cursor with predefined headers for efficiency.
 
-    Uses the csv module with a predefined set of headers based on export options,
-    which is simpler and more robust than introspecting the first document.
+    Uses the shared flatten_trip_for_csv function for consistent flattening
+    logic between streaming and buffered CSV exports.
     """
     import csv
     from io import StringIO
 
-    # Define expected headers upfront based on export options
-    base_fields = [
-        "_id",
-        "transactionId",
-        "trip_id",
-        "trip_type",
-        "startTime",
-        "endTime",
-        "duration",
-        "distance",
-        "imei",
-        "source",
-        "completed",
-    ]
+    # Build fieldnames from shared constants
+    base_fields = list(CSV_BASE_FIELDS)
+    location_fields = list(CSV_LOCATION_FIELDS) if flatten_location_fields else []
 
-    location_fields = []
-    if flatten_location_fields:
-        location_fields = [
-            "startLocation_formatted_address",
-            "startLocation_street_number",
-            "startLocation_street",
-            "startLocation_city",
-            "startLocation_county",
-            "startLocation_state",
-            "startLocation_postal_code",
-            "startLocation_country",
-            "startLocation_lat",
-            "startLocation_lng",
-            "destination_formatted_address",
-            "destination_street_number",
-            "destination_street",
-            "destination_city",
-            "destination_county",
-            "destination_state",
-            "destination_postal_code",
-            "destination_country",
-            "destination_lat",
-            "destination_lng",
-        ]
-    else:
-        # Include location objects as JSON if not flattening
+    if not flatten_location_fields:
         base_fields.extend(["startLocation", "destination"])
 
-    geometry_fields = ["gps", "geometry", "path", "simplified_path", "route"]
-
     # Combine all fields in priority order
-    fieldnames = base_fields + location_fields + geometry_fields
+    fieldnames = base_fields + location_fields + list(CSV_GEOMETRY_FIELDS)
 
     async def generator():
         buf = StringIO()
@@ -177,91 +143,14 @@ async def _stream_csv_from_cursor(
         buf.seek(0)
         buf.truncate(0)
 
-        # Process each document
+        # Process each document using the shared flattening function
         async for doc in cursor:
             try:
-                flat = {}
-
-                # Handle geometry fields
-                for key in geometry_fields:
-                    if key in doc:
-                        if include_gps_in_csv:
-                            flat[key] = json_dumps(doc[key])
-                        else:
-                            flat[key] = "[Geometry data not included]"
-
-                # Handle location flattening
-                if flatten_location_fields:
-
-                    def normalize(obj):
-                        if isinstance(obj, str):
-                            try:
-                                return json.loads(obj)
-                            except json.JSONDecodeError:
-                                return {}
-                        return obj if isinstance(obj, dict) else {}
-
-                    start_loc = normalize(doc.get("startLocation", {}))
-                    dest = normalize(doc.get("destination", {}))
-
-                    flat["startLocation_formatted_address"] = start_loc.get(
-                        "formatted_address", ""
-                    )
-                    addr = (
-                        start_loc.get("address_components", {})
-                        if isinstance(start_loc, dict)
-                        else {}
-                    )
-                    flat["startLocation_street_number"] = addr.get("street_number", "")
-                    flat["startLocation_street"] = addr.get("street", "")
-                    flat["startLocation_city"] = addr.get("city", "")
-                    flat["startLocation_county"] = addr.get("county", "")
-                    flat["startLocation_state"] = addr.get("state", "")
-                    flat["startLocation_postal_code"] = addr.get("postal_code", "")
-                    flat["startLocation_country"] = addr.get("country", "")
-                    coords = (
-                        start_loc.get("coordinates", {})
-                        if isinstance(start_loc, dict)
-                        else {}
-                    )
-                    flat["startLocation_lat"] = coords.get("lat", "")
-                    flat["startLocation_lng"] = coords.get("lng", "")
-
-                    flat["destination_formatted_address"] = dest.get(
-                        "formatted_address", ""
-                    )
-                    addr = (
-                        dest.get("address_components", {})
-                        if isinstance(dest, dict)
-                        else {}
-                    )
-                    flat["destination_street_number"] = addr.get("street_number", "")
-                    flat["destination_street"] = addr.get("street", "")
-                    flat["destination_city"] = addr.get("city", "")
-                    flat["destination_county"] = addr.get("county", "")
-                    flat["destination_state"] = addr.get("state", "")
-                    flat["destination_postal_code"] = addr.get("postal_code", "")
-                    flat["destination_country"] = addr.get("country", "")
-                    coords = (
-                        dest.get("coordinates", {}) if isinstance(dest, dict) else {}
-                    )
-                    flat["destination_lat"] = coords.get("lat", "")
-                    flat["destination_lng"] = coords.get("lng", "")
-                else:
-                    # Include locations as JSON strings
-                    if "startLocation" in doc:
-                        flat["startLocation"] = json_dumps(doc["startLocation"])
-                    if "destination" in doc:
-                        flat["destination"] = json_dumps(doc["destination"])
-
-                # Handle all other base fields
-                for key in base_fields:
-                    if key in doc and key not in flat:
-                        value = doc[key]
-                        if isinstance(value, dict | list):
-                            flat[key] = json_dumps(value)
-                        else:
-                            flat[key] = value
+                flat = flatten_trip_for_csv(
+                    doc,
+                    include_gps_in_csv=include_gps_in_csv,
+                    flatten_location_fields=flatten_location_fields,
+                )
 
                 writer.writerow(flat)
                 yield buf.getvalue()

@@ -29,6 +29,7 @@ from db import (
     update_one_with_retry,
 )
 from geometry_service import GeometryService
+from progress_tracker import ProgressTracker
 
 logger = logging.getLogger(__name__)
 
@@ -665,52 +666,21 @@ def _validate_route(
     return errors, warnings, details
 
 
-async def _update_db_progress(
-    task_id: str,
-    location_id: str,
-    stage: str,
-    progress: int,
-    message: str,
-    status: str = "running",
-    error: str | None = None,
-) -> None:
-    now = datetime.now(UTC)
-    update_doc = {
-        "$set": {
-            "location_id": location_id,
-            "stage": stage,
-            "progress": progress,
-            "message": message,
-            "status": status,
-            "updated_at": now,
-        },
-        "$setOnInsert": {
-            "task_id": task_id,
-            "started_at": now,
-        },
-    }
-    if error:
-        update_doc["$set"]["error"] = error
-    if status == "completed":
-        update_doc["$set"]["completed_at"] = now
-    if status == "failed":
-        update_doc["$set"]["failed_at"] = now
-
-    await update_one_with_retry(
-        optimal_route_progress_collection,
-        {"task_id": task_id},
-        update_doc,
-        upsert=True,
-    )
-
-
 async def generate_optimal_route_with_progress(
     location_id: str,
     task_id: str,
     start_coords: tuple[float, float] | None = None,  # (lon, lat)
 ) -> dict[str, Any]:
+    # Create progress tracker for optimal route progress collection
+    tracker = ProgressTracker(
+        task_id,
+        optimal_route_progress_collection,
+        location_id=location_id,
+        use_task_id_field=True,
+    )
+
     async def update_progress(stage: str, progress: int, message: str) -> None:
-        await _update_db_progress(task_id, location_id, stage, progress, message)
+        await tracker.update(stage, progress, message, status="running")
         logger.info("Route generation [%s][%d%%]: %s", task_id[:8], progress, message)
 
     try:
@@ -761,14 +731,7 @@ async def generate_optimal_route_with_progress(
         undriven = await cursor.to_list(length=MAX_SEGMENTS)
 
         if not undriven:
-            await _update_db_progress(
-                task_id,
-                location_id,
-                "complete",
-                100,
-                "All streets already driven!",
-                "completed",
-            )
+            await tracker.complete("All streets already driven!")
             return {
                 "status": "already_complete",
                 "message": "All streets already driven!",
@@ -908,14 +871,7 @@ async def generate_optimal_route_with_progress(
 
         logger.info("Route generation finished. Updating DB status to completed.")
         try:
-            await _update_db_progress(
-                task_id,
-                location_id,
-                "complete",
-                100,
-                "Route generation complete!",
-                "completed",
-            )
+            await tracker.complete("Route generation complete!")
         except Exception as update_err:
             logger.error("Final DB progress update failed: %s", update_err)
             await optimal_route_progress_collection.update_one(
@@ -952,15 +908,7 @@ async def generate_optimal_route_with_progress(
         }
 
     except Exception as e:
-        await _update_db_progress(
-            task_id,
-            location_id,
-            "failed",
-            0,
-            f"Route generation failed: {e}",
-            "failed",
-            str(e),
-        )
+        await tracker.fail(str(e), f"Route generation failed: {e}")
         raise
 
 

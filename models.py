@@ -82,20 +82,6 @@ def validate_geojson_point_or_linestring(
     return False, None
 
 
-def validate_coordinate_pair(
-    coord: list | tuple,
-) -> tuple[bool, list[float] | None]:
-    """Validate a single coordinate pair [lon, lat].
-
-    Args:
-        coord: A list or tuple containing [longitude, latitude]
-
-    Returns:
-        Tuple of (is_valid, [lon, lat] as floats or None)
-    """
-    return GeometryService.validate_coordinate_pair(coord)
-
-
 class LocationModel(BaseModel):
     """Model for location data."""
 

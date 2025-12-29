@@ -27,6 +27,7 @@ from db import (
     update_one_with_retry,
 )
 from geometry_service import GeometryService
+from progress_tracker import ProgressTracker
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,39 +74,6 @@ EXCLUDED_ACCESS_TYPES = {
     "destination",
     "permit",
 }
-
-
-async def _update_task_progress(
-    task_id: str | None,
-    stage: str,
-    progress: int,
-    message: str,
-    error: str | None = None,
-) -> None:
-    """Helper function to update task progress in MongoDB."""
-    if not task_id:
-        return
-    try:
-        update_doc = {
-            "$set": {
-                "stage": stage,
-                "progress": progress,
-                "message": message,
-                "updated_at": datetime.now(UTC),
-                "status": "error" if error else "processing",
-            },
-        }
-        if error:
-            update_doc["$set"]["error"] = error
-
-        await update_one_with_retry(
-            progress_collection,
-            {"_id": task_id},
-            update_doc,
-            upsert=False,
-        )
-    except Exception as e:
-        logger.error("Task %s: Failed to update progress: %s", task_id, e)
 
 
 def _is_drivable_street(tags: dict[str, Any]) -> bool:
@@ -245,12 +213,11 @@ def _process_street_feature(
 
 async def _fetch_streets_with_osmnx(
     polygon: BaseGeometry,
-    task_id: str | None,
+    tracker: ProgressTracker,
     location_name: str,
 ) -> list[dict[str, Any]]:
     """Fetch street data using OSMnx and return filtered features."""
-    await _update_task_progress(
-        task_id,
+    await tracker.update(
         "preprocessing",
         20,
         f"Fetching OSM street data for {location_name}...",
@@ -269,8 +236,7 @@ async def _fetch_streets_with_osmnx(
             logger.warning("No street features found for %s", location_name)
             return []
 
-        await _update_task_progress(
-            task_id,
+        await tracker.update(
             "preprocessing",
             35,
             f"Retrieved {len(gdf)} raw features, filtering...",
@@ -327,14 +293,16 @@ async def preprocess_streets(
     if validated_location.get("segment_length_feet"):
         final_segment_length = float(validated_location["segment_length_feet"]) * 0.3048
 
+    # Create progress tracker
+    tracker = ProgressTracker(task_id, progress_collection, location=location_name)
+
     try:
         logger.info(
             "Starting street preprocessing for %s with segment_length=%.2fm",
             location_name,
             final_segment_length,
         )
-        await _update_task_progress(
-            task_id,
+        await tracker.update(
             "preprocessing",
             5,
             f"Initializing for {location_name}...",
@@ -396,7 +364,7 @@ async def preprocess_streets(
         # 4. Fetch OSM Data with OSMnx
         street_features = await _fetch_streets_with_osmnx(
             boundary_shape,
-            task_id,
+            tracker,
             location_name,
         )
 
@@ -410,8 +378,7 @@ async def preprocess_streets(
             return
 
         # 5. Project to UTM for accurate length calculations
-        await _update_task_progress(
-            task_id,
+        await tracker.update(
             "preprocessing",
             45,
             f"Processing {len(street_features)} streets...",
@@ -441,8 +408,7 @@ async def preprocess_streets(
         ):
             if i % 100 == 0 and i > 0:
                 progress = 45 + int((i / len(street_features)) * 40)
-                await _update_task_progress(
-                    task_id,
+                await tracker.update(
                     "preprocessing",
                     progress,
                     f"Segmenting street {i}/{len(street_features)}...",
@@ -515,8 +481,7 @@ async def preprocess_streets(
             location_name,
         )
 
-        await _update_task_progress(
-            task_id,
+        await tracker.update(
             "preprocessing",
             95,
             f"Completed: {total_segments} segments for {location_name}",
@@ -527,12 +492,9 @@ async def preprocess_streets(
 
     except Exception as e:
         logger.error("Preprocessing failed for %s: %s", location_name, e, exc_info=True)
-        await _update_task_progress(
-            task_id,
-            "error",
-            0,
+        await tracker.fail(
+            str(e),
             f"Preprocessing failed: {e}",
-            error=str(e),
         )
         await update_one_with_retry(
             coverage_metadata_collection,

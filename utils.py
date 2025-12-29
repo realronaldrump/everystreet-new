@@ -255,17 +255,6 @@ async def reverse_geocode_mapbox(
         return None
 
 
-def haversine(
-    lon1: float,
-    lat1: float,
-    lon2: float,
-    lat2: float,
-    unit: str = "meters",
-) -> float:
-    """Calculate the great-circle distance between two points."""
-    return GeometryService.haversine_distance(lon1, lat1, lon2, lat2, unit=unit)
-
-
 def meters_to_miles(meters: float) -> float:
     """Convert meters to miles."""
     return meters / 1609.34
@@ -295,7 +284,7 @@ def calculate_distance(
         try:
             lon1, lat1 = coords[i]
             lon2, lat2 = coords[i + 1]
-            total_distance_meters += haversine(
+            total_distance_meters += GeometryService.haversine_distance(
                 lon1,
                 lat1,
                 lon2,

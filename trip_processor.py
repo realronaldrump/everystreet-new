@@ -16,9 +16,9 @@ from shapely.geometry import Point
 from date_utils import get_current_utc_time
 from db import places_collection
 from external_geo_service import ExternalGeoService
+from geometry_service import GeometryService
 from models import TripDataModel
 from trip_repository import TripRepository
-from utils import haversine
 
 logger = logging.getLogger(__name__)
 
@@ -292,7 +292,7 @@ class TripProcessor:
                             and isinstance(curr, list)
                             and len(curr) == 2
                         ):
-                            total_distance += haversine(
+                            total_distance += GeometryService.haversine_distance(
                                 prev[0], prev[1], curr[0], curr[1], unit="miles"
                             )
                     self.processed_data["distance"] = total_distance
