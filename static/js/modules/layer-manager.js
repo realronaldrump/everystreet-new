@@ -35,7 +35,8 @@ const layerManager = {
 
     sortedLayers.forEach(([name, info]) => {
       const div = document.createElement("div");
-      div.className = "layer-control d-flex align-items-center mb-2 p-2 rounded";
+      div.className =
+        "layer-control d-flex align-items-center mb-2 p-2 rounded";
       div.dataset.layerName = name;
       div.draggable = true;
       div.style.cursor = "move";
@@ -45,7 +46,8 @@ const layerManager = {
         info.supportsColorPicker !== false && name !== "customPlaces";
       const supportsOpacitySlider =
         info.supportsOpacitySlider !== false && name !== "customPlaces";
-      const colorValue = typeof info.color === "string" ? info.color : "#ffffff";
+      const colorValue =
+        typeof info.color === "string" ? info.color : "#ffffff";
 
       const controls = [];
 
@@ -148,7 +150,10 @@ const layerManager = {
 
       if (!draggedElement) return;
 
-      const afterElement = this.getDragAfterElementForLayers(container, e.clientY);
+      const afterElement = this.getDragAfterElementForLayers(
+        container,
+        e.clientY,
+      );
       if (afterElement == null) {
         container.appendChild(draggedElement);
       } else {
@@ -255,7 +260,11 @@ const layerManager = {
 
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
-      state.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+      state.map.setLayoutProperty(
+        layerId,
+        "visibility",
+        visible ? "visible" : "none",
+      );
     } else if (visible && layerInfo.layer) {
       await this.updateMapLayer(name, layerInfo.layer);
     }
@@ -278,7 +287,11 @@ const layerManager = {
         for (let i = 0; i < 2; i++) {
           const glowLayerId = `${name}-layer-${i}`;
           if (state.map?.getLayer(glowLayerId)) {
-            state.map.setPaintProperty(glowLayerId, "line-opacity", opacities[i]);
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-opacity",
+              opacities[i],
+            );
           }
         }
       }
@@ -287,7 +300,8 @@ const layerManager = {
 
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
-      const paintProperty = property === "color" ? "line-color" : "line-opacity";
+      const paintProperty =
+        property === "color" ? "line-color" : "line-opacity";
       state.map.setPaintProperty(layerId, paintProperty, value);
     }
   },
@@ -322,7 +336,13 @@ const layerManager = {
 
       // Handle heatmap layers
       if (layerInfo.isHeatmap) {
-        await this._updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo);
+        await this._updateHeatmapLayer(
+          layerName,
+          data,
+          sourceId,
+          layerId,
+          layerInfo,
+        );
         return;
       }
 
@@ -337,7 +357,11 @@ const layerManager = {
             ? layerInfo.color
             : layerInfo.color || "#331107";
           state.map.setPaintProperty(layerId, "line-color", colorValue);
-          state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
+          state.map.setPaintProperty(
+            layerId,
+            "line-opacity",
+            layerInfo.opacity,
+          );
           state.map.setPaintProperty(layerId, "line-width", [
             "interpolate",
             ["linear"],
@@ -359,7 +383,10 @@ const layerManager = {
           layerInfo.layer = data;
           return;
         } catch (updateError) {
-          console.warn(`Falling back to layer rebuild for ${layerName}:`, updateError);
+          console.warn(
+            `Falling back to layer rebuild for ${layerName}:`,
+            updateError,
+          );
         }
       }
 
@@ -431,7 +458,8 @@ const layerManager = {
       }
 
       if (layerName === "matchedTrips") {
-        const tripInteractions = (await import("./trip-interactions.js")).default;
+        const tripInteractions = (await import("./trip-interactions.js"))
+          .default;
         const clickHandler = (e) => {
           e.originalEvent.stopPropagation();
           if (e.features?.length > 0) {
@@ -468,7 +496,10 @@ const layerManager = {
       layerInfo.layer = data;
     } catch (error) {
       console.error(`Error updating ${layerName} layer:`, error);
-      window.notificationManager.show(`Failed to update ${layerName} layer`, "warning");
+      window.notificationManager.show(
+        `Failed to update ${layerName} layer`,
+        "warning",
+      );
     }
   },
 
@@ -476,7 +507,8 @@ const layerManager = {
    * Update or create a Strava-style heatmap using 2 stacked glow line layers.
    */
   async _updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo) {
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const theme =
+      document.documentElement.getAttribute("data-bs-theme") || "dark";
 
     const heatmapConfig = heatmapUtils.generateHeatmapConfig(data, {
       theme,
@@ -485,7 +517,9 @@ const layerManager = {
 
     const { tripCount, glowLayers } = heatmapConfig;
 
-    console.log(`Heatmap: ${tripCount} trips, creating ${glowLayers.length} glow layers`);
+    console.log(
+      `Heatmap: ${tripCount} trips, creating ${glowLayers.length} glow layers`,
+    );
 
     const existingSource = state.map.getSource(sourceId);
     const firstGlowLayerId = `${layerName}-layer-0`;
@@ -499,11 +533,27 @@ const layerManager = {
         glowLayers.forEach((glowConfig, index) => {
           const glowLayerId = `${layerName}-layer-${index}`;
           if (state.map.getLayer(glowLayerId)) {
-            state.map.setPaintProperty(glowLayerId, "line-color", glowConfig.paint["line-color"]);
-            state.map.setPaintProperty(glowLayerId, "line-width", glowConfig.paint["line-width"]);
-            state.map.setPaintProperty(glowLayerId, "line-opacity", glowConfig.paint["line-opacity"]);
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-color",
+              glowConfig.paint["line-color"],
+            );
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-width",
+              glowConfig.paint["line-width"],
+            );
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-opacity",
+              glowConfig.paint["line-opacity"],
+            );
             if (glowConfig.paint["line-blur"] !== undefined) {
-              state.map.setPaintProperty(glowLayerId, "line-blur", glowConfig.paint["line-blur"]);
+              state.map.setPaintProperty(
+                glowLayerId,
+                "line-blur",
+                glowConfig.paint["line-blur"],
+              );
             }
             state.map.setLayoutProperty(
               glowLayerId,
@@ -516,7 +566,10 @@ const layerManager = {
         layerInfo.layer = data;
         return;
       } catch (updateError) {
-        console.warn(`Falling back to heatmap layer rebuild for ${layerName}:`, updateError);
+        console.warn(
+          `Falling back to heatmap layer rebuild for ${layerName}:`,
+          updateError,
+        );
       }
     }
 

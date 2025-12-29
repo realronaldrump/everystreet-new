@@ -188,7 +188,10 @@ const heatmapUtils = {
    */
   getUpdatedOpacities(tripCount, userOpacity) {
     const settings = this.getAdaptiveSettings(tripCount);
-    return [settings.glowOpacity * userOpacity, settings.coreOpacity * userOpacity];
+    return [
+      settings.glowOpacity * userOpacity,
+      settings.coreOpacity * userOpacity,
+    ];
   },
 };
 
