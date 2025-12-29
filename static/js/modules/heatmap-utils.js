@@ -19,7 +19,10 @@ const heatmapUtils = {
 
     const a =
       Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-      Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+      Math.cos(lat1) *
+        Math.cos(lat2) *
+        Math.sin(deltaLng / 2) *
+        Math.sin(deltaLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c;
@@ -345,11 +348,7 @@ const heatmapUtils = {
    * @returns {Object} Object containing heatmapData and layerConfig
    */
   generateHeatmapConfig(tripsGeoJSON, options = {}) {
-    const {
-      theme = "dark",
-      opacity = 0.85,
-      densifyDistance = 30,
-    } = options;
+    const { theme = "dark", opacity = 0.85, densifyDistance = 30 } = options;
 
     const tripCount = tripsGeoJSON?.features?.length || 0;
 
@@ -362,7 +361,10 @@ const heatmapUtils = {
     const pointCount = heatmapData.features.length;
 
     // Calculate adaptive intensity
-    const intensityConfig = this.calculateAdaptiveIntensity(pointCount, tripCount);
+    const intensityConfig = this.calculateAdaptiveIntensity(
+      pointCount,
+      tripCount,
+    );
 
     // Build the layer paint configuration
     const paint = {

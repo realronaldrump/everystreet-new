@@ -35,7 +35,8 @@ const layerManager = {
 
     sortedLayers.forEach(([name, info]) => {
       const div = document.createElement("div");
-      div.className = "layer-control d-flex align-items-center mb-2 p-2 rounded";
+      div.className =
+        "layer-control d-flex align-items-center mb-2 p-2 rounded";
       div.dataset.layerName = name;
       div.draggable = true;
       div.style.cursor = "move";
@@ -45,7 +46,8 @@ const layerManager = {
         info.supportsColorPicker !== false && name !== "customPlaces";
       const supportsOpacitySlider =
         info.supportsOpacitySlider !== false && name !== "customPlaces";
-      const colorValue = typeof info.color === "string" ? info.color : "#ffffff";
+      const colorValue =
+        typeof info.color === "string" ? info.color : "#ffffff";
 
       const controls = [];
 
@@ -106,7 +108,7 @@ const layerManager = {
         }
 
         this.saveLayerSettings();
-      }, 200)
+      }, 200),
     );
   },
 
@@ -149,7 +151,10 @@ const layerManager = {
 
       if (!draggedElement) return;
 
-      const afterElement = this.getDragAfterElementForLayers(container, e.clientY);
+      const afterElement = this.getDragAfterElementForLayers(
+        container,
+        e.clientY,
+      );
       if (afterElement == null) {
         container.appendChild(draggedElement);
       } else {
@@ -177,7 +182,7 @@ const layerManager = {
         }
         return closest;
       },
-      { offset: Number.NEGATIVE_INFINITY }
+      { offset: Number.NEGATIVE_INFINITY },
     ).element;
   },
 
@@ -194,7 +199,7 @@ const layerManager = {
 
     if (state.map && state.mapInitialized) {
       const sortedLayers = Object.entries(state.mapLayers).sort(
-        ([, a], [, b]) => (b.order || 0) - (a.order || 0)
+        ([, a], [, b]) => (b.order || 0) - (a.order || 0),
       );
 
       let beforeLayer = null;
@@ -237,7 +242,11 @@ const layerManager = {
     // Apply visibility - ensure map is ready and layer exists
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
-      state.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+      state.map.setLayoutProperty(
+        layerId,
+        "visibility",
+        visible ? "visible" : "none",
+      );
     } else if (visible && layerInfo.layer) {
       // If layer data exists but layer isn't on map yet, update it
       await this.updateMapLayer(name, layerInfo.layer);
@@ -263,7 +272,8 @@ const layerManager = {
         }
         // Color changes for heatmap are not supported via picker (uses fixed color ramp)
       } else {
-        const paintProperty = property === "color" ? "line-color" : "line-opacity";
+        const paintProperty =
+          property === "color" ? "line-color" : "line-opacity";
         state.map.setPaintProperty(layerId, paintProperty, value);
       }
     }
@@ -300,7 +310,13 @@ const layerManager = {
 
       // Handle heatmap layers
       if (layerInfo.isHeatmap) {
-        await this._updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo);
+        await this._updateHeatmapLayer(
+          layerName,
+          data,
+          sourceId,
+          layerId,
+          layerInfo,
+        );
         return;
       }
 
@@ -316,7 +332,11 @@ const layerManager = {
             ? layerInfo.color
             : layerInfo.color || "#331107";
           state.map.setPaintProperty(layerId, "line-color", colorValue);
-          state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
+          state.map.setPaintProperty(
+            layerId,
+            "line-opacity",
+            layerInfo.opacity,
+          );
           state.map.setPaintProperty(layerId, "line-width", [
             "interpolate",
             ["linear"],
@@ -332,13 +352,16 @@ const layerManager = {
           state.map.setLayoutProperty(
             layerId,
             "visibility",
-            layerInfo.visible ? "visible" : "none"
+            layerInfo.visible ? "visible" : "none",
           );
 
           layerInfo.layer = data;
           return;
         } catch (updateError) {
-          console.warn(`Falling back to layer rebuild for ${layerName}:`, updateError);
+          console.warn(
+            `Falling back to layer rebuild for ${layerName}:`,
+            updateError,
+          );
         }
       }
 
@@ -410,12 +433,13 @@ const layerManager = {
         state.map.setLayoutProperty(
           layerId,
           "visibility",
-          layerInfo.visible ? "visible" : "none"
+          layerInfo.visible ? "visible" : "none",
         );
       }
 
       if (layerName === "matchedTrips") {
-        const tripInteractions = (await import("./trip-interactions.js")).default;
+        const tripInteractions = (await import("./trip-interactions.js"))
+          .default;
         const clickHandler = (e) => {
           e.originalEvent.stopPropagation();
           if (e.features?.length > 0) {
@@ -453,7 +477,10 @@ const layerManager = {
       layerInfo.layer = data;
     } catch (error) {
       console.error(`Error updating ${layerName} layer:`, error);
-      window.notificationManager.show(`Failed to update ${layerName} layer`, "warning");
+      window.notificationManager.show(
+        `Failed to update ${layerName} layer`,
+        "warning",
+      );
     }
   },
 
@@ -463,7 +490,8 @@ const layerManager = {
    */
   async _updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo) {
     // Detect current theme for color ramp
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const theme =
+      document.documentElement.getAttribute("data-bs-theme") || "dark";
 
     // Generate heatmap configuration from trip data
     const densifyDistance = layerInfo.heatmapSettings?.densifyDistance || 30;
@@ -476,7 +504,7 @@ const layerManager = {
     const { heatmapData, paint, tripCount, pointCount } = heatmapConfig;
 
     console.log(
-      `Heatmap: ${tripCount} trips → ${pointCount} points (densify: ${densifyDistance}m)`
+      `Heatmap: ${tripCount} trips → ${pointCount} points (densify: ${densifyDistance}m)`,
     );
 
     const existingSource = state.map.getSource(sourceId);
@@ -488,15 +516,31 @@ const layerManager = {
         existingSource.setData(heatmapData);
 
         // Update paint properties for new data
-        state.map.setPaintProperty(layerId, "heatmap-intensity", paint["heatmap-intensity"]);
-        state.map.setPaintProperty(layerId, "heatmap-radius", paint["heatmap-radius"]);
-        state.map.setPaintProperty(layerId, "heatmap-opacity", paint["heatmap-opacity"]);
-        state.map.setPaintProperty(layerId, "heatmap-color", paint["heatmap-color"]);
+        state.map.setPaintProperty(
+          layerId,
+          "heatmap-intensity",
+          paint["heatmap-intensity"],
+        );
+        state.map.setPaintProperty(
+          layerId,
+          "heatmap-radius",
+          paint["heatmap-radius"],
+        );
+        state.map.setPaintProperty(
+          layerId,
+          "heatmap-opacity",
+          paint["heatmap-opacity"],
+        );
+        state.map.setPaintProperty(
+          layerId,
+          "heatmap-color",
+          paint["heatmap-color"],
+        );
 
         state.map.setLayoutProperty(
           layerId,
           "visibility",
-          layerInfo.visible ? "visible" : "none"
+          layerInfo.visible ? "visible" : "none",
         );
 
         // Store original trip data for reference
@@ -504,7 +548,10 @@ const layerManager = {
         layerInfo._heatmapPointCount = pointCount;
         return;
       } catch (updateError) {
-        console.warn(`Falling back to heatmap layer rebuild for ${layerName}:`, updateError);
+        console.warn(
+          `Falling back to heatmap layer rebuild for ${layerName}:`,
+          updateError,
+        );
       }
     }
 
@@ -546,7 +593,7 @@ const layerManager = {
       state.map.setLayoutProperty(
         layerId,
         "visibility",
-        layerInfo.visible ? "visible" : "none"
+        layerInfo.visible ? "visible" : "none",
       );
     }
 
