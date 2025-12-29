@@ -8,6 +8,7 @@ and GridFS access.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import threading
@@ -516,12 +517,10 @@ def serialize_datetime(
 ) -> str | None:
     if dt is None:
         return None
-    if isinstance(dt, str):
-        parsed = parse_timestamp(dt)
-        if parsed is None:
-            return None
-        dt = parsed
-    dt = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
+    if isinstance(dt, (str, datetime)):
+        dt = parse_timestamp(dt)
+    if dt is None:
+        return None
     return dt.isoformat().replace("+00:00", "Z")
 
 
@@ -541,6 +540,22 @@ def serialize_document(doc: dict[str, Any]) -> dict[str, Any]:
     if not doc:
         return {}
     return serialize_for_json(doc)
+
+
+def json_dumps(data: Any, **kwargs) -> str:
+    """Serialize data to JSON string with MongoDB type handling.
+
+    This is the canonical way to serialize MongoDB documents to JSON strings.
+    Handles ObjectId, datetime, and nested structures automatically.
+
+    Args:
+        data: Data to serialize (dict, list, or any JSON-serializable type)
+        **kwargs: Additional arguments passed to json.dumps (e.g., separators, indent)
+
+    Returns:
+        JSON string
+    """
+    return json.dumps(serialize_for_json(data), **kwargs)
 
 
 async def batch_cursor(

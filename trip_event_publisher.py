@@ -6,7 +6,6 @@ to connected WebSocket clients, eliminating the need for constant database polli
 This module uses async Redis operations to avoid blocking the event loop.
 """
 
-import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -14,8 +13,8 @@ from typing import Any
 import redis.asyncio as aioredis
 from redis.exceptions import ConnectionError as RedisConnectionError
 
+from db import json_dumps
 from redis_config import get_redis_url
-from utils import BSONJSONEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +86,7 @@ async def publish_trip_state(
             "timestamp": datetime.now(UTC).isoformat(),
         }
 
-        message = json.dumps(event_data, cls=BSONJSONEncoder)
+        message = json_dumps(event_data)
         subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
 
         logger.debug(

@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from db import db_manager
+from db import db_manager, serialize_datetime, serialize_document
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -45,13 +45,8 @@ async def get_server_logs(
         cursor = logs_collection.find(query_filter).sort("timestamp", -1).limit(limit)
         logs = await cursor.to_list(length=limit)
 
-        # Convert ObjectId to string for JSON serialization
-        for log in logs:
-            if "_id" in log:
-                log["_id"] = str(log["_id"])
-            # Convert datetime to ISO format string
-            if "timestamp" in log:
-                log["timestamp"] = log["timestamp"].isoformat()
+        # Serialize all logs for JSON response
+        logs = [serialize_document(log) for log in logs]
 
         # Get total count for pagination info
         total_count = await logs_collection.count_documents(query_filter)
@@ -148,11 +143,11 @@ async def get_logs_stats() -> dict[str, Any]:
         return {
             "total_count": total_count,
             "by_level": {item["_id"]: item["count"] for item in level_counts},
-            "oldest_timestamp": (
-                oldest_log["timestamp"].isoformat() if oldest_log else None
+            "oldest_timestamp": serialize_datetime(
+                oldest_log.get("timestamp") if oldest_log else None
             ),
-            "newest_timestamp": (
-                newest_log["timestamp"].isoformat() if newest_log else None
+            "newest_timestamp": serialize_datetime(
+                newest_log.get("timestamp") if newest_log else None
             ),
         }
 

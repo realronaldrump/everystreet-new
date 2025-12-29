@@ -23,6 +23,7 @@ from db import (
     find_with_retry,
     gas_fillups_collection,
     get_trip_by_id,
+    json_dumps,
     matched_trips_collection,
     progress_collection,
     serialize_datetime,
@@ -260,11 +261,7 @@ async def get_trips(request: Request):
                 "estimated_cost": _calculate_trip_cost(trip, price_map),
             }
             feature = GeometryService.feature_from_geometry(geom, props)
-            chunk = json.dumps(
-                feature,
-                separators=(",", ":"),
-                default=lambda o: o.isoformat() if hasattr(o, "isoformat") else str(o),
-            )
+            chunk = json_dumps(feature, separators=(",", ":"))
             if not first:
                 yield ","
             yield chunk

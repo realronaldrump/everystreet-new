@@ -1,12 +1,10 @@
 import asyncio
 import functools
-import json
 import logging
 import math
 import os
 import statistics
 from collections.abc import Coroutine
-from datetime import datetime
 from typing import Any, TypeVar
 
 import aiohttp
@@ -16,7 +14,6 @@ from aiohttp import (
     ClientResponseError,
     ServerDisconnectedError,
 )
-from bson import ObjectId
 
 from geometry_service import GeometryService
 
@@ -24,40 +21,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
-
-
-class BSONJSONEncoder(json.JSONEncoder):
-    """Custom JSON encoder that handles MongoDB ObjectId and datetime objects.
-
-    This encoder ensures consistent date/ObjectId formatting across the application.
-    Use with json.dumps(data, cls=BSONJSONEncoder).
-    """
-
-    def default(self, obj):
-        if isinstance(obj, ObjectId):
-            return str(obj)
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        return super().default(obj)
-
-
-def default_serializer(obj: Any) -> str:
-    """Custom JSON serializer function to handle datetime and ObjectId types.
-
-    This function provides the same serialization logic as BSONJSONEncoder
-    but as a function suitable for use with json.dumps(data, default=default_serializer).
-
-    Args:
-        obj: The object to serialize
-
-    Returns:
-        str: String representation of the object (ISO format for datetime, str for ObjectId)
-    """
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    if isinstance(obj, ObjectId):
-        return str(obj)
-    return str(obj)
 
 
 # NOTE: Consider migrating to httpx in the future for simpler session lifecycle

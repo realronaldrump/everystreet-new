@@ -1,13 +1,13 @@
 """Search API for places, addresses, and streets.
 
 Provides endpoints for geocoding searches and street lookups with
-support for Nominatim (OSM) and Mapbox geocoding services.
+support for Nominatim (OSM) and Mapbox geocoding services via
+the centralized ExternalGeoService.
 """
 
 import logging
 from typing import Any
 
-from utils import get_session
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
 
@@ -18,16 +18,14 @@ from db import (
     find_one_with_retry,
     streets_collection,
 )
+from external_geo_service import ExternalGeoService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
-# Nominatim (OpenStreetMap) geocoding endpoint
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-NOMINATIM_HEADERS = {
-    "User-Agent": "EveryStreet/1.0",
-}
+# Shared geo service instance
+_geo_service = ExternalGeoService(MAPBOX_ACCESS_TOKEN)
 
 
 @router.get("/geocode")
@@ -61,28 +59,17 @@ async def geocode_search(
     logger.debug("Geocoding search for: %s (use_mapbox=%s)", query, use_mapbox)
 
     try:
-        # Prepare proximity parameter if provided
         proximity = None
         if proximity_lon is not None and proximity_lat is not None:
             proximity = (proximity_lon, proximity_lat)
 
-        # Prefer Mapbox if token is configured unless explicitly disabled
-        prefer_mapbox = MAPBOX_ACCESS_TOKEN and (
-            use_mapbox is None or use_mapbox is True
+        results = await _geo_service.forward_geocode(
+            query, limit, proximity, prefer_mapbox=use_mapbox
         )
-        if prefer_mapbox:
-            results = await _search_mapbox(query, limit, proximity=proximity)
-        else:
-            results = await _search_nominatim(query, limit, proximity=proximity)
 
         logger.info("Found %d results for query: %s", len(results), query)
         return {"results": results, "query": query}
 
-    except aiohttp.ClientError as e:
-        logger.error("Geocoding API error: %s", e, exc_info=True)
-        raise HTTPException(
-            status_code=503, detail="Geocoding service temporarily unavailable"
-        ) from e
     except Exception as e:
         logger.error("Error processing geocoding search: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -117,13 +104,11 @@ async def search_streets(
     try:
         features: list[dict] = []
 
-        # If location_id provided, search within that coverage area ONLY
         if location_id:
             features = await _search_streets_in_coverage(
                 query_lower, location_id, limit
             )
         else:
-            # No location: search ALL coverage areas for streets first
             features = await _search_streets_all_locations(query_lower, limit)
 
         logger.info("Found %d street results for: %s", len(features), query)
@@ -135,7 +120,6 @@ async def search_streets(
         }
 
     except Exception as e:
-        # Never fail the endpoint due to upstream errors – return empty results
         logger.error("Street search unexpected error: %s", e, exc_info=True)
         return {"type": "FeatureCollection", "features": [], "query": query}
 
@@ -178,127 +162,6 @@ async def get_street_geometry(location_id: str, street_name: str):
 # --- Helper Functions ---
 
 
-async def _search_nominatim(
-    query: str,
-    limit: int = 5,
-    addressdetails: bool = True,
-    proximity: tuple[float, float] | None = None,
-) -> list[dict[str, Any]]:
-    """Search using Nominatim (OpenStreetMap) geocoding API.
-
-    Args:
-        query: Search query
-        limit: Maximum results
-        addressdetails: Include address details in results
-        proximity: Optional (longitude, latitude) tuple to bias results toward
-
-    Returns:
-        List of geocoding results
-    """
-    params = {
-        "q": query,
-        "format": "json",
-        "limit": limit,
-        "addressdetails": 1 if addressdetails else 0,
-        "countrycodes": "us",  # Limit to United States
-    }
-
-    # Add viewbox to bias toward US/Texas region
-    if proximity:
-        # Create a viewbox around the proximity point (approximately 200km radius)
-        lon, lat = proximity
-        params["viewbox"] = f"{lon - 2},{lat + 2},{lon + 2},{lat - 2}"
-        params["bounded"] = 1
-    else:
-        # Default viewbox covering United States
-        params["viewbox"] = (
-            "-125,49,-66,24"  # US bounding box (west, north, east, south)
-        )
-
-    session = await get_session()
-    async with session.get(
-        NOMINATIM_URL, params=params, headers=NOMINATIM_HEADERS, timeout=10
-    ) as response:
-        response.raise_for_status()
-        results = await response.json()
-
-        # Normalize the results
-        normalized = []
-        for result in results:
-            normalized.append(
-                {
-                    "place_name": result.get("display_name", ""),
-                    "center": [float(result["lon"]), float(result["lat"])],
-                    "place_type": [result.get("type", "unknown")],
-                    "text": result.get("name", ""),
-                    "osm_id": result.get("osm_id"),
-                    "osm_type": result.get("osm_type"),
-                    "type": result.get("type"),
-                    "lat": result.get("lat"),
-                    "lon": result.get("lon"),
-                    "display_name": result.get("display_name"),
-                    "address": result.get("address", {}),
-                    "importance": result.get("importance", 0),
-                    "bbox": result.get("boundingbox"),
-                }
-            )
-
-        return normalized
-
-
-async def _search_mapbox(
-    query: str, limit: int = 5, proximity: tuple[float, float] | None = None
-) -> list[dict[str, Any]]:
-    """Search using Mapbox Geocoding API.
-
-    Args:
-        query: Search query
-        limit: Maximum results
-        proximity: Optional (longitude, latitude) tuple to bias results toward
-
-    Returns:
-        List of geocoding results
-    """
-    if not MAPBOX_ACCESS_TOKEN:
-        logger.warning("Mapbox token not configured, falling back to Nominatim")
-        return await _search_nominatim(query, limit, proximity=proximity)
-
-    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{query}.json"
-    params = {
-        "access_token": MAPBOX_ACCESS_TOKEN,
-        "limit": limit,
-        "country": "US",  # Limit to United States
-    }
-
-    # Add proximity parameter to bias toward user's location (e.g., Texas)
-    if proximity:
-        params["proximity"] = f"{proximity[0]},{proximity[1]}"
-    else:
-        # Default to Texas center if no proximity provided
-        params["proximity"] = "-99.9018,31.9686"  # Texas center coordinates
-
-    session = await get_session()
-    async with session.get(url, params=params, timeout=10) as response:
-        response.raise_for_status()
-        data = await response.json()
-
-        # Return features directly (already in good format)
-        results = []
-        for feature in data.get("features", []):
-            results.append(
-                {
-                    "place_name": feature.get("place_name", ""),
-                    "center": feature.get("center", []),
-                    "place_type": feature.get("place_type", []),
-                    "text": feature.get("text", ""),
-                    "bbox": feature.get("bbox"),
-                    "context": feature.get("context", []),
-                }
-            )
-
-        return results
-
-
 async def _search_streets_all_locations(
     query: str, limit: int = 10
 ) -> list[dict[str, Any]]:
@@ -311,7 +174,6 @@ async def _search_streets_all_locations(
     Returns:
         List of GeoJSON features with combined geometries per street name
     """
-    # Use aggregation to group segments by street_name and location
     pipeline = [
         {
             "$match": {
@@ -349,10 +211,8 @@ async def _search_streets_all_locations(
         streets_collection, pipeline, batch_size=limit
     )
 
-    # Convert to GeoJSON features with MultiLineString geometries
     features = []
     for street in grouped_streets:
-        # Combine all LineString geometries into a MultiLineString
         coordinates = []
         for geom in street.get("geometries", []):
             if geom.get("type") == "LineString":
@@ -399,7 +259,6 @@ async def _search_streets_in_coverage(
     Returns:
         List of GeoJSON features with combined geometries per street name
     """
-    # First, verify the coverage area exists and get its display name
     try:
         obj_location_id = ObjectId(location_id)
     except Exception:
@@ -421,7 +280,6 @@ async def _search_streets_in_coverage(
         logger.warning("Coverage area %s missing display_name in location", location_id)
         return []
 
-    # Use aggregation to group segments by street_name
     pipeline = [
         {
             "$match": {
@@ -456,10 +314,8 @@ async def _search_streets_in_coverage(
         streets_collection, pipeline, batch_size=limit
     )
 
-    # Convert to GeoJSON features with MultiLineString geometries
     features = []
     for street in grouped_streets:
-        # Combine all LineString geometries into a MultiLineString
         coordinates = []
         for geom in street.get("geometries", []):
             if geom.get("type") == "LineString":

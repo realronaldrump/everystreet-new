@@ -12,7 +12,7 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from date_utils import parse_timestamp
+from date_utils import normalize_to_utc_datetime
 from db import (
     aggregate_with_retry,
     delete_one_with_retry,
@@ -78,11 +78,8 @@ class CustomPlace:
             CustomPlace instance
         """
         created_raw = data.get("created_at")
-        if isinstance(created_raw, str):
-            created = datetime.fromisoformat(created_raw)
-        elif isinstance(created_raw, datetime):
-            created = created_raw
-        else:
+        created = normalize_to_utc_datetime(created_raw)
+        if not created:
             created = datetime.now(UTC)
         return CustomPlace(
             name=data["name"],
@@ -230,17 +227,6 @@ def format_duration(seconds):
     return f"{days}d {hrs}h {mins:02d}m"
 
 
-def parse_time(time_value):
-    """Parse a time value into a timezone-aware datetime."""
-    if not time_value:
-        return None
-    if isinstance(time_value, str):
-        return parse_timestamp(time_value)
-    if time_value.tzinfo is None:
-        return time_value.astimezone(UTC)
-    return time_value
-
-
 async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:
     """Calculate visits for a place using a single MongoDB aggregation.
 
@@ -358,10 +344,8 @@ async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:
 
     visits: list[dict] = []
     for doc in docs:
-        arrival_time = parse_time(doc.get("endTime"))
-        departure_time = (
-            parse_time(doc.get("departure_time")) if doc.get("departure_time") else None
-        )
+        arrival_time = normalize_to_utc_datetime(doc.get("endTime"))
+        departure_time = normalize_to_utc_datetime(doc.get("departure_time"))
         duration = doc.get("duration_seconds")
         time_since_last = doc.get("time_since_last_seconds")
 

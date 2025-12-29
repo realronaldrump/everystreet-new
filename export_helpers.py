@@ -19,7 +19,7 @@ import gpxpy
 import gpxpy.gpx
 from fastapi.responses import StreamingResponse
 
-from utils import default_serializer
+from db import json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +155,7 @@ async def create_geojson(
             len(trips),
         )
 
-    return json.dumps(fc, default=default_serializer)
+    return json_dumps(fc)
 
 
 async def create_gpx(
@@ -347,7 +347,7 @@ async def export_geojson_response(data, filename: str) -> StreamingResponse:
     if isinstance(data, list):
         content = await create_geojson(data)
     else:
-        content = json.dumps(data, default=default_serializer)
+        content = json_dumps(data)
 
     return StreamingResponse(
         io.BytesIO(content.encode()),
@@ -458,9 +458,9 @@ async def create_export_response(
         return await export_shapefile_response(geojson_data, filename_base)
     if fmt == "json":
         if isinstance(data, list):
-            content = json.dumps(data, default=default_serializer)
+            content = json_dumps(data)
         else:
-            content = json.dumps(data, default=default_serializer)
+            content = json_dumps(data)
 
         return StreamingResponse(
             io.BytesIO(content.encode()),
@@ -717,10 +717,7 @@ async def create_csv_export(
                 "route",
             ]:
                 if include_gps_in_csv:
-                    flat_trip[key] = json.dumps(
-                        value,
-                        default=default_serializer,
-                    )
+                    flat_trip[key] = json_dumps(value)
                 else:
                     flat_trip[key] = "[Geometry data not included in CSV format]"
             elif flatten_location_fields and key in [
@@ -729,10 +726,7 @@ async def create_csv_export(
             ]:
                 pass
             elif isinstance(value, dict | list):
-                flat_trip[key] = json.dumps(
-                    value,
-                    default=default_serializer,
-                )
+                flat_trip[key] = json_dumps(value)
             elif isinstance(value, datetime):
                 flat_trip[key] = value.isoformat()
             else:

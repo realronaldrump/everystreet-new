@@ -11,6 +11,7 @@ from db import (
     build_query_from_request,
     db_manager,
     find_one_with_retry,
+    json_dumps,
     parse_query_date,
 )
 from export_helpers import (
@@ -21,7 +22,6 @@ from export_helpers import (
 )
 from geometry_service import GeometryService
 from osm_utils import generate_geojson_osm
-from utils import default_serializer
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -58,9 +58,7 @@ async def _stream_geojson_from_cursor(cursor) -> Any:
                     continue
                 props = {k: v for k, v in trip.items() if k != "gps"}
                 feature = GeometryService.feature_from_geometry(geom, props)
-                chunk = json.dumps(
-                    feature, default=default_serializer, separators=(",", ":")
-                )
+                chunk = json_dumps(feature, separators=(",", ":"))
                 if not first:
                     yield ","
                 yield chunk
@@ -79,9 +77,7 @@ async def _stream_json_array_from_cursor(cursor) -> Any:
         first = True
         async for doc in cursor:
             try:
-                chunk = json.dumps(
-                    doc, default=default_serializer, separators=(",", ":")
-                )
+                chunk = json_dumps(doc, separators=(",", ":"))
                 if not first:
                     yield ","
                 yield chunk
@@ -190,7 +186,7 @@ async def _stream_csv_from_cursor(
                 for key in geometry_fields:
                     if key in doc:
                         if include_gps_in_csv:
-                            flat[key] = json.dumps(doc[key], default=default_serializer)
+                            flat[key] = json_dumps(doc[key])
                         else:
                             flat[key] = "[Geometry data not included]"
 
@@ -254,20 +250,16 @@ async def _stream_csv_from_cursor(
                 else:
                     # Include locations as JSON strings
                     if "startLocation" in doc:
-                        flat["startLocation"] = json.dumps(
-                            doc["startLocation"], default=default_serializer
-                        )
+                        flat["startLocation"] = json_dumps(doc["startLocation"])
                     if "destination" in doc:
-                        flat["destination"] = json.dumps(
-                            doc["destination"], default=default_serializer
-                        )
+                        flat["destination"] = json_dumps(doc["destination"])
 
                 # Handle all other base fields
                 for key in base_fields:
                     if key in doc and key not in flat:
                         value = doc[key]
                         if isinstance(value, dict | list):
-                            flat[key] = json.dumps(value, default=default_serializer)
+                            flat[key] = json_dumps(value)
                         else:
                             flat[key] = value
 
@@ -953,7 +945,7 @@ async def export_advanced(
                     for k in base_fields:
                         v = item.get(k)
                         if isinstance(v, dict | list):
-                            row[k] = json.dumps(v, default=default_serializer)
+                            row[k] = json_dumps(v)
                         else:
                             row[k] = v
                     writer.writerow(row)
@@ -975,9 +967,7 @@ async def export_advanced(
                 yield "["
                 first = True
                 async for item in processed_docs_cursor():
-                    chunk = json.dumps(
-                        item, default=default_serializer, separators=(",", ":")
-                    )
+                    chunk = json_dumps(item, separators=(",", ":"))
                     if not first:
                         yield ","
                     yield chunk

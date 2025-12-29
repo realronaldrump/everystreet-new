@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, status
 
+from date_utils import ensure_utc
 from db import (
     db_manager,
     delete_many_with_retry,
@@ -283,11 +284,7 @@ async def get_first_trip_date():
             now = datetime.now(UTC)
             return {"first_trip_date": now.isoformat()}
 
-        earliest_trip_date = earliest_trip["startTime"]
-        if earliest_trip_date.tzinfo is None:
-            earliest_trip_date = earliest_trip_date.replace(
-                tzinfo=UTC,
-            )
+        earliest_trip_date = ensure_utc(earliest_trip["startTime"])
 
         return {
             "first_trip_date": serialize_datetime(

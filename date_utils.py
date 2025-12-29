@@ -32,9 +32,7 @@ def get_current_utc_time() -> datetime:
 
 def parse_timestamp(ts: str | datetime) -> datetime | None:
     """
-    Parse a timestamp string (or datetime object) and ensure it is.
-
-    timezone-aware, defaulting to UTC.
+    Parse a timestamp string (or datetime object) and normalize it to UTC.
 
     This function is the primary entry point for converting external timestamps
     into a consistent, internal format. It is designed to be robust and handle
@@ -52,18 +50,12 @@ def parse_timestamp(ts: str | datetime) -> datetime | None:
         return None
 
     if isinstance(ts, datetime):
-        # If the datetime object is naive, assume UTC.
-        if ts.tzinfo is None:
-            return ts.replace(tzinfo=UTC)
-        return ts
+        return ensure_utc(ts)
 
     try:
         # Use dateutil.parser for robust parsing of various ISO 8601 formats.
         parsed_time = parser.isoparse(ts)
-        # If the parsed time is naive, assume it's in UTC.
-        if parsed_time.tzinfo is None:
-            return parsed_time.replace(tzinfo=UTC)
-        return parsed_time
+        return ensure_utc(parsed_time)
     except (ValueError, TypeError) as e:
         logger.warning("Failed to parse timestamp '%s': %s", ts, e)
         return None

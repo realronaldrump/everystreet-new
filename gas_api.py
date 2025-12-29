@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
 
 from config import API_BASE_URL, AUTH_URL, get_bouncie_config
+from date_utils import normalize_to_utc_datetime
 from db import (
     aggregate_with_retry,
     delete_one_with_retry,
@@ -27,6 +28,13 @@ from utils import get_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _parse_iso_datetime(value: str) -> datetime:
+    parsed = normalize_to_utc_datetime(value)
+    if not parsed:
+        raise ValueError(f"Invalid datetime value: {value}")
+    return parsed
 
 
 # === Vehicle Management Endpoints ===
@@ -179,13 +187,9 @@ async def get_gas_fillups(
         if start_date or end_date:
             date_query: dict[str, Any] = {}
             if start_date:
-                date_query["$gte"] = datetime.fromisoformat(
-                    start_date.replace("Z", "+00:00")
-                )
+                date_query["$gte"] = _parse_iso_datetime(start_date)
             if end_date:
-                date_query["$lte"] = datetime.fromisoformat(
-                    end_date.replace("Z", "+00:00")
-                )
+                date_query["$lte"] = _parse_iso_datetime(end_date)
             query["fillup_time"] = date_query
 
         fillups = await find_with_retry(
@@ -231,9 +235,9 @@ async def create_gas_fillup(
     """Create a new gas fill-up record."""
     try:
         # Convert string datetime to datetime object if needed
-        fillup_time = fillup_data.fillup_time
-        if isinstance(fillup_time, str):
-            fillup_time = datetime.fromisoformat(fillup_time.replace("Z", "+00:00"))
+        fillup_time = normalize_to_utc_datetime(fillup_data.fillup_time)
+        if not fillup_time:
+            raise ValueError(f"Invalid fillup_time value: {fillup_data.fillup_time}")
 
         # Get vehicle info if available
         vehicle = await find_one_with_retry(
@@ -679,7 +683,7 @@ async def get_vehicle_location_at_time(
             )
         else:
             # Parse timestamp
-            target_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            target_time = _parse_iso_datetime(timestamp)
 
             # Find the trip closest to this timestamp
             # First, try to find a trip that contains this timestamp
@@ -812,7 +816,7 @@ async def estimate_odometer_reading(
 ) -> dict[str, Any]:
     """Estimate odometer reading by interpolating/extrapolating from nearest known anchors."""
     try:
-        target_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        target_time = _parse_iso_datetime(timestamp)
 
         # 1. Find Anchors (Gas Fill-ups)
         # Previous trusted fill-up
@@ -953,13 +957,9 @@ async def get_gas_statistics(
         if start_date or end_date:
             date_query: dict[str, Any] = {}
             if start_date:
-                date_query["$gte"] = datetime.fromisoformat(
-                    start_date.replace("Z", "+00:00")
-                )
+                date_query["$gte"] = _parse_iso_datetime(start_date)
             if end_date:
-                date_query["$lte"] = datetime.fromisoformat(
-                    end_date.replace("Z", "+00:00")
-                )
+                date_query["$lte"] = _parse_iso_datetime(end_date)
             match_stage["fillup_time"] = date_query
 
         pipeline: list[dict[str, Any]] = []

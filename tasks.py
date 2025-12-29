@@ -11,7 +11,6 @@ the run_task_scheduler task.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import functools
 import os
 import uuid
@@ -25,7 +24,6 @@ if TYPE_CHECKING:
 from bson import ObjectId
 from celery import shared_task
 from celery.utils.log import get_task_logger
-from dateutil.parser import parse
 from pydantic import ValidationError
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError, ConnectionFailure
@@ -33,6 +31,7 @@ from pymongo.errors import BulkWriteError, ConnectionFailure
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from celery_app import app as celery_app
 from config import get_bouncie_config
+from date_utils import ensure_utc, parse_timestamp
 from db import (
     count_documents_with_retry,
     coverage_metadata_collection,
@@ -345,17 +344,7 @@ async def check_dependencies(
 
             if dep_status == TaskStatus.FAILED.value:
                 last_updated_any = tasks_config[dep_id].get("last_updated")
-                last_updated = None
-                if isinstance(last_updated_any, datetime):
-                    last_updated = last_updated_any
-                elif isinstance(last_updated_any, str):
-                    with contextlib.suppress(ValueError):
-                        last_updated = datetime.fromisoformat(
-                            last_updated_any.replace("Z", "+00:00"),
-                        )
-
-                if last_updated and last_updated.tzinfo is None:
-                    last_updated = last_updated.astimezone(UTC)
+                last_updated = parse_timestamp(last_updated_any)
 
                 if last_updated and (
                     datetime.now(UTC) - last_updated < timedelta(hours=1)
@@ -597,7 +586,7 @@ async def periodic_fetch_trips_async(_self) -> dict[str, Any]:
         if latest_trip:
             latest_trip_id = latest_trip.get("transactionId", "unknown")
             latest_trip_source = latest_trip.get("source", "unknown")
-            latest_trip_end = latest_trip.get("endTime")
+            latest_trip_end = parse_timestamp(latest_trip.get("endTime"))
 
             logger.info(
                 "Found most recent trip: id=%s, source=%s, endTime=%s",
@@ -607,9 +596,6 @@ async def periodic_fetch_trips_async(_self) -> dict[str, Any]:
             )
 
             if latest_trip_end:
-                if latest_trip_end.tzinfo is None:
-                    latest_trip_end = latest_trip_end.replace(tzinfo=UTC)
-
                 start_date_fetch = latest_trip_end
                 logger.info(
                     "Using latest trip endTime as start_date_fetch: %s",
@@ -750,8 +736,6 @@ async def manual_fetch_trips_range_async(
 ) -> dict[str, Any]:
     """Fetch trips for a user-specified date range."""
 
-    from date_utils import parse_timestamp
-
     def _parse_iso(dt_str: str) -> datetime:
         parsed = parse_timestamp(dt_str)
         if not parsed:
@@ -837,7 +821,7 @@ async def get_earliest_trip_date() -> datetime | None:
             projection={"startTime": 1},
         )
         if earliest_trip and "startTime" in earliest_trip:
-            return earliest_trip["startTime"].replace(tzinfo=UTC)
+            return parse_timestamp(earliest_trip["startTime"])
     except Exception as e:
         logger.error("Error finding earliest trip date: %s", e)
     return None
@@ -850,13 +834,12 @@ async def fetch_all_missing_trips_async(
     """Fetch all trips from a start date (defaulting to earliest trip or 2020-01-01) to now."""
 
     if start_iso:
-        try:
-            start_dt = parse(start_iso)
-            if start_dt.tzinfo is None:
-                start_dt = start_dt.replace(tzinfo=UTC)
-        except Exception as e:
-            logger.error("Invalid start_iso provided: %s. Using default.", e)
-            start_dt = None
+        start_dt = parse_timestamp(start_iso)
+        if not start_dt:
+            logger.error(
+                "Invalid start_iso provided: %s. Using default.",
+                start_iso,
+            )
     else:
         start_dt = None
 
@@ -1422,22 +1405,13 @@ async def run_task_scheduler_async() -> None:
                 continue
 
             last_run_any = task_config.get("last_run")
-            last_run = None
-            if isinstance(last_run_any, datetime):
-                last_run = last_run_any
-            elif isinstance(last_run_any, str):
-                from date_utils import parse_timestamp
-
-                last_run = parse_timestamp(last_run_any)
-                if not last_run:
-                    logger.warning(
-                        "Could not parse last_run timestamp '%s' for task '%s'.",
-                        last_run_any,
-                        task_id,
-                    )
-
-            if last_run and last_run.tzinfo is None:
-                last_run = last_run.astimezone(UTC)
+            last_run = parse_timestamp(last_run_any)
+            if last_run_any and not last_run:
+                logger.warning(
+                    "Could not parse last_run timestamp '%s' for task '%s'.",
+                    last_run_any,
+                    task_id,
+                )
 
             is_due = False
             if last_run is None:
@@ -1574,18 +1548,9 @@ async def get_all_task_metadata() -> dict[str, Any]:
                 "interval_minutes",
                 metadata.get("default_interval_minutes"),
             )
-            last_run = None
-
-            if isinstance(last_run_any, datetime):
-                last_run = last_run_any
-            elif isinstance(last_run_any, str):
-                from date_utils import parse_timestamp
-
-                last_run = parse_timestamp(last_run_any)
+            last_run = parse_timestamp(last_run_any)
 
             if last_run and interval_minutes and interval_minutes > 0:
-                if last_run.tzinfo is None:
-                    last_run = last_run.astimezone(UTC)
                 estimated_next_run = last_run + timedelta(minutes=interval_minutes)
 
             task_entry.update(
@@ -1764,13 +1729,8 @@ async def trigger_manual_fetch_trips_range(
 
     status_manager = TaskStatusManager.get_instance()
 
-    def _ensure_utc(dt: datetime) -> datetime:
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=UTC)
-        return dt.astimezone(UTC)
-
-    start_utc = _ensure_utc(start_date)
-    end_utc = _ensure_utc(end_date)
+    start_utc = ensure_utc(start_date)
+    end_utc = ensure_utc(end_date)
 
     if end_utc <= start_utc:
         raise ValueError("End date must be after start date")

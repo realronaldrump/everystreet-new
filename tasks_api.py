@@ -8,6 +8,7 @@ from fastapi import APIRouter, Body, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from date_utils import normalize_to_utc_datetime
 from db import (
     count_documents_with_retry,
     db_manager,
@@ -124,18 +125,9 @@ async def get_background_tasks_config():
             interval = task_config.get("interval_minutes")
             enabled = task_config.get("enabled", True)
             next_run = None
-            if enabled and interval and interval > 0 and last_run:
+            last_run_dt = normalize_to_utc_datetime(last_run) if last_run else None
+            if enabled and interval and interval > 0 and last_run_dt:
                 try:
-                    if isinstance(last_run, str):
-                        from date_utils import parse_timestamp
-
-                        last_run_dt = parse_timestamp(last_run)
-                    else:
-                        last_run_dt = last_run
-                    if last_run_dt.tzinfo is None:
-                        last_run_dt = last_run_dt.replace(
-                            tzinfo=UTC
-                        )  # Make sure timezone is set
                     next_run_dt = last_run_dt + timedelta(minutes=interval)
                     next_run = next_run_dt.isoformat()
                 except Exception:
@@ -565,20 +557,13 @@ async def reset_task_states():
                 continue
 
             start_time_any = task_info.get("start_time")
-            start_time = None
-
-            if isinstance(start_time_any, datetime):
-                start_time = start_time_any
-            elif isinstance(start_time_any, str):
-                from date_utils import parse_timestamp
-
-                start_time = parse_timestamp(start_time_any)
-                if not start_time:
-                    logger.warning(
-                        "Could not parse start_time string '%s' for task %s",
-                        start_time_any,
-                        task_id,
-                    )
+            start_time = normalize_to_utc_datetime(start_time_any)
+            if start_time_any and not start_time:
+                logger.warning(
+                    "Could not parse start_time string '%s' for task %s",
+                    start_time_any,
+                    task_id,
+                )
 
             if not start_time:
                 updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
@@ -592,11 +577,6 @@ async def reset_task_states():
                     task_id,
                 )
             else:
-                if start_time.tzinfo is None:
-                    start_time = start_time.replace(
-                        tzinfo=UTC
-                    )  # Make sure timezone is set
-
                 runtime = now - start_time
                 if runtime > stuck_threshold:
                     updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value

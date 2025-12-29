@@ -19,7 +19,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
 
-from db import db_manager, serialize_document
+from db import db_manager, json_dumps, serialize_document
 from live_tracking import (
     get_active_trip,
     get_trip_updates,
@@ -36,7 +36,6 @@ from models import (
 )
 from redis_config import get_redis_url
 from trip_event_publisher import TRIP_UPDATES_CHANNEL
-from utils import BSONJSONEncoder
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -119,13 +118,12 @@ async def websocket_endpoint(websocket: WebSocket):
         initial_trip = await get_active_trip()
         if initial_trip:
             await websocket.send_text(
-                json.dumps(
+                json_dumps(
                     {
                         "type": "trip_state",
                         "trip": serialize_document(initial_trip),
                         "status": initial_trip.get("status", "active"),
-                    },
-                    cls=BSONJSONEncoder,
+                    }
                 )
             )
 
@@ -157,14 +155,13 @@ async def websocket_endpoint(websocket: WebSocket):
                     break
 
                 await websocket.send_text(
-                    json.dumps(
+                    json_dumps(
                         {
                             "type": "trip_state",
                             "trip": trip_payload,
                             "status": event_data.get("status", "active"),
                             "transaction_id": event_data.get("transaction_id"),
-                        },
-                        cls=BSONJSONEncoder,
+                        }
                     )
                 )
 
