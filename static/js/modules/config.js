@@ -58,7 +58,8 @@ export const CONFIG = {
     // Coverage endpoints
     coverageAreas: "/api/coverage_areas",
     coverageAreaById: (id) => `/api/coverage_areas/${id}`,
-    coverageAreaStreets: (id, params = "") => `/api/coverage_areas/${id}/streets${params ? `?${params}` : ""}`,
+    coverageAreaStreets: (id, params = "") =>
+      `/api/coverage_areas/${id}/streets${params ? `?${params}` : ""}`,
 
     // Search endpoints
     searchStreets: "/api/search/streets",
@@ -201,7 +202,9 @@ export const CONFIG = {
       dark: "#121212",
     },
     animations: {
-      enabled: typeof window !== "undefined" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      enabled:
+        typeof window !== "undefined" &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     },
   },
 };
