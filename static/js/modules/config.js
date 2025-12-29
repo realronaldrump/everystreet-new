@@ -40,15 +40,20 @@ export const CONFIG = {
     trips: {
       order: 1,
       color: "#4A90D9",
-      opacity: 0.7,
+      opacity: 0.85,
       visible: true,
       highlightColor: "#FFD700",
       colorRecent: "#22C55E",
-      name: "Trips",
+      name: "Trips Heatmap",
       weight: 2,
       minzoom: 0,
       maxzoom: 22,
       supportsColorPicker: false,
+      supportsOpacitySlider: true,
+      isHeatmap: true,
+      heatmapSettings: {
+        densifyDistance: 30, // Distance between points in meters
+      },
     },
     matchedTrips: {
       order: 3,
