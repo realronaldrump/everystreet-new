@@ -1,5 +1,6 @@
 import { CONFIG } from "./config.js";
 import dataManager from "./data-manager.js";
+import heatmapUtils from "./heatmap-utils.js";
 import mapManager from "./map-manager.js";
 import state from "./state.js";
 import utils from "./utils.js";
@@ -253,8 +254,18 @@ const layerManager = {
 
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
-      const paintProperty = property === "color" ? "line-color" : "line-opacity";
-      state.map.setPaintProperty(layerId, paintProperty, value);
+      // Handle heatmap layers differently
+      if (layerInfo.isHeatmap) {
+        if (property === "opacity") {
+          // Update heatmap opacity with zoom-responsive expression
+          const opacityExpr = heatmapUtils.getHeatmapOpacity(value);
+          state.map.setPaintProperty(layerId, "heatmap-opacity", opacityExpr);
+        }
+        // Color changes for heatmap are not supported via picker (uses fixed color ramp)
+      } else {
+        const paintProperty = property === "color" ? "line-color" : "line-opacity";
+        state.map.setPaintProperty(layerId, paintProperty, value);
+      }
     }
   },
 
@@ -285,6 +296,12 @@ const layerManager = {
           state.map.once("styledata", resolve);
           setTimeout(resolve, 1000);
         });
+      }
+
+      // Handle heatmap layers
+      if (layerInfo.isHeatmap) {
+        await this._updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo);
+        return;
       }
 
       const existingSource = state.map.getSource(sourceId);
@@ -397,7 +414,7 @@ const layerManager = {
         );
       }
 
-      if (layerName === "trips" || layerName === "matchedTrips") {
+      if (layerName === "matchedTrips") {
         const tripInteractions = (await import("./trip-interactions.js")).default;
         const clickHandler = (e) => {
           e.originalEvent.stopPropagation();
@@ -438,6 +455,104 @@ const layerManager = {
       console.error(`Error updating ${layerName} layer:`, error);
       window.notificationManager.show(`Failed to update ${layerName} layer`, "warning");
     }
+  },
+
+  /**
+   * Update or create a heatmap layer for trip visualization.
+   * Converts LineString trip data to dense points for heat visualization.
+   */
+  async _updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo) {
+    // Detect current theme for color ramp
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+
+    // Generate heatmap configuration from trip data
+    const densifyDistance = layerInfo.heatmapSettings?.densifyDistance || 30;
+    const heatmapConfig = heatmapUtils.generateHeatmapConfig(data, {
+      theme,
+      opacity: layerInfo.opacity,
+      densifyDistance,
+    });
+
+    const { heatmapData, paint, tripCount, pointCount } = heatmapConfig;
+
+    console.log(
+      `Heatmap: ${tripCount} trips → ${pointCount} points (densify: ${densifyDistance}m)`
+    );
+
+    const existingSource = state.map.getSource(sourceId);
+    const existingLayer = state.map.getLayer(layerId);
+
+    // Fast path: update existing heatmap source data
+    if (existingSource && existingLayer) {
+      try {
+        existingSource.setData(heatmapData);
+
+        // Update paint properties for new data
+        state.map.setPaintProperty(layerId, "heatmap-intensity", paint["heatmap-intensity"]);
+        state.map.setPaintProperty(layerId, "heatmap-radius", paint["heatmap-radius"]);
+        state.map.setPaintProperty(layerId, "heatmap-opacity", paint["heatmap-opacity"]);
+        state.map.setPaintProperty(layerId, "heatmap-color", paint["heatmap-color"]);
+
+        state.map.setLayoutProperty(
+          layerId,
+          "visibility",
+          layerInfo.visible ? "visible" : "none"
+        );
+
+        // Store original trip data for reference
+        layerInfo.layer = data;
+        layerInfo._heatmapPointCount = pointCount;
+        return;
+      } catch (updateError) {
+        console.warn(`Falling back to heatmap layer rebuild for ${layerName}:`, updateError);
+      }
+    }
+
+    // Clean up existing layer and source
+    if (existingLayer) {
+      state.map.removeLayer(layerId);
+    }
+    if (existingSource) {
+      state.map.removeSource(sourceId);
+    }
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    // Add source with point data
+    state.map.addSource(sourceId, {
+      type: "geojson",
+      data: heatmapData,
+      buffer: 64,
+      maxzoom: 18,
+    });
+
+    // Create heatmap layer
+    const layerConfig = {
+      id: layerId,
+      type: "heatmap",
+      source: sourceId,
+      minzoom: layerInfo.minzoom || 0,
+      maxzoom: layerInfo.maxzoom || 22,
+      layout: {
+        visibility: layerInfo.visible ? "visible" : "none",
+      },
+      paint,
+    };
+
+    state.map.addLayer(layerConfig);
+
+    // Ensure visibility is correctly applied
+    if (state.map.getLayer(layerId)) {
+      state.map.setLayoutProperty(
+        layerId,
+        "visibility",
+        layerInfo.visible ? "visible" : "none"
+      );
+    }
+
+    // Store original trip data and metadata
+    layerInfo.layer = data;
+    layerInfo._heatmapPointCount = pointCount;
   },
 
   cleanup() {

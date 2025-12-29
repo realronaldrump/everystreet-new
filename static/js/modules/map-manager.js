@@ -156,8 +156,26 @@ const mapManager = {
 
   handleMapClick(e) {
     // Clear selections when clicking on an empty area.
+    // Only query non-heatmap layers that support feature selection
+    const queryLayers = [];
+    if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
+      queryLayers.push("trips-layer");
+    }
+    if (state.map.getLayer("matchedTrips-layer")) {
+      queryLayers.push("matchedTrips-layer");
+    }
+
+    if (queryLayers.length === 0) {
+      // No queryable layers, just clear selection if needed
+      if (state.selectedTripId) {
+        state.selectedTripId = null;
+        this.refreshTripStyles();
+      }
+      return;
+    }
+
     const features = state.map.queryRenderedFeatures(e.point, {
-      layers: ["trips-layer", "matchedTrips-layer"],
+      layers: queryLayers,
     });
 
     if (features.length === 0) {
@@ -176,6 +194,9 @@ const mapManager = {
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
       if (!layerInfo?.visible) return;
+
+      // Skip heatmap layers - they don't support trip selection styling
+      if (layerInfo.isHeatmap) return;
 
       const layerId = `${layerName}-layer`;
       if (!state.map.getLayer(layerId)) return;
