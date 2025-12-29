@@ -13,24 +13,36 @@ const heatmapUtils = {
    * Strava-style color configuration.
    * The gradient goes from dark/invisible → purple → red → orange → yellow
    */
-  COLORS: {
-    dark: {
-      // Core glow colors (innermost to outermost)
-      core: "#ffffff", // White-hot center
-      inner: "#ffdd00", // Bright yellow
-      middle: "#ff6600", // Orange
-      outer: "#cc0033", // Red
-      glow: "#660066", // Purple glow
-      base: "#330033", // Dark purple base
-    },
-    light: {
-      core: "#ff3300", // Red-orange center
-      inner: "#ff6600", // Orange
-      middle: "#ff9933", // Light orange
-      outer: "#cc3366", // Pink-red
-      glow: "#993366", // Purple
-      base: "#663366", // Dark purple
-    },
+  haversineDistance(coord1, coord2) {
+    const R = 6371000; // Earth's radius in meters
+    const lat1 = (coord1[1] * Math.PI) / 180;
+    const lat2 = (coord2[1] * Math.PI) / 180;
+    const deltaLat = ((coord2[1] - coord1[1]) * Math.PI) / 180;
+    const deltaLng = ((coord2[0] - coord1[0]) * Math.PI) / 180;
+
+    const a =
+      Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(lat1) *
+        Math.cos(lat2) *
+        Math.sin(deltaLng / 2) *
+        Math.sin(deltaLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  },
+
+  /**
+   * Interpolate a point between two coordinates at a given fraction.
+   * @param {number[]} coord1 - [lng, lat]
+   * @param {number[]} coord2 - [lng, lat]
+   * @param {number} fraction - Value between 0 and 1
+   * @returns {number[]} Interpolated [lng, lat]
+   */
+  interpolate(coord1, coord2, fraction) {
+    return [
+      coord1[0] + (coord2[0] - coord1[0]) * fraction,
+      coord1[1] + (coord2[1] - coord1[1]) * fraction,
+    ];
   },
 
   /**
@@ -177,14 +189,38 @@ const heatmapUtils = {
    * @returns {Object} Configuration object with layer specs
    */
   generateHeatmapConfig(tripsGeoJSON, options = {}) {
-    const { theme = "dark", opacity = 0.85 } = options;
+    const { theme = "dark", opacity = 0.85, densifyDistance = 30 } = options;
 
     const tripCount = tripsGeoJSON?.features?.length || 0;
     const glowLayers = this.generateGlowLayers(tripCount, opacity, theme);
 
-    console.log(
-      `Heatmap config: ${tripCount} trips, base opacity: ${this.getAdaptiveOpacity(tripCount).toFixed(3)}, base width: ${this.getAdaptiveLineWidth(tripCount)}`,
+    // Convert trips to heatmap points
+    const heatmapData = this.tripsToHeatmapPoints(tripsGeoJSON, {
+      densifyDistance,
+      includeWeight: true,
+    });
+
+    const pointCount = heatmapData.features.length;
+
+    // Calculate adaptive intensity
+    const intensityConfig = this.calculateAdaptiveIntensity(
+      pointCount,
+      tripCount,
     );
+
+    // Build the layer paint configuration
+    const paint = {
+      "heatmap-weight": ["coalesce", ["get", "weight"], 1],
+      "heatmap-intensity": [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        ...intensityConfig.zoomStops.flat(),
+      ],
+      "heatmap-color": this.getHeatmapColorRamp(theme),
+      "heatmap-radius": this.getHeatmapRadius(tripCount),
+      "heatmap-opacity": this.getHeatmapOpacity(opacity),
+    };
 
     return {
       tripCount,

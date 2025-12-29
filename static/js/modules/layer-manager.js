@@ -306,6 +306,11 @@ const layerManager = {
             );
           }
         }
+        // Color changes for heatmap are not supported via picker (uses fixed color ramp)
+      } else {
+        const paintProperty =
+          property === "color" ? "line-color" : "line-opacity";
+        state.map.setPaintProperty(layerId, paintProperty, value);
       }
       // Color changes for heatmap are not supported via picker (uses fixed color ramp)
       return;
@@ -530,7 +535,7 @@ const layerManager = {
    * stack to create a glowing effect. Where routes overlap, the effect compounds.
    */
   async _updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo) {
-    // Detect current theme for color scheme
+    // Detect current theme for color ramp
     const theme =
       document.documentElement.getAttribute("data-bs-theme") || "dark";
 
@@ -543,7 +548,7 @@ const layerManager = {
     const { tripCount, glowLayers } = heatmapConfig;
 
     console.log(
-      `Heatmap: ${tripCount} trips, creating ${glowLayers.length} glow layers`,
+      `Heatmap: ${tripCount} trips → ${pointCount} points (densify: ${densifyDistance}m)`,
     );
 
     const existingSource = state.map.getSource(sourceId);
@@ -553,41 +558,35 @@ const layerManager = {
     // Fast path: update existing source and layer paint properties
     if (existingSource && existingGlowLayer) {
       try {
-        existingSource.setData(data);
+        existingSource.setData(heatmapData);
 
-        // Update all glow layers with new paint properties
-        glowLayers.forEach((glowConfig, index) => {
-          const glowLayerId = `${layerName}-layer-${index}`;
-          if (state.map.getLayer(glowLayerId)) {
-            state.map.setPaintProperty(
-              glowLayerId,
-              "line-color",
-              glowConfig.paint["line-color"],
-            );
-            state.map.setPaintProperty(
-              glowLayerId,
-              "line-width",
-              glowConfig.paint["line-width"],
-            );
-            state.map.setPaintProperty(
-              glowLayerId,
-              "line-opacity",
-              glowConfig.paint["line-opacity"],
-            );
-            if (glowConfig.paint["line-blur"] !== undefined) {
-              state.map.setPaintProperty(
-                glowLayerId,
-                "line-blur",
-                glowConfig.paint["line-blur"],
-              );
-            }
-            state.map.setLayoutProperty(
-              glowLayerId,
-              "visibility",
-              layerInfo.visible ? "visible" : "none",
-            );
-          }
-        });
+        // Update paint properties for new data
+        state.map.setPaintProperty(
+          layerId,
+          "heatmap-intensity",
+          paint["heatmap-intensity"],
+        );
+        state.map.setPaintProperty(
+          layerId,
+          "heatmap-radius",
+          paint["heatmap-radius"],
+        );
+        state.map.setPaintProperty(
+          layerId,
+          "heatmap-opacity",
+          paint["heatmap-opacity"],
+        );
+        state.map.setPaintProperty(
+          layerId,
+          "heatmap-color",
+          paint["heatmap-color"],
+        );
+
+        state.map.setLayoutProperty(
+          layerId,
+          "visibility",
+          layerInfo.visible ? "visible" : "none",
+        );
 
         layerInfo.layer = data;
         return;
@@ -641,8 +640,14 @@ const layerManager = {
         paint: glowConfig.paint,
       };
 
-      state.map.addLayer(layerConfig);
-    });
+    // Ensure visibility is correctly applied
+    if (state.map.getLayer(layerId)) {
+      state.map.setLayoutProperty(
+        layerId,
+        "visibility",
+        layerInfo.visible ? "visible" : "none",
+      );
+    }
 
     // Store trip data for reference
     layerInfo.layer = data;
