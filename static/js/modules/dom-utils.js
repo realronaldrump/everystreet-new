@@ -74,9 +74,10 @@ export function el(tag, options = {}) {
  */
 export class EventDelegator {
   constructor(container) {
-    this.container = typeof container === "string"
-      ? document.querySelector(container)
-      : container;
+    this.container =
+      typeof container === "string"
+        ? document.querySelector(container)
+        : container;
     this.handlers = new Map();
   }
 
@@ -213,4 +214,11 @@ export function waitForElement(selector, timeout = 5000) {
   });
 }
 
-export default { el, EventDelegator, batchUpdate, safeReplaceContent, createFragment, waitForElement };
+export default {
+  el,
+  EventDelegator,
+  batchUpdate,
+  safeReplaceContent,
+  createFragment,
+  waitForElement,
+};
