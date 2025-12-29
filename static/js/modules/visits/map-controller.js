@@ -53,7 +53,9 @@
     setPlaces(places) {
       this.customPlacesData.features = [];
       this.placeFeatures.clear();
-      places.forEach((place) => this.addPlace(place, false));
+      places.forEach((place) => {
+        this.addPlace(place, false);
+      });
       this._refreshPlacesSource();
     }
 

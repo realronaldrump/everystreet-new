@@ -413,10 +413,7 @@ def _normalize_county_geometry(geom):
         return None
     if geom.is_valid:
         return geom
-    if _make_valid:
-        fixed = _make_valid(geom)
-    else:
-        fixed = geom.buffer(0)
+    fixed = _make_valid(geom) if _make_valid else geom.buffer(0)
     if fixed.is_empty:
         return None
     if not fixed.is_valid:

@@ -273,24 +273,23 @@ class ExternalGeoService:
         session = await get_session()
 
         try:
-            async with mapbox_rate_limiter:
-                async with session.get(url, params=params, timeout=10) as response:
-                    response.raise_for_status()
-                    data = await response.json()
+            async with mapbox_rate_limiter, session.get(url, params=params, timeout=10) as response:
+                response.raise_for_status()
+                data = await response.json()
 
-                    results = []
-                    for feature in data.get("features", []):
-                        results.append(
-                            {
-                                "place_name": feature.get("place_name", ""),
-                                "center": feature.get("center", []),
-                                "place_type": feature.get("place_type", []),
-                                "text": feature.get("text", ""),
-                                "bbox": feature.get("bbox"),
-                                "context": feature.get("context", []),
-                            }
-                        )
-                    return results
+                results = []
+                for feature in data.get("features", []):
+                    results.append(
+                        {
+                            "place_name": feature.get("place_name", ""),
+                            "center": feature.get("center", []),
+                            "place_type": feature.get("place_type", []),
+                            "text": feature.get("text", ""),
+                            "bbox": feature.get("bbox"),
+                            "context": feature.get("context", []),
+                        }
+                    )
+                return results
         except Exception as e:
             logger.warning("Mapbox forward geocoding error: %s", e)
             return []

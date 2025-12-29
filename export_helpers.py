@@ -457,10 +457,7 @@ async def create_export_response(
 
         return await export_shapefile_response(geojson_data, filename_base)
     if fmt == "json":
-        if isinstance(data, list):
-            content = json_dumps(data)
-        else:
-            content = json_dumps(data)
+        content = json_dumps(data)
 
         return StreamingResponse(
             io.BytesIO(content.encode()),

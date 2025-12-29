@@ -67,7 +67,7 @@ def _to_value_set(value: Any) -> set[str]:
         return set()
     if isinstance(value, float) and math.isnan(value):
         return set()
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         values = set()
         for item in value:
             if item is None:
@@ -96,9 +96,7 @@ def _is_drivable_street(tags: dict[str, Any]) -> bool:
         return False
     if "no" in _to_value_set(tags.get("motorcar")):
         return False
-    if "no" in _to_value_set(tags.get("vehicle")):
-        return False
-    return True
+    return "no" not in _to_value_set(tags.get("vehicle"))
 
 
 def _shape_from_geojson(geojson: dict[str, Any]) -> BaseGeometry | None:

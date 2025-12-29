@@ -517,7 +517,7 @@ def serialize_datetime(
 ) -> str | None:
     if dt is None:
         return None
-    if isinstance(dt, (str, datetime)):
+    if isinstance(dt, str | datetime):
         dt = parse_timestamp(dt)
     if dt is None:
         return None

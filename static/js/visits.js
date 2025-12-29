@@ -325,7 +325,9 @@
 
     async filterByTimeframe(timeframe) {
       const tables = [this.visitsTable, this.nonCustomVisitsTable];
-      tables.forEach((table) => table?.processing?.(true));
+      tables.forEach((table) => {
+        table?.processing?.(true);
+      });
 
       try {
         const [customStats, otherStats] = await Promise.all([
@@ -340,7 +342,9 @@
         console.error("Error filtering by timeframe:", error);
         window.notificationManager?.show("Error filtering data", "danger");
       } finally {
-        tables.forEach((table) => table?.processing?.(false));
+        tables.forEach((table) => {
+          table?.processing?.(false);
+        });
       }
     }
 

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 
 class GeometryService:
@@ -18,7 +20,7 @@ class GeometryService:
         coord: Sequence[Any],
     ) -> tuple[bool, list[float] | None]:
         """Validate a [lon, lat] coordinate pair."""
-        if not isinstance(coord, (list, tuple)) or len(coord) < 2:
+        if not isinstance(coord, list | tuple) or len(coord) < 2:
             return False, None
         try:
             lon = float(coord[0])

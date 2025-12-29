@@ -239,9 +239,9 @@ class MobileMapInterface {
 
     let clientY = this.dragStartY;
     if (event.changedTouches?.length > 0) {
-      clientY = event.changedTouches[0].clientY;
+      ({ clientY } = event.changedTouches[0]);
     } else if (event.touches?.length > 0) {
-      clientY = event.touches[0].clientY;
+      ({ clientY } = event.touches[0]);
     }
 
     const deltaY = clientY - this.dragStartY;
