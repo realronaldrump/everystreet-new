@@ -1,24 +1,25 @@
-{% extends "base.html" %} {% block title %}Optimal Routes{% endblock %} {%
+{% extends "base.html" %} {% block title %}Coverage Navigator{% endblock %} {%
 block head_content %}
 
 <!-- Mapbox GL CSS -->
 <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
 <link
   rel="stylesheet"
-  href="{{ url_for('static', path='css/optimal-routes.css') | replace('http://', '//') }}"
+  href="{{ url_for('static', path='css/coverage-navigator.css') | replace('http://', '//') }}"
 />
 {% endblock %} {% block content %}
-<div class="optimal-routes-container">
-  <!-- Control Panel -->
-  <div class="control-panel">
+<div class="coverage-navigator">
+  <aside class="control-panel">
     <div class="panel-header">
-      <h4><i class="fas fa-route me-2"></i>Optimal Route Generator</h4>
-      <p class="text-muted mb-0">
-        Find the most efficient path to complete all remaining streets
-      </p>
+      <div>
+        <h4><i class="fas fa-route me-2"></i>Coverage Navigator</h4>
+        <p class="text-muted mb-0">
+          Plan, navigate, and optimize every remaining street with minimal
+          deadhead driving.
+        </p>
+      </div>
     </div>
 
-    <!-- Area Selection -->
     <div class="control-section">
       <label for="area-select" class="form-label">Coverage Area</label>
       <select id="area-select" class="form-select">
@@ -36,8 +37,80 @@ block head_content %}
       </div>
     </div>
 
-    <!-- Generate Button -->
     <div class="control-section">
+      <div class="section-header">
+        <h5 class="h6 mb-0"><i class="fas fa-compass me-2"></i>Navigate Now</h5>
+        <div class="form-check form-switch">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            role="switch"
+            id="auto-follow-toggle"
+          />
+          <label class="form-check-label" for="auto-follow-toggle"
+            >Auto-Follow</label
+          >
+        </div>
+      </div>
+
+      <div class="btn-grid mt-3">
+        <button id="find-next-street-btn" class="btn btn-primary" disabled>
+          <i class="fas fa-route"></i> Find Nearest Undriven Street
+        </button>
+        <button id="find-efficient-street-btn" class="btn btn-info" disabled>
+          <i class="fas fa-layer-group"></i> Find Efficient Clusters
+        </button>
+      </div>
+
+      <div id="status-message" class="text-info mt-3">
+        <i class="fas fa-info-circle"></i> Please select an area to begin.
+      </div>
+
+      <div id="target-info" class="mt-3"></div>
+
+      <div id="route-info" class="mt-3">
+        <h6 class="mb-2"><i class="fas fa-route me-2"></i>Active Guidance</h6>
+        <div id="route-details-content"></div>
+        <div class="mt-3">
+          <div class="btn-group w-100">
+            <button id="open-google-maps-btn" class="btn btn-outline-light" disabled>
+              <i class="fab fa-google me-2"></i>Open in Google Maps
+            </button>
+            <button id="open-apple-maps-btn" class="btn btn-outline-light" disabled>
+              <i class="fab fa-apple me-2"></i>Open in Apple Maps
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="route-progress-container" class="control-section">
+      <div class="progress-steps">
+        <div id="step-clustering" class="step">Clustering</div>
+        <div id="step-optimizing" class="step">Optimizing</div>
+        <div id="step-rendering" class="step">Rendering</div>
+      </div>
+      <div class="progress">
+        <div
+          id="route-progress-bar"
+          class="progress-bar progress-bar-striped progress-bar-animated"
+          role="progressbar"
+          style="width: 0%"
+        ></div>
+      </div>
+      <div id="processing-status" class="text-muted">Preparing...</div>
+    </div>
+
+    <div id="route-details" class="control-section">
+      <h5 class="h6">Route Details</h5>
+      <div id="route-stats"></div>
+    </div>
+
+    <div class="control-section">
+      <h5 class="h6 mb-2">
+        <i class="fas fa-magic me-2"></i>Optimal Route Planner
+      </h5>
       <button id="generate-route-btn" class="btn btn-primary btn-lg w-100" disabled>
         <i class="fas fa-magic me-2"></i>Generate Optimal Route
       </button>
@@ -47,13 +120,10 @@ block head_content %}
       </div>
     </div>
 
-    <!-- Progress Section -->
     <div id="progress-section" class="control-section" style="display: none">
       <h5 class="mb-3">
         <i class="fas fa-cog fa-spin me-2"></i>Generating Route...
       </h5>
-
-      <!-- Stage Indicators -->
       <div class="progress-stages">
         <div class="stage" data-stage="initializing">
           <div class="stage-icon"><i class="fas fa-play"></i></div>
@@ -80,8 +150,6 @@ block head_content %}
           <div class="stage-label">Complete</div>
         </div>
       </div>
-
-      <!-- Progress Bar -->
       <div class="progress mt-3" style="height: 8px">
         <div
           id="progress-bar"
@@ -90,22 +158,17 @@ block head_content %}
           style="width: 0%"
         ></div>
       </div>
-
-      <!-- Status Message -->
       <div id="progress-message" class="progress-message mt-2">
         Initializing...
       </div>
-
-      <!-- Elapsed Time -->
       <div id="elapsed-time" class="elapsed-time mt-2">
-        <i class="fas fa-clock me-1"></i>Elapsed: <span id="elapsed-value">0:00</span>
+        <i class="fas fa-clock me-1"></i>Elapsed:
+        <span id="elapsed-value">0:00</span>
       </div>
     </div>
 
-    <!-- Route Results -->
     <div id="results-section" class="control-section" style="display: none">
       <h5 class="mb-3"><i class="fas fa-chart-bar me-2"></i>Route Statistics</h5>
-
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-icon"><i class="fas fa-road"></i></div>
@@ -137,7 +200,6 @@ block head_content %}
         </div>
       </div>
 
-      <!-- Export Buttons -->
       <div class="export-buttons mt-3">
         <button id="export-gpx-btn" class="btn btn-outline-primary">
           <i class="fas fa-download me-2"></i>Export GPX
@@ -147,23 +209,31 @@ block head_content %}
         </button>
       </div>
 
-      <!-- Layer Controls -->
       <div class="layer-controls mt-3 border-top pt-3">
-        <h6 class="mb-3 text-muted text-uppercase small" style="letter-spacing: 0.5px;">Map Layers</h6>
-        
+        <h6 class="mb-3 text-muted text-uppercase small" style="letter-spacing: 0.5px">
+          Map Layers
+        </h6>
         <div id="layer-list" class="layer-list">
-          <!-- Optimal Route -->
           <div class="layer-item" data-layer-id="route">
             <div class="layer-header">
               <div class="d-flex align-items-center">
                 <div class="layer-drag-controls me-2">
-                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up"><i class="fas fa-chevron-up"></i></button>
-                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down"><i class="fas fa-chevron-down"></i></button>
+                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up">
+                    <i class="fas fa-chevron-up"></i>
+                  </button>
+                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down">
+                    <i class="fas fa-chevron-down"></i>
+                  </button>
                 </div>
                 <span class="layer-name fw-medium">Optimal Route</span>
               </div>
               <div class="form-check form-switch m-0">
-                <input class="form-check-input" type="checkbox" id="toggle-route-layer" checked>
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="toggle-route-layer"
+                  checked
+                />
               </div>
             </div>
             <div class="layer-opacity mt-2">
@@ -171,22 +241,37 @@ block head_content %}
                 <span>Opacity</span>
                 <span class="opacity-value">100%</span>
               </label>
-              <input type="range" class="form-range" id="opacity-route-layer" min="0" max="100" value="100">
+              <input
+                type="range"
+                class="form-range"
+                id="opacity-route-layer"
+                min="0"
+                max="100"
+                value="100"
+              />
             </div>
           </div>
 
-          <!-- Driven Streets -->
           <div class="layer-item" data-layer-id="driven">
             <div class="layer-header">
               <div class="d-flex align-items-center">
                 <div class="layer-drag-controls me-2">
-                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up"><i class="fas fa-chevron-up"></i></button>
-                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down"><i class="fas fa-chevron-down"></i></button>
+                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up">
+                    <i class="fas fa-chevron-up"></i>
+                  </button>
+                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down">
+                    <i class="fas fa-chevron-down"></i>
+                  </button>
                 </div>
                 <span class="layer-name fw-medium">Driven Streets</span>
               </div>
               <div class="form-check form-switch m-0">
-                <input class="form-check-input" type="checkbox" id="toggle-driven-layer" checked>
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="toggle-driven-layer"
+                  checked
+                />
               </div>
             </div>
             <div class="layer-opacity mt-2">
@@ -194,22 +279,37 @@ block head_content %}
                 <span>Opacity</span>
                 <span class="opacity-value">60%</span>
               </label>
-              <input type="range" class="form-range" id="opacity-driven-layer" min="0" max="100" value="60">
+              <input
+                type="range"
+                class="form-range"
+                id="opacity-driven-layer"
+                min="0"
+                max="100"
+                value="60"
+              />
             </div>
           </div>
 
-          <!-- Undriven Streets -->
           <div class="layer-item" data-layer-id="undriven">
             <div class="layer-header">
               <div class="d-flex align-items-center">
                 <div class="layer-drag-controls me-2">
-                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up"><i class="fas fa-chevron-up"></i></button>
-                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down"><i class="fas fa-chevron-down"></i></button>
+                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up">
+                    <i class="fas fa-chevron-up"></i>
+                  </button>
+                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down">
+                    <i class="fas fa-chevron-down"></i>
+                  </button>
                 </div>
                 <span class="layer-name fw-medium">Undriven Streets</span>
               </div>
               <div class="form-check form-switch m-0">
-                <input class="form-check-input" type="checkbox" id="toggle-undriven-layer" checked>
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="toggle-undriven-layer"
+                  checked
+                />
               </div>
             </div>
             <div class="layer-opacity mt-2">
@@ -217,14 +317,20 @@ block head_content %}
                 <span>Opacity</span>
                 <span class="opacity-value">80%</span>
               </label>
-              <input type="range" class="form-range" id="opacity-undriven-layer" min="0" max="100" value="80">
+              <input
+                type="range"
+                class="form-range"
+                id="opacity-undriven-layer"
+                min="0"
+                max="100"
+                value="80"
+              />
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Error Section -->
     <div id="error-section" class="control-section error-section" style="display: none">
       <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
       <div class="error-message" id="error-message">An error occurred.</div>
@@ -233,20 +339,16 @@ block head_content %}
       </button>
     </div>
 
-    <!-- Route History -->
     <div class="control-section mt-auto">
       <h6 class="mb-2"><i class="fas fa-history me-2"></i>Saved Routes</h6>
       <div id="route-history" class="route-history">
         <div class="text-muted small">No saved routes yet.</div>
       </div>
     </div>
-  </div>
+  </aside>
 
-  <!-- Map Container -->
   <div class="map-container">
-    <div id="route-map"></div>
-
-    <!-- Map Legend -->
+    <div id="coverage-map"></div>
     <div class="map-legend" id="map-legend" style="display: none">
       <h6>Legend</h6>
       <div class="legend-item">
@@ -273,7 +375,12 @@ block head_content %}
 <script>
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
 </script>
-
+<script
+  src="{{ url_for('static', path='js/coverage-navigator.js') | replace('http://', '//') }}"
+></script>
+<script
+  src="{{ url_for('static', path='js/driving-navigation.js') | replace('http://', '//') }}"
+></script>
 <script
   type="module"
   src="{{ url_for('static', path='js/optimal-routes.js') | replace('http://', '//') }}"

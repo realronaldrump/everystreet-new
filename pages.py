@@ -160,29 +160,38 @@ async def server_logs_page(request: Request):
 
 
 @router.get(
-    "/driving-navigation",
+    "/coverage-navigator",
     response_class=HTMLResponse,
 )
-async def driving_navigation_page(request: Request):
-    """Render the driving navigation page."""
+async def coverage_navigator_page(request: Request):
+    """Render the consolidated coverage navigation page."""
     return _render_page(
-        "driving_navigation.html",
+        "coverage_navigator.html",
         request,
         MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
     )
 
 
 @router.get(
+    "/driving-navigation",
+    response_class=HTMLResponse,
+)
+async def driving_navigation_page():
+    """Redirect driving navigation to the consolidated coverage page."""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url="/coverage-navigator", status_code=301)
+
+
+@router.get(
     "/optimal-routes",
     response_class=HTMLResponse,
 )
-async def optimal_routes_page(request: Request):
-    """Render the optimal routes generation page."""
-    return _render_page(
-        "optimal_routes.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
-    )
+async def optimal_routes_page():
+    """Redirect optimal routes to the consolidated coverage page."""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url="/coverage-navigator", status_code=301)
 
 
 @router.get(

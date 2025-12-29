@@ -1,30 +1,37 @@
 /* global mapboxgl, notificationManager */
 
+const DRIVING_NAV_DEFAULTS = {
+  areaSelectId: "area-select",
+  mapContainerId: "driving-map",
+  populateAreaSelect: true,
+  useSharedMap: false,
+};
+
 class DrivingNavigation {
-  constructor() {
+  constructor(options = {}) {
+    const globalConfig = window.coverageNavigatorConfig?.drivingNavigation || {};
+    this.config = {
+      ...DRIVING_NAV_DEFAULTS,
+      ...globalConfig,
+      ...options,
+    };
+
     this.map = null;
 
     // DOM Elements
-    this.areaSelect = document.getElementById("area-select");
+    this.areaSelect = document.getElementById(this.config.areaSelectId);
     this.findBtn = document.getElementById("find-next-street-btn");
-    this.calcCoverageBtn = document.getElementById("calculate-coverage-route-btn");
     this.findEfficientBtn = document.getElementById("find-efficient-street-btn");
     this.statusMsg = document.getElementById("status-message");
     this.targetInfo = document.getElementById("target-info");
-    this.routeInfo = document.getElementById("route-info");
     this.autoFollowToggle = document.getElementById("auto-follow-toggle");
     this.openGoogleMapsBtn = document.getElementById("open-google-maps-btn");
     this.openAppleMapsBtn = document.getElementById("open-apple-maps-btn");
-    this.exportCoverageRouteBtn = document.getElementById("export-coverage-route-btn");
-    this.coverageRouteFormatSelect = document.getElementById(
-      "coverage-route-format-select"
-    );
     this.progressContainer = document.getElementById("route-progress-container");
     this.progressBar = document.getElementById("route-progress-bar");
     this.processingStatus = document.getElementById("processing-status");
     this.routeDetails = document.getElementById("route-details");
     this.routeStats = document.getElementById("route-stats");
-    this.routeLegend = document.getElementById("route-legend");
     this.stepClustering = document.getElementById("step-clustering");
     this.stepOptimizing = document.getElementById("step-optimizing");
     this.stepRendering = document.getElementById("step-rendering");
@@ -34,9 +41,7 @@ class DrivingNavigation {
     this.selectedArea = null;
     this.lastKnownLocation = null;
     this.isFetchingRoute = false;
-    this.isFetchingCoverageRoute = false;
     this.currentStep = null;
-    this.currentCoverageRouteGeoJSON = null;
     this.suggestedClusters = [];
     this.clusterMarkers = [];
     this.currentRoute = null;
@@ -54,16 +59,23 @@ class DrivingNavigation {
   }
 
   async initMap() {
+    if (this.config.useSharedMap && window.coverageMasterMap) {
+      this.map = window.coverageMasterMap;
+      return new Promise((resolve, reject) => {
+        this.attachMapHandlers(resolve, reject);
+      });
+    }
+
     return new Promise((resolve, reject) => {
       try {
-        const mapContainer = document.getElementById("driving-map");
+        const mapContainer = document.getElementById(this.config.mapContainerId);
         if (!mapContainer) {
-          throw new Error("Map container #driving-map not found!");
+          throw new Error(`Map container #${this.config.mapContainerId} not found!`);
         }
 
         mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
         this.map = new mapboxgl.Map({
-          container: "driving-map",
+          container: this.config.mapContainerId,
           style: "mapbox://styles/mapbox/dark-v11",
           center: [-96, 37.8],
           zoom: 3,
@@ -92,63 +104,104 @@ class DrivingNavigation {
     });
   }
 
+  attachMapHandlers(resolve, reject) {
+    if (!this.map) {
+      if (resolve) resolve();
+      return;
+    }
+    const handleLoad = () => {
+      this.setStatus("Map initialized. Select an area.");
+      this.setupMapLayers();
+      if (resolve) resolve();
+    };
+
+    if (typeof this.map.isStyleLoaded === "function" && this.map.isStyleLoaded()) {
+      handleLoad();
+    } else {
+      this.map.on("load", handleLoad);
+    }
+
+    this.map.on("error", (e) => {
+      console.error("Mapbox error:", e);
+      this.setStatus("Error initializing map.", true);
+      if (reject) reject(e);
+    });
+  }
+
   setupMapLayers() {
+    if (!this.map) return;
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
 
     // Source and Layer for Undriven Streets
-    this.map.addSource("undriven-streets", {
-      type: "geojson",
-      data: emptyGeoJSON,
-    });
-    this.map.addLayer({
-      id: "undriven-streets-layer",
-      type: "line",
-      source: "undriven-streets",
-      paint: {
-        "line-color": window.MapStyles.MAP_LAYER_COLORS.streets.undriven,
-        "line-width": 3,
-        "line-opacity": 0.6,
-        "line-dasharray": [2, 2],
-      },
-    });
+    if (!this.map.getSource("undriven-streets")) {
+      this.map.addSource("undriven-streets", {
+        type: "geojson",
+        data: emptyGeoJSON,
+      });
+    }
+    if (!this.map.getLayer("undriven-streets-layer")) {
+      this.map.addLayer({
+        id: "undriven-streets-layer",
+        type: "line",
+        source: "undriven-streets",
+        paint: {
+          "line-color": window.MapStyles.MAP_LAYER_COLORS.streets.undriven,
+          "line-width": 3,
+          "line-opacity": 0.6,
+          "line-dasharray": [2, 2],
+        },
+      });
+    }
 
     // Source and Layer for Calculated Route
-    this.map.addSource("route", { type: "geojson", data: emptyGeoJSON });
-    this.map.addLayer({
-      id: "route-layer",
-      type: "line",
-      source: "route",
-      paint: {
-        "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.calculated,
-        "line-width": 5,
-        "line-opacity": 0.8,
-      },
-    });
+    if (!this.map.getSource("route")) {
+      this.map.addSource("route", { type: "geojson", data: emptyGeoJSON });
+    }
+    if (!this.map.getLayer("route-layer")) {
+      this.map.addLayer({
+        id: "route-layer",
+        type: "line",
+        source: "route",
+        paint: {
+          "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.calculated,
+          "line-width": 5,
+          "line-opacity": 0.8,
+        },
+      });
+    }
 
     // Source and Layer for Highlighted Target Street
-    this.map.addSource("target-street", {
-      type: "geojson",
-      data: emptyGeoJSON,
-    });
-    this.map.addLayer({
-      id: "target-street-layer",
-      type: "line",
-      source: "target-street",
-      paint: {
-        "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.target,
-        "line-width": 6,
-        "line-opacity": 1,
-      },
-    });
+    if (!this.map.getSource("target-street")) {
+      this.map.addSource("target-street", {
+        type: "geojson",
+        data: emptyGeoJSON,
+      });
+    }
+    if (!this.map.getLayer("target-street-layer")) {
+      this.map.addLayer({
+        id: "target-street-layer",
+        type: "line",
+        source: "target-street",
+        paint: {
+          "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.target,
+          "line-width": 6,
+          "line-opacity": 1,
+        },
+      });
+    }
 
     // Source and Layer for Efficient Clusters
-    this.map.addSource("efficient-clusters", {
-      type: "geojson",
-      data: emptyGeoJSON,
-    });
+    if (!this.map.getSource("efficient-clusters")) {
+      this.map.addSource("efficient-clusters", {
+        type: "geojson",
+        data: emptyGeoJSON,
+      });
+    }
     this.clusterColors.forEach((color, index) => {
+      const layerId = `efficient-cluster-layer-${index}`;
+      if (this.map.getLayer(layerId)) return;
       this.map.addLayer({
-        id: `efficient-cluster-layer-${index}`,
+        id: layerId,
         type: "line",
         source: "efficient-clusters",
         paint: { "line-color": color, "line-width": 5, "line-opacity": 0.7 },
@@ -160,17 +213,11 @@ class DrivingNavigation {
   setupEventListeners() {
     this.areaSelect?.addEventListener("change", () => this.handleAreaChange());
     this.findBtn?.addEventListener("click", () => this.findAndDisplayRoute());
-    this.calcCoverageBtn?.addEventListener("click", () =>
-      this.calculateAndDisplayCoverageRoute()
-    );
     this.findEfficientBtn?.addEventListener("click", () =>
       this.findEfficientStreetClusters()
     );
     this.autoFollowToggle?.addEventListener("change", (e) =>
       this.saveAutoFollowState(e.target.checked)
-    );
-    this.exportCoverageRouteBtn?.addEventListener("click", () =>
-      this.handleExportCoverageRoute()
     );
     this.openGoogleMapsBtn?.addEventListener("click", () => this.openInGoogleMaps());
     this.openAppleMapsBtn?.addEventListener("click", () => this.openInAppleMaps());
@@ -195,11 +242,7 @@ class DrivingNavigation {
       }
 
       // Enable buttons if they were disabled due to no location
-      const buttonsToEnable = [
-        this.findBtn,
-        this.calcCoverageBtn,
-        this.findEfficientBtn,
-      ];
+      const buttonsToEnable = [this.findBtn, this.findEfficientBtn];
       buttonsToEnable.forEach((btn) => {
         if (
           btn?.disabled &&
@@ -243,6 +286,14 @@ class DrivingNavigation {
 
   async loadCoverageAreas() {
     try {
+      if (Array.isArray(window.coverageNavigatorAreas)) {
+        this.coverageAreas = window.coverageNavigatorAreas;
+        if (this.config.populateAreaSelect) {
+          this.populateAreaDropdown();
+        }
+        return;
+      }
+
       const response = await fetch("/api/coverage_areas");
       if (!response.ok)
         throw new Error(`Failed to fetch areas: ${response.statusText}`);
@@ -250,7 +301,10 @@ class DrivingNavigation {
 
       if (data.success && data.areas) {
         this.coverageAreas = data.areas;
-        this.populateAreaDropdown();
+        window.coverageNavigatorAreas = data.areas;
+        if (this.config.populateAreaSelect) {
+          this.populateAreaDropdown();
+        }
       } else {
         throw new Error(data.error || "Invalid response format");
       }
@@ -266,21 +320,20 @@ class DrivingNavigation {
     if (!this.areaSelect) return;
     this.areaSelect.innerHTML = '<option value="">Select an area...</option>';
     this.coverageAreas.forEach((area) => {
-      if (area.location?.display_name) {
+      const areaId = area._id || area.id;
+      if (area.location?.display_name && areaId) {
         const option = document.createElement("option");
-        option.value = JSON.stringify(area); // Store the entire area object
+        option.value = String(areaId);
         option.textContent = area.location.display_name;
+        option.dataset.areaId = String(areaId);
         this.areaSelect.appendChild(option);
       }
     });
   }
 
   async handleAreaChange() {
-    const selectedValue = this.areaSelect.value;
-    this.currentCoverageRouteGeoJSON = null;
-    if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
-
-    const buttons = [this.findBtn, this.calcCoverageBtn, this.findEfficientBtn];
+    const selectedValue = this.areaSelect?.value || "";
+    const buttons = [this.findBtn, this.findEfficientBtn];
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
 
     // Clear all map layers
@@ -305,7 +358,12 @@ class DrivingNavigation {
     }
 
     try {
-      this.selectedArea = JSON.parse(selectedValue);
+      const areaMatch = this.coverageAreas.find(
+        (area) =>
+          String(area._id || area.id || "") === selectedValue ||
+          String(area.location?.id || "") === selectedValue
+      );
+      this.selectedArea = areaMatch || JSON.parse(selectedValue);
       this.setStatus(
         `Area selected: ${this.selectedArea.location.display_name}. Loading streets...`
       );
@@ -344,8 +402,6 @@ class DrivingNavigation {
     const routeDetailsContent = document.getElementById("route-details-content");
     if (routeDetailsContent) routeDetailsContent.innerHTML = "";
     this.hideRouteDetails();
-    this.currentCoverageRouteGeoJSON = null;
-    if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
     if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
     if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
     this.currentRoute = null;
@@ -412,7 +468,7 @@ class DrivingNavigation {
 
   async findAndDisplayRoute() {
     if (!this.selectedArea) return this.setStatus("Please select an area first.", true);
-    if (this.isFetchingRoute || this.isFetchingCoverageRoute) return;
+    if (this.isFetchingRoute) return;
 
     this.isFetchingRoute = true;
     const originalHtml = this.findBtn.innerHTML;
@@ -427,8 +483,6 @@ class DrivingNavigation {
     const routeDetailsContent = document.getElementById("route-details-content");
     if (routeDetailsContent) routeDetailsContent.innerHTML = "";
     this.hideRouteDetails();
-    this.currentCoverageRouteGeoJSON = null;
-    if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
     if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
     if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
     this.currentRoute = null;
@@ -566,131 +620,6 @@ class DrivingNavigation {
 
   // ... (the rest of the methods would be similarly converted)
   // For brevity, I will provide the rest of the file converted.
-
-  async calculateAndDisplayCoverageRoute() {
-    if (!this.selectedArea) return this.setStatus("Please select an area first.", true);
-    if (this.isFetchingRoute || this.isFetchingCoverageRoute) return;
-
-    this.isFetchingCoverageRoute = true;
-    const originalHtml = this.calcCoverageBtn.innerHTML;
-    this.calcCoverageBtn.disabled = true;
-    this.findBtn.disabled = true;
-    this.findEfficientBtn.disabled = true;
-    this.calcCoverageBtn.innerHTML =
-      '<i class="fas fa-spinner fa-spin"></i> Calculating...';
-
-    this.setStatus("Calculating full coverage route...");
-    const emptyGeoJSON = { type: "FeatureCollection", features: [] };
-    this.map.getSource("route").setData(emptyGeoJSON);
-    this.map.getSource("target-street").setData(emptyGeoJSON);
-    this.targetInfo.innerHTML = "";
-    this.hideRouteDetails();
-    this.currentCoverageRouteGeoJSON = null;
-    if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = true;
-    if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
-    if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
-    this.currentRoute = null;
-
-    this.showProgressContainer();
-    this.setActiveStep("clustering");
-
-    try {
-      const requestPayload = {
-        location: this.selectedArea.location,
-        ...(this.lastKnownLocation && {
-          current_position: this.lastKnownLocation,
-        }),
-      };
-
-      this.updateProgress(20, "Clustering street segments...");
-      const response = await fetch("/api/driving-navigation/coverage-route", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestPayload),
-      });
-
-      if (!response.ok) throw response;
-
-      this.setActiveStep("optimizing");
-      const data = await response.json();
-
-      if (data.status === "completed") {
-        this.hideProgressContainer();
-        this.setStatus(data.message);
-        if (notificationManager) notificationManager.show(data.message, "info");
-      } else if (data.status === "success" && data.route_geometry) {
-        this.currentCoverageRouteGeoJSON = data.route_geometry;
-        if (this.exportCoverageRouteBtn) this.exportCoverageRouteBtn.disabled = false;
-        this.setActiveStep("rendering");
-
-        this.map.getSource("route").setData(data.route_geometry);
-
-        const bounds = new mapboxgl.LngLatBounds();
-        if (data.route_geometry.type === "GeometryCollection") {
-          data.route_geometry.geometries.forEach((geom) => {
-            if (geom.type === "LineString") {
-              geom.coordinates.forEach((coord) => {
-                bounds.extend(coord);
-              });
-            }
-          });
-        } else if (data.route_geometry.type === "LineString") {
-          data.route_geometry.coordinates.forEach((coord) => {
-            bounds.extend(coord);
-          });
-        }
-
-        if (!bounds.isEmpty()) this.map.fitBounds(bounds, { padding: 50 });
-
-        const durationMinutes = Math.round(data.total_duration_seconds / 60);
-        const durationHours = Math.floor(durationMinutes / 60);
-        const remainingMinutes = durationMinutes % 60;
-        const distanceMiles = (data.total_distance_meters * 0.000621371).toFixed(1);
-
-        this.updateProgress(100, "Route calculation complete!");
-        setTimeout(() => this.hideProgressContainer(), 1000);
-
-        this.setStatus(
-          `Full coverage route calculated for ${data.segments_in_route_count || 0} segments across ${data.clusters_count || 0} clusters.`
-        );
-        const locationSource = data.location_source || "unknown";
-        this.routeInfo.innerHTML = `
-          <div class="card bg-dark p-2 mt-2">
-            <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Coverage Route</h6>
-            <div class="route-info-detail">
-              <div><i class="fas fa-clock"></i> ${durationHours > 0 ? `${durationHours}h ` : ""}${remainingMinutes}min</div>
-              <div><i class="fas fa-road"></i> ${distanceMiles} mi</div>
-              <div><i class="fas fa-layer-group"></i> ${data.clusters_count || 0} clusters</div>
-              <div class="w-100 text-muted small">(Using ${this.formatLocationSource(locationSource)} position)</div>
-            </div>
-          </div>`;
-
-        this.showRouteDetails({
-          clusters: data.clusters_count,
-          segments: data.segments_in_route_count,
-          duration: data.total_duration_seconds,
-          distance: data.total_distance_meters,
-        });
-      } else {
-        throw new Error(
-          data.message || "Received unexpected success response from coverage route."
-        );
-      }
-    } catch (error) {
-      const errorMessage = await this._parseError(error);
-      console.error("Error calculating/displaying coverage route:", errorMessage);
-      this.hideProgressContainer();
-      this.setStatus(`Error: ${errorMessage}`, true);
-      if (notificationManager)
-        notificationManager.show(`Coverage Routing Error: ${errorMessage}`, "danger");
-    } finally {
-      this.calcCoverageBtn.disabled = false;
-      this.calcCoverageBtn.innerHTML = originalHtml;
-      this.findBtn.disabled = false;
-      this.findEfficientBtn.disabled = false;
-      this.isFetchingCoverageRoute = false;
-    }
-  }
 
   async findEfficientStreetClusters() {
     if (!this.selectedArea?._id) {
@@ -955,7 +884,6 @@ class DrivingNavigation {
     if (!this.selectedArea || !segmentId) return;
     this.setStatus(`Calculating route to segment #${segmentId}...`);
     this.findBtn.disabled = true;
-    this.calcCoverageBtn.disabled = true;
     this.findEfficientBtn.disabled = true;
     this.showProgressContainer();
     this.setActiveStep("optimizing");
@@ -988,7 +916,6 @@ class DrivingNavigation {
       this.hideProgressContainer();
     } finally {
       this.findBtn.disabled = false;
-      this.calcCoverageBtn.disabled = false;
       this.findEfficientBtn.disabled = false;
     }
   }
@@ -1030,9 +957,6 @@ class DrivingNavigation {
       "_blank"
     );
   }
-  async handleExportCoverageRoute() {
-    /* This method does not interact with the map and needs no changes */
-  }
   formatLocationSource() {
     /* This method does not interact with the map and needs no changes */
   }
@@ -1043,7 +967,10 @@ document.addEventListener("DOMContentLoaded", () => {
     console.error(
       "Mapbox GL JS library not found. Driving Navigation cannot initialize."
     );
-    const mapDiv = document.getElementById("driving-map");
+    const mapContainerId =
+      window.coverageNavigatorConfig?.drivingNavigation?.mapContainerId ||
+      "driving-map";
+    const mapDiv = document.getElementById(mapContainerId);
     if (mapDiv)
       mapDiv.innerHTML =
         '<div class="alert alert-danger m-3">Error: Mapping library failed to load.</div>';

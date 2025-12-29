@@ -4,9 +4,26 @@
  * Handles route generation with real-time SSE progress updates
  */
 
+const OPTIMAL_ROUTES_DEFAULTS = {
+  areaSelectId: "area-select",
+  mapContainerId: "route-map",
+  useSharedMap: false,
+  addNavigationControl: true,
+  populateAreaSelect: true,
+};
+
 class OptimalRoutesManager {
-  constructor() {
+  constructor(options = {}) {
+    const globalConfig = window.coverageNavigatorConfig?.optimalRoutes || {};
+    this.config = {
+      ...OPTIMAL_ROUTES_DEFAULTS,
+      ...globalConfig,
+      ...options,
+    };
+
     this.map = null;
+    this.mapLayersReady = false;
+    this.mapReadyPromise = null;
     this.selectedAreaId = null;
     this.currentTaskId = null;
     this.eventSource = null;
@@ -14,6 +31,8 @@ class OptimalRoutesManager {
     this.startTime = null;
     this.waitingCount = 0; // Track how long we've been waiting
     this.lastProgressTime = null; // Track last progress update
+    this.coverageAreas = [];
+    this.areaSelect = document.getElementById(this.config.areaSelectId);
 
     this.init();
   }
@@ -21,12 +40,12 @@ class OptimalRoutesManager {
   async init() {
     await this.loadCoverageAreas();
     this.setupEventListeners();
-    this.initializeMap();
+    this.mapReadyPromise = this.initializeMap();
   }
 
   setupEventListeners() {
     // Area selection
-    document.getElementById("area-select")?.addEventListener("change", (e) => {
+    this.areaSelect?.addEventListener("change", (e) => {
       this.onAreaSelect(e.target.value);
     });
 
@@ -168,33 +187,65 @@ class OptimalRoutesManager {
   }
 
   initializeMap() {
-    const container = document.getElementById("route-map");
-    if (!container || !window.MAPBOX_ACCESS_TOKEN) return;
+    if (this.config.useSharedMap && window.coverageMasterMap) {
+      this.map = window.coverageMasterMap;
+      return this.bindMapLoad();
+    }
+
+    const container = document.getElementById(this.config.mapContainerId);
+    if (!container || !window.MAPBOX_ACCESS_TOKEN) return Promise.resolve();
 
     mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
     this.map = new mapboxgl.Map({
-      container: "route-map",
+      container: this.config.mapContainerId,
       style: "mapbox://styles/mapbox/dark-v11",
       center: [-98.5795, 39.8283], // Center of US
       zoom: 4,
     });
 
-    this.map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    if (this.config.addNavigationControl) {
+      this.map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    }
 
-    this.map.on("load", () => {
-      // Add street network sources
+    return this.bindMapLoad();
+  }
+
+  bindMapLoad() {
+    if (!this.map) return Promise.resolve();
+    return new Promise((resolve) => {
+      const handleLoad = () => {
+        this.setupMapLayers();
+        resolve();
+      };
+      if (typeof this.map.isStyleLoaded === "function" && this.map.isStyleLoaded()) {
+        handleLoad();
+      } else {
+        this.map.on("load", handleLoad);
+      }
+    });
+  }
+
+  setupMapLayers() {
+    if (!this.map || this.mapLayersReady) return;
+
+    const emptyGeoJSON = { type: "FeatureCollection", features: [] };
+
+    if (!this.map.getSource("streets-driven")) {
       this.map.addSource("streets-driven", {
         type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
+        data: emptyGeoJSON,
       });
+    }
 
+    if (!this.map.getSource("streets-undriven")) {
       this.map.addSource("streets-undriven", {
         type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
+        data: emptyGeoJSON,
       });
+    }
 
-      // Driven streets layer (green)
+    if (!this.map.getLayer("streets-driven-layer")) {
       this.map.addLayer({
         id: "streets-driven-layer",
         type: "line",
@@ -209,8 +260,9 @@ class OptimalRoutesManager {
           "line-opacity": 0.6,
         },
       });
+    }
 
-      // Undriven streets layer (red)
+    if (!this.map.getLayer("streets-undriven-layer")) {
       this.map.addLayer({
         id: "streets-undriven-layer",
         type: "line",
@@ -225,14 +277,16 @@ class OptimalRoutesManager {
           "line-opacity": 0.8,
         },
       });
+    }
 
-      // Add optimal route source (on top of streets)
+    if (!this.map.getSource("optimal-route")) {
       this.map.addSource("optimal-route", {
         type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
+        data: emptyGeoJSON,
       });
+    }
 
-      // Route line layer (purple, thicker, on top)
+    if (!this.map.getLayer("optimal-route-line")) {
       this.map.addLayer({
         id: "optimal-route-line",
         type: "line",
@@ -247,8 +301,9 @@ class OptimalRoutesManager {
           "line-opacity": 0.9,
         },
       });
+    }
 
-      // Directional arrows
+    if (!this.map.getLayer("optimal-route-arrows")) {
       this.map.addLayer({
         id: "optimal-route-arrows",
         type: "symbol",
@@ -261,7 +316,19 @@ class OptimalRoutesManager {
           "icon-allow-overlap": true,
         },
       });
-    });
+    }
+
+    this.mapLayersReady = true;
+  }
+
+  ensureMapLayers() {
+    if (!this.map) return false;
+    if (this.map.getSource("streets-driven")) return true;
+    if (typeof this.map.isStyleLoaded === "function" && !this.map.isStyleLoaded()) {
+      return false;
+    }
+    this.setupMapLayers();
+    return !!this.map.getSource("streets-driven");
   }
 
   async loadStreetNetwork(areaId) {
@@ -292,6 +359,8 @@ class OptimalRoutesManager {
         }
       });
 
+      if (!this.ensureMapLayers()) return;
+
       // Update map sources
       const drivenSource = this.map.getSource("streets-driven");
       const undrivenSource = this.map.getSource("streets-undriven");
@@ -320,38 +389,43 @@ class OptimalRoutesManager {
 
   async loadCoverageAreas() {
     try {
-      const response = await fetch("/api/coverage_areas");
-      const data = await response.json();
+      const areas =
+        window.coverageNavigatorAreas ||
+        (await (async () => {
+          const response = await fetch("/api/coverage_areas");
+          const data = await response.json();
 
-      if (!data.success || !data.areas) {
-        console.error("Failed to load coverage areas");
-        return;
-      }
+          if (!data.success || !data.areas) {
+            console.error("Failed to load coverage areas");
+            return null;
+          }
+          window.coverageNavigatorAreas = data.areas;
+          return data.areas;
+        })());
 
-      const select = document.getElementById("area-select");
-      if (!select) return;
+      if (!areas) return;
+      this.coverageAreas = areas;
 
-      // Clear existing options except placeholder
-      select.innerHTML = '<option value="">Select a coverage area...</option>';
+      if (this.areaSelect && this.config.populateAreaSelect) {
+        // Clear existing options except placeholder
+        this.areaSelect.innerHTML =
+          '<option value="">Select a coverage area...</option>';
 
-      // Add areas
-      data.areas
-        .filter((area) => area.coverage_percentage < 100) // Only incomplete areas
-        .forEach((area) => {
+        areas.forEach((area) => {
           const option = document.createElement("option");
-          option.value = area._id;
+          option.value = String(area._id || area.id || "");
           const coverage = area.coverage_percentage?.toFixed(1) || 0;
           option.textContent = `${area.location?.display_name || "Unknown"} (${coverage}%)`;
           option.dataset.coverage = coverage;
-          // API returns total_length and driven_length (not _m suffix)
           const totalLength = area.total_length || area.total_length_m || 0;
           const drivenLength = area.driven_length || area.driven_length_m || 0;
           option.dataset.remaining = this.formatDistance(totalLength - drivenLength);
-          select.appendChild(option);
+          this.areaSelect.appendChild(option);
         });
+      }
 
       // Also load any existing saved routes
-      this.loadSavedRoutes(data.areas);
+      this.loadSavedRoutes(areas);
     } catch (error) {
       console.error("Error loading coverage areas:", error);
       this.showNotification("Failed to load coverage areas", "danger");
@@ -392,7 +466,9 @@ class OptimalRoutesManager {
     historyContainer.querySelectorAll(".route-history-item").forEach((item) => {
       item.addEventListener("click", () => {
         const { areaId } = item.dataset;
-        document.getElementById("area-select").value = areaId;
+        if (this.areaSelect) {
+          this.areaSelect.value = areaId;
+        }
         this.onAreaSelect(areaId);
         this.loadExistingRoute(areaId);
       });
@@ -405,20 +481,22 @@ class OptimalRoutesManager {
     const areaStats = document.getElementById("area-stats");
 
     if (!areaId) {
-      generateBtn.disabled = true;
-      areaStats.style.display = "none";
+      if (generateBtn) generateBtn.disabled = true;
+      if (areaStats) areaStats.style.display = "none";
       this.clearRoute();
       this.clearStreetNetwork();
       return;
     }
 
     // Enable generate button
-    generateBtn.disabled = false;
+    if (generateBtn) generateBtn.disabled = false;
+
+    if (this.mapReadyPromise) {
+      await this.mapReadyPromise;
+    }
 
     // Show area stats
-    const selectedOption = document.querySelector(
-      `#area-select option[value="${areaId}"]`
-    );
+    const selectedOption = this.areaSelect?.querySelector(`option[value="${areaId}"]`);
     if (selectedOption) {
       document.getElementById("area-coverage").textContent =
         `${selectedOption.dataset.coverage}%`;
@@ -710,6 +788,7 @@ class OptimalRoutesManager {
 
   displayRoute(coordinates, stats) {
     if (!this.map || !coordinates || coordinates.length < 2) return;
+    if (!this.ensureMapLayers()) return;
 
     // Create GeoJSON line
     const geojson = {

@@ -197,15 +197,15 @@
                 </a>
               </li>
               <li
-                class="nav-item {% if request.url.path == '/driving-navigation' %}active{% endif %}"
+                class="nav-item {% if request.url.path == '/coverage-navigator' %}active{% endif %}"
               >
                 <a
-                  href="/driving-navigation"
-                  title="Driving Navigation"
-                  {% if request.url.path == '/driving-navigation' %}aria-current="page"{% endif %}
+                  href="/coverage-navigator"
+                  title="Coverage Navigator"
+                  {% if request.url.path == '/coverage-navigator' %}aria-current="page"{% endif %}
                 >
-                  <i class="fas fa-car" aria-hidden="true"></i>
-                  <span>Driving Navigation</span>
+                  <i class="fas fa-route" aria-hidden="true"></i>
+                  <span>Coverage Navigator</span>
                 </a>
               </li>
               <!-- More Dropdown -->
@@ -248,17 +248,6 @@
                     >
                       <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
                       Coverage Areas
-                    </a>
-                  </li>
-                  <li role="none">
-                    <a
-                      class="dropdown-item {% if request.url.path == '/optimal-routes' %}active{% endif %}"
-                      href="/optimal-routes"
-                      role="menuitem"
-                      {% if request.url.path == '/optimal-routes' %}aria-current="page"{% endif %}
-                    >
-                      <i class="fas fa-route me-2" aria-hidden="true"></i>
-                      Optimal Routes
                     </a>
                   </li>
                   <li role="none">
@@ -429,15 +418,6 @@
                   <i class="fas fa-road me-2" aria-hidden="true"></i> Trips
                 </a>
               </li>
-              <li role="none">
-                <a
-                  href="/driving-navigation"
-                  class="{% if request.url.path == '/driving-navigation' %}active{% endif %}"
-                  {% if request.url.path == '/driving-navigation' %}aria-current="page"{% endif %}
-                >
-                  <i class="fas fa-car me-2" aria-hidden="true"></i> Driving Navigation
-                </a>
-              </li>
             </ul>
           </div>
 
@@ -496,11 +476,11 @@
               </li>
               <li role="none">
                 <a
-                  href="/optimal-routes"
-                  class="{% if request.url.path == '/optimal-routes' %}active{% endif %}"
-                  {% if request.url.path == '/optimal-routes' %}aria-current="page"{% endif %}
+                  href="/coverage-navigator"
+                  class="{% if request.url.path == '/coverage-navigator' %}active{% endif %}"
+                  {% if request.url.path == '/coverage-navigator' %}aria-current="page"{% endif %}
                 >
-                  <i class="fas fa-route me-2" aria-hidden="true"></i> Optimal Routes
+                  <i class="fas fa-route me-2" aria-hidden="true"></i> Coverage Navigator
                 </a>
               </li>
               <li role="none">
