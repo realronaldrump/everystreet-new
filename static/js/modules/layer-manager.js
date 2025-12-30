@@ -38,6 +38,11 @@ const layerManager = {
     ];
   },
 
+  _getTripHitboxOpacity() {
+    const deviceProfile = utils.getDeviceProfile?.() || {};
+    return deviceProfile.isMobile ? 0.03 : 0.02;
+  },
+
   _removeTripHitboxLayer(layerName) {
     if (!state.map) return;
     const hitboxLayerId = `${layerName}-hitbox`;
@@ -67,7 +72,7 @@ const layerManager = {
       },
       paint: {
         "line-color": "#000000",
-        "line-opacity": 0,
+        "line-opacity": this._getTripHitboxOpacity(),
         "line-width": this._getTripHitboxWidth(),
       },
     };
