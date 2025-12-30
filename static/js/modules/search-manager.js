@@ -39,7 +39,7 @@ const searchManager = {
         if (!this.searchResults.classList.contains("d-none")) {
           this.positionDropdown();
         }
-      }, 100)
+      }, 100),
     );
 
     console.log("Search manager initialized");
@@ -61,7 +61,7 @@ const searchManager = {
             this.hideClearButton();
           }
         }
-      }, 300)
+      }, 300),
     );
 
     // Keyboard navigation
@@ -83,7 +83,11 @@ const searchManager = {
         if (index >= 0 && this.currentResults[index]) {
           this.selectResult(this.currentResults[index]);
         } else {
-          window.notificationManager?.show("No results to select", "warning", 2000);
+          window.notificationManager?.show(
+            "No results to select",
+            "warning",
+            2000,
+          );
         }
       } else if (e.key === "Escape") {
         this.hideResults();
@@ -125,14 +129,16 @@ const searchManager = {
     try {
       this.showLoading();
 
-      const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+      const selectedLocationId = utils.getStorage(
+        CONFIG.STORAGE_KEYS.selectedLocation,
+      );
       let results = [];
 
       // Search streets first
       const streetResults = await this.searchStreets(
         query,
         selectedLocationId,
-        searchId
+        searchId,
       );
 
       // Check if this search is still current
@@ -194,7 +200,9 @@ const searchManager = {
           feature.properties.location ||
           (locationId ? `Location ${locationId}` : "Unknown location");
         const streetName =
-          feature.properties.street_name || feature.properties.name || "Unnamed Street";
+          feature.properties.street_name ||
+          feature.properties.name ||
+          "Unnamed Street";
         const segmentCount = feature.properties.segment_count;
         const segmentInfo = segmentCount
           ? ` - ${segmentCount} segment${segmentCount > 1 ? "s" : ""}`
@@ -229,7 +237,7 @@ const searchManager = {
       const controller = state.createAbortController("search");
       const response = await fetch(
         `${CONFIG.API.searchGeocode}?query=${encodeURIComponent(query)}&limit=5${proximityParams}`,
-        { signal: controller.signal }
+        { signal: controller.signal },
       );
 
       // Check if this search is still current
@@ -249,14 +257,17 @@ const searchManager = {
           ? result.place_type[0]
           : result.type || "place";
         const isStreet = ["road", "street", "highway", "residential"].includes(
-          placeType
+          placeType,
         );
 
         return {
           type: isStreet ? "street" : "place",
           name: result.text || result.place_name || "Unknown",
           subtitle: result.place_name || result.display_name || "",
-          center: result.center || [parseFloat(result.lon), parseFloat(result.lat)],
+          center: result.center || [
+            parseFloat(result.lon),
+            parseFloat(result.lat),
+          ],
           bbox: result.bbox,
           osm_id: result.osm_id,
           osm_type: result.osm_type,
@@ -330,7 +341,8 @@ const searchManager = {
     const spaceAbove = inputRect.top;
 
     const showAbove =
-      spaceBelow < Math.min(dropdownHeight + 20, 200) && spaceAbove > spaceBelow;
+      spaceBelow < Math.min(dropdownHeight + 20, 200) &&
+      spaceAbove > spaceBelow;
 
     if (showAbove) {
       this.searchResults.style.top = "auto";
@@ -431,7 +443,9 @@ const searchManager = {
       } else {
         state.map.getSource(this.highlightSourceId).setData({
           type: "FeatureCollection",
-          features: [{ type: "Feature", geometry, properties: { name: result.name } }],
+          features: [
+            { type: "Feature", geometry, properties: { name: result.name } },
+          ],
         });
       }
 
@@ -443,7 +457,17 @@ const searchManager = {
           paint: {
             "line-color":
               window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
-            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 15, 6, 20, 12],
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              10,
+              3,
+              15,
+              6,
+              20,
+              12,
+            ],
             "line-opacity": 0.9,
           },
         });
@@ -462,7 +486,7 @@ const searchManager = {
       if (coords.length > 0) {
         const bounds = coords.reduce(
           (b, coord) => b.extend(coord),
-          new mapboxgl.LngLatBounds(coords[0], coords[0])
+          new mapboxgl.LngLatBounds(coords[0], coords[0]),
         );
 
         state.map.fitBounds(bounds, {
@@ -479,11 +503,15 @@ const searchManager = {
       window.notificationManager?.show(
         `Highlighted: ${escapeHtml(result.name)}${segmentInfo}`,
         "success",
-        3000
+        3000,
       );
     } catch (error) {
       console.error("Error highlighting street:", error);
-      window.notificationManager?.show("Failed to highlight street", "warning", 3000);
+      window.notificationManager?.show(
+        "Failed to highlight street",
+        "warning",
+        3000,
+      );
     }
   },
 
@@ -524,7 +552,7 @@ const searchManager = {
           padding: 50,
           maxZoom: 15,
           duration: 1000,
-        }
+        },
       );
     } else {
       state.map.flyTo({ center: [lng, lat], zoom: 14, duration: 1000 });
@@ -533,7 +561,7 @@ const searchManager = {
     window.notificationManager?.show(
       `Navigated to: ${escapeHtml(result.name)}`,
       "success",
-      3000
+      3000,
     );
   },
 
@@ -563,7 +591,11 @@ const searchManager = {
   },
 
   showLoading() {
-    const loading = utils.createElement("div", "Searching...", "search-loading");
+    const loading = utils.createElement(
+      "div",
+      "Searching...",
+      "search-loading",
+    );
     this.searchResults.innerHTML = "";
     this.searchResults.appendChild(loading);
     this.positionDropdown();
@@ -574,7 +606,7 @@ const searchManager = {
     const noResults = utils.createElement(
       "div",
       "No results found",
-      "search-no-results"
+      "search-no-results",
     );
     this.searchResults.innerHTML = "";
     this.searchResults.appendChild(noResults);
