@@ -1,5 +1,5 @@
-import dateUtils from "../date-utils.js";
 import { UI_CONFIG as CONFIG } from "../config.js";
+import dateUtils from "../date-utils.js";
 import { uiState } from "../ui-state.js";
 import utils from "../utils.js";
 import eventManager from "./event-manager.js";
@@ -36,8 +36,7 @@ const dateManager = {
         ...fpConfig,
         maxDate: endDate,
         onChange: (sel) => {
-          if (sel.length)
-            this.flatpickrInstances.get("end")?.set("minDate", sel[0]);
+          if (sel.length) this.flatpickrInstances.get("end")?.set("minDate", sel[0]);
         },
       });
       this.flatpickrInstances.set("start", sp);
@@ -48,8 +47,7 @@ const dateManager = {
         ...fpConfig,
         minDate: startDate,
         onChange: (sel) => {
-          if (sel.length)
-            this.flatpickrInstances.get("start")?.set("maxDate", sel[0]);
+          if (sel.length) this.flatpickrInstances.get("start")?.set("maxDate", sel[0]);
         },
       });
       this.flatpickrInstances.set("end", ep);
@@ -66,8 +64,7 @@ const dateManager = {
     // Bind apply and reset buttons
     const applyBtn = uiState.getElement(CONFIG.selectors.applyFiltersBtn);
     const resetBtn = uiState.getElement(CONFIG.selectors.resetFilters);
-    if (applyBtn)
-      eventManager.add(applyBtn, "click", () => this.applyFilters());
+    if (applyBtn) eventManager.add(applyBtn, "click", () => this.applyFilters());
     if (resetBtn) eventManager.add(resetBtn, "click", () => this.reset());
   },
 
@@ -106,10 +103,7 @@ const dateManager = {
       } else throw new Error("Invalid date range");
     } catch (err) {
       console.error("Error setting date range:", err);
-      utils.showNotification(
-        `Error setting date range: ${err.message}`,
-        "danger",
-      );
+      utils.showNotification(`Error setting date range: ${err.message}`, "danger");
     } finally {
       if (btn) btn.classList.remove("btn-loading");
     }
@@ -151,12 +145,9 @@ const dateManager = {
     if (!indicator) return;
     const span = indicator.querySelector(".filter-date-range");
     if (!span) return;
-    const s =
-      utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
-    const e =
-      utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
-    const fmt = (d) =>
-      dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
+    const s = utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
+    const e = utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
+    const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
     const preset = this.detectPreset(s, e);
     if (preset) {
       span.textContent =
@@ -200,14 +191,10 @@ const dateManager = {
       document.dispatchEvent(
         new CustomEvent("filtersApplied", {
           detail: { startDate: s, endDate: e },
-        }),
+        })
       );
       const fd = (d) => dateUtils.formatForDisplay(d, { dateStyle: "short" });
-      utils.showNotification(
-        `Filters applied: ${fd(s)} to ${fd(e)}`,
-        "success",
-        3000,
-      );
+      utils.showNotification(`Filters applied: ${fd(s)} to ${fd(e)}`, "success", 3000);
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -224,9 +211,7 @@ const dateManager = {
     uiState.getAllElements(".quick-select-btn").forEach((btn) => {
       btn.classList.remove(CONFIG.classes.active);
     });
-    const todayBtn = uiState.getElement(
-      '.quick-select-btn[data-range="today"]',
-    );
+    const todayBtn = uiState.getElement('.quick-select-btn[data-range="today"]');
     if (todayBtn) todayBtn.classList.add(CONFIG.classes.active);
     this.updateIndicator();
     this.applyFilters();

@@ -31,7 +31,7 @@
 
           this.map.addControl(
             new mapboxgl.NavigationControl({ showCompass: false }),
-            "bottom-right",
+            "bottom-right"
           );
 
           this.map.on("load", () => {
@@ -73,7 +73,7 @@
       if (!this.placeFeatures.has(placeId)) return;
       const feature = this.placeFeatures.get(placeId);
       this.customPlacesData.features = this.customPlacesData.features.filter(
-        (f) => f !== feature,
+        (f) => f !== feature
       );
       this.placeFeatures.delete(placeId);
       this._refreshPlacesSource();
@@ -299,8 +299,7 @@
           type: "line",
           source: "custom-places",
           paint: {
-            "line-color":
-              this.mapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
+            "line-color": this.mapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
             "line-width": 4,
             "line-opacity": 0,
           },
@@ -317,13 +316,13 @@
           if (hoveredStateId !== null) {
             this.map.setFeatureState(
               { source: "custom-places", id: hoveredStateId },
-              { hover: false },
+              { hover: false }
             );
           }
           hoveredStateId = e.features[0].id;
           this.map.setFeatureState(
             { source: "custom-places", id: hoveredStateId },
-            { hover: true },
+            { hover: true }
           );
           this.map.getCanvas().style.cursor = "pointer";
         }
@@ -333,7 +332,7 @@
         if (hoveredStateId !== null) {
           this.map.setFeatureState(
             { source: "custom-places", id: hoveredStateId },
-            { hover: false },
+            { hover: false }
           );
         }
         hoveredStateId = null;
@@ -354,11 +353,7 @@
       if (!this.map?.getLayer("custom-places-highlight")) return;
       this.map.setPaintProperty("custom-places-highlight", "line-opacity", 0.8);
       setTimeout(() => {
-        this.map?.setPaintProperty(
-          "custom-places-highlight",
-          "line-opacity",
-          0,
-        );
+        this.map?.setPaintProperty("custom-places-highlight", "line-opacity", 0);
       }, 300);
     }
 

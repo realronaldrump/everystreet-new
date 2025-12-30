@@ -10,8 +10,7 @@ class UIState {
     this.touchStartX = null;
     this.touchStartY = null;
     this.isMobile =
-      typeof window !== "undefined" &&
-      window.innerWidth < CONFIG.UI.mobileBreakpoint;
+      typeof window !== "undefined" && window.innerWidth < CONFIG.UI.mobileBreakpoint;
     this.reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -58,10 +57,7 @@ class UIState {
 
   saveUIState() {
     try {
-      localStorage.setItem(
-        CONFIG.STORAGE_KEYS.uiState,
-        JSON.stringify(this.uiState),
-      );
+      localStorage.setItem(CONFIG.STORAGE_KEYS.uiState, JSON.stringify(this.uiState));
     } catch (e) {
       console.warn("Failed to save UI state:", e);
     }

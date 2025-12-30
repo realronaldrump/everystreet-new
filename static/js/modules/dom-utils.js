@@ -75,9 +75,7 @@ export function el(tag, options = {}) {
 export class EventDelegator {
   constructor(container) {
     this.container =
-      typeof container === "string"
-        ? document.querySelector(container)
-        : container;
+      typeof container === "string" ? document.querySelector(container) : container;
     this.handlers = new Map();
   }
 
@@ -194,7 +192,7 @@ export function waitForElement(selector, timeout = 5000) {
       return;
     }
 
-    const observer = new MutationObserver((mutations, obs) => {
+    const observer = new MutationObserver((_mutations, obs) => {
       const element = document.querySelector(selector);
       if (element) {
         obs.disconnect();

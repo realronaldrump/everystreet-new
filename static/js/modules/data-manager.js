@@ -46,14 +46,10 @@ const dataManager = {
   async fetchTrips() {
     if (!state.mapInitialized) return null;
 
-    const dataStage = window.loadingManager.startStage(
-      "data",
-      "Loading trips...",
-      {
-        blocking: false,
-        compact: true,
-      },
-    );
+    const dataStage = window.loadingManager.startStage("data", "Loading trips...", {
+      blocking: false,
+      compact: true,
+    });
     mapLoadingIndicator.show("Loading trips...");
 
     try {
@@ -66,22 +62,17 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchTrips",
+        "fetchTrips"
       );
 
       if (!tripData || tripData?.type !== "FeatureCollection") {
         dataStage.error("Invalid trip data received from server.");
-        window.notificationManager?.show(
-          "Failed to load valid trip data",
-          "danger",
-        );
+        window.notificationManager?.show("Failed to load valid trip data", "danger");
         return null;
       }
 
       dataStage.update(70, `Rendering ${tripData.features.length} trips...`);
-      mapLoadingIndicator.update(
-        `Rendering ${tripData.features.length} trips...`,
-      );
+      mapLoadingIndicator.update(`Rendering ${tripData.features.length} trips...`);
 
       await layerManager.updateMapLayer("trips", tripData);
 
@@ -119,7 +110,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchMatchedTrips",
+        "fetchMatchedTrips"
       );
 
       if (data?.type === "FeatureCollection") {
@@ -153,14 +144,8 @@ const dataManager = {
   },
 
   async fetchUndrivenStreets() {
-    const selectedLocationId = utils.getStorage(
-      CONFIG.STORAGE_KEYS.selectedLocation,
-    );
-    if (
-      !selectedLocationId ||
-      !state.mapInitialized ||
-      state.undrivenStreetsLoaded
-    )
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded)
       return null;
 
     window.loadingManager.pulse("Loading undriven streets...");
@@ -170,7 +155,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchUndrivenStreets",
+        "fetchUndrivenStreets"
       );
 
       if (data?.type === "FeatureCollection") {
@@ -189,14 +174,8 @@ const dataManager = {
   },
 
   async fetchDrivenStreets() {
-    const selectedLocationId = utils.getStorage(
-      CONFIG.STORAGE_KEYS.selectedLocation,
-    );
-    if (
-      !selectedLocationId ||
-      !state.mapInitialized ||
-      state.drivenStreetsLoaded
-    )
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded)
       return null;
 
     window.loadingManager.pulse("Loading driven streets...");
@@ -206,7 +185,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchDrivenStreets",
+        "fetchDrivenStreets"
       );
 
       if (data?.type === "FeatureCollection") {
@@ -225,9 +204,7 @@ const dataManager = {
   },
 
   async fetchAllStreets() {
-    const selectedLocationId = utils.getStorage(
-      CONFIG.STORAGE_KEYS.selectedLocation,
-    );
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded)
       return null;
 
@@ -238,7 +215,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchAllStreets",
+        "fetchAllStreets"
       );
 
       if (data?.type === "FeatureCollection") {
@@ -266,13 +243,11 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchMetrics",
+        "fetchMetrics"
       );
 
       if (data) {
-        document.dispatchEvent(
-          new CustomEvent("metricsUpdated", { detail: data }),
-        );
+        document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
       }
       return data;
     } catch (error) {
@@ -285,10 +260,7 @@ const dataManager = {
   async updateMap(fitBounds = false) {
     if (!state.mapInitialized) return;
 
-    const renderStage = window.loadingManager.startStage(
-      "render",
-      "Updating map...",
-    );
+    const renderStage = window.loadingManager.startStage("render", "Updating map...");
 
     try {
       renderStage.update(20, "Fetching map data...");
@@ -297,12 +269,8 @@ const dataManager = {
       const promises = [];
 
       if (state.mapLayers.trips.visible) promises.push(this.fetchTrips());
-      if (state.mapLayers.matchedTrips.visible)
-        promises.push(this.fetchMatchedTrips());
-      if (
-        state.mapLayers.undrivenStreets.visible &&
-        !state.undrivenStreetsLoaded
-      )
+      if (state.mapLayers.matchedTrips.visible) promises.push(this.fetchMatchedTrips());
+      if (state.mapLayers.undrivenStreets.visible && !state.undrivenStreetsLoaded)
         promises.push(this.fetchUndrivenStreets());
       if (state.mapLayers.drivenStreets.visible && !state.drivenStreetsLoaded)
         promises.push(this.fetchDrivenStreets());
@@ -323,7 +291,7 @@ const dataManager = {
                 state.map.setLayoutProperty(
                   layerId,
                   "visibility",
-                  info.visible ? "visible" : "none",
+                  info.visible ? "visible" : "none"
                 );
               }
             }

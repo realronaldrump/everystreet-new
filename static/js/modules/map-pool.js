@@ -46,7 +46,7 @@ class MapPool {
 
     // Check if we already have this map
     const existing = this.maps.get(mapKey);
-    if (existing && existing.map && !existing.map._removed) {
+    if (existing?.map && !existing.map._removed) {
       existing.lastUsed = Date.now();
       existing.inUse = true;
 
@@ -65,8 +65,7 @@ class MapPool {
     await this._evictIfNeeded();
 
     // Determine theme and style
-    const theme =
-      document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
     const style = options.style || CONFIG.MAP.styles[theme];
 
     // Create new map
