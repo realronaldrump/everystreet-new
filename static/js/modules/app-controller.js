@@ -85,6 +85,7 @@ const AppController = {
         if (!ok) throw new Error("Map init failed");
 
         layerManager.initializeControls();
+        layerManager.bindHeatmapEvents();
         await initializeLocationDropdown();
         initializeLiveTracker();
         searchManager.initialize();

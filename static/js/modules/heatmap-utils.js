@@ -118,6 +118,53 @@ const heatmapUtils = {
   },
 
   /**
+   * Create zoom-interpolated opacity expression.
+   * Slightly boost opacity at higher zooms to compensate for reduced overlap.
+   * @param {number} baseOpacity - Base opacity at zoom 12
+   * @returns {Array} Mapbox interpolate expression
+   */
+  _zoomOpacity(baseOpacity) {
+    const opacityStops = [];
+    const clampOpacity = (value) => Math.max(0, Math.min(value, 1));
+    const zoomScales = [
+      [4, 0.85],
+      [8, 0.95],
+      [12, 1],
+      [16, 1.5],
+      [20, 2.2],
+    ];
+
+    zoomScales.forEach(([zoom, scale]) => {
+      opacityStops.push(zoom, clampOpacity(baseOpacity * scale));
+    });
+
+    return ["interpolate", ["exponential", 1.2], ["zoom"], ...opacityStops];
+  },
+
+  /**
+   * Create zoom-interpolated blur expression.
+   * @param {number} baseBlur - Base blur at zoom 12
+   * @returns {Array} Mapbox interpolate expression
+   */
+  _zoomBlur(baseBlur) {
+    return [
+      "interpolate",
+      ["exponential", 1.3],
+      ["zoom"],
+      4,
+      baseBlur * 0.3,
+      8,
+      baseBlur * 0.6,
+      12,
+      baseBlur,
+      16,
+      baseBlur * 1.6,
+      20,
+      baseBlur * 2.4,
+    ];
+  },
+
+  /**
    * Generate the glow layer configurations.
    * Simple 2-layer approach: outer glow + bright core
    *
@@ -131,6 +178,9 @@ const heatmapUtils = {
     const settings = this.getAdaptiveSettings(tripCount);
 
     const opacityMult = userOpacity;
+    const glowOpacity = this._zoomOpacity(settings.glowOpacity * opacityMult);
+    const coreOpacity = this._zoomOpacity(settings.coreOpacity * opacityMult);
+    const glowBlur = this._zoomBlur(settings.glowWidth * 0.6);
 
     return [
       // Layer 0: Outer glow (wider, more transparent, orange-red)
@@ -139,8 +189,8 @@ const heatmapUtils = {
         paint: {
           "line-color": colors.glow,
           "line-width": this._zoomWidth(settings.glowWidth),
-          "line-opacity": settings.glowOpacity * opacityMult,
-          "line-blur": settings.baseWidth * 0.5,
+          "line-opacity": glowOpacity,
+          "line-blur": glowBlur,
         },
       },
       // Layer 1: Core line (narrow, brighter, orange-yellow)
@@ -149,7 +199,7 @@ const heatmapUtils = {
         paint: {
           "line-color": colors.core,
           "line-width": this._zoomWidth(settings.baseWidth),
-          "line-opacity": settings.coreOpacity * opacityMult,
+          "line-opacity": coreOpacity,
           "line-blur": 0,
         },
       },
@@ -163,18 +213,24 @@ const heatmapUtils = {
    * @returns {Object} Configuration with layers
    */
   generateHeatmapConfig(tripsGeoJSON, options = {}) {
-    const { theme = "dark", opacity = 0.85 } = options;
+    const { theme = "dark", opacity = 0.85, visibleTripCount = null } = options;
     const tripCount = tripsGeoJSON?.features?.length || 0;
-    const glowLayers = this.generateGlowLayers(tripCount, opacity, theme);
-    const settings = this.getAdaptiveSettings(tripCount);
+    const styleTripCount =
+      Number.isFinite(visibleTripCount) && visibleTripCount >= 0
+        ? visibleTripCount
+        : tripCount;
+    const glowLayers = this.generateGlowLayers(styleTripCount, opacity, theme);
+    const settings = this.getAdaptiveSettings(styleTripCount);
 
     console.log(
-      `Heatmap: ${tripCount} trips, core opacity: ${settings.coreOpacity}, ` +
-        `glow opacity: ${settings.glowOpacity}, base width: ${settings.baseWidth}`
+      `Heatmap: ${tripCount} trips (${styleTripCount} in view), core opacity: ` +
+        `${settings.coreOpacity}, glow opacity: ${settings.glowOpacity}, ` +
+        `base width: ${settings.baseWidth}`
     );
 
     return {
       tripCount,
+      styleTripCount,
       glowLayers,
       data: tripsGeoJSON,
     };
@@ -188,7 +244,10 @@ const heatmapUtils = {
    */
   getUpdatedOpacities(tripCount, userOpacity) {
     const settings = this.getAdaptiveSettings(tripCount);
-    return [settings.glowOpacity * userOpacity, settings.coreOpacity * userOpacity];
+    return [
+      this._zoomOpacity(settings.glowOpacity * userOpacity),
+      this._zoomOpacity(settings.coreOpacity * userOpacity),
+    ];
   },
 };
 

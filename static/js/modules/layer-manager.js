@@ -9,6 +9,8 @@ import utils from "./utils.js";
 const layerManager = {
   // Track event handlers for cleanup
   _layerCleanupMap: new Map(),
+  _heatmapEventsBound: false,
+  _heatmapRefreshHandler: null,
 
   initializeControls() {
     const container = utils.getElement("layer-toggles");
@@ -87,6 +89,23 @@ const layerManager = {
     container.appendChild(fragment);
     this.setupEventListeners(container);
     this.setupDragAndDropForLayers(container);
+  },
+
+  bindHeatmapEvents() {
+    if (this._heatmapEventsBound || !state.map) return;
+
+    const refreshHeatmaps = utils.debounce(() => {
+      if (!state.map || !state.mapInitialized) return;
+      Object.entries(state.mapLayers).forEach(([layerName, info]) => {
+        if (info?.isHeatmap && info.visible) {
+          this._refreshHeatmapStyle(layerName);
+        }
+      });
+    }, 150);
+
+    this._heatmapRefreshHandler = refreshHeatmaps;
+    state.map.on("moveend", refreshHeatmaps);
+    this._heatmapEventsBound = true;
   },
 
   setupEventListeners(container) {
@@ -246,6 +265,9 @@ const layerManager = {
             );
           }
         }
+        if (visible) {
+          this._scheduleHeatmapRefresh(name);
+        }
       } else if (visible && layerInfo.layer) {
         await this.updateMapLayer(name, layerInfo.layer);
       }
@@ -273,7 +295,8 @@ const layerManager = {
     if (layerInfo.isHeatmap) {
       if (property === "opacity") {
         const tripCount = layerInfo.layer?.features?.length || 0;
-        const opacities = heatmapUtils.getUpdatedOpacities(tripCount, value);
+        const visibleTripCount = this._getHeatmapTripCountInView(name, tripCount);
+        const opacities = heatmapUtils.getUpdatedOpacities(visibleTripCount, value);
 
         for (let i = 0; i < 2; i++) {
           const glowLayerId = `${name}-layer-${i}`;
@@ -303,6 +326,80 @@ const layerManager = {
       };
     });
     utils.setStorage(CONFIG.STORAGE_KEYS.layerSettings, settings);
+  },
+
+  _getHeatmapTripCountInView(layerName, fallbackCount) {
+    if (!state.map || !state.mapInitialized) return fallbackCount;
+    const layerId = `${layerName}-layer-1`;
+    if (!state.map.getLayer(layerId)) return fallbackCount;
+
+    const rendered = state.map.queryRenderedFeatures({ layers: [layerId] });
+    if (!rendered?.length) return 0;
+
+    const uniqueTrips = new Set();
+    rendered.forEach((feature, index) => {
+      const id =
+        feature.properties?.transactionId ??
+        feature.properties?.id ??
+        feature.id ??
+        `rendered-${index}`;
+      uniqueTrips.add(String(id));
+    });
+
+    return uniqueTrips.size;
+  },
+
+  _refreshHeatmapStyle(layerName) {
+    const layerInfo = state.mapLayers[layerName];
+    if (!layerInfo?.isHeatmap || !layerInfo.layer || !state.map) return;
+
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const totalTripCount = layerInfo.layer?.features?.length || 0;
+    const visibleTripCount = this._getHeatmapTripCountInView(
+      layerName,
+      totalTripCount
+    );
+
+    const { glowLayers } = heatmapUtils.generateHeatmapConfig(layerInfo.layer, {
+      theme,
+      opacity: layerInfo.opacity,
+      visibleTripCount,
+    });
+
+    glowLayers.forEach((glowConfig, index) => {
+      const glowLayerId = `${layerName}-layer-${index}`;
+      if (!state.map.getLayer(glowLayerId)) return;
+
+      state.map.setPaintProperty(
+        glowLayerId,
+        "line-color",
+        glowConfig.paint["line-color"]
+      );
+      state.map.setPaintProperty(
+        glowLayerId,
+        "line-width",
+        glowConfig.paint["line-width"]
+      );
+      state.map.setPaintProperty(
+        glowLayerId,
+        "line-opacity",
+        glowConfig.paint["line-opacity"]
+      );
+      if (glowConfig.paint["line-blur"] !== undefined) {
+        state.map.setPaintProperty(
+          glowLayerId,
+          "line-blur",
+          glowConfig.paint["line-blur"]
+        );
+      }
+    });
+  },
+
+  _scheduleHeatmapRefresh(layerName) {
+    if (!state.map) return;
+    const refresh = () => this._refreshHeatmapStyle(layerName);
+    requestAnimationFrame(refresh);
+    state.map.once("idle", refresh);
   },
 
   async updateMapLayer(layerName, data) {
@@ -477,10 +574,16 @@ const layerManager = {
    */
   async _updateHeatmapLayer(layerName, data, sourceId, _layerId, layerInfo) {
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const totalTripCount = data?.features?.length || 0;
+    const visibleTripCount = this._getHeatmapTripCountInView(
+      layerName,
+      totalTripCount
+    );
 
     const heatmapConfig = heatmapUtils.generateHeatmapConfig(data, {
       theme,
       opacity: layerInfo.opacity,
+      visibleTripCount,
     });
 
     const { tripCount, glowLayers } = heatmapConfig;
@@ -532,6 +635,7 @@ const layerManager = {
         });
 
         layerInfo.layer = data;
+        this._scheduleHeatmapRefresh(layerName);
         return;
       } catch (updateError) {
         console.warn(
@@ -585,10 +689,17 @@ const layerManager = {
     });
 
     layerInfo.layer = data;
+    this._scheduleHeatmapRefresh(layerName);
   },
 
   cleanup() {
     if (!state.map) return;
+
+    if (this._heatmapRefreshHandler) {
+      state.map.off("moveend", this._heatmapRefreshHandler);
+      this._heatmapRefreshHandler = null;
+      this._heatmapEventsBound = false;
+    }
 
     if (this._layerCleanupMap) {
       for (const [layerId, handlers] of this._layerCleanupMap) {
