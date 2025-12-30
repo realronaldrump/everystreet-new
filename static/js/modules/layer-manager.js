@@ -5,12 +5,137 @@ import mapManager from "./map-manager.js";
 import state from "./state.js";
 import utils from "./utils.js";
 
+const INTERACTIVE_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
+
 // Extracted from app.js – unchanged except minimal path updates.
 const layerManager = {
   // Track event handlers for cleanup
   _layerCleanupMap: new Map(),
   _heatmapEventsBound: false,
   _heatmapRefreshHandler: null,
+
+  _shouldEnableTripInteractions(layerName) {
+    return INTERACTIVE_TRIP_LAYERS.has(layerName);
+  },
+
+  _getTripHitboxWidth() {
+    const deviceProfile = utils.getDeviceProfile?.() || {};
+    const baseWidth = deviceProfile.isMobile ? 14 : 10;
+    return [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      6,
+      baseWidth * 0.6,
+      10,
+      baseWidth,
+      14,
+      baseWidth * 1.3,
+      18,
+      baseWidth * 1.6,
+      22,
+      baseWidth * 2,
+    ];
+  },
+
+  _removeTripHitboxLayer(layerName) {
+    if (!state.map) return;
+    const hitboxLayerId = `${layerName}-hitbox`;
+    if (state.map.getLayer(hitboxLayerId)) {
+      ["click", "mouseenter", "mouseleave"].forEach((event) => {
+        state.map.off(event, hitboxLayerId);
+      });
+      state.map.removeLayer(hitboxLayerId);
+    }
+    this._layerCleanupMap?.delete(hitboxLayerId);
+  },
+
+  async _setupTripInteractions(layerName, sourceId, layerInfo) {
+    if (!state.map || !this._shouldEnableTripInteractions(layerName)) return;
+
+    const hitboxLayerId = `${layerName}-hitbox`;
+    const hitboxConfig = {
+      id: hitboxLayerId,
+      type: "line",
+      source: sourceId,
+      minzoom: layerInfo.minzoom || 0,
+      maxzoom: layerInfo.maxzoom || 22,
+      layout: {
+        visibility: layerInfo.visible ? "visible" : "none",
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": "#000000",
+        "line-opacity": 0,
+        "line-width": this._getTripHitboxWidth(),
+      },
+    };
+
+    if (!state.map.getLayer(hitboxLayerId)) {
+      state.map.addLayer(hitboxConfig);
+    } else {
+      state.map.setLayoutProperty(
+        hitboxLayerId,
+        "visibility",
+        layerInfo.visible ? "visible" : "none"
+      );
+      state.map.setPaintProperty(
+        hitboxLayerId,
+        "line-width",
+        this._getTripHitboxWidth()
+      );
+    }
+
+    const tripInteractions = (await import("./trip-interactions.js")).default;
+    const clickHandler = (e) => {
+      if (typeof e.originalEvent?.button === "number" && e.originalEvent.button !== 0)
+        return;
+      if (typeof state.map?.isMoving === "function" && state.map.isMoving()) return;
+      if (layerName === "trips" && state.map.getLayer("matchedTrips-hitbox")) {
+        const matchedHits = state.map.queryRenderedFeatures(e.point, {
+          layers: ["matchedTrips-hitbox"],
+        });
+        if (matchedHits.length > 0) return;
+      }
+      e.originalEvent?.stopPropagation?.();
+      if (e.features?.length > 0) {
+        tripInteractions.handleTripClick(e, e.features[0], layerName);
+      }
+    };
+    const mouseEnterHandler = () => {
+      state.map.getCanvas().style.cursor = "pointer";
+    };
+    const mouseLeaveHandler = () => {
+      state.map.getCanvas().style.cursor = "";
+    };
+
+    ["click", "mouseenter", "mouseleave"].forEach((event) => {
+      state.map.off(event, hitboxLayerId);
+    });
+    state.map.on("click", hitboxLayerId, clickHandler);
+    state.map.on("mouseenter", hitboxLayerId, mouseEnterHandler);
+    state.map.on("mouseleave", hitboxLayerId, mouseLeaveHandler);
+
+    if (!this._layerCleanupMap) this._layerCleanupMap = new Map();
+    this._layerCleanupMap.set(hitboxLayerId, {
+      handlers: {
+        click: clickHandler,
+        mouseenter: mouseEnterHandler,
+        mouseleave: mouseLeaveHandler,
+      },
+      sourceId,
+      removeSource: false,
+    });
+
+    requestAnimationFrame(() => {
+      try {
+        mapManager.refreshTripStyles();
+      } catch (e) {
+        console.warn("Failed to refresh trip styles after hitbox add", e);
+      }
+    });
+  },
 
   initializeControls() {
     const container = utils.getElement("layer-toggles");
@@ -271,6 +396,14 @@ const layerManager = {
       } else if (visible && layerInfo.layer) {
         await this.updateMapLayer(name, layerInfo.layer);
       }
+      const hitboxLayerId = `${name}-hitbox`;
+      if (state.map?.getLayer(hitboxLayerId)) {
+        state.map.setLayoutProperty(
+          hitboxLayerId,
+          "visibility",
+          visible ? "visible" : "none"
+        );
+      }
       if (loadingEl) loadingEl.classList.add("d-none");
       return;
     }
@@ -280,6 +413,14 @@ const layerManager = {
       state.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
     } else if (visible && layerInfo.layer) {
       await this.updateMapLayer(name, layerInfo.layer);
+    }
+    const hitboxLayerId = `${name}-hitbox`;
+    if (state.map?.getLayer(hitboxLayerId)) {
+      state.map.setLayoutProperty(
+        hitboxLayerId,
+        "visibility",
+        visible ? "visible" : "none"
+      );
     }
 
     if (loadingEl) loadingEl.classList.add("d-none");
@@ -454,9 +595,18 @@ const layerManager = {
           );
 
           layerInfo.layer = data;
+          if (this._shouldEnableTripInteractions(layerName)) {
+            await this._setupTripInteractions(layerName, sourceId, layerInfo);
+          }
           return;
         } catch (updateError) {
           console.warn(`Falling back to layer rebuild for ${layerName}:`, updateError);
+        }
+      }
+
+      if (existingLayer || existingSource) {
+        if (this._shouldEnableTripInteractions(layerName)) {
+          this._removeTripHitboxLayer(layerName);
         }
       }
 
@@ -527,39 +677,8 @@ const layerManager = {
         );
       }
 
-      if (layerName === "matchedTrips") {
-        const tripInteractions = (await import("./trip-interactions.js")).default;
-        const clickHandler = (e) => {
-          e.originalEvent.stopPropagation();
-          if (e.features?.length > 0) {
-            tripInteractions.handleTripClick(e, e.features[0]);
-          }
-        };
-        const mouseEnterHandler = () => {
-          state.map.getCanvas().style.cursor = "pointer";
-        };
-        const mouseLeaveHandler = () => {
-          state.map.getCanvas().style.cursor = "";
-        };
-
-        state.map.on("click", layerId, clickHandler);
-        state.map.on("mouseenter", layerId, mouseEnterHandler);
-        state.map.on("mouseleave", layerId, mouseLeaveHandler);
-
-        if (!this._layerCleanupMap) this._layerCleanupMap = new Map();
-        this._layerCleanupMap.set(layerId, {
-          click: clickHandler,
-          mouseenter: mouseEnterHandler,
-          mouseleave: mouseLeaveHandler,
-        });
-
-        requestAnimationFrame(() => {
-          try {
-            mapManager.refreshTripStyles();
-          } catch (e) {
-            console.warn("Failed to refresh trip styles after layer add", e);
-          }
-        });
+      if (this._shouldEnableTripInteractions(layerName)) {
+        await this._setupTripInteractions(layerName, sourceId, layerInfo);
       }
 
       layerInfo.layer = data;
@@ -636,6 +755,9 @@ const layerManager = {
 
         layerInfo.layer = data;
         this._scheduleHeatmapRefresh(layerName);
+        if (this._shouldEnableTripInteractions(layerName)) {
+          await this._setupTripInteractions(layerName, sourceId, layerInfo);
+        }
         return;
       } catch (updateError) {
         console.warn(
@@ -646,6 +768,9 @@ const layerManager = {
     }
 
     // Clean up existing glow layers (2 layers)
+    if (this._shouldEnableTripInteractions(layerName)) {
+      this._removeTripHitboxLayer(layerName);
+    }
     for (let i = 0; i < 2; i++) {
       const glowLayerId = `${layerName}-layer-${i}`;
       if (state.map.getLayer(glowLayerId)) {
@@ -690,6 +815,9 @@ const layerManager = {
 
     layerInfo.layer = data;
     this._scheduleHeatmapRefresh(layerName);
+    if (this._shouldEnableTripInteractions(layerName)) {
+      await this._setupTripInteractions(layerName, sourceId, layerInfo);
+    }
   },
 
   cleanup() {
@@ -702,15 +830,17 @@ const layerManager = {
     }
 
     if (this._layerCleanupMap) {
-      for (const [layerId, handlers] of this._layerCleanupMap) {
+      for (const [layerId, entry] of this._layerCleanupMap) {
+        const handlers = entry?.handlers || entry || {};
         if (state.map.getLayer(layerId)) {
           Object.entries(handlers).forEach(([event, handler]) => {
             state.map.off(event, layerId, handler);
           });
           state.map.removeLayer(layerId);
         }
-        const sourceId = layerId.replace("-layer", "-source");
-        if (state.map.getSource(sourceId)) {
+        const sourceId = entry?.sourceId || layerId.replace("-layer", "-source");
+        const removeSource = entry?.removeSource !== false;
+        if (removeSource && sourceId && state.map.getSource(sourceId)) {
           state.map.removeSource(sourceId);
         }
       }

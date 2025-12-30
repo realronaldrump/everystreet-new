@@ -6,7 +6,7 @@ import state from "./state.js";
 import utils from "./utils.js";
 
 const tripInteractions = {
-  handleTripClick(e, feature) {
+  handleTripClick(e, feature, layerName = null) {
     if (!feature?.properties) return;
 
     const tripId =
@@ -16,6 +16,8 @@ const tripInteractions = {
 
     if (tripId) {
       state.selectedTripId = tripId;
+      state.selectedTripLayer =
+        layerName || this.resolveTripLayerName(feature?.layer?.id);
       mapManager.refreshTripStyles();
     }
 
@@ -30,6 +32,13 @@ const tripInteractions = {
       .addTo(state.map);
     // Attach listeners immediately; Mapbox GL's 'open' can fire before handler registration
     this.setupPopupEventListeners(popup, feature);
+  },
+
+  resolveTripLayerName(layerId = "") {
+    if (!layerId || typeof layerId !== "string") return null;
+    if (layerId.startsWith("matchedTrips")) return "matchedTrips";
+    if (layerId.startsWith("trips")) return "trips";
+    return null;
   },
 
   createPopupContent(feature) {

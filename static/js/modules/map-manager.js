@@ -158,10 +158,16 @@ const mapManager = {
     // Clear selections when clicking on an empty area.
     // Only query non-heatmap layers that support feature selection
     const queryLayers = [];
-    if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
+    if (state.map.getLayer("trips-hitbox")) {
+      queryLayers.push("trips-hitbox");
+    } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
       queryLayers.push("trips-layer");
+    } else if (state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer-1")) {
+      queryLayers.push("trips-layer-1");
     }
-    if (state.map.getLayer("matchedTrips-layer")) {
+    if (state.map.getLayer("matchedTrips-hitbox")) {
+      queryLayers.push("matchedTrips-hitbox");
+    } else if (state.map.getLayer("matchedTrips-layer")) {
       queryLayers.push("matchedTrips-layer");
     }
 
@@ -169,6 +175,7 @@ const mapManager = {
       // No queryable layers, just clear selection if needed
       if (state.selectedTripId) {
         state.selectedTripId = null;
+        state.selectedTripLayer = null;
         this.refreshTripStyles();
       }
       return;
@@ -181,6 +188,7 @@ const mapManager = {
     if (features.length === 0) {
       if (state.selectedTripId) {
         state.selectedTripId = null;
+        state.selectedTripLayer = null;
         this.refreshTripStyles();
       }
     }
@@ -239,7 +247,106 @@ const mapManager = {
         console.warn("Failed to update trip styles:", error);
       }
     });
+
+    mapManager._updateSelectedTripOverlay(selectedId);
   }, CONFIG.MAP.throttleDelay),
+
+  _updateSelectedTripOverlay(selectedId) {
+    if (!state.map || !state.mapInitialized) return;
+
+    const sourceId = "selected-trip-source";
+    const layerId = "selected-trip-layer";
+
+    const removeOverlay = () => {
+      if (state.map.getLayer(layerId)) {
+        state.map.removeLayer(layerId);
+      }
+      if (state.map.getSource(sourceId)) {
+        state.map.removeSource(sourceId);
+      }
+    };
+
+    if (
+      !selectedId ||
+      state.selectedTripLayer !== "trips" ||
+      !state.mapLayers.trips?.isHeatmap ||
+      !state.mapLayers.trips?.visible
+    ) {
+      removeOverlay();
+      return;
+    }
+
+    const tripLayer = state.mapLayers.trips?.layer;
+    const matchingFeature = tripLayer?.features?.find((feature) => {
+      const featureId =
+        feature?.properties?.transactionId ||
+        feature?.properties?.id ||
+        feature?.properties?.tripId ||
+        feature?.id;
+      return featureId != null && String(featureId) === selectedId;
+    });
+
+    if (!matchingFeature?.geometry) {
+      removeOverlay();
+      return;
+    }
+
+    const selectedFeature = {
+      type: "Feature",
+      geometry: matchingFeature.geometry,
+      properties: matchingFeature.properties || {},
+    };
+
+    const highlightColor =
+      window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+    const highlightWidth = [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      6,
+      2,
+      10,
+      4,
+      14,
+      6,
+      18,
+      10,
+      22,
+      14,
+    ];
+
+    if (!state.map.getSource(sourceId)) {
+      state.map.addSource(sourceId, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [selectedFeature] },
+      });
+    } else {
+      state.map.getSource(sourceId).setData({
+        type: "FeatureCollection",
+        features: [selectedFeature],
+      });
+    }
+
+    if (!state.map.getLayer(layerId)) {
+      state.map.addLayer({
+        id: layerId,
+        type: "line",
+        source: sourceId,
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": highlightColor,
+          "line-opacity": 0.9,
+          "line-width": highlightWidth,
+        },
+      });
+    } else {
+      state.map.setPaintProperty(layerId, "line-color", highlightColor);
+      state.map.setPaintProperty(layerId, "line-width", highlightWidth);
+    }
+  },
 
   async fitBounds(animate = true) {
     if (!state.map || !state.mapInitialized) return;

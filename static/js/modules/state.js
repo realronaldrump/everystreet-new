@@ -20,6 +20,7 @@ class AppState {
 
     // Selection state
     this.selectedTripId = null;
+    this.selectedTripLayer = null;
     this.selectedLocationId = null;
 
     // Live tracking
@@ -164,6 +165,7 @@ class AppState {
 
     this.mapInitialized = false;
     this.selectedTripId = null;
+    this.selectedTripLayer = null;
     this.undrivenStreetsLoaded = false;
     this.drivenStreetsLoaded = false;
     this.allStreetsLoaded = false;
