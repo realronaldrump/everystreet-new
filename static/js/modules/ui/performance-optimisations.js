@@ -1,6 +1,8 @@
-import utils from "../ui-utils.js";
+import utils from "../utils.js";
 
 const perfOptim = {
+  _resizeHandler: null,
+
   init() {
     // Pause CSS animations/transitions when the tab is not visible to save CPU
     document.addEventListener("visibilitychange", () => {
@@ -12,19 +14,13 @@ const perfOptim = {
       }
     });
 
-    // Throttle window resize events
-    let last = 0;
-    window.addEventListener("resize", () => {
-      const now = Date.now();
-      if (now - last < 300) return;
-      last = now;
-      utils.debounceFn?.(() => {
-        const evt = new Event("appResized");
-        window.dispatchEvent(evt);
-      }, 50)();
-    });
+    // Throttle window resize events using debounce
+    this._resizeHandler = utils.debounce(() => {
+      window.dispatchEvent(new Event("appResized"));
+    }, 150);
+
+    window.addEventListener("resize", this._resizeHandler);
   },
 };
 
-if (!window.performanceOptimisations) window.performanceOptimisations = perfOptim;
-export { perfOptim as default };
+export default perfOptim;

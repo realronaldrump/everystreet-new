@@ -153,7 +153,9 @@ function initializeTable() {
 
           const title = document.createElement("div");
           title.className = "trip-title";
-          title.textContent = row.distance ? `${parseFloat(row.distance).toFixed(1)} mi` : "--";
+          title.textContent = row.distance
+            ? `${parseFloat(row.distance).toFixed(1)} mi`
+            : "--";
           cell.appendChild(title);
 
           const meta = document.createElement("div");
@@ -173,7 +175,9 @@ function initializeTable() {
 
           const title = document.createElement("div");
           title.className = "trip-title";
-          title.textContent = row.maxSpeed ? `${Math.round(row.maxSpeed)} mph` : "--";
+          title.textContent = row.maxSpeed
+            ? `${Math.round(row.maxSpeed)} mph`
+            : "--";
           cell.appendChild(title);
 
           const idle = row.totalIdleDuration
@@ -291,7 +295,7 @@ function setupFilterListeners() {
   const inputs = document.querySelectorAll(
     "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, " +
       "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, " +
-      "#trip-filter-has-fuel"
+      "#trip-filter-has-fuel",
   );
 
   inputs.forEach((input) => {
@@ -299,11 +303,13 @@ function setupFilterListeners() {
     input.addEventListener("input", () => updateFilterChips(false));
   });
 
-  document.getElementById("trip-filter-apply")?.addEventListener("click", () => {
-    tripsTable.reload();
-    showFilterAppliedMessage();
-    updateFilterChips();
-  });
+  document
+    .getElementById("trip-filter-apply")
+    ?.addEventListener("click", () => {
+      tripsTable.reload();
+      showFilterAppliedMessage();
+      updateFilterChips();
+    });
 
   const resetBtn = document.getElementById("trip-filter-reset");
   if (resetBtn) {
@@ -351,30 +357,46 @@ function updateFilterChips(triggerReload = false) {
     addChip("Vehicle", filters.imei, () => clearInput("trip-filter-vehicle"));
   }
   if (filters.start_date || filters.end_date) {
-    addChip("Date", `${filters.start_date || "Any"} -> ${filters.end_date || "Any"}`, () => {
-      window.utils?.setStorage("startDate", null);
-      window.utils?.setStorage("endDate", null);
-      document.dispatchEvent(new Event("filtersReset"));
-      tripsTable.reload();
-    });
+    addChip(
+      "Date",
+      `${filters.start_date || "Any"} -> ${filters.end_date || "Any"}`,
+      () => {
+        window.utils?.setStorage("startDate", null);
+        window.utils?.setStorage("endDate", null);
+        document.dispatchEvent(new Event("filtersReset"));
+        tripsTable.reload();
+      },
+    );
   }
   if (filters.distance_min || filters.distance_max) {
-    addChip("Distance", `${filters.distance_min || "0"} - ${filters.distance_max || "inf"} mi`, () => {
-      clearInput("trip-filter-distance-min");
-      clearInput("trip-filter-distance-max");
-    });
+    addChip(
+      "Distance",
+      `${filters.distance_min || "0"} - ${filters.distance_max || "inf"} mi`,
+      () => {
+        clearInput("trip-filter-distance-min");
+        clearInput("trip-filter-distance-max");
+      },
+    );
   }
   if (filters.speed_min || filters.speed_max) {
-    addChip("Speed", `${filters.speed_min || "0"} - ${filters.speed_max || "inf"} mph`, () => {
-      clearInput("trip-filter-speed-min");
-      clearInput("trip-filter-speed-max");
-    });
+    addChip(
+      "Speed",
+      `${filters.speed_min || "0"} - ${filters.speed_max || "inf"} mph`,
+      () => {
+        clearInput("trip-filter-speed-min");
+        clearInput("trip-filter-speed-max");
+      },
+    );
   }
   if (filters.fuel_min || filters.fuel_max) {
-    addChip("Fuel", `${filters.fuel_min || "0"} - ${filters.fuel_max || "inf"} gal`, () => {
-      clearInput("trip-filter-fuel-min");
-      clearInput("trip-filter-fuel-max");
-    });
+    addChip(
+      "Fuel",
+      `${filters.fuel_min || "0"} - ${filters.fuel_max || "inf"} gal`,
+      () => {
+        clearInput("trip-filter-fuel-min");
+        clearInput("trip-filter-fuel-max");
+      },
+    );
   }
   if (filters.has_fuel) {
     addChip("Has fuel", "Only trips with fuel data", () => {
@@ -416,44 +438,55 @@ function updateBulkDeleteButton() {
   btn.disabled = count === 0;
   const textEl = btn.querySelector(".btn-text");
   if (textEl) {
-    textEl.textContent = count > 0 ? `Delete Selected (${count})` : "Delete Selected";
+    textEl.textContent =
+      count > 0 ? `Delete Selected (${count})` : "Delete Selected";
   }
 }
 
 function setupBulkActions() {
-  document.getElementById("bulk-delete-trips-btn")?.addEventListener("click", async () => {
-    if (selectedTripIds.size === 0) return;
+  document
+    .getElementById("bulk-delete-trips-btn")
+    ?.addEventListener("click", async () => {
+      if (selectedTripIds.size === 0) return;
 
-    const confirmed = await window.confirmationDialog.show({
-      title: "Delete Trips",
-      message: `Are you sure you want to delete ${selectedTripIds.size} trips?`,
-      confirmText: "Delete All",
-      confirmButtonClass: "btn-danger",
+      const confirmed = await window.confirmationDialog.show({
+        title: "Delete Trips",
+        message: `Are you sure you want to delete ${selectedTripIds.size} trips?`,
+        confirmText: "Delete All",
+        confirmButtonClass: "btn-danger",
+      });
+
+      if (confirmed) {
+        await bulkDeleteTrips([...selectedTripIds]);
+      }
     });
 
-    if (confirmed) {
-      await bulkDeleteTrips([...selectedTripIds]);
-    }
-  });
-
-  document.getElementById("refresh-geocoding-btn")?.addEventListener("click", async () => {
-    try {
-      window.notificationManager?.show("Starting geocoding refresh...", "info");
-      const response = await fetch(CONFIG.API.geocodeTrips, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ interval_days: 7 }),
-      });
-      const result = await response.json();
-      if (response.ok) {
-        window.notificationManager?.show("Geocoding task started.", "success");
-      } else {
-        throw new Error(result.detail || "Failed to start geocoding");
+  document
+    .getElementById("refresh-geocoding-btn")
+    ?.addEventListener("click", async () => {
+      try {
+        window.notificationManager?.show(
+          "Starting geocoding refresh...",
+          "info",
+        );
+        const response = await fetch(CONFIG.API.geocodeTrips, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ interval_days: 7 }),
+        });
+        const result = await response.json();
+        if (response.ok) {
+          window.notificationManager?.show(
+            "Geocoding task started.",
+            "success",
+          );
+        } else {
+          throw new Error(result.detail || "Failed to start geocoding");
+        }
+      } catch (e) {
+        window.notificationManager?.show(e.message, "danger");
       }
-    } catch (e) {
-      window.notificationManager?.show(e.message, "danger");
-    }
-  });
+    });
 }
 
 async function deleteTrip(id) {
@@ -481,7 +514,10 @@ async function bulkDeleteTrips(ids) {
     if (!response.ok) throw new Error("Failed to bulk delete trips");
 
     const result = await response.json();
-    window.notificationManager?.show(result.message || "Trips deleted", "success");
+    window.notificationManager?.show(
+      result.message || "Trips deleted",
+      "success",
+    );
     selectedTripIds.clear();
     document.getElementById("select-all-trips").checked = false;
     tripsTable.reload();
@@ -512,7 +548,9 @@ function sanitizeLocation(location) {
     return (
       location.formatted_address ||
       location.name ||
-      [location.street, location.city, location.state].filter(Boolean).join(", ") ||
+      [location.street, location.city, location.state]
+        .filter(Boolean)
+        .join(", ") ||
       "Unknown"
     );
   }

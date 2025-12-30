@@ -40,7 +40,8 @@ const metricsManager = {
 
     utils.batchDOMUpdates([
       () => {
-        if (elements.totalTrips) elements.totalTrips.textContent = metrics.totalTrips;
+        if (elements.totalTrips)
+          elements.totalTrips.textContent = metrics.totalTrips;
         if (elements.totalDistance)
           elements.totalDistance.textContent = metrics.totalDistance.toFixed(1);
         if (elements.avgDistance)
@@ -95,13 +96,17 @@ const metricsManager = {
       if (props.startTime) {
         const startTime = new Date(props.startTime);
         if (!Number.isNaN(startTime.getTime())) {
-          metrics.totalStartHours += startTime.getHours() + startTime.getMinutes() / 60;
+          metrics.totalStartHours +=
+            startTime.getHours() + startTime.getMinutes() / 60;
           metrics.validStartTimeCount++;
         }
       }
 
       if (props.maxSpeed && !Number.isNaN(props.maxSpeed)) {
-        metrics.maxSpeed = Math.max(metrics.maxSpeed, parseFloat(props.maxSpeed));
+        metrics.maxSpeed = Math.max(
+          metrics.maxSpeed,
+          parseFloat(props.maxSpeed),
+        );
       }
     });
 
@@ -115,13 +120,13 @@ const metricsManager = {
       avgStartTime:
         metrics.validStartTimeCount > 0
           ? dateUtils.formatTimeFromHours(
-              metrics.totalStartHours / metrics.validStartTimeCount
+              metrics.totalStartHours / metrics.validStartTimeCount,
             )
           : "--:--",
       avgDrivingTime:
         metrics.validDrivingTimeCount > 0
           ? this.formatDuration(
-              metrics.totalDrivingTime / metrics.validDrivingTimeCount
+              metrics.totalDrivingTime / metrics.validDrivingTimeCount,
             )
           : "--:--",
       avgSpeed:
@@ -163,8 +168,5 @@ const metricsManager = {
     }
   },
 };
-
-if (!window.EveryStreet) window.EveryStreet = {};
-window.EveryStreet.MetricsManager = metricsManager;
 
 export default metricsManager;

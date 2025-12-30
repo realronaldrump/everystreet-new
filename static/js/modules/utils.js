@@ -117,7 +117,13 @@ const utils = {
   },
 
   // Fetch with retry, caching, and abort support
-  async fetchWithRetry(url, options = {}, retries = 3, cacheTime = 30000, abortKey = null) {
+  async fetchWithRetry(
+    url,
+    options = {},
+    retries = 3,
+    cacheTime = 30000,
+    abortKey = null,
+  ) {
     const cacheKey = `${url}_${JSON.stringify(options)}`;
 
     // Check cache first
@@ -127,7 +133,9 @@ const utils = {
     }
 
     // Create abort controller
-    const controller = abortKey ? state.createAbortController(abortKey) : new AbortController();
+    const controller = abortKey
+      ? state.createAbortController(abortKey)
+      : new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.API.timeout);
 
     try {
@@ -142,8 +150,16 @@ const utils = {
 
       if (!response.ok) {
         if (retries > 0 && response.status >= 500) {
-          await new Promise((resolve) => setTimeout(resolve, 1000 * (4 - retries)));
-          return this.fetchWithRetry(url, options, retries - 1, cacheTime, abortKey);
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1000 * (4 - retries)),
+          );
+          return this.fetchWithRetry(
+            url,
+            options,
+            retries - 1,
+            cacheTime,
+            abortKey,
+          );
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -192,14 +208,16 @@ const utils = {
 
   setStorage(key, value) {
     try {
-      const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+      const stringValue =
+        typeof value === "object" ? JSON.stringify(value) : String(value);
       localStorage.setItem(key, stringValue);
       return true;
     } catch (e) {
       console.warn("Storage quota exceeded:", e);
       this.clearOldCache();
       try {
-        const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+        const stringValue =
+          typeof value === "object" ? JSON.stringify(value) : String(value);
         localStorage.setItem(key, stringValue);
         return true;
       } catch {
@@ -241,7 +259,10 @@ const utils = {
       return result;
     } catch (error) {
       const duration = performance.now() - startTime;
-      console.error(`Performance: ${name} failed after ${duration.toFixed(2)}ms`, error);
+      console.error(
+        `Performance: ${name} failed after ${duration.toFixed(2)}ms`,
+        error,
+      );
       throw error;
     }
   },
@@ -290,10 +311,52 @@ const utils = {
       lowMemory,
       deviceMemory: deviceMemory || null,
       saveData,
-      isConstrained: Boolean(hasTouch || smallViewport || lowMemory || saveData),
+      isConstrained: Boolean(
+        hasTouch || smallViewport || lowMemory || saveData,
+      ),
     };
 
     return this._deviceProfile;
+  },
+
+  // Fade in animation
+  fadeIn(el, duration = 200) {
+    return new Promise((resolve) => {
+      if (!el) return resolve();
+      el.style.opacity = 0;
+      el.style.display = el.style.display || "block";
+      el.style.transition = `opacity ${duration}ms`;
+      requestAnimationFrame(() => {
+        el.style.opacity = 1;
+      });
+      setTimeout(resolve, duration);
+    });
+  },
+
+  // Fade out animation
+  fadeOut(el, duration = 200) {
+    return new Promise((resolve) => {
+      if (!el) return resolve();
+      el.style.opacity = 1;
+      el.style.transition = `opacity ${duration}ms`;
+      requestAnimationFrame(() => {
+        el.style.opacity = 0;
+      });
+      setTimeout(() => {
+        el.style.display = "none";
+        resolve();
+      }, duration);
+    });
+  },
+
+  // Measure scrollbar width
+  measureScrollbarWidth() {
+    return window.innerWidth - document.documentElement.clientWidth;
+  },
+
+  // Shorthand for notifications
+  showNotification(...args) {
+    return window.notificationManager?.show?.(...args);
   },
 
   // Accessibility announcements
@@ -348,7 +411,12 @@ const utils = {
 };
 
 // Error handler
-export function handleError(error, context = "", level = "error", onComplete = null) {
+export function handleError(
+  error,
+  context = "",
+  level = "error",
+  onComplete = null,
+) {
   const errorObj = typeof error === "string" ? new Error(error) : error;
 
   if (level === "error") {
@@ -365,12 +433,17 @@ export function handleError(error, context = "", level = "error", onComplete = n
       errorObj.message.includes("fetch") ||
       errorObj.message.includes("network")
     ) {
-      userMessage = "Network error: Please check your connection and try again.";
+      userMessage =
+        "Network error: Please check your connection and try again.";
     } else if (errorObj.message.includes("timeout")) {
       userMessage = "The operation timed out. Please try again.";
     } else if (errorObj.message.includes("permission")) {
-      userMessage = "Permission denied: You don't have access to this resource.";
-    } else if (errorObj.message.includes("not found") || errorObj.status === 404) {
+      userMessage =
+        "Permission denied: You don't have access to this resource.";
+    } else if (
+      errorObj.message.includes("not found") ||
+      errorObj.status === 404
+    ) {
       userMessage = "Resource not found: The requested item doesn't exist.";
     } else if (errorObj.status >= 500) {
       userMessage = "Server error: Please try again later.";
