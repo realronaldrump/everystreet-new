@@ -1,6 +1,6 @@
 import { UI_CONFIG as CONFIG } from "../config.js";
 import { uiState } from "../ui-state.js";
-import utils from "../ui-utils.js";
+import utils from "../utils.js";
 import eventManager from "./event-manager.js";
 
 const panelManager = {
@@ -157,5 +157,4 @@ const panelManager = {
   },
 };
 
-if (!window.panelManager) window.panelManager = panelManager;
-export { panelManager as default };
+export default panelManager;

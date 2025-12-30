@@ -319,6 +319,46 @@ const utils = {
     return this._deviceProfile;
   },
 
+  // Fade in animation
+  fadeIn(el, duration = 200) {
+    return new Promise((resolve) => {
+      if (!el) return resolve();
+      el.style.opacity = 0;
+      el.style.display = el.style.display || "block";
+      el.style.transition = `opacity ${duration}ms`;
+      requestAnimationFrame(() => {
+        el.style.opacity = 1;
+      });
+      setTimeout(resolve, duration);
+    });
+  },
+
+  // Fade out animation
+  fadeOut(el, duration = 200) {
+    return new Promise((resolve) => {
+      if (!el) return resolve();
+      el.style.opacity = 1;
+      el.style.transition = `opacity ${duration}ms`;
+      requestAnimationFrame(() => {
+        el.style.opacity = 0;
+      });
+      setTimeout(() => {
+        el.style.display = "none";
+        resolve();
+      }, duration);
+    });
+  },
+
+  // Measure scrollbar width
+  measureScrollbarWidth() {
+    return window.innerWidth - document.documentElement.clientWidth;
+  },
+
+  // Shorthand for notifications
+  showNotification(...args) {
+    return window.notificationManager?.show?.(...args);
+  },
+
   // Accessibility announcements
   announce(message, priority = "polite") {
     const announcer =

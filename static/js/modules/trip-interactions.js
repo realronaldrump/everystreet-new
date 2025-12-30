@@ -302,7 +302,4 @@ const tripInteractions = {
   },
 };
 
-if (!window.EveryStreet) window.EveryStreet = {};
-window.EveryStreet.TripInteractions = tripInteractions;
-
 export default tripInteractions;

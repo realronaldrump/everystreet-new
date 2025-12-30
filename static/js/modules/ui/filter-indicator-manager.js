@@ -49,6 +49,4 @@ const filterIndicatorManager = {
   },
 };
 
-if (!window.filterIndicatorManager)
-  window.filterIndicatorManager = filterIndicatorManager;
-export { filterIndicatorManager as default };
+export default filterIndicatorManager;

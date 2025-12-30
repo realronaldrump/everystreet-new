@@ -1,7 +1,7 @@
 import { CONFIG as MAP_CONFIG, UI_CONFIG as CONFIG } from "../config.js";
 import state from "../state.js";
 import uiState from "../ui-state.js";
-import utils from "../ui-utils.js";
+import utils from "../utils.js";
 import eventManager from "./event-manager.js";
 
 // panelManager is not used directly in this module
@@ -84,5 +84,4 @@ const mapControlsManager = {
   },
 };
 
-if (!window.mapControlsManager) window.mapControlsManager = mapControlsManager;
-export { mapControlsManager as default };
+export default mapControlsManager;

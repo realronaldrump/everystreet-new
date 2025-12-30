@@ -1,5 +1,5 @@
 import uiState from "../ui-state.js";
-import utils from "../ui-utils.js";
+import utils from "../utils.js";
 import dateManager from "./date-manager.js";
 import filterIndicatorManager from "./filter-indicator-manager.js";
 import mapControlsManager from "./map-controls-manager.js";

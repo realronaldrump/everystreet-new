@@ -1,6 +1,6 @@
 import { CONFIG as MAP_CONFIG, UI_CONFIG as CONFIG } from "../config.js";
 import uiState from "../ui-state.js";
-import utils from "../ui-utils.js";
+import utils from "../utils.js";
 import eventManager from "./event-manager.js";
 
 const themeManager = {
@@ -137,5 +137,4 @@ const themeManager = {
   },
 };
 
-if (!window.themeManager) window.themeManager = themeManager;
-export { themeManager as default };
+export default themeManager;

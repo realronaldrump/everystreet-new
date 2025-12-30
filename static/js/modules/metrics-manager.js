@@ -164,7 +164,4 @@ const metricsManager = {
   },
 };
 
-if (!window.EveryStreet) window.EveryStreet = {};
-window.EveryStreet.MetricsManager = metricsManager;
-
 export default metricsManager;
