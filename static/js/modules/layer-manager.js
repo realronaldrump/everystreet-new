@@ -90,6 +90,8 @@ const layerManager = {
         "line-width",
         this._getTripHitboxWidth()
       );
+      // Ensure hitbox is on top for interactivity - layers added later may have buried it
+      state.map.moveLayer(hitboxLayerId);
     }
 
     const tripInteractions = (await import("./trip-interactions.js")).default;
