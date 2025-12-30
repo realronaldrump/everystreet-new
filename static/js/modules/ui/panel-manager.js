@@ -65,7 +65,9 @@ const panelManager = {
       mobile: CONFIG.selectors.mobileDrawer,
     };
     const panel = uiState.getElement(panelMap[type]);
-    panel?.classList.contains(CONFIG.classes.open) ? this.close(type) : this.open(type);
+    panel?.classList.contains(CONFIG.classes.open)
+      ? this.close(type)
+      : this.open(type);
   },
 
   init() {
@@ -80,7 +82,9 @@ const panelManager = {
       e.stopPropagation();
       this.open("mobile");
     });
-    eventManager.add(CONFIG.selectors.closeBtn, "click", () => this.close("mobile"));
+    eventManager.add(CONFIG.selectors.closeBtn, "click", () =>
+      this.close("mobile"),
+    );
     eventManager.add(CONFIG.selectors.contentOverlay, "click", () => {
       this.close("mobile");
       this.close("filters");
@@ -90,7 +94,7 @@ const panelManager = {
       this.toggle("filters");
     });
     eventManager.add(CONFIG.selectors.filtersClose, "click", () =>
-      this.close("filters")
+      this.close("filters"),
     );
 
     document.addEventListener("keydown", (e) => {
@@ -100,7 +104,8 @@ const panelManager = {
       }
     });
 
-    if (uiState.uiState.filtersOpen) setTimeout(() => this.open("filters"), 100);
+    if (uiState.uiState.filtersOpen)
+      setTimeout(() => this.open("filters"), 100);
   },
 
   initDrawerSections() {
