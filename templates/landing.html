@@ -1,19 +1,17 @@
-{% extends "base.html" %}
-
-{% block title %}EveryStreet{% endblock %}
-
-{% block head_content %}
+{% extends "base.html" %} {% block title %}EveryStreet{% endblock %} {% block
+head_content %}
 <style>
   /* Hide filters toggle on landing page */
-  #filters-toggle { display: none !important; }
+  #filters-toggle {
+    display: none !important;
+  }
 </style>
-{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/landing.css') | replace('http://', '//') }}" />
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block extra_css %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/landing.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 <div class="landing-page">
   <!-- Ambient Background -->
   <div class="landing-ambient">
@@ -52,11 +50,19 @@
           </div>
         </div>
         <div class="tile-indicator">
-          <span class="live-dot" id="live-indicator" title="Live tracking"></span>
+          <span
+            class="live-dot"
+            id="live-indicator"
+            title="Live tracking"
+          ></span>
         </div>
       </a>
 
-      <a href="/coverage-navigator" class="nav-tile nav-tile-primary" data-tile="navigate">
+      <a
+        href="/coverage-navigator"
+        class="nav-tile nav-tile-primary"
+        data-tile="navigate"
+      >
         <div class="tile-bg"></div>
         <div class="tile-content">
           <div class="tile-icon">
@@ -155,7 +161,11 @@
         </div>
       </a>
 
-      <a href="/coverage-management" class="nav-tile nav-tile-tool" data-tile="areas">
+      <a
+        href="/coverage-management"
+        class="nav-tile nav-tile-tool"
+        data-tile="areas"
+      >
         <div class="tile-bg"></div>
         <div class="tile-content">
           <div class="tile-icon">
@@ -194,8 +204,6 @@
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', path='js/landing.js') | replace('http://', '//') }}"></script>
 {% endblock %}
