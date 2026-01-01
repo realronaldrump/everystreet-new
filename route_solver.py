@@ -375,7 +375,7 @@ def _solve_greedy_route(
 
     Prefer adjacent required edges within the same component before deadheading.
     When deadheading is needed, route to the nearest required start by graph distance.
-    
+
     Handles disconnected graph components gracefully by skipping unreachable segments
     rather than failing. This is common in real-world geographies with rivers, highways,
     or one-way streets that create barriers.
@@ -479,7 +479,7 @@ def _solve_greedy_route(
     def _best_service_edge_from_start(rid: ReqId, start: int) -> EdgeRef:
         opts = [e for e in required_reqs[rid] if e[0] == start]
         return min(opts, key=lambda e: _edge_length_m(G, e[0], e[1], e[2]))
-    
+
     def _remove_req_from_bookkeeping(rid: ReqId) -> None:
         """Remove a requirement from all tracking structures."""
         nonlocal global_targets
@@ -508,13 +508,13 @@ def _solve_greedy_route(
                 # No more reachable targets - remaining segments are disconnected
                 logger.warning(
                     "Routing complete with %d unreachable segments (disconnected graph components)",
-                    len(unvisited)
+                    len(unvisited),
                 )
                 for rid in list(unvisited):
                     skipped_disconnected.add(rid)
                     unvisited.discard(rid)
                 break
-                
+
             result = _dijkstra_to_any_target(
                 G, current_node, global_targets, weight="length"
             )
@@ -531,17 +531,17 @@ def _solve_greedy_route(
                                 found_alternative = True
                                 logger.info(
                                     "Jumping to disconnected component at node %d",
-                                    start
+                                    start,
                                 )
                                 break
                     if found_alternative:
                         break
-                
+
                 if not found_alternative:
                     # No reachable segments remain - skip all unvisited
                     logger.warning(
                         "Cannot reach %d remaining segments (graph disconnected)",
-                        len(unvisited)
+                        len(unvisited),
                     )
                     for rid in list(unvisited):
                         skipped_disconnected.add(rid)
@@ -549,7 +549,7 @@ def _solve_greedy_route(
                     unvisited.clear()
                     break
                 continue
-                
+
             target_start, d_dead, path_edges = result
             if path_edges:
                 deadhead_dist += d_dead
@@ -587,7 +587,8 @@ def _solve_greedy_route(
                 if comp_rids:
                     logger.warning(
                         "Skipping %d segments in unreachable component %s",
-                        len(comp_rids), active_comp
+                        len(comp_rids),
+                        active_comp,
                     )
                     for rid in comp_rids:
                         skipped_disconnected.add(rid)
@@ -595,7 +596,7 @@ def _solve_greedy_route(
                         unvisited.discard(rid)
                 active_comp = None
                 continue
-                
+
             target_start, d_dead, path_edges = result
             if path_edges:
                 deadhead_dist += d_dead
@@ -655,7 +656,8 @@ def _solve_greedy_route(
     if skipped_disconnected:
         logger.warning(
             "Route generation completed with %d/%d segments skipped due to disconnected graph",
-            len(skipped_disconnected), len(required_reqs)
+            len(skipped_disconnected),
+            len(required_reqs),
         )
 
     stats: dict[str, float] = {
