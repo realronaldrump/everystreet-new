@@ -375,9 +375,14 @@ def _solve_greedy_route(
 
     Prefer adjacent required edges within the same component before deadheading.
     When deadheading is needed, route to the nearest required start by graph distance.
+    
+    Handles disconnected graph components gracefully by skipping unreachable segments
+    rather than failing. This is common in real-world geographies with rivers, highways,
+    or one-way streets that create barriers.
     """
     route_coords: list[list[float]] = []
     route_edges: list[EdgeRef] = []
+    skipped_disconnected: set[ReqId] = set()
 
     # Pre-calc node coordinates
     node_xy: dict[int, tuple[float, float]] = {
@@ -474,12 +479,24 @@ def _solve_greedy_route(
     def _best_service_edge_from_start(rid: ReqId, start: int) -> EdgeRef:
         opts = [e for e in required_reqs[rid] if e[0] == start]
         return min(opts, key=lambda e: _edge_length_m(G, e[0], e[1], e[2]))
+    
+    def _remove_req_from_bookkeeping(rid: ReqId) -> None:
+        """Remove a requirement from all tracking structures."""
+        nonlocal global_targets
+        for s in req_to_starts.get(rid, []):
+            start_counts[s] = start_counts.get(s, 1) - 1
+            if start_counts.get(s, 0) <= 0:
+                global_targets.discard(s)
+                comp_id = req_to_comp.get(rid)
+                if comp_id is not None:
+                    comp_targets.get(comp_id, set()).discard(s)
 
     # Greedy loop
     iterations = 0
     active_comp: int | None = None
+    max_iterations = len(required_reqs) * 3  # Safety limit to prevent infinite loops
 
-    while unvisited:
+    while unvisited and iterations < max_iterations:
         iterations += 1
 
         # Determine active component
@@ -488,14 +505,51 @@ def _solve_greedy_route(
         ):
             # Jump to nearest start among all unvisited requirements
             if not global_targets:
-                raise ValueError("No remaining target nodes for routing")
+                # No more reachable targets - remaining segments are disconnected
+                logger.warning(
+                    "Routing complete with %d unreachable segments (disconnected graph components)",
+                    len(unvisited)
+                )
+                for rid in list(unvisited):
+                    skipped_disconnected.add(rid)
+                    unvisited.discard(rid)
+                break
+                
             result = _dijkstra_to_any_target(
                 G, current_node, global_targets, weight="length"
             )
             if result is None:
-                raise ValueError(
-                    "Routing graph disconnected from remaining undriven segments"
-                )
+                # Current position is disconnected from remaining segments
+                # Try to find an alternative starting point from unvisited requirements
+                found_alternative = False
+                for rid in list(unvisited):
+                    for start in req_to_starts.get(rid, []):
+                        if start in G.nodes:
+                            # Check if this node has any outgoing edges
+                            if G.out_degree(start) > 0:
+                                current_node = start
+                                found_alternative = True
+                                logger.info(
+                                    "Jumping to disconnected component at node %d",
+                                    start
+                                )
+                                break
+                    if found_alternative:
+                        break
+                
+                if not found_alternative:
+                    # No reachable segments remain - skip all unvisited
+                    logger.warning(
+                        "Cannot reach %d remaining segments (graph disconnected)",
+                        len(unvisited)
+                    )
+                    for rid in list(unvisited):
+                        skipped_disconnected.add(rid)
+                        _remove_req_from_bookkeeping(rid)
+                    unvisited.clear()
+                    break
+                continue
+                
             target_start, d_dead, path_edges = result
             if path_edges:
                 deadhead_dist += d_dead
@@ -527,9 +581,21 @@ def _solve_greedy_route(
                 G, current_node, comp_target_nodes, weight="length"
             )
             if result is None:
-                raise ValueError(
-                    "Routing graph disconnected within required-edge component"
-                )
+                # Component is unreachable from current position
+                # Skip remaining segments in this component and try another
+                comp_rids = comp_to_rids.get(active_comp, set()) & unvisited
+                if comp_rids:
+                    logger.warning(
+                        "Skipping %d segments in unreachable component %s",
+                        len(comp_rids), active_comp
+                    )
+                    for rid in comp_rids:
+                        skipped_disconnected.add(rid)
+                        _remove_req_from_bookkeeping(rid)
+                        unvisited.discard(rid)
+                active_comp = None
+                continue
+                
             target_start, d_dead, path_edges = result
             if path_edges:
                 deadhead_dist += d_dead
@@ -585,6 +651,13 @@ def _solve_greedy_route(
                 if comp_id is not None:
                     comp_targets.get(comp_id, set()).discard(s)
 
+    # Log warning if segments were skipped
+    if skipped_disconnected:
+        logger.warning(
+            "Route generation completed with %d/%d segments skipped due to disconnected graph",
+            len(skipped_disconnected), len(required_reqs)
+        )
+
     stats: dict[str, float] = {
         "total_distance": float(total_dist),
         "required_distance": float(required_dist),
@@ -593,6 +666,8 @@ def _solve_greedy_route(
             (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0
         ),
         "required_reqs": float(len(required_reqs)),
+        "completed_reqs": float(len(required_reqs) - len(skipped_disconnected)),
+        "skipped_disconnected": float(len(skipped_disconnected)),
         "iterations": float(iterations),
     }
     return route_coords, stats, route_edges

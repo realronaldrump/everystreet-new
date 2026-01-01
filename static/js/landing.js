@@ -29,11 +29,9 @@
    */
   function cacheElements() {
     elements = {
-      statCoverage: document.getElementById("stat-coverage"),
       statMiles: document.getElementById("stat-miles"),
       statTrips: document.getElementById("stat-trips"),
       liveIndicator: document.getElementById("live-indicator"),
-      undrivenStreets: document.getElementById("undriven-streets"),
       recentTrip: document.getElementById("recent-trip"),
       lastFillup: document.getElementById("last-fillup"),
       activityFeed: document.getElementById("activity-feed"),
@@ -47,7 +45,6 @@
     try {
       await Promise.all([
         loadMetrics(),
-        loadCoverageStats(),
         loadRecentTrips(),
         loadGasStats(),
         checkLiveTracking(),
@@ -82,40 +79,6 @@
       console.error("Error loading metrics:", error);
       if (elements.statMiles) elements.statMiles.textContent = "--";
       if (elements.statTrips) elements.statTrips.textContent = "--";
-    }
-  }
-
-  /**
-   * Fetch coverage area statistics
-   */
-  async function loadCoverageStats() {
-    try {
-      const response = await fetch("/api/coverage_areas");
-      if (!response.ok) throw new Error("Failed to fetch coverage areas");
-
-      const data = await response.json();
-
-      if (data && data.length > 0) {
-        // Find the primary/first coverage area
-        const primaryArea = data[0];
-        const coverage = primaryArea.coverage_percentage || 0;
-        const undrivenCount = primaryArea.undriven_count || 0;
-
-        animateValue(elements.statCoverage, coverage, formatPercentage);
-
-        // Update undriven streets meta
-        if (elements.undrivenStreets) {
-          const valueEl = elements.undrivenStreets.querySelector(".meta-value");
-          if (valueEl) {
-            valueEl.textContent = formatNumber(undrivenCount);
-          }
-        }
-      } else {
-        if (elements.statCoverage) elements.statCoverage.textContent = "--";
-      }
-    } catch (error) {
-      console.error("Error loading coverage stats:", error);
-      if (elements.statCoverage) elements.statCoverage.textContent = "--";
     }
   }
 
