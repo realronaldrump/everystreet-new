@@ -162,7 +162,10 @@ const mapManager = {
       queryLayers.push("trips-hitbox");
     } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
       queryLayers.push("trips-layer");
-    } else if (state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer-1")) {
+    } else if (
+      state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer-1")
+    ) {
       queryLayers.push("trips-layer-1");
     }
     if (state.map.getLayer("matchedTrips-hitbox")) {

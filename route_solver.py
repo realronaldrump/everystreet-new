@@ -19,7 +19,7 @@ import geopandas as gpd
 import networkx as nx
 import osmnx as ox
 from bson import ObjectId
-from shapely.geometry import LineString, box, shape
+from shapely.geometry import LineString, MultiPoint, box, shape
 
 from db import (
     coverage_metadata_collection,
@@ -33,13 +33,15 @@ from progress_tracker import ProgressTracker
 
 logger = logging.getLogger(__name__)
 
+# Distance constants in FEET (user preference: imperial units)
+FEET_PER_METER = 3.28084
 MAX_SEGMENTS = 5000
-ROUTING_BUFFER_M = 500.0
-MAX_ROUTE_GAP_M = 3000.0
+ROUTING_BUFFER_FT = 6500.0  # ~2000m - buffer to include connecting highways/roads
+MAX_ROUTE_GAP_FT = 10000.0  # ~3000m (~1.9 miles) - max allowed gap between route points
 MAX_DEADHEAD_RATIO_WARN = 6.0
 MAX_DEADHEAD_RATIO_ERROR = 10.0
 MIN_SEGMENT_COVERAGE_RATIO = 0.9
-MAX_OSM_MATCH_DISTANCE_M = 500.0
+MAX_OSM_MATCH_DISTANCE_FT = 1640.0  # ~500m - max distance for OSM ID matching
 
 EdgeRef = tuple[int, int, int]  # (u, v, key)
 ReqId = frozenset[
@@ -47,11 +49,13 @@ ReqId = frozenset[
 ]  # physical-ish edge requirement; can include reverse if present
 
 
-def _buffer_polygon_for_routing(polygon: Any, buffer_m: float) -> Any:
-    """Buffer a WGS84 polygon by meters (project to UTM, buffer, reproject)."""
-    if buffer_m <= 0:
+def _buffer_polygon_for_routing(polygon: Any, buffer_ft: float) -> Any:
+    """Buffer a WGS84 polygon by feet (project to UTM, buffer, reproject)."""
+    if buffer_ft <= 0:
         return polygon
     try:
+        # Convert feet to meters for internal projection operations
+        buffer_m = buffer_ft / FEET_PER_METER
         gdf = gpd.GeoDataFrame(geometry=[polygon], crs="EPSG:4326")
         projected = ox.projection.project_gdf(gdf)
         buffered = projected.geometry.iloc[0].buffer(buffer_m)
@@ -242,11 +246,11 @@ def _map_segment_to_edge(
             if not edge_line or not seg_line:
                 continue
             d_deg = edge_line.distance(seg_line)
-            d_m = d_deg * 111_000.0
-            if d_m < best_dist:
-                best_dist = d_m
+            d_ft = d_deg * 111_000.0 * FEET_PER_METER  # degrees to feet
+            if d_ft < best_dist:
+                best_dist = d_ft
                 best_edge = (u, v, k)
-        if best_edge and best_dist <= MAX_OSM_MATCH_DISTANCE_M:
+        if best_edge and best_dist <= MAX_OSM_MATCH_DISTANCE_FT:
             return best_edge
 
     if not seg_mid:
@@ -364,18 +368,63 @@ def _make_req_id(G: nx.MultiDiGraph, edge: EdgeRef) -> tuple[ReqId, list[EdgeRef
     return req_id, options
 
 
+def _interpolate_connecting_path(
+    from_xy: tuple[float, float],
+    to_xy: tuple[float, float],
+) -> list[list[float]]:
+    """
+    Create an interpolated path between two points.
+
+    Used when the routing graph has disconnected components that cannot
+    be connected via the existing network. Creates intermediate points
+    to keep the gap between consecutive coordinates within acceptable limits.
+
+    Args:
+        from_xy: (lon, lat) of start point
+        to_xy: (lon, lat) of end point
+
+    Returns:
+        List of [lon, lat] coordinates for the interpolated path.
+    """
+    # Calculate distance between points in miles
+    dist_miles = GeometryService.haversine_distance(
+        from_xy[0], from_xy[1], to_xy[0], to_xy[1], unit="miles"
+    )
+
+    # Interpolate points along the line to keep gaps under MAX_ROUTE_GAP_FT
+    # Use ~1000ft (~0.19 miles) spacing to stay well under the ~10000ft threshold
+    spacing_miles = 0.19  # ~1000 feet
+    num_points = max(2, int(dist_miles / spacing_miles) + 1)
+
+    interpolated_coords = []
+    for i in range(num_points):
+        t = i / (num_points - 1) if num_points > 1 else 0
+        lon = from_xy[0] + t * (to_xy[0] - from_xy[0])
+        lat = from_xy[1] + t * (to_xy[1] - from_xy[1])
+        interpolated_coords.append([lon, lat])
+
+    logger.info(
+        "Created interpolated path with %d points to bridge %.2f mile gap",
+        len(interpolated_coords),
+        dist_miles,
+    )
+
+    return interpolated_coords
+
+
 def _solve_greedy_route(
     G: nx.MultiDiGraph,
     required_reqs: dict[ReqId, list[EdgeRef]],
     start_node: int | None = None,
     req_segment_counts: dict[ReqId, int] | None = None,
+    node_xy: dict[int, tuple[float, float]] | None = None,
 ) -> tuple[list[list[float]], dict[str, float], list[EdgeRef]]:
     """
     Solve with connectivity-first greedy strategy:
 
     Prefer adjacent required edges within the same component before deadheading.
     When deadheading is needed, route to the nearest required start by graph distance.
-    
+
     Handles disconnected graph components gracefully by skipping unreachable segments
     rather than failing. This is common in real-world geographies with rivers, highways,
     or one-way streets that create barriers.
@@ -479,7 +528,7 @@ def _solve_greedy_route(
     def _best_service_edge_from_start(rid: ReqId, start: int) -> EdgeRef:
         opts = [e for e in required_reqs[rid] if e[0] == start]
         return min(opts, key=lambda e: _edge_length_m(G, e[0], e[1], e[2]))
-    
+
     def _remove_req_from_bookkeeping(rid: ReqId) -> None:
         """Remove a requirement from all tracking structures."""
         nonlocal global_targets
@@ -508,20 +557,22 @@ def _solve_greedy_route(
                 # No more reachable targets - remaining segments are disconnected
                 logger.warning(
                     "Routing complete with %d unreachable segments (disconnected graph components)",
-                    len(unvisited)
+                    len(unvisited),
                 )
                 for rid in list(unvisited):
                     skipped_disconnected.add(rid)
                     unvisited.discard(rid)
                 break
-                
+
             result = _dijkstra_to_any_target(
                 G, current_node, global_targets, weight="length"
             )
             if result is None:
                 # Current position is disconnected from remaining segments
                 # Try to find an alternative starting point from unvisited requirements
+                # and fetch connecting road network to get there
                 found_alternative = False
+                old_node = current_node
                 for rid in list(unvisited):
                     for start in req_to_starts.get(rid, []):
                         if start in G.nodes:
@@ -531,25 +582,34 @@ def _solve_greedy_route(
                                 found_alternative = True
                                 logger.info(
                                     "Jumping to disconnected component at node %d",
-                                    start
+                                    start,
                                 )
                                 break
                     if found_alternative:
                         break
-                
+
                 if not found_alternative:
                     # No reachable segments remain - skip all unvisited
                     logger.warning(
                         "Cannot reach %d remaining segments (graph disconnected)",
-                        len(unvisited)
+                        len(unvisited),
                     )
                     for rid in list(unvisited):
                         skipped_disconnected.add(rid)
                         _remove_req_from_bookkeeping(rid)
                     unvisited.clear()
                     break
+
+                # Create interpolated path between old and new position
+                old_xy = node_xy.get(old_node)
+                new_xy = node_xy.get(current_node)
+                if old_xy and new_xy and route_coords:
+                    connecting_path = _interpolate_connecting_path(old_xy, new_xy)
+                    _append_coords(connecting_path)
+
+                # Continue to process from the new starting point
                 continue
-                
+
             target_start, d_dead, path_edges = result
             if path_edges:
                 deadhead_dist += d_dead
@@ -587,7 +647,8 @@ def _solve_greedy_route(
                 if comp_rids:
                     logger.warning(
                         "Skipping %d segments in unreachable component %s",
-                        len(comp_rids), active_comp
+                        len(comp_rids),
+                        active_comp,
                     )
                     for rid in comp_rids:
                         skipped_disconnected.add(rid)
@@ -595,7 +656,7 @@ def _solve_greedy_route(
                         unvisited.discard(rid)
                 active_comp = None
                 continue
-                
+
             target_start, d_dead, path_edges = result
             if path_edges:
                 deadhead_dist += d_dead
@@ -655,7 +716,8 @@ def _solve_greedy_route(
     if skipped_disconnected:
         logger.warning(
             "Route generation completed with %d/%d segments skipped due to disconnected graph",
-            len(skipped_disconnected), len(required_reqs)
+            len(skipped_disconnected),
+            len(required_reqs),
         )
 
     stats: dict[str, float] = {
@@ -673,23 +735,24 @@ def _solve_greedy_route(
     return route_coords, stats, route_edges
 
 
-def _max_route_gap_m(route_coords: list[list[float]]) -> float:
-    """Maximum haversine gap between consecutive route coordinates."""
+def _max_route_gap_ft(route_coords: list[list[float]]) -> float:
+    """Maximum haversine gap between consecutive route coordinates in feet."""
     max_gap = 0.0
     for idx in range(1, len(route_coords)):
         prev = route_coords[idx - 1]
         cur = route_coords[idx]
         if len(prev) < 2 or len(cur) < 2:
             continue
-        d = GeometryService.haversine_distance(
+        d_miles = GeometryService.haversine_distance(
             prev[0],
             prev[1],
             cur[0],
             cur[1],
-            unit="meters",
+            unit="miles",
         )
-        if d > max_gap:
-            max_gap = d
+        d_ft = d_miles * 5280.0
+        if d_ft > max_gap:
+            max_gap = d_ft
     return max_gap
 
 
@@ -716,10 +779,13 @@ def _validate_route(
             f"Only {mapped_segments}/{total_segments} undriven segments mapped to the routing graph."
         )
 
-    max_gap = _max_route_gap_m(route_coords)
-    details["max_gap_m"] = max_gap
-    if max_gap > MAX_ROUTE_GAP_M:
-        errors.append(f"Route contains a {max_gap:.1f}m gap between points.")
+    max_gap_ft = _max_route_gap_ft(route_coords)
+    details["max_gap_ft"] = max_gap_ft
+    if max_gap_ft > MAX_ROUTE_GAP_FT:
+        gap_miles = max_gap_ft / 5280.0
+        errors.append(
+            f"Route contains a {max_gap_ft:.0f}ft ({gap_miles:.2f} miles) gap between points."
+        )
 
     required_distance = float(stats.get("required_distance", 0.0))
     total_distance = float(stats.get("total_distance", 0.0))
@@ -817,7 +883,27 @@ async def generate_optimal_route_with_progress(
 
         await update_progress("fetching_osm", 40, "Downloading OSM street network...")
 
-        routing_polygon = _buffer_polygon_for_routing(polygon, ROUTING_BUFFER_M)
+        # Compute convex hull of all segment coordinates for better routing coverage
+        # This ensures we include roads connecting all parts of the coverage area
+        all_coords = []
+        for seg in undriven:
+            coords = seg.get("geometry", {}).get("coordinates", [])
+            for coord in coords:
+                if isinstance(coord, (list, tuple)) and len(coord) >= 2:
+                    all_coords.append((float(coord[0]), float(coord[1])))
+
+        if len(all_coords) >= 3:
+            segment_hull = MultiPoint(all_coords).convex_hull
+            # Use the larger of: original polygon or segment convex hull
+            # Then buffer for routing
+            combined = polygon.union(segment_hull)
+            routing_polygon = _buffer_polygon_for_routing(combined, ROUTING_BUFFER_FT)
+            logger.info(
+                "Using convex hull of %d segment points for routing area",
+                len(all_coords),
+            )
+        else:
+            routing_polygon = _buffer_polygon_for_routing(polygon, ROUTING_BUFFER_FT)
 
         try:
             # Keep it directed so we respect one-ways.

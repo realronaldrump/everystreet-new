@@ -503,10 +503,7 @@ const layerManager = {
 
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
     const totalTripCount = layerInfo.layer?.features?.length || 0;
-    const visibleTripCount = this._getHeatmapTripCountInView(
-      layerName,
-      totalTripCount
-    );
+    const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);
 
     const { glowLayers } = heatmapUtils.generateHeatmapConfig(layerInfo.layer, {
       theme,
@@ -701,10 +698,7 @@ const layerManager = {
   async _updateHeatmapLayer(layerName, data, sourceId, _layerId, layerInfo) {
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
     const totalTripCount = data?.features?.length || 0;
-    const visibleTripCount = this._getHeatmapTripCountInView(
-      layerName,
-      totalTripCount
-    );
+    const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);
 
     const heatmapConfig = heatmapUtils.generateHeatmapConfig(data, {
       theme,

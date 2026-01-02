@@ -271,7 +271,7 @@
   /**
    * Format a percentage
    */
-  function formatPercentage(value) {
+  function _formatPercentage(value) {
     return `${value.toFixed(1)}%`;
   }
 
