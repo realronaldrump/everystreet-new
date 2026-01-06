@@ -403,12 +403,14 @@ export class TaskManager {
       let resultText = "N/A";
       if (entry.status === "RUNNING") {
         resultText = "Running";
+      } else if (entry.status === "PENDING") {
+        resultText = "Pending";
       } else if (entry.status === "COMPLETED") {
         resultText = entry.result ? "Success" : "Completed";
       } else if (entry.status === "FAILED") {
         resultText = "Failed";
       } else {
-        resultText = entry.result ? "Success" : "Failed";
+        resultText = "N/A";
       }
 
       let detailsContent = "N/A";
@@ -605,6 +607,7 @@ export class TaskManager {
   static getStatusHTML(status) {
     const statusColors = {
       RUNNING: "primary",
+      PENDING: "info",
       COMPLETED: "success",
       FAILED: "danger",
       PAUSED: "warning",
@@ -630,6 +633,7 @@ export class TaskManager {
   static getStatusColor(status) {
     const statusColors = {
       RUNNING: "primary",
+      PENDING: "info",
       COMPLETED: "success",
       FAILED: "danger",
       PAUSED: "warning",

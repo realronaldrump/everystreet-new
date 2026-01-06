@@ -208,12 +208,14 @@ export function updateMobileHistoryList(history, taskManager) {
     let resultText = "N/A";
     if (entry.status === "RUNNING") {
       resultText = "Running";
+    } else if (entry.status === "PENDING") {
+      resultText = "Pending";
     } else if (entry.status === "COMPLETED") {
       resultText = entry.result ? "Success" : "Completed";
     } else if (entry.status === "FAILED") {
       resultText = "Failed";
     } else {
-      resultText = entry.result ? "Success" : "Failed";
+      resultText = "N/A";
     }
 
     const statusClass = TaskManager.getStatusColor(entry.status);
