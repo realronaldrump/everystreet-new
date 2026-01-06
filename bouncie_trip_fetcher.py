@@ -54,7 +54,7 @@ async def get_access_token(
     # 1. Check if we have a valid access token (with 5 minute buffer)
     access_token = credentials.get("access_token")
     expires_at = credentials.get("expires_at")
-    
+
     if access_token and expires_at:
         # If expiring in more than 5 minutes, it's good
         if expires_at > time.time() + 300:
@@ -79,25 +79,31 @@ async def get_access_token(
             "refresh_token": refresh_token,
         }
         try:
-            async with session.post(AUTH_URL, data=payload, headers=headers) as response:
+            async with session.post(
+                AUTH_URL, data=payload, headers=headers
+            ) as response:
                 if response.status == 200:
                     data = await response.json()
                     new_access_token = data.get("access_token")
-                    new_refresh_token = data.get("refresh_token") # May or may not rotate
+                    new_refresh_token = data.get(
+                        "refresh_token"
+                    )  # May or may not rotate
                     expires_in = data.get("expires_in", 3600)
-                    
+
                     if new_access_token:
                         logger.info("Successfully refreshed access token")
                         await _update_saved_credentials(
-                            credentials, 
-                            new_access_token, 
-                            new_refresh_token or refresh_token, 
-                            expires_in
+                            credentials,
+                            new_access_token,
+                            new_refresh_token or refresh_token,
+                            expires_in,
                         )
                         return new_access_token
                 else:
                     text = await response.text()
-                    logger.warning("Failed to refresh token: %s %s", response.status, text)
+                    logger.warning(
+                        "Failed to refresh token: %s %s", response.status, text
+                    )
                     # Proceed to auth code fallback
         except Exception as e:
             logger.error("Error during token refresh: %s", e)
@@ -121,7 +127,7 @@ async def get_access_token(
         async with session.post(AUTH_URL, data=payload, headers=headers) as response:
             response.raise_for_status()
             data = await response.json()
-            
+
             new_access_token = data.get("access_token")
             new_refresh_token = data.get("refresh_token")
             expires_in = data.get("expires_in", 3600)
@@ -129,13 +135,10 @@ async def get_access_token(
             if not new_access_token:
                 logger.error("Access token not found in response")
                 return None
-            
+
             # 4. Save new tokens
             await _update_saved_credentials(
-                credentials, 
-                new_access_token, 
-                new_refresh_token, 
-                expires_in
+                credentials, new_access_token, new_refresh_token, expires_in
             )
             return new_access_token
 
@@ -145,35 +148,29 @@ async def get_access_token(
 
 
 async def _update_saved_credentials(
-    current_credentials: dict,
-    access_token: str,
-    refresh_token: str,
-    expires_in: int
+    current_credentials: dict, access_token: str, refresh_token: str, expires_in: int
 ):
     """Helper to update credentials in DB."""
     # Calculate absolute expiration time
     expires_at = time.time() + int(expires_in)
-    
-    update_data = {
-        "access_token": access_token,
-        "expires_at": expires_at
-    }
-    
+
+    update_data = {"access_token": access_token, "expires_at": expires_at}
+
     if refresh_token:
         update_data["refresh_token"] = refresh_token
-        
+
     # Merge with existing for the DB update call
     # (We only need to pass the fields we want to update)
     # But update_bouncie_credentials expects a dict with keys to check
-    
-    # We can pass a dict with just the updates + existing required fields if needed, 
+
+    # We can pass a dict with just the updates + existing required fields if needed,
     # but update_bouncie_credentials logic is:
     # "Only include fetch_concurrency if it was provided... Add token fields if present"
     # It merges with a clean dict.
-    
+
     # Let's pass the storage keys.
     success = await update_bouncie_credentials(update_data)
-    
+
     if success:
         logger.info("Updated stored credentials with new tokens")
         # Also update the in-memory dict so current run uses latest info if passed around
