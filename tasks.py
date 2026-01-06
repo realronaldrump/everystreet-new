@@ -1292,7 +1292,9 @@ async def remap_unmatched_trips_async(_self) -> dict[str, Any]:
     mapbox_token = get_mapbox_token()
     if not mapbox_token:
         logger.warning("Mapbox token not configured, cannot perform map matching.")
-        raise ValueError("Mapbox token is not configured. Please set it in the profile page.")
+        raise ValueError(
+            "Mapbox token is not configured. Please set it in the profile page."
+        )
 
     trip_service = TripService(mapbox_token)
     trip_ids = [
