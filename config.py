@@ -1,19 +1,13 @@
-"""Centralized configuration for environment variables and external APIs.
+"""Centralized configuration for external APIs.
 
 This module is the single source of truth for configuration used across the
-application. Bouncie credentials are stored in MongoDB and configured via
-the profile page - no environment variables needed for Bouncie.
+application. All API tokens and credentials are stored in MongoDB and
+configured via the profile page - no environment variables needed.
 """
 
 from __future__ import annotations
 
-import os
 from typing import Any, Final
-
-from dotenv import load_dotenv
-
-# Load environment variables from .env if present (for Mapbox, etc.)
-load_dotenv()
 
 
 # --- Bouncie API Endpoints (constants, not credentials) ---
@@ -21,9 +15,26 @@ AUTH_URL: Final[str] = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL: Final[str] = "https://api.bouncie.dev/v1"
 
 
-# --- Mapbox & Analytics Configuration ---
-MAPBOX_ACCESS_TOKEN: Final[str] = os.getenv("MAPBOX_ACCESS_TOKEN", "")
-CLARITY_PROJECT_ID: Final[str | None] = os.getenv("CLARITY_PROJECT_ID") or None
+def get_mapbox_token() -> str:
+    """Get Mapbox access token from cached settings.
+
+    This provides sync access to the token for module-level usage.
+    The cache is populated at app startup via ensure_settings_cached().
+    """
+    from app_settings import get_cached_mapbox_token
+
+    return get_cached_mapbox_token()
+
+
+def get_clarity_id() -> str | None:
+    """Get Clarity project ID from cached settings.
+
+    This provides sync access to the ID for module-level usage.
+    The cache is populated at app startup via ensure_settings_cached().
+    """
+    from app_settings import get_cached_clarity_id
+
+    return get_cached_clarity_id()
 
 
 async def get_bouncie_config() -> dict[str, Any]:
@@ -48,10 +59,24 @@ async def get_bouncie_config() -> dict[str, Any]:
     return await get_bouncie_credentials()
 
 
+async def get_app_settings() -> dict[str, Any]:
+    """Get app settings from database.
+
+    Returns:
+        Dictionary containing:
+            - mapbox_access_token: str
+            - clarity_project_id: str | None
+    """
+    from app_settings import get_app_settings as _get_app_settings
+
+    return await _get_app_settings()
+
+
 __all__ = [
     "AUTH_URL",
     "API_BASE_URL",
-    "MAPBOX_ACCESS_TOKEN",
-    "CLARITY_PROJECT_ID",
+    "get_mapbox_token",
+    "get_clarity_id",
     "get_bouncie_config",
+    "get_app_settings",
 ]

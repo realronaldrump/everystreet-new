@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from config import CLARITY_PROJECT_ID, MAPBOX_ACCESS_TOKEN
+from config import get_clarity_id, get_mapbox_token
 from db import db_manager
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ def _render_page(template_name: str, request: Request, **context: Any) -> HTMLRe
         template_name,
         {
             "request": request,
-            "CLARITY_PROJECT_ID": CLARITY_PROJECT_ID,
+            "CLARITY_PROJECT_ID": get_clarity_id(),
             **context,
         },
     )
@@ -40,7 +40,7 @@ async def map_page(request: Request):
     return _render_page(
         "index.html",
         request,
-        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+        MAPBOX_ACCESS_TOKEN=get_mapbox_token(),
     )
 
 
@@ -50,7 +50,7 @@ async def edit_trips_page(request: Request):
     return _render_page(
         "edit_trips.html",
         request,
-        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+        MAPBOX_ACCESS_TOKEN=get_mapbox_token(),
     )
 
 
@@ -77,7 +77,7 @@ async def visits_page(request: Request):
     return _render_page(
         "visits.html",
         request,
-        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+        MAPBOX_ACCESS_TOKEN=get_mapbox_token(),
     )
 
 
@@ -87,7 +87,7 @@ async def gas_tracking_page(request: Request):
     return _render_page(
         "gas_tracking.html",
         request,
-        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+        MAPBOX_ACCESS_TOKEN=get_mapbox_token(),
     )
 
 
@@ -103,7 +103,7 @@ async def upload_page(request: Request):
     return _render_page(
         "upload.html",
         request,
-        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+        MAPBOX_ACCESS_TOKEN=get_mapbox_token(),
     )
 
 
@@ -116,7 +116,7 @@ async def coverage_management_page(request: Request):
     return _render_page(
         "coverage_management.html",
         request,
-        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+        MAPBOX_ACCESS_TOKEN=get_mapbox_token(),
     )
 
 
@@ -174,7 +174,7 @@ async def coverage_navigator_page(request: Request):
     return _render_page(
         "coverage_navigator.html",
         request,
-        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+        MAPBOX_ACCESS_TOKEN=get_mapbox_token(),
     )
 
 
@@ -209,5 +209,5 @@ async def county_map_page(request: Request):
     return _render_page(
         "county_map.html",
         request,
-        MAPBOX_ACCESS_TOKEN=MAPBOX_ACCESS_TOKEN,
+        MAPBOX_ACCESS_TOKEN=get_mapbox_token(),
     )

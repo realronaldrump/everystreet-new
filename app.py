@@ -11,7 +11,8 @@ from fastapi.templating import Jinja2Templates
 
 from admin_api import router as admin_api_router
 from analytics_api import router as analytics_api_router
-from config import MAPBOX_ACCESS_TOKEN
+from app_settings import ensure_settings_cached
+from config import get_mapbox_token
 from county_api import router as county_api_router
 from coverage_api import router as coverage_api_router
 from db import db_manager, init_database
@@ -144,8 +145,12 @@ async def startup_event():
         init_collections(places_collection, trips_collection)
         logger.info("Visits collections initialized.")
 
+        # Load app settings into cache for sync access
+        await ensure_settings_cached()
+        logger.info("App settings loaded into cache.")
+
         TripProcessor(
-            mapbox_token=MAPBOX_ACCESS_TOKEN
+            mapbox_token=get_mapbox_token()
         )  # Initializes the class, not an instance for immediate use
         logger.info("TripProcessor class initialized (available for use).")
 

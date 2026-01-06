@@ -11,7 +11,7 @@ from typing import Any
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
 
-from config import MAPBOX_ACCESS_TOKEN
+from config import get_mapbox_token
 from db import (
     aggregate_with_retry,
     coverage_metadata_collection,
@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
-# Shared geo service instance
-_geo_service = ExternalGeoService(MAPBOX_ACCESS_TOKEN)
+# Shared geo service instance (uses cached token)
+_geo_service = ExternalGeoService(get_mapbox_token())
 
 
 @router.get("/geocode")

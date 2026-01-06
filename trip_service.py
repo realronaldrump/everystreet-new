@@ -18,7 +18,7 @@ from fastapi import HTTPException, status
 from pymongo.errors import DuplicateKeyError
 
 from admin_api import get_persisted_app_settings
-from config import MAPBOX_ACCESS_TOKEN
+from config import get_mapbox_token
 from db import (
     find_with_retry,
     get_trip_by_id,
@@ -111,7 +111,7 @@ class TripService:
     """Centralized service for all trip processing operations."""
 
     def __init__(self, mapbox_token: str = None):
-        self.mapbox_token = mapbox_token or MAPBOX_ACCESS_TOKEN
+        self.mapbox_token = mapbox_token or get_mapbox_token()
         self._init_collections()
 
     def _init_collections(self):

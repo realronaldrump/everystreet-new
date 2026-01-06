@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from config import MAPBOX_ACCESS_TOKEN
+from config import get_mapbox_token
 from date_utils import normalize_calendar_date
 from db import (
     build_calendar_date_expr,
@@ -26,7 +26,7 @@ trips_collection = db_manager.db["trips"]
 matched_trips_collection = db_manager.db["matched_trips"]
 
 # Initialize TripService
-trip_service = TripService(MAPBOX_ACCESS_TOKEN)
+trip_service = TripService(get_mapbox_token())
 
 
 # Pydantic Models specific to this module

@@ -10,7 +10,7 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from config import MAPBOX_ACCESS_TOKEN
+from config import get_mapbox_token
 from db import db_manager, find_one_with_retry, streets_collection, trips_collection
 from geometry_service import GeometryService
 from live_tracking import get_active_trip
@@ -26,7 +26,8 @@ async def _get_mapbox_optimization_route(
     end_points: list[tuple] | None = None,
 ) -> dict[str, Any]:
     """Calls Mapbox Optimization API v1 to get an optimized route for multiple points."""
-    if not MAPBOX_ACCESS_TOKEN:
+    mapbox_token = get_mapbox_token()
+    if not mapbox_token:
         raise HTTPException(status_code=500, detail="Mapbox API token not configured.")
     if not end_points:
         # Optimization API needs at least one destination
@@ -44,7 +45,7 @@ async def _get_mapbox_optimization_route(
     coords_str = ";".join(coords)
     url = f"https://api.mapbox.com/optimized-trips/v1/mapbox/driving/{coords_str}"
     params = {
-        "access_token": MAPBOX_ACCESS_TOKEN,
+        "access_token": mapbox_token,
         "geometries": "geojson",
         "steps": "false",
         "overview": "full",
@@ -94,13 +95,14 @@ async def _get_mapbox_directions_route(
     end_lat: float,
 ) -> dict[str, Any]:
     """Calls Mapbox Directions API to get a route between two points."""
-    if not MAPBOX_ACCESS_TOKEN:
+    mapbox_token = get_mapbox_token()
+    if not mapbox_token:
         raise HTTPException(status_code=500, detail="Mapbox API token not configured.")
 
     coords_str = f"{start_lon},{start_lat};{end_lon},{end_lat}"
     url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords_str}"
     params = {
-        "access_token": MAPBOX_ACCESS_TOKEN,
+        "access_token": mapbox_token,
         "geometries": "geojson",
         "overview": "full",
         "steps": "false",

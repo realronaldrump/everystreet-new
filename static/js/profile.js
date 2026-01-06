@@ -584,4 +584,168 @@
     // Load vehicles on page load
     loadVehicles();
   }
+
+  // ========================================
+  // App Settings (Mapbox, Clarity)
+  // ========================================
+
+  /**
+   * Initialize app settings event listeners
+   */
+  function initializeAppSettingsListeners() {
+    const form = document.getElementById("appSettingsForm");
+    if (form) {
+      form.addEventListener("submit", handleSaveAppSettings);
+    }
+
+    const loadBtn = document.getElementById("loadAppSettingsBtn");
+    if (loadBtn) {
+      loadBtn.addEventListener("click", loadAppSettings);
+    }
+
+    const toggleMapboxBtn = document.getElementById("toggleMapboxToken");
+    if (toggleMapboxBtn) {
+      toggleMapboxBtn.addEventListener("click", () =>
+        togglePasswordVisibility("mapboxToken", "toggleMapboxToken")
+      );
+    }
+  }
+
+  /**
+   * Load app settings from the server
+   */
+  async function loadAppSettings() {
+    const statusEl = document.getElementById("appSettingsSaveStatus");
+
+    try {
+      if (statusEl) {
+        statusEl.textContent = "Loading settings...";
+        statusEl.className = "alert alert-info mt-3";
+        statusEl.style.display = "block";
+      }
+
+      const response = await fetch("/api/profile/app-settings");
+      const data = await response.json();
+
+      if (data.status === "success" && data.settings) {
+        const mapboxInput = document.getElementById("mapboxToken");
+        const clarityInput = document.getElementById("clarityProjectId");
+
+        if (mapboxInput) {
+          mapboxInput.value = data.settings.mapbox_access_token || "";
+        }
+        if (clarityInput) {
+          clarityInput.value = data.settings.clarity_project_id || "";
+        }
+
+        if (statusEl) {
+          statusEl.textContent = "Settings loaded";
+          statusEl.className = "alert alert-success mt-3";
+          setTimeout(() => {
+            statusEl.style.display = "none";
+          }, 2000);
+        }
+      } else {
+        if (statusEl) {
+          statusEl.textContent =
+            "No settings configured yet. Please enter your Mapbox token.";
+          statusEl.className = "alert alert-warning mt-3";
+        }
+      }
+    } catch (error) {
+      console.error("Error loading app settings:", error);
+      if (statusEl) {
+        statusEl.textContent = `Error loading settings: ${error.message}`;
+        statusEl.className = "alert alert-danger mt-3";
+        statusEl.style.display = "block";
+      }
+    }
+  }
+
+  /**
+   * Handle save app settings form submission
+   * @param {Event} event - Form submit event
+   */
+  async function handleSaveAppSettings(event) {
+    event.preventDefault();
+
+    const statusEl = document.getElementById("appSettingsSaveStatus");
+    const mapboxInput = document.getElementById("mapboxToken");
+    const clarityInput = document.getElementById("clarityProjectId");
+
+    const mapboxToken = mapboxInput?.value.trim() || "";
+    const clarityProjectId = clarityInput?.value.trim() || null;
+
+    // Validate Mapbox token format
+    if (!mapboxToken) {
+      if (statusEl) {
+        statusEl.textContent = "Mapbox access token is required for maps to work.";
+        statusEl.className = "alert alert-danger mt-3";
+        statusEl.style.display = "block";
+      }
+      return;
+    }
+
+    if (!mapboxToken.startsWith("pk.")) {
+      if (statusEl) {
+        statusEl.textContent =
+          "Mapbox token should start with 'pk.' (public token). Secret tokens (sk.) will not work.";
+        statusEl.className = "alert alert-warning mt-3";
+        statusEl.style.display = "block";
+      }
+      // Allow saving anyway as user may know what they're doing
+    }
+
+    try {
+      if (statusEl) {
+        statusEl.textContent = "Saving settings...";
+        statusEl.className = "alert alert-info mt-3";
+        statusEl.style.display = "block";
+      }
+
+      const response = await fetch("/api/profile/app-settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mapbox_access_token: mapboxToken,
+          clarity_project_id: clarityProjectId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === "success") {
+        // Explicitly ensure the values stay in the inputs (don't clear them)
+        if (mapboxInput) mapboxInput.value = mapboxToken;
+        if (clarityInput) clarityInput.value = clarityProjectId || "";
+
+        if (statusEl) {
+          statusEl.textContent =
+            "Settings saved! Refresh the page to apply changes to maps.";
+          statusEl.className = "alert alert-success mt-3";
+          statusEl.style.display = "block";
+        }
+      } else {
+        if (statusEl) {
+          statusEl.textContent = `Error: ${data.detail || data.message || "Unknown error"}`;
+          statusEl.className = "alert alert-danger mt-3";
+          statusEl.style.display = "block";
+        }
+      }
+    } catch (error) {
+      console.error("Error saving app settings:", error);
+      if (statusEl) {
+        statusEl.textContent = `Error saving settings: ${error.message}`;
+        statusEl.className = "alert alert-danger mt-3";
+        statusEl.style.display = "block";
+      }
+    }
+  }
+
+  // Initialize app settings listeners and load on page load
+  initializeAppSettingsListeners();
+  loadAppSettings();
 })();
+

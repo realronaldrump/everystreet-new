@@ -81,6 +81,81 @@
     <span id="credentials-status-text"></span>
   </div>
 
+  <!-- App Settings (Mapbox, Analytics) -->
+  <div class="settings-group">
+    <h3 class="settings-group-title">
+      <i class="fas fa-cog"></i>
+      App Settings
+    </h3>
+    <p class="text-muted small">
+      Configure your Mapbox access token for map rendering and optional Microsoft Clarity analytics.
+      These settings are stored in the database and persist across deployments.
+    </p>
+
+    <form id="appSettingsForm">
+      <!-- Mapbox Access Token -->
+      <div class="mb-4">
+        <label for="mapboxToken" class="form-label">
+          <i class="fas fa-map text-primary me-1"></i>
+          Mapbox Access Token <span class="text-danger">*</span>
+        </label>
+        <div class="input-group">
+          <input
+            type="password"
+            class="form-control credential-input"
+            id="mapboxToken"
+            placeholder="pk.eyJ1Ijoi..."
+            required
+          />
+          <button
+            class="btn btn-outline-secondary"
+            type="button"
+            id="toggleMapboxToken"
+            title="Show/Hide Token"
+          >
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        <div class="form-text">
+          <strong>Required for maps.</strong> Get your free token at 
+          <a href="https://account.mapbox.com/access-tokens/" target="_blank" rel="noopener">mapbox.com</a>.
+          Use a public token starting with <code>pk.</code>
+        </div>
+      </div>
+
+      <!-- Clarity Project ID -->
+      <div class="mb-4">
+        <label for="clarityProjectId" class="form-label">
+          <i class="fas fa-chart-line text-info me-1"></i>
+          Clarity Project ID <span class="text-muted">(optional)</span>
+        </label>
+        <input
+          type="text"
+          class="form-control"
+          id="clarityProjectId"
+          placeholder="abc123xyz"
+        />
+        <div class="form-text">
+          Optional analytics. Get your project ID at 
+          <a href="https://clarity.microsoft.com/" target="_blank" rel="noopener">clarity.microsoft.com</a>.
+          Leave blank to disable.
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="d-flex gap-2 flex-wrap">
+        <button type="submit" class="btn btn-primary" id="saveAppSettingsBtn">
+          <i class="fas fa-save"></i> Save App Settings
+        </button>
+        <button type="button" class="btn btn-secondary" id="loadAppSettingsBtn">
+          <i class="fas fa-sync"></i> Reload
+        </button>
+      </div>
+
+      <div id="appSettingsSaveStatus" class="mt-3" style="display: none;"></div>
+    </form>
+  </div>
+
   <!-- Bouncie API Credentials -->
   <div class="settings-group">
     <h3 class="settings-group-title">

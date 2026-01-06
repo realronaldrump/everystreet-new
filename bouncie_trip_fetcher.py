@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import aiohttp
 
 from bouncie_credentials import update_bouncie_credentials
-from config import API_BASE_URL, AUTH_URL, MAPBOX_ACCESS_TOKEN, get_bouncie_config
+from config import API_BASE_URL, AUTH_URL, get_bouncie_config, get_mapbox_token
 from date_utils import parse_timestamp
 from trip_service import TripService
 from utils import get_session, retry_async
@@ -255,7 +255,7 @@ async def fetch_bouncie_trips_in_range(
             return all_new_trips
 
         # Initialize TripService once
-        trip_service = TripService(MAPBOX_ACCESS_TOKEN)
+        trip_service = TripService(get_mapbox_token())
 
         # Build chunk windows (7-day slices per device)
         chunk_windows: list[tuple[str, datetime, datetime]] = []

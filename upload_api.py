@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import gpxpy
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
-from config import MAPBOX_ACCESS_TOKEN
+from config import get_mapbox_token
 from date_utils import parse_timestamp
 from trip_service import TripService
 from utils import calculate_distance
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Initialize TripService
-trip_service = TripService(MAPBOX_ACCESS_TOKEN)
+trip_service = TripService(get_mapbox_token())
 
 # Helper functions moved from app.py
 

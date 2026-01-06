@@ -17,6 +17,7 @@ from bouncie_credentials import (
     update_bouncie_credentials,
     validate_bouncie_credentials,
 )
+from app_settings import get_app_settings, update_app_settings
 from config import API_BASE_URL, AUTH_URL
 from db import update_one_with_retry, vehicles_collection
 from utils import get_session
@@ -272,3 +273,107 @@ async def sync_vehicles_from_bouncie():
     except Exception as e:
         logger.exception("Error syncing vehicles from Bouncie")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- App Settings (Mapbox, Clarity) ---
+
+
+class AppSettingsModel(BaseModel):
+    """Model for app-wide settings."""
+
+    mapbox_access_token: str | None = None
+    clarity_project_id: str | None = None
+
+
+@router.get("/api/profile/app-settings")
+async def get_settings():
+    """Get current app settings.
+
+    Returns settings with masked Mapbox token for display purposes.
+    """
+    try:
+        settings = await get_app_settings()
+
+        # Mask Mapbox token for display
+        mapbox_token = settings.get("mapbox_access_token", "")
+        if mapbox_token:
+            if len(mapbox_token) > 8:
+                settings["mapbox_access_token_masked"] = (
+                    f"{mapbox_token[:4]}***{mapbox_token[-4:]}"
+                )
+            else:
+                settings["mapbox_access_token_masked"] = "***"
+        else:
+            settings["mapbox_access_token_masked"] = ""
+
+        return {
+            "status": "success",
+            "settings": settings,
+        }
+    except Exception as e:
+        logger.exception("Error retrieving app settings")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/profile/app-settings")
+async def update_settings(settings: AppSettingsModel):
+    """Update app settings.
+
+    Args:
+        settings: New settings values to store
+
+    Returns:
+        Status of the update operation
+    """
+    try:
+        settings_dict = {}
+
+        # Only include fields that were explicitly provided
+        if settings.mapbox_access_token is not None:
+            settings_dict["mapbox_access_token"] = settings.mapbox_access_token
+        if settings.clarity_project_id is not None:
+            settings_dict["clarity_project_id"] = settings.clarity_project_id
+
+        if not settings_dict:
+            return {
+                "status": "success",
+                "message": "No settings provided to update",
+            }
+
+        success = await update_app_settings(settings_dict)
+
+        if success:
+            # Reload settings cache so changes take effect immediately
+            from app_settings import ensure_settings_cached
+
+            await ensure_settings_cached()
+
+            return {
+                "status": "success",
+                "message": "App settings updated successfully",
+            }
+        return {
+            "status": "success",
+            "message": "No changes made to settings",
+        }
+    except Exception as e:
+        logger.exception("Error updating app settings")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/profile/app-settings/unmask")
+async def get_settings_unmasked():
+    """Get current app settings without masking.
+
+    Use with caution - returns sensitive data.
+    """
+    try:
+        settings = await get_app_settings()
+        return {
+            "status": "success",
+            "settings": settings,
+        }
+    except Exception as e:
+        logger.exception("Error retrieving unmasked app settings")
+        raise HTTPException(status_code=500, detail=str(e))
+

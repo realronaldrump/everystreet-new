@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from api_utils import api_route
-from config import CLARITY_PROJECT_ID, MAPBOX_ACCESS_TOKEN
+from config import get_clarity_id, get_mapbox_token
 from date_utils import normalize_calendar_date, parse_timestamp
 from db import (
     build_calendar_date_expr,
@@ -160,7 +160,7 @@ templates = Jinja2Templates(directory="templates")
 
 
 # Initialize TripService
-trip_service = TripService(MAPBOX_ACCESS_TOKEN)
+trip_service = TripService(get_mapbox_token())
 
 # ==============================================================================
 # Pydantic Models for this file
@@ -184,7 +184,7 @@ async def trips_page(request: Request):
     """Render the main trips data table page."""
     return templates.TemplateResponse(
         "trips.html",
-        {"request": request, "CLARITY_PROJECT_ID": CLARITY_PROJECT_ID},
+        {"request": request, "CLARITY_PROJECT_ID": get_clarity_id()},
     )
 
 
