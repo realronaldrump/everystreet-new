@@ -1,7 +1,24 @@
 #!/bin/bash
 # dev-mac.sh - Run app locally on Mac (connects to remote database)
+#
+# By default, NO local Celery worker is started. Background tasks are 
+# processed by the 24/7 production worker on the mini PC.
+#
+# Use --local-worker flag to start a local Celery worker (not recommended
+# as it will compete with the production worker for tasks).
 
 set -e
+
+# Parse arguments
+START_LOCAL_WORKER=false
+for arg in "$@"; do
+    case $arg in
+        --local-worker)
+            START_LOCAL_WORKER=true
+            shift
+            ;;
+    esac
+done
 
 # Load environment
 if [ ! -f .env ]; then
@@ -31,14 +48,17 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM EXIT
 
-# Start Celery worker in background (--pool=solo for macOS compatibility)
-echo "Starting Celery worker..."
-celery -A celery_app.app worker --loglevel=info --pool=solo &
-CELERY_PID=$!
-echo "Celery worker started (PID: $CELERY_PID)"
-
-# Give Celery a moment to initialize
-sleep 2
+# Optionally start local Celery worker
+if [ "$START_LOCAL_WORKER" = true ]; then
+    echo "Starting LOCAL Celery worker (--local-worker flag enabled)..."
+    echo "WARNING: This will compete with the production worker for tasks!"
+    celery -A celery_app.app worker --loglevel=info --pool=solo &
+    CELERY_PID=$!
+    echo "Celery worker started (PID: $CELERY_PID)"
+    sleep 2
+else
+    echo "Skipping local Celery worker (tasks processed by production worker)"
+fi
 
 # Start uvicorn with auto-reload
 echo "Starting Uvicorn server..."
@@ -50,7 +70,11 @@ echo ""
 echo "========================================"
 echo "EveryStreet is running!"
 echo "  - Web UI: http://localhost:8080"
-echo "  - Celery worker processing background tasks"
+if [ "$START_LOCAL_WORKER" = true ]; then
+    echo "  - Local Celery worker processing tasks"
+else
+    echo "  - Background tasks → production worker (mini PC)"
+fi
 echo "  - Press Ctrl+C to stop all services"
 echo "========================================"
 echo ""
