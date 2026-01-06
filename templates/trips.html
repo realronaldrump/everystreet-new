@@ -187,6 +187,6 @@ block extra_css %}
 <script src="{{ CDN.datatables_js }}"></script>
 <script src="{{ CDN.datatables_buttons_js }}"></script>
 <script src="{{ CDN.datatables_buttons_colvis }}"></script>
-<script src="{{ url_for('static', path='js/trips.js') | replace('http://', '//') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/trips.js') | replace('http://', '//') }}"></script>
 {% endblock %}
 

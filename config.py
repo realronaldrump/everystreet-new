@@ -70,6 +70,9 @@ async def get_bouncie_config() -> dict[str, Any]:
             "authorization_code": AUTHORIZATION_CODE or "",
             "authorized_devices": AUTHORIZED_DEVICES,
             "fetch_concurrency": int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12")),
+            "access_token": None,
+            "refresh_token": None,
+            "expires_at": None,
         }
 
 

@@ -21,7 +21,8 @@ export class InvalidTripReview {
       const response = await fetch("/api/trips/invalid");
       if (!response.ok) throw new Error("Failed to fetch invalid trips");
 
-      this.trips = await response.json();
+      const data = await response.json();
+      this.trips = data.trips;
       this.renderTable();
       this.renderPagination();
     } catch (error) {
