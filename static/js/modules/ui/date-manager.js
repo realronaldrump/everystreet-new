@@ -36,7 +36,8 @@ const dateManager = {
         ...fpConfig,
         maxDate: endDate,
         onChange: (sel) => {
-          if (sel.length) this.flatpickrInstances.get("end")?.set("minDate", sel[0]);
+          if (sel.length)
+            this.flatpickrInstances.get("end")?.set("minDate", sel[0]);
         },
       });
       this.flatpickrInstances.set("start", sp);
@@ -47,7 +48,8 @@ const dateManager = {
         ...fpConfig,
         minDate: startDate,
         onChange: (sel) => {
-          if (sel.length) this.flatpickrInstances.get("start")?.set("maxDate", sel[0]);
+          if (sel.length)
+            this.flatpickrInstances.get("start")?.set("maxDate", sel[0]);
         },
       });
       this.flatpickrInstances.set("end", ep);
@@ -64,19 +66,20 @@ const dateManager = {
     // Bind apply and reset buttons
     const applyBtn = uiState.getElement(CONFIG.selectors.applyFiltersBtn);
     const resetBtn = uiState.getElement(CONFIG.selectors.resetFilters);
-    if (applyBtn) eventManager.add(applyBtn, "click", () => this.applyFilters());
+    if (applyBtn)
+      eventManager.add(applyBtn, "click", () => this.applyFilters());
     if (resetBtn) eventManager.add(resetBtn, "click", () => this.reset());
   },
 
   updateInputs(startDate, endDate) {
     const s = uiState.getElement(CONFIG.selectors.startDate);
     const e = uiState.getElement(CONFIG.selectors.endDate);
-    
-    // Helper to calculate "today" for diverse constraints if needed, 
+
+    // Helper to calculate "today" for diverse constraints if needed,
     // but here we just need to relax them effectively.
     // For start picker: maxDate usually constrains it to <= End Date.
     // For end picker: minDate usually constrains it to >= Start Date.
-    
+
     if (s && s._flatpickr && e && e._flatpickr) {
       // 1. Relax constraints temporarily to allow any valid range
       // Set start's max to today (or broadly valid) to unblock moving it forward
@@ -88,27 +91,27 @@ const dateManager = {
       // true argument triggers onChange, which normally re-sets constraints.
       // However, we want to ensure values are set first.
       s._flatpickr.setDate(startDate, false); // false = no event yet
-      e._flatpickr.setDate(endDate, false);   // false = no event yet
-      
+      e._flatpickr.setDate(endDate, false); // false = no event yet
+
       // 3. Re-establish strict cross-linking manually or trigger events if needed.
       // The init() logic binds onChange to update the OTHER picker's min/max.
       // We should manually sync them now to be safe and clean.
       s._flatpickr.set("maxDate", endDate);
       e._flatpickr.set("minDate", startDate);
-      
+
       // Optional: If we want to trigger internal listeners that might rely on change events
       // s.dispatchEvent(new Event('change'));
       // e.dispatchEvent(new Event('change'));
     } else {
-        // Fallback or partial existence
-        if (s) {
-            if (s._flatpickr) s._flatpickr.setDate(startDate, true);
-            else s.value = startDate;
-        }
-        if (e) {
-            if (e._flatpickr) e._flatpickr.setDate(endDate, true);
-            else e.value = endDate;
-        }
+      // Fallback or partial existence
+      if (s) {
+        if (s._flatpickr) s._flatpickr.setDate(startDate, true);
+        else s.value = startDate;
+      }
+      if (e) {
+        if (e._flatpickr) e._flatpickr.setDate(endDate, true);
+        else e.value = endDate;
+      }
     }
   },
 
@@ -128,7 +131,10 @@ const dateManager = {
       } else throw new Error("Invalid date range");
     } catch (err) {
       console.error("Error setting date range:", err);
-      utils.showNotification(`Error setting date range: ${err.message}`, "danger");
+      utils.showNotification(
+        `Error setting date range: ${err.message}`,
+        "danger",
+      );
     } finally {
       if (btn) btn.classList.remove("btn-loading");
     }
@@ -170,9 +176,12 @@ const dateManager = {
     if (!indicator) return;
     const span = indicator.querySelector(".filter-date-range");
     if (!span) return;
-    const s = utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
-    const e = utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
-    const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
+    const s =
+      utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
+    const e =
+      utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
+    const fmt = (d) =>
+      dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
     const preset = this.detectPreset(s, e);
     if (preset) {
       span.textContent =
@@ -216,10 +225,14 @@ const dateManager = {
       document.dispatchEvent(
         new CustomEvent("filtersApplied", {
           detail: { startDate: s, endDate: e },
-        })
+        }),
       );
       const fd = (d) => dateUtils.formatForDisplay(d, { dateStyle: "short" });
-      utils.showNotification(`Filters applied: ${fd(s)} to ${fd(e)}`, "success", 3000);
+      utils.showNotification(
+        `Filters applied: ${fd(s)} to ${fd(e)}`,
+        "success",
+        3000,
+      );
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -236,7 +249,9 @@ const dateManager = {
     uiState.getAllElements(".quick-select-btn").forEach((btn) => {
       btn.classList.remove(CONFIG.classes.active);
     });
-    const todayBtn = uiState.getElement('.quick-select-btn[data-range="today"]');
+    const todayBtn = uiState.getElement(
+      '.quick-select-btn[data-range="today"]',
+    );
     if (todayBtn) todayBtn.classList.add(CONFIG.classes.active);
     this.updateIndicator();
     this.applyFilters();
