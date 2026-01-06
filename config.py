@@ -1,11 +1,8 @@
 """Centralized configuration for environment variables and external APIs.
 
 This module is the single source of truth for configuration used across the
-application. Import constants from here rather than calling os.getenv directly
-in multiple places.
-
-NOTE: Bouncie credentials can now be managed via the profile page and are
-stored in MongoDB. Use get_bouncie_config() for runtime credential access.
+application. Bouncie credentials are stored in MongoDB and configured via
+the profile page - no environment variables needed for Bouncie.
 """
 
 from __future__ import annotations
@@ -15,26 +12,13 @@ from typing import Any, Final
 
 from dotenv import load_dotenv
 
-# Load environment variables from .env if present
+# Load environment variables from .env if present (for Mapbox, etc.)
 load_dotenv()
 
 
-# --- Bouncie API Configuration ---
-# These are fallback values from environment variables
-# For runtime access, use get_bouncie_config() which reads from database
-CLIENT_ID: Final[str | None] = os.getenv("CLIENT_ID")
-CLIENT_SECRET: Final[str | None] = os.getenv("CLIENT_SECRET")
-REDIRECT_URI: Final[str | None] = os.getenv("REDIRECT_URI")
-AUTHORIZATION_CODE: Final[str | None] = os.getenv("AUTHORIZATION_CODE")
-
-# Bouncie API Endpoints
+# --- Bouncie API Endpoints (constants, not credentials) ---
 AUTH_URL: Final[str] = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL: Final[str] = "https://api.bouncie.dev/v1"
-
-# Authorized devices (IMEIs) allowed to fetch trips for
-AUTHORIZED_DEVICES: Final[list[str]] = [
-    d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
-]
 
 
 # --- Mapbox & Analytics Configuration ---
@@ -43,10 +27,10 @@ CLARITY_PROJECT_ID: Final[str | None] = os.getenv("CLARITY_PROJECT_ID") or None
 
 
 async def get_bouncie_config() -> dict[str, Any]:
-    """Get Bouncie API configuration from database or environment variables.
+    """Get Bouncie API configuration from database.
 
-    This function retrieves Bouncie credentials from MongoDB if available,
-    otherwise falls back to environment variables.
+    This is a single-user app. All Bouncie credentials are stored in MongoDB
+    and configured via the profile page. No environment variable fallbacks.
 
     Returns:
         Dictionary containing:
@@ -56,34 +40,17 @@ async def get_bouncie_config() -> dict[str, Any]:
             - authorization_code: str
             - authorized_devices: list[str]
             - fetch_concurrency: int (defaults to 12)
+            - access_token: str | None
+            - expires_at: float | None (timestamp)
     """
-    try:
-        from bouncie_credentials import get_bouncie_credentials
+    from bouncie_credentials import get_bouncie_credentials
 
-        return await get_bouncie_credentials()
-    except Exception:
-        # Fallback to module-level constants
-        return {
-            "client_id": CLIENT_ID or "",
-            "client_secret": CLIENT_SECRET or "",
-            "redirect_uri": REDIRECT_URI or "",
-            "authorization_code": AUTHORIZATION_CODE or "",
-            "authorized_devices": AUTHORIZED_DEVICES,
-            "fetch_concurrency": int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12")),
-            "access_token": None,
-            "refresh_token": None,
-            "expires_at": None,
-        }
+    return await get_bouncie_credentials()
 
 
 __all__ = [
-    "CLIENT_ID",
-    "CLIENT_SECRET",
-    "REDIRECT_URI",
-    "AUTHORIZATION_CODE",
     "AUTH_URL",
     "API_BASE_URL",
-    "AUTHORIZED_DEVICES",
     "MAPBOX_ACCESS_TOKEN",
     "CLARITY_PROJECT_ID",
     "get_bouncie_config",

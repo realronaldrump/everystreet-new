@@ -7,7 +7,6 @@ from MongoDB, allowing runtime configuration without .env file changes.
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
 
 from db import db_manager, find_one_with_retry, update_one_with_retry
@@ -23,7 +22,8 @@ async def get_bouncie_credentials_collection():
 async def get_bouncie_credentials() -> dict[str, Any]:
     """Retrieve Bouncie credentials from database.
 
-    Falls back to environment variables if database credentials don't exist.
+    This is a single-user app. All credentials are stored in MongoDB and
+    configured via the profile page. No environment variable fallbacks.
 
     Returns:
         Dictionary containing:
@@ -38,17 +38,15 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             - expires_at: float | None (timestamp)
     """
 
-    def get_env_fallback_credentials() -> dict[str, Any]:
-        """Helper to get credentials from environment variables."""
+    def get_empty_credentials() -> dict[str, Any]:
+        """Return empty credential structure when none configured."""
         return {
-            "client_id": os.getenv("CLIENT_ID", ""),
-            "client_secret": os.getenv("CLIENT_SECRET", ""),
-            "redirect_uri": os.getenv("REDIRECT_URI", ""),
-            "authorization_code": os.getenv("AUTHORIZATION_CODE", ""),
-            "authorized_devices": [
-                d for d in os.getenv("AUTHORIZED_DEVICES", "").split(",") if d
-            ],
-            "fetch_concurrency": int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12")),
+            "client_id": "",
+            "client_secret": "",
+            "redirect_uri": "",
+            "authorization_code": "",
+            "authorized_devices": [],
+            "fetch_concurrency": 12,
             "access_token": None,
             "refresh_token": None,
             "expires_at": None,
@@ -66,7 +64,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             # Handle fetch_concurrency - convert to int, default to 12
             fetch_concurrency = credentials.get("fetch_concurrency")
             if fetch_concurrency is None:
-                fetch_concurrency = int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12"))
+                fetch_concurrency = 12
             else:
                 try:
                     fetch_concurrency = int(fetch_concurrency)
@@ -85,15 +83,15 @@ async def get_bouncie_credentials() -> dict[str, Any]:
                 "expires_at": credentials.get("expires_at"),
             }
 
-        # Fallback to environment variables if no database credentials found
-        logger.info(
-            "No database credentials found, falling back to environment variables"
+        # No database credentials found - return empty structure
+        logger.warning(
+            "No Bouncie credentials found in database. "
+            "Please configure via the profile page."
         )
-        return get_env_fallback_credentials()
+        return get_empty_credentials()
     except Exception as e:
         logger.exception("Error retrieving Bouncie credentials: %s", e)
-        # Fallback to environment variables on error
-        return get_env_fallback_credentials()
+        return get_empty_credentials()
 
 
 async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
