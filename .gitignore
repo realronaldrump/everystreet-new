@@ -26,4 +26,4 @@ scripts/
 .stylelintrc.json
 
 cache/
-bouncie docs/bouncie_api_docs.txt
+bouncie_docs/bouncie_api_docs.txt

@@ -40,11 +40,15 @@ async def get_access_token(
 ) -> str:
     """Get an access token from the Bouncie API using OAuth.
 
-    Implements the full OAuth2 flow:
-    1. Checks for valid existing access token
-    2. Tries to refresh using refresh_token
-    3. Falls back to authorization_code
-    4. Updates storage with new tokens
+    Bouncie OAuth Flow (per API docs):
+    - Authorization codes do NOT expire
+    - To get a new access token, re-use the same authorization code
+    - There are NO refresh tokens in Bouncie's API
+
+    This function:
+    1. Checks for valid existing access token (with 5 min buffer)
+    2. If expired/missing, uses authorization_code to get a new one
+    3. Saves the new access token and expiry to storage
 
     Args:
         session: aiohttp session to use for the request
@@ -54,61 +58,38 @@ async def get_access_token(
     # 1. Check if we have a valid access token (with 5 minute buffer)
     access_token = credentials.get("access_token")
     expires_at = credentials.get("expires_at")
-    
-    if access_token and expires_at:
-        # If expiring in more than 5 minutes, it's good
-        if expires_at > time.time() + 300:
-            return access_token
-        logger.info("Access token expired or expiring soon, attempting refresh...")
 
+    if access_token and expires_at:
+        # If expiring in more than 5 minutes, it's still good
+        if expires_at > time.time() + 300:
+            logger.debug(
+                "Using cached access token (valid for %d more seconds)",
+                int(expires_at - time.time()),
+            )
+            return access_token
+        logger.info("Access token expired or expiring soon, getting new one...")
+
+    # 2. Get new access token using authorization code
     client_id = credentials.get("client_id")
     client_secret = credentials.get("client_secret")
     redirect_uri = credentials.get("redirect_uri")
-    refresh_token = credentials.get("refresh_token")
     auth_code = credentials.get("authorization_code")
 
-    # Common headers
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
-
-    # 2. Try to refresh if we have a refresh token
-    if refresh_token:
-        payload = {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-        }
-        try:
-            async with session.post(AUTH_URL, data=payload, headers=headers) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    new_access_token = data.get("access_token")
-                    new_refresh_token = data.get("refresh_token") # May or may not rotate
-                    expires_in = data.get("expires_in", 3600)
-                    
-                    if new_access_token:
-                        logger.info("Successfully refreshed access token")
-                        await _update_saved_credentials(
-                            credentials, 
-                            new_access_token, 
-                            new_refresh_token or refresh_token, 
-                            expires_in
-                        )
-                        return new_access_token
-                else:
-                    text = await response.text()
-                    logger.warning("Failed to refresh token: %s %s", response.status, text)
-                    # Proceed to auth code fallback
-        except Exception as e:
-            logger.error("Error during token refresh: %s", e)
-            # Proceed to auth code fallback
-
-    # 3. Fallback to authorization code
-    logger.info("Attempting to get new token using authorization code...")
     if not auth_code:
-        logger.error("No authorization code available for initial login")
+        logger.error(
+            "No authorization code configured. Please set up Bouncie credentials "
+            "via the profile page or environment variables."
+        )
         return None
 
+    if not all([client_id, client_secret, redirect_uri]):
+        logger.error(
+            "Missing required OAuth credentials (client_id, client_secret, or redirect_uri)"
+        )
+        return None
+
+    # Per Bouncie docs: Content-Type should be application/json for token requests
+    headers = {"Content-Type": "application/json"}
     payload = {
         "client_id": client_id,
         "client_secret": client_secret,
@@ -118,70 +99,63 @@ async def get_access_token(
     }
 
     try:
-        async with session.post(AUTH_URL, data=payload, headers=headers) as response:
+        async with session.post(AUTH_URL, json=payload, headers=headers) as response:
+            if response.status == 401:
+                text = await response.text()
+                logger.error(
+                    "Authorization failed (401). The authorization code may be invalid. "
+                    "Please re-authorize via Bouncie Developer Portal. Response: %s",
+                    text,
+                )
+                return None
+
             response.raise_for_status()
             data = await response.json()
-            
+
             new_access_token = data.get("access_token")
-            new_refresh_token = data.get("refresh_token")
             expires_in = data.get("expires_in", 3600)
 
             if not new_access_token:
-                logger.error("Access token not found in response")
+                logger.error("Access token not found in response: %s", data)
                 return None
-            
-            # 4. Save new tokens
-            await _update_saved_credentials(
-                credentials, 
-                new_access_token, 
-                new_refresh_token, 
-                expires_in
+
+            # 3. Save new token to storage
+            await _update_saved_credentials(credentials, new_access_token, expires_in)
+            logger.info(
+                "Successfully obtained new access token (expires in %d seconds)",
+                expires_in,
             )
             return new_access_token
 
+    except aiohttp.ClientResponseError as e:
+        logger.error("HTTP error retrieving access token: %s %s", e.status, e.message)
+        return None
     except Exception as e:
-        logger.error("Error retrieving access token via auth code: %s", e)
+        logger.error("Error retrieving access token: %s", e)
         return None
 
 
 async def _update_saved_credentials(
-    current_credentials: dict,
-    access_token: str,
-    refresh_token: str,
-    expires_in: int
+    current_credentials: dict, access_token: str, expires_in: int
 ):
     """Helper to update credentials in DB."""
     # Calculate absolute expiration time
     expires_at = time.time() + int(expires_in)
-    
+
     update_data = {
         "access_token": access_token,
-        "expires_at": expires_at
+        "expires_at": expires_at,
     }
-    
-    if refresh_token:
-        update_data["refresh_token"] = refresh_token
-        
-    # Merge with existing for the DB update call
-    # (We only need to pass the fields we want to update)
-    # But update_bouncie_credentials expects a dict with keys to check
-    
-    # We can pass a dict with just the updates + existing required fields if needed, 
-    # but update_bouncie_credentials logic is:
-    # "Only include fetch_concurrency if it was provided... Add token fields if present"
-    # It merges with a clean dict.
-    
-    # Let's pass the storage keys.
+
     success = await update_bouncie_credentials(update_data)
-    
+
     if success:
-        logger.info("Updated stored credentials with new tokens")
-        # Also update the in-memory dict so current run uses latest info if passed around
+        logger.info("Saved new access token to database")
+        # Also update the in-memory dict so current run uses latest info
         current_credentials["access_token"] = access_token
-        current_credentials["refresh_token"] = refresh_token
         current_credentials["expires_at"] = expires_at
     else:
-        logger.error("Failed to update stored credentials")
+        logger.error("Failed to save access token to database")
 
 
 @retry_async(max_retries=3, retry_delay=1.5)

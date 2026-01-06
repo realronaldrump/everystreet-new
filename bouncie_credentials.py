@@ -101,11 +101,10 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
 
     Args:
         credentials: Dictionary containing credential fields to update.
+            Only the fields present in this dict will be updated.
             Can include: client_id, client_secret, redirect_uri,
             authorization_code, authorized_devices (list or comma-separated string),
-            authorization_code, authorized_devices (list or comma-separated string),
-            fetch_concurrency (int, optional, defaults to 12),
-            access_token, refresh_token, expires_at
+            fetch_concurrency (int, optional), access_token, refresh_token, expires_at
 
     Returns:
         True if update was successful, False otherwise.
@@ -113,15 +112,29 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
     try:
         collection = await get_bouncie_credentials_collection()
 
-        # Process authorized_devices
-        devices = credentials.get("authorized_devices", [])
-        if isinstance(devices, str):
-            devices = [d.strip() for d in devices.split(",") if d.strip()]
-        elif not isinstance(devices, list):
-            devices = []
+        # Build update_data with ONLY the fields that were explicitly provided
+        update_data = {}
 
-        # Process fetch_concurrency - convert to int, validate range (1-50)
-        # Only update if explicitly provided
+        # Core credential fields - only update if provided
+        if "client_id" in credentials:
+            update_data["client_id"] = credentials["client_id"]
+        if "client_secret" in credentials:
+            update_data["client_secret"] = credentials["client_secret"]
+        if "redirect_uri" in credentials:
+            update_data["redirect_uri"] = credentials["redirect_uri"]
+        if "authorization_code" in credentials:
+            update_data["authorization_code"] = credentials["authorization_code"]
+
+        # Process authorized_devices only if provided
+        if "authorized_devices" in credentials:
+            devices = credentials["authorized_devices"]
+            if isinstance(devices, str):
+                devices = [d.strip() for d in devices.split(",") if d.strip()]
+            elif not isinstance(devices, list):
+                devices = []
+            update_data["authorized_devices"] = devices
+
+        # Process fetch_concurrency only if provided
         if "fetch_concurrency" in credentials:
             fetch_concurrency = credentials.get("fetch_concurrency")
             try:
@@ -148,16 +161,9 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     )
                 except (ValueError, TypeError):
                     fetch_concurrency = 12
+            update_data["fetch_concurrency"] = fetch_concurrency
 
-        update_data = {
-            "client_id": credentials.get("client_id", ""),
-            "client_secret": credentials.get("client_secret", ""),
-            "redirect_uri": credentials.get("redirect_uri", ""),
-            "authorization_code": credentials.get("authorization_code", ""),
-            "authorized_devices": devices,
-        }
-
-        # Add token fields if present
+        # Token fields - only update if provided
         if "access_token" in credentials:
             update_data["access_token"] = credentials["access_token"]
         if "refresh_token" in credentials:
@@ -165,9 +171,9 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
         if "expires_at" in credentials:
             update_data["expires_at"] = credentials["expires_at"]
 
-        # Only include fetch_concurrency if it was provided in the update
-        if "fetch_concurrency" in credentials:
-            update_data["fetch_concurrency"] = fetch_concurrency
+        if not update_data:
+            logger.warning("No fields to update in credentials")
+            return False
 
         result = await update_one_with_retry(
             collection,
