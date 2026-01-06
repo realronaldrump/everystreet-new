@@ -57,8 +57,7 @@ async def get_app_settings() -> dict[str, Any]:
             return result
 
         logger.warning(
-            "No app settings found in database. "
-            "Please configure via the profile page."
+            "No app settings found in database. Please configure via the profile page."
         )
         return get_empty_settings()
     except Exception as e:

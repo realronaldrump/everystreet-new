@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import Any, Final
 
-
 # --- Bouncie API Endpoints (constants, not credentials) ---
 AUTH_URL: Final[str] = "https://auth.bouncie.com/oauth/token"
 API_BASE_URL: Final[str] = "https://api.bouncie.dev/v1"
