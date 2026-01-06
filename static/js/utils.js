@@ -592,7 +592,6 @@ class ConfirmationDialog {
     modal.className = "modal fade";
     modal.id = this.modalId;
     modal.tabIndex = -1;
-    modal.setAttribute("aria-hidden", "true");
 
     if (this.config.backdropStatic) {
       modal.setAttribute("data-bs-backdrop", "static");

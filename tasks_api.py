@@ -516,7 +516,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
         )
 
 
-@router.post("/api/background_tasks/history/clear")
+@router.delete("/api/background_tasks/history")
 async def clear_task_history():
     """Clear all task execution history."""
     try:
