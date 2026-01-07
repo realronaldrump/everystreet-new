@@ -15,8 +15,7 @@ from aiolimiter import AsyncLimiter
 
 from date_utils import parse_timestamp
 from geometry_service import GeometryService
-from utils import (get_session, reverse_geocode_mapbox,
-                   reverse_geocode_nominatim)
+from utils import get_session, reverse_geocode_mapbox, reverse_geocode_nominatim
 
 logger = logging.getLogger(__name__)
 

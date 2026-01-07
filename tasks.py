@@ -32,17 +32,29 @@ from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from celery_app import app as celery_app
 from config import get_bouncie_config
 from date_utils import ensure_utc, parse_timestamp
-from db import (count_documents_with_retry, coverage_metadata_collection,
-                db_manager, find_one_with_retry, find_with_retry,
-                progress_collection, serialize_datetime, serialize_document,
-                task_config_collection, task_history_collection,
-                trips_collection, update_one_with_retry)
-from live_tracking import (cleanup_stale_trips_logic, process_trip_data,
-                           process_trip_end, process_trip_metrics,
-                           process_trip_start)
+from db import (
+    count_documents_with_retry,
+    coverage_metadata_collection,
+    db_manager,
+    find_one_with_retry,
+    find_with_retry,
+    progress_collection,
+    serialize_datetime,
+    serialize_document,
+    task_config_collection,
+    task_history_collection,
+    trips_collection,
+    update_one_with_retry,
+)
+from live_tracking import (
+    cleanup_stale_trips_logic,
+    process_trip_data,
+    process_trip_end,
+    process_trip_metrics,
+    process_trip_start,
+)
 from models import TripDataModel
-from route_solver import (generate_optimal_route_with_progress,
-                          save_optimal_route)
+from route_solver import generate_optimal_route_with_progress, save_optimal_route
 from street_coverage_calculation import compute_incremental_coverage
 from trip_service import TripService
 from utils import run_async_from_sync

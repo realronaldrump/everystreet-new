@@ -14,12 +14,23 @@ from pydantic import BaseModel
 from api_utils import api_route
 from config import get_clarity_id, get_mapbox_token
 from date_utils import normalize_calendar_date, parse_timestamp
-from db import (build_calendar_date_expr, build_query_from_request,
-                delete_many_with_retry, delete_one_with_retry,
-                find_one_with_retry, find_with_retry, gas_fillups_collection,
-                get_trip_by_id, json_dumps, progress_collection,
-                serialize_datetime, serialize_document, trips_collection,
-                update_one_with_retry, vehicles_collection)
+from db import (
+    build_calendar_date_expr,
+    build_query_from_request,
+    delete_many_with_retry,
+    delete_one_with_retry,
+    find_one_with_retry,
+    find_with_retry,
+    gas_fillups_collection,
+    get_trip_by_id,
+    json_dumps,
+    progress_collection,
+    serialize_datetime,
+    serialize_document,
+    trips_collection,
+    update_one_with_retry,
+    vehicles_collection,
+)
 from geometry_service import GeometryService
 from models import DateRangeModel
 from trip_service import TripService
@@ -413,7 +424,9 @@ async def get_trips_datatable(request: Request):
         trips_list = await cursor.to_list(length=length)
 
     # Fetch gas prices for cost calculation
-    price_map = await _get_fillup_price_map()  # Could optimize to filter by IMEIs in trips_list if page size is large, but for 10 it's negligible.
+    price_map = (
+        await _get_fillup_price_map()
+    )  # Could optimize to filter by IMEIs in trips_list if page size is large, but for 10 it's negligible.
 
     formatted_data = []
     for trip in trips_list:

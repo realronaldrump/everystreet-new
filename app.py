@@ -9,7 +9,6 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-
 from admin_api import router as admin_api_router
 from analytics_api import router as analytics_api_router
 from app_settings import ensure_settings_cached

@@ -9,14 +9,27 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from date_utils import normalize_to_utc_datetime
-from db import (count_documents_with_retry, db_manager, delete_many_with_retry,
-                find_with_retry, serialize_datetime, update_many_with_retry,
-                update_one_with_retry)
+from db import (
+    count_documents_with_retry,
+    db_manager,
+    delete_many_with_retry,
+    find_with_retry,
+    serialize_datetime,
+    update_many_with_retry,
+    update_one_with_retry,
+)
 from models import BackgroundTasksConfigModel
-from tasks import (TASK_METADATA, TaskStatus, force_reset_task,
-                   get_all_task_metadata, get_task_config, manual_run_task,
-                   trigger_fetch_all_missing_trips,
-                   trigger_manual_fetch_trips_range, update_task_schedule)
+from tasks import (
+    TASK_METADATA,
+    TaskStatus,
+    force_reset_task,
+    get_all_task_metadata,
+    get_task_config,
+    manual_run_task,
+    trigger_fetch_all_missing_trips,
+    trigger_manual_fetch_trips_range,
+    update_task_schedule,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
