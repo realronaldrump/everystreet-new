@@ -11,7 +11,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from config import get_mapbox_token
-from db import db_manager, find_one_with_retry, streets_collection, trips_collection
+from db import (db_manager, find_one_with_retry, streets_collection,
+                trips_collection)
 from geometry_service import GeometryService
 from live_tracking import get_active_trip
 from models import LocationModel

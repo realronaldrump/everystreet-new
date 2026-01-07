@@ -71,13 +71,13 @@ const dateManager = {
   updateInputs(startDate, endDate) {
     const s = uiState.getElement(CONFIG.selectors.startDate);
     const e = uiState.getElement(CONFIG.selectors.endDate);
-    
-    // Helper to calculate "today" for diverse constraints if needed, 
+
+    // Helper to calculate "today" for diverse constraints if needed,
     // but here we just need to relax them effectively.
     // For start picker: maxDate usually constrains it to <= End Date.
     // For end picker: minDate usually constrains it to >= Start Date.
-    
-    if (s && s._flatpickr && e && e._flatpickr) {
+
+    if (s?._flatpickr && e && e._flatpickr) {
       // 1. Relax constraints temporarily to allow any valid range
       // Set start's max to today (or broadly valid) to unblock moving it forward
       s._flatpickr.set("maxDate", "today");
@@ -88,27 +88,27 @@ const dateManager = {
       // true argument triggers onChange, which normally re-sets constraints.
       // However, we want to ensure values are set first.
       s._flatpickr.setDate(startDate, false); // false = no event yet
-      e._flatpickr.setDate(endDate, false);   // false = no event yet
-      
+      e._flatpickr.setDate(endDate, false); // false = no event yet
+
       // 3. Re-establish strict cross-linking manually or trigger events if needed.
       // The init() logic binds onChange to update the OTHER picker's min/max.
       // We should manually sync them now to be safe and clean.
       s._flatpickr.set("maxDate", endDate);
       e._flatpickr.set("minDate", startDate);
-      
+
       // Optional: If we want to trigger internal listeners that might rely on change events
       // s.dispatchEvent(new Event('change'));
       // e.dispatchEvent(new Event('change'));
     } else {
-        // Fallback or partial existence
-        if (s) {
-            if (s._flatpickr) s._flatpickr.setDate(startDate, true);
-            else s.value = startDate;
-        }
-        if (e) {
-            if (e._flatpickr) e._flatpickr.setDate(endDate, true);
-            else e.value = endDate;
-        }
+      // Fallback or partial existence
+      if (s) {
+        if (s._flatpickr) s._flatpickr.setDate(startDate, true);
+        else s.value = startDate;
+      }
+      if (e) {
+        if (e._flatpickr) e._flatpickr.setDate(endDate, true);
+        else e.value = endDate;
+      }
     }
   },
 

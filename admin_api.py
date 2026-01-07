@@ -5,18 +5,13 @@ from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, status
 
+
 from date_utils import ensure_utc
-from db import (
-    db_manager,
-    delete_many_with_retry,
-    find_one_with_retry,
-    insert_one_with_retry,
-    serialize_datetime,
-    update_one_with_retry,
-)
+from db import (db_manager, delete_many_with_retry, find_one_with_retry,
+                insert_one_with_retry, serialize_datetime,
+                update_one_with_retry)
 from models import CollectionModel, LocationModel, ValidateLocationModel
 from osm_utils import generate_geojson_osm
-from update_geo_points import update_geo_points
 from utils import validate_location_osm
 
 # Setup
@@ -155,31 +150,7 @@ async def get_storage_info():
         }
 
 
-@router.post("/update_geo_points")
-async def update_geo_points_route(
-    collection_name: str,
-):
-    """Update geo points for all trips in a collection."""
-    if collection_name != "trips":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid collection name. Only 'trips' is supported.",
-        )
 
-    collection = trips_collection
-
-    try:
-        await update_geo_points(collection)
-        return {"message": f"GeoPoints updated for {collection_name}"}
-    except Exception as e:
-        logger.exception(
-            "Error in update_geo_points_route: %s",
-            str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating GeoPoints: {e}",
-        )
 
 
 @router.post("/api/validate_location")

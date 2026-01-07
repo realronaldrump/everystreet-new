@@ -19,19 +19,11 @@ import bson
 import certifi
 import pymongo
 from bson import ObjectId
-from motor.motor_asyncio import (
-    AsyncIOMotorClient,
-    AsyncIOMotorCollection,
-    AsyncIOMotorCursor,
-    AsyncIOMotorDatabase,
-    AsyncIOMotorGridFSBucket,
-)
-from pymongo.errors import (
-    ConnectionFailure,
-    DuplicateKeyError,
-    OperationFailure,
-    ServerSelectionTimeoutError,
-)
+from motor.motor_asyncio import (AsyncIOMotorClient, AsyncIOMotorCollection,
+                                 AsyncIOMotorCursor, AsyncIOMotorDatabase,
+                                 AsyncIOMotorGridFSBucket)
+from pymongo.errors import (ConnectionFailure, DuplicateKeyError,
+                            OperationFailure, ServerSelectionTimeoutError)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
@@ -39,11 +31,8 @@ if TYPE_CHECKING:
     from fastapi import Request
     from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
-from date_utils import (
-    normalize_calendar_date,
-    normalize_to_utc_datetime,
-    parse_timestamp,
-)
+from date_utils import (normalize_calendar_date, normalize_to_utc_datetime,
+                        parse_timestamp)
 
 logger = logging.getLogger(__name__)
 
@@ -537,7 +526,7 @@ def _get_collection(
 
 
 trips_collection = _get_collection("trips")
-matched_trips_collection = _get_collection("matched_trips")
+# matched_trips_collection removed - consolidated into trips
 places_collection = _get_collection("places")
 osm_data_collection = _get_collection("osm_data")
 streets_collection = _get_collection("streets")
@@ -1100,6 +1089,7 @@ async def ensure_location_indexes() -> None:
                 background=True,
                 sparse=True,
             )
+
             await db_manager.safe_create_index(
                 collection_name,
                 [
@@ -1124,6 +1114,14 @@ async def ensure_location_indexes() -> None:
                 background=True,
                 sparse=True,
             )
+        # New GeoJSON 2dsphere index for trips
+        await db_manager.safe_create_index(
+            "trips",
+            [("gps", pymongo.GEOSPHERE)],
+            name="trips_gps_2dsphere_idx",
+            background=True,
+        )
+
         logger.info("Location structure indexes ensured/created successfully")
     except Exception as e:
         logger.error(

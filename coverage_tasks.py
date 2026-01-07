@@ -12,17 +12,11 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from db import (
-    coverage_metadata_collection,
-    find_one_with_retry,
-    progress_collection,
-    update_one_with_retry,
-)
+from db import (coverage_metadata_collection, find_one_with_retry,
+                progress_collection, update_one_with_retry)
 from preprocess_streets import preprocess_streets as async_preprocess_streets
-from street_coverage_calculation import (
-    compute_coverage_for_location,
-    compute_incremental_coverage,
-)
+from street_coverage_calculation import (compute_coverage_for_location,
+                                         compute_incremental_coverage)
 
 logging.basicConfig(
     level=logging.INFO,

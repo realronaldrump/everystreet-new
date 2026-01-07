@@ -6,12 +6,8 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from api_utils import api_route, get_mongo_tz_expr
-from db import (
-    aggregate_with_retry,
-    build_query_from_request,
-    db_manager,
-    serialize_for_json,
-)
+from db import (aggregate_with_retry, build_query_from_request, db_manager,
+                serialize_for_json)
 from utils import calculate_circular_average_hour
 
 logger = logging.getLogger(__name__)

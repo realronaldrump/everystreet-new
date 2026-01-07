@@ -196,8 +196,6 @@ async def calculate_visited_counties_task():
                 "transactionId": 1,
                 "startTime": 1,
                 "endTime": 1,
-                "startGeoPoint": 1,
-                "destinationGeoPoint": 1,
             },
         )
 
@@ -229,7 +227,6 @@ async def calculate_visited_counties_task():
                             _record_visit(county_visits, fips, trip_time)
 
                 stop_points = _extract_stop_points(
-                    trip,
                     gps_data,
                     trip_start_time,
                     trip_end_time,
@@ -457,7 +454,6 @@ def _record_visit(
 
 
 def _extract_stop_points(
-    trip,
     gps_data,
     trip_start_time,
     trip_end_time,
@@ -465,18 +461,7 @@ def _extract_stop_points(
 ):
     stop_points = []
 
-    start_coords = _extract_point_coords(trip.get("startGeoPoint"))
-    end_coords = _extract_point_coords(trip.get("destinationGeoPoint"))
-
-    if start_coords:
-        start_time = trip_start_time or fallback_time
-        stop_points.append((Point(start_coords[0], start_coords[1]), start_time))
-
-    if end_coords and end_coords != start_coords:
-        end_time = trip_end_time or fallback_time
-        stop_points.append((Point(end_coords[0], end_coords[1]), end_time))
-
-    if stop_points:
+    if not gps_data:
         return stop_points
 
     gps_type = gps_data.get("type")
@@ -491,10 +476,14 @@ def _extract_stop_points(
     if gps_type == "LineString" and isinstance(coords, list) and coords:
         start_coords = _coerce_point_coords(coords[0])
         end_coords = _coerce_point_coords(coords[-1])
+
         if start_coords:
-            stop_points.append((Point(start_coords[0], start_coords[1]), fallback_time))
-        if end_coords and end_coords != start_coords:
-            stop_points.append((Point(end_coords[0], end_coords[1]), fallback_time))
+            start_time = trip_start_time or fallback_time
+            stop_points.append((Point(start_coords[0], start_coords[1]), start_time))
+
+        if end_coords and (not start_coords or end_coords != start_coords):
+            end_time = trip_end_time or fallback_time
+            stop_points.append((Point(end_coords[0], end_coords[1]), end_time))
 
     return stop_points
 

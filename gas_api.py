@@ -10,18 +10,10 @@ from pydantic import ValidationError
 
 from config import API_BASE_URL, AUTH_URL, get_bouncie_config
 from date_utils import normalize_to_utc_datetime
-from db import (
-    aggregate_with_retry,
-    delete_one_with_retry,
-    find_one_with_retry,
-    find_with_retry,
-    gas_fillups_collection,
-    insert_one_with_retry,
-    serialize_document,
-    trips_collection,
-    update_one_with_retry,
-    vehicles_collection,
-)
+from db import (aggregate_with_retry, delete_one_with_retry,
+                find_one_with_retry, find_with_retry, gas_fillups_collection,
+                insert_one_with_retry, serialize_document, trips_collection,
+                update_one_with_retry, vehicles_collection)
 from geometry_service import GeometryService
 from models import GasFillupCreateModel, VehicleModel
 from utils import get_session
@@ -733,35 +725,34 @@ async def get_vehicle_location_at_time(
         )
 
         # Try to get coordinates from various sources
-        # 1. GPS FeatureCollection (Most accurate path)
+        # 1. GPS Data (Most accurate)
         if trip.get("gps"):
             gps = trip["gps"]
-            if isinstance(gps, dict) and gps.get("type") == "FeatureCollection":
+            g_type = gps.get("type")
+            coords = gps.get("coordinates")
+
+            candidate_coord = None
+            if g_type == "Point" and coords:
+                candidate_coord = coords
+            elif g_type == "LineString" and coords:
+                candidate_coord = coords[-1]
+            # Handle legacy FeatureCollection if present
+            elif g_type == "FeatureCollection":
                 features = gps.get("features", [])
                 if features and features[0].get("geometry", {}).get("coordinates"):
-                    coords = features[0]["geometry"]["coordinates"]
-                    if coords:
-                        last_coord = coords[-1]
-                        is_valid, validated = GeometryService.validate_coordinate_pair(
-                            last_coord
-                        )
-                        if is_valid and validated is not None:
-                            location_data["longitude"] = validated[0]
-                            location_data["latitude"] = validated[1]
+                    fc_coords = features[0]["geometry"]["coordinates"]
+                    if fc_coords:
+                        candidate_coord = fc_coords[-1]
 
-        # 2. Destination GeoPoint
-        if not location_data["latitude"] and trip.get("destinationGeoPoint"):
-            geo_point = trip["destinationGeoPoint"]
-            if geo_point.get("coordinates"):
+            if candidate_coord:
                 is_valid, validated = GeometryService.validate_coordinate_pair(
-                    geo_point["coordinates"]
+                    candidate_coord
                 )
                 if is_valid and validated is not None:
                     location_data["longitude"] = validated[0]
                     location_data["latitude"] = validated[1]
-                    logger.info("Vehicle Loc Debug: Used destinationGeoPoint fallback")
 
-        # 3. End Location (Direct lat/lon)
+        # 2. End Location (Direct lat/lon)
         if not location_data["latitude"] and trip.get("endLocation"):
             end_loc = trip["endLocation"]
             if "lat" in end_loc and "lon" in end_loc:

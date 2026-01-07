@@ -6,32 +6,20 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from api_utils import api_route
 from config import get_clarity_id, get_mapbox_token
 from date_utils import normalize_calendar_date, parse_timestamp
-from db import (
-    build_calendar_date_expr,
-    build_query_from_request,
-    delete_many_with_retry,
-    delete_one_with_retry,
-    find_one_with_retry,
-    find_with_retry,
-    gas_fillups_collection,
-    get_trip_by_id,
-    json_dumps,
-    matched_trips_collection,
-    progress_collection,
-    serialize_datetime,
-    serialize_document,
-    trips_collection,
-    update_one_with_retry,
-    vehicles_collection,
-)
+from db import (build_calendar_date_expr, build_query_from_request,
+                delete_many_with_retry, delete_one_with_retry,
+                find_one_with_retry, find_with_retry, gas_fillups_collection,
+                get_trip_by_id, json_dumps, progress_collection,
+                serialize_datetime, serialize_document, trips_collection,
+                update_one_with_retry, vehicles_collection)
 from geometry_service import GeometryService
 from models import DateRangeModel
 from trip_service import TripService
@@ -197,10 +185,17 @@ async def trips_page(request: Request):
 async def get_trips(request: Request):
     """Stream all trips as GeoJSON to improve performance."""
     query = await build_query_from_request(request)
+    matched_only = request.query_params.get("matched_only", "false").lower() == "true"
+
     # Exclude invalid trips by default
     query["invalid"] = {"$ne": True}
+
+    if matched_only:
+        query["matchedGps"] = {"$ne": None}
     projection = {
         "gps": 1,
+        "matchedGps": 1,
+        "matchStatus": 1,
         "startTime": 1,
         "endTime": 1,
         "distance": 1,
@@ -223,9 +218,6 @@ async def get_trips(request: Request):
     )
 
     # Pre-fetch has prices for cost calculation
-    # Only fetch for relevant time range if possible, but for streaming all, fetching all prices is safer/easier
-    # Optimization: If query has date range, filter fill-ups too.
-    # But 'query' here is for trips. Let's just fetch all fill-ups for simplicity (usually much fewer than trips)
     price_map = await _get_fillup_price_map()
 
     async def stream():
@@ -235,7 +227,19 @@ async def get_trips(request: Request):
             st = parse_timestamp(trip.get("startTime"))
             et = parse_timestamp(trip.get("endTime"))
             duration = (et - st).total_seconds() if st and et else None
+
+            # Use matchedGps if available and requested, effectively?
+            # The prompt says "If the user requests 'matched' data, simply filter for documents where matchedGps is not null"
+            # Here we are just streaming all. I should probably stream matchedGps if it exists?
+            # Or should I decide based on query param?
+            # The user request said: "query the single trips collection. If the user requests 'matched' data, simply filter for documents where matchedGps is not null."
+            # But the endpoint is get_trips.
+            # I'll output matchedGps in properties regardless, or switch geometry if desired.
+            # For now, let's output Raw GPS as geometry, and matchedGps as property.
+
             geom = GeometryService.parse_geojson(trip.get("gps"))
+            matched_geom = GeometryService.parse_geojson(trip.get("matchedGps"))
+
             coords = geom.get("coordinates", []) if isinstance(geom, dict) else []
             num_points = len(coords) if isinstance(coords, list) else 0
             props = {
@@ -259,6 +263,8 @@ async def get_trips(request: Request):
                 "averageSpeed": trip.get("averageSpeed"),
                 "pointsRecorded": num_points,
                 "estimated_cost": _calculate_trip_cost(trip, price_map),
+                "matchedGps": matched_geom,
+                "matchStatus": trip.get("matchStatus"),
             }
             feature = GeometryService.feature_from_geometry(geom, props)
             chunk = json_dumps(feature, separators=(",", ":"))
@@ -407,9 +413,7 @@ async def get_trips_datatable(request: Request):
         trips_list = await cursor.to_list(length=length)
 
     # Fetch gas prices for cost calculation
-    price_map = (
-        await _get_fillup_price_map()
-    )  # Could optimize to filter by IMEIs in trips_list if page size is large, but for 10 it's negligible.
+    price_map = await _get_fillup_price_map()  # Could optimize to filter by IMEIs in trips_list if page size is large, but for 10 it's negligible.
 
     formatted_data = []
     for trip in trips_list:
@@ -501,18 +505,14 @@ async def bulk_delete_trips(request: Request):
     result = await delete_many_with_retry(
         trips_collection, {"transactionId": {"$in": trip_ids}}
     )
-    matched_result = await delete_many_with_retry(
-        matched_trips_collection, {"transactionId": {"$in": trip_ids}}
+    result = await delete_many_with_retry(
+        trips_collection, {"transactionId": {"$in": trip_ids}}
     )
 
     return {
         "status": "success",
         "deleted_trips": result.deleted_count,
-        "deleted_matched_trips": matched_result.deleted_count,
-        "message": (
-            f"Deleted {result.deleted_count} trips and "
-            f"{matched_result.deleted_count} matched trips"
-        ),
+        "message": f"Deleted {result.deleted_count} trips",
     }
 
 
@@ -568,21 +568,13 @@ async def delete_trip(trip_id: str):
 
     result = await delete_one_with_retry(trips_collection, {"_id": trip["_id"]})
 
-    actual_transaction_id = trip.get("transactionId")
-    matched_delete_result = None
-    if actual_transaction_id:
-        matched_delete_result = await delete_one_with_retry(
-            matched_trips_collection, {"transactionId": actual_transaction_id}
-        )
+    result = await delete_one_with_retry(trips_collection, {"_id": trip["_id"]})
 
     if result.deleted_count >= 1:
         return {
             "status": "success",
             "message": "Trip deleted successfully",
             "deleted_trips": result.deleted_count,
-            "deleted_matched_trips": (
-                matched_delete_result.deleted_count if matched_delete_result else 0
-            ),
         }
 
     raise HTTPException(
@@ -904,18 +896,11 @@ async def restore_trip(trip_id: str):
             status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
         )
 
-    # Unset invalid flag in trips_collection
+    # Unset invalid flag in trips_collection (matched status is part of the same doc now)
     await trips_collection.update_one(
         {"_id": trip["_id"]},
         {"$unset": {"invalid": "", "validation_message": "", "validated_at": ""}},
     )
-
-    # Unset invalid flag in matched_trips_collection
-    if trip.get("transactionId"):
-        await matched_trips_collection.update_one(
-            {"transactionId": trip["transactionId"]},
-            {"$unset": {"invalid": "", "validation_message": ""}},
-        )
 
     return {"status": "success", "message": "Trip allocated as valid."}
 
@@ -926,3 +911,101 @@ async def permanent_delete_trip(trip_id: str):
     """Permanently delete a trip and its matched data."""
     # Re-use existing delete logic but explicitly for this purpose
     return await delete_trip(trip_id)
+
+
+@router.get("/api/trips_in_bounds", tags=["Trips API"])
+async def get_trips_in_bounds(
+    min_lat: float = Query(
+        ...,
+        description="Minimum latitude of the bounding box",
+    ),
+    min_lon: float = Query(
+        ...,
+        description="Minimum longitude of the bounding box",
+    ),
+    max_lat: float = Query(
+        ...,
+        description="Maximum latitude of the bounding box",
+    ),
+    max_lon: float = Query(
+        ...,
+        description="Maximum longitude of the bounding box",
+    ),
+):
+    """Get raw or matched trip coordinates within a given bounding box.
+
+    Uses a spatial query for efficiency. Queries the single trips collection.
+    """
+    try:
+        if not GeometryService.validate_bounding_box(
+            min_lat,
+            min_lon,
+            max_lat,
+            max_lon,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid bounding box coordinates (lat must be -90 to 90, lon -180 to 180).",
+            )
+
+        bounding_box_geometry = GeometryService.bounding_box_polygon(
+            min_lat,
+            min_lon,
+            max_lat,
+            max_lon,
+        )
+        if bounding_box_geometry is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid bounding box coordinates.",
+            )
+
+        query = {
+            "matchedGps": {
+                "$geoIntersects": {
+                    "$geometry": bounding_box_geometry,
+                },
+            },
+            "invalid": {"$ne": True},
+        }
+
+        projection = {
+            "_id": 0,
+            "matchedGps.coordinates": 1,
+            "transactionId": 1,
+        }
+
+        cursor = trips_collection.find(query, projection)
+
+        trip_features = []
+        async for trip_doc in cursor:
+            if trip_doc.get("matchedGps") and trip_doc["matchedGps"].get("coordinates"):
+                coords = trip_doc["matchedGps"]["coordinates"]
+                geometry = GeometryService.geometry_from_coordinate_pairs(
+                    coords,
+                    allow_point=False,
+                    dedupe=False,
+                    validate=False,
+                )
+                if geometry is not None:
+                    feature = GeometryService.feature_from_geometry(
+                        geometry,
+                        properties={
+                            "transactionId": trip_doc.get("transactionId", "N/A")
+                        },
+                    )
+                    trip_features.append(feature)
+
+        return JSONResponse(content=GeometryService.feature_collection(trip_features))
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.exception(
+            "Error in get_trips_in_bounds: %s",
+            str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve trips within bounds: {str(e)}",
+        )

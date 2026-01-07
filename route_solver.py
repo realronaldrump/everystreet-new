@@ -13,21 +13,18 @@ import contextlib
 import heapq
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
 import networkx as nx
 import osmnx as ox
 from bson import ObjectId
-from shapely.geometry import LineString, MultiPoint, box, shape
+from shapely.geometry import LineString, box, shape
 
-from db import (
-    coverage_metadata_collection,
-    find_one_with_retry,
-    optimal_route_progress_collection,
-    streets_collection,
-    update_one_with_retry,
-)
+from db import (coverage_metadata_collection, find_one_with_retry,
+                optimal_route_progress_collection, streets_collection,
+                update_one_with_retry)
 from geometry_service import GeometryService
 from progress_tracker import ProgressTracker
 
@@ -42,6 +39,7 @@ MAX_DEADHEAD_RATIO_WARN = 6.0
 MAX_DEADHEAD_RATIO_ERROR = 10.0
 MIN_SEGMENT_COVERAGE_RATIO = 0.9
 MAX_OSM_MATCH_DISTANCE_FT = 1640.0  # ~500m - max distance for OSM ID matching
+GRAPH_STORAGE_DIR = Path("data/graphs")
 
 EdgeRef = tuple[int, int, int]  # (u, v, key)
 ReqId = frozenset[
@@ -881,50 +879,30 @@ async def generate_optimal_route_with_progress(
             "loading_segments", 30, f"Found {len(undriven)} undriven segments to route"
         )
 
-        await update_progress("fetching_osm", 40, "Downloading OSM street network...")
+        await update_progress(
+            "loading_graph", 40, "Loading street network from disk..."
+        )
 
-        # Compute convex hull of all segment coordinates for better routing coverage
-        # This ensures we include roads connecting all parts of the coverage area
-        all_coords = []
-        for seg in undriven:
-            coords = seg.get("geometry", {}).get("coordinates", [])
-            for coord in coords:
-                if isinstance(coord, (list, tuple)) and len(coord) >= 2:
-                    all_coords.append((float(coord[0]), float(coord[1])))
-
-        if len(all_coords) >= 3:
-            segment_hull = MultiPoint(all_coords).convex_hull
-            # Use the larger of: original polygon or segment convex hull
-            # Then buffer for routing
-            combined = polygon.union(segment_hull)
-            routing_polygon = _buffer_polygon_for_routing(combined, ROUTING_BUFFER_FT)
-            logger.info(
-                "Using convex hull of %d segment points for routing area",
-                len(all_coords),
+        graph_path = GRAPH_STORAGE_DIR / f"{location_id}.graphml"
+        if not graph_path.exists():
+            raise FileNotFoundError(
+                f"Graph file not found at {graph_path}. Please run preprocess_streets.py first."
             )
-        else:
-            routing_polygon = _buffer_polygon_for_routing(polygon, ROUTING_BUFFER_FT)
 
         try:
-            # Keep it directed so we respect one-ways.
-            G = ox.graph_from_polygon(
-                routing_polygon,
-                network_type="drive",
-                simplify=True,
-                truncate_by_edge=True,
-                retain_all=True,
-            )
+            G = ox.load_graphml(graph_path)
+            # Ensure it's the correct type (OSMnx load_graphml returns MultiDiGraph usually)
             if not isinstance(G, nx.MultiDiGraph):
-                # OSMnx should give MultiDiGraph; but keep it safe.
                 G = nx.MultiDiGraph(G)
+
             await update_progress(
-                "fetching_osm",
+                "loading_graph",
                 45,
-                f"Downloaded network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges",
+                f"Loaded network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges",
             )
         except Exception as e:
-            logger.error("Failed to download OSM data: %s", e)
-            raise ValueError(f"Failed to download street network: {e}")
+            logger.error("Failed to load graph from disk: %s", e)
+            raise ValueError(f"Failed to load street network: {e}")
 
         await update_progress(
             "mapping_segments",

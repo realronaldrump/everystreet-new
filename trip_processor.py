@@ -310,15 +310,6 @@ class TripProcessor:
                 self._set_state(TripState.FAILED, "Invalid start or end coordinates")
                 return False
 
-            self.processed_data["startGeoPoint"] = {
-                "type": "Point",
-                "coordinates": [start_coord[0], start_coord[1]],
-            }
-            self.processed_data["destinationGeoPoint"] = {
-                "type": "Point",
-                "coordinates": [end_coord[0], end_coord[1]],
-            }
-
             if "totalIdleDuration" in self.processed_data:
                 self.processed_data["totalIdleDurationFormatted"] = (
                     self.format_idle_time(
@@ -701,23 +692,12 @@ class TripProcessor:
             )
             return None
 
-        # Save to trips collection
+        # Save to trips collection (includes matchedGps if present)
         saved_id = await self.repository.save_trip(
             self.processed_data,
             self.source,
             self.state_history,
         )
-
-        # Save to matched trips collection if applicable
-        if (
-            map_match_result or self.state == TripState.MAP_MATCHED
-        ) and "matchedGps" in self.processed_data:
-            transaction_id = self.processed_data.get("transactionId")
-            trip_data_with_source = self.processed_data.copy()
-            trip_data_with_source["source"] = self.source
-            await self.repository.save_matched_trip(
-                transaction_id, trip_data_with_source
-            )
 
         return saved_id
 

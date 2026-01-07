@@ -218,6 +218,11 @@ class TripDataModel(BaseModel):
     fuelConsumed: float | None = None
     closed_reason: str | None = None
 
+    # Matched data (consolidated from matched_trips)
+    matchedGps: dict[str, Any] | None = None  # GeoJSON format
+    matchStatus: str | None = None  # e.g., "matched", "failed", "unmatched"
+    matched_at: datetime | None = None
+
     @field_validator("startTime", "endTime", "lastUpdate", mode="before")
     @classmethod
     def parse_datetime_fields(cls, v: Any) -> datetime | None:

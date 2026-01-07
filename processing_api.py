@@ -6,14 +6,8 @@ from pydantic import BaseModel
 
 from config import get_mapbox_token
 from date_utils import normalize_calendar_date
-from db import (
-    build_calendar_date_expr,
-    db_manager,
-    delete_many_with_retry,
-    find_with_retry,
-    get_trip_by_id,
-    serialize_datetime,
-)
+from db import (build_calendar_date_expr, db_manager, find_with_retry,
+                get_trip_by_id, serialize_datetime)
 from models import BulkProcessModel, DateRangeModel
 from trip_service import ProcessingOptions, TripService
 
@@ -23,7 +17,7 @@ router = APIRouter()
 
 # Collections
 trips_collection = db_manager.db["trips"]
-matched_trips_collection = db_manager.db["matched_trips"]
+from db import update_many_with_retry
 
 # Initialize TripService
 trip_service = TripService(get_mapbox_token())
@@ -115,10 +109,7 @@ async def get_trip_status(trip_id: str):
             "source": trip.get("source", "unknown"),
             "has_start_location": bool(trip.get("startLocation")),
             "has_destination": bool(trip.get("destination")),
-            "has_matched_trip": await matched_trips_collection.find_one(
-                {"transactionId": trip_id},
-            )
-            is not None,
+            "has_matched_trip": bool(trip.get("matchedGps")),
             "processing_history": trip.get("processing_history", []),
             "validation_status": trip.get("validation_status", "unknown"),
             "validation_message": trip.get("validation_message", ""),
@@ -264,18 +255,28 @@ async def remap_matched_trips(
                     chunk_end.isoformat(),
                 )
                 if chunk_expr:
-                    result = await delete_many_with_retry(
-                        matched_trips_collection,
+                    # Unset matched fields instead of deleting documents
+                    result = await update_many_with_retry(
+                        trips_collection,
                         {"$expr": chunk_expr},
+                        {
+                            "$unset": {
+                                "matchedGps": "",
+                                "matchStatus": "",
+                                "matched_at": "",
+                            }
+                        },
                     )
-                    total_deleted_count += result.deleted_count
+                    total_deleted_count += result.modified_count
                 current_start = chunk_end + timedelta(days=1)
         else:
-            delete_result = await delete_many_with_retry(
-                matched_trips_collection,
+            # Unset matched fields instead of deleting documents
+            update_result = await update_many_with_retry(
+                trips_collection,
                 {"$expr": range_expr},
+                {"$unset": {"matchedGps": "", "matchStatus": "", "matched_at": ""}},
             )
-            total_deleted_count = delete_result.deleted_count
+            total_deleted_count = update_result.modified_count
 
         result = await trip_service.remap_trips(
             query={"$expr": range_expr},

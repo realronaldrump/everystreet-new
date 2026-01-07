@@ -12,12 +12,8 @@ import osmnx as ox
 from shapely.geometry import box, shape
 from shapely.geometry.base import BaseGeometry
 
-from db import (
-    find_one_with_retry,
-    insert_one_with_retry,
-    osm_data_collection,
-    update_one_with_retry,
-)
+from db import (find_one_with_retry, insert_one_with_retry,
+                osm_data_collection, update_one_with_retry)
 
 logger = logging.getLogger(__name__)
 

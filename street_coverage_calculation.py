@@ -20,18 +20,10 @@ from shapely.geometry import mapping, shape
 if TYPE_CHECKING:
     from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
-from db import (
-    batch_cursor,
-    count_documents_with_retry,
-    coverage_metadata_collection,
-    db_manager,
-    find_one_with_retry,
-    progress_collection,
-    streets_collection,
-    trips_collection,
-    update_many_with_retry,
-    update_one_with_retry,
-)
+from db import (batch_cursor, count_documents_with_retry,
+                coverage_metadata_collection, db_manager, find_one_with_retry,
+                progress_collection, streets_collection, trips_collection,
+                update_many_with_retry, update_one_with_retry)
 from models import validate_geojson_point_or_linestring
 
 load_dotenv()

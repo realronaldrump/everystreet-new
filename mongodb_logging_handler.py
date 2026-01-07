@@ -9,8 +9,6 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 
 class MongoDBHandler(logging.Handler):
     """Custom logging handler that writes log records to MongoDB."""

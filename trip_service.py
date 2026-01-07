@@ -19,12 +19,7 @@ from pymongo.errors import DuplicateKeyError
 
 from admin_api import get_persisted_app_settings
 from config import get_mapbox_token
-from db import (
-    find_with_retry,
-    get_trip_by_id,
-    matched_trips_collection,
-    trips_collection,
-)
+from db import find_with_retry, get_trip_by_id, trips_collection
 from trip_processor import TripProcessor, TripState
 
 logger = logging.getLogger(__name__)
@@ -117,7 +112,6 @@ class TripService:
     def _init_collections(self):
         """Initialize database collections."""
         self.trips_collection = trips_collection
-        self.matched_trips_collection = matched_trips_collection
 
     @with_comprehensive_handling
     async def get_trip_by_id(self, trip_id: str) -> dict[str, Any] | None:

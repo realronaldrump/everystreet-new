@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+
 from admin_api import router as admin_api_router
 from analytics_api import router as analytics_api_router
 from app_settings import ensure_settings_cached
@@ -22,7 +23,6 @@ from gas_api import router as gas_api_router
 from live_tracking import initialize_db as initialize_live_tracking_db
 from live_tracking_api import router as live_tracking_api_router
 from logs_api import router as logs_api_router
-from matched_trips_api import router as matched_trips_api_router
 from mongodb_logging_handler import MongoDBHandler
 from pages import router as pages_router
 from processing_api import router as processing_api_router
@@ -100,7 +100,7 @@ app.include_router(export_api_router)
 app.include_router(gas_api_router)
 app.include_router(live_tracking_api_router)
 app.include_router(logs_api_router)
-app.include_router(matched_trips_api_router)
+
 app.include_router(processing_api_router)
 app.include_router(profile_api_router)
 app.include_router(search_api_router)

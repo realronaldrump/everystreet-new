@@ -8,10 +8,8 @@ import json
 import logging
 from typing import Any
 
-from pymongo.errors import DuplicateKeyError
-
 from date_utils import get_current_utc_time
-from db import matched_trips_collection, trips_collection
+from db import trips_collection
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +24,13 @@ class TripRepository:
     def __init__(
         self,
         trips_col=None,
-        matched_trips_col=None,
     ):
         """Initialize the repository with optional custom collections.
 
         Args:
             trips_col: Optional custom trips collection (for testing)
-            matched_trips_col: Optional custom matched trips collection (for testing)
         """
         self.trips_collection = trips_col or trips_collection
-        self.matched_trips_collection = matched_trips_col or matched_trips_collection
 
     async def save_trip(
         self,
@@ -119,7 +114,7 @@ class TripRepository:
         transaction_id: str,
         trip_data: dict[str, Any],
     ) -> bool:
-        """Save matched GPS data to the matched_trips collection.
+        """Save matched GPS data to the existing trip in trips collection.
 
         Args:
             transaction_id: The trip transaction ID
@@ -143,49 +138,34 @@ class TripRepository:
                 )
                 return False
 
-            matched_trip_data = {
-                "transactionId": transaction_id,
-                "startTime": trip_data.get("startTime"),
-                "endTime": trip_data.get("endTime"),
+            # Prepare fields to update
+            update_fields = {
                 "matchedGps": matched_gps,
-                "source": trip_data.get("source"),
-                "matched_at": trip_data.get("matched_at"),
-                "distance": trip_data.get("distance"),
-                "imei": trip_data.get("imei"),
-                "startLocation": trip_data.get("startLocation"),
-                "destination": trip_data.get("destination"),
-                "maxSpeed": trip_data.get("maxSpeed"),
-                "averageSpeed": trip_data.get("averageSpeed"),
-                "hardBrakingCount": trip_data.get("hardBrakingCount"),
-                "hardAccelerationCount": trip_data.get("hardAccelerationCount"),
-                "totalIdleDurationFormatted": trip_data.get(
+                "matched_at": trip_data.get("matched_at", get_current_utc_time()),
+                "matchStatus": "matched",
+            }
+
+            # Optional fields
+            if trip_data.get("distance") is not None:
+                update_fields["distance"] = trip_data.get("distance")
+            if trip_data.get("totalIdleDurationFormatted"):
+                update_fields["totalIdleDurationFormatted"] = trip_data.get(
                     "totalIdleDurationFormatted"
-                ),
-            }
+                )
 
-            # Filter out None values
-            matched_trip_data = {
-                k: v for k, v in matched_trip_data.items() if v is not None
-            }
-
-            await self.matched_trips_collection.update_one(
+            await self.trips_collection.update_one(
                 {"transactionId": transaction_id},
-                {"$set": matched_trip_data},
-                upsert=True,
+                {"$set": update_fields},
             )
 
-            logger.debug("Saved matched trip %s successfully", transaction_id)
+            logger.debug(
+                "Updated trip %s with matched data successfully", transaction_id
+            )
             return True
 
-        except DuplicateKeyError:
-            logger.info(
-                "Matched trip %s already exists (concurrent update?)",
-                transaction_id,
-            )
-            return False
         except Exception as e:
             logger.error(
-                "Error saving matched trip %s: %s",
+                "Error saving matched data for trip %s: %s",
                 transaction_id,
                 e,
             )

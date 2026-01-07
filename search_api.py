@@ -12,12 +12,8 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
 
 from config import get_mapbox_token
-from db import (
-    aggregate_with_retry,
-    coverage_metadata_collection,
-    find_one_with_retry,
-    streets_collection,
-)
+from db import (aggregate_with_retry, coverage_metadata_collection,
+                find_one_with_retry, streets_collection)
 from external_geo_service import ExternalGeoService
 
 logger = logging.getLogger(__name__)

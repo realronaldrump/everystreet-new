@@ -6,24 +6,12 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
-from db import (
-    build_calendar_date_expr,
-    build_query_from_request,
-    db_manager,
-    find_one_with_retry,
-    json_dumps,
-    parse_query_date,
-)
-from export_helpers import (
-    CSV_BASE_FIELDS,
-    CSV_GEOMETRY_FIELDS,
-    CSV_LOCATION_FIELDS,
-    create_export_response,
-    create_gpx,
-    flatten_trip_for_csv,
-    get_location_filename,
-    process_trip_for_export,
-)
+from db import (build_calendar_date_expr, build_query_from_request, db_manager,
+                find_one_with_retry, json_dumps, parse_query_date)
+from export_helpers import (CSV_BASE_FIELDS, CSV_GEOMETRY_FIELDS,
+                            CSV_LOCATION_FIELDS, create_export_response,
+                            create_gpx, flatten_trip_for_csv,
+                            get_location_filename, process_trip_for_export)
 from geometry_service import GeometryService
 from osm_utils import generate_geojson_osm
 
@@ -31,7 +19,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 trips_collection = db_manager.db["trips"]
-matched_trips_collection = db_manager.db["matched_trips"]
 
 
 # ----------------------------- Streaming helpers -----------------------------
@@ -398,9 +385,10 @@ async def export_matched_trips_within_range(
     """Export matched trips within a date range."""
     try:
         query = await build_query_from_request(request)
+        query["matchedGps"] = {"$ne": None}
         filename_base = f"matched_trips_{_date_range_filename_component(request)}"
 
-        cursor = matched_trips_collection.find(query).batch_size(500)
+        cursor = trips_collection.find(query).batch_size(500)
 
         if fmt.lower() == "json":
             stream = await _stream_json_array_from_cursor(cursor)
@@ -441,7 +429,7 @@ async def export_matched_trips_within_range(
                 },
             )
 
-        matched_list = await matched_trips_collection.find(query).to_list(length=1000)
+        matched_list = await trips_collection.find(query).to_list(length=1000)
         return await create_export_response(matched_list, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
@@ -609,36 +597,30 @@ async def export_advanced(
         filename_base = f"trips_export_{current_time}"
 
         async def processed_docs_cursor():
-            if include_trips:
-                async for trip in trips_collection.find(date_filter).batch_size(500):
-                    processed = await process_trip_for_export(
-                        trip,
-                        include_basic_info,
-                        include_locations,
-                        include_telemetry,
-                        include_geometry,
-                        include_meta,
-                        include_custom,
-                    )
-                    if processed:
-                        processed["trip_type"] = trip.get("source", "unknown")
-                        yield processed
-            if include_matched_trips:
-                async for trip in matched_trips_collection.find(date_filter).batch_size(
-                    500
-                ):
-                    processed = await process_trip_for_export(
-                        trip,
-                        include_basic_info,
-                        include_locations,
-                        include_telemetry,
-                        include_geometry,
-                        include_meta,
-                        include_custom,
-                    )
-                    if processed:
-                        processed["trip_type"] = "map_matched"
-                        yield processed
+            # Determine filter based on flags
+            final_filter = date_filter.copy()
+            if include_matched_trips and not include_trips:
+                final_filter["matchedGps"] = {"$ne": None}
+            elif not include_matched_trips and not include_trips:
+                # Nothing requested
+                return
+
+            async for trip in trips_collection.find(final_filter).batch_size(500):
+                processed = await process_trip_for_export(
+                    trip,
+                    include_basic_info,
+                    include_locations,
+                    include_telemetry,
+                    include_geometry,
+                    include_meta,
+                    include_custom,
+                )
+                if processed:
+                    processed["trip_type"] = trip.get("source", "unknown")
+                    # If it has matched data, maybe indicate?
+                    if trip.get("matchedGps"):
+                        processed["has_match"] = True
+                    yield processed
 
         if fmt == "csv":
             # Convert async generator to streaming CSV

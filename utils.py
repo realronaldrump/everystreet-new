@@ -8,12 +8,8 @@ from collections.abc import Coroutine
 from typing import Any, TypeVar
 
 import aiohttp
-from aiohttp import (
-    ClientConnectorError,
-    ClientError,
-    ClientResponseError,
-    ServerDisconnectedError,
-)
+from aiohttp import (ClientConnectorError, ClientError, ClientResponseError,
+                     ServerDisconnectedError)
 
 from geometry_service import GeometryService
 

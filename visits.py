@@ -13,15 +13,9 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from date_utils import normalize_to_utc_datetime
-from db import (
-    aggregate_with_retry,
-    delete_one_with_retry,
-    find_one_with_retry,
-    find_with_retry,
-    insert_one_with_retry,
-    serialize_datetime,
-    update_one_with_retry,
-)
+from db import (aggregate_with_retry, delete_one_with_retry,
+                find_one_with_retry, find_with_retry, insert_one_with_retry,
+                serialize_datetime, update_one_with_retry)
 
 logger = logging.getLogger(__name__)
 
@@ -240,14 +234,7 @@ async def _calculate_visits_for_place_agg(place: dict) -> list[dict]:
     place_id = str(place["_id"])
 
     ended_at_place_match = {
-        "$or": [
-            {"destinationPlaceId": place_id},
-            {
-                "destinationGeoPoint": {
-                    "$geoWithin": {"$geometry": place["geometry"]},
-                }
-            },
-        ],
+        "destinationPlaceId": place_id,
         "endTime": {"$ne": None},
     }
 
@@ -493,7 +480,8 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
     ``month`` | ``year``). When supplied, only trips whose *endTime* falls
     inside that rolling window are considered.
     """
-    from datetime import datetime, timedelta  # Local import to avoid circular issues
+    from datetime import (datetime,  # Local import to avoid circular issues
+                          timedelta)
 
     try:
         # ------------------------------------------------------------------
@@ -671,9 +659,7 @@ async def get_visit_suggestions(
     try:
         match_stage: dict[str, Any] = {
             "destinationPlaceId": {"$exists": False},
-            # Ensure destinationGeoPoint has coordinates (i.e., is a GeoJSON point)
-            "destinationGeoPoint.type": "Point",
-            "destinationGeoPoint.coordinates": {"$exists": True, "$ne": []},
+            "gps": {"$exists": True},
         }
 
         if timeframe:
@@ -706,8 +692,21 @@ async def get_visit_suggestions(
             {"$match": match_stage},
             {
                 "$project": {
-                    "lng": {"$arrayElemAt": ["$destinationGeoPoint.coordinates", 0]},
-                    "lat": {"$arrayElemAt": ["$destinationGeoPoint.coordinates", 1]},
+                    # Extract last coordinate from gps (Point or LineString)
+                    "coordinates": {
+                        "$cond": {
+                            "if": {"$eq": ["$gps.type", "Point"]},
+                            "then": "$gps.coordinates",
+                            "else": {"$arrayElemAt": ["$gps.coordinates", -1]},
+                        }
+                    },
+                    "endTime": 1,
+                }
+            },
+            {
+                "$project": {
+                    "lng": {"$arrayElemAt": ["$coordinates", 0]},
+                    "lat": {"$arrayElemAt": ["$coordinates", 1]},
                     "endTime": 1,
                 }
             },

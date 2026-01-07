@@ -12,7 +12,7 @@ from typing import Any
 import pymongo
 from pymongo.collection import Collection
 
-from celery_app import app as celery_app
+
 from date_utils import parse_timestamp
 from db import serialize_document
 from geometry_service import GeometryService
@@ -413,6 +413,7 @@ async def process_trip_end(
         # This eliminates the delay between trip end and it appearing in history
         try:
             celery_task_id = f"periodic_fetch_trips_tripEnd_{uuid.uuid4()}"
+            from celery_app import app as celery_app
             celery_app.send_task(
                 "tasks.periodic_fetch_trips",
                 task_id=celery_task_id,
