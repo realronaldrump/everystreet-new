@@ -5,12 +5,14 @@ Trips are stored in live_trips collection for visual reference only.
 """
 
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pymongo
 from pymongo.collection import Collection
 
+from celery_app import app as celery_app
 from date_utils import parse_timestamp
 from db import serialize_document
 from geometry_service import GeometryService
@@ -406,6 +408,28 @@ async def process_trip_end(
             trip.get("distance", 0),
         )
         await _publish_trip_snapshot(updated_trip, status="completed")
+
+        # Trigger periodic fetch to get the complete trip from Bouncie
+        # This eliminates the delay between trip end and it appearing in history
+        try:
+            celery_task_id = f"periodic_fetch_trips_tripEnd_{uuid.uuid4()}"
+            celery_app.send_task(
+                "tasks.periodic_fetch_trips",
+                task_id=celery_task_id,
+                queue="default",
+            )
+            logger.info(
+                "Triggered periodic_fetch_trips after trip %s ended (task_id: %s)",
+                transaction_id,
+                celery_task_id,
+            )
+        except Exception as trigger_err:
+            # Log error but don't fail the tripEnd processing
+            logger.warning(
+                "Failed to trigger periodic_fetch_trips after trip %s ended: %s",
+                transaction_id,
+                trigger_err,
+            )
 
 
 # ============================================================================
