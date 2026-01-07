@@ -313,11 +313,13 @@ def run_async_from_sync(
     """Runs an async coroutine from a synchronous context, managing the event loop.
 
     This is crucial for calling async functions (like motor operations)
-    from synchronous Celery tasks without encountering 'Event loop is closed' errors.
-    It gets the current thread's loop or creates one if needed, and runs the
-    coroutine until completion using loop.run_until_complete. Unlike asyncio.run(),
-    it doesn't close the loop afterwards, allowing libraries like motor to
-    clean up properly.
+    from synchronous Celery tasks without encountering 'Event loop is closed' errors
+    or 'Future attached to a different loop' errors.
+
+    To avoid event loop conflicts with Motor (MongoDB async driver), this function:
+    1. Always creates a fresh event loop for each call
+    2. Properly cleans up the loop after execution
+    3. Clears the thread-local event loop reference
 
     Args:
         coro: The awaitable coroutine to execute.
@@ -325,23 +327,10 @@ def run_async_from_sync(
     Returns:
         The result of the coroutine.
     """
-    try:
-        loop = asyncio.get_event_loop_policy().get_event_loop()
-        logger.debug(
-            "Reusing existing event loop for sync-to-async execution.",
-        )
-    except RuntimeError:
-        logger.debug(
-            "No event loop found, creating a new one for sync-to-async execution.",
-        )
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    if loop.is_closed():
-        logger.warning("Event loop was closed. Creating a new one.")
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
+    # Always create a fresh loop to ensure isolation from any existing loop
+    # This prevents "attached to a different loop" errors with Motor
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
         return loop.run_until_complete(coro)
     except Exception:
@@ -350,6 +339,23 @@ def run_async_from_sync(
             exc_info=True,
         )
         raise
+    finally:
+        try:
+            # Cancel any pending tasks
+            pending = asyncio.all_tasks(loop)
+            for task in pending:
+                task.cancel()
+            # Allow cancelled tasks to complete
+            if pending:
+                loop.run_until_complete(
+                    asyncio.gather(*pending, return_exceptions=True)
+                )
+            loop.close()
+        except Exception as e:
+            logger.warning("Error during event loop cleanup: %s", e)
+        finally:
+            # Clear thread-local loop reference to avoid stale references
+            asyncio.set_event_loop(None)
 
 
 def calculate_circular_average_hour(

@@ -194,26 +194,17 @@ def init_worker(**_kwargs):
     """Initialize database connection and modules for each Celery worker process."""
     logger.info("Initializing Celery worker process...")
     try:
-        logger.info("Initializing DatabaseManager for worker...")
-        _ = db_manager.client
-        _ = db_manager.db
-        if not db_manager.connection_healthy:
-            logger.warning(
-                "DB Manager connection unhealthy, attempting re-init.",
-            )
-            db_manager.ensure_connection()
-            if not db_manager.connection_healthy:
-                raise ConnectionFailure(
-                    "DB Manager failed to establish connection in worker.",
-                )
-        logger.info("DatabaseManager connection verified for worker.")
+        # Database connection is now handled lazily by db_manager
+        # with automatic loop detection and reconnection
+        logger.info("Worker process starting (DB connection is lazy)")
 
         # ---- NEW: Configure MongoDB Logging for Worker ----
         try:
             from mongodb_logging_handler import MongoDBHandler
 
             # Create handler using the worker's db instance
-            mongo_handler = MongoDBHandler(db_manager.db)
+            # Pass db_manager instead of db instance for lazy access
+            mongo_handler = MongoDBHandler(db_manager)
 
             # We need to run setup_indexes, but we can't await here easily.
             # However, the handler handles async emission.

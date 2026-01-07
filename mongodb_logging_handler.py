@@ -15,17 +15,22 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 class MongoDBHandler(logging.Handler):
     """Custom logging handler that writes log records to MongoDB."""
 
-    def __init__(self, db: AsyncIOMotorDatabase, collection_name: str = "server_logs"):
+    def __init__(self, db_manager, collection_name: str = "server_logs"):
         """
         Initialize the MongoDB logging handler.
 
         Args:
-            db: The MongoDB database instance
+            db_manager: The DatabaseManager instance
             collection_name: Name of the collection to store logs in
         """
         super().__init__()
-        self.collection = db[collection_name]
+        self._db_manager = db_manager
+        self._collection_name = collection_name
         self._setup_complete = False
+
+    def _get_collection(self):
+        """Get fresh collection reference using current event loop's db connection."""
+        return self._db_manager.db[self._collection_name]
 
     async def setup_indexes(self):
         """Create indexes for the logs collection."""
@@ -33,12 +38,13 @@ class MongoDBHandler(logging.Handler):
             return
 
         try:
+            collection = self._get_collection()
             # Create index on timestamp for efficient querying
-            await self.collection.create_index([("timestamp", -1)])
+            await collection.create_index([("timestamp", -1)])
             # Create index on level for filtering
-            await self.collection.create_index("level")
+            await collection.create_index("level")
             # TTL index to auto-delete logs older than 30 days
-            await self.collection.create_index(
+            await collection.create_index(
                 "timestamp", expireAfterSeconds=30 * 24 * 60 * 60
             )
             self._setup_complete = True
@@ -85,7 +91,8 @@ class MongoDBHandler(logging.Handler):
             log_entry: The formatted log entry to insert
         """
         with contextlib.suppress(Exception):
-            await self.collection.insert_one(log_entry)
+            collection = self._get_collection()
+            await collection.insert_one(log_entry)
 
     def _format_log_entry(self, record: logging.LogRecord) -> dict[str, Any]:
         """

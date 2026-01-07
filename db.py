@@ -72,6 +72,7 @@ class DatabaseManager:
             self._client: AsyncIOMotorClient | None = None
             self._db: AsyncIOMotorDatabase | None = None
             self._gridfs_bucket_instance: None | (AsyncIOMotorGridFSBucket) = None
+            self._bound_loop: asyncio.AbstractEventLoop | None = None
             self._connection_healthy = True
             self._db_semaphore = asyncio.Semaphore(10)
             self._collections: dict[str, AsyncIOMotorCollection] = {}
@@ -172,10 +173,46 @@ class DatabaseManager:
             )
             raise
 
+    def _get_current_loop(self) -> asyncio.AbstractEventLoop | None:
+        """Safely get the current running event loop, or None if no loop is running."""
+        try:
+            return asyncio.get_running_loop()
+        except RuntimeError:
+            return None
+
+    def _close_client_sync(self) -> None:
+        """Synchronously close the current client (for loop change scenarios)."""
+        if self._client:
+            try:
+                self._client.close()
+                logger.debug("Closed MongoDB client due to event loop change")
+            except Exception as e:
+                logger.warning("Error closing MongoDB client: %s", e)
+            finally:
+                self._client = None
+                self._db = None
+                self._collections = {}
+                self._gridfs_bucket_instance = None
+                self._bound_loop = None
+
+    def _check_loop_and_reconnect(self) -> None:
+        """Check if event loop has changed and reconnect if necessary."""
+        current_loop = self._get_current_loop()
+        if self._client is not None and current_loop is not None:
+            if self._bound_loop != current_loop:
+                logger.info(
+                    "Event loop changed (was %s, now %s), reconnecting MongoDB client",
+                    id(self._bound_loop),
+                    id(current_loop),
+                )
+                self._close_client_sync()
+
     @property
     def db(self) -> AsyncIOMotorDatabase:
+        self._check_loop_and_reconnect()
         if self._db is None or not self._connection_healthy:
             self._initialize_client()
+            self._bound_loop = self._get_current_loop()
         if self._db is None:
             raise ConnectionFailure(
                 "Database instance could not be initialized.",
@@ -184,8 +221,10 @@ class DatabaseManager:
 
     @property
     def client(self) -> AsyncIOMotorClient:
+        self._check_loop_and_reconnect()
         if self._client is None or not self._connection_healthy:
             self._initialize_client()
+            self._bound_loop = self._get_current_loop()
         if self._client is None:
             raise ConnectionFailure("MongoDB client could not be initialized.")
         return self._client
