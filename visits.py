@@ -13,9 +13,15 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from date_utils import normalize_to_utc_datetime
-from db import (aggregate_with_retry, delete_one_with_retry,
-                find_one_with_retry, find_with_retry, insert_one_with_retry,
-                serialize_datetime, update_one_with_retry)
+from db import (
+    aggregate_with_retry,
+    delete_one_with_retry,
+    find_one_with_retry,
+    find_with_retry,
+    insert_one_with_retry,
+    serialize_datetime,
+    update_one_with_retry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -480,8 +486,8 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
     ``month`` | ``year``). When supplied, only trips whose *endTime* falls
     inside that rolling window are considered.
     """
-    from datetime import (datetime,  # Local import to avoid circular issues
-                          timedelta)
+    from datetime import datetime  # Local import to avoid circular issues
+    from datetime import timedelta
 
     try:
         # ------------------------------------------------------------------

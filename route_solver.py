@@ -22,9 +22,13 @@ import osmnx as ox
 from bson import ObjectId
 from shapely.geometry import LineString, box, shape
 
-from db import (coverage_metadata_collection, find_one_with_retry,
-                optimal_route_progress_collection, streets_collection,
-                update_one_with_retry)
+from db import (
+    coverage_metadata_collection,
+    find_one_with_retry,
+    optimal_route_progress_collection,
+    streets_collection,
+    update_one_with_retry,
+)
 from geometry_service import GeometryService
 from progress_tracker import ProgressTracker
 

@@ -58,16 +58,21 @@ def _buffer_polygon_for_routing(polygon, buffer_ft: float):
 async def preprocess_streets(location: dict, task_id: str = None) -> None:
     """
     Download and save the OSM graph for a single location.
-    
+
     Args:
         location: Location dictionary containing _id, display_name, boundingbox/geojson.
         task_id: Optional task ID for logging context.
     """
     location_id = str(location.get("_id", "unknown"))
     location_name = location.get("display_name", "Unknown Location")
-    
+
     if task_id:
-        logger.info("Task %s: Preprocessing graph for %s (ID: %s)", task_id, location_name, location_id)
+        logger.info(
+            "Task %s: Preprocessing graph for %s (ID: %s)",
+            task_id,
+            location_name,
+            location_id,
+        )
     else:
         logger.info("Preprocessing graph for %s (ID: %s)", location_name, location_id)
 
@@ -91,12 +96,13 @@ async def preprocess_streets(location: dict, task_id: str = None) -> None:
 
         # 3. Download Graph
         logger.info("Downloading OSM graph for %s...", location_name)
-        
+
         # Run synchronous ox operations in a thread pool to avoid blocking the event loop
         # distinct from the main thread if running in an async context
         import asyncio
+
         loop = asyncio.get_running_loop()
-        
+
         def _download_and_save():
             G = ox.graph_from_polygon(
                 routing_polygon,
@@ -111,7 +117,7 @@ async def preprocess_streets(location: dict, task_id: str = None) -> None:
             return G, file_path
 
         await loop.run_in_executor(None, _download_and_save)
-        
+
         logger.info("Graph downloaded and saved for %s.", location_name)
 
     except Exception as e:
@@ -140,39 +146,38 @@ async def preprocess_all_graphs():
         # Note: preprocess_streets expects "location" dict inside to contain geojson/bbox?
         # No, the loop below passes 'area', but 'process_area' in tasks passes 'location' dict.
         # Let's align the usage.
-        
+
         # In DB: area = { "_id": ..., "location": { "display_name": ..., "geojson": ... } }
         # logic in preprocess_streets accesses location.get("display_name") directly??
         # Wait, the original code had:
-        # location_name = area.get("location", {}).get("display_name", ...)
         # So 'area' is the document.
         # In coverage_tasks.py: await async_preprocess_streets(location, task_id)
-        # where 'location' is passed from API. 
+        # where 'location' is passed from API.
         # API payloads often flatten or structure differently.
         # process_area receives 'location: dict[str, Any]'.
-        
+
         # Let's ensure consistency.
         # If 'location' arg contains "display_name" at top level, it's the inner dict.
         # If it contains "location" key, it's the outer wrapper.
-        
+
         # Let's inspect what calls process_area in coverage_tasks.
         # It seems it's called with the 'location' object which likely has 'display_name', 'geojson' etc.
         # The original preprocess_all_graphs accessed area.get("location", {}).get("display_name").
-        
+
         # To be safe, I'll adapt the function to handle both or expect the inner 'location' object.
         # If I look at coverage_tasks.py, 'location' seems to be the inner object (has display_name).
-        
+
         # So in preprocess_all_graphs, I should pass area.get("location") and manually inject _id if needed
         # or just pass the whole thing if the function is smart.
-        
+
         # Let's make preprocess_streets expect the inner Location object structure + _id.
         # But wait, the file name uses location_id. In the DB, _id is the location ID.
         # In the API 'LocationModel', does it have _id?
-        
+
         # Let's assume the argument 'location' to preprocess_streets is the dict that contains
         # 'display_name', 'geojson', 'boundingbox'.
         # And we need the ID for the filename.
-        
+
         # I will update preprocess_streets to check for location keys.
         pass
 
@@ -181,7 +186,7 @@ async def preprocess_all_graphs():
         # Ensure _id is available for filename
         if "_id" not in loc_data:
             loc_data["_id"] = str(area["_id"])
-            
+
         await preprocess_streets(loc_data)
 
     logger.info("Preprocessing complete.")

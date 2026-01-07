@@ -19,11 +19,19 @@ import bson
 import certifi
 import pymongo
 from bson import ObjectId
-from motor.motor_asyncio import (AsyncIOMotorClient, AsyncIOMotorCollection,
-                                 AsyncIOMotorCursor, AsyncIOMotorDatabase,
-                                 AsyncIOMotorGridFSBucket)
-from pymongo.errors import (ConnectionFailure, DuplicateKeyError,
-                            OperationFailure, ServerSelectionTimeoutError)
+from motor.motor_asyncio import (
+    AsyncIOMotorClient,
+    AsyncIOMotorCollection,
+    AsyncIOMotorCursor,
+    AsyncIOMotorDatabase,
+    AsyncIOMotorGridFSBucket,
+)
+from pymongo.errors import (
+    ConnectionFailure,
+    DuplicateKeyError,
+    OperationFailure,
+    ServerSelectionTimeoutError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
@@ -31,8 +39,11 @@ if TYPE_CHECKING:
     from fastapi import Request
     from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
-from date_utils import (normalize_calendar_date, normalize_to_utc_datetime,
-                        parse_timestamp)
+from date_utils import (
+    normalize_calendar_date,
+    normalize_to_utc_datetime,
+    parse_timestamp,
+)
 
 logger = logging.getLogger(__name__)
 

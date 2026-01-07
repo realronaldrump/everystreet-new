@@ -10,10 +10,18 @@ from pydantic import ValidationError
 
 from config import API_BASE_URL, AUTH_URL, get_bouncie_config
 from date_utils import normalize_to_utc_datetime
-from db import (aggregate_with_retry, delete_one_with_retry,
-                find_one_with_retry, find_with_retry, gas_fillups_collection,
-                insert_one_with_retry, serialize_document, trips_collection,
-                update_one_with_retry, vehicles_collection)
+from db import (
+    aggregate_with_retry,
+    delete_one_with_retry,
+    find_one_with_retry,
+    find_with_retry,
+    gas_fillups_collection,
+    insert_one_with_retry,
+    serialize_document,
+    trips_collection,
+    update_one_with_retry,
+    vehicles_collection,
+)
 from geometry_service import GeometryService
 from models import GasFillupCreateModel, VehicleModel
 from utils import get_session
