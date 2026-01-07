@@ -346,8 +346,9 @@ async def process_trip_metrics(
 async def process_trip_end(
     data: dict[str, Any],
     live_collection: Collection,
+    archive_collection: Collection | None = None,
 ) -> None:
-    """Process tripEnd event - mark trip as completed."""
+    """Process tripEnd event - mark trip as completed and archive it."""
     transaction_id = data.get("transactionId")
     end_data = data.get("end", {})
 
@@ -392,7 +393,7 @@ async def process_trip_end(
         "gps": gps,
     }
 
-    # Keep coordinates for now, remove on cleanup
+    # Update in live collection first (to get full document state)
     updated_trip = await live_collection.find_one_and_update(
         {"transactionId": transaction_id},
         {"$set": update_fields},
@@ -408,26 +409,53 @@ async def process_trip_end(
         )
         await _publish_trip_snapshot(updated_trip, status="completed")
 
-        # Trigger periodic fetch to get the complete trip from Bouncie
+        # Archive the trip if collection is provided
+        if archive_collection is not None:
+            try:
+                # Insert into archive
+                await archive_collection.replace_one(
+                    {"transactionId": transaction_id}, updated_trip, upsert=True
+                )
+                # Delete from live
+                await live_collection.delete_one({"transactionId": transaction_id})
+                logger.info("Trip %s archived and removed from live", transaction_id)
+            except Exception as archive_err:
+                logger.error(
+                    "Failed to archive trip %s: %s", transaction_id, archive_err
+                )
+
+        # Trigger periodic fetch for this specific trip range
         # This eliminates the delay between trip end and it appearing in history
         try:
-            celery_task_id = f"periodic_fetch_trips_tripEnd_{uuid.uuid4()}"
+            celery_task_id = f"fetch_trip_{transaction_id}_{uuid.uuid4()}"
             from celery_app import app as celery_app
+
+            # Pass specific time range to avoid full sync
+            # Add small buffer to start/end times to safely catch all points
+            fetch_start = start_time - timedelta(minutes=5) if start_time else None
+            fetch_end = end_time + timedelta(minutes=5)
+
+            task_kwargs = {"manual_run": False, "trigger_source": "trip_end"}
+
+            if fetch_start and fetch_end:
+                task_kwargs["start_time_iso"] = fetch_start.isoformat()
+                task_kwargs["end_time_iso"] = fetch_end.isoformat()
 
             celery_app.send_task(
                 "tasks.periodic_fetch_trips",
+                kwargs=task_kwargs,
                 task_id=celery_task_id,
                 queue="default",
             )
             logger.info(
-                "Triggered periodic_fetch_trips after trip %s ended (task_id: %s)",
+                "Triggered targeted fetch for trip %s (task_id: %s)",
                 transaction_id,
                 celery_task_id,
             )
         except Exception as trigger_err:
             # Log error but don't fail the tripEnd processing
             logger.warning(
-                "Failed to trigger periodic_fetch_trips after trip %s ended: %s",
+                "Failed to trigger fetch after trip %s ended: %s",
                 transaction_id,
                 trigger_err,
             )

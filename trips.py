@@ -251,7 +251,16 @@ async def get_trips(request: Request):
             geom = GeometryService.parse_geojson(trip.get("gps"))
             matched_geom = GeometryService.parse_geojson(trip.get("matchedGps"))
 
-            coords = geom.get("coordinates", []) if isinstance(geom, dict) else []
+            # Use matched geometry as the main feature geometry if requested
+            final_geom = geom
+            if matched_only and matched_geom:
+                final_geom = matched_geom
+
+            coords = (
+                final_geom.get("coordinates", [])
+                if isinstance(final_geom, dict)
+                else []
+            )
             num_points = len(coords) if isinstance(coords, list) else 0
             props = {
                 "transactionId": trip.get("transactionId"),
@@ -277,7 +286,7 @@ async def get_trips(request: Request):
                 "matchedGps": matched_geom,
                 "matchStatus": trip.get("matchStatus"),
             }
-            feature = GeometryService.feature_from_geometry(geom, props)
+            feature = GeometryService.feature_from_geometry(final_geom, props)
             chunk = json_dumps(feature, separators=(",", ":"))
             if not first:
                 yield ","

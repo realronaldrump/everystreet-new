@@ -50,13 +50,13 @@ def _date_range_filename_component(request: Request) -> str:
     return datetime.now().strftime("%Y%m%d")
 
 
-async def _stream_geojson_from_cursor(cursor) -> Any:
+async def _stream_geojson_from_cursor(cursor, geometry_field="gps") -> Any:
     async def generator():
         yield '{"type":"FeatureCollection","features":['
         first = True
         async for trip in cursor:
             try:
-                geom = GeometryService.geometry_from_document(trip, "gps")
+                geom = GeometryService.geometry_from_document(trip, geometry_field)
                 if not geom:
                     continue
                 props = {k: v for k, v in trip.items() if k != "gps"}
@@ -412,7 +412,9 @@ async def export_matched_trips_within_range(
                 },
             )
         if fmt.lower() == "geojson":
-            stream = await _stream_geojson_from_cursor(cursor)
+            stream = await _stream_geojson_from_cursor(
+                cursor, geometry_field="matchedGps"
+            )
             return StreamingResponse(
                 stream,
                 media_type="application/geo+json",

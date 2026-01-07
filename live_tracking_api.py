@@ -73,7 +73,16 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
     elif event_type == "tripMetrics":
         await process_trip_metrics(data, live_collection)
     elif event_type == "tripEnd":
-        await process_trip_end(data, live_collection)
+        # Get archive collection for archiving completed trips
+        try:
+            archive_collection = db_manager.get_collection("archived_live_trips")
+            await process_trip_end(data, live_collection, archive_collection)
+        except Exception as archive_db_error:
+            logger.error(
+                "Failed to get archived_live_trips collection: %s", archive_db_error
+            )
+            # Fallback to just processing end (no archive) if collection fails
+            await process_trip_end(data, live_collection)
 
     return {"status": "processed", "event": event_type, "transactionId": transaction_id}
 

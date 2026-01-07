@@ -537,12 +537,12 @@ def _get_collection(
 
 
 trips_collection = _get_collection("trips")
-# matched_trips_collection removed - consolidated into trips
 places_collection = _get_collection("places")
 osm_data_collection = _get_collection("osm_data")
 streets_collection = _get_collection("streets")
 coverage_metadata_collection = _get_collection("coverage_metadata")
 live_trips_collection = _get_collection("live_trips")
+archived_live_trips_collection = _get_collection("archived_live_trips")
 task_config_collection = _get_collection("task_config")
 task_history_collection = _get_collection("task_history")
 progress_collection = _get_collection("progress_status")

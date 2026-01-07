@@ -77,7 +77,7 @@ TASK_METADATA = {
         "default_interval_minutes": int(
             os.environ.get(
                 "TRIP_FETCH_INTERVAL_MINUTES",
-                "60",
+                "720",
             ),
         ),
         "dependencies": [],
@@ -557,8 +557,16 @@ def task_runner(func: Callable) -> Callable:
 
 
 @task_runner
-async def periodic_fetch_trips_async(_self) -> dict[str, Any]:
-    """Async logic for fetching periodic trips since the last stored trip."""
+async def periodic_fetch_trips_async(
+    _self,
+    start_time_iso: str | None = None,
+    end_time_iso: str | None = None,
+    trigger_source: str = "scheduled",
+) -> dict[str, Any]:
+    """Async logic for fetching periodic trips since the last stored trip.
+
+    Can optionally accept specific start/end times for event-driven fetches.
+    """
     # Get current Bouncie credentials from database or environment
     bouncie_config = await get_bouncie_config()
     logger.info(
@@ -574,49 +582,75 @@ async def periodic_fetch_trips_async(_self) -> dict[str, Any]:
     logger.info("Determining date range for fetching trips...")
     now_utc = datetime.now(UTC)
 
-    try:
-        logger.info("Looking for the most recent trip in the database (any source)")
-        latest_trip = await find_one_with_retry(
-            trips_collection,
-            {},
-            sort=[("endTime", -1)],
-        )
+    # Use provided range if available (Event-Driven Mode)
+    if start_time_iso and end_time_iso:
+        try:
+            start_date_fetch = parse_timestamp(start_time_iso)
+            end_date_fetch = parse_timestamp(end_time_iso)
 
-        if latest_trip:
-            latest_trip_id = latest_trip.get("transactionId", "unknown")
-            latest_trip_source = latest_trip.get("source", "unknown")
-            latest_trip_end = parse_timestamp(latest_trip.get("endTime"))
+            if not start_date_fetch or not end_date_fetch:
+                raise ValueError("Invalid start or end time format")
 
             logger.info(
-                "Found most recent trip: id=%s, source=%s, endTime=%s",
-                latest_trip_id,
-                latest_trip_source,
-                latest_trip_end,
+                "Event-Driven Fetch (%s): Using provided range %s to %s",
+                trigger_source,
+                start_date_fetch.isoformat(),
+                end_date_fetch.isoformat(),
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to parse provided date range: %s. Falling back to default logic.",
+                e,
+            )
+            start_date_fetch = None
+    else:
+        start_date_fetch = None
+
+    # Fallback/Default Logic (Periodic Mode)
+    if not start_date_fetch:
+        try:
+            logger.info("Looking for the most recent trip in the database (any source)")
+            latest_trip = await find_one_with_retry(
+                trips_collection,
+                {},
+                sort=[("endTime", -1)],
             )
 
-            if latest_trip_end:
-                start_date_fetch = latest_trip_end
+            if latest_trip:
+                latest_trip_id = latest_trip.get("transactionId", "unknown")
+                latest_trip_source = latest_trip.get("source", "unknown")
+                latest_trip_end = parse_timestamp(latest_trip.get("endTime"))
+
                 logger.info(
-                    "Using latest trip endTime as start_date_fetch: %s",
-                    start_date_fetch.isoformat(),
+                    "Found most recent trip: id=%s, source=%s, endTime=%s",
+                    latest_trip_id,
+                    latest_trip_source,
+                    latest_trip_end,
                 )
+
+                if latest_trip_end:
+                    start_date_fetch = latest_trip_end
+                    logger.info(
+                        "Using latest trip endTime as start_date_fetch: %s",
+                        start_date_fetch.isoformat(),
+                    )
+                else:
+                    logger.warning("Latest trip has no endTime, using fallback")
+                    start_date_fetch = now_utc - timedelta(hours=48)
+                    logger.info(
+                        "Using fallback start date (48 hours ago): %s",
+                        start_date_fetch.isoformat(),
+                    )
             else:
-                logger.warning("Latest trip has no endTime, using fallback")
+                logger.warning("No trips found in database, using fallback date range")
                 start_date_fetch = now_utc - timedelta(hours=48)
                 logger.info(
                     "Using fallback start date (48 hours ago): %s",
                     start_date_fetch.isoformat(),
                 )
-        else:
-            logger.warning("No trips found in database, using fallback date range")
-            start_date_fetch = now_utc - timedelta(hours=48)
-            logger.info(
-                "Using fallback start date (48 hours ago): %s",
-                start_date_fetch.isoformat(),
-            )
 
-    except Exception as e:
-        logger.exception("Error finding latest trip: %s", e)
+        except Exception as e:
+            logger.exception("Error finding latest trip: %s", e)
         start_date_fetch = now_utc - timedelta(hours=48)
         logger.info(
             "Using fallback start date after error (48 hours ago): %s",
@@ -636,14 +670,14 @@ async def periodic_fetch_trips_async(_self) -> dict[str, Any]:
     logger.info(
         "FINAL DATE RANGE: Fetching Bouncie trips from %s to %s",
         start_date_fetch.isoformat(),
-        now_utc.isoformat(),
+        (end_date_fetch if "end_date_fetch" in locals() else now_utc).isoformat(),
     )
 
     logger.info("Calling fetch_bouncie_trips_in_range...")
     try:
         fetched_trips = await fetch_bouncie_trips_in_range(
             start_date_fetch,
-            now_utc,
+            end_date_fetch if "end_date_fetch" in locals() else now_utc,
             do_map_match=False,
         )
         logger.info(
@@ -720,9 +754,25 @@ async def periodic_fetch_trips_async(_self) -> dict[str, Any]:
     soft_time_limit=3300,
     name="tasks.periodic_fetch_trips",
 )
-def periodic_fetch_trips(_self, *_args, **_kwargs):
-    """Celery task wrapper for fetching periodic trips."""
-    return run_async_from_sync(periodic_fetch_trips_async(_self))
+def periodic_fetch_trips(
+    _self,
+    start_time_iso: str | None = None,
+    end_time_iso: str | None = None,
+    trigger_source: str = "scheduled",
+    **_kwargs,
+):
+    """Celery task wrapper for fetching periodic trips.
+
+    Accepts kwargs to support event-driven triggers with specific date ranges.
+    """
+    return run_async_from_sync(
+        periodic_fetch_trips_async(
+            _self,
+            start_time_iso=start_time_iso,
+            end_time_iso=end_time_iso,
+            trigger_source=trigger_source,
+        )
+    )
 
 
 @task_runner
