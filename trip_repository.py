@@ -82,6 +82,41 @@ class TripRepository:
             trip_to_save["saved_at"] = get_current_utc_time()
             trip_to_save["processing_history"] = state_history
 
+            # Extract start and destination GeoPoints from GPS data for spatial indexing
+            gps_data = trip_to_save.get("gps")
+            if gps_data and isinstance(gps_data, dict):
+                gps_type = gps_data.get("type")
+                coords = gps_data.get("coordinates")
+
+                if gps_type == "Point" and coords and len(coords) >= 2:
+                    # For Point, start and destination are the same
+                    geo_point = {"type": "Point", "coordinates": [coords[0], coords[1]]}
+                    trip_to_save["startGeoPoint"] = geo_point
+                    trip_to_save["destinationGeoPoint"] = geo_point
+                elif (
+                    gps_type == "LineString"
+                    and coords
+                    and isinstance(coords, list)
+                    and len(coords) >= 2
+                ):
+                    # For LineString, first point is start, last point is destination
+                    start_coords = coords[0]
+                    end_coords = coords[-1]
+                    if (
+                        isinstance(start_coords, list)
+                        and len(start_coords) >= 2
+                        and isinstance(end_coords, list)
+                        and len(end_coords) >= 2
+                    ):
+                        trip_to_save["startGeoPoint"] = {
+                            "type": "Point",
+                            "coordinates": [start_coords[0], start_coords[1]],
+                        }
+                        trip_to_save["destinationGeoPoint"] = {
+                            "type": "Point",
+                            "coordinates": [end_coords[0], end_coords[1]],
+                        }
+
             if "_id" in trip_to_save:
                 del trip_to_save["_id"]
 

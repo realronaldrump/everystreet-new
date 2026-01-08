@@ -29,9 +29,28 @@ class VisitTrackingService:
             duration, and time_since_last
         """
         place_id = str(place["_id"])
+        geometry = place.get("geometry")
+
+        # Match trips by destinationPlaceId OR by spatial intersection with place geometry
+        # This handles both new trips (with destinationPlaceId set) and older trips
+        # that were recorded before the place was created
+        match_conditions = [
+            {"destinationPlaceId": place_id},
+        ]
+
+        # Add spatial matching if place has geometry
+        # Note: We can't easily match gps LineString end points against a polygon
+        # in the initial $match stage, so we'll need to use aggregation to extract
+        # the end point and then filter. However, for trips that already have
+        # destinationGeoPoint set, we can match directly.
+        if geometry:
+            # Match trips whose destinationGeoPoint falls within the place geometry
+            match_conditions.append(
+                {"destinationGeoPoint": {"$geoWithin": {"$geometry": geometry}}}
+            )
 
         ended_at_place_match = {
-            "destinationPlaceId": place_id,
+            "$or": match_conditions,
             "endTime": {"$ne": None},
         }
 
