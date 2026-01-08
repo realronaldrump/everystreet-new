@@ -221,7 +221,7 @@ def _segment_midpoint(coords: list[list[float]]) -> tuple[float, float] | None:
             return None
 
 
-def _map_segment_to_edge(
+def _try_match_osmid(
     G: nx.MultiDiGraph,
     coords: list[list[float]],
     osmid: int | None,
@@ -230,42 +230,47 @@ def _map_segment_to_edge(
     node_xy: dict[int, tuple[float, float]] | None = None,
     line_cache: dict[EdgeRef, LineString] | None = None,
 ) -> EdgeRef | None:
-    """Map a segment geometry to a routing edge (OSM ID first, nearest fallback)."""
-    seg_mid = _segment_midpoint(coords)
+    """Try to map a segment to an edge using OSM ID matching only."""
+    if osmid is None:
+        return None
+
+    candidates = osmid_index.get(osmid, [])
+    if not candidates:
+        return None
+
     seg_line = None
     if coords and len(coords) >= 2:
         with contextlib.suppress(Exception):
             seg_line = LineString(coords)
-    if osmid is not None:
-        candidates = osmid_index.get(osmid, [])
-        best_edge: EdgeRef | None = None
-        best_dist = float("inf")
-        for u, v, k in candidates:
-            edge_line = _edge_linestring(
-                G,
-                u,
-                v,
-                k,
-                node_xy=node_xy,
-                cache=line_cache,
-            )
-            if not edge_line or not seg_line:
-                continue
-            d_deg = edge_line.distance(seg_line)
-            d_ft = d_deg * 111_000.0 * FEET_PER_METER  # degrees to feet
-            if d_ft < best_dist:
-                best_dist = d_ft
-                best_edge = (u, v, k)
-        if best_edge and best_dist <= MAX_OSM_MATCH_DISTANCE_FT:
-            return best_edge
 
-    if not seg_mid:
+    if not seg_line:
         return None
-    try:
-        u, v, k = ox.distance.nearest_edges(G, seg_mid[0], seg_mid[1])
-        return (int(u), int(v), int(k))
-    except Exception:
-        return None
+
+    best_edge: EdgeRef | None = None
+    best_dist = float("inf")
+
+    for u, v, k in candidates:
+        edge_line = _edge_linestring(
+            G,
+            u,
+            v,
+            k,
+            node_xy=node_xy,
+            cache=line_cache,
+        )
+        if not edge_line:
+            continue
+
+        d_deg = edge_line.distance(seg_line)
+        d_ft = d_deg * 111_000.0 * FEET_PER_METER  # degrees to feet
+        if d_ft < best_dist:
+            best_dist = d_ft
+            best_edge = (u, v, k)
+
+    if best_edge and best_dist <= MAX_OSM_MATCH_DISTANCE_FT:
+        return best_edge
+
+    return None
 
 
 def _dijkstra_to_any_target(
@@ -924,14 +929,14 @@ async def generate_optimal_route_with_progress(
         await update_progress(
             "mapping_segments",
             50,
-            "Mapping segments to street network (OSM ID + nearest fallback)...",
+            "Mapping segments (Phase 1: Parallel OSM ID check)...",
         )
 
         required_reqs: dict[ReqId, list[EdgeRef]] = {}
         req_segment_counts: dict[ReqId, int] = {}
         skipped = 0
         mapped_segments = 0
-        total_segs = len(undriven)
+        len(undriven)
 
         node_xy: dict[int, tuple[float, float]] = {
             n: (float(G.nodes[n]["x"]), float(G.nodes[n]["y"]))
@@ -941,17 +946,15 @@ async def generate_optimal_route_with_progress(
         osmid_index = _build_osmid_index(G)
         edge_line_cache: dict[EdgeRef, LineString] = {}
 
-        for idx, seg in enumerate(undriven):
-            if idx % 250 == 0 and idx > 0:
-                pct = 50 + int((idx / total_segs) * 15)
-                await update_progress(
-                    "mapping_segments", pct, f"Mapping segment {idx}/{total_segs}..."
-                )
-
+        # Pre-process segments to extract necessary data for parallel execution
+        # We need geometry and OSM ID for each segment
+        seg_data_list = []
+        for i, seg in enumerate(undriven):
             geom = seg.get("geometry", {})
             coords = geom.get("coordinates", [])
             if not coords or len(coords) < 2:
                 skipped += 1
+                seg_data_list.append(None)
                 continue
 
             osmid_raw = seg.get("properties", {}).get("osm_id")
@@ -959,25 +962,104 @@ async def generate_optimal_route_with_progress(
             if osmid_raw is not None:
                 with contextlib.suppress(Exception):
                     osmid = int(osmid_raw)
-            edge = _map_segment_to_edge(
+
+            seg_data_list.append({"coords": coords, "osmid": osmid, "index": i})
+
+        # Phase 1: Try to match by OSM ID in parallel
+        # This is CPU/IO bound (Shapely ops release GIL), so threading helps
+        from concurrent.futures import ThreadPoolExecutor
+
+        unmatched_indices = []
+
+        # Helper function for the thread pool
+        def process_segment_osmid(data):
+            if data is None:
+                return None
+            return _try_match_osmid(
                 G,
-                coords,
-                osmid,
+                data["coords"],
+                data["osmid"],
                 osmid_index,
                 node_xy=node_xy,
                 line_cache=edge_line_cache,
             )
-            if not edge:
-                skipped += 1
-                continue
 
-            rid, options = _make_req_id(G, edge)
-            if rid not in required_reqs:
-                required_reqs[rid] = options
-                req_segment_counts[rid] = 1
+        with ThreadPoolExecutor() as executor:
+            # Map all segments
+            results = list(executor.map(process_segment_osmid, seg_data_list))
+
+            for i, edge in enumerate(results):
+                if seg_data_list[i] is None:
+                    continue
+
+                if edge:
+                    rid, options = _make_req_id(G, edge)
+                    if rid not in required_reqs:
+                        required_reqs[rid] = options
+                        req_segment_counts[rid] = 1
+                    else:
+                        req_segment_counts[rid] += 1
+                    mapped_segments += 1
+                else:
+                    unmatched_indices.append(i)
+
+        await update_progress(
+            "mapping_segments",
+            60,
+            f"OSM ID match complete. {len(unmatched_indices)} segments need spatial fallback...",
+        )
+
+        # Phase 2: Batch spatial lookup for remaining segments
+        # Extract midpoints for all unmatched segments
+        X = []
+        Y = []
+        valid_unmatched_indices = []
+
+        for idx in unmatched_indices:
+            data = seg_data_list[idx]
+            mid = _segment_midpoint(data["coords"])
+            if mid:
+                X.append(mid[0])
+                Y.append(mid[1])
+                valid_unmatched_indices.append(idx)
             else:
-                req_segment_counts[rid] += 1
-            mapped_segments += 1
+                skipped += 1
+
+        if X:
+            await update_progress(
+                "mapping_segments",
+                62,
+                "Running batch spatial query for fallback...",
+            )
+            try:
+                # Vectorized nearest edge lookup
+                nearest_edges = ox.distance.nearest_edges(G, X, Y)
+
+                for i, (u, v, k) in enumerate(nearest_edges):
+                    edge = (int(u), int(v), int(k))
+                    rid, options = _make_req_id(G, edge)
+                    if rid not in required_reqs:
+                        required_reqs[rid] = options
+                        req_segment_counts[rid] = 1
+                    else:
+                        req_segment_counts[rid] += 1
+                    mapped_segments += 1
+            except Exception as e:
+                logger.error("Batch spatial lookup failed: %s", e)
+                # Fallback to individual lookup if batch fails (unlikely)
+                for i, idx in enumerate(valid_unmatched_indices):
+                    try:
+                        u, v, k = ox.distance.nearest_edges(G, X[i], Y[i])
+                        edge = (int(u), int(v), int(k))
+                        rid, options = _make_req_id(G, edge)
+                        if rid not in required_reqs:
+                            required_reqs[rid] = options
+                            req_segment_counts[rid] = 1
+                        else:
+                            req_segment_counts[rid] += 1
+                        mapped_segments += 1
+                    except Exception:
+                        skipped += 1
 
         if not required_reqs:
             raise ValueError("Could not map any segments to street network")
@@ -1128,7 +1210,26 @@ async def generate_optimal_route_with_progress(
         }
 
     except Exception as e:
-        await tracker.fail(str(e), f"Route generation failed: {e}")
+        error_msg = str(e)
+        # Check if this is a gap validation error and if we're missing the token
+        if "gap between points" in error_msg:
+            from config import get_mapbox_token
+
+            if not get_mapbox_token():
+                # Enhance the error message
+                detailed_msg = (
+                    f"Route generation failed: {error_msg} "
+                    "This large gap likely indicates the street network is disconnected. "
+                    "To fix this, please configure the Mapbox Access Token in App Settings "
+                    "to allow bridging between disconnected areas."
+                )
+                await tracker.fail(error_msg, detailed_msg)
+                # Re-raise with the enhanced message so it propagates clearly if needed,
+                # though tracker.fail should handle the UI notification.
+                # We'll re-raise a clean ValueError to avoid confusing tracebacks if this is caught upstream
+                raise ValueError(detailed_msg) from e
+
+        await tracker.fail(error_msg, f"Route generation failed: {e}")
         raise
 
 
