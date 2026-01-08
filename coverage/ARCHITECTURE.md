@@ -189,7 +189,9 @@ coverage_api.router → streets.router → streets.get_coverage_area_geojson_fro
 ## Separation of Concerns
 
 ### Layer 1: Routes (API/HTTP Layer)
+
 **Responsibilities**:
+
 - HTTP request/response handling
 - Request validation
 - Endpoint routing
@@ -198,12 +200,15 @@ coverage_api.router → streets.router → streets.get_coverage_area_geojson_fro
 **Files**: `routes/*.py`
 
 **Should NOT**:
+
 - Contain business logic
 - Direct database access (use services)
 - Data transformation (use serializers)
 
 ### Layer 2: Services (Business Logic Layer)
+
 **Responsibilities**:
+
 - Business logic implementation
 - Complex calculations
 - Workflow orchestration
@@ -212,12 +217,15 @@ coverage_api.router → streets.router → streets.get_coverage_area_geojson_fro
 **Files**: `services.py`
 
 **Should NOT**:
+
 - Handle HTTP concerns
 - Know about request/response formats
 - Direct MongoDB type handling (use serializers)
 
 ### Layer 3: Data Access Layer
+
 **Responsibilities**:
+
 - GridFS operations
 - File storage/retrieval
 - Stream management
@@ -225,11 +233,14 @@ coverage_api.router → streets.router → streets.get_coverage_area_geojson_fro
 **Files**: `gridfs_service.py`
 
 **Should NOT**:
+
 - Contain business logic
 - Handle HTTP concerns
 
 ### Layer 4: Utilities Layer
+
 **Responsibilities**:
+
 - Data serialization
 - Type conversions
 - JSON sanitization
@@ -237,6 +248,7 @@ coverage_api.router → streets.router → streets.get_coverage_area_geojson_fro
 **Files**: `serializers.py`
 
 **Should NOT**:
+
 - Contain business logic
 - Database operations
 - HTTP handling
@@ -295,39 +307,47 @@ async def test_coverage_calculation_workflow(test_client):
 ## Design Patterns Used
 
 ### 1. Service Pattern
+
 - `CoverageStatsService`, `SegmentMarkingService`, `GridFSService`
 - Encapsulates business logic
 - Reusable across the application
 
 ### 2. Repository Pattern (via db_manager)
+
 - Database access through `find_one_with_retry`, etc.
 - Abstraction over MongoDB operations
 
 ### 3. Serializer Pattern
+
 - Dedicated serialization layer
 - Consistent data transformation
 
 ### 4. Router Pattern
+
 - FastAPI routers for modular endpoint organization
 - Tagged for OpenAPI documentation
 
 ### 5. Singleton Pattern
+
 - Global service instances (`gridfs_service`, `coverage_stats_service`)
 - Shared across requests
 
 ## Performance Considerations
 
 ### Streaming Large Files
+
 - GridFS streaming uses 8KB chunks
 - Async generators for memory efficiency
 - Proper cleanup in finally blocks
 
 ### Database Operations
+
 - Retry logic for resilience
 - Batch operations where possible
 - Aggregation pipelines for complex queries
 
 ### Async/Await
+
 - Non-blocking I/O operations
 - Concurrent task execution
 - Background task scheduling
@@ -364,32 +384,38 @@ Utilities Layer
 ## Scalability Features
 
 ### 1. Horizontal Scaling
+
 - Stateless route handlers
 - Service instances are lightweight
 - GridFS supports distributed storage
 
 ### 2. Caching (Future)
+
 - Can add caching at service layer
 - Redis integration straightforward
 - Serializers make cache key generation easy
 
 ### 3. Rate Limiting (Future)
+
 - Per-route-group limits
 - Tagged routes make this easy
 
 ### 4. API Versioning (Future)
+
 - Can version route groups independently
 - `/api/v2/coverage_areas/...`
 
 ## Monitoring & Observability
 
 ### Logging Strategy
+
 - Each layer logs at appropriate level
 - Service layer logs business events
 - GridFS service logs storage operations
 - Routes log HTTP events
 
 ### Metrics (Future)
+
 - Request count per route group
 - Service method execution time
 - GridFS operation metrics
@@ -398,6 +424,7 @@ Utilities Layer
 ## Conclusion
 
 The new architecture provides:
+
 - **Clear boundaries** between layers
 - **Single responsibility** per module
 - **Testability** through isolation
