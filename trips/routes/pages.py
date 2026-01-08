@@ -1,0 +1,23 @@
+"""Page rendering routes for trips UI."""
+
+import logging
+
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+from config import get_clarity_id
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+templates = Jinja2Templates(directory="templates")
+
+
+@router.get("/trips", response_class=HTMLResponse, tags=["Pages"])
+async def trips_page(request: Request):
+    """Render the main trips data table page."""
+    return templates.TemplateResponse(
+        "trips.html",
+        {"request": request, "CLARITY_PROJECT_ID": get_clarity_id()},
+    )
