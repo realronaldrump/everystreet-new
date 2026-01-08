@@ -276,7 +276,7 @@ async def get_next_driving_route(request: Request):
             }
             target_street = await streets_collection.find_one(
                 near_query,
-                {"geometry.coordinates": 1, "properties": 1, "_id": 0},
+                {"geometry": 1, "properties": 1, "_id": 0},
             )
 
             if not target_street:
