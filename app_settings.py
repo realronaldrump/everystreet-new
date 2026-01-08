@@ -22,6 +22,10 @@ async def get_app_settings_collection():
     return db_manager.get_collection("app_settings")
 
 
+import os  # Added import
+
+# ... existing code ...
+
 async def get_app_settings() -> dict[str, Any]:
     """Retrieve app settings from database.
 
@@ -35,7 +39,7 @@ async def get_app_settings() -> dict[str, Any]:
     def get_empty_settings() -> dict[str, Any]:
         """Return empty settings structure when none configured."""
         return {
-            "mapbox_access_token": "",
+            "mapbox_access_token": os.environ.get("MAPBOX_ACCESS_TOKEN", ""),  # Fallback to env
             "clarity_project_id": None,
         }
 
@@ -48,8 +52,14 @@ async def get_app_settings() -> dict[str, Any]:
 
         if settings:
             logger.debug("Retrieved app settings from database")
+            
+            # Use DB value, or fallback to env if DB value is empty
+            token = settings.get("mapbox_access_token", "")
+            if not token:
+                token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
+                
             result = {
-                "mapbox_access_token": settings.get("mapbox_access_token", ""),
+                "mapbox_access_token": token,
                 "clarity_project_id": settings.get("clarity_project_id"),
             }
             # Update cache
@@ -57,7 +67,7 @@ async def get_app_settings() -> dict[str, Any]:
             return result
 
         logger.warning(
-            "No app settings found in database. Please configure via the profile page."
+            "No app settings found in database. Using environment defaults."
         )
         return get_empty_settings()
     except Exception as e:
@@ -118,11 +128,16 @@ def get_cached_mapbox_token() -> str:
 
     This is used for module-level imports where async isn't available.
     The cache is populated when get_app_settings() is called.
-    Falls back to empty string if cache not yet populated.
+    Falls back to environment variable if cache is empty or missing.
     """
+    token = ""
     if _settings_cache and _settings_cache.get("mapbox_access_token"):
-        return _settings_cache["mapbox_access_token"]
-    return ""
+        token = _settings_cache["mapbox_access_token"]
+        
+    if not token:
+        token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
+        
+    return token
 
 
 def get_cached_clarity_id() -> str | None:

@@ -26,3 +26,4 @@ scripts/
 
 cache/
 bouncie_docs/bouncie_api_docs.txt
+data/*
