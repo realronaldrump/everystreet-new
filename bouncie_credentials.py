@@ -14,11 +14,6 @@ from db import db_manager, find_one_with_retry, update_one_with_retry
 logger = logging.getLogger(__name__)
 
 
-async def get_bouncie_credentials_collection():
-    """Get the bouncie_credentials collection from db_manager."""
-    return db_manager.get_collection("bouncie_credentials")
-
-
 async def get_bouncie_credentials() -> dict[str, Any]:
     """Retrieve Bouncie credentials from database.
 
@@ -53,7 +48,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         }
 
     try:
-        collection = await get_bouncie_credentials_collection()
+        collection = db_manager.get_collection("bouncie_credentials")
         credentials = await find_one_with_retry(
             collection,
             {"_id": "bouncie_credentials"},
@@ -108,7 +103,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
         True if update was successful, False otherwise.
     """
     try:
-        collection = await get_bouncie_credentials_collection()
+        collection = db_manager.get_collection("bouncie_credentials")
 
         # Build update_data with ONLY the fields that were explicitly provided
         update_data = {}
@@ -148,15 +143,9 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     collection,
                     {"_id": "bouncie_credentials"},
                 )
-                fetch_concurrency = (
-                    existing.get("fetch_concurrency")
-                    if existing
-                    else int(os.getenv("BOUNCIE_FETCH_CONCURRENCY", "12"))
-                )
+                fetch_concurrency = existing.get("fetch_concurrency", 12) if existing else 12
                 try:
-                    fetch_concurrency = (
-                        int(fetch_concurrency) if fetch_concurrency else 12
-                    )
+                    fetch_concurrency = int(fetch_concurrency) if fetch_concurrency else 12
                 except (ValueError, TypeError):
                     fetch_concurrency = 12
             update_data["fetch_concurrency"] = fetch_concurrency

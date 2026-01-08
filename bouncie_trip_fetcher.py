@@ -6,156 +6,17 @@ the unified TripProcessor, and stores trips in MongoDB.
 
 import asyncio
 import logging
-import time
 from datetime import datetime, timedelta
 
 import aiohttp
 
-from bouncie_credentials import update_bouncie_credentials
-from config import API_BASE_URL, AUTH_URL, get_bouncie_config, get_mapbox_token
+from bouncie_oauth import BouncieOAuth
+from config import API_BASE_URL, get_bouncie_config, get_mapbox_token
 from date_utils import parse_timestamp
 from trip_service import TripService
 from utils import get_session, retry_async
 
 logger = logging.getLogger(__name__)
-
-progress_data = {
-    "fetch_and_store_trips": {
-        "status": "idle",
-        "progress": 0,
-        "message": "",
-    },
-    "preprocess_streets": {
-        "status": "idle",
-        "progress": 0,
-        "message": "",
-    },
-}
-
-
-@retry_async(max_retries=3, retry_delay=1.5)
-async def get_access_token(
-    session: aiohttp.ClientSession,
-    credentials: dict,
-) -> str:
-    """Get an access token from the Bouncie API using OAuth.
-
-    Bouncie OAuth Flow (per API docs):
-    - Authorization codes do NOT expire
-    - To get a new access token, re-use the same authorization code
-    - There are NO refresh tokens in Bouncie's API
-
-    This function:
-    1. Checks for valid existing access token (with 5 min buffer)
-    2. If expired/missing, uses authorization_code to get a new one
-    3. Saves the new access token and expiry to storage
-
-    Args:
-        session: aiohttp session to use for the request
-        credentials: Dictionary containing client_id, client_secret,
-                    authorization_code, redirect_uri, and existing tokens
-    """
-    # 1. Check if we have a valid access token (with 5 minute buffer)
-    access_token = credentials.get("access_token")
-    expires_at = credentials.get("expires_at")
-
-    if access_token and expires_at:
-        # If expiring in more than 5 minutes, it's still good
-        if expires_at > time.time() + 300:
-            logger.debug(
-                "Using cached access token (valid for %d more seconds)",
-                int(expires_at - time.time()),
-            )
-            return access_token
-        logger.info("Access token expired or expiring soon, getting new one...")
-
-    # 2. Get new access token using authorization code
-    client_id = credentials.get("client_id")
-    client_secret = credentials.get("client_secret")
-    redirect_uri = credentials.get("redirect_uri")
-    auth_code = credentials.get("authorization_code")
-
-    if not auth_code:
-        logger.error(
-            "No authorization code configured. Please set up Bouncie credentials "
-            "via the profile page or environment variables."
-        )
-        return None
-
-    if not all([client_id, client_secret, redirect_uri]):
-        logger.error(
-            "Missing required OAuth credentials (client_id, client_secret, or redirect_uri)"
-        )
-        return None
-
-    # Per Bouncie docs: Content-Type should be application/json for token requests
-    headers = {"Content-Type": "application/json"}
-    payload = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "grant_type": "authorization_code",
-        "code": auth_code,
-        "redirect_uri": redirect_uri,
-    }
-
-    try:
-        async with session.post(AUTH_URL, json=payload, headers=headers) as response:
-            if response.status == 401:
-                text = await response.text()
-                logger.error(
-                    "Authorization failed (401). The authorization code may be invalid. "
-                    "Please re-authorize via Bouncie Developer Portal. Response: %s",
-                    text,
-                )
-                return None
-
-            response.raise_for_status()
-            data = await response.json()
-
-            new_access_token = data.get("access_token")
-            expires_in = data.get("expires_in", 3600)
-
-            if not new_access_token:
-                logger.error("Access token not found in response: %s", data)
-                return None
-
-            # 3. Save new token to storage
-            await _update_saved_credentials(credentials, new_access_token, expires_in)
-            logger.info(
-                "Successfully obtained new access token (expires in %d seconds)",
-                expires_in,
-            )
-            return new_access_token
-
-    except aiohttp.ClientResponseError as e:
-        logger.error("HTTP error retrieving access token: %s %s", e.status, e.message)
-        return None
-    except Exception as e:
-        logger.error("Error retrieving access token: %s", e)
-        return None
-
-
-async def _update_saved_credentials(
-    current_credentials: dict, access_token: str, expires_in: int
-):
-    """Helper to update credentials in DB."""
-    # Calculate absolute expiration time
-    expires_at = time.time() + int(expires_in)
-
-    update_data = {
-        "access_token": access_token,
-        "expires_at": expires_at,
-    }
-
-    success = await update_bouncie_credentials(update_data)
-
-    if success:
-        logger.info("Saved new access token to database")
-        # Also update the in-memory dict so current run uses latest info
-        current_credentials["access_token"] = access_token
-        current_credentials["expires_at"] = expires_at
-    else:
-        logger.error("Failed to save access token to database")
 
 
 @retry_async(max_retries=3, retry_delay=1.5)
@@ -244,7 +105,7 @@ async def fetch_bouncie_trips_in_range(
             return all_new_trips
 
         session = await get_session()
-        token = await get_access_token(session, credentials)
+        token = await BouncieOAuth.get_access_token(session, credentials)
         if not token:
             logger.error("Failed to obtain access token; aborting fetch")
             if progress_tracker is not None:

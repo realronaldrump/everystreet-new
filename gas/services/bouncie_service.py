@@ -3,7 +3,8 @@
 import logging
 from typing import Any
 
-from config import API_BASE_URL, AUTH_URL, get_bouncie_config
+from bouncie_oauth import BouncieOAuth
+from config import API_BASE_URL
 from utils import get_session
 
 logger = logging.getLogger(__name__)
@@ -28,27 +29,13 @@ class BouncieService:
             Dict with latitude, longitude, odometer, address, timestamp or None if failed
         """
         try:
-            credentials = await get_bouncie_config()
             session = await get_session()
 
-            # Get access token
-            payload = {
-                "client_id": credentials.get("client_id"),
-                "client_secret": credentials.get("client_secret"),
-                "grant_type": "authorization_code",
-                "code": credentials.get("authorization_code"),
-                "redirect_uri": credentials.get("redirect_uri"),
-            }
-
-            async with session.post(AUTH_URL, data=payload) as auth_response:
-                if auth_response.status != 200:
-                    logger.warning(f"Bouncie auth failed: {auth_response.status}")
-                    return None
-                auth_data = await auth_response.json()
-                token = auth_data.get("access_token")
-                if not token:
-                    logger.warning("No access token in Bouncie response")
-                    return None
+            # Get access token using centralized OAuth (with caching)
+            token = await BouncieOAuth.get_access_token(session)
+            if not token:
+                logger.warning("Failed to obtain Bouncie access token")
+                return None
 
             # Call vehicles endpoint
             headers = {

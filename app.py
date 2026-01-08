@@ -10,14 +10,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from admin_api import router as admin_api_router
-from analytics_api import router as analytics_api_router
+from analytics import router as analytics_api_router
 from app_settings import ensure_settings_cached
-from config import get_mapbox_token
 from county_api import router as county_api_router
 from coverage_api import router as coverage_api_router
 from db import db_manager, init_database
 from driving_routes import router as driving_routes_router
-from export_api import router as export_api_router
+from exports import router as export_api_router
 from gas import router as gas_api_router
 from live_tracking import initialize_db as initialize_live_tracking_db
 from live_tracking_api import router as live_tracking_api_router
@@ -28,7 +27,6 @@ from processing_api import router as processing_api_router
 from profile_api import router as profile_api_router
 from search_api import router as search_api_router
 from tasks_api import router as tasks_api_router
-from trip_processor import TripProcessor
 from trips import router as trips_router
 from upload_api import router as upload_api_router
 from utils import cleanup_session
@@ -147,11 +145,6 @@ async def startup_event():
         # Load app settings into cache for sync access
         await ensure_settings_cached()
         logger.info("App settings loaded into cache.")
-
-        TripProcessor(
-            mapbox_token=get_mapbox_token()
-        )  # Initializes the class, not an instance for immediate use
-        logger.info("TripProcessor class initialized (available for use).")
 
         logger.info("Application startup completed successfully.")
 

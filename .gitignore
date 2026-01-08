@@ -9,7 +9,6 @@ package.json
 package-lock.json
 .cursor/
 celerybeat-schedule.db
-exports/
 flower.db
 vibes.md
 .service_pids
