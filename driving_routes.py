@@ -168,20 +168,24 @@ async def get_current_position(request_data: dict) -> tuple[float, float, str]:
 
     gps_data = last_trip.get("gps")
 
-    if (
-        gps_data
-        and gps_data.get("type") == "LineString"
-        and gps_data.get("coordinates")
-    ):
-        lon, lat = gps_data["coordinates"][-1]
-        return lat, lon, "last-trip-end"
-    if gps_data and gps_data.get("type") == "Point" and gps_data.get("coordinates"):
-        lon, lat = gps_data["coordinates"]
-        return lat, lon, "last-trip-end-point"
+    if gps_data and gps_data.get("coordinates"):
+        if gps_data.get("type") == "LineString":
+            lon, lat = gps_data["coordinates"][-1]
+            return lat, lon, "last-trip-end"
+        elif gps_data.get("type") == "MultiLineString":
+            # Use the last coordinate of the last line segment
+            if gps_data["coordinates"] and len(gps_data["coordinates"]) > 0:
+                last_segment = gps_data["coordinates"][-1]
+                if last_segment:
+                    lon, lat = last_segment[-1]
+                    return lat, lon, "last-trip-end-multi"
+        elif gps_data.get("type") == "Point":
+            lon, lat = gps_data["coordinates"]
+            return lat, lon, "last-trip-end-point"
 
     raise HTTPException(
-        status_code=500,
-        detail="Could not determine current position from last trip's geometry.",
+        status_code=404,  # Changed from 500 to 404 as this is "not found" state
+        detail="Could not determine current position from last trip history.",
     )
 
 
@@ -196,27 +200,50 @@ async def get_next_driving_route(request: Request):
         data = await request.json()
         location_data = data.get("location")
         if not location_data:
-            raise HTTPException(
-                status_code=400, detail="Target location data is required."
+            return JSONResponse(
+                status_code=400, 
+                content={"detail": "Target location data is required."}
             )
 
         location = LocationModel(**location_data)
         location_name = location.display_name
         target_segment_id = data.get("segment_id")
-        current_lat, current_lon, location_source = await get_current_position(data)
+        
+        # Get position - catch ANY error from here to ensure JSON response
+        try:
+            current_lat, current_lon, location_source = await get_current_position(data)
+        except HTTPException as e:
+            # Re-raise HTTP exceptions to be caught by outer block
+            raise e
+        except Exception as e:
+            logger.error("Error determining position: %s", e, exc_info=True)
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Failed to determine current position: {str(e)}"
+            )
 
         # Validate coordinates are valid numbers
         if not all(math.isfinite(v) for v in [current_lat, current_lon]):
-            raise HTTPException(
+            return JSONResponse(
                 status_code=400,
-                detail="Invalid position: coordinates contain NaN or infinite values.",
+                content={"detail": "Invalid position: coordinates contain NaN or infinite values."}
             )
 
     except (ValueError, TypeError, json.JSONDecodeError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid request format: {e!s}")
+        return JSONResponse(
+            status_code=400, 
+            content={"detail": f"Invalid request format: {e!s}"}
+        )
     except HTTPException as e:
-        raise e
+        return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+    except Exception as e:
+        logger.error("Unexpected error in next-route init: %s", e, exc_info=True)
+        return JSONResponse(
+            status_code=500, 
+            content={"detail": f"Internal server error: {str(e)}"}
+        )
 
+    # Proceed to route calculation
     try:
         target_street = None
         if target_segment_id:
