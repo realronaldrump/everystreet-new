@@ -48,8 +48,16 @@ class DrivingNavigation {
 
     // Default cluster colors if MapStyles not yet loaded
     this.clusterColors = window.MapStyles?.MAP_LAYER_COLORS?.clusters || [
-      "#6366f1", "#8b5cf6", "#3b82f6", "#ef4444", "#f59e0b",
-      "#a78bfa", "#10b981", "#06b6d4", "#d946ef", "#84cc16"
+      "#6366f1",
+      "#8b5cf6",
+      "#3b82f6",
+      "#ef4444",
+      "#f59e0b",
+      "#a78bfa",
+      "#10b981",
+      "#06b6d4",
+      "#d946ef",
+      "#84cc16",
     ];
 
     this.initialize();
@@ -359,7 +367,12 @@ class DrivingNavigation {
 
     // Clear all map layers (with null checks)
     if (this.map) {
-      const sources = ["undriven-streets", "route", "target-street", "efficient-clusters"];
+      const sources = [
+        "undriven-streets",
+        "route",
+        "target-street",
+        "efficient-clusters",
+      ];
       sources.forEach((sourceId) => {
         const source = this.map.getSource(sourceId);
         if (source) source.setData(emptyGeoJSON);
@@ -387,23 +400,23 @@ class DrivingNavigation {
           String(area._id || area.id || "") === selectedValue ||
           String(area.location?.id || "") === selectedValue
       );
-      
+
       if (areaMatch) {
         this.selectedArea = areaMatch;
       } else {
         // Fallback: try parsing if it looks like a JSON object (starts with {)
         if (selectedValue.trim().startsWith("{")) {
-            this.selectedArea = JSON.parse(selectedValue);
+          this.selectedArea = JSON.parse(selectedValue);
         } else {
-            console.warn("Could not find area for ID:", selectedValue);
-            this.selectedArea = null;
-            // Don't throw here, just let the next check handle null
+          console.warn("Could not find area for ID:", selectedValue);
+          this.selectedArea = null;
+          // Don't throw here, just let the next check handle null
         }
       }
 
       if (!this.selectedArea) {
-         this.setStatus("Invalid area selected.", true);
-         return;
+        this.setStatus("Invalid area selected.", true);
+        return;
       }
 
       this.setStatus(
@@ -1029,7 +1042,8 @@ class DrivingNavigation {
     if (!routeDetailsContent || !clusters || clusters.length === 0) return;
 
     const totalSegments = clusters.reduce((sum, c) => sum + c.segment_count, 0);
-    const totalLengthMiles = clusters.reduce((sum, c) => sum + c.total_length_m, 0) / 1609.34;
+    const totalLengthMiles =
+      clusters.reduce((sum, c) => sum + c.total_length_m, 0) / 1609.34;
 
     routeDetailsContent.innerHTML = `
       <div class="cluster-summary mb-2">

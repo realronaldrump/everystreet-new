@@ -220,27 +220,27 @@ class OptimalRoutesManager {
       const handleLoad = () => {
         // Add arrow image for route direction
         if (!this.map.hasImage("arrow")) {
-            // Create a simple arrow icon using Canvas
-            const width = 24;
-            const height = 24;
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            
-            // Draw arrow
-            ctx.fillStyle = '#9333ea'; // Purple
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(width * 0.2, height * 0.8);
-            ctx.lineTo(width * 0.5, height * 0.2);
-            ctx.lineTo(width * 0.8, height * 0.8);
-            ctx.stroke();
-            ctx.fill();
-            
-            const imageData = ctx.getImageData(0, 0, width, height);
-            this.map.addImage('arrow', imageData, { pixelRatio: 2 });
+          // Create a simple arrow icon using Canvas
+          const width = 24;
+          const height = 24;
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+
+          // Draw arrow
+          ctx.fillStyle = "#9333ea"; // Purple
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(width * 0.2, height * 0.8);
+          ctx.lineTo(width * 0.5, height * 0.2);
+          ctx.lineTo(width * 0.8, height * 0.8);
+          ctx.stroke();
+          ctx.fill();
+
+          const imageData = ctx.getImageData(0, 0, width, height);
+          this.map.addImage("arrow", imageData, { pixelRatio: 2 });
         }
 
         this.setupMapLayers();
@@ -942,7 +942,7 @@ class OptimalRoutesManager {
     const errorSection = document.getElementById("error-section");
     if (resultsSection) resultsSection.style.display = "none";
     if (errorSection) errorSection.style.display = "none";
-    
+
     // Call backend to delete the route
     if (this.selectedAreaId) {
       try {
@@ -954,7 +954,7 @@ class OptimalRoutesManager {
         console.warn("Failed to clear route from backend:", error);
       }
     }
-    
+
     // Don't hide legend here - it should stay visible if streets are loaded
     // Legend visibility is managed by onAreaSelect
   }

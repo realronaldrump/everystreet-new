@@ -401,7 +401,7 @@ async def bridge_disconnected_clusters(
     for idx, (ci, cj, node_a, node_b, dist) in enumerate(bridge_pairs[:max_bridges]):
         if find(ci) == find(cj):
             continue
-        
+
         union(ci, cj)
         planned_bridges.append((idx, ci, cj, node_a, node_b, dist))
 
@@ -419,20 +419,22 @@ async def bridge_disconnected_clusters(
     # Execution phase: Fetch and download in parallel
     async def process_bridge(bridge_info):
         idx, ci, cj, node_a, node_b, dist = bridge_info
-        
+
         if progress_callback:
             # Rough progress update (fire and forget)
             await progress_callback(
                 "bridging",
                 10,
-                f"Fetching bridge {idx+1}: cluster {ci}->{cj} ({dist:.2f} mi)",
+                f"Fetching bridge {idx + 1}: cluster {ci}->{cj} ({dist:.2f} mi)",
             )
 
         xy_a = node_xy.get(node_a)
         xy_b = node_xy.get(node_b)
 
         if not xy_a or not xy_b:
-            logger.warning("Missing coordinates for bridge nodes %d or %d", node_a, node_b)
+            logger.warning(
+                "Missing coordinates for bridge nodes %d or %d", node_a, node_b
+            )
             return None
 
         # Fetch bridge route from Mapbox
@@ -444,19 +446,22 @@ async def bridge_disconnected_clusters(
         # Download corridor graph (run in thread to avoid blocking event loop)
         loop = asyncio.get_running_loop()
         corridor = await loop.run_in_executor(
-            None, 
-            functools.partial(download_corridor_graph, route_coords)
+            None, functools.partial(download_corridor_graph, route_coords)
         )
-            
+
         if not corridor:
             logger.warning("Could not download corridor graph for bridge")
             return None
-            
+
         # Verify connection nodes are present
         if node_a not in corridor.nodes:
-            logger.warning("Corridor graph missing start node %d (may cause disconnect)", node_a)
+            logger.warning(
+                "Corridor graph missing start node %d (may cause disconnect)", node_a
+            )
         if node_b not in corridor.nodes:
-            logger.warning("Corridor graph missing end node %d (may cause disconnect)", node_b)
+            logger.warning(
+                "Corridor graph missing end node %d (may cause disconnect)", node_b
+            )
 
         return (corridor, bridge_info)
 
@@ -467,9 +472,9 @@ async def bridge_disconnected_clusters(
     for res in results:
         if not res:
             continue
-            
+
         corridor, (idx, ci, cj, node_a, node_b, dist) = res
-        
+
         # Merge into main graph
         G = merge_graphs(G, corridor)
         bridges_created += 1

@@ -312,7 +312,7 @@ async def stream_optimal_route_progress(task_id: str):
                     }
                     yield f"data: {json.dumps(data, default=str)}\n\n"
 
-                if current_status in ("completed", "failed"):
+                if current_status in ("completed", "failed", "error"):
                     final_data = {
                         "status": current_status,
                         "stage": current_stage,

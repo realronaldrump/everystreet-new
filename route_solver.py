@@ -1015,11 +1015,12 @@ async def generate_optimal_route_with_progress(
             clusters = analyze_required_connectivity(G, required_reqs)
             if len(clusters) > 1:
                 from config import get_mapbox_token
-                
+
                 if not get_mapbox_token():
                     raise ValueError(
-                        "Cannot generate route: Graph is disconnected and Mapbox token is missing. "
-                        "Please configure Mapbox token in Settings or .env to bridge gaps."
+                        "Route generation failed: The street network has gaps that require bridging, "
+                        "but the Mapbox API token is missing. "
+                        "Please configure the Mapbox Access Token in the App Settings."
                     )
 
                 logger.info(
