@@ -222,9 +222,7 @@ class OdometerService:
         return location_data
 
     @staticmethod
-    async def estimate_odometer_reading(
-        imei: str, timestamp: str
-    ) -> dict[str, Any]:
+    async def estimate_odometer_reading(imei: str, timestamp: str) -> dict[str, Any]:
         """Estimate odometer reading by interpolating/extrapolating from nearest known anchors.
 
         Args:

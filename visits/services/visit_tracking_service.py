@@ -108,7 +108,12 @@ class VisitTrackingService:
                             },
                             {
                                 "$divide": [
-                                    {"$subtract": ["$endTime", "$previous_departure_time"]},
+                                    {
+                                        "$subtract": [
+                                            "$endTime",
+                                            "$previous_departure_time",
+                                        ]
+                                    },
                                     1000,
                                 ]
                             },

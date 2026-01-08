@@ -8,23 +8,23 @@ This document outlines the comprehensive refactoring plan to transform the Every
 
 ### Monolithic Files Requiring Refactoring
 
-| File | Lines | Type | Priority | Complexity |
-|------|-------|------|----------|-----------|
-| **db.py** | 1,234 | Infrastructure | Low | High |
-| **trips.py** | 1,033 | API | High | High |
-| **route_solver.py** | 1,095 | Algorithm | Medium | Very High |
-| **analytics_api.py** | 884 | API | High | Medium |
-| **export_api.py** | 789 | API | High | Medium |
-| **visits.py** | 819 | API | High | Medium |
-| **gas_api.py** | 1,179 | API | ✅ DONE | Medium |
+| File                 | Lines | Type           | Priority | Complexity |
+| -------------------- | ----- | -------------- | -------- | ---------- |
+| **db.py**            | 1,234 | Infrastructure | Low      | High       |
+| **trips.py**         | 1,033 | API            | High     | High       |
+| **route_solver.py**  | 1,095 | Algorithm      | Medium   | Very High  |
+| **analytics_api.py** | 884   | API            | High     | Medium     |
+| **export_api.py**    | 789   | API            | High     | Medium     |
+| **visits.py**        | 819   | API            | High     | Medium     |
+| **gas_api.py**       | 1,179 | API            | ✅ DONE  | Medium     |
 
 ### Already Refactored (Reference Patterns)
 
-| Module | Original Lines | Status | Pattern |
-|--------|---------------|--------|---------|
-| **coverage/** | 2,130 | ✅ Complete | services/ + routes/ |
-| **tasks/** | N/A | ✅ Complete | modular package |
-| **gas/** | 1,179 | ✅ Complete | services/ + routes/ |
+| Module        | Original Lines | Status      | Pattern             |
+| ------------- | -------------- | ----------- | ------------------- |
+| **coverage/** | 2,130          | ✅ Complete | services/ + routes/ |
+| **tasks/**    | N/A            | ✅ Complete | modular package     |
+| **gas/**      | 1,179          | ✅ Complete | services/ + routes/ |
 
 ## Refactoring Strategy
 
@@ -60,6 +60,7 @@ module/
 **Status**: Complete
 **Lines**: 1,179 → 1,395 (modular)
 **Structure**:
+
 ```
 gas/
 ├── services/
@@ -76,6 +77,7 @@ gas/
 ```
 
 **Key Services**:
+
 - VehicleService: Vehicle CRUD operations
 - FillupService: Fill-up tracking + MPG calculations
 - OdometerService: Location & odometer estimation
@@ -88,6 +90,7 @@ gas/
 **Estimated New**: ~1,250 lines (modular)
 
 **Proposed Structure**:
+
 ```
 trips/
 ├── __init__.py
@@ -109,6 +112,7 @@ trips/
 ```
 
 **Key Responsibilities**:
+
 - Trip CRUD operations
 - Trip filtering & search
 - Gas cost calculation integration
@@ -117,6 +121,7 @@ trips/
 - Calendar view support
 
 **Dependencies**:
+
 - gas.services.StatisticsService (for gas cost calc)
 - TripService (existing utility)
 - GeometryService (GPS validation)
@@ -127,6 +132,7 @@ trips/
 **Estimated New**: ~1,000 lines (modular)
 
 **Proposed Structure**:
+
 ```
 analytics/
 ├── __init__.py
@@ -145,6 +151,7 @@ analytics/
 ```
 
 **Key Responsibilities**:
+
 - Coverage analytics (% complete, miles covered)
 - Trip analytics (frequency, patterns, heatmaps)
 - Time-based analysis (daily/weekly/monthly)
@@ -156,6 +163,7 @@ analytics/
 **Estimated New**: ~900 lines (modular)
 
 **Proposed Structure**:
+
 ```
 exports/
 ├── __init__.py
@@ -174,6 +182,7 @@ exports/
 ```
 
 **Key Responsibilities**:
+
 - Trip export (GPX, KML, CSV, GeoJSON)
 - Coverage export (GeoJSON, Shapefile)
 - Data archival and backup
@@ -185,6 +194,7 @@ exports/
 **Estimated New**: ~950 lines (modular)
 
 **Proposed Structure**:
+
 ```
 visits/
 ├── __init__.py
@@ -202,6 +212,7 @@ visits/
 ```
 
 **Key Responsibilities**:
+
 - Visit detection from trip data
 - Place identification & management
 - Visit duration tracking
@@ -215,6 +226,7 @@ visits/
 **Status**: Defer to later phase
 
 **Rationale**:
+
 - This is a complex algorithmic module, not an API
 - Requires deep understanding of route optimization logic
 - Breaking it up incorrectly could introduce bugs
@@ -237,6 +249,7 @@ visits/
 **Status**: Defer - Not critical
 
 **Rationale**:
+
 - Well-designed singleton pattern
 - Heavily used by all modules
 - Refactoring would require updating ~50+ files
@@ -256,6 +269,7 @@ visits/
 ## Implementation Order
 
 ### Phase 1: High-Priority API Modules ✅
+
 1. ✅ gas_api.py → gas/
 2. ⏳ trips.py → trips/
 3. ⏳ analytics_api.py → analytics/
@@ -263,28 +277,33 @@ visits/
 5. ⏳ visits.py → visits/
 
 ### Phase 2: Algorithm & Utility Modules
+
 6. route_solver.py (evaluate if needed)
 
 ### Phase 3: Infrastructure (Optional)
+
 7. db.py (only if team consensus agrees)
 
 ## Migration Checklist (Per Module)
 
 ### Before Refactoring
+
 - [ ] Read entire file to understand structure
 - [ ] Identify distinct responsibilities
 - [ ] List all external dependencies
 - [ ] Document key business logic
 
 ### During Refactoring
+
 - [ ] Create module directory structure
 - [ ] Extract services with business logic
 - [ ] Create route handlers (thin layer)
 - [ ] Write comprehensive README
-- [ ] Add __init__.py with router aggregation
+- [ ] Add **init**.py with router aggregation
 - [ ] Update imports in app.py
 
 ### After Refactoring
+
 - [ ] Syntax check all Python files
 - [ ] Backup original file (.bak)
 - [ ] Test import in Python
@@ -298,12 +317,14 @@ visits/
 Each refactored module integrates the same way:
 
 **Before**:
+
 ```python
 from module_api import router as module_router
 app.include_router(module_router)
 ```
 
 **After**:
+
 ```python
 from module import router as module_router
 app.include_router(module_router)
@@ -312,6 +333,7 @@ app.include_router(module_router)
 ## Backwards Compatibility
 
 All refactorings MUST maintain 100% backwards compatibility:
+
 - ✅ Same API endpoints
 - ✅ Same request/response formats
 - ✅ Same query parameters
@@ -321,18 +343,21 @@ All refactorings MUST maintain 100% backwards compatibility:
 ## Benefits Summary
 
 ### Development
+
 - Faster navigation (find code in ~200 line files vs 1,000+)
 - Safer refactoring (isolated changes)
 - Clearer structure (obvious where code goes)
 - Better imports (explicit service dependencies)
 
 ### Testing
+
 - Unit testable services
 - Mockable dependencies
 - Isolated failures
 - Faster test execution
 
 ### Maintenance
+
 - Single responsibility per file
 - Better error messages
 - Easier debugging
@@ -340,12 +365,12 @@ All refactorings MUST maintain 100% backwards compatibility:
 
 ## Risks & Mitigation
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Breaking changes | High | Maintain 100% backwards compatibility |
-| Import errors | Medium | Comprehensive syntax checks before deployment |
-| Performance regression | Low | Services add minimal overhead |
-| Team confusion | Medium | Thorough documentation + README per module |
+| Risk                   | Impact | Mitigation                                      |
+| ---------------------- | ------ | ----------------------------------------------- |
+| Breaking changes       | High   | Maintain 100% backwards compatibility           |
+| Import errors          | Medium | Comprehensive syntax checks before deployment   |
+| Performance regression | Low    | Services add minimal overhead                   |
+| Team confusion         | Medium | Thorough documentation + README per module      |
 | Incomplete refactoring | Medium | Complete one module fully before moving to next |
 
 ## Success Metrics
@@ -359,14 +384,14 @@ All refactorings MUST maintain 100% backwards compatibility:
 
 ## Timeline Estimate
 
-| Module | Estimated Time | Status |
-|--------|---------------|--------|
-| gas/ | 2-3 hours | ✅ Complete |
-| trips/ | 2-3 hours | ⏳ In Progress |
-| analytics/ | 2 hours | Pending |
-| exports/ | 2 hours | Pending |
-| visits/ | 2 hours | Pending |
-| **Total** | **10-12 hours** | **20% Complete** |
+| Module     | Estimated Time  | Status           |
+| ---------- | --------------- | ---------------- |
+| gas/       | 2-3 hours       | ✅ Complete      |
+| trips/     | 2-3 hours       | ⏳ In Progress   |
+| analytics/ | 2 hours         | Pending          |
+| exports/   | 2 hours         | Pending          |
+| visits/    | 2 hours         | Pending          |
+| **Total**  | **10-12 hours** | **20% Complete** |
 
 ## Next Steps
 

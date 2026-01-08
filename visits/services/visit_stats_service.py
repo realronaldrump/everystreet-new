@@ -92,7 +92,9 @@ class VisitStatsService:
                     "_id": str(place["_id"]),
                     "name": place["name"],
                     "totalVisits": total_visits,
-                    "averageTimeSpent": VisitTrackingService.format_duration(avg_duration),
+                    "averageTimeSpent": VisitTrackingService.format_duration(
+                        avg_duration
+                    ),
                     "firstVisit": serialize_datetime(first_visit),
                     "lastVisit": serialize_datetime(last_visit),
                 }

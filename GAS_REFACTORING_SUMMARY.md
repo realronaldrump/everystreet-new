@@ -7,6 +7,7 @@ Refactored the monolithic `gas_api.py` (1,179 lines) into a modular `gas/` packa
 ## Motivation
 
 The original `gas_api.py` combined multiple concerns into a single file:
+
 - Vehicle CRUD operations
 - Gas fill-up tracking with MPG calculations
 - External Bouncie API integration
@@ -15,6 +16,7 @@ The original `gas_api.py` combined multiple concerns into a single file:
 - Statistics aggregation
 
 This made the code difficult to:
+
 - Test in isolation
 - Maintain and debug
 - Reuse in other modules
@@ -51,6 +53,7 @@ gas/
 ### 1. Separation of Concerns
 
 **Before**: All logic mixed in route handlers
+
 ```python
 @router.post("/api/gas-fillups")
 async def create_gas_fillup(fillup_data: GasFillupCreateModel):
@@ -66,6 +69,7 @@ async def create_gas_fillup(fillup_data: GasFillupCreateModel):
 ```
 
 **After**: Clean separation
+
 ```python
 # Route handler (8 lines)
 @router.post("/api/gas-fillups")
@@ -116,18 +120,18 @@ def test_mpg_calculation():
 
 Each module has a single, well-defined responsibility:
 
-| Module | Responsibility | Lines |
-|--------|---------------|-------|
-| `serializers.py` | Data transformation | 23 |
-| `vehicle_service.py` | Vehicle CRUD | 149 |
-| `fillup_service.py` | Fill-up operations & MPG | 336 |
-| `odometer_service.py` | Location & estimation | 253 |
-| `statistics_service.py` | Stats & vehicle sync | 227 |
-| `bouncie_service.py` | External API integration | 99 |
-| `routes/vehicles.py` | Vehicle API endpoints | 72 |
-| `routes/fillups.py` | Fill-up API endpoints | 97 |
-| `routes/location.py` | Location API endpoints | 42 |
-| `routes/statistics.py` | Statistics API endpoints | 50 |
+| Module                  | Responsibility           | Lines |
+| ----------------------- | ------------------------ | ----- |
+| `serializers.py`        | Data transformation      | 23    |
+| `vehicle_service.py`    | Vehicle CRUD             | 149   |
+| `fillup_service.py`     | Fill-up operations & MPG | 336   |
+| `odometer_service.py`   | Location & estimation    | 253   |
+| `statistics_service.py` | Stats & vehicle sync     | 227   |
+| `bouncie_service.py`    | External API integration | 99    |
+| `routes/vehicles.py`    | Vehicle API endpoints    | 72    |
+| `routes/fillups.py`     | Fill-up API endpoints    | 97    |
+| `routes/location.py`    | Location API endpoints   | 42    |
+| `routes/statistics.py`  | Statistics API endpoints | 50    |
 
 **Average file size**: ~135 lines (vs 1,179 lines in original)
 
@@ -136,12 +140,14 @@ Each module has a single, well-defined responsibility:
 ### Integration Changes
 
 **Before** (`app.py`):
+
 ```python
 from gas_api import router as gas_api_router
 app.include_router(gas_api_router)
 ```
 
 **After** (`app.py`):
+
 ```python
 from gas import router as gas_api_router
 app.include_router(gas_api_router)
@@ -152,6 +158,7 @@ app.include_router(gas_api_router)
 ### Backward Compatibility
 
 **100% backward compatible** - All API endpoints remain identical:
+
 - Same URLs
 - Same request/response formats
 - Same query parameters
@@ -162,17 +169,20 @@ Existing clients require **zero changes**.
 ## Benefits
 
 ### For Development
+
 1. **Easier to navigate** - Find vehicle logic in `vehicle_service.py`, not buried in 1,179 lines
 2. **Faster to modify** - Change MPG calculation in one place: `FillupService.calculate_mpg()`
 3. **Safe to refactor** - Changes to services don't affect routes, and vice versa
 4. **Clear imports** - `from gas.services import FillupService` vs searching a monolith
 
 ### For Testing
+
 1. **Unit testable** - Test `calculate_mpg()` without mocking database calls
 2. **Mockable** - Mock `BouncieService` to test offline odometer estimation
 3. **Isolated failures** - Service bug doesn't break routes, route bug doesn't break services
 
 ### For Maintenance
+
 1. **Single responsibility** - Each file has one clear purpose
 2. **Easier debugging** - Stack traces point to specific services
 3. **Better error handling** - Services raise `ValueError`, routes convert to HTTP exceptions
@@ -193,6 +203,7 @@ The strict MPG calculation rules remain unchanged:
 ### Cascading Recalculation (Lines 246-283 in `fillup_service.py`)
 
 When a fill-up is inserted, updated, or deleted:
+
 1. ✅ Find next fill-up in sequence
 2. ✅ Find new previous fill-up (bridges gaps if middle entry deleted)
 3. ✅ Recalculate MPG and distance stats
@@ -210,6 +221,7 @@ All algorithms **tested and verified** to produce identical results.
 ## Files Changed
 
 ### Created
+
 - `gas/__init__.py`
 - `gas/README.md`
 - `gas/serializers.py`
@@ -226,9 +238,11 @@ All algorithms **tested and verified** to produce identical results.
 - `gas/routes/statistics.py`
 
 ### Modified
+
 - `app.py` - Changed import from `gas_api` to `gas`
 
 ### Backed Up
+
 - `gas_api.py` → `gas_api.py.bak` (can be removed after verification)
 
 ## Verification Steps
@@ -257,6 +271,7 @@ All algorithms **tested and verified** to produce identical results.
 ## Related Refactorings
 
 This follows the same pattern as:
+
 - `coverage/` module (refactored from 2,130 lines → modular package)
 - `tasks/` module (refactored from monolithic → modular package)
 

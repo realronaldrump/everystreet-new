@@ -151,7 +151,9 @@ class TripQueryService:
                 {"$skip": start},
                 {"$limit": length},
             ]
-            trips_list = await trips_collection.aggregate(pipeline).to_list(length=length)
+            trips_list = await trips_collection.aggregate(pipeline).to_list(
+                length=length
+            )
         else:
             cursor = (
                 trips_collection.find(query)
@@ -166,7 +168,9 @@ class TripQueryService:
             start_time = parse_timestamp(trip.get("startTime"))
             end_time = parse_timestamp(trip.get("endTime"))
             duration = (
-                (end_time - start_time).total_seconds() if start_time and end_time else None
+                (end_time - start_time).total_seconds()
+                if start_time and end_time
+                else None
             )
 
             imei = trip.get("imei", "")
@@ -269,7 +273,9 @@ class TripQueryService:
         }
 
     @staticmethod
-    async def get_trips_in_bounds(min_lat: float, min_lon: float, max_lat: float, max_lon: float):
+    async def get_trips_in_bounds(
+        min_lat: float, min_lon: float, max_lat: float, max_lon: float
+    ):
         """Get trip coordinates within a given bounding box.
 
         Args:
@@ -287,7 +293,9 @@ class TripQueryService:
             max_lat,
             max_lon,
         ):
-            raise ValueError("Invalid bounding box coordinates (lat must be -90 to 90, lon -180 to 180).")
+            raise ValueError(
+                "Invalid bounding box coordinates (lat must be -90 to 90, lon -180 to 180)."
+            )
 
         bounding_box_geometry = GeometryService.bounding_box_polygon(
             min_lat,

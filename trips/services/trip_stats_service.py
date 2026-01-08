@@ -28,7 +28,12 @@ class TripStatsService:
         """
         self.trip_service = trip_service
 
-    async def geocode_trips(self, start_date: str | None = None, end_date: str | None = None, interval_days: int = 0):
+    async def geocode_trips(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        interval_days: int = 0,
+    ):
         """Re-geocode trips within a date range with progress tracking.
 
         Args:
@@ -267,11 +272,15 @@ class TripStatsService:
         if not trip:
             raise ValueError("Trip not found")
 
-        result = await self.trip_service.refresh_geocoding([trip_id], skip_if_exists=False)
+        result = await self.trip_service.refresh_geocoding(
+            [trip_id], skip_if_exists=False
+        )
 
         if result["updated"] > 0:
             return {
                 "status": "success",
                 "message": f"Trip {trip_id} re-geocoded successfully.",
             }
-        raise ValueError(f"Failed to re-geocode trip {trip_id}. Check logs for details.")
+        raise ValueError(
+            f"Failed to re-geocode trip {trip_id}. Check logs for details."
+        )
