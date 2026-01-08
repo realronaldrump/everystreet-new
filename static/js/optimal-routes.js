@@ -229,7 +229,7 @@ class OptimalRoutesManager {
             const ctx = canvas.getContext('2d');
             
             // Draw arrow
-            ctx.fillStyle = '#3b82f6'; // Blue
+            ctx.fillStyle = '#9333ea'; // Purple
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -332,7 +332,7 @@ class OptimalRoutesManager {
           "line-cap": "round",
         },
         paint: {
-          "line-color": "#3b82f6",
+          "line-color": "#9333ea",
           "line-width": 5,
           "line-opacity": 0.9,
         },

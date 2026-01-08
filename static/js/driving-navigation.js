@@ -142,7 +142,7 @@ class DrivingNavigation {
       driven: "#10b981",
     };
     const routeColors = window.MapStyles?.MAP_LAYER_COLORS?.routes || {
-      calculated: "#3b82f6",
+      calculated: "#3b82f6", // Changed to blue to stand out from green driven streets
       target: "#d4a574",
     };
 
