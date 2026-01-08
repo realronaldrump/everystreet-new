@@ -142,7 +142,7 @@ class DrivingNavigation {
       driven: "#10b981",
     };
     const routeColors = window.MapStyles?.MAP_LAYER_COLORS?.routes || {
-      calculated: "#6b9d8a",
+      calculated: "#3b82f6",
       target: "#d4a574",
     };
 
