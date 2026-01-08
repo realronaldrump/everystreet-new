@@ -78,13 +78,13 @@ async def get_session() -> aiohttp.ClientSession:
                 )
                 try:
                     if not _SESSION.closed and not _SESSION.loop.is_closed():
-                         await _SESSION.close()
+                        await _SESSION.close()
                 except Exception as e:
-                     logger.warning("Error closing stale session: %s", e)
+                    logger.warning("Error closing stale session: %s", e)
                 _SESSION = None
         except RuntimeError:
-             # No running loop? Should not happen in get_session normally.
-             pass
+            # No running loop? Should not happen in get_session normally.
+            pass
 
     # Create new session if needed
     if _SESSION is None or _SESSION.closed:
@@ -119,7 +119,7 @@ async def cleanup_session():
             logger.info("Closed aiohttp session for process %s", os.getpid())
         except Exception as e:
             logger.warning("Error closing session: %s", e)
-    
+
     _SESSION = None
     _SESSION_OWNER_PID = None
 
@@ -381,7 +381,7 @@ def run_async_from_sync(
 
             # Cleanup the session associated with this loop
             loop.run_until_complete(cleanup_session())
-            
+
             loop.close()
         except Exception as e:
             logger.warning("Error during event loop cleanup: %s", e)
