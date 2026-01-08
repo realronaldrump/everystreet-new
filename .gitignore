@@ -3,7 +3,6 @@
 .DS_Store
 __pycache__/
 node_modules
-.prettierignore
 .prettierrc
 package.json
 package-lock.json
@@ -13,7 +12,6 @@ flower.db
 vibes.md
 .service_pids
 .vscode/settings.json
-sim.html
 node_modules/
 eslint.config.mjs
 .vscode

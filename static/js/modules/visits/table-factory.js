@@ -1,3 +1,4 @@
+/* global $, DateUtils */
 (() => {
   function createVisitsTable({ onPlaceSelected }) {
     const el = document.getElementById("visits-table");

@@ -334,26 +334,26 @@ async def get_next_driving_route(request: Request):
             if geom_type == "LineString" or (
                 geom_type == "Unknown"
                 and len(coords) > 0
-                and isinstance(coords[0], (list, tuple))
+                and isinstance(coords[0], list | tuple)
                 and len(coords[0]) == 2
-                and isinstance(coords[0][0], (float, int))
+                and isinstance(coords[0][0], float | int)
             ):
                 start_coords = coords[0]
             # Check for MultiLineString
             elif geom_type == "MultiLineString" or (
                 len(coords) > 0
-                and isinstance(coords[0], (list, tuple))
-                and isinstance(coords[0][0], (list, tuple))
+                and isinstance(coords[0], list | tuple)
+                and isinstance(coords[0][0], list | tuple)
             ):
                 start_coords = coords[0][0]
             else:
                 # Fallback: assume first element is what we want if it looks like a coordinate
-                if len(coords) >= 2 and isinstance(coords[0], (float, int)):
+                if len(coords) >= 2 and isinstance(coords[0], float | int):
                     # It's a Point?
                     start_coords = coords
                 elif len(coords) > 0:
                     start_coords = coords[0]
-                    if isinstance(start_coords[0], (list, tuple)):
+                    if isinstance(start_coords[0], list | tuple):
                         start_coords = start_coords[0]
                 else:
                     raise ValueError("Empty coordinates")

@@ -1,3 +1,4 @@
+/* global DateUtils */
 (() => {
   class TripViewer {
     constructor({ geometryUtils, mapStyles }) {

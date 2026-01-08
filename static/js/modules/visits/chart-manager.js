@@ -1,3 +1,4 @@
+/* global Chart */
 (() => {
   class VisitsChartManager {
     constructor(canvasId) {
