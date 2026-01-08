@@ -350,29 +350,7 @@
   background-clip: text;
 }
 
-/* Enhanced Popup Styles */
-.mapboxgl-popup-content {
-  background: rgb(var(--surface-glass), 0.95);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgb(var(--primary-rgb), 0.3);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
-  padding: var(--space-3);
-  min-width: 280px;
-}
-
-.mapboxgl-popup-close-button {
-  color: var(--text-secondary);
-  font-size: var(--font-size-xl);
-  padding: var(--space-2);
-  transition: all var(--transition-fast);
-}
-
-.mapboxgl-popup-close-button:hover {
-  color: var(--primary);
-  transform: scale(1.1);
-}
-
+/* Visits-specific Popup Styles (base mapboxgl-popup styles in modern-map.css) */
 .custom-place-popup h6 {
   color: var(--primary);
   font-weight: var(--font-weight-bold);

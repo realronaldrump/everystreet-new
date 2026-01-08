@@ -128,12 +128,8 @@ function toggleVehicleLoading(isLoading, message = "Detecting vehicles...") {
   }
 }
 
-function formatVehicleName(vehicle) {
-  return (
-    vehicle.custom_name ||
-    (vehicle.vin ? `VIN: ${vehicle.vin}` : `IMEI: ${vehicle.imei}`)
-  );
-}
+// Use shared utility
+const formatVehicleName = (v) => window.utils.formatVehicleName(v);
 
 /**
  * Load vehicles from API
@@ -477,7 +473,6 @@ async function autoCalcOdometer() {
 
   try {
     // Show loading state
-    const _originalIcon = autoCalcBtn.innerHTML;
     autoCalcBtn.innerHTML =
       '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
     autoCalcBtn.disabled = true;
@@ -524,7 +519,6 @@ async function handleFormSubmit(e) {
 
   const submitButton = document.getElementById("submit-btn");
   const spinner = submitButton.querySelector(".loading-spinner");
-  const _buttonText = document.getElementById("submit-btn-text");
   const fillupId = document.getElementById("fillup-id").value;
   const isEdit = !!fillupId;
 
@@ -622,7 +616,6 @@ async function handleFormSubmit(e) {
 function resetFormState() {
   document.getElementById("gas-fillup-form").reset();
 
-  // Clear ID and reset buttons
   // Clear ID and reset buttons
   document.getElementById("fillup-id").value = "";
   document.getElementById("cancel-edit-btn").style.display = "none";
@@ -816,7 +809,6 @@ window.editFillup = (id) => {
   }
 
   // Scroll to form
-  // Scroll to form
   document.getElementById("gas-fillup-card").scrollIntoView({ behavior: "smooth" });
 };
 
@@ -883,41 +875,6 @@ async function loadStatistics() {
   }
 }
 
-/**
- * Show success message
- */
-function showSuccess(message) {
-  // Create a Bootstrap toast or alert
-  const alert = document.createElement("div");
-  alert.className =
-    "alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3";
-  alert.style.zIndex = "9999";
-  alert.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-  document.body.appendChild(alert);
-
-  setTimeout(() => {
-    alert.remove();
-  }, 5000);
-}
-
-/**
- * Show error message
- */
-function showError(message) {
-  const alert = document.createElement("div");
-  alert.className =
-    "alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3";
-  alert.style.zIndex = "9999";
-  alert.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-  document.body.appendChild(alert);
-
-  setTimeout(() => {
-    alert.remove();
-  }, 5000);
-}
+// Use shared notification manager
+const showSuccess = (msg) => window.notificationManager?.show(msg, "success");
+const showError = (msg) => window.notificationManager?.show(msg, "danger");

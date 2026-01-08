@@ -399,6 +399,57 @@ const utils = {
     return window.notificationManager?.show?.(...args);
   },
 
+  // Format helpers - used across pages
+  formatNumber(num, decimals = 0) {
+    if (num === null || num === undefined || Number.isNaN(num)) return "--";
+    return Number(num).toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  },
+
+  formatDistance(miles) {
+    if (miles === null || miles === undefined) return "--";
+    return `${parseFloat(miles).toFixed(1)} mi`;
+  },
+
+  formatDuration(seconds) {
+    if (!seconds && seconds !== 0) return "--";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m ${s}s`;
+  },
+
+  formatDateTime(isoString) {
+    if (!isoString) return "--";
+    return new Date(isoString).toLocaleString("en-US", { hour12: true });
+  },
+
+  formatVehicleName(vehicle) {
+    if (!vehicle) return "Unknown";
+    if (vehicle.custom_name) return vehicle.custom_name;
+    if (vehicle.year || vehicle.make || vehicle.model) {
+      return `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim();
+    }
+    return vehicle.vin ? `VIN: ${vehicle.vin}` : `IMEI: ${vehicle.imei}`;
+  },
+
+  sanitizeLocation(location) {
+    if (!location) return "Unknown";
+    if (typeof location === "string") return location;
+    if (typeof location === "object") {
+      return (
+        location.formatted_address ||
+        location.name ||
+        [location.street, location.city, location.state].filter(Boolean).join(", ") ||
+        "Unknown"
+      );
+    }
+    return "Unknown";
+  },
+
   // Accessibility announcements for screen readers
   announce(message, priority = "polite") {
     const announcer =
