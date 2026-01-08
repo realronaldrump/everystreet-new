@@ -874,14 +874,39 @@ async def generate_optimal_route_with_progress(
         )
 
         await update_progress(
-            "loading_graph", 40, "Loading street network from disk..."
+            "loading_graph", 40, "Loading street network..."
         )
 
         graph_path = GRAPH_STORAGE_DIR / f"{location_id}.graphml"
+        
+        # Auto-generate graph if it doesn't exist
         if not graph_path.exists():
-            raise FileNotFoundError(
-                f"Graph file not found at {graph_path}. Please run preprocess_streets.py first."
+            await update_progress(
+                "loading_graph", 42, "Graph not found, downloading from OpenStreetMap..."
             )
+            
+            try:
+                # Import and use the preprocessing function
+                from preprocess_streets import preprocess_streets
+                
+                # Get the location data for preprocessing
+                loc_data = location_info.copy()
+                loc_data["_id"] = location_id
+                
+                # Ensure storage directory exists
+                GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+                
+                await preprocess_streets(loc_data, task_id)
+                
+                await update_progress(
+                    "loading_graph", 44, "Graph downloaded successfully, loading..."
+                )
+            except Exception as e:
+                logger.error("Failed to auto-generate graph: %s", e)
+                raise ValueError(
+                    f"Failed to download street network from OpenStreetMap: {e}. "
+                    f"This may be due to rate limiting or network issues. Please try again later."
+                )
 
         try:
             G = ox.load_graphml(graph_path)
