@@ -302,6 +302,14 @@ class OptimalRoutesManager {
           "line-opacity": 0.8,
         },
       });
+
+      // Add cursor interaction for undriven streets
+      this.map.on("mouseenter", "streets-undriven-layer", () => {
+        this.map.getCanvas().style.cursor = "pointer";
+      });
+      this.map.on("mouseleave", "streets-undriven-layer", () => {
+        this.map.getCanvas().style.cursor = "";
+      });
     }
 
     if (!this.map.getSource("optimal-route")) {
