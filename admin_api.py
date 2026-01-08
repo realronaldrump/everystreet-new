@@ -7,6 +7,7 @@ from fastapi import APIRouter, Body, HTTPException, status
 
 from date_utils import ensure_utc
 from db import (
+    CollectionProxy,
     db_manager,
     delete_many_with_retry,
     find_one_with_retry,
@@ -23,8 +24,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Collections
-trips_collection = db_manager.db["trips"]
-app_settings_collection = db_manager.db["app_settings"]
+trips_collection = CollectionProxy("trips")
+app_settings_collection = CollectionProxy("app_settings")
 
 # Default settings if none stored
 DEFAULT_APP_SETTINGS: dict[str, Any] = {
