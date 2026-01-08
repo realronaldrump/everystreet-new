@@ -420,8 +420,31 @@ class TripProcessor:
             ):
                 self.processed_data.pop(field, None)
 
-            start_coord = self.processed_data["startGeoPoint"]["coordinates"]
-            end_coord = self.processed_data["destinationGeoPoint"]["coordinates"]
+            # Extract start and end coordinates from gps field
+            gps_data = self.processed_data.get("gps")
+            if not gps_data or "coordinates" not in gps_data:
+                self._set_state(TripState.FAILED, "Missing GPS data for geocoding")
+                return False
+
+            gps_type = gps_data.get("type")
+            gps_coords = gps_data["coordinates"]
+
+            if gps_type == "Point":
+                start_coord = gps_coords
+                end_coord = gps_coords
+            elif (
+                gps_type == "LineString"
+                and isinstance(gps_coords, list)
+                and len(gps_coords) >= 2
+            ):
+                start_coord = gps_coords[0]
+                end_coord = gps_coords[-1]
+            else:
+                self._set_state(
+                    TripState.FAILED,
+                    f"Invalid GPS type or coordinates for geocoding: {gps_type}",
+                )
+                return False
 
             start_pt = Point(start_coord[0], start_coord[1])
             end_pt = Point(end_coord[0], end_coord[1])
