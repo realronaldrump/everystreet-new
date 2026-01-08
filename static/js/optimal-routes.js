@@ -930,7 +930,7 @@ class OptimalRoutesManager {
     document.getElementById("generate-route-btn").disabled = false;
   }
 
-  clearRoute() {
+  async clearRoute() {
     // Clear optimal route from map
     const source = this.map?.getSource("optimal-route");
     if (source) {
@@ -942,6 +942,19 @@ class OptimalRoutesManager {
     const errorSection = document.getElementById("error-section");
     if (resultsSection) resultsSection.style.display = "none";
     if (errorSection) errorSection.style.display = "none";
+    
+    // Call backend to delete the route
+    if (this.selectedAreaId) {
+      try {
+        await fetch(`/api/coverage_areas/${this.selectedAreaId}/optimal-route`, {
+          method: "DELETE",
+        });
+        console.log("Route cleared from backend");
+      } catch (error) {
+        console.warn("Failed to clear route from backend:", error);
+      }
+    }
+    
     // Don't hide legend here - it should stay visible if streets are loaded
     // Legend visibility is managed by onAreaSelect
   }
