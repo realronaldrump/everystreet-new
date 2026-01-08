@@ -582,6 +582,25 @@ class OptimalRoutesManager {
     this.showProgressSection();
 
     try {
+      // First, check if workers are available
+      try {
+        const workerCheck = await fetch("/api/optimal-routes/worker-status");
+        const workerStatus = await workerCheck.json();
+        
+        if (workerStatus.status === "no_workers") {
+          this.updateProgressMessage(
+            "⚠️ No Celery workers detected. Task will be queued but may not be processed."
+          );
+          console.warn("No workers available:", workerStatus);
+        } else if (workerStatus.status === "error") {
+          console.warn("Worker status check failed:", workerStatus.message);
+        } else {
+          console.log("Worker status:", workerStatus);
+        }
+      } catch (workerError) {
+        console.warn("Could not check worker status:", workerError);
+      }
+
       // Start the generation task
       const response = await fetch(
         `/api/coverage_areas/${this.selectedAreaId}/generate-optimal-route`,
@@ -620,17 +639,34 @@ class OptimalRoutesManager {
       try {
         const data = JSON.parse(event.data);
 
-        // Track waiting state
-        if (data.stage === "waiting" || data.status === "pending") {
+        // Track waiting state - both "queued" (task submitted) and "waiting" (no task doc yet)
+        const isWaiting = 
+          data.stage === "waiting" || 
+          data.stage === "queued" || 
+          data.status === "pending" || 
+          data.status === "queued";
+        
+        if (isWaiting) {
           this.waitingCount++;
-          // Warn after 30 seconds of waiting (30 SSE messages at 1/sec)
-          if (this.waitingCount === 30) {
+          // Show queued status for the first 30 seconds
+          if (this.waitingCount <= 30) {
+            if (data.stage === "queued" || data.status === "queued") {
+              this.updateProgressMessage(
+                `Task queued, waiting for worker to pick it up... (${this.waitingCount}s)`
+              );
+            }
+          } else if (this.waitingCount === 31) {
+            // After 30 seconds, show concern message
             this.updateProgressMessage(
-              "Still waiting for worker... Make sure Celery is running."
+              "Worker hasn't picked up task yet. Checking Celery worker status..."
             );
           } else if (this.waitingCount === 60) {
             this.updateProgressMessage(
-              "Worker not responding. The Celery worker may not be running."
+              "⚠️ Worker not responding after 60s. Is the Celery worker running on the mini PC?"
+            );
+          } else if (this.waitingCount === 120) {
+            this.updateProgressMessage(
+              "❌ Worker appears to be offline. Please check that Celery is running: ssh mini-pc 'docker ps | grep celery'"
             );
           }
         } else {

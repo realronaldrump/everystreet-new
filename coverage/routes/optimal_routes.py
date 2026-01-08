@@ -6,7 +6,7 @@ Handles generating, retrieving, and exporting optimal completion routes.
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query, Response
@@ -58,6 +58,25 @@ async def start_optimal_route_generation(
         manual_run=True,
     )
 
+    # Create initial progress document so SSE can track queued state
+    # before worker picks up the task
+    await update_one_with_retry(
+        optimal_route_progress_collection,
+        {"task_id": task.id},
+        {
+            "$set": {
+                "task_id": task.id,
+                "location_id": location_id,
+                "status": "queued",
+                "stage": "queued",
+                "progress": 0,
+                "message": "Task queued, waiting for worker...",
+                "queued_at": datetime.now(UTC),
+            }
+        },
+        upsert=True,
+    )
+
     logger.info(
         "Started optimal route generation task %s for location %s",
         task.id,
@@ -65,6 +84,53 @@ async def start_optimal_route_generation(
     )
 
     return {"task_id": task.id, "status": "started"}
+
+
+@router.get("/api/optimal-routes/worker-status")
+async def get_worker_status():
+    """Check if Celery workers are connected and accepting tasks."""
+    from celery_app import app as celery_app
+
+    try:
+        # Get active workers using Celery's inspect API
+        inspector = celery_app.control.inspect()
+        
+        # Ping workers (with short timeout)
+        ping_result = inspector.ping()
+        
+        if not ping_result:
+            return {
+                "status": "no_workers",
+                "message": "No Celery workers are responding. The worker may be offline.",
+                "workers": [],
+                "recommendation": "Check that the Celery worker is running on the mini PC",
+            }
+        
+        # Get more details about active workers
+        active = inspector.active() or {}
+        registered = inspector.registered() or {}
+        
+        worker_info = []
+        for worker_name in ping_result.keys():
+            worker_info.append({
+                "name": worker_name,
+                "active_tasks": len(active.get(worker_name, [])),
+                "registered_tasks": len(registered.get(worker_name, [])),
+            })
+        
+        return {
+            "status": "ok",
+            "message": f"{len(worker_info)} worker(s) connected",
+            "workers": worker_info,
+        }
+        
+    except Exception as e:
+        logger.error("Failed to check worker status: %s", e)
+        return {
+            "status": "error",
+            "message": f"Failed to check worker status: {e}",
+            "workers": [],
+        }
 
 
 @router.get("/api/coverage_areas/{location_id}/optimal-route")
