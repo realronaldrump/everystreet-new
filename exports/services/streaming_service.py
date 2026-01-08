@@ -6,9 +6,9 @@ all data into memory at once.
 
 import csv
 import logging
+from collections.abc import AsyncIterator
 from datetime import datetime
 from io import StringIO
-from typing import Any, AsyncIterator
 
 from fastapi import Request
 from fastapi.responses import StreamingResponse

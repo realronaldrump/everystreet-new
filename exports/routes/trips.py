@@ -170,7 +170,9 @@ async def export_matched_trips_within_range(
     try:
         query = await build_query_from_request(request)
         query["matchedGps"] = {"$ne": None}
-        filename_base = f"matched_trips_{StreamingService.get_date_range_filename(request)}"
+        filename_base = (
+            f"matched_trips_{StreamingService.get_date_range_filename(request)}"
+        )
 
         cursor = trips_collection.find(query).batch_size(500)
 
@@ -207,7 +209,9 @@ async def export_advanced(
     include_meta: bool = Query(True, description="Include metadata"),
     include_custom: bool = Query(True, description="Include custom fields"),
     include_gps_in_csv: bool = Query(False, description="Include GPS in CSV export"),
-    flatten_location_fields: bool = Query(True, description="Flatten location fields in CSV"),
+    flatten_location_fields: bool = Query(
+        True, description="Flatten location fields in CSV"
+    ),
     fmt: str = Query("json", description="Export format"),
 ):
     """Advanced configurable export for trips data."""
@@ -358,26 +362,54 @@ def _build_csv_fields(
     base_fields = []
     if include_basic_info:
         base_fields += [
-            "_id", "transactionId", "trip_id", "startTime", "endTime",
-            "duration", "durationInMinutes", "completed", "active",
+            "_id",
+            "transactionId",
+            "trip_id",
+            "startTime",
+            "endTime",
+            "duration",
+            "durationInMinutes",
+            "completed",
+            "active",
         ]
     if include_locations:
         base_fields += [
-            "startLocation", "destination", "startAddress", "endAddress",
-            "startPoint", "endPoint", "state", "city",
+            "startLocation",
+            "destination",
+            "startAddress",
+            "endAddress",
+            "startPoint",
+            "endPoint",
+            "state",
+            "city",
         ]
     if include_telemetry:
         base_fields += [
-            "distance", "distanceInMiles", "startOdometer", "endOdometer",
-            "maxSpeed", "averageSpeed", "idleTime", "fuelConsumed",
-            "fuelEconomy", "speedingEvents",
+            "distance",
+            "distanceInMiles",
+            "startOdometer",
+            "endOdometer",
+            "maxSpeed",
+            "averageSpeed",
+            "idleTime",
+            "fuelConsumed",
+            "fuelEconomy",
+            "speedingEvents",
         ]
     if include_geometry:
         base_fields += ["gps", "path", "simplified_path", "route", "geometry"]
     if include_meta:
         base_fields += [
-            "deviceId", "imei", "vehicleId", "source", "processingStatus",
-            "processingTime", "mapMatchStatus", "confidence", "insertedAt", "updatedAt",
+            "deviceId",
+            "imei",
+            "vehicleId",
+            "source",
+            "processingStatus",
+            "processingTime",
+            "mapMatchStatus",
+            "confidence",
+            "insertedAt",
+            "updatedAt",
         ]
     if include_custom:
         base_fields += ["notes", "tags", "category", "purpose", "customFields"]

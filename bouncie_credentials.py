@@ -143,9 +143,13 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     collection,
                     {"_id": "bouncie_credentials"},
                 )
-                fetch_concurrency = existing.get("fetch_concurrency", 12) if existing else 12
+                fetch_concurrency = (
+                    existing.get("fetch_concurrency", 12) if existing else 12
+                )
                 try:
-                    fetch_concurrency = int(fetch_concurrency) if fetch_concurrency else 12
+                    fetch_concurrency = (
+                        int(fetch_concurrency) if fetch_concurrency else 12
+                    )
                 except (ValueError, TypeError):
                     fetch_concurrency = 12
             update_data["fetch_concurrency"] = fetch_concurrency

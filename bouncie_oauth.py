@@ -92,7 +92,9 @@ class BouncieOAuth:
         }
 
         try:
-            async with session.post(AUTH_URL, json=payload, headers=headers) as response:
+            async with session.post(
+                AUTH_URL, json=payload, headers=headers
+            ) as response:
                 if response.status == 401:
                     text = await response.text()
                     logger.error(
@@ -113,7 +115,9 @@ class BouncieOAuth:
                     return None
 
                 # Save new token to storage
-                await BouncieOAuth._save_token(credentials, new_access_token, expires_in)
+                await BouncieOAuth._save_token(
+                    credentials, new_access_token, expires_in
+                )
                 logger.info(
                     "Successfully obtained new access token (expires in %d seconds)",
                     expires_in,
@@ -121,7 +125,9 @@ class BouncieOAuth:
                 return new_access_token
 
         except aiohttp.ClientResponseError as e:
-            logger.error("HTTP error retrieving access token: %s %s", e.status, e.message)
+            logger.error(
+                "HTTP error retrieving access token: %s %s", e.status, e.message
+            )
             return None
         except Exception as e:
             logger.error("Error retrieving access token: %s", e)
