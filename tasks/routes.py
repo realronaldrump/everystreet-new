@@ -1,0 +1,97 @@
+"""Optimal route generation task.
+
+This module provides the Celery task for generating optimal completion routes
+for coverage areas using the Rural Postman Problem (RPP) algorithm.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from bson import ObjectId
+from celery import shared_task
+from celery.utils.log import get_task_logger
+
+from route_solver import generate_optimal_route_with_progress, save_optimal_route
+from tasks.core import task_runner
+from utils import run_async_from_sync
+
+logger = get_task_logger(__name__)
+
+
+@task_runner
+async def generate_optimal_route_async(
+    _self,
+    location_id: str,
+    start_lon: float | None = None,
+    start_lat: float | None = None,
+) -> dict[str, Any]:
+    """Generate optimal completion route for a coverage area.
+
+    Uses the Rural Postman Problem algorithm to find the minimum-distance
+    circuit that covers all undriven streets.
+
+    Args:
+        location_id: MongoDB ObjectId string for the coverage area
+        start_lon: Optional starting longitude
+        start_lat: Optional starting latitude
+
+    Returns:
+        Dict with route coordinates, distances, and stats
+    """
+    # Get the Celery task ID for progress tracking
+    task_id = getattr(_self.request, "id", None) or str(ObjectId())
+
+    logger.info(
+        "Starting optimal route generation for location %s (task: %s, start: %s, %s)",
+        location_id,
+        task_id,
+        start_lon,
+        start_lat,
+    )
+
+    start_coords = None
+    if start_lon is not None and start_lat is not None:
+        start_coords = (start_lon, start_lat)
+
+    # Generate the route with progress tracking
+    result = await generate_optimal_route_with_progress(
+        location_id, task_id, start_coords
+    )
+
+    # Save to database if successful
+    if result.get("status") == "success":
+        await save_optimal_route(location_id, result)
+        logger.info(
+            "Optimal route generated: %d segments, %.1f%% deadhead",
+            result.get("segment_count", 0),
+            result.get("deadhead_percentage", 0),
+        )
+
+    return result
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=60,
+    time_limit=1800,  # 30 minutes max
+    soft_time_limit=1700,
+    name="tasks.generate_optimal_route",
+)
+def generate_optimal_route_task(
+    _self,
+    location_id: str,
+    start_lon: float | None = None,
+    start_lat: float | None = None,
+    **_kwargs,
+):
+    """Celery task wrapper for generating optimal completion route."""
+    return run_async_from_sync(
+        generate_optimal_route_async(
+            _self,
+            location_id=location_id,
+            start_lon=start_lon,
+            start_lat=start_lat,
+        )
+    )
