@@ -363,7 +363,25 @@ class DrivingNavigation {
           String(area._id || area.id || "") === selectedValue ||
           String(area.location?.id || "") === selectedValue
       );
-      this.selectedArea = areaMatch || JSON.parse(selectedValue);
+      
+      if (areaMatch) {
+        this.selectedArea = areaMatch;
+      } else {
+        // Fallback: try parsing if it looks like a JSON object (starts with {)
+        if (selectedValue.trim().startsWith("{")) {
+            this.selectedArea = JSON.parse(selectedValue);
+        } else {
+            console.warn("Could not find area for ID:", selectedValue);
+            this.selectedArea = null;
+            // Don't throw here, just let the next check handle null
+        }
+      }
+
+      if (!this.selectedArea) {
+         this.setStatus("Invalid area selected.", true);
+         return;
+      }
+
       this.setStatus(
         `Area selected: ${this.selectedArea.location.display_name}. Loading streets...`
       );
