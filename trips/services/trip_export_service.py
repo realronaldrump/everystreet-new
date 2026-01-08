@@ -13,7 +13,7 @@ class TripExportService:
     """
 
     @staticmethod
-    async def export_to_gpx(trip_id: str):
+    async def export_to_gpx(_trip_id: str):
         """Export a trip to GPX format.
 
         Args:
@@ -29,7 +29,7 @@ class TripExportService:
         raise NotImplementedError("GPX export functionality coming soon")
 
     @staticmethod
-    async def export_to_kml(trip_id: str):
+    async def export_to_kml(_trip_id: str):
         """Export a trip to KML format.
 
         Args:

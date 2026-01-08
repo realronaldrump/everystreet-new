@@ -692,7 +692,7 @@ class TripProcessor:
             self._set_state(TripState.FAILED, error_message)
             return False
 
-    async def save(self, map_match_result: bool | None = None) -> str | None:
+    async def save(self, _map_match_result: bool | None = None) -> str | None:
         """Save the processed trip to the database.
 
         Args:

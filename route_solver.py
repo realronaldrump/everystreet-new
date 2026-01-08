@@ -559,16 +559,14 @@ def _solve_greedy_route(
                 old_node = current_node
                 for rid in list(unvisited):
                     for start in req_to_starts.get(rid, []):
-                        if start in G.nodes:
-                            # Check if this node has any outgoing edges
-                            if G.out_degree(start) > 0:
-                                current_node = start
-                                found_alternative = True
-                                logger.info(
-                                    "Jumping to disconnected component at node %d",
-                                    start,
-                                )
-                                break
+                        if start in G.nodes and G.out_degree(start) > 0:
+                            current_node = start
+                            found_alternative = True
+                            logger.info(
+                                "Jumping to disconnected component at node %d",
+                                start,
+                            )
+                            break
                     if found_alternative:
                         break
 

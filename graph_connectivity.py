@@ -101,7 +101,7 @@ def analyze_required_connectivity(
     """
     req_graph = nx.Graph()
 
-    for rid, opts in required_reqs.items():
+    for _rid, opts in required_reqs.items():
         # Use the shortest edge option as representative
         best = min(opts, key=lambda e: _edge_length_m(G, e[0], e[1], e[2]))
         req_graph.add_edge(best[0], best[1])

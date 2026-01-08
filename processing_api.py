@@ -12,6 +12,7 @@ from db import (
     find_with_retry,
     get_trip_by_id,
     serialize_datetime,
+    update_many_with_retry,
 )
 from models import BulkProcessModel, DateRangeModel
 from trip_service import ProcessingOptions, TripService
@@ -22,7 +23,7 @@ router = APIRouter()
 
 # Collections
 trips_collection = db_manager.db["trips"]
-from db import update_many_with_retry
+
 
 # Initialize TripService
 trip_service = TripService(get_mapbox_token())

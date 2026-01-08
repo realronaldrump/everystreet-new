@@ -111,7 +111,7 @@ async def get_worker_status():
         registered = inspector.registered() or {}
 
         worker_info = []
-        for worker_name in ping_result.keys():
+        for worker_name in ping_result:
             worker_info.append(
                 {
                     "name": worker_name,

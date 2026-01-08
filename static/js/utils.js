@@ -8,7 +8,8 @@ const utils = {
   // XSS Sanitization - escapes HTML special characters
   escapeHtml(str) {
     if (str === null || str === undefined) return "";
-    if (typeof str !== "string") str = String(str);
+    let inputStr = str;
+    if (typeof inputStr !== "string") inputStr = String(inputStr);
     const map = {
       "&": "&amp;",
       "<": "&lt;",
@@ -19,7 +20,7 @@ const utils = {
       "`": "&#x60;",
       "=": "&#x3D;",
     };
-    return str.replace(/[&<>"'`=/]/g, (char) => map[char]);
+    return inputStr.replace(/[&<>"'`=/]/g, (char) => map[char]);
   },
 
   // Create an element with safe text content

@@ -141,47 +141,6 @@ async def preprocess_all_graphs():
     logger.info("Found %d coverage areas.", len(areas))
 
     for area in areas:
-        # The stored document structure matches what preprocess_streets expects
-        # (it expects the full document or at least the fields accessed)
-        # Note: preprocess_streets expects "location" dict inside to contain geojson/bbox?
-        # No, the loop below passes 'area', but 'process_area' in tasks passes 'location' dict.
-        # Let's align the usage.
-
-        # In DB: area = { "_id": ..., "location": { "display_name": ..., "geojson": ... } }
-        # logic in preprocess_streets accesses location.get("display_name") directly??
-        # Wait, the original code had:
-        # So 'area' is the document.
-        # In coverage_tasks.py: await async_preprocess_streets(location, task_id)
-        # where 'location' is passed from API.
-        # API payloads often flatten or structure differently.
-        # process_area receives 'location: dict[str, Any]'.
-
-        # Let's ensure consistency.
-        # If 'location' arg contains "display_name" at top level, it's the inner dict.
-        # If it contains "location" key, it's the outer wrapper.
-
-        # Let's inspect what calls process_area in coverage_tasks.
-        # It seems it's called with the 'location' object which likely has 'display_name', 'geojson' etc.
-        # The original preprocess_all_graphs accessed area.get("location", {}).get("display_name").
-
-        # To be safe, I'll adapt the function to handle both or expect the inner 'location' object.
-        # If I look at coverage_tasks.py, 'location' seems to be the inner object (has display_name).
-
-        # So in preprocess_all_graphs, I should pass area.get("location") and manually inject _id if needed
-        # or just pass the whole thing if the function is smart.
-
-        # Let's make preprocess_streets expect the inner Location object structure + _id.
-        # But wait, the file name uses location_id. In the DB, _id is the location ID.
-        # In the API 'LocationModel', does it have _id?
-
-        # Let's assume the argument 'location' to preprocess_streets is the dict that contains
-        # 'display_name', 'geojson', 'boundingbox'.
-        # And we need the ID for the filename.
-
-        # I will update preprocess_streets to check for location keys.
-        pass
-
-    for area in areas:
         loc_data = area.get("location", {})
         # Ensure _id is available for filename
         if "_id" not in loc_data:

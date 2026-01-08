@@ -208,14 +208,17 @@ class DatabaseManager:
                 id(self._bound_loop),
             )
             self._close_client_sync()
-        if self._client is not None and current_loop is not None:
-            if self._bound_loop != current_loop:
-                logger.info(
-                    "Event loop changed (was %s, now %s), reconnecting MongoDB client",
-                    id(self._bound_loop),
-                    id(current_loop),
-                )
-                self._close_client_sync()
+        if (
+            self._client is not None
+            and current_loop is not None
+            and self._bound_loop != current_loop
+        ):
+            logger.info(
+                "Event loop changed (was %s, now %s), reconnecting MongoDB client",
+                id(self._bound_loop),
+                id(current_loop),
+            )
+            self._close_client_sync()
 
     @property
     def db(self) -> AsyncIOMotorDatabase:
