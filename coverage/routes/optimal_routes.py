@@ -6,9 +6,9 @@ Handles generating, retrieving, and exporting optimal completion routes.
 import asyncio
 import json
 import logging
+from datetime import datetime
 
 from bson import ObjectId
-from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 

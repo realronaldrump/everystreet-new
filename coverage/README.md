@@ -23,7 +23,9 @@ coverage/
 ## Modules
 
 ### `serializers.py`
+
 Handles all data serialization and JSON sanitization:
+
 - `sanitize_value()` - Remove NaN/Infinity from data
 - `sanitize_features()` - Sanitize GeoJSON feature collections
 - `serialize_datetime()` - Convert datetime to ISO strings
@@ -36,7 +38,9 @@ Handles all data serialization and JSON sanitization:
 **Purpose**: Centralize all MongoDB type conversions and JSON sanitization to eliminate scattered datetime/ObjectId handling throughout the codebase.
 
 ### `gridfs_service.py`
+
 Manages all GridFS operations for storing and streaming large GeoJSON files:
+
 - `GridFSService` class with methods:
   - `get_file_metadata()` - Fetch file metadata
   - `stream_geojson()` - Stream GeoJSON data from GridFS
@@ -47,9 +51,11 @@ Manages all GridFS operations for storing and streaming large GeoJSON files:
 **Purpose**: Encapsulate complex GridFS streaming logic (previously 150+ lines of nested async code) into a reusable service with proper error handling and cleanup.
 
 ### `services.py`
+
 Contains core business logic services:
 
 #### `CoverageStatsService`
+
 - `recalculate_stats()` - Recalculate coverage statistics
 - `_aggregate_street_stats()` - Run MongoDB aggregation pipeline
 - `_calculate_street_type_stats()` - Calculate per-street-type stats
@@ -57,11 +63,13 @@ Contains core business logic services:
 **Purpose**: Extract the 250+ line stats calculation logic into a dedicated, testable service.
 
 #### `SegmentMarkingService`
+
 - `mark_segment()` - Mark street segments with manual overrides
 
 **Purpose**: Centralize segment marking logic with proper validation and background task triggering.
 
 #### `GeometryService`
+
 - `bbox_from_geometry()` - Calculate bounding boxes from GeoJSON
 
 **Purpose**: Provide geometry utility functions.
@@ -71,7 +79,9 @@ Contains core business logic services:
 API route handlers organized by domain:
 
 #### `areas.py`
+
 Coverage area management endpoints:
+
 - `GET /api/coverage_areas` - List all areas
 - `GET /api/coverage_areas/{id}` - Get area details
 - `POST /api/preprocess_streets` - Preprocess area streets
@@ -79,7 +89,9 @@ Coverage area management endpoints:
 - `POST /api/coverage_areas/cancel` - Cancel processing
 
 #### `streets.py`
+
 Street segment operations:
+
 - `GET /api/coverage_areas/{id}/geojson/gridfs` - Stream GeoJSON from GridFS
 - `GET /api/coverage_areas/{id}/streets` - Get street segments
 - `GET /api/coverage_areas/{id}/streets/viewport` - Get viewport streets
@@ -88,19 +100,25 @@ Street segment operations:
 - `POST /api/street_segments/mark_{driven|undriven|undriveable|driveable}` - Mark segments
 
 #### `calculation.py`
+
 Coverage calculation operations:
+
 - `POST /api/street_coverage` - Start full calculation
 - `GET /api/street_coverage/{task_id}` - Get calculation status
 - `POST /api/street_coverage/incremental` - Start incremental update
 - `POST /api/coverage_areas/{id}/refresh_stats` - Refresh statistics
 
 #### `custom_boundary.py`
+
 Custom boundary handling:
+
 - `POST /api/validate_custom_boundary` - Validate drawn boundary
 - `POST /api/preprocess_custom_boundary` - Process custom boundary
 
 #### `optimal_routes.py`
+
 Optimal route generation and management:
+
 - `POST /api/coverage_areas/{id}/generate-optimal-route` - Generate route
 - `GET /api/coverage_areas/{id}/optimal-route` - Get route
 - `GET /api/coverage_areas/{id}/optimal-route/gpx` - Export as GPX
@@ -127,6 +145,7 @@ router.include_router(optimal_routes.router, tags=["optimal-routes"])
 ## Benefits of Modular Structure
 
 ### Before (Monolithic)
+
 - Single 2,130-line `coverage_api.py` file
 - Mixed concerns (routing, business logic, serialization, GridFS)
 - Difficult to test individual components
@@ -135,6 +154,7 @@ router.include_router(optimal_routes.router, tags=["optimal-routes"])
 - Hard to navigate and maintain
 
 ### After (Modular)
+
 - **Clear separation of concerns**: Each module has a single responsibility
 - **Testable components**: Services can be unit tested independently
 - **DRY principle**: Serialization logic centralized, no duplication
@@ -147,6 +167,7 @@ router.include_router(optimal_routes.router, tags=["optimal-routes"])
 ## Usage Examples
 
 ### Using Serializers
+
 ```python
 from coverage.serializers import serialize_coverage_area, sanitize_features
 
@@ -159,6 +180,7 @@ features = sanitize_features(raw_features)
 ```
 
 ### Using Services
+
 ```python
 from coverage.services import coverage_stats_service, segment_marking_service
 
@@ -172,6 +194,7 @@ result = await segment_marking_service.mark_segment(
 ```
 
 ### Using GridFS Service
+
 ```python
 from coverage.gridfs_service import gridfs_service
 
@@ -186,6 +209,7 @@ async for chunk in gridfs_service.stream_geojson(file_id, location_id):
 ## Migration Notes
 
 The refactoring is **fully backward compatible**:
+
 - All API endpoints remain unchanged
 - No changes required to frontend code
 - `coverage_api.router` still exists and works identically
@@ -216,6 +240,7 @@ Potential enhancements enabled by this structure:
 ## Related Files
 
 Files that work with this package:
+
 - `coverage_tasks.py` - Async task orchestration
 - `street_coverage_calculation.py` - Core calculation engine
 - `tasks/coverage.py` - Celery task wrappers

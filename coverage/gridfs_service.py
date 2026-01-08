@@ -220,7 +220,9 @@ class GridFSService:
             )
         return deleted_count
 
-    async def regenerate_streets_geojson(self, location_id: ObjectId) -> ObjectId | None:
+    async def regenerate_streets_geojson(
+        self, location_id: ObjectId
+    ) -> ObjectId | None:
         """Regenerate and store streets GeoJSON in GridFS.
 
         Args:
