@@ -198,6 +198,16 @@ class DatabaseManager:
     def _check_loop_and_reconnect(self) -> None:
         """Check if event loop has changed and reconnect if necessary."""
         current_loop = self._get_current_loop()
+        if (
+            self._client is not None
+            and self._bound_loop is not None
+            and self._bound_loop.is_closed()
+        ):
+            logger.info(
+                "Event loop is closed (was %s), reconnecting MongoDB client",
+                id(self._bound_loop),
+            )
+            self._close_client_sync()
         if self._client is not None and current_loop is not None:
             if self._bound_loop != current_loop:
                 logger.info(
@@ -530,10 +540,27 @@ class DatabaseManager:
 db_manager = DatabaseManager()
 
 
+class CollectionProxy:
+    """Proxy that always resolves the current collection from the db manager."""
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    @property
+    def _collection(self) -> AsyncIOMotorCollection:
+        return db_manager.get_collection(self._name)
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._collection, attr)
+
+    def __repr__(self) -> str:
+        return f"<CollectionProxy name={self._name}>"
+
+
 def _get_collection(
     name: str,
-) -> AsyncIOMotorCollection:
-    return db_manager.get_collection(name)
+) -> CollectionProxy:
+    return CollectionProxy(name)
 
 
 trips_collection = _get_collection("trips")
