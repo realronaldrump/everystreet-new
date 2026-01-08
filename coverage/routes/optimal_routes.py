@@ -94,10 +94,10 @@ async def get_worker_status():
     try:
         # Get active workers using Celery's inspect API
         inspector = celery_app.control.inspect()
-        
+
         # Ping workers (with short timeout)
         ping_result = inspector.ping()
-        
+
         if not ping_result:
             return {
                 "status": "no_workers",
@@ -105,25 +105,27 @@ async def get_worker_status():
                 "workers": [],
                 "recommendation": "Check that the Celery worker is running on the mini PC",
             }
-        
+
         # Get more details about active workers
         active = inspector.active() or {}
         registered = inspector.registered() or {}
-        
+
         worker_info = []
         for worker_name in ping_result.keys():
-            worker_info.append({
-                "name": worker_name,
-                "active_tasks": len(active.get(worker_name, [])),
-                "registered_tasks": len(registered.get(worker_name, [])),
-            })
-        
+            worker_info.append(
+                {
+                    "name": worker_name,
+                    "active_tasks": len(active.get(worker_name, [])),
+                    "registered_tasks": len(registered.get(worker_name, [])),
+                }
+            )
+
         return {
             "status": "ok",
             "message": f"{len(worker_info)} worker(s) connected",
             "workers": worker_info,
         }
-        
+
     except Exception as e:
         logger.error("Failed to check worker status: %s", e)
         return {
