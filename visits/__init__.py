@@ -17,7 +17,8 @@ from visits.routes import places, stats, visits
 from visits.services.place_service import Collections
 
 # Create main router that aggregates all visit-related routes
-router = APIRouter(prefix="/api", tags=["visits"])
+# Note: No prefix here since individual routes already have /api/ paths
+router = APIRouter(tags=["visits"])
 
 # Include all sub-routers
 # Note: We don't add prefix here since each route already has /api/ prefix

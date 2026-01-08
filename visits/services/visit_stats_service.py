@@ -39,11 +39,11 @@ class VisitStatsService:
             if v.get("time_since_last") is not None and v["time_since_last"] >= 0
         ]
 
-        avg_duration = sum(durations) / len(durations) if durations else 0
+        avg_duration = sum(durations) / len(durations) if durations else None
         avg_time_between = (
             sum(time_between_visits) / len(time_between_visits)
             if time_between_visits
-            else 0
+            else None
         )
 
         first_visit = min((v["arrival_time"] for v in visits), default=None)
@@ -82,7 +82,7 @@ class VisitStatsService:
                 if v.get("duration") is not None and v["duration"] >= 0
             ]
 
-            avg_duration = sum(durations) / len(durations) if durations else 0
+            avg_duration = sum(durations) / len(durations) if durations else None
 
             first_visit = min((v["arrival_time"] for v in visits), default=None)
             last_visit = max((v["arrival_time"] for v in visits), default=None)

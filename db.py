@@ -1243,6 +1243,25 @@ async def ensure_gas_tracking_indexes() -> None:
         )
 
 
+async def ensure_places_indexes() -> None:
+    """Ensure indexes exist for places collection (custom places for visits)."""
+    logger.debug("Ensuring places collection indexes exist...")
+    try:
+        # 2dsphere index on geometry for $geoIntersects queries in trip_processor
+        await db_manager.safe_create_index(
+            "places",
+            [("geometry", pymongo.GEOSPHERE)],
+            name="places_geometry_2dsphere_idx",
+            background=True,
+        )
+        logger.info("Places collection indexes ensured/created successfully")
+    except Exception as e:
+        logger.error(
+            "Error creating places indexes: %s",
+            str(e),
+        )
+
+
 async def init_database() -> None:
     logger.info("Initializing database...")
     await init_task_history_collection()
@@ -1250,6 +1269,7 @@ async def init_database() -> None:
     await ensure_location_indexes()
     await ensure_archived_trip_indexes()
     await ensure_gas_tracking_indexes()
+    await ensure_places_indexes()
     _ = db_manager.get_collection("places")
     _ = db_manager.get_collection("task_config")
     _ = db_manager.get_collection("progress_status")
