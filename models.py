@@ -129,8 +129,8 @@ class DeleteCoverageAreaModel(BaseModel):
 class DateRangeModel(BaseModel):
     """Model for date range data."""
 
-    start_date: str
-    end_date: str
+    start_date: str = ""
+    end_date: str = ""
     interval_days: int = 0
 
 
