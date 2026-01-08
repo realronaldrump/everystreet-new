@@ -278,7 +278,7 @@ def download_corridor_graph(
         G = ox.graph_from_polygon(
             corridor,
             network_type="drive",
-            simplify=True,
+            simplify=False,  # CRITICAL: Do not simplify, otherwise we lose connection nodes that aren't intersections in the corridor
             truncate_by_edge=True,
             retain_all=True,
         )
@@ -393,43 +393,85 @@ async def bridge_disconnected_clusters(
     bridges_created = 0
     max_bridges = min(len(bridge_pairs), MAX_BRIDGE_ATTEMPTS)
 
+    import asyncio
+    import functools
+
+    # Planning phase: Identify which bridges we intend to build
+    planned_bridges = []
     for idx, (ci, cj, node_a, node_b, dist) in enumerate(bridge_pairs[:max_bridges]):
-        # Skip if these clusters are already connected
         if find(ci) == find(cj):
             continue
+        
+        union(ci, cj)
+        planned_bridges.append((idx, ci, cj, node_a, node_b, dist))
 
+    if not planned_bridges:
+        return G
+
+    logger.info("Planning to build %d bridges concurrently...", len(planned_bridges))
+    if progress_callback:
+        await progress_callback(
+            "bridging",
+            10,
+            f"Processing {len(planned_bridges)} bridges concurrently...",
+        )
+
+    # Execution phase: Fetch and download in parallel
+    async def process_bridge(bridge_info):
+        idx, ci, cj, node_a, node_b, dist = bridge_info
+        
         if progress_callback:
-            pct = int((idx / max_bridges) * 100)
+            # Rough progress update (fire and forget)
             await progress_callback(
                 "bridging",
-                pct,
-                f"Bridging cluster {ci} to {cj} ({dist:.2f} miles)...",
+                10,
+                f"Fetching bridge {idx+1}: cluster {ci}->{cj} ({dist:.2f} mi)",
             )
 
         xy_a = node_xy.get(node_a)
         xy_b = node_xy.get(node_b)
 
         if not xy_a or not xy_b:
-            logger.warning(
-                "Missing coordinates for bridge nodes %d or %d", node_a, node_b
-            )
-            continue
+            logger.warning("Missing coordinates for bridge nodes %d or %d", node_a, node_b)
+            return None
 
         # Fetch bridge route from Mapbox
         route_coords = await fetch_bridge_route(xy_a, xy_b)
         if not route_coords:
             logger.warning("Could not fetch bridge route from %s to %s", xy_a, xy_b)
-            continue
+            return None
 
-        # Download corridor graph
-        corridor = download_corridor_graph(route_coords)
+        # Download corridor graph (run in thread to avoid blocking event loop)
+        loop = asyncio.get_running_loop()
+        corridor = await loop.run_in_executor(
+            None, 
+            functools.partial(download_corridor_graph, route_coords)
+        )
+            
         if not corridor:
             logger.warning("Could not download corridor graph for bridge")
-            continue
+            return None
+            
+        # Verify connection nodes are present
+        if node_a not in corridor.nodes:
+            logger.warning("Corridor graph missing start node %d (may cause disconnect)", node_a)
+        if node_b not in corridor.nodes:
+            logger.warning("Corridor graph missing end node %d (may cause disconnect)", node_b)
 
+        return (corridor, bridge_info)
+
+    # Run all tasks
+    results = await asyncio.gather(*(process_bridge(b) for b in planned_bridges))
+
+    # Merging phase: Integrate successful results
+    for res in results:
+        if not res:
+            continue
+            
+        corridor, (idx, ci, cj, node_a, node_b, dist) = res
+        
         # Merge into main graph
         G = merge_graphs(G, corridor)
-        union(ci, cj)
         bridges_created += 1
 
         logger.info(
