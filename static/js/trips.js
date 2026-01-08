@@ -47,15 +47,7 @@ async function loadVehicles() {
     vehicles.forEach((v) => {
       const option = document.createElement("option");
       option.value = v.imei;
-      let label = v.custom_name;
-      if (!label) {
-        if (v.year || v.make || v.model) {
-          label = `${v.year || ""} ${v.make || ""} ${v.model || ""}`.trim();
-        } else {
-          label = v.vin ? `VIN: ${v.vin}` : `IMEI: ${v.imei}`;
-        }
-      }
-      option.textContent = label;
+      option.textContent = window.utils.formatVehicleName(v);
       vehicleSelect.appendChild(option);
     });
   } catch (error) {
@@ -506,7 +498,8 @@ async function bulkDeleteTrips(ids) {
     const result = await response.json();
     window.notificationManager?.show(result.message || "Trips deleted", "success");
     selectedTripIds.clear();
-    document.getElementById("select-all-trips").checked = false;
+    const selectAllEl = document.getElementById("select-all-trips");
+    if (selectAllEl) selectAllEl.checked = false;
     tripsTable.reload();
   } catch (e) {
     console.error("Bulk delete failed", e);
@@ -514,30 +507,7 @@ async function bulkDeleteTrips(ids) {
   }
 }
 
-function formatDateTime(isoString) {
-  if (!isoString) return "--";
-  return new Date(isoString).toLocaleString("en-US", { hour12: true });
-}
-
-function formatDuration(seconds) {
-  if (!seconds && seconds !== 0) return "--";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m ${s}s`;
-}
-
-function sanitizeLocation(location) {
-  if (!location) return "Unknown";
-  if (typeof location === "string") return location;
-  if (typeof location === "object") {
-    return (
-      location.formatted_address ||
-      location.name ||
-      [location.street, location.city, location.state].filter(Boolean).join(", ") ||
-      "Unknown"
-    );
-  }
-  return "Unknown";
-}
+// Use shared utilities from window.utils
+const formatDateTime = (s) => window.utils.formatDateTime(s);
+const formatDuration = (s) => window.utils.formatDuration(s);
+const sanitizeLocation = (l) => window.utils.sanitizeLocation(l);
