@@ -26,6 +26,7 @@ import os  # Added import
 
 # ... existing code ...
 
+
 async def get_app_settings() -> dict[str, Any]:
     """Retrieve app settings from database.
 
@@ -39,7 +40,9 @@ async def get_app_settings() -> dict[str, Any]:
     def get_empty_settings() -> dict[str, Any]:
         """Return empty settings structure when none configured."""
         return {
-            "mapbox_access_token": os.environ.get("MAPBOX_ACCESS_TOKEN", ""),  # Fallback to env
+            "mapbox_access_token": os.environ.get(
+                "MAPBOX_ACCESS_TOKEN", ""
+            ),  # Fallback to env
             "clarity_project_id": None,
         }
 
@@ -52,12 +55,12 @@ async def get_app_settings() -> dict[str, Any]:
 
         if settings:
             logger.debug("Retrieved app settings from database")
-            
+
             # Use DB value, or fallback to env if DB value is empty
             token = settings.get("mapbox_access_token", "")
             if not token:
                 token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
-                
+
             result = {
                 "mapbox_access_token": token,
                 "clarity_project_id": settings.get("clarity_project_id"),
@@ -66,9 +69,7 @@ async def get_app_settings() -> dict[str, Any]:
             _settings_cache = result
             return result
 
-        logger.warning(
-            "No app settings found in database. Using environment defaults."
-        )
+        logger.warning("No app settings found in database. Using environment defaults.")
         return get_empty_settings()
     except Exception as e:
         logger.exception("Error retrieving app settings: %s", e)
@@ -133,10 +134,10 @@ def get_cached_mapbox_token() -> str:
     token = ""
     if _settings_cache and _settings_cache.get("mapbox_access_token"):
         token = _settings_cache["mapbox_access_token"]
-        
+
     if not token:
         token = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
-        
+
     return token
 
 
