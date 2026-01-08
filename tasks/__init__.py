@@ -19,18 +19,14 @@ All public APIs are re-exported here for backwards compatibility.
 """
 
 # Core components
-from tasks.core import (
-    TASK_METADATA,
-    TaskStatus,
-    TaskStatusManager,
-    task_runner,
-)
-
 # Configuration functions
-from tasks.config import (
-    check_dependencies,
-    get_task_config,
-    update_task_history_entry,
+from tasks.config import check_dependencies, get_task_config, update_task_history_entry
+from tasks.core import TASK_METADATA, TaskStatus, TaskStatusManager, task_runner
+
+# Coverage tasks
+from tasks.coverage import (
+    update_coverage_for_new_trips,
+    update_coverage_for_new_trips_async,
 )
 
 # Trip fetching tasks
@@ -44,12 +40,6 @@ from tasks.fetch import (
     periodic_fetch_trips_async,
 )
 
-# Coverage tasks
-from tasks.coverage import (
-    update_coverage_for_new_trips,
-    update_coverage_for_new_trips_async,
-)
-
 # Maintenance tasks
 from tasks.maintenance import (
     cleanup_stale_trips,
@@ -58,12 +48,6 @@ from tasks.maintenance import (
     remap_unmatched_trips_async,
     validate_trips,
     validate_trips_async,
-)
-
-# Scheduler
-from tasks.scheduler import (
-    run_task_scheduler,
-    run_task_scheduler_async,
 )
 
 # Management API functions
@@ -76,14 +60,14 @@ from tasks.management import (
     update_task_schedule,
 )
 
+# Route generation
+from tasks.routes import generate_optimal_route_async, generate_optimal_route_task
+
+# Scheduler
+from tasks.scheduler import run_task_scheduler, run_task_scheduler_async
+
 # Webhook processing
 from tasks.webhook import process_webhook_event_task
-
-# Route generation
-from tasks.routes import (
-    generate_optimal_route_async,
-    generate_optimal_route_task,
-)
 
 __all__ = [
     # Core

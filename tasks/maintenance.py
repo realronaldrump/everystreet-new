@@ -18,11 +18,7 @@ from pydantic import ValidationError
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError, ConnectionFailure
 
-from db import (
-    db_manager,
-    find_with_retry,
-    trips_collection,
-)
+from db import db_manager, find_with_retry, trips_collection
 from live_tracking import cleanup_stale_trips_logic
 from models import TripDataModel
 from tasks.config import check_dependencies

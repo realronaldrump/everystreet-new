@@ -20,10 +20,7 @@ if TYPE_CHECKING:
 
 from celery.utils.log import get_task_logger
 
-from db import (
-    task_config_collection,
-    update_one_with_retry,
-)
+from db import task_config_collection, update_one_with_retry
 
 logger = get_task_logger(__name__)
 T = TypeVar("T")
