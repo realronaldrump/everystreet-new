@@ -57,3 +57,9 @@ body.light-mode .table-striped tbody tr:nth-of-type(odd) {
 .table .action-cell .btn {
   margin-left: var(--space-1);
 }
+
+.table-loading {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}

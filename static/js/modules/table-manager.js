@@ -87,9 +87,9 @@ export class TableManager {
   _bindEvents() {
     // Header click for sorting
     const headers = this.table.querySelectorAll("thead th[data-sortable]");
-    headers.forEach((th, index) => {
+    headers.forEach((th) => {
       th.style.cursor = "pointer";
-      th.addEventListener("click", () => this._handleSort(index));
+      th.addEventListener("click", () => this._handleSort(th.cellIndex));
     });
 
     // Pagination
@@ -130,7 +130,9 @@ export class TableManager {
     this.state.loading = true;
     this.state.abortController = new AbortController();
 
-    this._showLoading();
+    // Use soft loading if we already have data
+    const softLoad = this.state.data.length > 0;
+    this._showLoading(softLoad);
 
     try {
       if (this.options.serverSide) {
@@ -144,6 +146,7 @@ export class TableManager {
       this._showError("Failed to load data");
     } finally {
       this.state.loading = false;
+      this.tbody.classList.remove("table-loading");
     }
   }
 
@@ -244,17 +247,21 @@ export class TableManager {
     this._updatePagination();
   }
 
-  _showLoading() {
-    this.tbody.innerHTML = `
-      <tr>
-        <td colspan="${this.options.columns.length}" class="text-center py-4">
-          <div class="spinner-border spinner-border-sm text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-          <span class="ms-2">${escapeHtml(this.options.loadingMessage)}</span>
-        </td>
-      </tr>
-    `;
+  _showLoading(soft = false) {
+    if (soft) {
+      this.tbody.classList.add("table-loading");
+    } else {
+      this.tbody.innerHTML = `
+        <tr>
+          <td colspan="${this.options.columns.length}" class="text-center py-4">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="ms-2">${escapeHtml(this.options.loadingMessage)}</span>
+          </td>
+        </tr>
+      `;
+    }
   }
 
   _showEmpty() {
