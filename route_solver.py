@@ -1,12 +1,16 @@
 """
 Optimal route solver using a connectivity-first greedy coverage strategy.
 
-Key updates:
+Key features:
 - Buffer routing graph to avoid artificial disconnections at coverage boundaries.
 - Map undriven segments to OSM edges using OSM IDs when available (fallback to nearest).
 - Prefer continuing along adjacent undriven edges before deadheading.
-- Remove teleport fallback: all geometry stays on-network.
+- Bridge-and-merge: dynamically fetch corridor graphs to connect disconnected clusters.
 - Validate coverage, gaps, and deadhead ratio before returning.
+
+Note: Teleportation (straight-line interpolation) has been removed. Disconnected
+components are handled by the bridge_disconnected_clusters() function which
+fetches real road data via Mapbox Directions API.
 """
 
 import contextlib
@@ -375,43 +379,24 @@ def _interpolate_connecting_path(
     to_xy: tuple[float, float],
 ) -> list[list[float]]:
     """
-    Create an interpolated path between two points.
+    DEPRECATED: This function produced invalid "teleportation" routes.
 
-    Used when the routing graph has disconnected components that cannot
-    be connected via the existing network. Creates intermediate points
-    to keep the gap between consecutive coordinates within acceptable limits.
+    Disconnected components are now handled by bridge_disconnected_clusters()
+    in graph_connectivity.py, which fetches real road data via Mapbox.
 
-    Args:
-        from_xy: (lon, lat) of start point
-        to_xy: (lon, lat) of end point
-
-    Returns:
-        List of [lon, lat] coordinates for the interpolated path.
+    This function now logs a warning and returns an empty list.
+    Callers should use the bridge-and-merge approach instead.
     """
-    # Calculate distance between points in miles
     dist_miles = GeometryService.haversine_distance(
         from_xy[0], from_xy[1], to_xy[0], to_xy[1], unit="miles"
     )
-
-    # Interpolate points along the line to keep gaps under MAX_ROUTE_GAP_FT
-    # Use ~1000ft (~0.19 miles) spacing to stay well under the ~10000ft threshold
-    spacing_miles = 0.19  # ~1000 feet
-    num_points = max(2, int(dist_miles / spacing_miles) + 1)
-
-    interpolated_coords = []
-    for i in range(num_points):
-        t = i / (num_points - 1) if num_points > 1 else 0
-        lon = from_xy[0] + t * (to_xy[0] - from_xy[0])
-        lat = from_xy[1] + t * (to_xy[1] - from_xy[1])
-        interpolated_coords.append([lon, lat])
-
-    logger.info(
-        "Created interpolated path with %d points to bridge %.2f mile gap",
-        len(interpolated_coords),
+    logger.warning(
+        "DEPRECATED: _interpolate_connecting_path called for %.2f mile gap. "
+        "This produces invalid routes. Use bridge_disconnected_clusters() instead.",
         dist_miles,
     )
-
-    return interpolated_coords
+    # Return empty list - caller should handle disconnection gracefully
+    return []
 
 
 def _solve_greedy_route(
@@ -511,7 +496,6 @@ def _solve_greedy_route(
 
     # Helper to append geometry with stitching
     def _append_coords(coords: list[list[float]]) -> None:
-        nonlocal route_coords
         if not coords:
             return
         if route_coords:
@@ -520,7 +504,6 @@ def _solve_greedy_route(
             route_coords.extend(coords)
 
     def _append_path_edges(path_edges: list[EdgeRef]) -> None:
-        nonlocal route_edges
         for u, v, k in path_edges:
             key = None if k == -1 else k
             geo = _get_edge_geometry(G, u, v, key, node_xy=node_xy)
@@ -533,7 +516,6 @@ def _solve_greedy_route(
 
     def _remove_req_from_bookkeeping(rid: ReqId) -> None:
         """Remove a requirement from all tracking structures."""
-        nonlocal global_targets
         for s in req_to_starts.get(rid, []):
             start_counts[s] = start_counts.get(s, 1) - 1
             if start_counts.get(s, 0) <= 0:
@@ -592,8 +574,11 @@ def _solve_greedy_route(
 
                 if not found_alternative:
                     # No reachable segments remain - skip all unvisited
+                    # Note: This should rarely happen if bridge_disconnected_clusters()
+                    # was called before running the solver
                     logger.warning(
-                        "Cannot reach %d remaining segments (graph disconnected)",
+                        "Cannot reach %d remaining segments (graph disconnected). "
+                        "Consider running bridge_disconnected_clusters() before solving.",
                         len(unvisited),
                     )
                     for rid in list(unvisited):
@@ -602,12 +587,22 @@ def _solve_greedy_route(
                     unvisited.clear()
                     break
 
-                # Create interpolated path between old and new position
+                # Note: We no longer create interpolated "teleport" paths
+                # The graph should have been bridged before calling the solver.
+                # If we reach here, log a warning about the jump.
                 old_xy = node_xy.get(old_node)
                 new_xy = node_xy.get(current_node)
-                if old_xy and new_xy and route_coords:
-                    connecting_path = _interpolate_connecting_path(old_xy, new_xy)
-                    _append_coords(connecting_path)
+                if old_xy and new_xy:
+                    jump_dist = GeometryService.haversine_distance(
+                        old_xy[0], old_xy[1], new_xy[0], new_xy[1], unit="miles"
+                    )
+                    logger.warning(
+                        "Route contains %.2f mile gap between disconnected components "
+                        "(nodes %d -> %d). Run bridge_disconnected_clusters() to fix.",
+                        jump_dist,
+                        old_node,
+                        current_node,
+                    )
 
                 # Continue to process from the new starting point
                 continue
@@ -840,16 +835,11 @@ async def generate_optimal_route_with_progress(
             "loading_area", 10, f"Loading coverage area: {location_name}"
         )
 
+        # Validate that the coverage area has a valid geometry
         boundary_geom = location_info.get("geojson", {}).get("geometry")
-        if boundary_geom:
-            polygon = shape(boundary_geom)
-        else:
+        if not boundary_geom:
             bbox = location_info.get("boundingbox")
-            if bbox and len(bbox) >= 4:
-                polygon = box(
-                    float(bbox[2]), float(bbox[0]), float(bbox[3]), float(bbox[1])
-                )
-            else:
+            if not (bbox and len(bbox) >= 4):
                 raise ValueError("No valid boundary for coverage area")
 
         await update_progress(
@@ -983,9 +973,65 @@ async def generate_optimal_route_with_progress(
                     ox.distance.nearest_nodes(G, start_coords[0], start_coords[1])
                 )
 
+        # Bridge disconnected clusters before solving
+        # This fetches corridor graphs via Mapbox to connect fragmented areas
+        await update_progress(
+            "connectivity_check",
+            70,
+            "Checking graph connectivity and bridging disconnected clusters...",
+        )
+
+        try:
+            from graph_connectivity import (
+                analyze_required_connectivity,
+                bridge_disconnected_clusters,
+            )
+
+            clusters = analyze_required_connectivity(G, required_reqs)
+            if len(clusters) > 1:
+                logger.info(
+                    "Found %d disconnected clusters; attempting to bridge...",
+                    len(clusters),
+                )
+
+                async def bridge_progress(stage: str, pct: int, msg: str) -> None:
+                    # Map bridge progress (0-100) to overall progress (70-80)
+                    overall_pct = 70 + int(pct * 0.1)
+                    await update_progress(stage, overall_pct, msg)
+
+                G = await bridge_disconnected_clusters(
+                    G,
+                    required_reqs,
+                    node_xy,
+                    progress_callback=bridge_progress,
+                )
+
+                # Update node_xy with any new nodes from corridors
+                for n in G.nodes:
+                    if n not in node_xy and "x" in G.nodes[n] and "y" in G.nodes[n]:
+                        node_xy[n] = (float(G.nodes[n]["x"]), float(G.nodes[n]["y"]))
+
+                await update_progress(
+                    "connectivity_check",
+                    80,
+                    f"Bridging complete; graph now has {G.number_of_nodes()} nodes",
+                )
+            else:
+                await update_progress(
+                    "connectivity_check",
+                    80,
+                    "All required segments are connected; no bridging needed",
+                )
+        except ImportError:
+            logger.warning(
+                "graph_connectivity module not available; skipping bridge step"
+            )
+        except Exception as e:
+            logger.warning("Bridge step failed (continuing without): %s", e)
+
         await update_progress(
             "routing",
-            75,
+            82,
             f"Computing greedy route for {len(required_reqs)} required edges...",
         )
 

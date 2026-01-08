@@ -17,6 +17,7 @@ from coverage.gridfs_service import gridfs_service
 from coverage.serializers import sanitize_features
 from coverage.services import segment_marking_service
 from db import batch_cursor, count_documents_with_retry, db_manager, find_one_with_retry
+from models import LocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -242,13 +243,8 @@ async def get_coverage_area_streets_viewport(
 
 
 @router.post("/api/undriven_streets")
-async def get_undriven_streets(location):
+async def get_undriven_streets(location: LocationModel):
     """Get undriven streets for a specific location."""
-    from models import LocationModel
-
-    if not isinstance(location, LocationModel):
-        location = LocationModel(**location)
-
     location_name = "UNKNOWN"
     try:
         location_name = location.display_name

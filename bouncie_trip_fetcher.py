@@ -85,7 +85,7 @@ async def fetch_bouncie_trips_in_range(
 ) -> list:
     # Parallel chunk processing across devices and 7-day windows
     all_new_trips = []
-    progress_tracker = task_progress if task_progress is not None else progress_data
+    progress_tracker = task_progress
     if progress_tracker is not None:
         progress_tracker["fetch_and_store_trips"]["status"] = "running"
         progress_tracker["fetch_and_store_trips"]["progress"] = 0
