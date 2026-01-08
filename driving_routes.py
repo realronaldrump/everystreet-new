@@ -223,14 +223,13 @@ async def get_next_driving_route(request: Request):
         location_data = data.get("location")
         if not location_data:
             return JSONResponse(
-                status_code=400, 
-                content={"detail": "Target location data is required."}
+                status_code=400, content={"detail": "Target location data is required."}
             )
 
         location = LocationModel(**location_data)
         location_name = location.display_name
         target_segment_id = data.get("segment_id")
-        
+
         # Get position - catch ANY error from here to ensure JSON response
         try:
             current_lat, current_lon, location_source = await get_current_position(data)
@@ -240,29 +239,29 @@ async def get_next_driving_route(request: Request):
         except Exception as e:
             logger.error("Error determining position: %s", e, exc_info=True)
             raise HTTPException(
-                status_code=500, 
-                detail=f"Failed to determine current position: {str(e)}"
+                status_code=500,
+                detail=f"Failed to determine current position: {str(e)}",
             )
 
         # Validate coordinates are valid numbers
         if not all(math.isfinite(v) for v in [current_lat, current_lon]):
             return JSONResponse(
                 status_code=400,
-                content={"detail": "Invalid position: coordinates contain NaN or infinite values."}
+                content={
+                    "detail": "Invalid position: coordinates contain NaN or infinite values."
+                },
             )
 
     except (ValueError, TypeError, json.JSONDecodeError) as e:
         return JSONResponse(
-            status_code=400, 
-            content={"detail": f"Invalid request format: {e!s}"}
+            status_code=400, content={"detail": f"Invalid request format: {e!s}"}
         )
     except HTTPException as e:
         return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
     except Exception as e:
         logger.error("Unexpected error in next-route init: %s", e, exc_info=True)
         return JSONResponse(
-            status_code=500, 
-            content={"detail": f"Internal server error: {str(e)}"}
+            status_code=500, content={"detail": f"Internal server error: {str(e)}"}
         )
 
     # Proceed to route calculation
@@ -324,40 +323,49 @@ async def get_next_driving_route(request: Request):
         geom_type = geometry.get("type", "Unknown")
 
         if not coords:
-             # This can happen if we found a street but it has no coords (rare)
-             raise HTTPException(
-                 status_code=500, detail="Target street has no valid coordinates."
-             )
+            # This can happen if we found a street but it has no coords (rare)
+            raise HTTPException(
+                status_code=500, detail="Target street has no valid coordinates."
+            )
 
         # Robustly extract start coordinates regardless of claimed type
         try:
-             # Check strictly for LineString or if structure implies it
-             if geom_type == "LineString" or (
-                 geom_type == "Unknown" and len(coords) > 0 and isinstance(coords[0], (list, tuple)) and len(coords[0]) == 2 and isinstance(coords[0][0], (float, int))
-             ):
-                 start_coords = coords[0]
-             # Check for MultiLineString
-             elif geom_type == "MultiLineString" or (
-                  len(coords) > 0 and isinstance(coords[0], (list, tuple)) and isinstance(coords[0][0], (list, tuple))
-             ):
-                 start_coords = coords[0][0]
-             else:
-                 # Fallback: assume first element is what we want if it looks like a coordinate
-                 if len(coords) >= 2 and isinstance(coords[0], (float, int)):
-                     # It's a Point?
-                     start_coords = coords
-                 elif len(coords) > 0:
-                     start_coords = coords[0]
-                     if isinstance(start_coords[0], (list, tuple)):
-                         start_coords = start_coords[0]
-                 else:
-                     raise ValueError("Empty coordinates")
+            # Check strictly for LineString or if structure implies it
+            if geom_type == "LineString" or (
+                geom_type == "Unknown"
+                and len(coords) > 0
+                and isinstance(coords[0], (list, tuple))
+                and len(coords[0]) == 2
+                and isinstance(coords[0][0], (float, int))
+            ):
+                start_coords = coords[0]
+            # Check for MultiLineString
+            elif geom_type == "MultiLineString" or (
+                len(coords) > 0
+                and isinstance(coords[0], (list, tuple))
+                and isinstance(coords[0][0], (list, tuple))
+            ):
+                start_coords = coords[0][0]
+            else:
+                # Fallback: assume first element is what we want if it looks like a coordinate
+                if len(coords) >= 2 and isinstance(coords[0], (float, int)):
+                    # It's a Point?
+                    start_coords = coords
+                elif len(coords) > 0:
+                    start_coords = coords[0]
+                    if isinstance(start_coords[0], (list, tuple)):
+                        start_coords = start_coords[0]
+                else:
+                    raise ValueError("Empty coordinates")
         except Exception:
-             logging.warning("Failed to extract start coords from geometry: type=%s, coords=%s", geom_type, coords)
-             raise HTTPException(
-                 status_code=500, detail=f"Unsupported geometry structure: {geom_type}"
-             )
-
+            logging.warning(
+                "Failed to extract start coords from geometry: type=%s, coords=%s",
+                geom_type,
+                coords,
+            )
+            raise HTTPException(
+                status_code=500, detail=f"Unsupported geometry structure: {geom_type}"
+            )
 
         route_result = await _get_mapbox_directions_route(
             current_lon, current_lat, start_coords[0], start_coords[1]
@@ -621,9 +629,11 @@ async def suggest_next_efficient_street(
     scored_clusters.sort(key=lambda x: x["efficiency_score"], reverse=True)
 
     return JSONResponse(
-        content=sanitize_for_json({
-            "status": "success",
-            "message": f"Found {len(scored_clusters)} efficient street clusters",
-            "suggested_clusters": scored_clusters[:top_n],
-        })
+        content=sanitize_for_json(
+            {
+                "status": "success",
+                "message": f"Found {len(scored_clusters)} efficient street clusters",
+                "suggested_clusters": scored_clusters[:top_n],
+            }
+        )
     )
