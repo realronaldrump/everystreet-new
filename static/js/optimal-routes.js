@@ -50,9 +50,11 @@ class OptimalRoutesManager {
     });
 
     // Generate button
-    document.getElementById("generate-route-btn")?.addEventListener("click", () => {
-      this.generateRoute();
-    });
+    document
+      .getElementById("generate-route-btn")
+      ?.addEventListener("click", () => {
+        this.generateRoute();
+      });
 
     // Export GPX
     document.getElementById("export-gpx-btn")?.addEventListener("click", () => {
@@ -60,9 +62,11 @@ class OptimalRoutesManager {
     });
 
     // Clear route
-    document.getElementById("clear-route-btn")?.addEventListener("click", () => {
-      this.clearRoute();
-    });
+    document
+      .getElementById("clear-route-btn")
+      ?.addEventListener("click", () => {
+        this.clearRoute();
+      });
 
     // Retry button
     document.getElementById("retry-btn")?.addEventListener("click", () => {
@@ -98,7 +102,9 @@ class OptimalRoutesManager {
       slider?.addEventListener("input", (e) => {
         const opacity = e.target.value / 100;
         // Update label
-        const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
+        const label = slider
+          .closest(".layer-opacity")
+          .querySelector(".opacity-value");
         if (label) label.textContent = `${e.target.value}%`;
 
         this.setLayerOpacity(layers, opacity);
@@ -132,7 +138,11 @@ class OptimalRoutesManager {
     layerIds.forEach((id) => {
       try {
         if (this.map.getLayer(id)) {
-          this.map.setLayoutProperty(id, "visibility", isVisible ? "visible" : "none");
+          this.map.setLayoutProperty(
+            id,
+            "visibility",
+            isVisible ? "visible" : "none",
+          );
         }
       } catch (e) {
         console.warn(`Could not toggle layer ${id}:`, e.message);
@@ -246,7 +256,10 @@ class OptimalRoutesManager {
         this.setupMapLayers();
         resolve();
       };
-      if (typeof this.map.isStyleLoaded === "function" && this.map.isStyleLoaded()) {
+      if (
+        typeof this.map.isStyleLoaded === "function" &&
+        this.map.isStyleLoaded()
+      ) {
         handleLoad();
       } else {
         this.map.on("load", handleLoad);
@@ -360,7 +373,10 @@ class OptimalRoutesManager {
   ensureMapLayers() {
     if (!this.map) return false;
     if (this.map.getSource("streets-driven")) return true;
-    if (typeof this.map.isStyleLoaded === "function" && !this.map.isStyleLoaded()) {
+    if (
+      typeof this.map.isStyleLoaded === "function" &&
+      !this.map.isStyleLoaded()
+    ) {
       return false;
     }
     this.setupMapLayers();
@@ -416,7 +432,7 @@ class OptimalRoutesManager {
       }
 
       console.log(
-        `Loaded ${drivenFeatures.length} driven, ${undrivenFeatures.length} undriven streets`
+        `Loaded ${drivenFeatures.length} driven, ${undrivenFeatures.length} undriven streets`,
       );
     } catch (error) {
       console.error("Error loading street network:", error);
@@ -444,7 +460,7 @@ class OptimalRoutesManager {
 
       // Dispatch event so DrivingNavigation can sync with the loaded areas
       document.dispatchEvent(
-        new CustomEvent("coverageAreasLoaded", { detail: { areas } })
+        new CustomEvent("coverageAreasLoaded", { detail: { areas } }),
       );
 
       if (this.areaSelect && this.config.populateAreaSelect) {
@@ -460,7 +476,9 @@ class OptimalRoutesManager {
           option.dataset.coverage = coverage;
           const totalLength = area.total_length || area.total_length_m || 0;
           const drivenLength = area.driven_length || area.driven_length_m || 0;
-          option.dataset.remaining = this.formatDistance(totalLength - drivenLength);
+          option.dataset.remaining = this.formatDistance(
+            totalLength - drivenLength,
+          );
           this.areaSelect.appendChild(option);
         });
       }
@@ -539,7 +557,9 @@ class OptimalRoutesManager {
     }
 
     // Show area stats
-    const selectedOption = this.areaSelect?.querySelector(`option[value="${areaId}"]`);
+    const selectedOption = this.areaSelect?.querySelector(
+      `option[value="${areaId}"]`,
+    );
     if (selectedOption) {
       document.getElementById("area-coverage").textContent =
         `${selectedOption.dataset.coverage}%`;
@@ -573,7 +593,9 @@ class OptimalRoutesManager {
 
   async loadExistingRoute(areaId) {
     try {
-      const response = await fetch(`/api/coverage_areas/${areaId}/optimal-route`);
+      const response = await fetch(
+        `/api/coverage_areas/${areaId}/optimal-route`,
+      );
 
       if (response.status === 404) {
         // No route yet
@@ -610,7 +632,7 @@ class OptimalRoutesManager {
             [west, south],
             [east, north],
           ],
-          { padding: 50, duration: 1000 }
+          { padding: 50, duration: 1000 },
         );
       }
     } catch (error) {
@@ -632,7 +654,7 @@ class OptimalRoutesManager {
 
         if (workerStatus.status === "no_workers") {
           this.updateProgressMessage(
-            "⚠️ No Celery workers detected. Task will be queued but may not be processed."
+            "⚠️ No Celery workers detected. Task will be queued but may not be processed.",
           );
           console.warn("No workers available:", workerStatus);
         } else if (workerStatus.status === "error") {
@@ -647,7 +669,7 @@ class OptimalRoutesManager {
       // Start the generation task
       const response = await fetch(
         `/api/coverage_areas/${this.selectedAreaId}/generate-optimal-route`,
-        { method: "POST" }
+        { method: "POST" },
       );
 
       if (!response.ok) {
@@ -676,7 +698,9 @@ class OptimalRoutesManager {
     this.waitingCount = 0;
     this.lastProgressTime = Date.now();
 
-    this.eventSource = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
+    this.eventSource = new EventSource(
+      `/api/optimal-routes/${taskId}/progress/sse`,
+    );
 
     this.eventSource.onmessage = (event) => {
       try {
@@ -695,21 +719,21 @@ class OptimalRoutesManager {
           if (this.waitingCount <= 30) {
             if (data.stage === "queued" || data.status === "queued") {
               this.updateProgressMessage(
-                `Task queued, waiting for worker to pick it up... (${this.waitingCount}s)`
+                `Task queued, waiting for worker to pick it up... (${this.waitingCount}s)`,
               );
             }
           } else if (this.waitingCount === 31) {
             // After 30 seconds, show concern message
             this.updateProgressMessage(
-              "Worker hasn't picked up task yet. Checking Celery worker status..."
+              "Worker hasn't picked up task yet. Checking Celery worker status...",
             );
           } else if (this.waitingCount === 60) {
             this.updateProgressMessage(
-              "⚠️ Worker not responding after 60s. Is the Celery worker running on the mini PC?"
+              "⚠️ Worker not responding after 60s. Is the Celery worker running on the mini PC?",
             );
           } else if (this.waitingCount === 120) {
             this.updateProgressMessage(
-              "❌ Worker appears to be offline. Please check that Celery is running: ssh mini-pc 'docker ps | grep celery'"
+              "❌ Worker appears to be offline. Please check that Celery is running: ssh mini-pc 'docker ps | grep celery'",
             );
           }
         } else {
@@ -724,12 +748,18 @@ class OptimalRoutesManager {
         const status = (data.status || "").toLowerCase();
         const stage = (data.stage || "").toLowerCase();
 
-        if (status === "completed" || stage === "complete" || data.progress >= 100) {
+        if (
+          status === "completed" ||
+          stage === "complete" ||
+          data.progress >= 100
+        ) {
           this.eventSource.close();
           this.onGenerationComplete();
         } else if (status === "failed") {
           this.eventSource.close();
-          this.showError(data.error || data.message || "Route generation failed");
+          this.showError(
+            data.error || data.message || "Route generation failed",
+          );
         }
       } catch (e) {
         console.error("SSE parse error:", e);
@@ -747,7 +777,7 @@ class OptimalRoutesManager {
       // If we never got past waiting, show a helpful error
       if (this.waitingCount > 0) {
         this.showError(
-          "Connection lost while waiting for task. Ensure the Celery worker is running."
+          "Connection lost while waiting for task. Ensure the Celery worker is running.",
         );
       }
       // Otherwise it might just be normal connection close after completion
@@ -896,7 +926,7 @@ class OptimalRoutesManager {
     // Fit bounds to route
     const bounds = coordinates.reduce(
       (bounds, coord) => bounds.extend(coord),
-      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
     );
 
     this.map.fitBounds(bounds, { padding: 50, duration: 1000 });
@@ -904,15 +934,12 @@ class OptimalRoutesManager {
 
   showResults(data) {
     // Update stats
-    document.getElementById("stat-total-distance").textContent = this.formatDistance(
-      data.total_distance_m
-    );
-    document.getElementById("stat-required-distance").textContent = this.formatDistance(
-      data.required_distance_m
-    );
-    document.getElementById("stat-deadhead-distance").textContent = this.formatDistance(
-      data.deadhead_distance_m
-    );
+    document.getElementById("stat-total-distance").textContent =
+      this.formatDistance(data.total_distance_m);
+    document.getElementById("stat-required-distance").textContent =
+      this.formatDistance(data.required_distance_m);
+    document.getElementById("stat-deadhead-distance").textContent =
+      this.formatDistance(data.deadhead_distance_m);
     document.getElementById("stat-deadhead-percent").textContent = `${(
       100 - (data.deadhead_percentage || 0)
     ).toFixed(1)}%`;
@@ -946,9 +973,12 @@ class OptimalRoutesManager {
     // Call backend to delete the route
     if (this.selectedAreaId) {
       try {
-        await fetch(`/api/coverage_areas/${this.selectedAreaId}/optimal-route`, {
-          method: "DELETE",
-        });
+        await fetch(
+          `/api/coverage_areas/${this.selectedAreaId}/optimal-route`,
+          {
+            method: "DELETE",
+          },
+        );
         console.log("Route cleared from backend");
       } catch (error) {
         console.warn("Failed to clear route from backend:", error);
