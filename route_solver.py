@@ -882,7 +882,7 @@ async def generate_optimal_route_with_progress(
             await update_progress(
                 "loading_graph",
                 42,
-                "Graph not found, downloading from OpenStreetMap...",
+                "Downloading street network from OpenStreetMap (one-time setup)...",
             )
 
             try:

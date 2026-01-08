@@ -296,22 +296,46 @@ async def get_next_driving_route(request: Request):
             )
 
         # Check for geometry type safety - although we query for it, data integrity is key
-        geom_type = target_street.get("geometry", {}).get("type")
-        if geom_type != "LineString":
-            # If we somehow got a MultiLineString or bad data
-            logging.warning("Found non-LineString geometry: %s", geom_type)
-            # Basic fallback: try to get first line if it's MultiLineString
-            coords = target_street["geometry"]["coordinates"]
-            if geom_type == "MultiLineString" and coords and len(coords) > 0:
-                start_coords = coords[0][0]
-            elif geom_type == "LineString" and coords:
-                start_coords = coords[0]
-            else:
-                raise HTTPException(
-                    status_code=500, detail=f"Unsupported geometry type: {geom_type}"
-                )
-        else:
-            start_coords = target_street["geometry"]["coordinates"][0]
+        # geometry.type can be None if not correctly stored, but coordinates might be fine
+        geometry = target_street.get("geometry", {})
+        coords = geometry.get("coordinates")
+        geom_type = geometry.get("type", "Unknown")
+
+        if not coords:
+             # This can happen if we found a street but it has no coords (rare)
+             raise HTTPException(
+                 status_code=500, detail="Target street has no valid coordinates."
+             )
+
+        # Robustly extract start coordinates regardless of claimed type
+        try:
+             # Check strictly for LineString or if structure implies it
+             if geom_type == "LineString" or (
+                 geom_type == "Unknown" and len(coords) > 0 and isinstance(coords[0], (list, tuple)) and len(coords[0]) == 2 and isinstance(coords[0][0], (float, int))
+             ):
+                 start_coords = coords[0]
+             # Check for MultiLineString
+             elif geom_type == "MultiLineString" or (
+                  len(coords) > 0 and isinstance(coords[0], (list, tuple)) and isinstance(coords[0][0], (list, tuple))
+             ):
+                 start_coords = coords[0][0]
+             else:
+                 # Fallback: assume first element is what we want if it looks like a coordinate
+                 if len(coords) >= 2 and isinstance(coords[0], (float, int)):
+                     # It's a Point?
+                     start_coords = coords
+                 elif len(coords) > 0:
+                     start_coords = coords[0]
+                     if isinstance(start_coords[0], (list, tuple)):
+                         start_coords = start_coords[0]
+                 else:
+                     raise ValueError("Empty coordinates")
+        except Exception:
+             logging.warning("Failed to extract start coords from geometry: type=%s, coords=%s", geom_type, coords)
+             raise HTTPException(
+                 status_code=500, detail=f"Unsupported geometry structure: {geom_type}"
+             )
+
 
         route_result = await _get_mapbox_directions_route(
             current_lon, current_lat, start_coords[0], start_coords[1]
