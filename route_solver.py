@@ -24,7 +24,7 @@ import geopandas as gpd
 import networkx as nx
 import osmnx as ox
 from bson import ObjectId
-from shapely.geometry import LineString, box, shape
+from shapely.geometry import LineString
 
 from db import (
     coverage_metadata_collection,
@@ -873,31 +873,31 @@ async def generate_optimal_route_with_progress(
             "loading_segments", 30, f"Found {len(undriven)} undriven segments to route"
         )
 
-        await update_progress(
-            "loading_graph", 40, "Loading street network..."
-        )
+        await update_progress("loading_graph", 40, "Loading street network...")
 
         graph_path = GRAPH_STORAGE_DIR / f"{location_id}.graphml"
-        
+
         # Auto-generate graph if it doesn't exist
         if not graph_path.exists():
             await update_progress(
-                "loading_graph", 42, "Graph not found, downloading from OpenStreetMap..."
+                "loading_graph",
+                42,
+                "Graph not found, downloading from OpenStreetMap...",
             )
-            
+
             try:
                 # Import and use the preprocessing function
                 from preprocess_streets import preprocess_streets
-                
+
                 # Get the location data for preprocessing
                 loc_data = location_info.copy()
                 loc_data["_id"] = location_id
-                
+
                 # Ensure storage directory exists
                 GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-                
+
                 await preprocess_streets(loc_data, task_id)
-                
+
                 await update_progress(
                     "loading_graph", 44, "Graph downloaded successfully, loading..."
                 )

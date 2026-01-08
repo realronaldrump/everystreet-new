@@ -263,11 +263,29 @@ async def get_next_driving_route(request: Request):
         if not target_street or not target_street.get("geometry", {}).get(
             "coordinates"
         ):
+            # This can happen if we found a street but it has no coords (rare)
             raise HTTPException(
                 status_code=404, detail="Could not find a valid target street."
             )
 
-        start_coords = target_street["geometry"]["coordinates"][0]
+        # Check for geometry type safety - although we query for it, data integrity is key
+        geom_type = target_street.get("geometry", {}).get("type")
+        if geom_type != "LineString":
+            # If we somehow got a MultiLineString or bad data
+            logging.warning("Found non-LineString geometry: %s", geom_type)
+            # Basic fallback: try to get first line if it's MultiLineString
+            coords = target_street["geometry"]["coordinates"]
+            if geom_type == "MultiLineString" and coords and len(coords) > 0:
+                start_coords = coords[0][0]
+            elif geom_type == "LineString" and coords:
+                start_coords = coords[0]
+            else:
+                raise HTTPException(
+                    status_code=500, detail=f"Unsupported geometry type: {geom_type}"
+                )
+        else:
+            start_coords = target_street["geometry"]["coordinates"][0]
+
         route_result = await _get_mapbox_directions_route(
             current_lon, current_lat, start_coords[0], start_coords[1]
         )
@@ -289,7 +307,9 @@ async def get_next_driving_route(request: Request):
         raise e
     except Exception as e:
         logger.error("Error calculating next-route: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to calculate route: {e}")
+        return JSONResponse(
+            status_code=500, content={"detail": f"Failed to calculate route: {str(e)}"}
+        )
 
 
 @router.post("/api/mapbox/directions")

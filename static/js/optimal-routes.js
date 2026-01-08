@@ -586,7 +586,7 @@ class OptimalRoutesManager {
       try {
         const workerCheck = await fetch("/api/optimal-routes/worker-status");
         const workerStatus = await workerCheck.json();
-        
+
         if (workerStatus.status === "no_workers") {
           this.updateProgressMessage(
             "⚠️ No Celery workers detected. Task will be queued but may not be processed."
@@ -640,12 +640,12 @@ class OptimalRoutesManager {
         const data = JSON.parse(event.data);
 
         // Track waiting state - both "queued" (task submitted) and "waiting" (no task doc yet)
-        const isWaiting = 
-          data.stage === "waiting" || 
-          data.stage === "queued" || 
-          data.status === "pending" || 
+        const isWaiting =
+          data.stage === "waiting" ||
+          data.stage === "queued" ||
+          data.status === "pending" ||
           data.status === "queued";
-        
+
         if (isWaiting) {
           this.waitingCount++;
           // Show queued status for the first 30 seconds

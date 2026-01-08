@@ -410,7 +410,9 @@ async def bridge_disconnected_clusters(
         xy_b = node_xy.get(node_b)
 
         if not xy_a or not xy_b:
-            logger.warning("Missing coordinates for bridge nodes %d or %d", node_a, node_b)
+            logger.warning(
+                "Missing coordinates for bridge nodes %d or %d", node_a, node_b
+            )
             continue
 
         # Fetch bridge route from Mapbox

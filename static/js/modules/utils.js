@@ -14,7 +14,8 @@ export const createElement = (tag, text, className) =>
 const utils = {
   // Delegate common functions to global utils
   escapeHtml: (str) => window.utils.escapeHtml(str),
-  createElement: (tag, text, className) => window.utils.createElement(tag, text, className),
+  createElement: (tag, text, className) =>
+    window.utils.createElement(tag, text, className),
   debounce: (func, wait) => window.utils.debounce(func, wait),
   throttle: (func, limit) => window.utils.throttle(func, limit),
   getStorage: (key, defaultValue) => window.utils.getStorage(key, defaultValue),
@@ -24,10 +25,14 @@ const utils = {
   fadeOut: (el, duration) => window.utils.fadeOut(el, duration),
   showNotification: (...args) => window.utils.showNotification(...args),
   announce: (message, priority) => window.utils.announce(message, priority),
-  formatNumber: (num, decimals) => window.utils.formatNumber?.(num, decimals) ?? formatNumber(num, decimals),
-  formatDistance: (miles) => window.utils.formatDistance?.(miles) ?? formatDistance(miles),
-  formatDuration: (seconds) => window.utils.formatDuration?.(seconds) ?? formatDuration(seconds),
-  formatDateTime: (isoString) => window.utils.formatDateTime?.(isoString) ?? formatDateTime(isoString),
+  formatNumber: (num, decimals) =>
+    window.utils.formatNumber?.(num, decimals) ?? formatNumber(num, decimals),
+  formatDistance: (miles) =>
+    window.utils.formatDistance?.(miles) ?? formatDistance(miles),
+  formatDuration: (seconds) =>
+    window.utils.formatDuration?.(seconds) ?? formatDuration(seconds),
+  formatDateTime: (isoString) =>
+    window.utils.formatDateTime?.(isoString) ?? formatDateTime(isoString),
   getDeviceProfile: () => window.utils.getDeviceProfile(),
   measureScrollbarWidth: () => window.utils.measureScrollbarWidth(),
   batchDOMUpdates: (updates) => window.utils.batchDOMUpdates(updates),
@@ -39,7 +44,13 @@ const utils = {
   },
 
   // Module-specific: Fetch with state tracking and abort support
-  async fetchWithRetry(url, options = {}, retries = 3, cacheTime = 30000, abortKey = null) {
+  async fetchWithRetry(
+    url,
+    options = {},
+    retries = 3,
+    cacheTime = 30000,
+    abortKey = null
+  ) {
     const cacheKey = `${url}_${JSON.stringify(options)}`;
 
     // Check cache first

@@ -94,10 +94,10 @@ async def get_worker_status():
     try:
         # Get active workers using Celery's inspect API
         inspector = celery_app.control.inspect()
-        
+
         # Ping workers (with short timeout)
         ping_result = inspector.ping()
-        
+
         if not ping_result:
             return {
                 "status": "no_workers",
@@ -105,25 +105,27 @@ async def get_worker_status():
                 "workers": [],
                 "recommendation": "Check that the Celery worker is running on the mini PC",
             }
-        
+
         # Get more details about active workers
         active = inspector.active() or {}
         registered = inspector.registered() or {}
-        
+
         worker_info = []
         for worker_name in ping_result.keys():
-            worker_info.append({
-                "name": worker_name,
-                "active_tasks": len(active.get(worker_name, [])),
-                "registered_tasks": len(registered.get(worker_name, [])),
-            })
-        
+            worker_info.append(
+                {
+                    "name": worker_name,
+                    "active_tasks": len(active.get(worker_name, [])),
+                    "registered_tasks": len(registered.get(worker_name, [])),
+                }
+            )
+
         return {
             "status": "ok",
             "message": f"{len(worker_info)} worker(s) connected",
             "workers": worker_info,
         }
-        
+
     except Exception as e:
         logger.error("Failed to check worker status: %s", e)
         return {
@@ -287,7 +289,7 @@ async def stream_optimal_route_progress(task_id: str):
                         "progress": 0,
                         "message": "Waiting for task to start...",
                     }
-                    yield f"data: {json.dumps(data)}\n\n"
+                    yield f"data: {json.dumps(data, default=str)}\n\n"
                     await asyncio.sleep(1)
                     continue
 
@@ -305,18 +307,10 @@ async def stream_optimal_route_progress(task_id: str):
                         "progress": current_progress,
                         "message": progress.get("message", ""),
                         "error": progress.get("error"),
-                        "started_at": (
-                            progress.get("started_at").isoformat()
-                            if isinstance(progress.get("started_at"), datetime)
-                            else None
-                        ),
-                        "updated_at": (
-                            progress.get("updated_at").isoformat()
-                            if isinstance(progress.get("updated_at"), datetime)
-                            else None
-                        ),
+                        "started_at": progress.get("started_at"),
+                        "updated_at": progress.get("updated_at"),
                     }
-                    yield f"data: {json.dumps(data)}\n\n"
+                    yield f"data: {json.dumps(data, default=str)}\n\n"
 
                 if current_status in ("completed", "failed"):
                     final_data = {
@@ -325,18 +319,18 @@ async def stream_optimal_route_progress(task_id: str):
                         "progress": current_progress,
                         "message": progress.get("message", ""),
                         "error": progress.get("error"),
-                        "completed_at": (
-                            progress.get("completed_at").isoformat()
-                            if isinstance(progress.get("completed_at"), datetime)
-                            else None
-                        ),
+                        "completed_at": progress.get("completed_at"),
                     }
-                    yield f"data: {json.dumps(final_data)}\n\n"
+                    yield f"data: {json.dumps(final_data, default=str)}\n\n"
                     break
 
             except Exception as e:
-                logger.error("SSE progress error: %s", e)
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                logger.error("SSE progress error: %s", e, exc_info=True)
+                error_data = {"error": str(e), "status": "failed"}
+                yield f"data: {json.dumps(error_data)}\n\n"
+                # If we hit a critical error, maybe we should break?
+                # But temporary DB glitches might recover.
+                await asyncio.sleep(1)
 
             await asyncio.sleep(1)
 
