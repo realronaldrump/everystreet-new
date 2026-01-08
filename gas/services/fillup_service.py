@@ -121,7 +121,9 @@ class FillupService:
         # Check all MPG calculation requirements
         previous_is_full = previous_fillup.get("is_full_tank")
         if previous_is_full is None:
-            previous_is_full = True  # Default to True if missing (backward compatibility)
+            previous_is_full = (
+                True  # Default to True if missing (backward compatibility)
+            )
 
         if not previous_is_full or not is_full_tank or missed_previous:
             return None, None, previous_odometer
@@ -178,7 +180,11 @@ class FillupService:
 
         # Calculate total cost if not provided
         total_cost = fillup_data.get("total_cost")
-        if not total_cost and fillup_data.get("price_per_gallon") and fillup_data.get("gallons"):
+        if (
+            not total_cost
+            and fillup_data.get("price_per_gallon")
+            and fillup_data.get("gallons")
+        ):
             total_cost = fillup_data["price_per_gallon"] * fillup_data["gallons"]
 
         # Create fill-up document
@@ -207,12 +213,16 @@ class FillupService:
         fillup_doc["_id"] = result.inserted_id
 
         # Trigger recalculation of next entry
-        await FillupService.recalculate_subsequent_fillup(fillup_data["imei"], fillup_time)
+        await FillupService.recalculate_subsequent_fillup(
+            fillup_data["imei"], fillup_time
+        )
 
         return fillup_doc
 
     @staticmethod
-    async def update_fillup(fillup_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
+    async def update_fillup(
+        fillup_id: str, update_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Update a gas fill-up record.
 
         Args:
@@ -408,7 +418,9 @@ class FillupService:
 
             if updates:
                 await update_one_with_retry(
-                    gas_fillups_collection, {"_id": next_fillup["_id"]}, {"$set": updates}
+                    gas_fillups_collection,
+                    {"_id": next_fillup["_id"]},
+                    {"$set": updates},
                 )
                 logger.info(f"Recalculated stats for fill-up {next_fillup['_id']}")
 

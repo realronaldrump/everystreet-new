@@ -24,7 +24,9 @@ async def get_gas_fillups(
 ) -> list[dict[str, Any]]:
     """Get gas fill-up records with optional filters."""
     try:
-        fillups = await FillupService.get_fillups(imei, vin, start_date, end_date, limit)
+        fillups = await FillupService.get_fillups(
+            imei, vin, start_date, end_date, limit
+        )
         return [serialize_document(f) for f in fillups]
 
     except Exception as e:

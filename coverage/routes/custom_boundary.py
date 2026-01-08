@@ -9,7 +9,6 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 from shapely.geometry import shape

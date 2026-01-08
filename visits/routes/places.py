@@ -3,7 +3,6 @@
 import logging
 from typing import Any
 
-from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 

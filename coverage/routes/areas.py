@@ -12,10 +12,7 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
-from coverage.serializers import (
-    serialize_coverage_area,
-    serialize_coverage_details,
-)
+from coverage.serializers import serialize_coverage_area, serialize_coverage_details
 from coverage_tasks import process_area
 from db import (
     db_manager,

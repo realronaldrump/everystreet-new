@@ -7,14 +7,13 @@ and geometry operations.
 import logging
 from collections import defaultdict
 from datetime import UTC, datetime
-from typing import Any
 
 from bson import ObjectId
 from fastapi import HTTPException, status
 from shapely.geometry import shape
 
 from coverage.gridfs_service import gridfs_service
-from coverage.serializers import serialize_coverage_details, serialize_object_id
+from coverage.serializers import serialize_coverage_details
 from db import (
     aggregate_with_retry,
     db_manager,

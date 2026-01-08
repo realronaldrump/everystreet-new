@@ -5,14 +5,13 @@ Handles streaming, storing, and regenerating GeoJSON data in MongoDB GridFS.
 
 import json
 import logging
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from bson import ObjectId
 from fastapi.encoders import jsonable_encoder
 from gridfs import errors
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
-from coverage.serializers import serialize_object_id
 from db import db_manager, find_one_with_retry, update_one_with_retry
 
 logger = logging.getLogger(__name__)
@@ -220,7 +219,9 @@ class GridFSService:
             )
         return deleted_count
 
-    async def regenerate_streets_geojson(self, location_id: ObjectId) -> ObjectId | None:
+    async def regenerate_streets_geojson(
+        self, location_id: ObjectId
+    ) -> ObjectId | None:
         """Regenerate and store streets GeoJSON in GridFS.
 
         Args:

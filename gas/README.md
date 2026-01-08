@@ -31,11 +31,13 @@ gas/
 ## Features
 
 ### 1. Vehicle Management
+
 - CRUD operations for vehicle records
 - Vehicle filtering by IMEI, VIN, and active status
 - Soft delete (mark as inactive)
 
 ### 2. Gas Fill-up Tracking
+
 - Record gas fill-ups with automatic MPG calculation
 - Strict MPG calculation rules:
   - Previous fill-up must be FULL_TANK
@@ -46,18 +48,21 @@ gas/
 - Support for partial fills and missed fill-ups
 
 ### 3. Vehicle Location & Odometer
+
 - Real-time location via Bouncie API integration
 - Historical location lookup from trip data
 - Odometer estimation via interpolation/extrapolation
 - Supports multiple GPS data formats (Point, LineString, FeatureCollection)
 
 ### 4. Gas Statistics
+
 - Aggregate statistics by vehicle and date range
 - Average MPG, total gallons, total cost
 - Cost per mile calculations
 - Vehicle synchronization from trip data
 
 ### 5. Bouncie API Integration
+
 - OAuth token acquisition
 - Real-time vehicle status lookup
 - Odometer and location data retrieval
@@ -65,12 +70,14 @@ gas/
 ## API Endpoints
 
 ### Vehicle Management
+
 - `GET /api/vehicles` - List vehicles with filters
 - `POST /api/vehicles` - Create new vehicle
 - `PUT /api/vehicles/{imei}` - Update vehicle
 - `DELETE /api/vehicles/{imei}` - Mark vehicle inactive
 
 ### Gas Fill-ups
+
 - `GET /api/gas-fillups` - List fill-ups with filters
 - `GET /api/gas-fillups/{fillup_id}` - Get specific fill-up
 - `POST /api/gas-fillups` - Create new fill-up
@@ -78,10 +85,12 @@ gas/
 - `DELETE /api/gas-fillups/{fillup_id}` - Delete fill-up
 
 ### Location & Odometer
+
 - `GET /api/vehicle-location` - Get vehicle location at timestamp
 - `GET /api/vehicles/estimate-odometer` - Estimate odometer reading
 
 ### Statistics
+
 - `GET /api/gas-statistics` - Get gas consumption statistics
 - `POST /api/vehicles/sync-from-trips` - Sync vehicles from trip data
 - `GET /api/trip-gas-cost` - Calculate gas cost for specific trip
@@ -120,6 +129,7 @@ The odometer estimation algorithm:
 ## Services
 
 ### VehicleService
+
 - `get_vehicles()` - Fetch vehicles with filters
 - `create_vehicle()` - Create new vehicle
 - `update_vehicle()` - Update vehicle info
@@ -127,6 +137,7 @@ The odometer estimation algorithm:
 - `get_vehicle_by_imei()` - Get single vehicle
 
 ### FillupService
+
 - `get_fillups()` - Fetch fill-ups with filters
 - `get_fillup_by_id()` - Get single fill-up
 - `create_fillup()` - Create new fill-up with MPG calc
@@ -136,20 +147,24 @@ The odometer estimation algorithm:
 - `recalculate_subsequent_fillup()` - Cascade recalculation
 
 ### OdometerService
+
 - `get_vehicle_location_at_time()` - Get location at timestamp
 - `estimate_odometer_reading()` - Estimate odometer value
 
 ### StatisticsService
+
 - `get_gas_statistics()` - Get aggregate statistics
 - `sync_vehicles_from_trips()` - Sync vehicles from trip data
 - `calculate_trip_gas_cost()` - Calculate trip gas cost
 
 ### BouncieService
+
 - `fetch_vehicle_status()` - Get real-time data from Bouncie API
 
 ## Database Collections
 
 The module interacts with:
+
 - `vehicles_collection` - Vehicle records
 - `gas_fillups_collection` - Gas fill-up records
 - `trips_collection` - Trip data for odometer estimation
@@ -157,6 +172,7 @@ The module interacts with:
 ## Models
 
 Uses Pydantic models from `models.py`:
+
 - `VehicleModel` - Vehicle data validation
 - `GasFillupCreateModel` - Fill-up data validation
 
@@ -172,6 +188,7 @@ app.include_router(gas_router)
 ## Backward Compatibility
 
 The refactored module maintains 100% backward compatibility:
+
 - All API endpoints remain unchanged
 - All query parameters and response formats are identical
 - Existing client code requires no modifications
