@@ -204,9 +204,10 @@ async def fetch_bridge_route(
     Returns:
         List of [lon, lat] coordinates for the route, or None if failed
     """
-    from config import get_mapbox_token
+    from config import get_app_settings
 
-    token = get_mapbox_token()
+    settings = await get_app_settings()
+    token = settings.get("mapbox_access_token")
     if not token:
         logger.warning("Mapbox token not configured; cannot fetch bridge route")
         return None

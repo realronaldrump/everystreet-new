@@ -1094,9 +1094,10 @@ async def generate_optimal_route_with_progress(
 
             clusters = analyze_required_connectivity(G, required_reqs)
             if len(clusters) > 1:
-                from config import get_mapbox_token
+                from config import get_app_settings
 
-                if not get_mapbox_token():
+                settings = await get_app_settings()
+                if not settings.get("mapbox_access_token"):
                     raise ValueError(
                         "Route generation failed: The street network has gaps that require bridging, "
                         "but the Mapbox API token is missing. "
@@ -1213,9 +1214,10 @@ async def generate_optimal_route_with_progress(
         error_msg = str(e)
         # Check if this is a gap validation error and if we're missing the token
         if "gap between points" in error_msg:
-            from config import get_mapbox_token
+            from config import get_app_settings
 
-            if not get_mapbox_token():
+            settings = await get_app_settings()
+            if not settings.get("mapbox_access_token"):
                 # Enhance the error message
                 detailed_msg = (
                     f"Route generation failed: {error_msg} "
