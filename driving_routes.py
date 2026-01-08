@@ -20,6 +20,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def sanitize_for_json(obj: Any) -> Any:
+    """Recursively replaces NaN and Infinite floats with None for JSON compliance."""
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    elif isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(v) for v in obj]
+    return obj
+
+
+def get_safe_float(val: Any, default: float = 0.0) -> float:
+    """Safe float conversion handling NaN/Inf."""
+    try:
+        f = float(val)
+        return f if math.isfinite(f) else default
+    except (TypeError, ValueError):
+        return default
+
+
 async def _get_mapbox_optimization_route(
     start_lon: float,
     start_lat: float,
@@ -342,17 +364,16 @@ async def get_next_driving_route(request: Request):
         )
 
         target_street["properties"]["start_coords"] = start_coords
-        return JSONResponse(
-            content={
-                "status": "success",
-                "message": "Route to nearest street calculated.",
-                "route_geometry": route_result["geometry"],
-                "target_street": target_street["properties"],
-                "route_duration_seconds": route_result["duration"],
-                "route_distance_meters": route_result["distance"],
-                "location_source": location_source,
-            }
-        )
+        response_content = {
+            "status": "success",
+            "message": "Route to nearest street calculated.",
+            "route_geometry": route_result["geometry"],
+            "target_street": target_street["properties"],
+            "route_duration_seconds": route_result["duration"],
+            "route_distance_meters": route_result["distance"],
+            "location_source": location_source,
+        }
+        return JSONResponse(content=sanitize_for_json(response_content))
 
     except HTTPException as e:
         raise e
@@ -376,7 +397,7 @@ async def get_mapbox_directions(request: Request):
         route_details = await _get_mapbox_directions_route(
             float(start_lon), float(start_lat), float(end_lon), float(end_lat)
         )
-        return JSONResponse(content=route_details)
+        return JSONResponse(content=sanitize_for_json(route_details))
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -477,7 +498,7 @@ async def find_connected_undriven_clusters(
                 {
                     "segments": cluster_segments,
                     "total_length": sum(
-                        s["properties"].get("segment_length", 0)
+                        get_safe_float(s["properties"].get("segment_length"))
                         for s in cluster_segments
                     ),
                     "segment_count": len(cluster_segments),
@@ -600,9 +621,9 @@ async def suggest_next_efficient_street(
     scored_clusters.sort(key=lambda x: x["efficiency_score"], reverse=True)
 
     return JSONResponse(
-        content={
+        content=sanitize_for_json({
             "status": "success",
             "message": f"Found {len(scored_clusters)} efficient street clusters",
             "suggested_clusters": scored_clusters[:top_n],
-        }
+        })
     )
