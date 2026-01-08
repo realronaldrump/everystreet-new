@@ -313,13 +313,19 @@
       let hoveredStateId = null;
       this.map.on("mousemove", "custom-places-fill", (e) => {
         if (e.features.length > 0) {
-          if (hoveredStateId !== null) {
+          const featureId = e.features[0].id;
+          // Guard against undefined feature IDs
+          if (featureId === undefined || featureId === null) {
+            this.map.getCanvas().style.cursor = "pointer";
+            return;
+          }
+          if (hoveredStateId !== null && hoveredStateId !== undefined) {
             this.map.setFeatureState(
               { source: "custom-places", id: hoveredStateId },
               { hover: false }
             );
           }
-          hoveredStateId = e.features[0].id;
+          hoveredStateId = featureId;
           this.map.setFeatureState(
             { source: "custom-places", id: hoveredStateId },
             { hover: true }
@@ -329,7 +335,7 @@
       });
 
       this.map.on("mouseleave", "custom-places-fill", () => {
-        if (hoveredStateId !== null) {
+        if (hoveredStateId !== null && hoveredStateId !== undefined) {
           this.map.setFeatureState(
             { source: "custom-places", id: hoveredStateId },
             { hover: false }

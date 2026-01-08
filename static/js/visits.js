@@ -597,7 +597,7 @@
       document.getElementById("save-place")?.removeAttribute("disabled");
 
       if (this.drawingNotification) {
-        this.drawingNotification.close();
+        this.drawingNotification.remove();
       }
 
       window.notificationManager?.show(
