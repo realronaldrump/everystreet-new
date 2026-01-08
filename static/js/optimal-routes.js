@@ -128,43 +128,42 @@ class OptimalRoutesManager {
   }
 
   toggleLayer(layerIds, isVisible) {
-    if (!this.map) return;
+    if (!this.map || !this.mapLayersReady) return;
     layerIds.forEach((id) => {
-      if (this.map.getLayer(id)) {
-        this.map.setLayoutProperty(id, "visibility", isVisible ? "visible" : "none");
+      try {
+        if (this.map.getLayer(id)) {
+          this.map.setLayoutProperty(id, "visibility", isVisible ? "visible" : "none");
+        }
+      } catch (e) {
+        console.warn(`Could not toggle layer ${id}:`, e.message);
       }
     });
   }
 
   setLayerOpacity(layerIds, opacity) {
-    if (!this.map) return;
+    if (!this.map || !this.mapLayersReady) return;
     layerIds.forEach((id) => {
-      if (this.map.getLayer(id)) {
-        if (this.map.getLayer(id).type === "symbol") {
-          this.map.setPaintProperty(id, "icon-opacity", opacity);
-          this.map.setPaintProperty(id, "text-opacity", opacity);
-        } else {
-          this.map.setPaintProperty(id, "line-opacity", opacity);
+      try {
+        const layer = this.map.getLayer(id);
+        if (layer) {
+          const layerType = layer.type;
+          if (layerType === "symbol") {
+            this.map.setPaintProperty(id, "icon-opacity", opacity);
+            this.map.setPaintProperty(id, "text-opacity", opacity);
+          } else if (layerType === "line") {
+            this.map.setPaintProperty(id, "line-opacity", opacity);
+          } else if (layerType === "fill") {
+            this.map.setPaintProperty(id, "fill-opacity", opacity);
+          }
         }
+      } catch (e) {
+        console.warn(`Could not set opacity for layer ${id}:`, e.message);
       }
     });
   }
 
   updateLayerOrder() {
-    if (!this.map) return;
-
-    // Get new order from DOM
-    // The visual list is top-to-bottom (z-index high to low)
-    // Mapbox adds layers bottom-to-top.
-    // So we iterate the DOM list in reverse to add layers.
-
-    // BUT we can't easily "re-add" layers. We must use moveLayer.
-    // Logic:
-    // 1. Get ordered list of layer logical IDs from DOM (top to bottom).
-    // 2. Iterate from bottom of list (lowest z-index) to top.
-    // 3. Move each layer to "beforeId" of the next one? No, just moveLayer(id) without beforeId puts it on top.
-
-    // Simplest approach: iterate list from bottom (lowest) to top (highest) and moveLayer(id) to put it on top of stack so far.
+    if (!this.map || !this.mapLayersReady) return;
 
     const items = Array.from(document.querySelectorAll(".layer-item"));
     const layerGroups = {
@@ -179,8 +178,12 @@ class OptimalRoutesManager {
       const layers = layerGroups[groupId];
 
       layers?.forEach((layerId) => {
-        if (this.map.getLayer(layerId)) {
-          this.map.moveLayer(layerId);
+        try {
+          if (this.map.getLayer(layerId)) {
+            this.map.moveLayer(layerId);
+          }
+        } catch (e) {
+          console.warn(`Could not move layer ${layerId}:`, e.message);
         }
       });
     });
@@ -439,6 +442,11 @@ class OptimalRoutesManager {
       if (!areas) return;
       this.coverageAreas = areas;
 
+      // Dispatch event so DrivingNavigation can sync with the loaded areas
+      document.dispatchEvent(
+        new CustomEvent("coverageAreasLoaded", { detail: { areas } })
+      );
+
       if (this.areaSelect && this.config.populateAreaSelect) {
         // Clear existing options except placeholder
         this.areaSelect.innerHTML =
@@ -512,10 +520,12 @@ class OptimalRoutesManager {
     this.selectedAreaId = areaId;
     const generateBtn = document.getElementById("generate-route-btn");
     const areaStats = document.getElementById("area-stats");
+    const mapLegend = document.getElementById("map-legend");
 
     if (!areaId) {
       if (generateBtn) generateBtn.disabled = true;
       if (areaStats) areaStats.style.display = "none";
+      if (mapLegend) mapLegend.style.display = "none";
       this.clearRoute();
       this.clearStreetNetwork();
       return;
@@ -921,16 +931,19 @@ class OptimalRoutesManager {
   }
 
   clearRoute() {
-    // Clear map
+    // Clear optimal route from map
     const source = this.map?.getSource("optimal-route");
     if (source) {
       source.setData({ type: "FeatureCollection", features: [] });
     }
 
-    // Hide sections
-    document.getElementById("results-section").style.display = "none";
-    document.getElementById("error-section").style.display = "none";
-    document.getElementById("map-legend").style.display = "none";
+    // Hide route-related sections but NOT the legend if streets are still loaded
+    const resultsSection = document.getElementById("results-section");
+    const errorSection = document.getElementById("error-section");
+    if (resultsSection) resultsSection.style.display = "none";
+    if (errorSection) errorSection.style.display = "none";
+    // Don't hide legend here - it should stay visible if streets are loaded
+    // Legend visibility is managed by onAreaSelect
   }
 
   exportGPX() {

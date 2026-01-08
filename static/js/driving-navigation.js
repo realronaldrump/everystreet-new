@@ -46,7 +46,11 @@ class DrivingNavigation {
     this.clusterMarkers = [];
     this.currentRoute = null;
 
-    this.clusterColors = window.MapStyles.MAP_LAYER_COLORS.clusters;
+    // Default cluster colors if MapStyles not yet loaded
+    this.clusterColors = window.MapStyles?.MAP_LAYER_COLORS?.clusters || [
+      "#6366f1", "#8b5cf6", "#3b82f6", "#ef4444", "#f59e0b",
+      "#a78bfa", "#10b981", "#06b6d4", "#d946ef", "#84cc16"
+    ];
 
     this.initialize();
   }
@@ -132,6 +136,16 @@ class DrivingNavigation {
     if (!this.map) return;
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
 
+    // Get colors with fallbacks
+    const streetColors = window.MapStyles?.MAP_LAYER_COLORS?.streets || {
+      undriven: "#8b9dc3",
+      driven: "#10b981",
+    };
+    const routeColors = window.MapStyles?.MAP_LAYER_COLORS?.routes || {
+      calculated: "#6b9d8a",
+      target: "#d4a574",
+    };
+
     // Source and Layer for Undriven Streets
     if (!this.map.getSource("undriven-streets")) {
       this.map.addSource("undriven-streets", {
@@ -145,7 +159,7 @@ class DrivingNavigation {
         type: "line",
         source: "undriven-streets",
         paint: {
-          "line-color": window.MapStyles.MAP_LAYER_COLORS.streets.undriven,
+          "line-color": streetColors.undriven,
           "line-width": 3,
           "line-opacity": 0.6,
           "line-dasharray": [2, 2],
@@ -163,7 +177,7 @@ class DrivingNavigation {
         type: "line",
         source: "route",
         paint: {
-          "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.calculated,
+          "line-color": routeColors.calculated,
           "line-width": 5,
           "line-opacity": 0.8,
         },
@@ -183,7 +197,7 @@ class DrivingNavigation {
         type: "line",
         source: "target-street",
         paint: {
-          "line-color": window.MapStyles.MAP_LAYER_COLORS.routes.target,
+          "line-color": routeColors.target,
           "line-width": 6,
           "line-opacity": 1,
         },
@@ -227,6 +241,13 @@ class DrivingNavigation {
       "liveTrackingUpdated",
       this.handleLiveTrackingUpdate.bind(this)
     );
+
+    // Listen for coverage areas being loaded by OptimalRoutesManager
+    document.addEventListener("coverageAreasLoaded", (e) => {
+      if (e.detail?.areas) {
+        this.coverageAreas = e.detail.areas;
+      }
+    });
 
     this.setupMapInteractivity();
   }
@@ -336,11 +357,14 @@ class DrivingNavigation {
     const buttons = [this.findBtn, this.findEfficientBtn];
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
 
-    // Clear all map layers
-    this.map.getSource("undriven-streets").setData(emptyGeoJSON);
-    this.map.getSource("route").setData(emptyGeoJSON);
-    this.map.getSource("target-street").setData(emptyGeoJSON);
-    this.map.getSource("efficient-clusters").setData(emptyGeoJSON);
+    // Clear all map layers (with null checks)
+    if (this.map) {
+      const sources = ["undriven-streets", "route", "target-street", "efficient-clusters"];
+      sources.forEach((sourceId) => {
+        const source = this.map.getSource(sourceId);
+        if (source) source.setData(emptyGeoJSON);
+      });
+    }
     this.clearEfficientClusters(); // Also removes markers
 
     if (!selectedValue) {
@@ -409,14 +433,21 @@ class DrivingNavigation {
 
   async fetchAndDisplayUndrivenStreets() {
     if (!this.selectedArea) return this.setStatus("Please select an area first.", true);
+    if (!this.map) return this.setStatus("Map not initialized.", true);
 
     this.showProgressContainer();
     this.updateProgress(0, "Loading undriven streets...");
 
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
-    this.map.getSource("route").setData(emptyGeoJSON);
-    this.map.getSource("target-street").setData(emptyGeoJSON);
-    this.targetInfo.innerHTML = "";
+
+    // Clear map sources with null checks
+    const sourcesToClear = ["route", "target-street"];
+    sourcesToClear.forEach((sourceId) => {
+      const source = this.map.getSource(sourceId);
+      if (source) source.setData(emptyGeoJSON);
+    });
+
+    if (this.targetInfo) this.targetInfo.innerHTML = "";
     const routeDetailsContent = document.getElementById("route-details-content");
     if (routeDetailsContent) routeDetailsContent.innerHTML = "";
     this.hideRouteDetails();
@@ -446,14 +477,17 @@ class DrivingNavigation {
 
       if (geojson?.features?.length > 0) {
         const driveableFeatures = geojson.features.filter(
-          (feature) => !feature.properties.undriveable
+          (feature) => !feature.properties?.undriveable
         );
         const driveableGeoJSON = {
           type: "FeatureCollection",
           features: driveableFeatures,
         };
 
-        this.map.getSource("undriven-streets").setData(driveableGeoJSON);
+        const undrivenSource = this.map.getSource("undriven-streets");
+        if (undrivenSource) {
+          undrivenSource.setData(driveableGeoJSON);
+        }
 
         const bounds = new mapboxgl.LngLatBounds();
         driveableFeatures.forEach((feature) => {
@@ -495,9 +529,16 @@ class DrivingNavigation {
 
     this.setStatus("Calculating route to nearest undriven street...");
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
-    this.map.getSource("route").setData(emptyGeoJSON);
-    this.map.getSource("target-street").setData(emptyGeoJSON);
-    this.targetInfo.innerHTML = "";
+
+    // Clear map sources with null checks
+    if (this.map) {
+      const routeSource = this.map.getSource("route");
+      const targetSource = this.map.getSource("target-street");
+      if (routeSource) routeSource.setData(emptyGeoJSON);
+      if (targetSource) targetSource.setData(emptyGeoJSON);
+    }
+
+    if (this.targetInfo) this.targetInfo.innerHTML = "";
     const routeDetailsContent = document.getElementById("route-details-content");
     if (routeDetailsContent) routeDetailsContent.innerHTML = "";
     this.hideRouteDetails();
@@ -559,16 +600,24 @@ class DrivingNavigation {
   }
 
   displayRoute(data) {
-    this.map.getSource("route").setData(data.route_geometry);
-    this.highlightTargetStreet(data.target_street.segment_id);
+    if (!this.map) return;
 
-    const streetName = data.target_street.street_name || "Unnamed Street";
-    this.targetInfo.innerHTML = `
-      <div class="alert alert-info p-2 mb-2">
-        <i class="fas fa-map-pin me-2"></i>
-        <strong>Target:</strong> ${streetName}
-        <div class="mt-1 small text-light">Segment ID: ${data.target_street.segment_id}</div>
-      </div>`;
+    const routeSource = this.map.getSource("route");
+    if (routeSource && data.route_geometry) {
+      routeSource.setData(data.route_geometry);
+    }
+    this.highlightTargetStreet(data.target_street?.segment_id);
+
+    const streetName = data.target_street?.street_name || "Unnamed Street";
+    const segmentId = data.target_street?.segment_id || "Unknown";
+    if (this.targetInfo) {
+      this.targetInfo.innerHTML = `
+        <div class="alert alert-info p-2 mb-2">
+          <i class="fas fa-map-pin me-2"></i>
+          <strong>Target:</strong> ${streetName}
+          <div class="mt-1 small text-light">Segment ID: ${segmentId}</div>
+        </div>`;
+    }
 
     const durationMinutes = Math.round(data.route_duration_seconds / 60);
     const distanceMiles = (data.route_distance_meters * 0.000621371).toFixed(1);
@@ -621,17 +670,34 @@ class DrivingNavigation {
   }
 
   highlightTargetStreet(segmentId) {
-    const undrivenSource = this.map.getSource("undriven-streets");
-    if (undrivenSource?._data) {
-      const targetFeature = undrivenSource._data.features.find(
-        (f) => f.properties.segment_id === segmentId
+    if (!this.map) return;
+
+    const targetSource = this.map.getSource("target-street");
+    if (!targetSource) return;
+
+    // Query the rendered features from the undriven-streets layer
+    const features = this.map.querySourceFeatures("undriven-streets", {
+      filter: ["==", ["get", "segment_id"], segmentId],
+    });
+
+    if (features && features.length > 0) {
+      targetSource.setData({
+        type: "FeatureCollection",
+        features: [features[0]],
+      });
+    } else {
+      // Fallback: search through all features
+      const allFeatures = this.map.querySourceFeatures("undriven-streets");
+      const targetFeature = allFeatures.find(
+        (f) => f.properties?.segment_id === segmentId
       );
       if (targetFeature) {
-        this.map.getSource("target-street").setData(targetFeature);
+        targetSource.setData({
+          type: "FeatureCollection",
+          features: [targetFeature],
+        });
       } else {
-        this.map
-          .getSource("target-street")
-          .setData({ type: "FeatureCollection", features: [] });
+        targetSource.setData({ type: "FeatureCollection", features: [] });
       }
     }
   }
@@ -640,7 +706,8 @@ class DrivingNavigation {
   // For brevity, I will provide the rest of the file converted.
 
   async findEfficientStreetClusters() {
-    if (!this.selectedArea?._id) {
+    const areaId = this.selectedArea?._id || this.selectedArea?.id;
+    if (!areaId) {
       this.setStatus("Please select an area first.", true);
       return;
     }
@@ -678,7 +745,7 @@ class DrivingNavigation {
         top_n: 3,
         min_cluster_size: 2,
       });
-      const url = `/api/driving-navigation/suggest-next-street/${this.selectedArea._id}?${params.toString()}`;
+      const url = `/api/driving-navigation/suggest-next-street/${areaId}?${params.toString()}`;
 
       const response = await fetch(url);
       if (!response.ok) throw response;
@@ -702,14 +769,21 @@ class DrivingNavigation {
         this.displayEfficientClustersInfo(data.suggested_clusters);
 
         setTimeout(async () => {
-          const confirmed = await window.confirmationDialog.show({
-            title: "Navigate to Cluster",
-            message: `Navigate to the top cluster with ${topCluster.segment_count} streets?`,
-            confirmText: "Navigate",
-            confirmButtonClass: "btn-primary",
-          });
+          // If confirmationDialog exists, ask user; otherwise navigate directly
+          if (window.confirmationDialog?.show) {
+            const confirmed = await window.confirmationDialog.show({
+              title: "Navigate to Cluster",
+              message: `Navigate to the top cluster with ${topCluster.segment_count} streets?`,
+              confirmText: "Navigate",
+              confirmButtonClass: "btn-primary",
+            });
 
-          if (confirmed) {
+            if (confirmed) {
+              this.highlightTargetStreet(topCluster.nearest_segment.segment_id);
+              this.findRouteToSegment(topCluster.nearest_segment.segment_id);
+            }
+          } else {
+            // Auto-navigate to the top cluster if no confirmation dialog
             this.highlightTargetStreet(topCluster.nearest_segment.segment_id);
             this.findRouteToSegment(topCluster.nearest_segment.segment_id);
           }
@@ -778,13 +852,18 @@ class DrivingNavigation {
       marker.remove();
     });
     this.clusterMarkers = [];
-    this.map
-      .getSource("efficient-clusters")
-      .setData({ type: "FeatureCollection", features: [] });
+    if (this.map) {
+      const source = this.map.getSource("efficient-clusters");
+      if (source) {
+        source.setData({ type: "FeatureCollection", features: [] });
+      }
+    }
     this.suggestedClusters = [];
   }
 
   setupMapInteractivity() {
+    if (!this.map) return;
+
     this.map.on("mouseenter", "undriven-streets-layer", () => {
       this.map.getCanvas().style.cursor = "pointer";
     });
@@ -793,6 +872,7 @@ class DrivingNavigation {
     });
 
     this.map.on("click", "undriven-streets-layer", (e) => {
+      if (!e.features || e.features.length === 0) return;
       const feature = e.features[0];
       const popupContent = this.createSegmentPopup(feature);
 
@@ -816,13 +896,14 @@ class DrivingNavigation {
   // ... (All other helper methods like createClusterPopup, displayEfficientClustersInfo, etc. are the same or have minor changes)
   // The following are provided for completeness.
 
-  _parseError(error) {
+  async _parseError(error) {
     if (error instanceof Error) return error.message;
     if (error instanceof Response) {
       try {
-        return error.json().then((err) => err.detail || JSON.stringify(err));
+        const err = await error.json();
+        return err.detail || JSON.stringify(err);
       } catch {
-        return error.statusText;
+        return error.statusText || `HTTP ${error.status}`;
       }
     }
     return "An unknown error occurred.";
@@ -943,8 +1024,47 @@ class DrivingNavigation {
     const score = cluster.efficiency_score.toFixed(2);
     return `<div class="efficient-cluster-popup"><h6>Cluster #${rank + 1}</h6><div class="cluster-stats small"><div><i class="fas fa-road"></i> ${cluster.segment_count} streets</div><div><i class="fas fa-ruler"></i> ${lengthMiles} mi total</div><div><i class="fas fa-location-arrow"></i> ${distanceMiles} mi away</div><div><i class="fas fa-chart-line"></i> Score: ${score}</div></div><button class="btn btn-sm btn-primary mt-2 navigate-to-segment" data-segment-id="${cluster.nearest_segment.segment_id}"><i class="fas fa-route me-1"></i> Navigate to Cluster</button></div>`;
   }
-  displayEfficientClustersInfo() {
-    /* This method can remain largely the same as it manipulates the control panel DOM, not the map */
+  displayEfficientClustersInfo(clusters) {
+    const routeDetailsContent = document.getElementById("route-details-content");
+    if (!routeDetailsContent || !clusters || clusters.length === 0) return;
+
+    const totalSegments = clusters.reduce((sum, c) => sum + c.segment_count, 0);
+    const totalLengthMiles = clusters.reduce((sum, c) => sum + c.total_length_m, 0) / 1609.34;
+
+    routeDetailsContent.innerHTML = `
+      <div class="cluster-summary mb-2">
+        <div class="d-flex justify-content-between small">
+          <span>Clusters found:</span>
+          <strong>${clusters.length}</strong>
+        </div>
+        <div class="d-flex justify-content-between small">
+          <span>Total segments:</span>
+          <strong>${totalSegments}</strong>
+        </div>
+        <div class="d-flex justify-content-between small">
+          <span>Total length:</span>
+          <strong>${totalLengthMiles.toFixed(1)} mi</strong>
+        </div>
+      </div>
+      <div class="cluster-list small" style="max-height: 120px; overflow-y: auto;">
+        ${clusters
+          .map(
+            (c, i) => `
+          <div class="cluster-item py-1 border-bottom" style="border-color: ${this.clusterColors[i]};">
+            <strong style="color: ${this.clusterColors[i]};">Cluster #${i + 1}</strong>
+            - ${c.segment_count} streets, ${(c.distance_to_cluster_m / 1609.34).toFixed(1)} mi away
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+    `;
+    this.showRouteDetails({
+      clusters: clusters.length,
+      segments: totalSegments,
+      duration: 0,
+      distance: totalLengthMiles * 1609.34,
+    });
   }
   getCurrentPosition() {
     return new Promise((resolve, reject) => {
@@ -975,8 +1095,15 @@ class DrivingNavigation {
       "_blank"
     );
   }
-  formatLocationSource() {
-    /* This method does not interact with the map and needs no changes */
+  formatLocationSource(source) {
+    const sourceLabels = {
+      "client-provided": "your device",
+      "live-tracking": "live tracking",
+      "last-trip-end": "last trip",
+      "last-trip-end-multi": "last trip",
+      "last-trip-end-point": "last trip",
+    };
+    return sourceLabels[source] || source || "unknown";
   }
 }
 

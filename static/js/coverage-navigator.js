@@ -2,19 +2,22 @@
   const baseConfig = window.coverageNavigatorConfig || {};
   const mapContainerId = baseConfig.mapContainerId || "coverage-map";
 
+  // DrivingNavigation should NOT populate the dropdown since OptimalRoutesManager does it
+  // This prevents duplicate entries
   const drivingDefaults = {
     areaSelectId: "area-select",
     mapContainerId,
     useSharedMap: true,
-    populateAreaSelect: false,
+    populateAreaSelect: false, // OptimalRoutesManager handles this
   };
 
+  // OptimalRoutesManager populates the dropdown for both components
   const optimalDefaults = {
     areaSelectId: "area-select",
     mapContainerId,
     useSharedMap: true,
     addNavigationControl: false,
-    populateAreaSelect: true,
+    populateAreaSelect: true, // Only this one populates the dropdown
   };
 
   window.coverageNavigatorConfig = {
