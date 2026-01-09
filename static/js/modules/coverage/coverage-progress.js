@@ -64,21 +64,16 @@ class CoverageProgress {
    */
   saveProcessingState() {
     if (this.currentProcessingLocation && this.currentTaskId) {
-      const progressBar = document.querySelector(
-        "#taskProgressModal .progress-bar",
-      );
+      const progressBar = document.querySelector("#taskProgressModal .progress-bar");
       const progressMessageEl = document.querySelector(
-        "#taskProgressModal .progress-message",
+        "#taskProgressModal .progress-message"
       );
 
       const saveData = {
         location: this.currentProcessingLocation,
         taskId: this.currentTaskId,
         stage: progressMessageEl?.dataset.stage || STATUS.UNKNOWN,
-        progress: parseInt(
-          progressBar?.getAttribute("aria-valuenow") || "0",
-          10,
-        ),
+        progress: parseInt(progressBar?.getAttribute("aria-valuenow") || "0", 10),
         timestamp: new Date().toISOString(),
       };
 
@@ -125,7 +120,7 @@ class CoverageProgress {
       if (!this.activeTaskIds.has(taskId)) {
         this.notificationManager.show(
           `Polling stopped for task ${taskId.substring(0, 8)}...`,
-          "info",
+          "info"
         );
         this._removeBeforeUnloadListener();
         throw new Error("Polling canceled");
@@ -158,16 +153,11 @@ class CoverageProgress {
           return data;
         } else if (data.stage === STATUS.ERROR) {
           const errorMessage = data.error || data.message || "Unknown error";
-          this.notificationManager.show(
-            `Task failed: ${errorMessage}`,
-            "danger",
-          );
+          this.notificationManager.show(`Task failed: ${errorMessage}`, "danger");
           this.activeTaskIds.delete(taskId);
           this._removeBeforeUnloadListener();
           this.showErrorState(errorMessage);
-          throw new Error(
-            data.error || data.message || "Coverage calculation failed",
-          );
+          throw new Error(data.error || data.message || "Coverage calculation failed");
         } else if (data.stage === STATUS.CANCELED) {
           this.notificationManager.show("Task was canceled.", "warning");
           this.activeTaskIds.delete(taskId);
@@ -181,7 +171,7 @@ class CoverageProgress {
           if (consecutiveSameStage > 12 && consecutiveSameStage % 24 === 0) {
             // Only warn occasionally and log to console - the modal already shows the status
             console.warn(
-              `Task appears stalled at: ${this.formatStageName(data.stage)}`,
+              `Task appears stalled at: ${this.formatStageName(data.stage)}`
             );
           }
         } else {
@@ -198,7 +188,7 @@ class CoverageProgress {
         if (is404 && initial404Count < maxInitial404Retries) {
           initial404Count++;
           console.log(
-            `Task ${taskId.substring(0, 8)}... not ready yet (attempt ${initial404Count}/${maxInitial404Retries}), retrying...`,
+            `Task ${taskId.substring(0, 8)}... not ready yet (attempt ${initial404Count}/${maxInitial404Retries}), retrying...`
           );
           // Wait a bit longer for the task to initialize
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -209,7 +199,7 @@ class CoverageProgress {
         // For non-404 errors or after max 404 retries, show error
         this.notificationManager.show(
           `Error polling progress: ${error.message}`,
-          "danger",
+          "danger"
         );
         this.updateModalContent({
           stage: STATUS.ERROR,
@@ -220,7 +210,7 @@ class CoverageProgress {
         });
         this.updateStepIndicators(
           STATUS.ERROR,
-          this.currentProcessingLocation?.progress || 0,
+          this.currentProcessingLocation?.progress || 0
         );
         this.activeTaskIds.delete(taskId);
         this._removeBeforeUnloadListener();
@@ -231,11 +221,10 @@ class CoverageProgress {
 
     this.notificationManager.show(
       `Polling timed out after ${Math.round(
-        (maxRetries *
-          this.calculatePollInterval(STATUS.UNKNOWN, maxRetries - 1)) /
-          60000,
+        (maxRetries * this.calculatePollInterval(STATUS.UNKNOWN, maxRetries - 1)) /
+          60000
       )} minutes.`,
-      "danger",
+      "danger"
     );
     this.updateModalContent({
       stage: STATUS.ERROR,
@@ -246,7 +235,7 @@ class CoverageProgress {
     });
     this.updateStepIndicators(
       STATUS.ERROR,
-      this.currentProcessingLocation?.progress || 99,
+      this.currentProcessingLocation?.progress || 99
     );
     this.activeTaskIds.delete(taskId);
     this._removeBeforeUnloadListener();
@@ -291,7 +280,7 @@ class CoverageProgress {
     if (!progressDetails) {
       this.notificationManager.show(
         "UI Error: Progress details container not found.",
-        "danger",
+        "danger"
       );
       return;
     }
@@ -359,10 +348,7 @@ class CoverageProgress {
 
       // Remove focus from any element inside the modal to prevent
       // "Blocked aria-hidden" errors when Bootstrap adds aria-hidden=true
-      if (
-        document.activeElement &&
-        modalElement.contains(document.activeElement)
-      ) {
+      if (document.activeElement && modalElement.contains(document.activeElement)) {
         document.activeElement.blur();
       }
 
@@ -399,7 +385,7 @@ class CoverageProgress {
     if (progressBar) {
       const currentProgress = parseInt(
         progressBar.getAttribute("aria-valuenow") || "0",
-        10,
+        10
       );
 
       if (progress > currentProgress) {
@@ -421,7 +407,7 @@ class CoverageProgress {
         progressBar.classList.add(
           "progress-bar-striped",
           "progress-bar-animated",
-          "bg-primary",
+          "bg-primary"
         );
       }
     }
@@ -449,7 +435,7 @@ class CoverageProgress {
       const stageIcon = this.getStageIcon(stage);
       stageInfoEl.innerHTML = `${stageIcon} ${stageName}`;
       stageInfoEl.className = `stage-info mb-3 text-center text-${this.getStageTextClass(
-        stage,
+        stage
       )}`;
     }
 
@@ -467,12 +453,7 @@ class CoverageProgress {
     }
 
     if (
-      [
-        STATUS.COMPLETE,
-        STATUS.COMPLETED,
-        STATUS.ERROR,
-        STATUS.CANCELED,
-      ].includes(stage)
+      [STATUS.COMPLETE, STATUS.COMPLETED, STATUS.ERROR, STATUS.CANCELED].includes(stage)
     ) {
       if (this.progressTimer) {
         clearInterval(this.progressTimer);
@@ -513,21 +494,14 @@ class CoverageProgress {
       { threshold: 0, step: "initializing" },
     ];
 
-    const errorStep = errorSteps.find(
-      (s) => progress > s.threshold && steps[s.step],
-    );
+    const errorStep = errorSteps.find((s) => progress > s.threshold && steps[s.step]);
 
     if (!errorStep) return false;
 
     markError(errorStep.step);
 
     // Mark all previous steps as complete
-    const stepOrder = [
-      "initializing",
-      "preprocessing",
-      "indexing",
-      "calculating",
-    ];
+    const stepOrder = ["initializing", "preprocessing", "indexing", "calculating"];
     const errorIndex = stepOrder.indexOf(errorStep.step);
     for (let i = 0; i < errorIndex; i++) {
       if (steps[stepOrder[i]]) markComplete(stepOrder[i]);
@@ -540,12 +514,7 @@ class CoverageProgress {
    * Mark error on active step for canceled tasks
    */
   _markCanceledStep(steps, markError) {
-    const stepOrder = [
-      "calculating",
-      "indexing",
-      "preprocessing",
-      "initializing",
-    ];
+    const stepOrder = ["calculating", "indexing", "preprocessing", "initializing"];
     for (const stepKey of stepOrder) {
       if (steps[stepKey]?.classList.contains("active")) {
         markError(stepKey);
@@ -614,10 +583,7 @@ class CoverageProgress {
       markComplete("preprocessing");
       markComplete("indexing");
       markActive("calculating");
-    } else if (
-      progress > 50 ||
-      stage?.toLowerCase().includes("preprocessing")
-    ) {
+    } else if (progress > 50 || stage?.toLowerCase().includes("preprocessing")) {
       markComplete("initializing");
       markActive("preprocessing");
     } else {
@@ -712,11 +678,9 @@ class CoverageProgress {
       }
     }
 
-    const elapsedTimeEl = document.querySelector(
-      "#taskProgressModal .elapsed-time",
-    );
+    const elapsedTimeEl = document.querySelector("#taskProgressModal .elapsed-time");
     const estimatedTimeEl = document.querySelector(
-      "#taskProgressModal .estimated-time",
+      "#taskProgressModal .estimated-time"
     );
 
     if (elapsedTimeEl) elapsedTimeEl.textContent = `Elapsed: ${elapsedText}`;
@@ -741,8 +705,7 @@ class CoverageProgress {
     if (isActive !== null) {
       currentlyActive = isActive;
     } else {
-      currentlyActive =
-        this.lastActivityTime && now - this.lastActivityTime < 10000;
+      currentlyActive = this.lastActivityTime && now - this.lastActivityTime < 10000;
     }
 
     if (currentlyActive) {
@@ -757,7 +720,7 @@ class CoverageProgress {
 
     if (this.lastActivityTime) {
       lastUpdateEl.textContent = `Last update: ${this.formatTimeAgo(
-        this.lastActivityTime,
+        this.lastActivityTime
       )}`;
     } else {
       lastUpdateEl.textContent = currentlyActive ? "" : "No recent activity";
@@ -814,12 +777,11 @@ class CoverageProgress {
       value,
       unit = "",
       icon = null,
-      colorClass = "text-primary",
+      colorClass = "text-primary"
     ) => {
       if (value !== undefined && value !== null && value !== "") {
         const iconHtml = icon ? `<i class="${icon} me-2 opacity-75"></i>` : "";
-        const displayValue =
-          typeof value === "number" ? value.toLocaleString() : value;
+        const displayValue = typeof value === "number" ? value.toLocaleString() : value;
         statsHtml += `
           <div class="d-flex justify-content-between py-1 border-bottom border-secondary border-opacity-10">
             <small class="text-muted">${iconHtml}${label}:</small>
@@ -829,20 +791,14 @@ class CoverageProgress {
     };
 
     if (metrics.total_segments !== undefined) {
-      addStat(
-        "Total Segments",
-        metrics.total_segments,
-        "",
-        "fas fa-road",
-        "text-info",
-      );
+      addStat("Total Segments", metrics.total_segments, "", "fas fa-road", "text-info");
     }
     if (metrics.total_length_m !== undefined) {
       addStat(
         "Total Length",
         this.distanceInUserUnits(metrics.total_length_m),
         "",
-        "fas fa-ruler-horizontal",
+        "fas fa-ruler-horizontal"
       );
     }
     if (metrics.driveable_length_m !== undefined) {
@@ -850,7 +806,7 @@ class CoverageProgress {
         "Driveable Length",
         this.distanceInUserUnits(metrics.driveable_length_m),
         "",
-        "fas fa-car",
+        "fas fa-car"
       );
     }
 
@@ -868,26 +824,23 @@ class CoverageProgress {
           metrics.initial_covered_segments,
           " segs",
           "fas fa-flag-checkered",
-          "text-success",
+          "text-success"
         );
       }
     } else if (
-      [
-        STATUS.PROCESSING_TRIPS,
-        STATUS.CALCULATING,
-        STATUS.COUNTING_TRIPS,
-      ].includes(stage)
+      [STATUS.PROCESSING_TRIPS, STATUS.CALCULATING, STATUS.COUNTING_TRIPS].includes(
+        stage
+      )
     ) {
       const processed = metrics.processed_trips || 0;
       const total = metrics.total_trips_to_process || 0;
-      const tripsProgress =
-        total > 0 ? ((processed / total) * 100).toFixed(1) : 0;
+      const tripsProgress = total > 0 ? ((processed / total) * 100).toFixed(1) : 0;
       addStat(
         "Trips Processed",
         `${processed.toLocaleString()}/${total.toLocaleString()} (${tripsProgress}%)`,
         "",
         "fas fa-route",
-        "text-info",
+        "text-info"
       );
       if (metrics.newly_covered_segments !== undefined) {
         addStat(
@@ -895,7 +848,7 @@ class CoverageProgress {
           metrics.newly_covered_segments,
           "",
           "fas fa-plus-circle",
-          "text-success",
+          "text-success"
         );
       }
       if (metrics.coverage_percentage !== undefined) {
@@ -904,7 +857,7 @@ class CoverageProgress {
           metrics.coverage_percentage.toFixed(1),
           "%",
           "fas fa-tachometer-alt",
-          "text-success",
+          "text-success"
         );
       }
       if (metrics.covered_length_m !== undefined) {
@@ -913,7 +866,7 @@ class CoverageProgress {
           this.distanceInUserUnits(metrics.covered_length_m),
           "",
           "fas fa-road",
-          "text-success",
+          "text-success"
         );
       }
     } else if (
@@ -925,15 +878,14 @@ class CoverageProgress {
         STATUS.COMPLETED,
       ].includes(stage)
     ) {
-      const finalCovered =
-        metrics.total_covered_segments || metrics.covered_segments;
+      const finalCovered = metrics.total_covered_segments || metrics.covered_segments;
       if (finalCovered !== undefined) {
         addStat(
           "Segments Covered",
           finalCovered,
           "",
           "fas fa-check-circle",
-          "text-success",
+          "text-success"
         );
       }
       if (metrics.coverage_percentage !== undefined) {
@@ -942,7 +894,7 @@ class CoverageProgress {
           metrics.coverage_percentage.toFixed(1),
           "%",
           "fas fa-check-double",
-          "text-success",
+          "text-success"
         );
       }
       if (metrics.covered_length_m !== undefined) {
@@ -951,12 +903,11 @@ class CoverageProgress {
           this.distanceInUserUnits(metrics.covered_length_m),
           "",
           "fas fa-road",
-          "text-success",
+          "text-success"
         );
       }
     } else {
-      statsHtml +=
-        '<div class="text-muted small text-center py-2">Processing...</div>';
+      statsHtml += '<div class="text-muted small text-center py-2">Processing...</div>';
     }
 
     statsHtml += "</div>";
@@ -1099,7 +1050,7 @@ class CoverageProgress {
               location: this.currentProcessingLocation,
               taskId: this.currentTaskId,
             },
-          }),
+          })
         );
       }
     };
@@ -1131,7 +1082,7 @@ class CoverageProgress {
       document.dispatchEvent(
         new CustomEvent("coverageRetryTask", {
           detail: { taskId },
-        }),
+        })
       );
     };
 
