@@ -16,6 +16,8 @@ from bson import ObjectId
 from dotenv import load_dotenv
 from shapely.geometry import mapping, shape
 
+from geometry_service import GeometryService
+
 if TYPE_CHECKING:
     from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
@@ -44,8 +46,8 @@ logger = logging.getLogger(__name__)
 MAX_TRIPS_PER_BATCH = 500
 BATCH_PROCESS_DELAY = 0.01
 
-DEFAULT_MATCH_BUFFER_METERS = 15.0
-DEFAULT_MIN_MATCH_LENGTH_METERS = 5.0
+DEFAULT_MATCH_BUFFER_METERS = 50.0 * 0.3048
+DEFAULT_MIN_MATCH_LENGTH_METERS = 15.0 * 0.3048
 
 
 class CoverageCalculator:
@@ -65,9 +67,17 @@ class CoverageCalculator:
         # 2. Default (15m ~ 49ft)
 
         self.match_buffer: float = DEFAULT_MATCH_BUFFER_METERS
+        self.min_match_length: float = DEFAULT_MIN_MATCH_LENGTH_METERS
 
         if location.get("match_buffer_feet") is not None:
             self.match_buffer = float(location["match_buffer_feet"]) * 0.3048
+        elif location.get("match_buffer_meters") is not None:
+            self.match_buffer = float(location["match_buffer_meters"])
+
+        if location.get("min_match_length_feet") is not None:
+            self.min_match_length = float(location["min_match_length_feet"]) * 0.3048
+        elif location.get("min_match_length_meters") is not None:
+            self.min_match_length = float(location["min_match_length_meters"])
 
         self.trip_batch_size: int = MAX_TRIPS_PER_BATCH
 
@@ -268,6 +278,34 @@ class CoverageCalculator:
 
         return False, []
 
+    @staticmethod
+    def _line_length_m(coords: list[tuple[float, float]]) -> float:
+        length_m = 0.0
+        for (lon1, lat1), (lon2, lat2) in zip(coords, coords[1:], strict=False):
+            length_m += GeometryService.haversine_distance(
+                lon1,
+                lat1,
+                lon2,
+                lat2,
+                unit="meters",
+            )
+        return length_m
+
+    def _geometry_length_m(self, geom: Any) -> float:
+        if geom is None or geom.is_empty:
+            return 0.0
+        geom_type = geom.geom_type
+        if geom_type == "LineString":
+            return self._line_length_m(list(geom.coords))
+        if geom_type == "MultiLineString":
+            return sum(self._line_length_m(list(line.coords)) for line in geom.geoms)
+        if geom_type == "GeometryCollection":
+            total = 0.0
+            for sub in geom.geoms:
+                total += self._geometry_length_m(sub)
+            return total
+        return 0.0
+
     async def _find_intersecting_streets(self, trip_geometry: dict) -> list[str]:
         """Helper to find undriven streets intersecting a trip geometry using MongoDB."""
         try:
@@ -293,11 +331,28 @@ class CoverageCalculator:
                     "properties.driven": False,
                     "geometry": {"$geoIntersects": {"$geometry": query_geometry}},
                 },
-                {"properties.segment_id": 1},
+                {"properties.segment_id": 1, "geometry": 1},
             )
 
             segments = await cursor.to_list(length=None)
-            return [doc["properties"]["segment_id"] for doc in segments]
+            if self.min_match_length <= 0:
+                return [doc["properties"]["segment_id"] for doc in segments]
+
+            matched_segments: list[str] = []
+            for doc in segments:
+                segment_geom = doc.get("geometry")
+                if not segment_geom:
+                    continue
+                try:
+                    seg_shape = shape(segment_geom)
+                    intersection = seg_shape.intersection(query_polygon)
+                except Exception:
+                    continue
+
+                if self._geometry_length_m(intersection) >= self.min_match_length:
+                    matched_segments.append(doc["properties"]["segment_id"])
+
+            return matched_segments
         except Exception as e:
             logger.error(f"Geospatial query failed for task {self.task_id}: {e}")
             return []
@@ -668,9 +723,7 @@ class CoverageCalculator:
                     }
                 )
 
-            final_street_types.sort(
-                key=lambda x: x["total_length_m"], reverse=True
-            )
+            final_street_types.sort(key=lambda x: x["total_length_m"], reverse=True)
 
             coverage_stats = {
                 "total_length_m": round(stats.get("total_length", 0), 2),

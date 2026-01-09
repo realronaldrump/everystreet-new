@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 from shapely.geometry import shape
 
+from coverage.location_settings import normalize_location_settings
 from coverage.services import geometry_service
 from coverage_tasks import process_area
 from db import db_manager, find_one_with_retry, update_one_with_retry
@@ -101,18 +102,27 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
         "boundingbox": bbox,
         "lat": shape(geom_dict).centroid.y,
         "lon": shape(geom_dict).centroid.x,
-        "geojson": geom_dict,
+        "geojson": {"type": "Feature", "geometry": geom_dict, "properties": {}},
         "boundary_type": "custom",
+        "segment_length_feet": data.segment_length_feet,
         "segment_length_meters": data.segment_length_meters,
+        "match_buffer_feet": data.match_buffer_feet,
         "match_buffer_meters": data.match_buffer_meters,
+        "min_match_length_feet": data.min_match_length_feet,
         "min_match_length_meters": data.min_match_length_meters,
     }
+    location_dict = normalize_location_settings(location_dict)
 
     existing = await find_one_with_retry(
         coverage_metadata_collection,
         {"location.display_name": display_name},
     )
-    if existing and existing.get("status") == "processing":
+    if existing and existing.get("status") in {
+        "processing",
+        "preprocessing",
+        "calculating",
+        "queued",
+    }:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This area is already being processed",
@@ -154,9 +164,7 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
         upsert=True,
     )
 
-    asyncio.create_task(
-        process_area(location_dict, task_id, data.segment_length_meters)
-    )
+    asyncio.create_task(process_area(location_dict, task_id))
 
     return {
         "status": "success",

@@ -12,6 +12,7 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
+from coverage.location_settings import normalize_location_settings
 from coverage.serializers import serialize_coverage_area, serialize_coverage_details
 from coverage_tasks import process_area
 from db import (
@@ -118,7 +119,7 @@ async def preprocess_streets_route(location_data: LocationModel):
     """Preprocess streets data for a validated location."""
     display_name = None
     try:
-        validated_location_dict = location_data.dict()
+        validated_location_dict = normalize_location_settings(location_data.dict())
         display_name = validated_location_dict.get("display_name")
 
         if not display_name:
@@ -131,7 +132,12 @@ async def preprocess_streets_route(location_data: LocationModel):
             coverage_metadata_collection,
             {"location.display_name": display_name},
         )
-        if existing and existing.get("status") == "processing":
+        if existing and existing.get("status") in {
+            "processing",
+            "preprocessing",
+            "calculating",
+            "queued",
+        }:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This area is already being processed",

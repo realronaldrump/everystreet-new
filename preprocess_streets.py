@@ -55,13 +55,19 @@ def _buffer_polygon_for_routing(polygon, buffer_ft: float):
         return polygon
 
 
-async def preprocess_streets(location: dict, task_id: str = None) -> None:
+async def preprocess_streets(
+    location: dict,
+    task_id: str | None = None,
+) -> tuple[object, Path]:
     """
     Download and save the OSM graph for a single location.
 
     Args:
         location: Location dictionary containing _id, display_name, boundingbox/geojson.
         task_id: Optional task ID for logging context.
+
+    Returns:
+        Tuple of (graph, graphml_path) for the downloaded network.
     """
     location_id = str(location.get("_id", "unknown"))
     location_name = location.get("display_name", "Unknown Location")
@@ -78,7 +84,10 @@ async def preprocess_streets(location: dict, task_id: str = None) -> None:
 
     try:
         # 1. Get Polygon
-        boundary_geom = location.get("geojson", {}).get("geometry")
+        boundary_geom = location.get("geojson")
+        if isinstance(boundary_geom, dict):
+            if boundary_geom.get("type") == "Feature":
+                boundary_geom = boundary_geom.get("geometry")
         if boundary_geom:
             polygon = shape(boundary_geom)
         else:
@@ -89,7 +98,7 @@ async def preprocess_streets(location: dict, task_id: str = None) -> None:
                 )
             else:
                 logger.warning("No valid boundary for %s. Skipping.", location_name)
-                return
+                return None
 
         # 2. Buffer Polygon
         routing_polygon = _buffer_polygon_for_routing(polygon, ROUTING_BUFFER_FT)
@@ -104,6 +113,7 @@ async def preprocess_streets(location: dict, task_id: str = None) -> None:
         loop = asyncio.get_running_loop()
 
         def _download_and_save():
+            GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
             G = ox.graph_from_polygon(
                 routing_polygon,
                 network_type="drive",
@@ -116,9 +126,10 @@ async def preprocess_streets(location: dict, task_id: str = None) -> None:
             ox.save_graphml(G, filepath=file_path)
             return G, file_path
 
-        await loop.run_in_executor(None, _download_and_save)
+        graph, file_path = await loop.run_in_executor(None, _download_and_save)
 
         logger.info("Graph downloaded and saved for %s.", location_name)
+        return graph, file_path
 
     except Exception as e:
         logger.error("Failed to process %s: %s", location_name, e, exc_info=True)

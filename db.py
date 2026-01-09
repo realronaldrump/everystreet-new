@@ -37,7 +37,12 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
 
     from fastapi import Request
-    from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
+from pymongo.results import (
+    DeleteResult,
+    InsertManyResult,
+    InsertOneResult,
+    UpdateResult,
+)
 
 from date_utils import (
     normalize_calendar_date,
@@ -850,6 +855,21 @@ async def insert_one_with_retry(
     return await db_manager.execute_with_retry(
         _operation,
         operation_name=f"insert_one on {collection.name}",
+    )
+
+
+async def insert_many_with_retry(
+    collection: AsyncIOMotorCollection,
+    documents: list[dict[str, Any]],
+    *,
+    ordered: bool = False,
+) -> InsertManyResult:
+    async def _operation():
+        return await collection.insert_many(documents, ordered=ordered)
+
+    return await db_manager.execute_with_retry(
+        _operation,
+        operation_name=f"insert_many on {collection.name}",
     )
 
 

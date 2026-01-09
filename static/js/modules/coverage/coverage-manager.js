@@ -1529,29 +1529,57 @@ class CoverageManager {
       const { location } = data;
       if (!location.display_name) throw new Error("Missing location");
 
+      const metersToFeet = (value) => value * 3.28084;
       const defaults = {
-        segment: location.segment_length_meters || 100,
-        buffer: location.match_buffer_meters || 15,
-        min: location.min_match_length_meters || 5,
+        segment:
+          location.segment_length_feet ||
+          (location.segment_length_meters
+            ? metersToFeet(location.segment_length_meters)
+            : 300),
+        buffer:
+          location.match_buffer_feet ||
+          (location.match_buffer_meters
+            ? metersToFeet(location.match_buffer_meters)
+            : 50),
+        min:
+          location.min_match_length_feet ||
+          (location.min_match_length_meters
+            ? metersToFeet(location.min_match_length_meters)
+            : 15),
       };
       const settings = await this._askMatchSettings(location.display_name, defaults);
       if (settings === null) return;
 
-      location.segment_length_meters = settings.segment;
-      location.match_buffer_meters = settings.buffer;
-      location.min_match_length_meters = settings.min;
-
-      const _endpoint =
-        location.osm_type === "custom"
-          ? "/api/preprocess_custom_boundary"
-          : "/api/preprocess_streets";
+      location.segment_length_feet = settings.segment;
+      location.match_buffer_feet = settings.buffer;
+      location.min_match_length_feet = settings.min;
 
       this.progress.showProgressModal(
-        `Reprocessing streets for ${location.display_name} (seg ${settings.segment} m)...`,
+        `Reprocessing streets for ${location.display_name} (seg ${settings.segment} ft)...`,
         0
       );
 
-      const taskData = await COVERAGE_API.preprocessStreets(location);
+      const isCustom =
+        location.osm_type === "custom" || location.boundary_type === "custom";
+      let taskData;
+
+      if (isCustom) {
+        const geometry =
+          location.geojson?.geometry || location.geojson || location.geometry;
+        if (!geometry) {
+          throw new Error("Custom boundary is missing geometry");
+        }
+        taskData = await COVERAGE_API.preprocessCustomBoundary({
+          display_name: location.display_name,
+          area_name: location.display_name,
+          geometry,
+          segment_length_feet: settings.segment,
+          match_buffer_feet: settings.buffer,
+          min_match_length_feet: settings.min,
+        });
+      } else {
+        taskData = await COVERAGE_API.preprocessStreets(location);
+      }
 
       this.currentProcessingLocation = location;
       this.progress.currentProcessingLocation = location;
@@ -1578,7 +1606,7 @@ class CoverageManager {
    */
   async _askMatchSettings(
     locationName,
-    defaults = { segment: 100, buffer: 15, min: 5 }
+    defaults = { segment: 300, buffer: 50, min: 15 }
   ) {
     return new Promise((resolve) => {
       const modalEl = document.getElementById("segmentLengthModal");

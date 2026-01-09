@@ -12,6 +12,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from coverage.location_settings import normalize_location_settings
+from coverage.streets_preprocessor import build_street_segments
 from db import (
     coverage_metadata_collection,
     find_one_with_retry,
@@ -45,6 +47,7 @@ async def process_coverage_calculation(
         location: Dictionary with location data (e.g., display_name, osm_id).
         task_id: Unique identifier for tracking this specific task run.
     """
+    location = normalize_location_settings(location)
     display_name = location.get("display_name", "Unknown Location")
     logger.info(
         "Starting full coverage calculation task %s for %s",
@@ -76,12 +79,36 @@ async def process_coverage_calculation(
                 task_id,
                 display_name,
             )
+            await update_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": "Coverage calculation failed",
+                        "last_updated": datetime.now(UTC),
+                    },
+                },
+                upsert=True,
+            )
         elif result.get("status") == "error":
             logger.error(
                 "Coverage calculation task %s for %s completed with an error state: %s. Status should be updated by the calculation function.",
                 task_id,
                 display_name,
                 result.get("last_error", "Unknown error"),
+            )
+            await update_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": result.get("last_error", "Coverage error"),
+                        "last_updated": datetime.now(UTC),
+                    },
+                },
+                upsert=True,
             )
         else:
             logger.info(
@@ -142,6 +169,7 @@ async def process_incremental_coverage_calculation(
         location: Dictionary with location data (must include display_name).
         task_id: Unique identifier for tracking this specific task run.
     """
+    location = normalize_location_settings(location)
     display_name = location.get("display_name", "Unknown Location")
     logger.info(
         "Starting incremental coverage calculation task %s for %s",
@@ -173,12 +201,36 @@ async def process_incremental_coverage_calculation(
                 task_id,
                 display_name,
             )
+            await update_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": "Incremental coverage calculation failed",
+                        "last_updated": datetime.now(UTC),
+                    },
+                },
+                upsert=True,
+            )
         elif result.get("status") == "error":
             logger.error(
                 "Incremental coverage task %s for %s completed with an error state: %s. Status should be updated by the calculation function.",
                 task_id,
                 display_name,
                 result.get("last_error", "Unknown error"),
+            )
+            await update_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": result.get("last_error", "Coverage error"),
+                        "last_updated": datetime.now(UTC),
+                    },
+                },
+                upsert=True,
             )
         else:
             logger.info(
@@ -283,10 +335,18 @@ async def process_area(
                     "street_types": [],
                     "streets_geojson_gridfs_id": None,
                 },
-                "$unset": {"streets_data": ""},
+                "$unset": {"streets_data": "", "processed_trips": ""},
             },
             upsert=True,
         )
+
+        metadata = await find_one_with_retry(
+            coverage_metadata_collection,
+            {"location.display_name": display_name},
+            {"_id": 1},
+        )
+        if metadata and metadata.get("_id"):
+            location["_id"] = str(metadata["_id"])
 
         await update_one_with_retry(
             progress_collection,
@@ -300,34 +360,93 @@ async def process_area(
         )
 
         # Preprocess streets (defaults or feet overrides handled internally)
-        await async_preprocess_streets(location, task_id)
+        graph, _ = await async_preprocess_streets(location, task_id)
 
-        metadata = await find_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": display_name},
+        await update_one_with_retry(
+            progress_collection,
+            {"_id": task_id},
+            {
+                "$set": {
+                    "stage": "indexing",
+                    "progress": 10,
+                    "message": "Segmenting streets for coverage analysis...",
+                    "updated_at": datetime.now(UTC),
+                },
+            },
         )
-        preprocessing_status = metadata.get("status") if metadata else "error"
 
-        if preprocessing_status == "error":
-            error_msg = metadata.get(
-                "last_error",
-                "Preprocessing failed (unknown reason)",
+        try:
+            segment_stats = await build_street_segments(
+                location,
+                task_id=task_id,
+                graph=graph,
             )
+        except Exception as seg_err:
+            error_msg = f"Street segmentation failed: {seg_err}"
             logger.error(
-                "Task %s: Preprocessing failed for %s: %s",
+                "Task %s: Segmentation failed for %s: %s",
                 task_id,
                 display_name,
                 error_msg,
             )
             overall_status = "error"
             await update_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": error_msg,
+                        "last_updated": datetime.now(UTC),
+                    },
+                },
+                upsert=True,
+            )
+            await update_one_with_retry(
                 progress_collection,
                 {"_id": task_id},
                 {
                     "$set": {
                         "stage": "error",
-                        "progress": 10,
-                        "message": f"Preprocessing failed: {error_msg}",
+                        "progress": 20,
+                        "message": error_msg,
+                        "error": error_msg,
+                        "updated_at": datetime.now(UTC),
+                        "status": "error",
+                    },
+                },
+            )
+            return
+
+        if not segment_stats.get("segment_count"):
+            error_msg = "Street segmentation produced no segments"
+            logger.error(
+                "Task %s: %s for %s.",
+                task_id,
+                error_msg,
+                display_name,
+            )
+            overall_status = "error"
+            await update_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": error_msg,
+                        "last_updated": datetime.now(UTC),
+                    },
+                },
+                upsert=True,
+            )
+            await update_one_with_retry(
+                progress_collection,
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "error",
+                        "progress": 20,
+                        "message": error_msg,
                         "error": error_msg,
                         "updated_at": datetime.now(UTC),
                         "status": "error",
@@ -379,6 +498,18 @@ async def process_area(
                 task_id,
                 display_name,
                 final_error,
+            )
+            await update_one_with_retry(
+                coverage_metadata_collection,
+                {"location.display_name": display_name},
+                {
+                    "$set": {
+                        "status": "error",
+                        "last_error": final_error,
+                        "last_updated": datetime.now(UTC),
+                    },
+                },
+                upsert=True,
             )
             # Ensure progress is updated to error state so frontend stops polling
             await update_one_with_retry(

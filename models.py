@@ -89,13 +89,14 @@ class LocationModel(BaseModel):
     osm_id: int
     osm_type: str
     # Relaxed type to float | None to prevent 422 errors if frontend sends floats
-    osm_id: int
-    osm_type: str
 
     # New fields for feet-based configuration
     segment_length_feet: float | None = None
+    segment_length_meters: float | None = None
     match_buffer_feet: float | None = None
+    match_buffer_meters: float | None = None
     min_match_length_feet: float | None = None
+    min_match_length_meters: float | None = None
 
     class Config:
         extra = "allow"
@@ -108,13 +109,14 @@ class CustomBoundaryModel(BaseModel):
     boundary_type: str = "custom"
     geometry: dict[str, Any]  # GeoJSON geometry
     area_name: str
-    geometry: dict[str, Any]  # GeoJSON geometry
-    area_name: str
 
     # New fields for feet-based configuration
     segment_length_feet: float | None = None
+    segment_length_meters: float | None = None
     match_buffer_feet: float | None = None
+    match_buffer_meters: float | None = None
     min_match_length_feet: float | None = None
+    min_match_length_meters: float | None = None
 
     class Config:
         extra = "allow"
