@@ -256,6 +256,7 @@ async def get_optimal_route_progress(task_id: str):
         "stage": progress.get("stage", "initializing"),
         "progress": progress.get("progress", 0),
         "message": progress.get("message", ""),
+        "metrics": progress.get("metrics", {}),
         "error": progress.get("error"),
         "started_at": progress.get("started_at"),
         "updated_at": progress.get("updated_at"),
@@ -270,6 +271,8 @@ async def stream_optimal_route_progress(task_id: str):
     async def event_generator():
         last_progress = -1
         last_stage = None
+        last_message = None
+        last_metrics = None
         poll_count = 0
         max_polls = 1800  # 30 minutes at 1 second intervals
 
@@ -296,16 +299,26 @@ async def stream_optimal_route_progress(task_id: str):
                 current_progress = progress.get("progress", 0)
                 current_stage = progress.get("stage")
                 current_status = progress.get("status", "running")
+                current_message = progress.get("message", "")
+                current_metrics = progress.get("metrics", {}) or {}
 
-                if current_progress != last_progress or current_stage != last_stage:
+                if (
+                    current_progress != last_progress
+                    or current_stage != last_stage
+                    or current_message != last_message
+                    or current_metrics != last_metrics
+                ):
                     last_progress = current_progress
                     last_stage = current_stage
+                    last_message = current_message
+                    last_metrics = current_metrics
 
                     data = {
                         "status": current_status,
                         "stage": current_stage,
                         "progress": current_progress,
-                        "message": progress.get("message", ""),
+                        "message": current_message,
+                        "metrics": current_metrics,
                         "error": progress.get("error"),
                         "started_at": progress.get("started_at"),
                         "updated_at": progress.get("updated_at"),
@@ -317,7 +330,8 @@ async def stream_optimal_route_progress(task_id: str):
                         "status": current_status,
                         "stage": current_stage,
                         "progress": current_progress,
-                        "message": progress.get("message", ""),
+                        "message": current_message,
+                        "metrics": current_metrics,
                         "error": progress.get("error"),
                         "completed_at": progress.get("completed_at"),
                     }
@@ -338,10 +352,12 @@ async def stream_optimal_route_progress(task_id: str):
 
     return StreamingResponse(
         event_generator(),
-        media_type="text/event-stream",
+        media_type="text/event-stream; charset=utf-8",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+            "Content-Encoding": "identity",  # Disable compression
+            "Transfer-Encoding": "chunked",  # Use chunked transfer for streaming
         },
     )

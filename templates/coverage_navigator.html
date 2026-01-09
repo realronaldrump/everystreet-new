@@ -121,33 +121,36 @@ block head_content %}
     </div>
 
     <div id="progress-section" class="control-section" style="display: none">
-      <h5 class="mb-3">
-        <i class="fas fa-cog fa-spin me-2"></i>Generating Route...
+      <h5 class="mb-2">
+        <i class="fas fa-satellite-dish me-2"></i>Route Solver Live
       </h5>
+      <div class="small text-muted mb-3">
+        Mapping, connecting, and plotting the circuit in real time.
+      </div>
       <div class="progress-stages">
-        <div class="stage" data-stage="initializing">
+        <div class="stage" data-stage="queued,waiting,initializing">
           <div class="stage-icon"><i class="fas fa-play"></i></div>
           <div class="stage-label">Starting</div>
         </div>
-        <div class="stage" data-stage="loading_area,loading_segments">
+        <div class="stage" data-stage="loading_area,loading_segments,loading_graph,fetching_osm">
           <div class="stage-icon"><i class="fas fa-database"></i></div>
           <div class="stage-label">Loading</div>
         </div>
-        <div class="stage" data-stage="fetching_osm">
-          <div class="stage-icon"><i class="fas fa-globe"></i></div>
-          <div class="stage-label">Network</div>
-        </div>
-        <div class="stage" data-stage="mapping_segments,finding_odd_nodes">
+        <div class="stage" data-stage="mapping_segments">
           <div class="stage-icon"><i class="fas fa-project-diagram"></i></div>
           <div class="stage-label">Mapping</div>
         </div>
-        <div class="stage" data-stage="computing_matching,building_circuit">
-          <div class="stage-icon"><i class="fas fa-brain"></i></div>
-          <div class="stage-label">Solving</div>
+        <div class="stage" data-stage="connectivity_check">
+          <div class="stage-icon"><i class="fas fa-network-wired"></i></div>
+          <div class="stage-label">Linking</div>
         </div>
-        <div class="stage" data-stage="converting_coords,complete">
+        <div class="stage" data-stage="routing">
+          <div class="stage-icon"><i class="fas fa-route"></i></div>
+          <div class="stage-label">Routing</div>
+        </div>
+        <div class="stage" data-stage="finalizing,complete">
           <div class="stage-icon"><i class="fas fa-check"></i></div>
-          <div class="stage-label">Complete</div>
+          <div class="stage-label">Finalize</div>
         </div>
       </div>
       <div class="progress mt-3" style="height: 8px">
@@ -159,7 +162,8 @@ block head_content %}
         ></div>
       </div>
       <div id="progress-message" class="progress-message mt-2">
-        Initializing...
+        <div id="progress-message-primary">Initializing...</div>
+        <div id="progress-message-secondary" class="progress-message-secondary"></div>
       </div>
       <div id="elapsed-time" class="elapsed-time mt-2">
         <i class="fas fa-clock me-1"></i>Elapsed:
@@ -349,6 +353,39 @@ block head_content %}
 
   <div class="map-container">
     <div id="coverage-map"></div>
+    <div id="map-scanner-overlay" class="map-scanner-overlay" aria-hidden="true"></div>
+    <div id="route-solver-hud" class="route-solver-hud" aria-live="polite">
+      <div class="hud-panel">
+        <div class="hud-header">
+          <div class="hud-signal">
+            <span class="hud-dot"></span>
+            <span class="hud-title">Route Solver</span>
+          </div>
+          <div id="hud-stage" class="hud-stage">Initializing</div>
+        </div>
+        <div id="hud-message" class="hud-message">Initializing...</div>
+        <div id="hud-submessage" class="hud-submessage"></div>
+        <div class="hud-metrics">
+          <div class="hud-metric">
+            <span class="label">Segments</span>
+            <span id="hud-segments" class="value">--</span>
+          </div>
+          <div class="hud-metric">
+            <span class="label">Matched</span>
+            <span id="hud-matched" class="value">--</span>
+          </div>
+          <div class="hud-metric">
+            <span class="label">Fallback</span>
+            <span id="hud-fallback" class="value">--</span>
+          </div>
+          <div class="hud-metric">
+            <span class="label">Elapsed</span>
+            <span id="hud-elapsed" class="value">0:00</span>
+          </div>
+        </div>
+        <div id="hud-activity" class="hud-activity"></div>
+      </div>
+    </div>
     <div class="map-legend" id="map-legend" style="display: none">
       <h6>Legend</h6>
       <div class="legend-item">

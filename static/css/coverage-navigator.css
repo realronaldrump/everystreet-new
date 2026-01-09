@@ -262,6 +262,12 @@
   min-height: 1.5rem;
 }
 
+.coverage-navigator .progress-message-secondary {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 0.25rem;
+}
+
 .coverage-navigator .elapsed-time {
   font-size: 0.8rem;
   color: var(--text-tertiary);
@@ -450,6 +456,246 @@
   background: var(--surface-0);
 }
 
+.coverage-navigator .route-solver-hud {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  max-width: 320px;
+  z-index: 12;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    visibility 0.3s;
+}
+
+.coverage-navigator .route-solver-hud.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.coverage-navigator .hud-panel {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-rgb) / 88%),
+    rgb(var(--surface-rgb) / 60%)
+  );
+  border: 1px solid rgb(var(--border-rgb) / 25%);
+  border-radius: 16px;
+  padding: 0.9rem;
+  box-shadow: 0 18px 40px rgb(0 0 0 / 35%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.coverage-navigator .hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+}
+
+.coverage-navigator .hud-signal {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.coverage-navigator .hud-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(var(--success-rgb) / 90%);
+  box-shadow: 0 0 12px rgb(var(--success-rgb) / 60%);
+  animation: hud-pulse 1.8s ease-in-out infinite;
+}
+
+.coverage-navigator .hud-stage {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.coverage-navigator .hud-message {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 0.4rem;
+}
+
+.coverage-navigator .hud-submessage {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+  min-height: 1rem;
+}
+
+.coverage-navigator .hud-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.coverage-navigator .hud-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgb(var(--surface-rgb) / 45%);
+  border: 1px solid rgb(var(--border-rgb) / 25%);
+  border-radius: 10px;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+}
+
+.coverage-navigator .hud-metric .value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.coverage-navigator .hud-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+
+.coverage-navigator .hud-activity-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.coverage-navigator .hud-activity-item::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgb(var(--primary-rgb) / 80%);
+  box-shadow: 0 0 8px rgb(var(--primary-rgb) / 55%);
+}
+
+.coverage-navigator .hud-activity-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.coverage-navigator .hud-activity-text {
+  color: var(--text-secondary);
+}
+
+.coverage-navigator .map-scanner-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.coverage-navigator .map-scanner-overlay.active {
+  opacity: 1;
+}
+
+.coverage-navigator .map-scanner-overlay::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(320px, 60vw);
+  height: min(320px, 60vw);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgb(var(--primary-rgb) / 45%);
+  background: radial-gradient(
+    circle,
+    rgb(var(--primary-rgb) / 18%) 0%,
+    transparent 70%
+  );
+  box-shadow: 0 0 35px rgb(var(--primary-rgb) / 25%);
+  animation: scan-pulse 2.6s ease-out infinite;
+}
+
+.coverage-navigator .map-scanner-overlay::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(360px, 70vw);
+  height: min(360px, 70vw);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgb(var(--primary-rgb) / 35%) 40deg,
+    transparent 120deg
+  );
+  mix-blend-mode: screen;
+  animation: scan-sweep 3s linear infinite;
+}
+
+@keyframes hud-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+}
+
+@keyframes scan-sweep {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes scan-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.85);
+    opacity: 0.35;
+  }
+
+  70% {
+    opacity: 0.1;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coverage-navigator .map-scanner-overlay::before,
+  .coverage-navigator .map-scanner-overlay::after,
+  .coverage-navigator .hud-dot {
+    animation: none;
+  }
+}
+
 .coverage-navigator #coverage-map {
   width: 100%;
   height: 100%;
@@ -508,6 +754,12 @@
 
   .coverage-navigator .map-container {
     min-height: 45vh;
+  }
+
+  .coverage-navigator .route-solver-hud {
+    left: 12px;
+    right: 12px;
+    max-width: none;
   }
 }
 

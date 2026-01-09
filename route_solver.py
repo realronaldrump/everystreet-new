@@ -16,6 +16,7 @@ fetches real road data via Mapbox Directions API.
 import contextlib
 import heapq
 import logging
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -819,8 +820,19 @@ async def generate_optimal_route_with_progress(
         use_task_id_field=True,
     )
 
-    async def update_progress(stage: str, progress: int, message: str) -> None:
-        await tracker.update(stage, progress, message, status="running")
+    async def update_progress(
+        stage: str,
+        progress: int,
+        message: str,
+        metrics: dict[str, Any] | None = None,
+    ) -> None:
+        await tracker.update(
+            stage,
+            progress,
+            message,
+            status="running",
+            metrics=metrics,
+        )
         logger.info("Route generation [%s][%d%%]: %s", task_id[:8], progress, message)
 
     try:
@@ -926,10 +938,20 @@ async def generate_optimal_route_with_progress(
             logger.error("Failed to load graph from disk: %s", e)
             raise ValueError(f"Failed to load street network: {e}")
 
+        total_segments = len(undriven)
         await update_progress(
             "mapping_segments",
             50,
-            "Mapping segments (Phase 1: Parallel OSM ID check)...",
+            "Mapping segments (Phase 1: OSM ID match)...",
+            metrics={
+                "total_segments": total_segments,
+                "processed_segments": 0,
+                "osm_matched": 0,
+                "fallback_total": 0,
+                "fallback_matched": 0,
+                "skipped_segments": 0,
+                "mapped_segments": 0,
+            },
         )
 
         required_reqs: dict[ReqId, list[EdgeRef]] = {}
@@ -984,12 +1006,37 @@ async def generate_optimal_route_with_progress(
                 line_cache=edge_line_cache,
             )
 
+        osm_matched = 0
+        fallback_matched = 0
         with ThreadPoolExecutor() as executor:
-            # Map all segments
-            results = list(executor.map(process_segment_osmid, seg_data_list))
+            total_for_progress = max(1, len(seg_data_list))
+            progress_interval = max(25, total_for_progress // 40)
+            last_update = time.monotonic()
 
-            for i, edge in enumerate(results):
+            for i, edge in enumerate(executor.map(process_segment_osmid, seg_data_list)):
+                processed_segments = i + 1
                 if seg_data_list[i] is None:
+                    if (
+                        processed_segments == total_for_progress
+                        or processed_segments % progress_interval == 0
+                        or time.monotonic() - last_update >= 1.0
+                    ):
+                        progress_pct = 50 + int(8 * processed_segments / total_for_progress)
+                        await update_progress(
+                            "mapping_segments",
+                            progress_pct,
+                            f"Matching segments by OSM ID {processed_segments}/{total_segments}...",
+                            metrics={
+                                "total_segments": total_segments,
+                                "processed_segments": processed_segments,
+                                "osm_matched": osm_matched,
+                                "fallback_total": 0,
+                                "fallback_matched": fallback_matched,
+                                "skipped_segments": skipped,
+                                "mapped_segments": osm_matched + fallback_matched,
+                            },
+                        )
+                        last_update = time.monotonic()
                     continue
 
                 if edge:
@@ -1000,13 +1047,45 @@ async def generate_optimal_route_with_progress(
                     else:
                         req_segment_counts[rid] += 1
                     mapped_segments += 1
+                    osm_matched += 1
                 else:
                     unmatched_indices.append(i)
+
+                if (
+                    processed_segments == total_for_progress
+                    or processed_segments % progress_interval == 0
+                    or time.monotonic() - last_update >= 1.0
+                ):
+                    progress_pct = 50 + int(8 * processed_segments / total_for_progress)
+                    await update_progress(
+                        "mapping_segments",
+                        progress_pct,
+                        f"Matching segments by OSM ID {processed_segments}/{total_segments}...",
+                        metrics={
+                            "total_segments": total_segments,
+                            "processed_segments": processed_segments,
+                            "osm_matched": osm_matched,
+                            "fallback_total": 0,
+                            "fallback_matched": fallback_matched,
+                            "skipped_segments": skipped,
+                            "mapped_segments": osm_matched + fallback_matched,
+                        },
+                    )
+                    last_update = time.monotonic()
 
         await update_progress(
             "mapping_segments",
             60,
             f"OSM ID match complete. {len(unmatched_indices)} segments need spatial fallback...",
+            metrics={
+                "total_segments": total_segments,
+                "processed_segments": total_segments,
+                "osm_matched": osm_matched,
+                "fallback_total": len(unmatched_indices),
+                "fallback_matched": fallback_matched,
+                "skipped_segments": skipped,
+                "mapped_segments": osm_matched + fallback_matched,
+            },
         )
 
         # Phase 2: Batch spatial lookup for remaining segments
@@ -1025,17 +1104,28 @@ async def generate_optimal_route_with_progress(
             else:
                 skipped += 1
 
+        fallback_total = len(valid_unmatched_indices)
         if X:
             await update_progress(
                 "mapping_segments",
                 62,
-                "Running batch spatial query for fallback...",
+                f"Running spatial fallback for {fallback_total} segments...",
+                metrics={
+                    "total_segments": total_segments,
+                    "processed_segments": total_segments,
+                    "osm_matched": osm_matched,
+                    "fallback_total": fallback_total,
+                    "fallback_matched": fallback_matched,
+                    "skipped_segments": skipped,
+                    "mapped_segments": osm_matched + fallback_matched,
+                },
             )
             try:
                 # Vectorized nearest edge lookup
                 nearest_edges = ox.distance.nearest_edges(G, X, Y)
-
-                for i, (u, v, k) in enumerate(nearest_edges):
+                last_update = time.monotonic()
+                progress_interval = max(10, max(1, fallback_total) // 25)
+                for i, (u, v, k) in enumerate(nearest_edges, start=1):
                     edge = (int(u), int(v), int(k))
                     rid, options = _make_req_id(G, edge)
                     if rid not in required_reqs:
@@ -1044,10 +1134,35 @@ async def generate_optimal_route_with_progress(
                     else:
                         req_segment_counts[rid] += 1
                     mapped_segments += 1
+                    fallback_matched += 1
+
+                    if (
+                        i == fallback_total
+                        or i % progress_interval == 0
+                        or time.monotonic() - last_update >= 1.0
+                    ):
+                        progress_pct = 62 + int(3 * i / max(1, fallback_total))
+                        await update_progress(
+                            "mapping_segments",
+                            progress_pct,
+                            f"Spatial fallback {i}/{fallback_total}...",
+                            metrics={
+                                "total_segments": total_segments,
+                                "processed_segments": total_segments,
+                                "osm_matched": osm_matched,
+                                "fallback_total": fallback_total,
+                                "fallback_matched": fallback_matched,
+                                "skipped_segments": skipped,
+                                "mapped_segments": osm_matched + fallback_matched,
+                            },
+                        )
+                        last_update = time.monotonic()
             except Exception as e:
                 logger.error("Batch spatial lookup failed: %s", e)
                 # Fallback to individual lookup if batch fails (unlikely)
-                for i, idx in enumerate(valid_unmatched_indices):
+                last_update = time.monotonic()
+                progress_interval = max(10, max(1, fallback_total) // 25)
+                for i, idx in enumerate(valid_unmatched_indices, start=1):
                     try:
                         u, v, k = ox.distance.nearest_edges(G, X[i], Y[i])
                         edge = (int(u), int(v), int(k))
@@ -1058,8 +1173,31 @@ async def generate_optimal_route_with_progress(
                         else:
                             req_segment_counts[rid] += 1
                         mapped_segments += 1
+                        fallback_matched += 1
                     except Exception:
                         skipped += 1
+
+                    if (
+                        i == fallback_total
+                        or i % progress_interval == 0
+                        or time.monotonic() - last_update >= 1.0
+                    ):
+                        progress_pct = 62 + int(3 * i / max(1, fallback_total))
+                        await update_progress(
+                            "mapping_segments",
+                            progress_pct,
+                            f"Spatial fallback {i}/{fallback_total}...",
+                            metrics={
+                                "total_segments": total_segments,
+                                "processed_segments": total_segments,
+                                "osm_matched": osm_matched,
+                                "fallback_total": fallback_total,
+                                "fallback_matched": fallback_matched,
+                                "skipped_segments": skipped,
+                                "mapped_segments": osm_matched + fallback_matched,
+                            },
+                        )
+                        last_update = time.monotonic()
 
         if not required_reqs:
             raise ValueError("Could not map any segments to street network")
@@ -1068,6 +1206,15 @@ async def generate_optimal_route_with_progress(
             "mapping_segments",
             65,
             f"Mapped {len(required_reqs)} required edges ({skipped} segments skipped; note MAX_SEGMENTS may truncate).",
+            metrics={
+                "total_segments": total_segments,
+                "processed_segments": total_segments,
+                "osm_matched": osm_matched,
+                "fallback_total": fallback_total,
+                "fallback_matched": fallback_matched,
+                "skipped_segments": skipped,
+                "mapped_segments": osm_matched + fallback_matched,
+            },
         )
 
         # Determine start node
