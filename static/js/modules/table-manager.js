@@ -49,7 +49,8 @@ export class TableManager {
   }
 
   _createControls() {
-    const wrapper = this.table.closest(".table-responsive") || this.table.parentElement;
+    const wrapper =
+      this.table.closest(".table-responsive") || this.table.parentElement;
 
     // Create pagination controls
     const paginationContainer = document.createElement("div");
@@ -185,7 +186,9 @@ export class TableManager {
 
     this.state.data = result.data || [];
     this.state.totalRecords = result.recordsTotal || 0;
-    this.state.totalPages = Math.ceil(this.state.totalRecords / this.options.pageSize);
+    this.state.totalPages = Math.ceil(
+      this.state.totalRecords / this.options.pageSize,
+    );
 
     this._render();
     this.options.onDataLoaded?.(result);
@@ -305,7 +308,9 @@ export class TableManager {
     // Remove existing page number items (everything between prev and next)
     const existingPageItems =
       this.controls.paginationList.querySelectorAll(".page-number-item");
-    existingPageItems.forEach((item) => item.remove());
+    existingPageItems.forEach((item) => {
+      item.remove();
+    });
 
     // Calculate visible page range
     const maxVisible = 5;
@@ -355,7 +360,7 @@ export class TableManager {
 
   getSelectedRows(checkboxSelector = ".row-checkbox:checked") {
     return Array.from(this.tbody.querySelectorAll(checkboxSelector)).map(
-      (cb) => cb.value
+      (cb) => cb.value,
     );
   }
 

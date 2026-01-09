@@ -52,9 +52,7 @@ class StaticFileFilter(logging.Filter):
         if "/static/" in message or "/favicon.ico" in message:
             return False
         # Filter out Chrome DevTools requests
-        if ".well-known/appspecific" in message:
-            return False
-        return True
+        return ".well-known/appspecific" not in message
 
 
 # Apply the filter to uvicorn's access logger

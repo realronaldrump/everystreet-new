@@ -41,7 +41,7 @@ def _clean_tag_value(value: Any) -> str | None:
         return None
     if isinstance(value, float) and math.isnan(value):
         return None
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         for item in value:
             if item is None:
                 continue
@@ -57,7 +57,7 @@ def _normalize_osmid(value: Any) -> int | str | None:
         return None
     if isinstance(value, float) and math.isnan(value):
         return None
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         for item in value:
             if item is None:
                 continue
