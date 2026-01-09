@@ -19,8 +19,7 @@ class UploadManager {
       map: {
         defaultCenter: [37.0902, -95.7129],
         defaultZoom: 4,
-        tileLayerUrl:
-          "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        tileLayerUrl: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         maxZoom: 19,
       },
       supportedFileTypes: {
@@ -137,7 +136,7 @@ class UploadManager {
 
         if (confirmed) {
           const currentIndex = this.state.selectedFiles.findIndex(
-            (f) => f.filename === feature.properties.filename,
+            (f) => f.filename === feature.properties.filename
           );
           if (currentIndex !== -1) {
             this.removeFile(currentIndex);
@@ -188,9 +187,7 @@ class UploadManager {
       fileInput.click();
     });
 
-    fileInput.addEventListener("change", () =>
-      this.handleFiles(fileInput.files),
-    );
+    fileInput.addEventListener("change", () => this.handleFiles(fileInput.files));
   }
 
   initializeUploadButtonListener() {
@@ -280,7 +277,7 @@ class UploadManager {
         } else {
           window.notificationManager.show(
             `Unsupported file type: ${file.name}. Only .gpx and .geojson files are supported.`,
-            "warning",
+            "warning"
           );
           this.loadingManager.updateSubOperation("parsing", index + 1);
           resolve();
@@ -303,9 +300,7 @@ class UploadManager {
   }
 
   static getFileExtension(filename) {
-    return filename
-      .slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1)
-      .toLowerCase();
+    return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1).toLowerCase();
   }
 
   parseGPX(file, gpxContent) {
@@ -337,7 +332,7 @@ class UploadManager {
           }
         } else {
           throw new Error(
-            `No track points (trkpt) or route points (rtept) found in ${file.name}`,
+            `No track points (trkpt) or route points (rtept) found in ${file.name}`
           );
         }
       } else {
@@ -360,13 +355,9 @@ class UploadManager {
       }
 
       const startTime =
-        times.length > 0
-          ? new Date(Math.min(...times.map((t) => t.getTime())))
-          : null;
+        times.length > 0 ? new Date(Math.min(...times.map((t) => t.getTime()))) : null;
       const endTime =
-        times.length > 0
-          ? new Date(Math.max(...times.map((t) => t.getTime())))
-          : null;
+        times.length > 0 ? new Date(Math.max(...times.map((t) => t.getTime()))) : null;
 
       const fileEntry = {
         file,
@@ -384,7 +375,7 @@ class UploadManager {
       this.loadingManager.error(`Error parsing GPX file: ${file.name}`);
       window.notificationManager.show(
         `Error parsing ${file.name}: ${error.message}`,
-        "danger",
+        "danger"
       );
     }
   }
@@ -407,7 +398,7 @@ class UploadManager {
         this.processGeoJSONGeometry(geojsonData, file);
       } else {
         throw new Error(
-          "Unsupported GeoJSON type. Must be FeatureCollection, Feature, or LineString.",
+          "Unsupported GeoJSON type. Must be FeatureCollection, Feature, or LineString."
         );
       }
     } catch (error) {
@@ -415,7 +406,7 @@ class UploadManager {
       this.loadingManager.error(`Error parsing GeoJSON file: ${file.name}`);
       window.notificationManager.show(
         `Error parsing ${file.name}: ${error.message}`,
-        "danger",
+        "danger"
       );
     }
   }
@@ -427,7 +418,7 @@ class UploadManager {
       feature.geometry.type !== "LineString"
     ) {
       console.warn(
-        `Skipping invalid or non-LineString feature ${index + 1} in ${file.name}`,
+        `Skipping invalid or non-LineString feature ${index + 1} in ${file.name}`
       );
       return;
     }
@@ -435,7 +426,7 @@ class UploadManager {
     const { coordinates } = feature.geometry;
     if (!Array.isArray(coordinates) || coordinates.length < 2) {
       console.warn(
-        `Skipping feature ${index + 1} in ${file.name} due to insufficient coordinates.`,
+        `Skipping feature ${index + 1} in ${file.name} due to insufficient coordinates.`
       );
       return;
     }
@@ -474,7 +465,7 @@ class UploadManager {
     const { coordinates } = geometry;
     if (!Array.isArray(coordinates) || coordinates.length < 2) {
       console.warn(
-        `Skipping geometry in ${file.name} due to insufficient coordinates.`,
+        `Skipping geometry in ${file.name} due to insufficient coordinates.`
       );
       return;
     }
@@ -539,12 +530,12 @@ class UploadManager {
             Array.isArray(coord) &&
             coord.length >= 2 &&
             !Number.isNaN(coord[0]) &&
-            !Number.isNaN(coord[1]),
+            !Number.isNaN(coord[1])
         );
 
         if (validCoords.length < 2) {
           console.warn(
-            `Skipping preview for ${entry.filename}: Insufficient valid coordinates.`,
+            `Skipping preview for ${entry.filename}: Insufficient valid coordinates.`
           );
           return null;
         }
@@ -622,7 +613,7 @@ class UploadManager {
     if (totalPointsSpan) {
       const totalPoints = selectedFiles.reduce(
         (sum, entry) => sum + (entry.points || 0),
-        0,
+        0
       );
       totalPointsSpan.textContent = totalPoints.toLocaleString();
     }
@@ -631,9 +622,7 @@ class UploadManager {
   removeFile(index) {
     if (index >= 0 && index < this.state.selectedFiles.length) {
       const removedFile = this.state.selectedFiles.splice(index, 1);
-      window.handleError(
-        `Removed file ${removedFile[0]?.filename} from selection.`,
-      );
+      window.handleError(`Removed file ${removedFile[0]?.filename} from selection.`);
       this.updateFileList();
       this.updatePreviewMap();
       this.updateStats();
@@ -664,7 +653,7 @@ class UploadManager {
         console.warn(`File object missing for ${entry.filename}, skipping.`);
         window.notificationManager.show(
           `Could not upload ${entry.filename}: File data missing. Please re-select the file.`,
-          "warning",
+          "warning"
         );
       }
     });
@@ -672,7 +661,7 @@ class UploadManager {
     if (!formData.has("files")) {
       window.notificationManager.show(
         "No valid files to upload. Please re-select files.",
-        "warning",
+        "warning"
       );
       this.loadingManager.error("No valid files found to upload.");
       this.loadingManager.finish();
@@ -718,7 +707,7 @@ class UploadManager {
       console.error("Error uploading files:", error);
       window.notificationManager.show(
         `Error uploading files: ${error.message}`,
-        "danger",
+        "danger"
       );
       this.loadingManager.error(`Error uploading files: ${error.message}`);
     } finally {
@@ -753,7 +742,7 @@ class UploadManager {
         }));
 
         const uploadSourceTrips = allTrips.filter((trip) =>
-          this.config.uploadSources.includes(trip.source),
+          this.config.uploadSources.includes(trip.source)
         );
 
         this.displayUploadSourceTrips(uploadSourceTrips);
@@ -762,10 +751,7 @@ class UploadManager {
       }
     } catch (error) {
       console.error("Error fetching trips:", error);
-      window.notificationManager.show(
-        "Error loading trips from server",
-        "danger",
-      );
+      window.notificationManager.show("Error loading trips from server", "danger");
       this.loadingManager.error(`Error fetching trips: ${error.message}`);
       this.displayUploadSourceTrips([]);
     } finally {
@@ -844,9 +830,7 @@ class UploadManager {
 
     if (!bulkDeleteBtn) return;
 
-    const selectedCheckboxes = document.querySelectorAll(
-      ".trip-checkbox:checked",
-    );
+    const selectedCheckboxes = document.querySelectorAll(".trip-checkbox:checked");
     bulkDeleteBtn.disabled = selectedCheckboxes.length === 0;
   }
 
@@ -854,16 +838,11 @@ class UploadManager {
     const { bulkDeleteBtn } = this.elements;
     this.loadingManager.startOperation("Deleting Selected Trips");
 
-    const selectedCheckboxes = document.querySelectorAll(
-      ".trip-checkbox:checked",
-    );
+    const selectedCheckboxes = document.querySelectorAll(".trip-checkbox:checked");
     const tripIds = Array.from(selectedCheckboxes).map((cb) => cb.value);
 
     if (tripIds.length === 0) {
-      window.notificationManager.show(
-        "No trips selected for deletion.",
-        "warning",
-      );
+      window.notificationManager.show("No trips selected for deletion.", "warning");
       this.loadingManager.finish();
       return;
     }
@@ -902,15 +881,13 @@ class UploadManager {
             if (data.status === "success") {
               successCount++;
             } else {
-              throw new Error(
-                data.message || `Failed to delete trip ${tripId}`,
-              );
+              throw new Error(data.message || `Failed to delete trip ${tripId}`);
             }
           } catch (error) {
             console.error(`Error deleting trip ${tripId}:`, error);
             window.notificationManager.show(
               `Error deleting trip ${tripId}: ${error.message}`,
-              "warning",
+              "warning"
             );
             failCount++;
           }
@@ -934,7 +911,7 @@ class UploadManager {
     } catch (error) {
       window.notificationManager.show(
         `An unexpected error occurred during bulk deletion: ${error.message}`,
-        "danger",
+        "danger"
       );
       this.loadingManager.error(`Error during bulk deletion: ${error.message}`);
     } finally {
@@ -979,7 +956,7 @@ class UploadManager {
         if (data.status === "success") {
           window.notificationManager.show(
             `Trip ${tripId} deleted successfully. Matched trips deleted: ${data.deleted_matched_trips}`,
-            "success",
+            "success"
           );
           await this.loadUploadSourceTrips();
         } else {
@@ -989,7 +966,7 @@ class UploadManager {
     } catch (error) {
       window.notificationManager.show(
         `Error deleting trip: ${error.message}`,
-        "danger",
+        "danger"
       );
       this.loadingManager.error(`Error deleting trip: ${error.message}`);
     } finally {

@@ -23,7 +23,7 @@ class CoverageDrawing {
 
     if (!window.MAPBOX_ACCESS_TOKEN) {
       this.showDrawingError(
-        "Mapbox token not configured. Cannot initialize drawing map.",
+        "Mapbox token not configured. Cannot initialize drawing map."
       );
       return;
     }
@@ -31,8 +31,7 @@ class CoverageDrawing {
     try {
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
-      const theme =
-        document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
       const mapStyle =
         theme === "light"
           ? "mapbox://styles/mapbox/light-v11"
@@ -72,16 +71,14 @@ class CoverageDrawing {
         });
       } else {
         this.showDrawingError(
-          "MapboxDraw library not loaded. Cannot enable drawing functionality.",
+          "MapboxDraw library not loaded. Cannot enable drawing functionality."
         );
       }
 
       this.drawingMap.addControl(new mapboxgl.NavigationControl(), "top-right");
     } catch (error) {
       console.error("Error initializing drawing map:", error);
-      this.showDrawingError(
-        `Failed to initialize drawing map: ${error.message}`,
-      );
+      this.showDrawingError(`Failed to initialize drawing map: ${error.message}`);
     }
   }
 
