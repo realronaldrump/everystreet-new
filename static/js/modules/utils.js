@@ -49,7 +49,7 @@ const utils = {
     options = {},
     retries = 3,
     cacheTime = 30000,
-    abortKey = null
+    abortKey = null,
   ) {
     const cacheKey = `${url}_${JSON.stringify(options)}`;
 
@@ -77,8 +77,16 @@ const utils = {
 
       if (!response.ok) {
         if (retries > 0 && response.status >= 500) {
-          await new Promise((resolve) => setTimeout(resolve, 1000 * (4 - retries)));
-          return this.fetchWithRetry(url, options, retries - 1, cacheTime, abortKey);
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1000 * (4 - retries)),
+          );
+          return this.fetchWithRetry(
+            url,
+            options,
+            retries - 1,
+            cacheTime,
+            abortKey,
+          );
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -134,7 +142,12 @@ function formatDateTime(isoString) {
 }
 
 // Error handler - delegates to global
-export function handleError(error, context = "", level = "error", onComplete = null) {
+export function handleError(
+  error,
+  context = "",
+  level = "error",
+  onComplete = null,
+) {
   return window.handleError(error, context, level, onComplete);
 }
 

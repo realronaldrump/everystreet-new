@@ -57,7 +57,7 @@ const tripInteractions = {
           hour: "numeric",
           minute: "2-digit",
           hour12: true,
-        })
+        }),
       );
 
     let duration = props.duration || props.drivingTime;
@@ -142,14 +142,14 @@ const tripInteractions = {
   setupPopupEventListeners(
     popup /* feature is unused here intentionally */,
     feature,
-    attempt = 0
+    attempt = 0,
   ) {
     const popupElement = popup.getElement();
     if (!popupElement) {
       if (attempt < 5) {
         setTimeout(
           () => this.setupPopupEventListeners(popup, feature, attempt + 1),
-          50
+          50,
         );
       }
       return;
@@ -190,7 +190,8 @@ const tripInteractions = {
 
   async deleteMatchedTrip(tripId, popup) {
     const useModal =
-      window.confirmationDialog && typeof window.confirmationDialog.show === "function";
+      window.confirmationDialog &&
+      typeof window.confirmationDialog.show === "function";
     const confirmed = useModal
       ? await window.confirmationDialog.show({
           title: "Delete Matched Trip",
@@ -202,12 +203,18 @@ const tripInteractions = {
     if (!confirmed) return;
 
     try {
-      const response = await utils.fetchWithRetry(`/api/matched_trips/${tripId}`, {
-        method: "DELETE",
-      });
+      const response = await utils.fetchWithRetry(
+        `/api/matched_trips/${tripId}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (response) {
         popup.remove();
-        window.notificationManager.show("Matched trip deleted successfully", "success");
+        window.notificationManager.show(
+          "Matched trip deleted successfully",
+          "success",
+        );
         const dataManager = (await import("./data-manager.js")).default;
         await dataManager.updateMap();
       }
@@ -219,7 +226,8 @@ const tripInteractions = {
 
   async deleteTrip(tripId, popup) {
     const useModal =
-      window.confirmationDialog && typeof window.confirmationDialog.show === "function";
+      window.confirmationDialog &&
+      typeof window.confirmationDialog.show === "function";
     const confirmed = useModal
       ? await window.confirmationDialog.show({
           title: "Delete Trip",
@@ -229,7 +237,7 @@ const tripInteractions = {
           confirmButtonClass: "btn-danger",
         })
       : confirm(
-          "Are you sure you want to delete this trip? This action cannot be undone."
+          "Are you sure you want to delete this trip? This action cannot be undone.",
         );
     if (!confirmed) return;
 
@@ -252,14 +260,20 @@ const tripInteractions = {
   async rematchTrip(tripId, popup) {
     try {
       window.notificationManager.show("Starting map matching...", "info");
-      const response = await utils.fetchWithRetry(`/api/process_trip/${tripId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ map_match: true }),
-      });
+      const response = await utils.fetchWithRetry(
+        `/api/process_trip/${tripId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ map_match: true }),
+        },
+      );
       if (response) {
         popup.remove();
-        window.notificationManager.show("Trip map matching completed", "success");
+        window.notificationManager.show(
+          "Trip map matching completed",
+          "success",
+        );
 
         // Clear API cache for matched trips to ensure fresh data
         if (utils._apiCache) {
@@ -296,7 +310,7 @@ const tripInteractions = {
               state.map.setLayoutProperty(
                 "matchedTrips-layer",
                 "visibility",
-                "visible"
+                "visible",
               );
             }
             mapManager.refreshTripStyles();
