@@ -220,7 +220,8 @@ class CoverageStatsService:
             "street_types": street_types,
         }
 
-    def _calculate_street_type_stats(self, street_types_data: list) -> list:
+    @staticmethod
+    def _calculate_street_type_stats(street_types_data: list) -> list:
         """Calculate per-street-type statistics.
 
         Args:

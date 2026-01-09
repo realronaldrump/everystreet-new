@@ -179,7 +179,8 @@ class DatabaseManager:
             )
             raise
 
-    def _get_current_loop(self) -> asyncio.AbstractEventLoop | None:
+    @staticmethod
+    def _get_current_loop() -> asyncio.AbstractEventLoop | None:
         """Safely get the current running event loop, or None if no loop is running."""
         try:
             return asyncio.get_running_loop()
