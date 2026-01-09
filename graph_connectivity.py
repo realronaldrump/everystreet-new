@@ -35,7 +35,11 @@ async def get_mapbox_client() -> httpx.AsyncClient:
     global _mapbox_client_loop
 
     loop = asyncio.get_running_loop()
-    if _mapbox_client_loop is not loop or loop.is_closed() or _mapbox_client_lock is None:
+    if (
+        _mapbox_client_loop is not loop
+        or loop.is_closed()
+        or _mapbox_client_lock is None
+    ):
         if _mapbox_client and not _mapbox_client.is_closed:
             with contextlib.suppress(Exception):
                 await _mapbox_client.aclose()
