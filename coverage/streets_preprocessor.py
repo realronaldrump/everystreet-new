@@ -36,6 +36,21 @@ BATCH_SIZE = 1000
 MIN_SEGMENT_LENGTH_M = 0.5
 
 
+def _project_edges(edges: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    if hasattr(ox, "project_gdf"):
+        return ox.project_gdf(edges)
+    projection = getattr(ox, "projection", None)
+    if projection and hasattr(projection, "project_gdf"):
+        return projection.project_gdf(edges)
+    if edges.crs is None:
+        edges = edges.set_crs("EPSG:4326")
+    if hasattr(edges, "estimate_utm_crs"):
+        utm_crs = edges.estimate_utm_crs()
+        if utm_crs:
+            return edges.to_crs(utm_crs)
+    return edges.to_crs("EPSG:3857")
+
+
 def _clean_tag_value(value: Any) -> str | None:
     if value is None:
         return None
@@ -173,7 +188,7 @@ async def build_street_segments(
     if edges.empty:
         raise ValueError("No usable street geometries found for this location")
 
-    edges_projected = ox.project_gdf(edges)
+    edges_projected = _project_edges(edges)
     total_edges = len(edges_projected)
 
     await delete_many_with_retry(
