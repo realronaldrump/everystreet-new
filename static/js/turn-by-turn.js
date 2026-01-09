@@ -1925,8 +1925,9 @@ class TurnByTurnNavigator {
 
     // Rule 2: Clamp forward jumps to physically possible speed
     const maxForward = this.config.maxSpeedMps * timeDelta;
+    let clampedProgress = rawProgress;
     if (rawProgress - this.lastValidProgress > maxForward && timeDelta > 0) {
-      rawProgress = this.lastValidProgress + maxForward;
+      clampedProgress = this.lastValidProgress + maxForward;
     }
 
     // Rule 3: Weighted moving average for smoothness
@@ -1934,7 +1935,7 @@ class TurnByTurnNavigator {
       this.progressHistory.reduce((a, b) => a + b, 0) / this.progressHistory.length;
 
     // Blend: 70% current, 30% average
-    const smoothed = rawProgress * 0.7 + avg * 0.3;
+    const smoothed = clampedProgress * 0.7 + avg * 0.3;
 
     this.lastValidProgress = smoothed;
     this.lastProgressTime = now;

@@ -484,6 +484,116 @@ class CoverageProgress {
   }
 
   /**
+   * Mark error step based on progress level and update previous steps
+   */
+  _markErrorStepByProgress(progress, steps, markError, markComplete) {
+    const errorSteps = [
+      { threshold: 75, step: "calculating" },
+      { threshold: 50, step: "indexing" },
+      { threshold: 10, step: "preprocessing" },
+      { threshold: 0, step: "initializing" },
+    ];
+
+    const errorStep = errorSteps.find(
+      (s) => progress > s.threshold && steps[s.step]
+    );
+    
+    if (!errorStep) return false;
+
+    markError(errorStep.step);
+    
+    // Mark all previous steps as complete
+    const stepOrder = ["initializing", "preprocessing", "indexing", "calculating"];
+    const errorIndex = stepOrder.indexOf(errorStep.step);
+    for (let i = 0; i < errorIndex; i++) {
+      if (steps[stepOrder[i]]) markComplete(stepOrder[i]);
+    }
+    
+    return true;
+  }
+
+  /**
+   * Mark error on active step for canceled tasks
+   */
+  _markCanceledStep(steps, markError) {
+    const stepOrder = ["calculating", "indexing", "preprocessing", "initializing"];
+    for (const stepKey of stepOrder) {
+      if (steps[stepKey]?.classList.contains("active")) {
+        markError(stepKey);
+        return;
+      }
+    }
+    if (steps.initializing) markError("initializing");
+  }
+
+  /**
+   * Mark steps based on completion stage
+   */
+  _markStepsByStage(stage, progress, markComplete, markActive) {
+    switch (stage) {
+      case STATUS.INITIALIZING:
+        markActive("initializing");
+        break;
+      case STATUS.PREPROCESSING:
+      case STATUS.LOADING_STREETS:
+        markComplete("initializing");
+        markActive("preprocessing");
+        break;
+      case STATUS.POST_PREPROCESSING:
+      case STATUS.INDEXING:
+        markComplete("initializing");
+        markComplete("preprocessing");
+        markActive("indexing");
+        break;
+      case STATUS.COUNTING_TRIPS:
+      case STATUS.PROCESSING_TRIPS:
+      case STATUS.CALCULATING:
+      case STATUS.FINALIZING:
+      case STATUS.GENERATING_GEOJSON:
+      case STATUS.COMPLETE_STATS:
+        markComplete("initializing");
+        markComplete("preprocessing");
+        markComplete("indexing");
+        markActive("calculating");
+        break;
+      case STATUS.COMPLETE:
+      case STATUS.COMPLETED:
+        markComplete("initializing");
+        markComplete("preprocessing");
+        markComplete("indexing");
+        markComplete("calculating");
+        markComplete("complete");
+        break;
+      default:
+        this._markStepsByProgress(progress, stage, markComplete, markActive);
+        break;
+    }
+  }
+
+  /**
+   * Mark steps based on progress percentage as fallback
+   */
+  _markStepsByProgress(progress, stage, markComplete, markActive) {
+    if (progress >= 100) {
+      markComplete("initializing");
+      markComplete("preprocessing");
+      markComplete("indexing");
+      markComplete("calculating");
+      markComplete("complete");
+    } else if (progress > 75) {
+      markComplete("initializing");
+      markComplete("preprocessing");
+      markComplete("indexing");
+      markActive("calculating");
+    } else if (progress > 50 || stage?.toLowerCase().includes("preprocessing")) {
+      markComplete("initializing");
+      markActive("preprocessing");
+    } else {
+      markActive("initializing");
+    }
+  }
+
+  /**
    * Update step indicators
    */
   updateStepIndicators(stage, progress) {
@@ -536,108 +646,16 @@ class CoverageProgress {
     };
 
     if (stage === STATUS.ERROR) {
-      let errorStepFound = false;
-      if (progress > 75 && steps.calculating) {
-        markError("calculating");
-        errorStepFound = true;
-      } else if (progress > 50 && steps.indexing) {
-        markError("indexing");
-        errorStepFound = true;
-      } else if (progress > 10 && steps.preprocessing) {
-        markError("preprocessing");
-        errorStepFound = true;
-      } else if (steps.initializing) {
-        markError("initializing");
-        errorStepFound = true;
-      }
-
-      if (errorStepFound) {
-        if (steps.calculating?.classList.contains("error") && steps.indexing)
-          markComplete("indexing");
-        if (
-          (steps.calculating?.classList.contains("error") ||
-            steps.indexing?.classList.contains("error")) &&
-          steps.preprocessing
-        )
-          markComplete("preprocessing");
-        if (
-          (steps.calculating?.classList.contains("error") ||
-            steps.indexing?.classList.contains("error") ||
-            steps.preprocessing?.classList.contains("error")) &&
-          steps.initializing
-        )
-          markComplete("initializing");
-      }
+      this._markErrorStepByProgress(progress, steps, markError, markComplete);
       return;
     }
 
     if (stage === STATUS.CANCELED) {
-      if (steps.calculating?.classList.contains("active")) markError("calculating");
-      else if (steps.indexing?.classList.contains("active")) markError("indexing");
-      else if (steps.preprocessing?.classList.contains("active"))
-        markError("preprocessing");
-      else if (steps.initializing) markError("initializing");
+      this._markCanceledStep(steps, markError);
       return;
     }
 
-    switch (stage) {
-      case STATUS.INITIALIZING:
-        markActive("initializing");
-        break;
-      case STATUS.PREPROCESSING:
-      case STATUS.LOADING_STREETS:
-        markComplete("initializing");
-        markActive("preprocessing");
-        break;
-      case STATUS.POST_PREPROCESSING:
-        markComplete("initializing");
-        markComplete("preprocessing");
-        markActive("indexing");
-        break;
-      case STATUS.INDEXING:
-        markComplete("initializing");
-        markComplete("preprocessing");
-        markActive("indexing");
-        break;
-      case STATUS.COUNTING_TRIPS:
-      case STATUS.PROCESSING_TRIPS:
-      case STATUS.CALCULATING:
-      case STATUS.FINALIZING:
-      case STATUS.GENERATING_GEOJSON:
-      case STATUS.COMPLETE_STATS:
-        markComplete("initializing");
-        markComplete("preprocessing");
-        markComplete("indexing");
-        markActive("calculating");
-        break;
-      case STATUS.COMPLETE:
-      case STATUS.COMPLETED:
-        markComplete("initializing");
-        markComplete("preprocessing");
-        markComplete("indexing");
-        markComplete("calculating");
-        markComplete("complete");
-        break;
-      default:
-        if (progress >= 100) {
-          markComplete("initializing");
-          markComplete("preprocessing");
-          markComplete("indexing");
-          markComplete("calculating");
-          markComplete("complete");
-        } else if (progress > 75) {
-          markComplete("initializing");
-          markComplete("preprocessing");
-          markComplete("indexing");
-          markActive("calculating");
-        } else if (progress > 50 || stage?.toLowerCase().includes("preprocessing")) {
-          markComplete("initializing");
-          markActive("preprocessing");
-        } else {
-          markActive("initializing");
-        }
-        break;
-    }
+    this._markStepsByStage(stage, progress, markComplete, markActive);
   }
 
   /**

@@ -305,7 +305,9 @@ export class TableManager {
     // Remove existing page number items (everything between prev and next)
     const existingPageItems =
       this.controls.paginationList.querySelectorAll(".page-number-item");
-    existingPageItems.forEach((item) => item.remove());
+    existingPageItems.forEach((item) => {
+      item.remove();
+    });
 
     // Calculate visible page range
     const maxVisible = 5;

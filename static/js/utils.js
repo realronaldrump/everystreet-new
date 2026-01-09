@@ -699,7 +699,10 @@ class ConfirmationDialog {
         cancelBtn.textContent = cancelText;
       }
 
-      let cleanup;
+      const cleanup = () => {
+        confirmBtn?.removeEventListener("mousedown", handleConfirm);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
+      };
 
       const handleConfirm = () => {
         confirmBtn?.blur();
@@ -713,11 +716,6 @@ class ConfirmationDialog {
         cleanup();
         this.activeModal = null;
         resolve(false);
-      };
-
-      cleanup = () => {
-        confirmBtn?.removeEventListener("mousedown", handleConfirm);
-        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
       };
 
       confirmBtn?.addEventListener("mousedown", (e) => {

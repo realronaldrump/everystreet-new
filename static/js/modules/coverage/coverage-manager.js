@@ -292,8 +292,7 @@ class CoverageManager {
    */
   _computeAreasHash(areas) {
     this.lastAreasHashInput = areas;
-    const hash = areas;
-    return areas
+    const hash = areas
       .map((a) => `${a._id}:${a.status}:${a.coverage_percentage}:${a.last_updated}`)
       .join("|");
     this.lastAreasHash = hash;
@@ -1631,7 +1630,11 @@ class CoverageManager {
 
       const bsModal = new bootstrap.Modal(modalEl, { backdrop: "static" });
 
-      let cleanup;
+      const cleanup = () => {
+        confirmBtn.removeEventListener("click", onConfirm);
+        cancelBtn.removeEventListener("click", onCancel);
+        modalEl.removeEventListener("hidden.bs.modal", onCancel);
+      };
 
       const onConfirm = () => {
         const segVal = parseInt(segEl.value, 10);
@@ -1656,12 +1659,6 @@ class CoverageManager {
       const onCancel = () => {
         cleanup();
         resolve(null);
-      };
-
-      cleanup = () => {
-        confirmBtn.removeEventListener("click", onConfirm);
-        cancelBtn.removeEventListener("click", onCancel);
-        modalEl.removeEventListener("hidden.bs.modal", onCancel);
       };
 
       confirmBtn.addEventListener("click", onConfirm);

@@ -37,13 +37,12 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
 
     from fastapi import Request
-
-from pymongo.results import (
-    DeleteResult,
-    InsertManyResult,
-    InsertOneResult,
-    UpdateResult,
-)
+    from pymongo.results import (
+        DeleteResult,
+        InsertManyResult,
+        InsertOneResult,
+        UpdateResult,
+    )
 
 from date_utils import (
     normalize_calendar_date,

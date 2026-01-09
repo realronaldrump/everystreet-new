@@ -903,7 +903,7 @@ class DrivingNavigation {
     let message = "An unknown error occurred.";
 
     if (error instanceof Error) {
-      message = error.message;
+      ({ message } = error);
     } else if (error instanceof Response) {
       try {
         const err = await error.json();

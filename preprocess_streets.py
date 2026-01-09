@@ -85,9 +85,8 @@ async def preprocess_streets(
     try:
         # 1. Get Polygon
         boundary_geom = location.get("geojson")
-        if isinstance(boundary_geom, dict):
-            if boundary_geom.get("type") == "Feature":
-                boundary_geom = boundary_geom.get("geometry")
+        if isinstance(boundary_geom, dict) and boundary_geom.get("type") == "Feature":
+            boundary_geom = boundary_geom.get("geometry")
         if boundary_geom:
             polygon = shape(boundary_geom)
         else:
