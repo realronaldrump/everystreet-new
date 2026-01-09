@@ -25,6 +25,7 @@ class MongoDBHandler(logging.Handler):
         self._db_manager = db_manager
         self._collection_name = collection_name
         self._setup_complete = False
+        self._pending_tasks = set()
 
     def _get_collection(self):
         """Get fresh collection reference using current event loop's db connection."""
@@ -66,15 +67,17 @@ class MongoDBHandler(logging.Handler):
             import asyncio
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If event loop is running, schedule the coroutine
-                    asyncio.create_task(self._async_emit(log_entry))
-                else:
-                    # If no event loop, create one
-                    loop.run_until_complete(self._async_emit(log_entry))
+                loop = asyncio.get_running_loop()
             except RuntimeError:
-                # If we can't get an event loop, try creating a new one
+                loop = None
+
+            if loop and loop.is_running():
+                if loop.is_closed():
+                    return
+                task = loop.create_task(self._async_emit(log_entry))
+                self._pending_tasks.add(task)
+                task.add_done_callback(self._pending_tasks.discard)
+            else:
                 asyncio.run(self._async_emit(log_entry))
 
         except Exception:
@@ -91,6 +94,13 @@ class MongoDBHandler(logging.Handler):
         with contextlib.suppress(Exception):
             collection = self._get_collection()
             await collection.insert_one(log_entry)
+
+    def close(self) -> None:
+        """Cancel any pending log insert tasks."""
+        for task in list(self._pending_tasks):
+            task.cancel()
+        self._pending_tasks.clear()
+        super().close()
 
     def _format_log_entry(self, record: logging.LogRecord) -> dict[str, Any]:
         """

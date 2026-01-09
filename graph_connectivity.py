@@ -8,6 +8,7 @@ used by the route solver to fill gaps in generated routes.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 
 import httpx
@@ -19,15 +20,29 @@ MAX_CONCURRENT_API_CALLS = 5
 
 # Connection pooling: shared httpx client for all Mapbox API requests
 _mapbox_client: httpx.AsyncClient | None = None
-_mapbox_client_lock = asyncio.Lock()
+_mapbox_client_lock: asyncio.Lock | None = None
+_mapbox_client_loop: asyncio.AbstractEventLoop | None = None
 
 # Rate limiting: semaphore to limit concurrent API calls
 _api_semaphore: asyncio.Semaphore | None = None
+_api_semaphore_loop: asyncio.AbstractEventLoop | None = None
 
 
 async def get_mapbox_client() -> httpx.AsyncClient:
     """Get or create a shared httpx client with connection pooling."""
     global _mapbox_client
+    global _mapbox_client_lock
+    global _mapbox_client_loop
+
+    loop = asyncio.get_running_loop()
+    if _mapbox_client_loop is not loop or loop.is_closed() or _mapbox_client_lock is None:
+        if _mapbox_client and not _mapbox_client.is_closed:
+            with contextlib.suppress(Exception):
+                await _mapbox_client.aclose()
+        _mapbox_client = None
+        _mapbox_client_loop = loop
+        _mapbox_client_lock = asyncio.Lock()
+
     async with _mapbox_client_lock:
         if _mapbox_client is None or _mapbox_client.is_closed:
             _mapbox_client = httpx.AsyncClient(
@@ -41,11 +56,13 @@ async def get_mapbox_client() -> httpx.AsyncClient:
         return _mapbox_client
 
 
-def get_api_semaphore() -> asyncio.Semaphore:
+def get_api_semaphore(loop: asyncio.AbstractEventLoop) -> asyncio.Semaphore:
     """Get or create the rate limiting semaphore."""
     global _api_semaphore
-    if _api_semaphore is None:
+    global _api_semaphore_loop
+    if _api_semaphore is None or _api_semaphore_loop is not loop or loop.is_closed():
         _api_semaphore = asyncio.Semaphore(MAX_CONCURRENT_API_CALLS)
+        _api_semaphore_loop = loop
     return _api_semaphore
 
 
@@ -83,7 +100,8 @@ async def fetch_bridge_route(
 
     try:
         # Use shared client with connection pooling and rate limiting
-        semaphore = get_api_semaphore()
+        loop = asyncio.get_running_loop()
+        semaphore = get_api_semaphore(loop)
         async with semaphore:
             client = await get_mapbox_client()
             response = await client.get(url, params=params, timeout=timeout)
