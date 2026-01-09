@@ -161,7 +161,7 @@ class TripService:
         await processor.validate()
 
         if processor.state != TripState.VALIDATED:
-            saved_id = await processor.save(map_match_result=False)
+            saved_id = await processor.save(_map_match_result=False)
             processing_status = processor.get_processing_status()
             return {
                 "status": "success",
@@ -172,7 +172,7 @@ class TripService:
 
         await processor.process_basic()
         if processor.state == TripState.FAILED:
-            saved_id = await processor.save(map_match_result=False)
+            saved_id = await processor.save(_map_match_result=False)
             processing_status = processor.get_processing_status()
             return {
                 "status": "success",
@@ -184,7 +184,7 @@ class TripService:
         if options.geocode:
             await processor.geocode()
             if processor.state == TripState.FAILED:
-                saved_id = await processor.save(map_match_result=False)
+                saved_id = await processor.save(_map_match_result=False)
                 processing_status = processor.get_processing_status()
                 return {
                     "status": "success",
@@ -197,7 +197,7 @@ class TripService:
         if options.map_match:
             await processor.map_match()
 
-        saved_id = await processor.save(map_match_result=options.map_match)
+        saved_id = await processor.save(_map_match_result=options.map_match)
         processing_status = processor.get_processing_status()
 
         return {
