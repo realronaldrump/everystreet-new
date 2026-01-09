@@ -252,6 +252,17 @@
                   </li>
                   <li role="none">
                     <a
+                      class="dropdown-item {% if request.url.path == '/turn-by-turn' %}active{% endif %}"
+                      href="/turn-by-turn"
+                      role="menuitem"
+                      {% if request.url.path == '/turn-by-turn' %}aria-current="page"{% endif %}
+                    >
+                      <i class="fas fa-location-arrow me-2" aria-hidden="true"></i>
+                      Turn-by-Turn
+                    </a>
+                  </li>
+                  <li role="none">
+                    <a
                       class="dropdown-item {% if request.url.path == '/county-map' %}active{% endif %}"
                       href="/county-map"
                       role="menuitem"
@@ -481,6 +492,15 @@
                   {% if request.url.path == '/coverage-navigator' %}aria-current="page"{% endif %}
                 >
                   <i class="fas fa-route me-2" aria-hidden="true"></i> Coverage Navigator
+                </a>
+              </li>
+              <li role="none">
+                <a
+                  href="/turn-by-turn"
+                  class="{% if request.url.path == '/turn-by-turn' %}active{% endif %}"
+                  {% if request.url.path == '/turn-by-turn' %}aria-current="page"{% endif %}
+                >
+                  <i class="fas fa-location-arrow me-2" aria-hidden="true"></i> Turn-by-Turn
                 </a>
               </li>
               <li role="none">

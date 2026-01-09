@@ -293,6 +293,15 @@ class LiveTripTracker {
     // Update UI
     this.updateTripCount(1);
     this.updateStatus(true, "Live tracking");
+
+    document.dispatchEvent(
+      new CustomEvent("liveTrackingUpdated", {
+        detail: {
+          trip,
+          coords,
+        },
+      })
+    );
   }
 
   static extractCoordinates(trip) {

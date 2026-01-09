@@ -1,0 +1,127 @@
+{% extends "base.html" %} {% block title %}Turn-by-Turn Navigation{% endblock %}
+{% block head_content %}
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/turn-by-turn.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
+<div class="turn-by-turn" id="turn-by-turn">
+  <div id="turn-by-turn-map"></div>
+
+  <div class="nav-top">
+    <div class="nav-top-bar">
+      <a class="nav-back" href="/coverage-navigator">
+        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+        <span>Coverage</span>
+      </a>
+      <div class="nav-signal" id="nav-signal">
+        <span class="nav-signal-dot" aria-hidden="true"></span>
+        <span id="nav-signal-text">GPS</span>
+      </div>
+    </div>
+
+    <div class="nav-instruction-card" aria-live="polite">
+      <div class="nav-turn-icon" id="nav-turn-icon">
+        <i class="fas fa-arrow-up" aria-hidden="true"></i>
+      </div>
+      <div class="nav-instruction-text">
+        <div class="nav-distance" id="nav-distance-to-turn">Ready</div>
+        <div class="nav-primary" id="nav-primary-instruction">
+          Select a route to begin
+        </div>
+        <div class="nav-road" id="nav-road-name">--</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-controls">
+    <button class="nav-control-btn" id="nav-overview-btn" title="Route overview">
+      <i class="fas fa-route" aria-hidden="true"></i>
+    </button>
+    <button class="nav-control-btn" id="nav-recenter-btn" title="Recenter">
+      <i class="fas fa-location-arrow" aria-hidden="true"></i>
+    </button>
+    <button class="nav-control-btn" id="nav-route-btn" title="Route options">
+      <i class="fas fa-layer-group" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div class="nav-bottom">
+    <div class="nav-bottom-card">
+      <div class="nav-progress">
+        <div class="nav-progress-bar">
+          <div class="nav-progress-fill" id="nav-progress-fill"></div>
+        </div>
+        <div class="nav-progress-meta">
+          <span id="nav-progress-label">Route</span>
+          <span id="nav-progress-value">--</span>
+        </div>
+      </div>
+
+      <div class="nav-stats">
+        <div class="nav-stat">
+          <div class="label">Remaining</div>
+          <div class="value" id="nav-remaining-distance">--</div>
+        </div>
+        <div class="nav-stat">
+          <div class="label">ETA</div>
+          <div class="value" id="nav-eta">--</div>
+        </div>
+        <div class="nav-stat">
+          <div class="label">Speed</div>
+          <div class="value" id="nav-speed">--</div>
+        </div>
+      </div>
+
+      <div class="nav-bottom-actions">
+        <div class="nav-status" id="nav-status" aria-live="polite">
+          Waiting for route
+        </div>
+        <button class="nav-end-btn" id="nav-end-btn" type="button">
+          End Navigation
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-setup" id="nav-setup">
+    <div class="nav-setup-card">
+      <div class="nav-setup-header">
+        <div class="nav-setup-title">Turn-by-Turn Coverage Route</div>
+        <p class="nav-setup-subtitle">
+          Load a coverage area route and start driving with live guidance.
+        </p>
+      </div>
+      <label for="nav-area-select" class="nav-label">Coverage Area</label>
+      <select id="nav-area-select" class="nav-select">
+        <option value="">Select a coverage area...</option>
+      </select>
+      <div class="nav-setup-actions">
+        <button class="nav-primary-btn" id="nav-load-route-btn" type="button" disabled>
+          Load Route
+        </button>
+        <button class="nav-primary-btn" id="nav-start-btn" type="button" disabled>
+          Start Navigation
+        </button>
+      </div>
+      <div class="nav-setup-status" id="nav-setup-status">
+        Select an area to continue.
+      </div>
+      <div class="nav-setup-summary" id="nav-setup-summary"></div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script src="{{ CDN.mapbox_gl_js }}"></script>
+<script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
+<script>
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
+<script
+  src="{{ url_for('static', path='js/turn-by-turn.js') | replace('http://', '//') }}"
+></script>
+<script>
+  document.body.classList.add("turn-by-turn-active");
+</script>
+{% endblock %}

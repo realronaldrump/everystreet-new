@@ -100,6 +100,7 @@ class OptimalRoutesManager {
     this.lastProgressTime = null; // Track last progress update
     this.coverageAreas = [];
     this.areaSelect = document.getElementById(this.config.areaSelectId);
+    this.turnByTurnBtn = document.getElementById("start-turn-by-turn-btn");
     this.progressMessagePrimary = document.getElementById("progress-message-primary");
     this.progressMessageSecondary = document.getElementById(
       "progress-message-secondary"
@@ -150,6 +151,11 @@ class OptimalRoutesManager {
     // Export GPX
     document.getElementById("export-gpx-btn")?.addEventListener("click", () => {
       this.exportGPX();
+    });
+
+    // Start turn-by-turn navigation
+    this.turnByTurnBtn?.addEventListener("click", () => {
+      this.openTurnByTurn();
     });
 
     // Clear route
@@ -619,6 +625,7 @@ class OptimalRoutesManager {
     const generateBtn = document.getElementById("generate-route-btn");
     const areaStats = document.getElementById("area-stats");
     const mapLegend = document.getElementById("map-legend");
+    this.setTurnByTurnEnabled(false);
 
     if (!areaId) {
       if (generateBtn) generateBtn.disabled = true;
@@ -1355,6 +1362,7 @@ class OptimalRoutesManager {
 
     // Show results section
     document.getElementById("results-section").style.display = "block";
+    this.setTurnByTurnEnabled(true);
   }
 
   showError(message) {
@@ -1366,6 +1374,7 @@ class OptimalRoutesManager {
     document.getElementById("generate-route-btn").disabled = false;
     this.setHudActive(false);
     this.setScannerActive(false);
+    this.setTurnByTurnEnabled(false);
   }
 
   async clearRoute() {
@@ -1385,6 +1394,7 @@ class OptimalRoutesManager {
     const errorSection = document.getElementById("error-section");
     if (resultsSection) resultsSection.style.display = "none";
     if (errorSection) errorSection.style.display = "none";
+    this.setTurnByTurnEnabled(false);
 
     // Call backend to delete the route
     if (this.selectedAreaId) {
@@ -1400,6 +1410,27 @@ class OptimalRoutesManager {
 
     // Don't hide legend here - it should stay visible if streets are loaded
     // Legend visibility is managed by onAreaSelect
+  }
+
+  openTurnByTurn() {
+    if (!this.selectedAreaId) {
+      this.showNotification("Select a coverage area first.", "warning");
+      return;
+    }
+    if (this.turnByTurnBtn?.disabled) {
+      this.showNotification("Generate a route before starting navigation.", "warning");
+      return;
+    }
+    window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
+    window.location.href = `/turn-by-turn?areaId=${encodeURIComponent(
+      this.selectedAreaId
+    )}`;
+  }
+
+  setTurnByTurnEnabled(isEnabled) {
+    if (this.turnByTurnBtn) {
+      this.turnByTurnBtn.disabled = !isEnabled;
+    }
   }
 
   exportGPX() {

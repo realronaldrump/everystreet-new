@@ -327,10 +327,11 @@
 .coverage-navigator .export-buttons {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .coverage-navigator .export-buttons .btn {
-  flex: 1;
+  flex: 1 1 160px;
 }
 
 .coverage-navigator #generate-route-btn {

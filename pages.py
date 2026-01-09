@@ -179,6 +179,19 @@ async def coverage_navigator_page(request: Request):
 
 
 @router.get(
+    "/turn-by-turn",
+    response_class=HTMLResponse,
+)
+async def turn_by_turn_page(request: Request):
+    """Render the turn-by-turn navigation experience."""
+    return _render_page(
+        "turn_by_turn.html",
+        request,
+        MAPBOX_ACCESS_TOKEN=get_mapbox_token(),
+    )
+
+
+@router.get(
     "/driving-navigation",
     response_class=HTMLResponse,
 )
