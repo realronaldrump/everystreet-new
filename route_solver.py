@@ -886,7 +886,9 @@ async def fill_route_gaps(
                 )
             gaps_filled += 1
             logger.debug(
-                "Filled gap at index %d with %d coordinates", gap_idx, len(insert_coords)
+                "Filled gap at index %d with %d coordinates",
+                gap_idx,
+                len(insert_coords),
             )
         else:
             logger.warning(
@@ -1105,7 +1107,9 @@ async def generate_optimal_route_with_progress(
             progress_interval = max(25, total_for_progress // 40)
             last_update = time.monotonic()
 
-            for i, edge in enumerate(executor.map(process_segment_osmid, seg_data_list)):
+            for i, edge in enumerate(
+                executor.map(process_segment_osmid, seg_data_list)
+            ):
                 processed_segments = i + 1
                 if seg_data_list[i] is None:
                     if (
@@ -1113,7 +1117,9 @@ async def generate_optimal_route_with_progress(
                         or processed_segments % progress_interval == 0
                         or time.monotonic() - last_update >= 1.0
                     ):
-                        progress_pct = 50 + int(8 * processed_segments / total_for_progress)
+                        progress_pct = 50 + int(
+                            8 * processed_segments / total_for_progress
+                        )
                         await update_progress(
                             "mapping_segments",
                             progress_pct,
@@ -1341,13 +1347,16 @@ async def generate_optimal_route_with_progress(
             raise ValueError("Failed to generate route coordinates")
 
         # Fill gaps in the route with Mapbox driving directions
-        await update_progress("filling_gaps", 85, "Filling route gaps with driving routes...")
+        await update_progress(
+            "filling_gaps", 85, "Filling route gaps with driving routes..."
+        )
 
         try:
             from config import get_app_settings
 
             settings = await get_app_settings()
             if settings.get("mapbox_access_token"):
+
                 async def gap_progress(_stage: str, pct: int, msg: str) -> None:
                     # Map gap-fill progress (0-100) to overall progress (85-95)
                     overall_pct = 85 + int(pct * 0.1)
