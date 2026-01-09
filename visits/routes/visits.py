@@ -23,8 +23,6 @@ async def get_trips_for_place(place_id: str):
 
         return await VisitStatsService.get_trips_for_place(place)
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error getting trips for place %s: %s", place_id, e)
         raise HTTPException(

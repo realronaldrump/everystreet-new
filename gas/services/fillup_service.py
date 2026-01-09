@@ -422,7 +422,7 @@ class FillupService:
                     {"_id": next_fillup["_id"]},
                     {"$set": updates},
                 )
-                logger.info("Recalculated stats for fill-up %s", next_fillup["_id"]) 
+                logger.info("Recalculated stats for fill-up %s", next_fillup["_id"])
 
         except Exception as e:
             logger.error("Error recalculating subsequent fillup: %s", e)

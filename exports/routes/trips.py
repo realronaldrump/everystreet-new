@@ -87,8 +87,6 @@ async def export_single_trip(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error exporting trip %s: %s", trip_id, str(e))
         raise HTTPException(
@@ -340,8 +338,6 @@ async def export_advanced(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error("Error in advanced export: %s", e, exc_info=True)
         raise HTTPException(

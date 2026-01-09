@@ -23,8 +23,6 @@ async def get_place_statistics(place_id: str):
 
         return await VisitStatsService.get_place_statistics(place)
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error getting place statistics for %s: %s", place_id, e)
         raise HTTPException(

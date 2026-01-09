@@ -44,8 +44,6 @@ async def export_streets(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error exporting streets data: %s", str(e))
         raise HTTPException(
@@ -86,8 +84,6 @@ async def export_boundary(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception("Error exporting boundary data: %s", str(e))
         raise HTTPException(

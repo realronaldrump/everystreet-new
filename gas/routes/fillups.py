@@ -45,8 +45,6 @@ async def get_gas_fillup(fillup_id: str) -> dict[str, Any]:
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error("Error fetching gas fillup: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
