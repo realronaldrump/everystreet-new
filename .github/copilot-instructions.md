@@ -7,6 +7,7 @@ EveryStreet is a street coverage tracking application that helps users track and
 ## Technology Stack
 
 ### Backend
+
 - **Framework**: FastAPI (Python 3.12)
 - **Database**: MongoDB with Motor (async driver)
 - **Task Queue**: Celery with Redis
@@ -18,11 +19,13 @@ EveryStreet is a street coverage tracking application that helps users track and
   - HTTP: `httpx`, `aiohttp`
 
 ### Frontend
+
 - **Languages**: JavaScript (ES6+ modules), HTML, CSS
 - **Libraries**: Mapbox GL JS, Chart.js, Bootstrap, jQuery
 - **Build**: No build step - native ES modules
 
 ### Development Tools
+
 - **Python Linting**: Ruff (configured in `pyproject.toml`)
 - **JavaScript Linting**: Biome (configured in `biome.json`)
 - **Code Formatting**: Black (Python), Prettier (JavaScript)
@@ -48,6 +51,7 @@ EveryStreet is a street coverage tracking application that helps users track and
    - Format: Start with a brief one-line summary
    - Include Args, Returns, and Raises sections for functions
    - Example:
+
      ```python
      """Brief description.
 
@@ -110,6 +114,7 @@ EveryStreet is a street coverage tracking application that helps users track and
 ## Project Structure
 
 ### Backend Structure
+
 ```
 /
 ├── app.py                     # FastAPI application entry point
@@ -133,6 +138,7 @@ EveryStreet is a street coverage tracking application that helps users track and
 ```
 
 ### Frontend Structure
+
 ```
 static/
 ├── js/
@@ -152,16 +158,18 @@ templates/                    # Jinja2 templates
 ### FastAPI Route Definition
 
 1. **Use APIRouter**:
+
    ```python
    from fastapi import APIRouter
-   
+
    router = APIRouter()
    ```
 
 2. **Apply Error Handling Decorator**:
+
    ```python
    from api_utils import api_route
-   
+
    @router.get("/api/endpoint")
    @api_route(logger)
    async def endpoint_handler():
@@ -173,9 +181,10 @@ templates/                    # Jinja2 templates
    - Use for validation and documentation
 
 4. **Database Access**:
+
    ```python
    from db import db_manager
-   
+
    collection = db_manager.get_collection("collection_name")
    result = await collection.find_one({"_id": doc_id})
    ```
