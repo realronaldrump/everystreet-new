@@ -8,7 +8,6 @@ Stores large GeoJSON results in GridFS.
 import asyncio
 import contextlib
 import logging
-from collections import defaultdict
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -467,108 +466,205 @@ class CoverageCalculator:
             pipeline = [
                 {"$match": {"properties.location": self.location_name}},
                 {
-                    "$group": {
-                        "_id": None,
-                        "total_length": {"$sum": "$properties.segment_length"},
-                        "driveable_length": {
-                            "$sum": {
-                                "$cond": [
-                                    {"$eq": ["$properties.undriveable", True]},
-                                    0,
-                                    "$properties.segment_length",
-                                ]
+                    "$facet": {
+                        "overall": [
+                            {
+                                "$group": {
+                                    "_id": None,
+                                    "total_length": {
+                                        "$sum": "$properties.segment_length"
+                                    },
+                                    "driveable_length": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {
+                                                    "$eq": [
+                                                        "$properties.undriveable",
+                                                        True,
+                                                    ]
+                                                },
+                                                0,
+                                                "$properties.segment_length",
+                                            ]
+                                        }
+                                    },
+                                    "driven_length": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {
+                                                    "$and": [
+                                                        {
+                                                            "$eq": [
+                                                                "$properties.driven",
+                                                                True,
+                                                            ]
+                                                        },
+                                                        {
+                                                            "$ne": [
+                                                                "$properties.undriveable",
+                                                                True,
+                                                            ]
+                                                        },
+                                                    ]
+                                                },
+                                                "$properties.segment_length",
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                    "total_segments": {"$sum": 1},
+                                    "covered_segments": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {
+                                                    "$and": [
+                                                        {
+                                                            "$eq": [
+                                                                "$properties.driven",
+                                                                True,
+                                                            ]
+                                                        },
+                                                        {
+                                                            "$ne": [
+                                                                "$properties.undriveable",
+                                                                True,
+                                                            ]
+                                                        },
+                                                    ]
+                                                },
+                                                1,
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                }
                             }
-                        },
-                        "driven_length": {
-                            "$sum": {
-                                "$cond": [
-                                    {"$eq": ["$properties.driven", True]},
-                                    "$properties.segment_length",
-                                    0,
-                                ]
+                        ],
+                        "by_type": [
+                            {
+                                "$group": {
+                                    "_id": "$properties.highway",
+                                    "total_length": {
+                                        "$sum": "$properties.segment_length"
+                                    },
+                                    "driveable_length": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {
+                                                    "$eq": [
+                                                        "$properties.undriveable",
+                                                        True,
+                                                    ]
+                                                },
+                                                0,
+                                                "$properties.segment_length",
+                                            ]
+                                        }
+                                    },
+                                    "driven_length": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {
+                                                    "$and": [
+                                                        {
+                                                            "$eq": [
+                                                                "$properties.driven",
+                                                                True,
+                                                            ]
+                                                        },
+                                                        {
+                                                            "$ne": [
+                                                                "$properties.undriveable",
+                                                                True,
+                                                            ]
+                                                        },
+                                                    ]
+                                                },
+                                                "$properties.segment_length",
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                    "total_segments": {"$sum": 1},
+                                    "covered_segments": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {
+                                                    "$and": [
+                                                        {
+                                                            "$eq": [
+                                                                "$properties.driven",
+                                                                True,
+                                                            ]
+                                                        },
+                                                        {
+                                                            "$ne": [
+                                                                "$properties.undriveable",
+                                                                True,
+                                                            ]
+                                                        },
+                                                    ]
+                                                },
+                                                1,
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                    "undriveable_length": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {
+                                                    "$eq": [
+                                                        "$properties.undriveable",
+                                                        True,
+                                                    ]
+                                                },
+                                                "$properties.segment_length",
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                }
                             }
-                        },
-                        "total_segments": {"$sum": 1},
-                        "covered_segments": {
-                            "$sum": {
-                                "$cond": [
-                                    {"$eq": ["$properties.driven", True]},
-                                    1,
-                                    0,
-                                ]
-                            }
-                        },
-                        # Breakdown by street type
-                        "street_types_data": {
-                            "$push": {
-                                "type": "$properties.highway",
-                                "length": "$properties.segment_length",
-                                "driven": "$properties.driven",
-                                "undriveable": "$properties.undriveable",
-                            }
-                        },
+                        ],
                     }
                 },
             ]
 
             result = await streets_collection.aggregate(pipeline).to_list(1)
 
-            if not result:
+            if not result or not result[0].get("overall"):
                 logger.error(
                     f"Task {self.task_id}: Final stats aggregation returned empty."
                 )
                 return None
 
-            stats = result[0]
-
-            # Process street types breakdown in Python
-            type_map = defaultdict(
-                lambda: {
-                    "total": 0,
-                    "covered": 0,
-                    "length": 0.0,
-                    "covered_length": 0.0,
-                    "undriveable_length": 0.0,
-                }
-            )
-
-            for item in stats.get("street_types_data", []):
-                t = item.get("type", "unknown")
-                length = item.get("length", 0.0)
-                driven = item.get("driven", False)
-                undriveable = item.get("undriveable", False)
-
-                type_map[t]["total"] += 1
-                type_map[t]["length"] += length
-                if undriveable:
-                    type_map[t]["undriveable_length"] += length
-                elif driven:
-                    type_map[t]["covered"] += 1
-                    type_map[t]["covered_length"] += length
+            stats = result[0]["overall"][0]
 
             final_street_types = []
-            for t, data in type_map.items():
-                driveable_len = data["length"] - data["undriveable_length"]
-                pct = (
-                    (data["covered_length"] / driveable_len * 100)
-                    if driveable_len > 0
-                    else 0
-                )
+            for item in result[0].get("by_type", []):
+                driveable_len = item.get("driveable_length", 0.0)
+                driven_len = item.get("driven_length", 0.0)
+                pct = (driven_len / driveable_len * 100) if driveable_len > 0 else 0
 
                 final_street_types.append(
                     {
-                        "type": t,
-                        "total_segments": data["total"],
-                        "covered_segments": data["covered"],
-                        "total_length_m": round(data["length"], 2),
-                        "covered_length_m": round(data["covered_length"], 2),
+                        "type": item.get("_id", "unknown"),
+                        "total_segments": item.get("total_segments", 0),
+                        "covered_segments": item.get("covered_segments", 0),
+                        "total_length_m": round(item.get("total_length", 0.0), 2),
+                        "covered_length_m": round(driven_len, 2),
                         "driveable_length_m": round(driveable_len, 2),
-                        "undriveable_length_m": round(data["undriveable_length"], 2),
+                        "undriveable_length_m": round(
+                            item.get("undriveable_length", 0.0), 2
+                        ),
                         "coverage_percentage": round(pct, 2),
                     }
                 )
 
-            final_street_types.sort(key=lambda x: x["total_length_m"], reverse=True)
+            final_street_types.sort(
+                key=lambda x: x["total_length_m"], reverse=True
+            )
 
             coverage_stats = {
                 "total_length_m": round(stats.get("total_length", 0), 2),
