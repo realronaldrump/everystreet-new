@@ -134,6 +134,7 @@ class TurnByTurnNavigator {
     this.previewDistance = document.getElementById("preview-distance");
     this.previewTime = document.getElementById("preview-time");
     this.previewTurns = document.getElementById("preview-turns");
+    this.previewCoverage = document.getElementById("preview-coverage");
     this.previewStartStatus = document.getElementById("preview-start-status");
     this.previewStartText = document.getElementById("preview-start-text");
     this.navToStartBtn = document.getElementById("nav-start-from-here");
@@ -445,9 +446,15 @@ class TurnByTurnNavigator {
     const areaId = queryArea || storedArea;
     if (!areaId || !this.areaSelect) return;
 
+    // Only pre-select the dropdown, don't auto-load
+    // This lets the user see what was previously selected and choose to load or change
     this.areaSelect.value = areaId;
     this.handleAreaChange();
-    this.loadRoute();
+
+    // Only auto-load if explicitly requested via URL param
+    if (queryArea && params.get("autoStart") === "true") {
+      this.loadRoute();
+    }
   }
 
   handleAreaChange() {
@@ -552,6 +559,9 @@ class TurnByTurnNavigator {
       if (this.mapReady) {
         this.fitRouteBounds();
       }
+
+      // Initialize coverage display with actual baseline
+      this.initializeCoverageDisplay();
 
       // Fetch ETA via Mapbox Directions and show preview
       await this.fetchRouteETA();
@@ -894,9 +904,46 @@ class TurnByTurnNavigator {
     if (this.previewTurns) {
       this.previewTurns.textContent = Math.max(this.maneuvers.length - 2, 0);
     }
+    if (this.previewCoverage) {
+      // Show actual coverage percentage from API
+      this.previewCoverage.textContent = `${this.coverageBaseline.percentage.toFixed(1)}%`;
+    }
+
+    // Fit bounds with navigation-style view (not top-down)
+    this.fitRoutePreviewBounds();
 
     // Check user's proximity to start
     this.checkStartProximity();
+  }
+
+  /**
+   * Fit route bounds with a nice perspective view for preview
+   */
+  fitRoutePreviewBounds() {
+    if (!this.map || this.routeCoords.length < 2) return;
+
+    const bounds = this.routeCoords.reduce(
+      (b, coord) => b.extend(coord),
+      new mapboxgl.LngLatBounds(this.routeCoords[0], this.routeCoords[0])
+    );
+
+    // Use a nice angled view instead of top-down
+    this.map.fitBounds(bounds, {
+      padding: { top: 120, bottom: 280, left: 40, right: 40 },
+      pitch: 45,
+      bearing: this.getRouteBearing(),
+      duration: this.prefersReducedMotion ? 0 : 1000,
+    });
+  }
+
+  /**
+   * Get initial bearing based on route start direction
+   */
+  getRouteBearing() {
+    if (this.routeCoords.length < 2) return 0;
+    // Use bearing from start to a point further along the route
+    const endIdx = Math.min(10, this.routeCoords.length - 1);
+    return this.bearing(this.routeCoords[0], this.routeCoords[endIdx]);
   }
 
   /**
@@ -1155,9 +1202,28 @@ class TurnByTurnNavigator {
     return `${minutes} min`;
   }
 
+  /**
+   * Initialize coverage display with baseline from API
+   */
+  initializeCoverageDisplay() {
+    const baselinePercent = this.coverageBaseline.percentage || 0;
+
+    // Initialize the coverage progress bars
+    if (this.coverageProgressBaseline) {
+      this.coverageProgressBaseline.style.width = `${baselinePercent}%`;
+    }
+    if (this.coverageProgressLive) {
+      this.coverageProgressLive.style.width = `${baselinePercent}%`;
+    }
+    if (this.coverageProgressValue) {
+      this.coverageProgressValue.textContent = `${baselinePercent.toFixed(1)}%`;
+    }
+  }
+
   updateSetupSummary() {
     if (!this.setupSummary) return;
     const turnCount = Math.max(this.maneuvers.length - 2, 0);
+    const coveragePercent = this.coverageBaseline.percentage || 0;
     this.setupSummary.innerHTML = `
       <div class="summary-item">
         <span>Distance</span>
@@ -1168,8 +1234,8 @@ class TurnByTurnNavigator {
         <span>${turnCount}</span>
       </div>
       <div class="summary-item">
-        <span>Area</span>
-        <span>${this.routeName}</span>
+        <span>Coverage</span>
+        <span>${coveragePercent.toFixed(1)}%</span>
       </div>
     `;
   }
@@ -1430,25 +1496,30 @@ class TurnByTurnNavigator {
       this.routeProgressValue.textContent = `${Math.round(routePercent)}%`;
     }
 
-    // Coverage area progress
-    // Estimate additional coverage based on route progress
+    // Coverage area progress - use actual baseline from API
+    // The live coverage will be tracked separately but we show the baseline
+    // until real coverage data comes from server
+    const baselinePercent = this.coverageBaseline.percentage || 0;
+
+    // For live coverage, we estimate: baseline + (route progress * route miles / total area miles)
+    // This gives a rough idea of how much new coverage is being added
     const routeMiles = progressDistance / 1609.344;
-    // Assume ~70% of route distance contributes to new coverage (accounting for revisits)
-    const estimatedNewCoverage = routeMiles * 0.7;
-    const liveCoveragePercent = Math.min(
-      100,
-      this.coverageBaseline.percentage +
-        (estimatedNewCoverage / this.coverageBaseline.totalMi) * 100
-    );
+    const totalAreaMiles = this.coverageBaseline.totalMi || 1;
+    // Only count route miles that aren't already covered (uncovered portion)
+    const uncoveredFraction = (100 - baselinePercent) / 100;
+    const estimatedNewCoverage = (routeMiles / totalAreaMiles) * 100 * uncoveredFraction * 0.8; // 80% efficiency
+    const liveCoveragePercent = Math.min(100, baselinePercent + estimatedNewCoverage);
 
     // Update coverage progress bar (baseline + live)
     if (this.coverageProgressBaseline) {
-      this.coverageProgressBaseline.style.width = `${this.coverageBaseline.percentage}%`;
+      this.coverageProgressBaseline.style.width = `${baselinePercent}%`;
     }
     if (this.coverageProgressLive) {
       this.coverageProgressLive.style.width = `${liveCoveragePercent}%`;
     }
     if (this.coverageProgressValue) {
+      // Show the baseline percentage during navigation
+      // The live estimate is shown via the progress bar itself
       this.coverageProgressValue.textContent = `${liveCoveragePercent.toFixed(1)}%`;
     }
 
