@@ -509,7 +509,9 @@ async def bridge_disconnected_clusters(
             current_count,
         )
 
-        progress_pct = min(90, 10 + (total_bridges_created * 80) // max(initial_count, 1))
+        progress_pct = min(
+            90, 10 + (total_bridges_created * 80) // max(initial_count, 1)
+        )
         if progress_callback:
             await progress_callback(
                 "bridging",
@@ -557,7 +559,8 @@ async def bridge_disconnected_clusters(
             # Verify connection nodes are present
             if node_a not in corridor.nodes:
                 logger.warning(
-                    "Corridor graph missing start node %d (may cause disconnect)", node_a
+                    "Corridor graph missing start node %d (may cause disconnect)",
+                    node_a,
                 )
             if node_b not in corridor.nodes:
                 logger.warning(
