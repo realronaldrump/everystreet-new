@@ -15,6 +15,15 @@ from typing import Any
 from bson import ObjectId
 from shapely.geometry import box, shape
 
+from coverage_models.area import (
+    Area,
+    AreaCreate,
+    AreaStats,
+    AreaStatus,
+    AreaType,
+    doc_to_area,
+)
+from coverage_models.job_status import JobType
 from db import (
     areas_collection,
     coverage_state_collection,
@@ -26,8 +35,6 @@ from db import (
     streets_v2_collection,
     update_one_with_retry,
 )
-from coverage_models.area import Area, AreaCreate, AreaStats, AreaStatus, AreaType, doc_to_area
-from coverage_models.job_status import JobType
 from services.job_manager import job_manager
 
 logger = logging.getLogger(__name__)
@@ -89,7 +96,11 @@ class AreaManager:
         now = datetime.now(UTC)
         area_doc = {
             "display_name": request.display_name,
-            "area_type": request.area_type.value if isinstance(request.area_type, AreaType) else request.area_type,
+            "area_type": (
+                request.area_type.value
+                if isinstance(request.area_type, AreaType)
+                else request.area_type
+            ),
             "boundary": boundary,
             "bbox": bbox,
             "osm_id": request.osm_id,
@@ -133,6 +144,7 @@ class AreaManager:
         """Run ingestion in background task."""
         try:
             from services.ingestion_service import ingestion_service
+
             await ingestion_service.ingest_area(area_id, job_id)
         except Exception as e:
             logger.exception("Background ingestion failed for area %s: %s", area_id, e)
@@ -154,7 +166,14 @@ class AreaManager:
         import httpx
 
         # Map osm_type to Nominatim format
-        type_map = {"N": "N", "W": "W", "R": "R", "node": "N", "way": "W", "relation": "R"}
+        type_map = {
+            "N": "N",
+            "W": "W",
+            "R": "R",
+            "node": "N",
+            "way": "W",
+            "relation": "R",
+        }
         osm_type_code = type_map.get(osm_type.upper(), osm_type[0].upper())
 
         url = f"https://nominatim.openstreetmap.org/lookup"
@@ -166,7 +185,9 @@ class AreaManager:
         headers = {"User-Agent": "EveryStreet/1.0"}
 
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params, headers=headers, timeout=30.0)
+            response = await client.get(
+                url, params=params, headers=headers, timeout=30.0
+            )
             response.raise_for_status()
             data = response.json()
 
@@ -283,14 +304,20 @@ class AreaManager:
             streets_v2_collection,
             {"area_id": oid},
         )
-        logger.info("Deleted %d streets for area %s", result.deleted_count, display_name)
+        logger.info(
+            "Deleted %d streets for area %s", result.deleted_count, display_name
+        )
 
         # 2. Delete coverage_state for this area
         result = await delete_many_with_retry(
             coverage_state_collection,
             {"area_id": oid},
         )
-        logger.info("Deleted %d coverage_state entries for area %s", result.deleted_count, display_name)
+        logger.info(
+            "Deleted %d coverage_state entries for area %s",
+            result.deleted_count,
+            display_name,
+        )
 
         # 3. Delete area document
         await delete_one_with_retry(areas_collection, {"_id": oid})
@@ -298,7 +325,9 @@ class AreaManager:
 
         return True
 
-    async def trigger_rebuild(self, area_id: str, preserve_overrides: bool = True) -> str:
+    async def trigger_rebuild(
+        self, area_id: str, preserve_overrides: bool = True
+    ) -> str:
         """Trigger a rebuild for an area.
 
         Uses the RebuildService to:
@@ -338,9 +367,7 @@ class AreaManager:
         )
 
         # Start rebuild in background using rebuild_service
-        asyncio.create_task(
-            self._run_rebuild(area_id, str(job.id), preserve_overrides)
-        )
+        asyncio.create_task(self._run_rebuild(area_id, str(job.id), preserve_overrides))
 
         logger.info(
             "Triggered rebuild for area %s, job %s",
@@ -359,6 +386,7 @@ class AreaManager:
         """Run rebuild in background task."""
         try:
             from services.rebuild_service import rebuild_service
+
             await rebuild_service.rebuild_area(
                 area_id=area_id,
                 job_id=job_id,

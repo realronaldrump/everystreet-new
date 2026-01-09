@@ -12,9 +12,9 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from db import serialize_document
 from coverage_models.area import AreaCreate, AreaStatus, AreaType
 from coverage_models.job_status import JobState
+from db import serialize_document
 from services.area_manager import area_manager
 from services.job_manager import job_manager
 
@@ -63,8 +63,14 @@ def _serialize_area(area) -> dict[str, Any]:
         "match_buffer_m": area.match_buffer_m,
         "current_version": area.current_version,
         "last_error": area.last_error,
-        "last_ingestion_at": area.last_ingestion_at.isoformat() if area.last_ingestion_at else None,
-        "last_coverage_sync_at": area.last_coverage_sync_at.isoformat() if area.last_coverage_sync_at else None,
+        "last_ingestion_at": (
+            area.last_ingestion_at.isoformat() if area.last_ingestion_at else None
+        ),
+        "last_coverage_sync_at": (
+            area.last_coverage_sync_at.isoformat()
+            if area.last_coverage_sync_at
+            else None
+        ),
         "created_at": area.created_at.isoformat() if area.created_at else None,
         "updated_at": area.updated_at.isoformat() if area.updated_at else None,
         "cached_stats": area.cached_stats.model_dump() if area.cached_stats else None,

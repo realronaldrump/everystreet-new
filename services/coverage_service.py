@@ -10,11 +10,13 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+import pyproj
 from bson import ObjectId
 from shapely.geometry import LineString, Point, shape
 from shapely.ops import transform
-import pyproj
 
+from coverage_models.area import AreaStats
+from coverage_models.coverage_state import CoverageStatus, ProvenanceType
 from db import (
     aggregate_with_retry,
     areas_collection,
@@ -24,8 +26,6 @@ from db import (
     update_many_with_retry,
     update_one_with_retry,
 )
-from coverage_models.area import AreaStats
-from coverage_models.coverage_state import CoverageStatus, ProvenanceType
 from services.area_manager import area_manager
 from services.job_manager import job_manager
 
@@ -272,8 +272,12 @@ class CoverageService:
             wgs84 = pyproj.CRS("EPSG:4326")
             utm = pyproj.CRS(f"+proj=utm +zone={utm_zone} +{hemisphere} +datum=WGS84")
 
-            project_to_utm = pyproj.Transformer.from_crs(wgs84, utm, always_xy=True).transform
-            project_to_wgs = pyproj.Transformer.from_crs(utm, wgs84, always_xy=True).transform
+            project_to_utm = pyproj.Transformer.from_crs(
+                wgs84, utm, always_xy=True
+            ).transform
+            project_to_wgs = pyproj.Transformer.from_crs(
+                utm, wgs84, always_xy=True
+            ).transform
 
             # Project, buffer, project back
             geom_utm = transform(project_to_utm, geom)

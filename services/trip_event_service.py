@@ -12,8 +12,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from events.trip_completed import TripCompleted, compute_trip_bbox
 from coverage_models.job_status import JobType
+from events.trip_completed import TripCompleted, compute_trip_bbox
 from services.area_manager import area_manager
 from services.job_manager import job_manager
 
@@ -217,6 +217,7 @@ class TripEventService:
         """
         try:
             from services.coverage_service import coverage_service
+
             await coverage_service.process_trip_for_area(
                 area_id=area_id,
                 trip_id=trip_id,

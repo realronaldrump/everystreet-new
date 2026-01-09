@@ -83,7 +83,12 @@ const COVERAGE_API = {
   /**
    * Fetch streets in viewport with coverage status
    */
-  async getStreetsInViewport(areaId, bounds, zoom = 14, includeCoverage = true) {
+  async getStreetsInViewport(
+    areaId,
+    bounds,
+    zoom = 14,
+    includeCoverage = true,
+  ) {
     const params = new URLSearchParams({
       west: bounds.west.toFixed(6),
       south: bounds.south.toFixed(6),
@@ -92,7 +97,9 @@ const COVERAGE_API = {
       zoom: zoom.toString(),
       include_coverage: includeCoverage.toString(),
     });
-    const response = await fetch(`/api/areas/${areaId}/streets/viewport?${params}`);
+    const response = await fetch(
+      `/api/areas/${areaId}/streets/viewport?${params}`,
+    );
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);
@@ -110,7 +117,9 @@ const COVERAGE_API = {
       east: bounds.east.toFixed(6),
       north: bounds.north.toFixed(6),
     });
-    const response = await fetch(`/api/areas/${areaId}/coverage/viewport?${params}`);
+    const response = await fetch(
+      `/api/areas/${areaId}/coverage/viewport?${params}`,
+    );
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);
@@ -146,11 +155,14 @@ const COVERAGE_API = {
    * Set manual override for a segment
    */
   async setSegmentOverride(areaId, segmentId, status, note = null) {
-    const response = await fetch(`/api/areas/${areaId}/segments/${segmentId}/override`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, note }),
-    });
+    const response = await fetch(
+      `/api/areas/${areaId}/segments/${segmentId}/override`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, note }),
+      },
+    );
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);
@@ -162,9 +174,12 @@ const COVERAGE_API = {
    * Clear manual override for a segment
    */
   async clearSegmentOverride(areaId, segmentId) {
-    const response = await fetch(`/api/areas/${areaId}/segments/${segmentId}/override`, {
-      method: "DELETE",
-    });
+    const response = await fetch(
+      `/api/areas/${areaId}/segments/${segmentId}/override`,
+      {
+        method: "DELETE",
+      },
+    );
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);
@@ -176,11 +191,14 @@ const COVERAGE_API = {
    * Bulk override segments
    */
   async bulkOverrideSegments(areaId, segmentIds, status, note = null) {
-    const response = await fetch(`/api/areas/${areaId}/segments/bulk-override`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ segment_ids: segmentIds, status, note }),
-    });
+    const response = await fetch(
+      `/api/areas/${areaId}/segments/bulk-override`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ segment_ids: segmentIds, status, note }),
+      },
+    );
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);
@@ -273,9 +291,12 @@ const COVERAGE_API = {
    * Run sanity check on an area
    */
   async sanityCheck(areaId, repair = true) {
-    const response = await fetch(`/api/areas/${areaId}/sanity-check?repair=${repair}`, {
-      method: "POST",
-    });
+    const response = await fetch(
+      `/api/areas/${areaId}/sanity-check?repair=${repair}`,
+      {
+        method: "POST",
+      },
+    );
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);
@@ -309,7 +330,9 @@ const COVERAGE_API = {
    * Search for OSM places (for area creation)
    */
   async searchPlaces(query) {
-    const response = await fetch(`/api/search/places?q=${encodeURIComponent(query)}`);
+    const response = await fetch(
+      `/api/search/places?q=${encodeURIComponent(query)}`,
+    );
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);

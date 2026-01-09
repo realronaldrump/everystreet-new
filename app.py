@@ -23,13 +23,6 @@ from mongodb_logging_handler import MongoDBHandler
 from pages import router as pages_router
 from processing_api import router as processing_api_router
 from profile_api import router as profile_api_router
-from search_api import router as search_api_router
-from tasks_api import router as tasks_api_router
-from trips import router as trips_router
-from upload_api import router as upload_api_router
-from utils import cleanup_session
-from visits import init_collections
-from visits import router as visits_router
 
 # New unified coverage system routers
 from routes import (
@@ -38,6 +31,13 @@ from routes import (
     routing_router,
     viewport_router,
 )
+from search_api import router as search_api_router
+from tasks_api import router as tasks_api_router
+from trips import router as trips_router
+from upload_api import router as upload_api_router
+from utils import cleanup_session
+from visits import init_collections
+from visits import router as visits_router
 
 load_dotenv()
 
@@ -163,6 +163,7 @@ async def startup_event():
             ensure_job_status_indexes,
             ensure_streets_v2_indexes,
         )
+
         await ensure_areas_indexes()
         await ensure_streets_v2_indexes()
         await ensure_coverage_state_indexes()

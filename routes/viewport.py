@@ -11,6 +11,7 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
+from coverage_models.coverage_state import CoverageStatus
 from db import (
     aggregate_with_retry,
     areas_collection,
@@ -18,7 +19,6 @@ from db import (
     find_one_with_retry,
     streets_v2_collection,
 )
-from coverage_models.coverage_state import CoverageStatus
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/areas", tags=["viewport"])
@@ -37,7 +37,9 @@ class ViewportParams(BaseModel):
     zoom: int = 12
 
 
-def _build_viewport_polygon(west: float, south: float, east: float, north: float) -> dict[str, Any]:
+def _build_viewport_polygon(
+    west: float, south: float, east: float, north: float
+) -> dict[str, Any]:
     """Build a GeoJSON polygon from viewport bounds."""
     return {
         "type": "Polygon",
@@ -348,7 +350,9 @@ async def get_coverage_in_viewport(
         },
     ]
 
-    coverage_docs = await aggregate_with_retry(coverage_state_collection, coverage_pipeline)
+    coverage_docs = await aggregate_with_retry(
+        coverage_state_collection, coverage_pipeline
+    )
 
     # Build coverage map
     coverage_map = {}

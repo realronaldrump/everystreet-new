@@ -10,14 +10,6 @@ from typing import Any
 
 from bson import ObjectId
 
-from db import (
-    delete_one_with_retry,
-    find_one_with_retry,
-    find_with_retry,
-    insert_one_with_retry,
-    job_status_collection,
-    update_one_with_retry,
-)
 from coverage_models.job_status import (
     Job,
     JobCreate,
@@ -25,6 +17,14 @@ from coverage_models.job_status import (
     JobType,
     create_job_doc,
     doc_to_job,
+)
+from db import (
+    delete_one_with_retry,
+    find_one_with_retry,
+    find_with_retry,
+    insert_one_with_retry,
+    job_status_collection,
+    update_one_with_retry,
 )
 
 logger = logging.getLogger(__name__)

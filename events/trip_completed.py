@@ -55,7 +55,9 @@ class TripCompleted:
         )
 
 
-def compute_trip_bbox(gps_geometry: dict[str, Any] | None) -> tuple[float, float, float, float]:
+def compute_trip_bbox(
+    gps_geometry: dict[str, Any] | None,
+) -> tuple[float, float, float, float]:
     """Compute bounding box from trip GPS geometry.
 
     Args:

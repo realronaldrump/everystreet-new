@@ -12,13 +12,13 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
+from coverage_models.coverage_state import CoverageStatus, ProvenanceType
 from db import (
     areas_collection,
     coverage_state_collection,
     find_one_with_retry,
     update_one_with_retry,
 )
-from coverage_models.coverage_state import CoverageStatus, ProvenanceType
 from services.coverage_service import coverage_service
 
 logger = logging.getLogger(__name__)
@@ -127,7 +127,11 @@ async def set_segment_override(
                 "status": new_status.value,
                 "manual_override": True,
                 "manual_override_at": now,
-                "last_driven_at": now if new_status == CoverageStatus.DRIVEN else coverage_doc.get("last_driven_at"),
+                "last_driven_at": (
+                    now
+                    if new_status == CoverageStatus.DRIVEN
+                    else coverage_doc.get("last_driven_at")
+                ),
                 "provenance": {
                     "type": ProvenanceType.MANUAL.value,
                     "trip_id": None,
@@ -437,9 +441,15 @@ async def get_segment_details(
             "osm_id": street_doc.get("osm_id"),
         },
         "coverage": {
-            "status": coverage_doc.get("status", "undriven") if coverage_doc else "undriven",
-            "manual_override": coverage_doc.get("manual_override", False) if coverage_doc else False,
-            "last_driven_at": coverage_doc.get("last_driven_at") if coverage_doc else None,
+            "status": (
+                coverage_doc.get("status", "undriven") if coverage_doc else "undriven"
+            ),
+            "manual_override": (
+                coverage_doc.get("manual_override", False) if coverage_doc else False
+            ),
+            "last_driven_at": (
+                coverage_doc.get("last_driven_at") if coverage_doc else None
+            ),
             "provenance": {
                 "type": provenance.get("type"),
                 "trip_id": provenance.get("trip_id"),

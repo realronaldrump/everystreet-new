@@ -18,9 +18,23 @@ from typing import Any
 import geopandas as gpd
 import osmnx as ox
 from bson import ObjectId
-from shapely.geometry import LineString, MultiLineString, MultiPoint, box, mapping, shape
+from shapely.geometry import (
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    box,
+    mapping,
+    shape,
+)
 from shapely.ops import split
 
+from coverage_models.coverage_state import (
+    CoverageStatus,
+    ProvenanceType,
+    create_initial_coverage_state,
+)
+from coverage_models.job_status import JobState, JobType
+from coverage_models.street import UNDRIVEABLE_HIGHWAY_TYPES, compute_bbox
 from db import (
     areas_collection,
     coverage_state_collection,
@@ -29,9 +43,6 @@ from db import (
     streets_v2_collection,
     update_one_with_retry,
 )
-from coverage_models.coverage_state import CoverageStatus, ProvenanceType, create_initial_coverage_state
-from coverage_models.job_status import JobState, JobType
-from coverage_models.street import UNDRIVEABLE_HIGHWAY_TYPES, compute_bbox
 from services.job_manager import job_manager
 
 logger = logging.getLogger(__name__)
@@ -189,7 +200,9 @@ class IngestionService:
             )
 
             # Start job
-            await job_manager.start_job(job_oid, stage="fetching_osm", message="Fetching OSM data...")
+            await job_manager.start_job(
+                job_oid, stage="fetching_osm", message="Fetching OSM data..."
+            )
 
             # 1. Fetch OSM data
             boundary = area_doc.get("boundary")
@@ -417,7 +430,9 @@ class IngestionService:
                     "EPSG:4326"
                 )
 
-                for seg_geom, seg_length in zip(geo_series, segment_lengths, strict=False):
+                for seg_geom, seg_length in zip(
+                    geo_series, segment_lengths, strict=False
+                ):
                     if seg_geom is None or seg_geom.is_empty or seg_length <= 0:
                         continue
                     if seg_length < MIN_SEGMENT_LENGTH_M:

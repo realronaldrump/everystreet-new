@@ -11,6 +11,9 @@ from typing import Any
 
 from bson import ObjectId
 
+from coverage_models.area import AreaStatus
+from coverage_models.coverage_state import CoverageStatus
+from coverage_models.job_status import JobType
 from db import (
     aggregate_with_retry,
     areas_collection,
@@ -20,9 +23,6 @@ from db import (
     streets_v2_collection,
     update_one_with_retry,
 )
-from coverage_models.area import AreaStatus
-from coverage_models.coverage_state import CoverageStatus
-from coverage_models.job_status import JobType
 from services.coverage_service import coverage_service
 from services.ingestion_service import ingestion_service
 from services.job_manager import job_manager
@@ -337,7 +337,9 @@ class RebuildService:
                     },
                     {
                         "$set": {
-                            "status": override.get("status", CoverageStatus.DRIVEN.value),
+                            "status": override.get(
+                                "status", CoverageStatus.DRIVEN.value
+                            ),
                             "manual_override": True,
                             "manual_override_at": now,
                             "provenance": override.get("provenance", {}),
@@ -413,7 +415,9 @@ class RebuildService:
         area_version = area_doc.get("current_version", 1)
         display_name = area_doc.get("display_name", area_id)
 
-        logger.info("Starting sanity check for area %s (v%d)", display_name, area_version)
+        logger.info(
+            "Starting sanity check for area %s (v%d)", display_name, area_version
+        )
 
         try:
             await job_manager.start_job(
@@ -466,7 +470,9 @@ class RebuildService:
                 {"$project": {"segment_id": 1}},
             ]
 
-            orphaned = await aggregate_with_retry(coverage_state_collection, orphan_pipeline)
+            orphaned = await aggregate_with_retry(
+                coverage_state_collection, orphan_pipeline
+            )
             issues["orphaned_coverage"] = len(orphaned)
 
             if repair and orphaned:
@@ -521,7 +527,9 @@ class RebuildService:
                 {"$project": {"segment_id": 1, "undriveable": 1}},
             ]
 
-            missing = await aggregate_with_retry(streets_v2_collection, missing_pipeline)
+            missing = await aggregate_with_retry(
+                streets_v2_collection, missing_pipeline
+            )
             issues["missing_coverage"] = len(missing)
 
             if repair and missing:
@@ -555,7 +563,9 @@ class RebuildService:
                     )
 
                 if new_coverage_docs:
-                    await insert_many_with_retry(coverage_state_collection, new_coverage_docs)
+                    await insert_many_with_retry(
+                        coverage_state_collection, new_coverage_docs
+                    )
                     repairs["coverage_created"] = len(new_coverage_docs)
 
             await job_manager.update_job(
@@ -566,14 +576,21 @@ class RebuildService:
             )
 
             # Check stats drift
-            current_stats = await coverage_service._update_area_stats(area_id, area_version)
+            current_stats = await coverage_service._update_area_stats(
+                area_id, area_version
+            )
             cached_stats = area_doc.get("cached_stats", {})
 
             # Compare key metrics
             if (
                 cached_stats.get("total_segments") != current_stats.total_segments
-                or cached_stats.get("covered_segments") != current_stats.covered_segments
-                or abs(cached_stats.get("coverage_percentage", 0) - current_stats.coverage_percentage) > 0.1
+                or cached_stats.get("covered_segments")
+                != current_stats.covered_segments
+                or abs(
+                    cached_stats.get("coverage_percentage", 0)
+                    - current_stats.coverage_percentage
+                )
+                > 0.1
             ):
                 issues["stats_drift"] = True
                 repairs["stats_updated"] = True  # _update_area_stats already fixed it

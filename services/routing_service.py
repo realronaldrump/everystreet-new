@@ -13,6 +13,8 @@ import networkx as nx
 from bson import ObjectId
 from shapely.geometry import LineString, Point, shape
 
+from coverage_models.coverage_state import CoverageStatus
+from coverage_models.job_status import JobType
 from db import (
     aggregate_with_retry,
     areas_collection,
@@ -20,8 +22,6 @@ from db import (
     find_one_with_retry,
     streets_v2_collection,
 )
-from coverage_models.coverage_state import CoverageStatus
-from coverage_models.job_status import JobType
 from services.job_manager import job_manager
 
 logger = logging.getLogger(__name__)
@@ -109,12 +109,16 @@ class RoutingService:
             raise ValueError(f"Area {area_id} not found")
 
         if area_doc.get("status") != "ready":
-            raise ValueError(f"Area not ready for routing (status: {area_doc.get('status')})")
+            raise ValueError(
+                f"Area not ready for routing (status: {area_doc.get('status')})"
+            )
 
         area_version = area_doc.get("current_version", 1)
         display_name = area_doc.get("display_name", area_id)
 
-        logger.info("Generating route for area %s (version %d)", display_name, area_version)
+        logger.info(
+            "Generating route for area %s (version %d)", display_name, area_version
+        )
 
         job_oid = ObjectId(job_id) if job_id else None
 
