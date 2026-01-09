@@ -319,7 +319,7 @@ class CoverageManager {
    */
   _computeAreasHash(areas) {
     this.lastAreasHashInput = areas;
-    const hash = areas
+    const hash = areas;
     return areas
       .map(
         (a) =>
