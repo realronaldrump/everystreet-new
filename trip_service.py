@@ -422,6 +422,27 @@ class TripService:
                         # transaction IDs
                         processed_trip_ids.append(transaction_id)
 
+                        # Emit TripCompleted event for coverage updates
+                        try:
+                            from services.trip_event_service import emit_trip_completed
+
+                            gps_geometry = trip.get("gps")
+                            end_time = trip.get("endTime")
+
+                            await emit_trip_completed(
+                                trip_id=transaction_id,
+                                gps_geometry=gps_geometry,
+                                source="fetch",
+                                timestamp=end_time,
+                            )
+                        except Exception as coverage_err:
+                            # Log error but don't fail trip processing
+                            logger.warning(
+                                "Failed to emit TripCompleted for trip %s: %s",
+                                transaction_id,
+                                coverage_err,
+                            )
+
                 except Exception as trip_error:
                     logger.error(
                         "Failed to process Bouncie trip %s: %s",

@@ -74,12 +74,6 @@ TASK_METADATA = {
         "dependencies": ["periodic_fetch_trips"],
         "description": "Attempts to map-match trips that previously failed",
     },
-    "update_coverage_for_new_trips": {
-        "display_name": "Incremental Progress Updates",
-        "default_interval_minutes": 180,
-        "dependencies": ["periodic_fetch_trips"],
-        "description": "Updates coverage calculations incrementally for new trips",
-    },
     "manual_fetch_trips_range": {
         "display_name": "Fetch Trips (Custom Range)",
         "default_interval_minutes": 0,
@@ -92,13 +86,6 @@ TASK_METADATA = {
         "default_interval_minutes": 0,
         "dependencies": [],
         "description": "Fetches all trips from 2020-01-01 to now to fill gaps",
-        "manual_only": True,
-    },
-    "generate_optimal_route": {
-        "display_name": "Generate Optimal Route",
-        "default_interval_minutes": 0,
-        "dependencies": [],
-        "description": "Computes optimal completion route for a coverage area using RPP algorithm",
         "manual_only": True,
     },
 }

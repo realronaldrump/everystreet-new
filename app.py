@@ -12,8 +12,6 @@ from fastapi.templating import Jinja2Templates
 from admin_api import router as admin_api_router
 from analytics import router as analytics_api_router
 from app_settings import ensure_settings_cached
-from county_api import router as county_api_router
-from coverage_api import router as coverage_api_router
 from db import db_manager, init_database
 from driving_routes import router as driving_routes_router
 from exports import router as export_api_router
@@ -32,6 +30,14 @@ from upload_api import router as upload_api_router
 from utils import cleanup_session
 from visits import init_collections
 from visits import router as visits_router
+
+# New unified coverage system routers
+from routes import (
+    areas_router,
+    overrides_router,
+    routing_router,
+    viewport_router,
+)
 
 load_dotenv()
 
@@ -109,8 +115,6 @@ app.add_middleware(
 app.include_router(pages_router)
 app.include_router(admin_api_router)
 app.include_router(analytics_api_router)
-app.include_router(county_api_router)
-app.include_router(coverage_api_router)
 app.include_router(driving_routes_router)
 app.include_router(export_api_router)
 app.include_router(gas_api_router)
@@ -124,6 +128,13 @@ app.include_router(tasks_api_router)
 app.include_router(trips_router)
 app.include_router(upload_api_router)
 app.include_router(visits_router)
+
+# New unified coverage system routers
+# These provide the new /api/areas/* endpoints
+app.include_router(areas_router)
+app.include_router(viewport_router)
+app.include_router(overrides_router)
+app.include_router(routing_router)
 
 
 # Global Configuration and Constants (imported from config.py)
@@ -144,6 +155,19 @@ async def startup_event():
     try:
         await init_database()  # This already creates many indexes
         logger.info("Core database initialized successfully (indexes, etc.).")
+
+        # Initialize new coverage system indexes
+        from db import (
+            ensure_areas_indexes,
+            ensure_coverage_state_indexes,
+            ensure_job_status_indexes,
+            ensure_streets_v2_indexes,
+        )
+        await ensure_areas_indexes()
+        await ensure_streets_v2_indexes()
+        await ensure_coverage_state_indexes()
+        await ensure_job_status_indexes()
+        logger.info("New coverage system indexes initialized.")
 
         # Set up MongoDB logging handler
         mongo_handler = MongoDBHandler(db_manager.db, "server_logs")

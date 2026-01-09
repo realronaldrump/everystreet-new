@@ -1,6 +1,6 @@
 /**
- * Coverage API Module
- * Handles all API calls related to coverage areas
+ * Coverage API Module (New Unified API)
+ * Handles all API calls related to coverage areas using the new /api/areas/* endpoints
  */
 
 const COVERAGE_API = {
@@ -8,7 +8,7 @@ const COVERAGE_API = {
    * Fetch all coverage areas
    */
   async getAllAreas() {
-    const response = await fetch("/api/coverage_areas");
+    const response = await fetch("/api/areas");
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);
@@ -23,155 +23,31 @@ const COVERAGE_API = {
   /**
    * Fetch a specific coverage area by ID
    */
-  async getArea(locationId) {
-    const response = await fetch(`/api/coverage_areas/${locationId}`);
+  async getArea(areaId) {
+    const response = await fetch(`/api/areas/${areaId}`);
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
     const data = await response.json();
-    if (!data.success || !data.coverage) {
+    if (!data.success || !data.area) {
       throw new Error(data.error || "Failed to fetch coverage area");
     }
-    return data.coverage;
+    return data.area;
   },
 
   /**
-   * Fetch streets GeoJSON for a coverage area
+   * Create a new coverage area
    */
-  async getStreets(locationId, cacheBust = false) {
-    const url = `/api/coverage_areas/${locationId}/streets${
-      cacheBust ? `?cache_bust=${Date.now()}` : ""
-    }`;
-    const response = await fetch(url);
+  async createArea(areaConfig) {
+    const response = await fetch("/api/areas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(areaConfig),
+    });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || `HTTP ${response.status}`);
-    }
-    return response.json();
-  },
-
-  /**
-   * Validate a location
-   */
-  async validateLocation(location, locationType) {
-    const response = await fetch("/api/validate_location", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ location, locationType }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || "Validation failed");
-    }
-    return response.json();
-  },
-
-  /**
-   * Validate a custom boundary
-   */
-  async validateCustomBoundary(areaName, geometry) {
-    const response = await fetch("/api/validate_custom_boundary", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ area_name: areaName, geometry }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || "Validation failed");
-    }
-    return response.json();
-  },
-
-  /**
-   * Start preprocessing streets for a location
-   */
-  async preprocessStreets(location) {
-    const response = await fetch("/api/preprocess_streets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(location),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || "Failed to start preprocessing");
-    }
-    return response.json();
-  },
-
-  /**
-   * Start preprocessing custom boundary
-   */
-  async preprocessCustomBoundary(location) {
-    const response = await fetch("/api/preprocess_custom_boundary", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(location),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || "Failed to start preprocessing");
-    }
-    return response.json();
-  },
-
-  /**
-   * Update coverage for an area (full or incremental)
-   */
-  async updateCoverage(location, mode = "full") {
-    const endpoint =
-      mode === "incremental"
-        ? "/api/street_coverage/incremental"
-        : "/api/street_coverage";
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(location),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      if (response.status === 422 && error.detail) {
-        const errorMsg = Array.isArray(error.detail)
-          ? error.detail.map((err) => `${err.loc?.join(".")}: ${err.msg}`).join("; ")
-          : error.detail;
-        throw new Error(`Validation error: ${errorMsg}`);
-      }
-      throw new Error(error.detail || "Failed to start update");
-    }
-    return response.json();
-  },
-
-  /**
-   * Get task progress
-   */
-  async getTaskProgress(taskId) {
-    const response = await fetch(`/api/street_coverage/${taskId}`);
-    if (response.status === 404) {
-      throw new Error("Task not found (expired or invalid)");
-    }
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || `HTTP error ${response.status}`);
-    }
-    const data = await response.json();
-    if (!data || typeof data !== "object" || !data.stage) {
-      throw new Error("Invalid data format received from server");
-    }
-    return data;
-  },
-
-  /**
-   * Cancel processing for a location
-   */
-  async cancelProcessing(displayName) {
-    const response = await fetch("/api/coverage_areas/cancel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ display_name: displayName }),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || "Failed to send cancel request");
     }
     return response.json();
   },
@@ -179,11 +55,9 @@ const COVERAGE_API = {
   /**
    * Delete a coverage area
    */
-  async deleteArea(displayName) {
-    const response = await fetch("/api/coverage_areas/delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ display_name: displayName }),
+  async deleteArea(areaId) {
+    const response = await fetch(`/api/areas/${areaId}`, {
+      method: "DELETE",
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -193,66 +67,224 @@ const COVERAGE_API = {
   },
 
   /**
-   * Refresh stats for a coverage area
+   * Trigger area rebuild
    */
-  async refreshStats(locationId) {
-    const response = await fetch(`/api/coverage_areas/${locationId}/refresh_stats`, {
+  async rebuildArea(areaId) {
+    const response = await fetch(`/api/areas/${areaId}/rebuild`, {
       method: "POST",
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || "Failed to refresh stats");
+      throw new Error(error.detail || "Failed to trigger rebuild");
     }
     return response.json();
   },
 
   /**
-   * Mark a segment as driven/undriven/undriveable/driveable
+   * Fetch streets in viewport with coverage status
    */
-  async markSegment(locationId, segmentId, action) {
-    const endpointMap = {
-      driven: "/api/street_segments/mark_driven",
-      undriven: "/api/street_segments/mark_undriven",
-      undriveable: "/api/street_segments/mark_undriveable",
-      driveable: "/api/street_segments/mark_driveable",
-    };
-    const endpoint = endpointMap[action];
-    if (!endpoint) {
-      throw new Error(`Unknown action: ${action}`);
+  async getStreetsInViewport(areaId, bounds, zoom = 14, includeCoverage = true) {
+    const params = new URLSearchParams({
+      west: bounds.west.toFixed(6),
+      south: bounds.south.toFixed(6),
+      east: bounds.east.toFixed(6),
+      north: bounds.north.toFixed(6),
+      zoom: zoom.toString(),
+      include_coverage: includeCoverage.toString(),
+    });
+    const response = await fetch(`/api/areas/${areaId}/streets/viewport?${params}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
     }
-    const response = await fetch(endpoint, {
+    return response.json();
+  },
+
+  /**
+   * Fetch coverage status in viewport (lightweight, no geometry)
+   */
+  async getCoverageInViewport(areaId, bounds) {
+    const params = new URLSearchParams({
+      west: bounds.west.toFixed(6),
+      south: bounds.south.toFixed(6),
+      east: bounds.east.toFixed(6),
+      north: bounds.north.toFixed(6),
+    });
+    const response = await fetch(`/api/areas/${areaId}/coverage/viewport?${params}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Get area statistics
+   */
+  async getAreaStats(areaId) {
+    const response = await fetch(`/api/areas/${areaId}/stats`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Get segment details
+   */
+  async getSegmentDetails(areaId, segmentId) {
+    const response = await fetch(`/api/areas/${areaId}/segments/${segmentId}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Set manual override for a segment
+   */
+  async setSegmentOverride(areaId, segmentId, status, note = null) {
+    const response = await fetch(`/api/areas/${areaId}/segments/${segmentId}/override`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ location_id: locationId, segment_id: segmentId }),
+      body: JSON.stringify({ status, note }),
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || `API request failed (HTTP ${response.status})`);
+      throw new Error(error.detail || `HTTP ${response.status}`);
     }
     return response.json();
   },
 
   /**
-   * Get efficient street suggestions
+   * Clear manual override for a segment
    */
-  async getEfficientStreets(locationId, currentLat, currentLon, topN = 3) {
-    const params = new URLSearchParams({
-      current_lat: currentLat.toString(),
-      current_lon: currentLon.toString(),
-      top_n: topN.toString(),
+  async clearSegmentOverride(areaId, segmentId) {
+    const response = await fetch(`/api/areas/${areaId}/segments/${segmentId}/override`, {
+      method: "DELETE",
     });
-    const response = await fetch(
-      `/api/driving-navigation/suggest-next-street/${locationId}?${params}`
-    );
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || `HTTP error ${response.status}`);
+      throw new Error(error.detail || `HTTP ${response.status}`);
     }
     return response.json();
   },
 
   /**
-   * Get trips within bounds
+   * Bulk override segments
+   */
+  async bulkOverrideSegments(areaId, segmentIds, status, note = null) {
+    const response = await fetch(`/api/areas/${areaId}/segments/bulk-override`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ segment_ids: segmentIds, status, note }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Generate optimal route for undriven streets
+   */
+  async generateRoute(areaId, startLon = null, startLat = null) {
+    const body = {};
+    if (startLon !== null) body.start_lon = startLon;
+    if (startLat !== null) body.start_lat = startLat;
+
+    const response = await fetch(`/api/areas/${areaId}/route`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Get GPX download URL for route
+   */
+  getRouteGpxUrl(areaId, startLon = null, startLat = null) {
+    const params = new URLSearchParams();
+    if (startLon !== null) params.set("start_lon", startLon.toString());
+    if (startLat !== null) params.set("start_lat", startLat.toString());
+    const queryString = params.toString();
+    return `/api/areas/${areaId}/route/gpx${queryString ? `?${queryString}` : ""}`;
+  },
+
+  /**
+   * Clear route cache
+   */
+  async clearRouteCache(areaId) {
+    const response = await fetch(`/api/areas/${areaId}/route/cache`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Get jobs for an area
+   */
+  async getAreaJobs(areaId, limit = 10) {
+    const response = await fetch(`/api/areas/${areaId}/jobs?limit=${limit}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Get active job for an area
+   */
+  async getActiveJob(areaId) {
+    const response = await fetch(`/api/areas/${areaId}/active-job`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Get job status by ID
+   */
+  async getJobStatus(jobId) {
+    const response = await fetch(`/api/areas/jobs/${jobId}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Run sanity check on an area
+   */
+  async sanityCheck(areaId, repair = true) {
+    const response = await fetch(`/api/areas/${areaId}/sanity-check?repair=${repair}`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Get trips within bounds (unchanged - still uses old endpoint)
    */
   async getTripsInBounds(bounds) {
     const params = new URLSearchParams({
@@ -274,68 +306,13 @@ const COVERAGE_API = {
   },
 
   /**
-   * Start optimal route generation for a coverage area
+   * Search for OSM places (for area creation)
    */
-  async generateOptimalRoute(locationId, startLon = null, startLat = null) {
-    const params = new URLSearchParams();
-    if (startLon !== null) params.set("start_lon", startLon.toString());
-    if (startLat !== null) params.set("start_lat", startLat.toString());
-
-    const url = `/api/coverage_areas/${locationId}/generate-optimal-route${
-      params.toString() ? `?${params}` : ""
-    }`;
-    const response = await fetch(url, { method: "POST" });
+  async searchPlaces(query) {
+    const response = await fetch(`/api/search/places?q=${encodeURIComponent(query)}`);
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || `HTTP error ${response.status}`);
-    }
-    return response.json();
-  },
-
-  /**
-   * Get the generated optimal route for a coverage area
-   */
-  async getOptimalRoute(locationId) {
-    const response = await fetch(`/api/coverage_areas/${locationId}/optimal-route`);
-    if (response.status === 404) {
-      return null; // No route generated yet
-    }
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || `HTTP error ${response.status}`);
-    }
-    return response.json();
-  },
-
-  /**
-   * Delete the optimal route for a coverage area
-   */
-  async deleteOptimalRoute(locationId) {
-    const response = await fetch(`/api/coverage_areas/${locationId}/optimal-route`, {
-      method: "DELETE",
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || `HTTP error ${response.status}`);
-    }
-    return response.json();
-  },
-
-  /**
-   * Get GPX download URL for optimal route
-   */
-  getOptimalRouteGpxUrl(locationId) {
-    return `/api/coverage_areas/${locationId}/optimal-route/gpx`;
-  },
-
-  /**
-   * Get Celery task status (for polling route generation progress)
-   */
-  async getTaskStatus(taskId) {
-    const response = await fetch(`/api/tasks/${taskId}/status`);
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || `HTTP error ${response.status}`);
+      throw new Error(error.detail || `HTTP ${response.status}`);
     }
     return response.json();
   },

@@ -460,6 +460,24 @@ async def process_trip_end(
                 trigger_err,
             )
 
+        # Emit TripCompleted event for coverage updates
+        try:
+            from services.trip_event_service import emit_trip_completed
+
+            await emit_trip_completed(
+                trip_id=transaction_id,
+                gps_geometry=gps,
+                source="live_tracking",
+                timestamp=end_time,
+            )
+        except Exception as coverage_err:
+            # Log error but don't fail the tripEnd processing
+            logger.warning(
+                "Failed to emit TripCompleted for trip %s: %s",
+                transaction_id,
+                coverage_err,
+            )
+
 
 # ============================================================================
 # Helper Functions

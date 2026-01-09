@@ -29,6 +29,28 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
     """
     await trip_service.process_uploaded_trip(trip, source)
 
+    # Emit TripCompleted event for coverage updates
+    try:
+        from services.trip_event_service import emit_trip_completed
+
+        transaction_id = trip.get("transactionId")
+        gps_geometry = trip.get("gps")
+        end_time = trip.get("endTime")
+
+        if transaction_id:
+            await emit_trip_completed(
+                trip_id=transaction_id,
+                gps_geometry=gps_geometry,
+                source="upload",
+                timestamp=end_time,
+            )
+    except Exception as coverage_err:
+        # Log error but don't fail the upload
+        logger.warning(
+            "Failed to emit TripCompleted for uploaded trip: %s",
+            coverage_err,
+        )
+
 
 async def process_geojson_trip(
     geojson_data: dict,

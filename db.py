@@ -586,6 +586,12 @@ gas_fillups_collection = _get_collection("gas_fillups")
 vehicles_collection = _get_collection("vehicles")
 optimal_route_progress_collection = _get_collection("optimal_route_progress")
 
+# New unified coverage system collections
+areas_collection = _get_collection("areas")
+streets_v2_collection = _get_collection("streets_v2")
+coverage_state_collection = _get_collection("coverage_state")
+job_status_collection = _get_collection("job_status")
+
 
 def serialize_datetime(
     dt: datetime | str | None,
@@ -1286,6 +1292,166 @@ async def ensure_places_indexes() -> None:
         )
 
 
+async def ensure_areas_indexes() -> None:
+    """Ensure indexes exist for the unified areas collection."""
+    logger.debug("Ensuring areas collection indexes exist...")
+    try:
+        # Unique index on display_name
+        await db_manager.safe_create_index(
+            "areas",
+            [("display_name", pymongo.ASCENDING)],
+            name="areas_display_name_unique_idx",
+            unique=True,
+            background=True,
+        )
+        # Geospatial index on boundary for polygon intersection queries
+        await db_manager.safe_create_index(
+            "areas",
+            [("boundary", pymongo.GEOSPHERE)],
+            name="areas_boundary_2dsphere_idx",
+            background=True,
+        )
+        # Status and updated_at for listing/filtering
+        await db_manager.safe_create_index(
+            "areas",
+            [("status", pymongo.ASCENDING), ("updated_at", pymongo.DESCENDING)],
+            name="areas_status_updated_idx",
+            background=True,
+        )
+        logger.info("Areas collection indexes ensured/created successfully")
+    except Exception as e:
+        logger.error(
+            "Error creating areas indexes: %s",
+            str(e),
+        )
+
+
+async def ensure_streets_v2_indexes() -> None:
+    """Ensure indexes exist for the new streets_v2 collection (immutable per version)."""
+    logger.debug("Ensuring streets_v2 collection indexes exist...")
+    try:
+        # Unique compound index for segment lookup
+        await db_manager.safe_create_index(
+            "streets_v2",
+            [
+                ("area_id", pymongo.ASCENDING),
+                ("area_version", pymongo.ASCENDING),
+                ("segment_id", pymongo.ASCENDING),
+            ],
+            name="streets_v2_area_version_segment_unique_idx",
+            unique=True,
+            background=True,
+        )
+        # Geospatial index for viewport queries
+        await db_manager.safe_create_index(
+            "streets_v2",
+            [
+                ("area_id", pymongo.ASCENDING),
+                ("area_version", pymongo.ASCENDING),
+                ("geometry", pymongo.GEOSPHERE),
+            ],
+            name="streets_v2_area_version_geo_idx",
+            background=True,
+        )
+        # Index for bbox-based viewport queries (alternative to 2dsphere)
+        await db_manager.safe_create_index(
+            "streets_v2",
+            [
+                ("area_id", pymongo.ASCENDING),
+                ("area_version", pymongo.ASCENDING),
+                ("bbox", pymongo.ASCENDING),
+            ],
+            name="streets_v2_area_version_bbox_idx",
+            background=True,
+        )
+        logger.info("Streets_v2 collection indexes ensured/created successfully")
+    except Exception as e:
+        logger.error(
+            "Error creating streets_v2 indexes: %s",
+            str(e),
+        )
+
+
+async def ensure_coverage_state_indexes() -> None:
+    """Ensure indexes exist for the coverage_state collection."""
+    logger.debug("Ensuring coverage_state collection indexes exist...")
+    try:
+        # Unique compound index for state lookup
+        await db_manager.safe_create_index(
+            "coverage_state",
+            [
+                ("area_id", pymongo.ASCENDING),
+                ("area_version", pymongo.ASCENDING),
+                ("segment_id", pymongo.ASCENDING),
+            ],
+            name="coverage_state_area_version_segment_unique_idx",
+            unique=True,
+            background=True,
+        )
+        # Index for status-based queries (e.g., finding all undriven segments)
+        await db_manager.safe_create_index(
+            "coverage_state",
+            [
+                ("area_id", pymongo.ASCENDING),
+                ("area_version", pymongo.ASCENDING),
+                ("status", pymongo.ASCENDING),
+            ],
+            name="coverage_state_area_version_status_idx",
+            background=True,
+        )
+        # Index for segment_id lookups (for viewport API joining)
+        await db_manager.safe_create_index(
+            "coverage_state",
+            [("segment_id", pymongo.ASCENDING)],
+            name="coverage_state_segment_id_idx",
+            background=True,
+        )
+        logger.info("Coverage_state collection indexes ensured/created successfully")
+    except Exception as e:
+        logger.error(
+            "Error creating coverage_state indexes: %s",
+            str(e),
+        )
+
+
+async def ensure_job_status_indexes() -> None:
+    """Ensure indexes exist for the unified job_status collection."""
+    logger.debug("Ensuring job_status collection indexes exist...")
+    try:
+        # Index for job type and state queries
+        await db_manager.safe_create_index(
+            "job_status",
+            [
+                ("job_type", pymongo.ASCENDING),
+                ("state", pymongo.ASCENDING),
+                ("created_at", pymongo.DESCENDING),
+            ],
+            name="job_status_type_state_created_idx",
+            background=True,
+        )
+        # Index for area-specific job queries
+        await db_manager.safe_create_index(
+            "job_status",
+            [("area_id", pymongo.ASCENDING), ("state", pymongo.ASCENDING)],
+            name="job_status_area_state_idx",
+            background=True,
+        )
+        # Index for trip-specific job queries
+        await db_manager.safe_create_index(
+            "job_status",
+            [("trip_id", pymongo.ASCENDING)],
+            name="job_status_trip_id_idx",
+            background=True,
+            sparse=True,
+        )
+        logger.info("Job_status collection indexes ensured/created successfully")
+    except Exception as e:
+        logger.error(
+            "Error creating job_status indexes: %s",
+            str(e),
+        )
+
+
 async def init_database() -> None:
     logger.info("Initializing database...")
     await init_task_history_collection()
@@ -1294,6 +1460,11 @@ async def init_database() -> None:
     await ensure_archived_trip_indexes()
     await ensure_gas_tracking_indexes()
     await ensure_places_indexes()
+    # New unified coverage system indexes
+    await ensure_areas_indexes()
+    await ensure_streets_v2_indexes()
+    await ensure_coverage_state_indexes()
+    await ensure_job_status_indexes()
     _ = db_manager.get_collection("places")
     _ = db_manager.get_collection("task_config")
     _ = db_manager.get_collection("progress_status")
@@ -1302,4 +1473,9 @@ async def init_database() -> None:
     _ = db_manager.get_collection("archived_live_trips")
     _ = db_manager.get_collection("gas_fillups")
     _ = db_manager.get_collection("vehicles")
+    # New unified coverage system collections
+    _ = db_manager.get_collection("areas")
+    _ = db_manager.get_collection("streets_v2")
+    _ = db_manager.get_collection("coverage_state")
+    _ = db_manager.get_collection("job_status")
     logger.info("Database initialization complete.")

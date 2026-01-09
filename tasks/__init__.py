@@ -8,12 +8,10 @@ Tasks are organized into modules by function:
 - core: TaskStatus, TASK_METADATA, TaskStatusManager, task_runner decorator
 - config: Task configuration and history management
 - fetch: Trip fetching tasks
-- coverage: Coverage calculation tasks
 - maintenance: Cleanup, validation, and remapping tasks
 - scheduler: Task scheduler
 - management: Task management API functions
 - webhook: Webhook processing task
-- routes: Optimal route generation task
 
 All public APIs are re-exported here for backwards compatibility.
 """
@@ -22,12 +20,6 @@ All public APIs are re-exported here for backwards compatibility.
 # Configuration functions
 from tasks.config import check_dependencies, get_task_config, update_task_history_entry
 from tasks.core import TASK_METADATA, TaskStatus, TaskStatusManager, task_runner
-
-# Coverage tasks
-from tasks.coverage import (
-    update_coverage_for_new_trips,
-    update_coverage_for_new_trips_async,
-)
 
 # Trip fetching tasks
 from tasks.fetch import (
@@ -60,9 +52,6 @@ from tasks.management import (
     update_task_schedule,
 )
 
-# Route generation
-from tasks.routes import generate_optimal_route_async, generate_optimal_route_task
-
 # Scheduler
 from tasks.scheduler import run_task_scheduler, run_task_scheduler_async
 
@@ -87,9 +76,6 @@ __all__ = [
     "fetch_all_missing_trips",
     "fetch_all_missing_trips_async",
     "get_earliest_trip_date",
-    # Coverage tasks
-    "update_coverage_for_new_trips",
-    "update_coverage_for_new_trips_async",
     # Maintenance tasks
     "cleanup_stale_trips",
     "cleanup_stale_trips_async",
@@ -109,7 +95,4 @@ __all__ = [
     "trigger_fetch_all_missing_trips",
     # Webhook
     "process_webhook_event_task",
-    # Routes
-    "generate_optimal_route_async",
-    "generate_optimal_route_task",
 ]
