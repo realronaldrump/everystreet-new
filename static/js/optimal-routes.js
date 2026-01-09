@@ -730,8 +730,23 @@ class OptimalRoutesManager {
         // Store task ID
         this.currentTaskId = data.task_id;
 
-        // Show progress UI
+        // Restore elapsed time from server's started_at timestamp
+        if (data.started_at) {
+          const startedAt = new Date(data.started_at);
+          this.startTime = startedAt.getTime();
+        } else {
+          // Fallback to now if no started_at
+          this.startTime = Date.now();
+        }
+
+        // Show progress UI (this will start the elapsed timer)
         this.showProgressSection();
+
+        // Override the startTime again since showProgressSection resets it
+        if (data.started_at) {
+          this.startTime = new Date(data.started_at).getTime();
+          this.updateElapsedTime(); // Update display immediately
+        }
 
         // Pre-populate with current progress state
         this.updateProgress({
