@@ -47,6 +47,9 @@ class LiveTripTracker {
       return;
     }
 
+    // Add pulse ring layer ID
+    this.pulseLayerId = "live-trip-pulse";
+
     try {
       // Add GeoJSON source
       if (!this.map.getSource(this.sourceId)) {
@@ -56,7 +59,7 @@ class LiveTripTracker {
         });
       }
 
-      // Add line layer for trip path
+      // Add line layer for trip path with enhanced styling
       if (!this.map.getLayer(this.lineLayerId)) {
         this.map.addLayer({
           id: this.lineLayerId,
@@ -64,9 +67,10 @@ class LiveTripTracker {
           source: this.sourceId,
           filter: ["==", ["get", "type"], "line"],
           paint: {
-            "line-color": "#00FF00",
-            "line-width": 3,
-            "line-opacity": 0.8,
+            "line-color": "#10b981",
+            "line-width": 4,
+            "line-opacity": 0.85,
+            "line-blur": 0.5,
           },
           layout: {
             "line-cap": "round",
@@ -75,7 +79,24 @@ class LiveTripTracker {
         });
       }
 
-      // Add marker for current position
+      // Add outer pulse ring layer (animated via CSS/JS)
+      if (!this.map.getLayer(this.pulseLayerId)) {
+        this.map.addLayer({
+          id: this.pulseLayerId,
+          type: "circle",
+          source: this.sourceId,
+          filter: ["==", ["get", "type"], "marker"],
+          paint: {
+            "circle-radius": 20,
+            "circle-color": "transparent",
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#10b981",
+            "circle-stroke-opacity": 0.4,
+          },
+        });
+      }
+
+      // Add marker for current position with enhanced styling
       if (!this.map.getLayer(this.markerLayerId)) {
         this.map.addLayer({
           id: this.markerLayerId,
@@ -83,13 +104,17 @@ class LiveTripTracker {
           source: this.sourceId,
           filter: ["==", ["get", "type"], "marker"],
           paint: {
-            "circle-radius": 8,
-            "circle-color": "#00FF00",
-            "circle-stroke-width": 2,
+            "circle-radius": 10,
+            "circle-color": "#10b981",
+            "circle-stroke-width": 3,
             "circle-stroke-color": "#ffffff",
+            "circle-blur": 0,
           },
         });
       }
+
+      // Start pulse animation
+      this.startPulseAnimation();
     } catch (error) {
       console.error("Error initializing map layers:", error);
     }
@@ -329,24 +354,94 @@ class LiveTripTracker {
   updateMarkerStyle(speed) {
     if (!this.map || !this.map.getLayer(this.markerLayerId)) return;
 
-    let color, radius;
+    let color, radius, strokeWidth;
 
     if (speed === 0) {
-      color = "#f44336"; // Red - stopped
-      radius = 8;
+      color = "#ef4444"; // Red - stopped (matches --danger)
+      radius = 10;
+      strokeWidth = 3;
     } else if (speed < 10) {
-      color = "#ff9800"; // Orange - slow
-      radius = 6;
+      color = "#f59e0b"; // Amber - slow (matches --warning)
+      radius = 9;
+      strokeWidth = 2;
     } else if (speed < 35) {
-      color = "#2196f3"; // Blue - medium
-      radius = 6;
+      color = "#3b82f6"; // Blue - medium (matches --info)
+      radius = 10;
+      strokeWidth = 3;
     } else {
-      color = window.MapStyles.MAP_LAYER_COLORS.liveTracking.fast;
-      radius = 8;
+      color = "#10b981"; // Green - fast (matches --success)
+      radius = 12;
+      strokeWidth = 3;
     }
 
+    // Update marker styling with smooth transition
     this.map.setPaintProperty(this.markerLayerId, "circle-color", color);
     this.map.setPaintProperty(this.markerLayerId, "circle-radius", radius);
+    this.map.setPaintProperty(this.markerLayerId, "circle-stroke-width", strokeWidth);
+
+    // Sync pulse ring color
+    if (this.map.getLayer(this.pulseLayerId)) {
+      this.map.setPaintProperty(this.pulseLayerId, "circle-stroke-color", color);
+    }
+
+    // Update line color to match current state
+    if (this.map.getLayer(this.lineLayerId)) {
+      this.map.setPaintProperty(this.lineLayerId, "line-color", color);
+    }
+  }
+
+  /**
+   * Start animated pulse effect on the vehicle marker
+   */
+  startPulseAnimation() {
+    if (this.pulseAnimationFrame) return;
+
+    let pulseRadius = 20;
+    let pulseOpacity = 0.4;
+    let expanding = true;
+
+    const animate = () => {
+      if (!this.map || !this.map.getLayer(this.pulseLayerId)) {
+        this.stopPulseAnimation();
+        return;
+      }
+
+      // Animate radius between 20 and 35
+      if (expanding) {
+        pulseRadius += 0.3;
+        pulseOpacity -= 0.006;
+        if (pulseRadius >= 35) expanding = false;
+      } else {
+        pulseRadius -= 0.5;
+        pulseOpacity += 0.01;
+        if (pulseRadius <= 20) expanding = true;
+      }
+
+      try {
+        this.map.setPaintProperty(this.pulseLayerId, "circle-radius", pulseRadius);
+        this.map.setPaintProperty(
+          this.pulseLayerId,
+          "circle-stroke-opacity",
+          Math.max(0.1, pulseOpacity)
+        );
+      } catch {
+        // Layer might be removed during animation
+      }
+
+      this.pulseAnimationFrame = requestAnimationFrame(animate);
+    };
+
+    this.pulseAnimationFrame = requestAnimationFrame(animate);
+  }
+
+  /**
+   * Stop pulse animation
+   */
+  stopPulseAnimation() {
+    if (this.pulseAnimationFrame) {
+      cancelAnimationFrame(this.pulseAnimationFrame);
+      this.pulseAnimationFrame = null;
+    }
   }
 
   updateMetrics(trip) {
@@ -510,6 +605,7 @@ class LiveTripTracker {
 
   destroy() {
     this.stopPolling();
+    this.stopPulseAnimation();
 
     if (this.ws) {
       this.ws.close();
@@ -519,6 +615,9 @@ class LiveTripTracker {
     // Remove map layers
     if (this.map) {
       try {
+        if (this.map.getLayer(this.pulseLayerId)) {
+          this.map.removeLayer(this.pulseLayerId);
+        }
         if (this.map.getLayer(this.lineLayerId)) {
           this.map.removeLayer(this.lineLayerId);
         }

@@ -129,6 +129,39 @@
   --shadow-xl: 0 8px 24px rgb(0 0 0 / 12%);
   --shadow-inset: inset 0 1px 3px rgb(0 0 0 / 6%);
 
+  /* Immersive Effects - Glow & Ambient */
+  --glow-primary: 0 0 20px rgb(var(--primary-rgb) / 35%);
+  --glow-primary-intense: 0 0 30px rgb(var(--primary-rgb) / 50%);
+  --glow-success: 0 0 20px rgb(var(--success-rgb) / 40%);
+  --glow-success-intense: 0 0 30px rgb(var(--success-rgb) / 55%);
+  --glow-warning: 0 0 20px rgb(var(--warning-rgb) / 40%);
+  --glow-danger: 0 0 20px rgb(var(--danger-rgb) / 40%);
+  --glow-info: 0 0 20px rgb(var(--info-rgb) / 40%);
+
+  /* Ambient gradients for immersive backgrounds */
+  --gradient-ambient: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb) / 8%) 0%,
+    transparent 50%,
+    rgb(var(--info-rgb) / 6%) 100%
+  );
+  --gradient-accent-bar: linear-gradient(
+    90deg,
+    rgb(var(--primary-rgb) / 60%) 0%,
+    rgb(var(--info-rgb) / 40%) 100%
+  );
+  --gradient-surface-glow: radial-gradient(
+    ellipse at top left,
+    rgb(var(--primary-rgb) / 10%) 0%,
+    transparent 50%
+  );
+
+  /* Interactive lift shadows for hover states */
+  --shadow-lift:
+    0 8px 25px rgb(0 0 0 / 15%), 0 0 20px rgb(var(--primary-rgb) / 15%);
+  --shadow-lift-intense:
+    0 12px 35px rgb(0 0 0 / 18%), 0 0 30px rgb(var(--primary-rgb) / 25%);
+
   /* Border Radius - Minimal */
   --radius-xs: 2px;
   --radius-sm: 3px;

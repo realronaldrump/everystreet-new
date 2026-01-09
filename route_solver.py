@@ -5,12 +5,8 @@ Key features:
 - Buffer routing graph to avoid artificial disconnections at coverage boundaries.
 - Map undriven segments to OSM edges using OSM IDs when available (fallback to nearest).
 - Prefer continuing along adjacent undriven edges before deadheading.
-- Bridge-and-merge: dynamically fetch corridor graphs to connect disconnected clusters.
+- Post-process to fill gaps with Mapbox driving routes.
 - Validate coverage, gaps, and deadhead ratio before returning.
-
-Note: Teleportation (straight-line interpolation) has been removed. Disconnected
-components are handled by the bridge_disconnected_clusters() function which
-fetches real road data via Mapbox Directions API.
 """
 
 import contextlib
@@ -378,31 +374,6 @@ def _make_req_id(G: nx.MultiDiGraph, edge: EdgeRef) -> tuple[ReqId, list[EdgeRef
             options.append(best_rev)
     req_id: ReqId = frozenset(options)
     return req_id, options
-
-
-def _interpolate_connecting_path(
-    from_xy: tuple[float, float],
-    to_xy: tuple[float, float],
-) -> list[list[float]]:
-    """
-    DEPRECATED: This function produced invalid "teleportation" routes.
-
-    Disconnected components are now handled by bridge_disconnected_clusters()
-    in graph_connectivity.py, which fetches real road data via Mapbox.
-
-    This function now logs a warning and returns an empty list.
-    Callers should use the bridge-and-merge approach instead.
-    """
-    dist_miles = GeometryService.haversine_distance(
-        from_xy[0], from_xy[1], to_xy[0], to_xy[1], unit="miles"
-    )
-    logger.warning(
-        "DEPRECATED: _interpolate_connecting_path called for %.2f mile gap. "
-        "This produces invalid routes. Use bridge_disconnected_clusters() instead.",
-        dist_miles,
-    )
-    # Return empty list - caller should handle disconnection gracefully
-    return []
 
 
 def _solve_greedy_route(
@@ -886,7 +857,9 @@ async def fill_route_gaps(
                 )
             gaps_filled += 1
             logger.debug(
-                "Filled gap at index %d with %d coordinates", gap_idx, len(insert_coords)
+                "Filled gap at index %d with %d coordinates",
+                gap_idx,
+                len(insert_coords),
             )
         else:
             logger.warning(
@@ -1105,7 +1078,9 @@ async def generate_optimal_route_with_progress(
             progress_interval = max(25, total_for_progress // 40)
             last_update = time.monotonic()
 
-            for i, edge in enumerate(executor.map(process_segment_osmid, seg_data_list)):
+            for i, edge in enumerate(
+                executor.map(process_segment_osmid, seg_data_list)
+            ):
                 processed_segments = i + 1
                 if seg_data_list[i] is None:
                     if (
@@ -1113,7 +1088,9 @@ async def generate_optimal_route_with_progress(
                         or processed_segments % progress_interval == 0
                         or time.monotonic() - last_update >= 1.0
                     ):
-                        progress_pct = 50 + int(8 * processed_segments / total_for_progress)
+                        progress_pct = 50 + int(
+                            8 * processed_segments / total_for_progress
+                        )
                         await update_progress(
                             "mapping_segments",
                             progress_pct,
@@ -1341,13 +1318,16 @@ async def generate_optimal_route_with_progress(
             raise ValueError("Failed to generate route coordinates")
 
         # Fill gaps in the route with Mapbox driving directions
-        await update_progress("filling_gaps", 85, "Filling route gaps with driving routes...")
+        await update_progress(
+            "filling_gaps", 85, "Filling route gaps with driving routes..."
+        )
 
         try:
             from config import get_app_settings
 
             settings = await get_app_settings()
             if settings.get("mapbox_access_token"):
+
                 async def gap_progress(_stage: str, pct: int, msg: str) -> None:
                     # Map gap-fill progress (0-100) to overall progress (85-95)
                     overall_pct = 85 + int(pct * 0.1)

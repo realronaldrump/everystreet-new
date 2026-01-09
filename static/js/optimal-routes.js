@@ -101,7 +101,9 @@ class OptimalRoutesManager {
     this.coverageAreas = [];
     this.areaSelect = document.getElementById(this.config.areaSelectId);
     this.progressMessagePrimary = document.getElementById("progress-message-primary");
-    this.progressMessageSecondary = document.getElementById("progress-message-secondary");
+    this.progressMessageSecondary = document.getElementById(
+      "progress-message-secondary"
+    );
     this.hud = this.cacheHudElements();
     this.activityLog = [];
     this.lastActivityMessage = "";
@@ -158,6 +160,11 @@ class OptimalRoutesManager {
     // Retry button
     document.getElementById("retry-btn")?.addEventListener("click", () => {
       this.generateRoute();
+    });
+
+    // Cancel button
+    document.getElementById("cancel-task-btn")?.addEventListener("click", () => {
+      this.cancelTask();
     });
 
     this.setupLayerControls();
@@ -821,6 +828,48 @@ class OptimalRoutesManager {
     }
   }
 
+  async cancelTask() {
+    if (!this.currentTaskId) {
+      this.showNotification("No task to cancel", "warning");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/optimal-routes/${this.currentTaskId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      // Close SSE connection
+      if (this.eventSource) {
+        this.eventSource.close();
+        this.eventSource = null;
+      }
+
+      // Stop elapsed timer
+      if (this.elapsedTimer) {
+        clearInterval(this.elapsedTimer);
+        this.elapsedTimer = null;
+      }
+
+      // Hide progress section
+      document.getElementById("progress-section").style.display = "none";
+      this.setHudActive(false);
+      this.setScannerActive(false);
+
+      // Re-enable generate button
+      const generateBtn = document.getElementById("generate-route-btn");
+      if (generateBtn) generateBtn.disabled = false;
+
+      this.currentTaskId = null;
+      this.showNotification(data.message || "Task cancelled", "info");
+    } catch (error) {
+      console.error("Error cancelling task:", error);
+      this.showNotification("Failed to cancel task", "danger");
+    }
+  }
+
   connectSSE(taskId) {
     // Close existing connection
     if (this.eventSource) {
@@ -876,6 +925,11 @@ class OptimalRoutesManager {
         } else if (status === "failed") {
           this.eventSource.close();
           this.showError(data.error || data.message || "Route generation failed");
+        } else if (status === "cancelled") {
+          this.eventSource.close();
+          document.getElementById("progress-section").style.display = "none";
+          this.setHudActive(false);
+          this.showNotification("Task cancelled", "info");
         }
       } catch (e) {
         console.error("SSE parse error:", e);
@@ -915,7 +969,10 @@ class OptimalRoutesManager {
       progressBar.style.width = `${data.progress}%`;
     }
 
-    const { primary, secondary, label } = this.buildProgressMessages(stage, data.message);
+    const { primary, secondary, label } = this.buildProgressMessages(
+      stage,
+      data.message
+    );
     this.setStatusMessage(primary, secondary, stage, metrics, label);
 
     // Update stage indicators
@@ -991,8 +1048,7 @@ class OptimalRoutesManager {
     const fallbackTotal = metrics.fallback_total ?? null;
     const fallbackMatched = metrics.fallback_matched ?? null;
     const mappedSegments =
-      metrics.mapped_segments ??
-      (Number(osmMatched || 0) + Number(fallbackMatched || 0));
+      metrics.mapped_segments ?? Number(osmMatched || 0) + Number(fallbackMatched || 0);
 
     if (this.hud.segments) {
       this.hud.segments.textContent = hasMetrics

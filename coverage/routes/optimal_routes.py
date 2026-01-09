@@ -272,6 +272,80 @@ async def get_active_route_task(location_id: str):
     }
 
 
+@router.delete("/api/optimal-routes/{task_id}")
+async def cancel_optimal_route_task(task_id: str):
+    """Cancel an in-progress route generation task.
+
+    Revokes the Celery task and marks it as cancelled in the database.
+    Also cancels any other active tasks for the same location.
+    """
+    from celery_app import app as celery_app
+
+    # Check if task exists
+    progress = await find_one_with_retry(
+        optimal_route_progress_collection,
+        {"task_id": task_id},
+    )
+
+    if not progress:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    location_id = progress.get("location_id")
+    current_status = progress.get("status", "")
+
+    if current_status in ("completed", "failed", "cancelled"):
+        # Even if this task is done, cancel any other active tasks for this location
+        pass
+    else:
+        # Revoke the Celery task
+        try:
+            celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")
+            logger.info("Revoked Celery task %s", task_id)
+        except Exception as e:
+            logger.warning("Could not revoke Celery task %s: %s", task_id, e)
+
+    # Cancel ALL active tasks for this location (not just this one)
+    if location_id:
+        active_statuses = ["queued", "running", "pending", "initializing"]
+        active_tasks = optimal_route_progress_collection.find(
+            {
+                "location_id": location_id,
+                "status": {"$in": active_statuses},
+            }
+        )
+
+        cancelled_count = 0
+        async for task in active_tasks:
+            tid = task.get("task_id")
+            if tid:
+                # Revoke each Celery task
+                try:
+                    celery_app.control.revoke(tid, terminate=True, signal="SIGTERM")
+                except Exception:
+                    pass
+
+                # Mark as cancelled
+                await update_one_with_retry(
+                    optimal_route_progress_collection,
+                    {"task_id": tid},
+                    {
+                        "$set": {
+                            "status": "cancelled",
+                            "stage": "cancelled",
+                            "message": "Task cancelled by user",
+                            "cancelled_at": datetime.now(UTC),
+                        }
+                    },
+                )
+                cancelled_count += 1
+
+        logger.info(
+            "Cancelled %d active tasks for location %s", cancelled_count, location_id
+        )
+
+    return {"status": "cancelled", "message": "All active tasks cancelled"}
+
+
 @router.get("/api/optimal-routes/{task_id}/progress")
 async def get_optimal_route_progress(task_id: str):
     """Get current progress for an optimal route generation task."""
@@ -359,7 +433,7 @@ async def stream_optimal_route_progress(task_id: str):
                     }
                     yield f"data: {json.dumps(data, default=str)}\n\n"
 
-                if current_status in ("completed", "failed", "error"):
+                if current_status in ("completed", "failed", "error", "cancelled"):
                     final_data = {
                         "status": current_status,
                         "stage": current_stage,

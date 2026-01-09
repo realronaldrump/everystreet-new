@@ -353,6 +353,151 @@
   }
 }
 
+/* === Immersive Experience Animations === */
+
+/* Ambient glow pulse for active/connected states */
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: var(--glow-primary);
+    opacity: 1;
+  }
+
+  50% {
+    box-shadow: var(--glow-primary-intense);
+    opacity: 0.9;
+  }
+}
+
+/* Success glow pulse for connected indicators */
+@keyframes glow-pulse-success {
+  0%,
+  100% {
+    box-shadow:
+      0 0 8px rgb(var(--success-rgb) / 50%),
+      0 0 16px rgb(var(--success-rgb) / 30%);
+  }
+
+  50% {
+    box-shadow:
+      0 0 12px rgb(var(--success-rgb) / 70%),
+      0 0 24px rgb(var(--success-rgb) / 45%);
+  }
+}
+
+/* Subtle breathing scale for interactive elements */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+/* Expanding ring for vehicle markers */
+@keyframes ring-expand {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* Double ring effect for live tracking */
+@keyframes ring-expand-delayed {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* Value flash highlight for metric updates */
+@keyframes value-flash {
+  0% {
+    background-color: rgb(var(--primary-rgb) / 25%);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Ripple effect for button touches */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* Subtle border glow animation */
+@keyframes border-glow {
+  0%,
+  100% {
+    border-color: rgb(var(--primary-rgb) / 30%);
+  }
+
+  50% {
+    border-color: rgb(var(--primary-rgb) / 50%);
+  }
+}
+
+/* Accent bar shimmer */
+@keyframes accent-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* Metric counter tick animation */
+@keyframes counter-tick {
+  0% {
+    transform: translateY(0);
+  }
+
+  25% {
+    transform: translateY(-2px);
+  }
+
+  50% {
+    transform: translateY(0);
+  }
+}
+
+/* Slide in with fade for panels */
+@keyframes slide-in-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* === Mobile Specific Animations === */
 @keyframes mobile-bounce {
   0%,
