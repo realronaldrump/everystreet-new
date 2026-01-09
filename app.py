@@ -42,6 +42,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+class StaticFileFilter(logging.Filter):
+    """Filter to suppress noisy static file request logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Filter out static file requests and favicon
+        message = record.getMessage()
+        if "/static/" in message or "/favicon.ico" in message:
+            return False
+        # Filter out Chrome DevTools requests
+        if ".well-known/appspecific" in message:
+            return False
+        return True
+
+
+# Apply the filter to uvicorn's access logger
+uvicorn_access_logger = logging.getLogger("uvicorn.access")
+uvicorn_access_logger.addFilter(StaticFileFilter())
+
 # MongoDB logging handler will be added during startup
 mongo_handler = None
 
@@ -169,7 +188,9 @@ async def shutdown_event():
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     """Handle 404 Not Found errors."""
-    logger.warning("404 Not Found: %s. Detail: %s", request.url, exc.detail)
+    # Suppress noisy Chrome DevTools requests
+    if ".well-known/appspecific" not in str(request.url):
+        logger.warning("404 Not Found: %s. Detail: %s", request.url, exc.detail)
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND,
         content={"error": "Endpoint not found", "detail": exc.detail},

@@ -89,6 +89,10 @@ class CoverageCalculator:
         self.total_trips_to_process: int = 0
         self.processed_trips_count: int = 0
 
+        # Error tracking for rate-limited logging
+        self._geospatial_error_count: int = 0
+        self._geospatial_error_sample: str = ""
+
         # Sets to track coverage during this run
         self.initial_covered_segments: set[str] = set()
         self.newly_covered_segments: set[str] = set()
@@ -354,7 +358,21 @@ class CoverageCalculator:
 
             return matched_segments
         except Exception as e:
-            logger.error(f"Geospatial query failed for task {self.task_id}: {e}")
+            # Rate-limit error logging to prevent spam
+            self._geospatial_error_count += 1
+            if self._geospatial_error_count == 1:
+                self._geospatial_error_sample = str(e)
+                logger.error(
+                    "Task %s: Geospatial query failed: %s (further errors will be summarized)",
+                    self.task_id,
+                    e,
+                )
+            elif self._geospatial_error_count % 50 == 0:
+                logger.warning(
+                    "Task %s: %d geospatial query errors so far",
+                    self.task_id,
+                    self._geospatial_error_count,
+                )
             return []
 
     async def process_trips(self, processed_trip_ids_set: set[str]) -> bool:
@@ -865,6 +883,16 @@ class CoverageCalculator:
                 )
 
             duration = (datetime.now(UTC) - start_time).total_seconds()
+
+            # Log summary of geospatial errors if any occurred
+            if self._geospatial_error_count > 0:
+                logger.warning(
+                    "Task %s: Completed with %d geospatial query errors. Sample error: %s",
+                    self.task_id,
+                    self._geospatial_error_count,
+                    self._geospatial_error_sample,
+                )
+
             logger.info(f"Task {self.task_id}: Finished in {duration:.2f}s")
 
             return final_stats

@@ -64,10 +64,10 @@ export class TableManager {
           ${this.options.pageSizes.map((size) => `<option value="${size}" ${size === this.options.pageSize ? "selected" : ""}>${size} per page</option>`).join("")}
         </select>
         <nav aria-label="Table navigation">
-          <ul class="pagination pagination-sm mb-0">
-            <li class="page-item"><button class="page-link page-prev" disabled>&laquo;</button></li>
-            <li class="page-item page-numbers"></li>
-            <li class="page-item"><button class="page-link page-next" disabled>&raquo;</button></li>
+          <ul class="pagination pagination-sm mb-0 page-numbers-list">
+            <li class="page-item page-prev-item"><button class="page-link page-prev" disabled>&laquo;</button></li>
+            <!-- Page number items will be inserted here dynamically -->
+            <li class="page-item page-next-item"><button class="page-link page-next" disabled>&raquo;</button></li>
           </ul>
         </nav>
       </div>
@@ -79,7 +79,9 @@ export class TableManager {
       info: paginationContainer.querySelector(".pagination-showing"),
       prev: paginationContainer.querySelector(".page-prev"),
       next: paginationContainer.querySelector(".page-next"),
-      numbers: paginationContainer.querySelector(".page-numbers"),
+      paginationList: paginationContainer.querySelector(".page-numbers-list"),
+      prevItem: paginationContainer.querySelector(".page-prev-item"),
+      nextItem: paginationContainer.querySelector(".page-next-item"),
       pageSize: paginationContainer.querySelector(".page-size-select"),
     };
   }
@@ -300,8 +302,12 @@ export class TableManager {
     this.controls.prev.disabled = page === 0;
     this.controls.next.disabled = page >= totalPages - 1;
 
-    // Update page numbers
-    this.controls.numbers.innerHTML = "";
+    // Remove existing page number items (everything between prev and next)
+    const existingPageItems =
+      this.controls.paginationList.querySelectorAll(".page-number-item");
+    existingPageItems.forEach((item) => item.remove());
+
+    // Calculate visible page range
     const maxVisible = 5;
     let startPage = Math.max(0, page - Math.floor(maxVisible / 2));
     const endPage = Math.min(totalPages, startPage + maxVisible);
@@ -310,12 +316,18 @@ export class TableManager {
       startPage = Math.max(0, endPage - maxVisible);
     }
 
+    // Insert new page number items before the next button
     for (let i = startPage; i < endPage; i++) {
+      const li = document.createElement("li");
+      li.className = `page-item page-number-item ${i === page ? "active" : ""}`;
+
       const btn = document.createElement("button");
-      btn.className = `page-link ${i === page ? "active" : ""}`;
+      btn.className = "page-link";
       btn.textContent = String(i + 1);
       btn.addEventListener("click", () => this.goToPage(i));
-      this.controls.numbers.appendChild(btn);
+
+      li.appendChild(btn);
+      this.controls.nextItem.before(li);
     }
   }
 

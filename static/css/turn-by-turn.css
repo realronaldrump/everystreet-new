@@ -145,7 +145,6 @@ body.light-mode .turn-by-turn {
   font-weight: 600;
   box-shadow: var(--nav-shadow);
   backdrop-filter: blur(18px) saturate(1.4);
-  backdrop-filter: blur(18px) saturate(1.4);
 }
 
 .nav-signal {
@@ -159,7 +158,6 @@ body.light-mode .turn-by-turn {
   font-weight: 600;
   color: var(--nav-muted);
   box-shadow: var(--nav-shadow);
-  backdrop-filter: blur(18px) saturate(1.4);
   backdrop-filter: blur(18px) saturate(1.4);
 }
 
@@ -191,7 +189,6 @@ body.light-mode .turn-by-turn {
   border-radius: var(--nav-radius-lg);
   background: var(--nav-surface);
   box-shadow: var(--nav-shadow);
-  backdrop-filter: blur(20px) saturate(1.4);
   backdrop-filter: blur(20px) saturate(1.4);
   pointer-events: auto;
 }
@@ -302,7 +299,6 @@ body.light-mode .turn-by-turn {
   padding: 16px 16px 14px;
   box-shadow: var(--nav-shadow);
   backdrop-filter: blur(20px) saturate(1.4);
-  backdrop-filter: blur(20px) saturate(1.4);
   pointer-events: auto;
   display: flex;
   flex-direction: column;
@@ -409,7 +405,6 @@ body.light-mode .turn-by-turn {
   padding: var(--nav-space-md);
   z-index: 3;
   background: var(--nav-surface);
-  backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   transition:
     opacity var(--nav-transition-normal),
@@ -766,7 +761,6 @@ body.light-mode .turn-by-turn {
   padding: calc(env(safe-area-inset-top) + var(--nav-space-md))
     var(--nav-space-md) var(--nav-space-md);
   background: var(--nav-surface);
-  backdrop-filter: blur(12px) saturate(1.4);
   backdrop-filter: blur(12px) saturate(1.4);
   pointer-events: auto;
 }

@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
 
     from fastapi import Request
+
 from pymongo.results import (
     DeleteResult,
     InsertManyResult,
@@ -388,7 +389,7 @@ class DatabaseManager:
 
                 idx_keys = tuple(sorted(idx_info.get("key", [])))
                 if idx_keys == keys_tuple:
-                    logger.info(
+                    logger.debug(
                         "Index with keys %s already exists as '%s' on %s, skipping creation",
                         keys_tuple,
                         idx_name,
@@ -399,7 +400,7 @@ class DatabaseManager:
             if "name" in kwargs:
                 index_name = kwargs["name"]
                 if index_name in existing_indexes:
-                    logger.info(
+                    logger.debug(
                         "Index %s already exists, skipping creation",
                         index_name,
                     )

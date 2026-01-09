@@ -211,7 +211,7 @@ async def build_street_segments(
                 "EPSG:4326"
             )
 
-            for seg_geom, seg_length in zip(geo_series, segment_lengths):
+            for seg_geom, seg_length in zip(geo_series, segment_lengths, strict=False):
                 if seg_geom is None or seg_geom.is_empty or seg_length <= 0:
                     continue
                 if seg_length < MIN_SEGMENT_LENGTH_M:
