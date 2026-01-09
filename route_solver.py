@@ -1231,7 +1231,7 @@ async def generate_optimal_route_with_progress(
                 # Fallback to individual lookup if batch fails (unlikely)
                 last_update = time.monotonic()
                 progress_interval = max(10, max(1, fallback_total) // 25)
-                for i, idx in enumerate(valid_unmatched_indices, start=1):
+                for i, _idx in enumerate(valid_unmatched_indices, start=1):
                     try:
                         u, v, k = ox.distance.nearest_edges(G, X[i], Y[i])
                         edge = (int(u), int(v), int(k))

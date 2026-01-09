@@ -822,7 +822,7 @@ export class TaskManager {
     config.disabled = globalSwitch?.checked || false;
 
     document.querySelectorAll("#taskConfigTable tbody tr").forEach((row) => {
-      const taskId = row.dataset.taskId;
+      const {taskId} = row.dataset;
       if (!taskId) return;
 
       const intervalSelect = row.querySelector(`select[data-task-id="${taskId}"]`);

@@ -319,10 +319,10 @@ async def cancel_optimal_route_task(task_id: str):
             tid = task.get("task_id")
             if tid:
                 # Revoke each Celery task
-                try:
+                import contextlib
+
+                with contextlib.suppress(Exception):
                     celery_app.control.revoke(tid, terminate=True, signal="SIGTERM")
-                except Exception:
-                    pass
 
                 # Mark as cancelled
                 await update_one_with_retry(
