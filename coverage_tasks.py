@@ -380,6 +380,20 @@ async def process_area(
                 display_name,
                 final_error,
             )
+            # Ensure progress is updated to error state so frontend stops polling
+            await update_one_with_retry(
+                progress_collection,
+                {"_id": task_id},
+                {
+                    "$set": {
+                        "stage": "error",
+                        "status": "error",
+                        "error": final_error,
+                        "message": f"Coverage calculation failed: {final_error}",
+                        "updated_at": datetime.now(UTC),
+                    },
+                },
+            )
         else:
             overall_status = "complete"
             logger.info(

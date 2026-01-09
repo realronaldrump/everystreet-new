@@ -146,7 +146,7 @@ class CoverageCalculator:
         )
         await self.update_progress(
             "indexing",
-            10,
+            42,
             f"Calculating initial stats for {self.location_name}",
         )
 
@@ -306,7 +306,7 @@ class CoverageCalculator:
         """Processes trips to find newly covered street segments using MongoDB geospatial queries."""
         await self.update_progress(
             "processing_trips",
-            50,
+            48,
             f"Starting trip analysis for {self.location_name}",
         )
 
@@ -636,6 +636,12 @@ class CoverageCalculator:
             if not result or not result[0].get("overall"):
                 logger.error(
                     f"Task {self.task_id}: Final stats aggregation returned empty."
+                )
+                await self.update_progress(
+                    "error",
+                    95,
+                    "No street data found for this location",
+                    error="No streets found - please check that the location has been preprocessed correctly",
                 )
                 return None
 
