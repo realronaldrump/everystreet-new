@@ -223,7 +223,8 @@ class TripStatsService:
             )
             raise
 
-    async def get_geocode_progress(self, task_id: str):
+    @staticmethod
+    async def get_geocode_progress(task_id: str):
         """Get progress for a geocoding task.
 
         Args:
