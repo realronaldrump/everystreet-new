@@ -510,17 +510,22 @@ class TurnByTurnNavigator {
         throw new Error("GPX route is empty.");
       }
 
-      // Process coverage baseline
-      if (coverageResponse.ok) {
-        const coverageData = await coverageResponse.json();
-        if (coverageData.success && coverageData.coverage) {
-          const cov = coverageData.coverage;
-          this.coverageBaseline = {
-            totalMi: (cov.driveable_length_m || cov.total_length || 0) / 1609.344,
-            coveredMi: (cov.driven_length_m || cov.driven_length || 0) / 1609.344,
-            percentage: cov.coverage_percentage || 0,
-          };
+      // Process coverage baseline (gracefully handle failures)
+      try {
+        if (coverageResponse.ok) {
+          const coverageData = await coverageResponse.json();
+          if (coverageData.success && coverageData.coverage) {
+            const cov = coverageData.coverage;
+            this.coverageBaseline = {
+              totalMi: (cov.driveable_length_m || cov.total_length || 0) / 1609.344,
+              coveredMi: (cov.driven_length_m || cov.driven_length || 0) / 1609.344,
+              percentage: cov.coverage_percentage || 0,
+            };
+          }
         }
+      } catch (coverageError) {
+        console.warn("Failed to load coverage baseline:", coverageError);
+        // Continue with route - coverage tracking is optional
       }
 
       this.routeCoords = coords;
@@ -558,7 +563,10 @@ class TurnByTurnNavigator {
       this.setSetupStatus(error.message, true);
       this.setNavStatus(error.message, true);
     } finally {
-      if (this.loadRouteBtn) this.loadRouteBtn.disabled = false;
+      if (this.loadRouteBtn) {
+        this.loadRouteBtn.disabled = false;
+        this.loadRouteBtn.classList.remove("loading");
+      }
     }
   }
 
@@ -1011,26 +1019,48 @@ class TurnByTurnNavigator {
       return;
     }
 
-    // Show the navigate-to-start route on map
-    if (this.navigateToStartRoute && this.map) {
-      const navToStartSource = this.map.getSource("nav-to-start");
-      if (navToStartSource) {
-        navToStartSource.setData({
-          type: "FeatureCollection",
-          features: [
-            {
-              type: "Feature",
-              geometry: this.navigateToStartRoute,
-              properties: {},
-            },
-          ],
-        });
-      }
+    // Add loading state to button
+    if (this.navToStartBtn) {
+      this.navToStartBtn.classList.add("loading");
     }
 
-    this.transitionTo(NAV_STATES.NAVIGATING_TO_START);
-    this.isNavigating = true;
-    this.startGeolocation();
+    try {
+      // If we don't have a route yet, try to fetch one
+      if (!this.navigateToStartRoute) {
+        const directions = await this.fetchDirectionsToPoint(
+          [this.lastPosition.lon, this.lastPosition.lat],
+          this.smartStartPoint
+        );
+        if (directions) {
+          this.navigateToStartRoute = directions.geometry;
+        }
+      }
+
+      // Show the navigate-to-start route on map
+      if (this.navigateToStartRoute && this.map) {
+        const navToStartSource = this.map.getSource("nav-to-start");
+        if (navToStartSource) {
+          navToStartSource.setData({
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                geometry: this.navigateToStartRoute,
+                properties: {},
+              },
+            ],
+          });
+        }
+      }
+
+      this.transitionTo(NAV_STATES.NAVIGATING_TO_START);
+      this.isNavigating = true;
+      this.startGeolocation();
+    } finally {
+      if (this.navToStartBtn) {
+        this.navToStartBtn.classList.remove("loading");
+      }
+    }
   }
 
   /**
@@ -1175,6 +1205,21 @@ class TurnByTurnNavigator {
     this.stopGeolocation();
     this.showSetupPanel();
     this.setNavStatus("Navigation ended.");
+    this.transitionTo(NAV_STATES.SETUP);
+  }
+
+  /**
+   * Cleanup resources when navigator is destroyed
+   */
+  destroy() {
+    this.stopGeolocation();
+    if (this.themeObserver) {
+      this.themeObserver.disconnect();
+      this.themeObserver = null;
+    }
+    this.positionMarker?.remove();
+    this.startMarker?.remove();
+    this.endMarker?.remove();
   }
 
   startGeolocation() {
