@@ -17,7 +17,13 @@ class CoverageUI {
   /**
    * Update coverage table
    */
-  updateCoverageTable(areas, formatRelativeTime, formatStageName, distanceInUserUnits) {
+  updateCoverageTable(
+    areas,
+    formatRelativeTime,
+    formatStageName,
+    distanceInUserUnits,
+  ) {
+    this.lastCoverageAreas = areas;
     const tableBody = document.querySelector("#coverage-areas-table tbody");
     if (!tableBody) return;
 
@@ -119,7 +125,7 @@ class CoverageUI {
           ${
             isProcessing
               ? `<div class="text-primary small mt-1"><i class="fas fa-spinner fa-spin me-1"></i>${formatStageName(
-                  status
+                  status,
                 )}...</div>`
               : ""
           }
@@ -131,7 +137,7 @@ class CoverageUI {
           parseFloat(area.driven_length || 0) * 0.000621371
         }">${drivenLengthMiles}</td>
         <td data-label="Coverage" data-order="${parseFloat(
-          area.coverage_percentage || 0
+          area.coverage_percentage || 0,
         )}">
           <div class="progress" style="height: 22px;" title="${coveragePercentage}% coverage">
             <div class="progress-bar ${progressBarColor}" role="progressbar"
@@ -144,7 +150,7 @@ class CoverageUI {
         </td>
         <td data-label="Segments" class="text-end" data-order="${parseInt(
           area.total_segments || 0,
-          10
+          10,
         )}">${area.total_segments?.toLocaleString() || 0}</td>
         <td data-label="Last Updated" data-order="${lastUpdatedOrder}">
           <span title="${lastUpdated}">${formatRelativeTime(area.last_updated)}</span>
@@ -189,6 +195,7 @@ class CoverageUI {
    * Initialize DataTable
    */
   initializeDataTable() {
+    this.dataTableInitializedAt = Date.now();
     if (!window.$ || !$.fn.DataTable) return;
 
     const table = $("#coverage-areas-table");
@@ -246,13 +253,15 @@ class CoverageUI {
   updateDashboardStats(coverage, distanceInUserUnits, formatRelativeTime) {
     if (!coverage) return;
     const statsContainer = document.querySelector(
-      ".dashboard-stats-card .stats-container"
+      ".dashboard-stats-card .stats-container",
     );
     if (!statsContainer) return;
 
     const totalLengthM = parseFloat(coverage.total_length || 0);
     const drivenLengthM = parseFloat(coverage.driven_length || 0);
-    const coveragePercentage = parseFloat(coverage.coverage_percentage || 0).toFixed(1);
+    const coveragePercentage = parseFloat(
+      coverage.coverage_percentage || 0,
+    ).toFixed(1);
     const totalSegments = parseInt(coverage.total_segments || 0, 10);
 
     let coveredSegments = 0;
@@ -266,7 +275,9 @@ class CoverageUI {
 
     const lastUpdated =
       coverage.last_stats_update || coverage.last_updated
-        ? formatRelativeTime(coverage.last_stats_update || coverage.last_updated)
+        ? formatRelativeTime(
+            coverage.last_stats_update || coverage.last_updated,
+          )
         : "Never";
 
     let barColor = "bg-success";
@@ -281,14 +292,14 @@ class CoverageUI {
         ${this.createStatItem(
           distanceInUserUnits(drivenLengthM),
           "Driven Length",
-          "text-success"
+          "text-success",
         )}
         ${this.createStatItem(`${coveragePercentage}%`, "Coverage", "text-primary")}
         ${this.createStatItem(totalSegments.toLocaleString(), "Total Segments")}
         ${this.createStatItem(
           coveredSegments.toLocaleString(),
           "Driven Segments",
-          "text-success"
+          "text-success",
         )}
         ${this.createStatItem(lastUpdated, "Last Updated", "text-muted", "small")}
       </div>
@@ -313,6 +324,7 @@ class CoverageUI {
    * Create stat item
    */
   createStatItem(value, label, valueClass = "", labelClass = "") {
+    this.lastStatItem = { value, label, valueClass, labelClass };
     return `
       <div class="col-md-4 col-6">
         <div class="stat-item">
@@ -326,33 +338,38 @@ class CoverageUI {
    * Update street type coverage
    */
   updateStreetTypeCoverage(streetTypes, distanceInUserUnits, formatStreetType) {
-    const streetTypeCoverageEl = document.getElementById("street-type-coverage");
+    const streetTypeCoverageEl = document.getElementById(
+      "street-type-coverage",
+    );
     if (!streetTypeCoverageEl) return;
 
     if (!streetTypes || !streetTypes.length) {
       streetTypeCoverageEl.innerHTML = this.createAlertMessage(
         "No Data",
         "No street type data available.",
-        "secondary"
+        "secondary",
       );
       return;
     }
 
     const sortedTypes = [...streetTypes].sort(
-      (a, b) => parseFloat(b.total_length_m || 0) - parseFloat(a.total_length_m || 0)
+      (a, b) =>
+        parseFloat(b.total_length_m || 0) - parseFloat(a.total_length_m || 0),
     );
     const topTypes = sortedTypes.slice(0, 6);
 
     let html = "";
     topTypes.forEach((type) => {
       const coveragePct = parseFloat(type.coverage_percentage || 0).toFixed(1);
-      const coveredDist = distanceInUserUnits(parseFloat(type.covered_length_m || 0));
+      const coveredDist = distanceInUserUnits(
+        parseFloat(type.covered_length_m || 0),
+      );
       const totalDist = distanceInUserUnits(
         parseFloat(
           (type.driveable_length_m !== undefined
             ? type.driveable_length_m
-            : type.total_length_m) || 0
-        )
+            : type.total_length_m) || 0,
+        ),
       );
       const denominatorLabel =
         type.driveable_length_m !== undefined ? "Driveable" : "Total";
@@ -365,12 +382,12 @@ class CoverageUI {
         <div class="street-type-item mb-2">
           <div class="d-flex justify-content-between align-items-center mb-1">
             <small class="fw-bold text-truncate me-2" title="${formatStreetType(
-              type.type
+              type.type,
             )}">${formatStreetType(type.type)}</small>
             <small class="text-muted text-nowrap">${coveragePct}% (${coveredDist} / ${totalDist} ${denominatorLabel})</small>
           </div>
           <div class="progress" style="height: 8px;" title="${formatStreetType(
-            type.type
+            type.type,
           )}: ${coveragePct}% Covered">
             <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePct}%"
                  aria-valuenow="${coveragePct}" aria-valuemin="0" aria-valuemax="100"></div>
@@ -393,7 +410,7 @@ class CoverageUI {
       chartContainer.innerHTML = this.createAlertMessage(
         "No Data",
         "No street type data available for chart.",
-        "secondary"
+        "secondary",
       );
       return;
     }
@@ -402,13 +419,19 @@ class CoverageUI {
       .sort((a, b) => (b.total_length_m || 0) - (a.total_length_m || 0))
       .slice(0, 10);
     const labels = sortedTypes.map((t) => formatStreetType(t.type));
-    const covered = sortedTypes.map((t) => (t.covered_length_m || 0) * 0.000621371);
-    const driveable = sortedTypes.map((t) => (t.driveable_length_m || 0) * 0.000621371);
+    const covered = sortedTypes.map(
+      (t) => (t.covered_length_m || 0) * 0.000621371,
+    );
+    const driveable = sortedTypes.map(
+      (t) => (t.driveable_length_m || 0) * 0.000621371,
+    );
     const coveragePct = sortedTypes.map((t) => t.coverage_percentage || 0);
 
     chartContainer.innerHTML =
       '<canvas id="streetTypeChartCanvas" style="min-height: 180px;"></canvas>';
-    const ctx = document.getElementById("streetTypeChartCanvas").getContext("2d");
+    const ctx = document
+      .getElementById("streetTypeChartCanvas")
+      .getContext("2d");
 
     this.streetTypeChartInstance = new Chart(ctx, {
       type: "bar",
@@ -489,10 +512,14 @@ class CoverageUI {
    */
   updateUndrivenStreetsList(geojson, distanceInUserUnits) {
     if (!this.undrivenStreetsContainer) {
-      this.undrivenStreetsContainer = document.getElementById("undriven-streets-list");
+      this.undrivenStreetsContainer = document.getElementById(
+        "undriven-streets-list",
+      );
     }
     if (!this.undrivenSortSelect) {
-      this.undrivenSortSelect = document.getElementById("undriven-streets-sort");
+      this.undrivenSortSelect = document.getElementById(
+        "undriven-streets-sort",
+      );
       if (
         this.undrivenSortSelect &&
         !this.undrivenSortSelect.dataset.listenerAttached
@@ -502,7 +529,7 @@ class CoverageUI {
           document.dispatchEvent(
             new CustomEvent("coverageUndrivenSortChanged", {
               detail: this.undrivenSortCriterion,
-            })
+            }),
           );
         });
         this.undrivenSortSelect.dataset.listenerAttached = "true";
@@ -511,11 +538,15 @@ class CoverageUI {
     const container = this.undrivenStreetsContainer;
     if (!container) return;
 
-    if (!geojson || !Array.isArray(geojson.features) || !geojson.features.length) {
+    if (
+      !geojson ||
+      !Array.isArray(geojson.features) ||
+      !geojson.features.length
+    ) {
       container.innerHTML = this.createAlertMessage(
         "No Data",
         "No street data available.",
-        "secondary"
+        "secondary",
       );
       return;
     }
@@ -547,7 +578,7 @@ class CoverageUI {
       container.innerHTML = this.createAlertMessage(
         "All Covered",
         "Great job! Every street has at least one driven segment.",
-        "success"
+        "success",
       );
       return;
     }
@@ -588,7 +619,7 @@ class CoverageUI {
       el.addEventListener("click", () => {
         const street = el.dataset.streetName || el.textContent.trim();
         document.dispatchEvent(
-          new CustomEvent("coverageShowStreet", { detail: street })
+          new CustomEvent("coverageShowStreet", { detail: street }),
         );
       });
     });
@@ -601,7 +632,7 @@ class CoverageUI {
     document.getElementById("dashboard-location-name").textContent =
       "Select a location";
     const statsContainer = document.querySelector(
-      ".dashboard-stats-card .stats-container"
+      ".dashboard-stats-card .stats-container",
     );
     if (statsContainer) statsContainer.innerHTML = "";
 
@@ -629,17 +660,20 @@ class CoverageUI {
         secondary: "fa-question-circle",
       }[type] || "fa-info-circle";
 
-    return `
+    const content = `
       <div class="alert alert-${type} m-3 fade-in-up">
         <h5 class="alert-heading h6 mb-1"><i class="fas ${iconClass} me-2"></i>${title}</h5>
         <p class="small mb-0">${message}</p>
       </div>`;
+    this.lastAlertMessage = { title, message, type, content };
+    return content;
   }
 
   /**
    * Create loading skeleton
    */
   createLoadingSkeleton(height, count = 1) {
+    this.lastLoadingSkeleton = { height, count };
     let skeletonHtml = "";
     for (let i = 0; i < count; i++) {
       skeletonHtml += `<div class="loading-skeleton skeleton-shimmer mb-2" style="height: ${height}px;"></div>`;
@@ -651,6 +685,7 @@ class CoverageUI {
    * Create loading indicator
    */
   createLoadingIndicator(message = "Loading...") {
+    this.lastLoadingIndicatorMessage = message;
     return `
       <div class="d-flex flex-column align-items-center justify-content-center p-4 text-center text-muted h-100">
         <div class="loading-indicator mb-3"></div>

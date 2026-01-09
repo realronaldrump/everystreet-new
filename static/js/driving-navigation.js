@@ -9,7 +9,8 @@ const DRIVING_NAV_DEFAULTS = {
 
 class DrivingNavigation {
   constructor(options = {}) {
-    const globalConfig = window.coverageNavigatorConfig?.drivingNavigation || {};
+    const globalConfig =
+      window.coverageNavigatorConfig?.drivingNavigation || {};
     this.config = {
       ...DRIVING_NAV_DEFAULTS,
       ...globalConfig,
@@ -21,13 +22,17 @@ class DrivingNavigation {
     // DOM Elements
     this.areaSelect = document.getElementById(this.config.areaSelectId);
     this.findBtn = document.getElementById("find-next-street-btn");
-    this.findEfficientBtn = document.getElementById("find-efficient-street-btn");
+    this.findEfficientBtn = document.getElementById(
+      "find-efficient-street-btn",
+    );
     this.statusMsg = document.getElementById("status-message");
     this.targetInfo = document.getElementById("target-info");
     this.autoFollowToggle = document.getElementById("auto-follow-toggle");
     this.openGoogleMapsBtn = document.getElementById("open-google-maps-btn");
     this.openAppleMapsBtn = document.getElementById("open-apple-maps-btn");
-    this.progressContainer = document.getElementById("route-progress-container");
+    this.progressContainer = document.getElementById(
+      "route-progress-container",
+    );
     this.progressBar = document.getElementById("route-progress-bar");
     this.processingStatus = document.getElementById("processing-status");
     this.routeDetails = document.getElementById("route-details");
@@ -80,9 +85,13 @@ class DrivingNavigation {
 
     return new Promise((resolve, reject) => {
       try {
-        const mapContainer = document.getElementById(this.config.mapContainerId);
+        const mapContainer = document.getElementById(
+          this.config.mapContainerId,
+        );
         if (!mapContainer) {
-          throw new Error(`Map container #${this.config.mapContainerId} not found!`);
+          throw new Error(
+            `Map container #${this.config.mapContainerId} not found!`,
+          );
         }
 
         mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
@@ -127,7 +136,10 @@ class DrivingNavigation {
       if (resolve) resolve();
     };
 
-    if (typeof this.map.isStyleLoaded === "function" && this.map.isStyleLoaded()) {
+    if (
+      typeof this.map.isStyleLoaded === "function" &&
+      this.map.isStyleLoaded()
+    ) {
       handleLoad();
     } else {
       this.map.on("load", handleLoad);
@@ -236,18 +248,22 @@ class DrivingNavigation {
     this.areaSelect?.addEventListener("change", () => this.handleAreaChange());
     this.findBtn?.addEventListener("click", () => this.findAndDisplayRoute());
     this.findEfficientBtn?.addEventListener("click", () =>
-      this.findEfficientStreetClusters()
+      this.findEfficientStreetClusters(),
     );
     this.autoFollowToggle?.addEventListener("change", (e) =>
-      this.saveAutoFollowState(e.target.checked)
+      this.saveAutoFollowState(e.target.checked),
     );
-    this.openGoogleMapsBtn?.addEventListener("click", () => this.openInGoogleMaps());
-    this.openAppleMapsBtn?.addEventListener("click", () => this.openInAppleMaps());
+    this.openGoogleMapsBtn?.addEventListener("click", () =>
+      this.openInGoogleMaps(),
+    );
+    this.openAppleMapsBtn?.addEventListener("click", () =>
+      this.openInAppleMaps(),
+    );
 
     // Listen for updates from LiveTripTracker
     document.addEventListener(
       "liveTrackingUpdated",
-      this.handleLiveTrackingUpdate.bind(this)
+      this.handleLiveTrackingUpdate.bind(this),
     );
 
     // Listen for coverage areas being loaded by OptimalRoutesManager
@@ -263,11 +279,15 @@ class DrivingNavigation {
   handleLiveTrackingUpdate(event) {
     const { detail } = event;
     if (detail.trip?.coordinates && detail.trip.coordinates.length > 0) {
-      const lastCoord = detail.trip.coordinates[detail.trip.coordinates.length - 1];
+      const lastCoord =
+        detail.trip.coordinates[detail.trip.coordinates.length - 1];
       this.lastKnownLocation = { lat: lastCoord.lat, lon: lastCoord.lon };
 
       if (this.getAutoFollowState()) {
-        this.map.panTo([this.lastKnownLocation.lon, this.lastKnownLocation.lat]);
+        this.map.panTo([
+          this.lastKnownLocation.lon,
+          this.lastKnownLocation.lat,
+        ]);
       }
 
       // Enable buttons if they were disabled due to no location
@@ -290,11 +310,13 @@ class DrivingNavigation {
 
   loadAutoFollowState() {
     if (!this.autoFollowToggle) return;
-    const savedState = window.localStorage.getItem("drivingNavAutoFollow") === "true";
+    const savedState =
+      window.localStorage.getItem("drivingNavAutoFollow") === "true";
     this.autoFollowToggle.checked = savedState;
   }
 
   saveAutoFollowState(isEnabled) {
+    this.autoFollowState = isEnabled;
     window.localStorage.setItem("drivingNavAutoFollow", isEnabled);
   }
 
@@ -336,7 +358,8 @@ class DrivingNavigation {
       console.error("Error loading coverage areas:", error);
       this.setStatus(`Error loading areas: ${error.message}`, true);
       if (this.areaSelect)
-        this.areaSelect.innerHTML = '<option value="">Error loading areas</option>';
+        this.areaSelect.innerHTML =
+          '<option value="">Error loading areas</option>';
     }
   }
 
@@ -381,7 +404,9 @@ class DrivingNavigation {
         if (btn) btn.disabled = true;
       });
       this.setStatus("Select an area.");
-      const routeDetailsContent = document.getElementById("route-details-content");
+      const routeDetailsContent = document.getElementById(
+        "route-details-content",
+      );
       if (routeDetailsContent) routeDetailsContent.innerHTML = "";
       if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
       if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
@@ -393,7 +418,7 @@ class DrivingNavigation {
       const areaMatch = this.coverageAreas.find(
         (area) =>
           String(area._id || area.id || "") === selectedValue ||
-          String(area.location?.id || "") === selectedValue
+          String(area.location?.id || "") === selectedValue,
       );
 
       if (areaMatch) {
@@ -415,14 +440,16 @@ class DrivingNavigation {
       }
 
       this.setStatus(
-        `Area selected: ${this.selectedArea.location.display_name}. Loading streets...`
+        `Area selected: ${this.selectedArea.location.display_name}. Loading streets...`,
       );
       buttons.forEach((btn) => {
         if (btn) btn.disabled = false;
       });
 
       if (this.targetInfo) this.targetInfo.innerHTML = "";
-      const routeDetailsContent = document.getElementById("route-details-content");
+      const routeDetailsContent = document.getElementById(
+        "route-details-content",
+      );
       if (routeDetailsContent) routeDetailsContent.innerHTML = "";
       if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
       if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
@@ -440,7 +467,8 @@ class DrivingNavigation {
   }
 
   async fetchAndDisplayUndrivenStreets() {
-    if (!this.selectedArea) return this.setStatus("Please select an area first.", true);
+    if (!this.selectedArea)
+      return this.setStatus("Please select an area first.", true);
     if (!this.map) return this.setStatus("Map not initialized.", true);
 
     this.showProgressContainer();
@@ -456,7 +484,9 @@ class DrivingNavigation {
     });
 
     if (this.targetInfo) this.targetInfo.innerHTML = "";
-    const routeDetailsContent = document.getElementById("route-details-content");
+    const routeDetailsContent = document.getElementById(
+      "route-details-content",
+    );
     if (routeDetailsContent) routeDetailsContent.innerHTML = "";
     this.hideRouteDetails();
     if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
@@ -485,7 +515,7 @@ class DrivingNavigation {
 
       if (geojson?.features?.length > 0) {
         const driveableFeatures = geojson.features.filter(
-          (feature) => !feature.properties?.undriveable
+          (feature) => !feature.properties?.undriveable,
         );
         const driveableGeoJSON = {
           type: "FeatureCollection",
@@ -511,12 +541,12 @@ class DrivingNavigation {
         this.updateProgress(100, "Loaded undriven streets!");
         setTimeout(() => this.hideProgressContainer(), 1000);
         this.setStatus(
-          `Loaded ${driveableFeatures.length} undriven streets in ${this.selectedArea.location.display_name}.`
+          `Loaded ${driveableFeatures.length} undriven streets in ${this.selectedArea.location.display_name}.`,
         );
       } else {
         this.hideProgressContainer();
         this.setStatus(
-          `No undriven streets found in ${this.selectedArea.location.display_name}.`
+          `No undriven streets found in ${this.selectedArea.location.display_name}.`,
         );
       }
     } catch (error) {
@@ -527,13 +557,15 @@ class DrivingNavigation {
   }
 
   async findAndDisplayRoute() {
-    if (!this.selectedArea) return this.setStatus("Please select an area first.", true);
+    if (!this.selectedArea)
+      return this.setStatus("Please select an area first.", true);
     if (this.isFetchingRoute) return;
 
     this.isFetchingRoute = true;
     const originalHtml = this.findBtn.innerHTML;
     this.findBtn.disabled = true;
-    this.findBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finding Route...';
+    this.findBtn.innerHTML =
+      '<i class="fas fa-spinner fa-spin"></i> Finding Route...';
 
     this.setStatus("Calculating route to nearest undriven street...");
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
@@ -547,7 +579,9 @@ class DrivingNavigation {
     }
 
     if (this.targetInfo) this.targetInfo.innerHTML = "";
-    const routeDetailsContent = document.getElementById("route-details-content");
+    const routeDetailsContent = document.getElementById(
+      "route-details-content",
+    );
     if (routeDetailsContent) routeDetailsContent.innerHTML = "";
     this.hideRouteDetails();
     if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = true;
@@ -580,7 +614,8 @@ class DrivingNavigation {
       if (data.status === "completed") {
         this.hideProgressContainer();
         this.setStatus(data.message);
-        if (notificationManager) notificationManager.show(data.message, "success");
+        if (notificationManager)
+          notificationManager.show(data.message, "success");
       } else if (
         data.status === "success" &&
         data.route_geometry &&
@@ -591,7 +626,9 @@ class DrivingNavigation {
         this.updateProgress(100, "Route calculation complete!");
         setTimeout(() => this.hideProgressContainer(), 1000);
       } else {
-        throw new Error(data.message || "Received unexpected success response.");
+        throw new Error(
+          data.message || "Received unexpected success response.",
+        );
       }
     } catch (error) {
       const errorMessage = await this._parseError(error);
@@ -648,7 +685,9 @@ class DrivingNavigation {
       if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = true;
     }
 
-    const routeDetailsContent = document.getElementById("route-details-content");
+    const routeDetailsContent = document.getElementById(
+      "route-details-content",
+    );
     if (routeDetailsContent) {
       routeDetailsContent.innerHTML = `
         <div class="route-info-detail">
@@ -697,7 +736,7 @@ class DrivingNavigation {
       // Fallback: search through all features
       const allFeatures = this.map.querySourceFeatures("undriven-streets");
       const targetFeature = allFeatures.find(
-        (f) => f.properties?.segment_id === segmentId
+        (f) => f.properties?.segment_id === segmentId,
       );
       if (targetFeature) {
         targetSource.setData({
@@ -730,7 +769,7 @@ class DrivingNavigation {
       } catch {
         this.setStatus(
           "Unable to get current location. Please enable location services.",
-          true
+          true,
         );
         return;
       }
@@ -767,9 +806,11 @@ class DrivingNavigation {
         this.displayEfficientClusters(data.suggested_clusters);
 
         const topCluster = data.suggested_clusters[0];
-        const distanceMiles = (topCluster.distance_to_cluster_m / 1609.34).toFixed(1);
+        const distanceMiles = (
+          topCluster.distance_to_cluster_m / 1609.34
+        ).toFixed(1);
         this.setStatus(
-          `Found ${data.suggested_clusters.length} efficient clusters. Top cluster: ${topCluster.segment_count} streets, ${distanceMiles} mi away.`
+          `Found ${data.suggested_clusters.length} efficient clusters. Top cluster: ${topCluster.segment_count} streets, ${distanceMiles} mi away.`,
         );
         this.displayEfficientClustersInfo(data.suggested_clusters);
 
@@ -801,7 +842,7 @@ class DrivingNavigation {
       if (notificationManager)
         notificationManager.show(
           `Error finding efficient clusters: ${errorMessage}`,
-          "danger"
+          "danger",
         );
     } finally {
       this.findEfficientBtn.disabled = false;
@@ -835,7 +876,7 @@ class DrivingNavigation {
       el.innerHTML = `<div class="cluster-marker-wrapper"><div class="cluster-marker-inner" style="background-color: ${this.clusterColors[index]};"><div class="cluster-number">${index + 1}</div><div class="cluster-count">${cluster.segment_count}</div></div></div>`;
 
       const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-        this.createClusterPopup(cluster, index)
+        this.createClusterPopup(cluster, index),
       );
 
       const marker = new mapboxgl.Marker(el)
@@ -881,7 +922,10 @@ class DrivingNavigation {
       const feature = e.features[0];
       const popupContent = this.createSegmentPopup(feature);
 
-      new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(popupContent).addTo(this.map);
+      new mapboxgl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(popupContent)
+        .addTo(this.map);
     });
 
     // Delegate click for dynamically created popup buttons
@@ -899,16 +943,21 @@ class DrivingNavigation {
   }
 
   async _parseError(error) {
-    if (error instanceof Error) return error.message;
-    if (error instanceof Response) {
+    let message = "An unknown error occurred.";
+
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (error instanceof Response) {
       try {
         const err = await error.json();
-        return err.detail || JSON.stringify(err);
+        message = err.detail || JSON.stringify(err);
       } catch {
-        return error.statusText || `HTTP ${error.status}`;
+        message = error.statusText || `HTTP ${error.status}`;
       }
     }
-    return "An unknown error occurred.";
+
+    this.lastParsedErrorMessage = message;
+    return message;
   }
 
   showProgressContainer() {
@@ -916,7 +965,8 @@ class DrivingNavigation {
     this.resetSteps();
   }
   hideProgressContainer() {
-    if (this.progressContainer) this.progressContainer.classList.remove("active");
+    if (this.progressContainer)
+      this.progressContainer.classList.remove("active");
   }
   updateProgress(percent, status) {
     if (this.progressBar) this.progressBar.style.width = `${percent}%`;
@@ -924,9 +974,11 @@ class DrivingNavigation {
   }
   resetSteps() {
     this.currentStep = null;
-    [this.stepClustering, this.stepOptimizing, this.stepRendering].forEach((s) => {
-      s.className = "step";
-    });
+    [this.stepClustering, this.stepOptimizing, this.stepRendering].forEach(
+      (s) => {
+        s.className = "step";
+      },
+    );
   }
   setActiveStep(step) {
     this.resetSteps();
@@ -960,7 +1012,8 @@ class DrivingNavigation {
               ? "step completed"
               : "step";
       if (steps.rendering.el)
-        steps.rendering.el.className = step === "rendering" ? "step active" : "step";
+        steps.rendering.el.className =
+          step === "rendering" ? "step active" : "step";
       this.updateProgress(steps[step].progress, steps[step].text);
     }
   }
@@ -979,7 +1032,9 @@ class DrivingNavigation {
     const props = segment.properties;
     const streetName = props.street_name || "Unnamed Street";
     const segmentId = props.segment_id || "Unknown";
-    return `<div class="segment-popup"><h6>${streetName}</h6><div class="small text-muted">Segment ID: ${segmentId}</div><div class="mt-2"><button class="btn btn-sm btn-primary navigate-to-segment" data-segment-id="${segmentId}"><i class="fas fa-route me-1"></i> Navigate Here</button></div></div>`;
+    const content = `<div class="segment-popup"><h6>${streetName}</h6><div class="small text-muted">Segment ID: ${segmentId}</div><div class="mt-2"><button class="btn btn-sm btn-primary navigate-to-segment" data-segment-id="${segmentId}"><i class="fas fa-route me-1"></i> Navigate Here</button></div></div>`;
+    this.lastSegmentPopup = { segmentId, content };
+    return content;
   }
   async findRouteToSegment(segmentId) {
     if (!this.selectedArea || !segmentId) return;
@@ -1024,10 +1079,14 @@ class DrivingNavigation {
     const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(1);
     const lengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
     const score = cluster.efficiency_score.toFixed(2);
-    return `<div class="efficient-cluster-popup"><h6>Cluster #${rank + 1}</h6><div class="cluster-stats small"><div><i class="fas fa-road"></i> ${cluster.segment_count} streets</div><div><i class="fas fa-ruler"></i> ${lengthMiles} mi total</div><div><i class="fas fa-location-arrow"></i> ${distanceMiles} mi away</div><div><i class="fas fa-chart-line"></i> Score: ${score}</div></div><button class="btn btn-sm btn-primary mt-2 navigate-to-segment" data-segment-id="${cluster.nearest_segment.segment_id}"><i class="fas fa-route me-1"></i> Navigate to Cluster</button></div>`;
+    const content = `<div class="efficient-cluster-popup"><h6>Cluster #${rank + 1}</h6><div class="cluster-stats small"><div><i class="fas fa-road"></i> ${cluster.segment_count} streets</div><div><i class="fas fa-ruler"></i> ${lengthMiles} mi total</div><div><i class="fas fa-location-arrow"></i> ${distanceMiles} mi away</div><div><i class="fas fa-chart-line"></i> Score: ${score}</div></div><button class="btn btn-sm btn-primary mt-2 navigate-to-segment" data-segment-id="${cluster.nearest_segment.segment_id}"><i class="fas fa-route me-1"></i> Navigate to Cluster</button></div>`;
+    this.lastClusterPopup = { rank, content };
+    return content;
   }
   displayEfficientClustersInfo(clusters) {
-    const routeDetailsContent = document.getElementById("route-details-content");
+    const routeDetailsContent = document.getElementById(
+      "route-details-content",
+    );
     if (!routeDetailsContent || !clusters || clusters.length === 0) return;
 
     const totalSegments = clusters.reduce((sum, c) => sum + c.segment_count, 0);
@@ -1057,7 +1116,7 @@ class DrivingNavigation {
             <strong style="color: ${this.clusterColors[i]};">Cluster #${i + 1}</strong>
             - ${c.segment_count} streets, ${(c.distance_to_cluster_m / 1609.34).toFixed(1)} mi away
           </div>
-        `
+        `,
           )
           .join("")}
       </div>
@@ -1070,6 +1129,7 @@ class DrivingNavigation {
     });
   }
   getCurrentPosition() {
+    this.lastGeolocationRequestTime = Date.now();
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject(new Error("Geolocation is not supported"));
@@ -1087,7 +1147,7 @@ class DrivingNavigation {
     const { start, end } = this.currentRoute;
     window.open(
       `https://www.google.com/maps/dir/?api=1&origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}&travelmode=driving`,
-      "_blank"
+      "_blank",
     );
   }
   openInAppleMaps() {
@@ -1095,7 +1155,7 @@ class DrivingNavigation {
     const { start, end } = this.currentRoute;
     window.open(
       `maps://maps.apple.com/?daddr=${end.lat},${end.lng}&saddr=${start.lat},${start.lng}`,
-      "_blank"
+      "_blank",
     );
   }
   formatLocationSource(source) {
@@ -1106,14 +1166,16 @@ class DrivingNavigation {
       "last-trip-end-multi": "last trip",
       "last-trip-end-point": "last trip",
     };
-    return sourceLabels[source] || source || "unknown";
+    const label = sourceLabels[source] || source || "unknown";
+    this.lastLocationSourceLabel = label;
+    return label;
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   if (typeof mapboxgl === "undefined") {
     console.error(
-      "Mapbox GL JS library not found. Driving Navigation cannot initialize."
+      "Mapbox GL JS library not found. Driving Navigation cannot initialize.",
     );
     const mapContainerId =
       window.coverageNavigatorConfig?.drivingNavigation?.mapContainerId ||

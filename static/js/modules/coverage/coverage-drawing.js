@@ -23,7 +23,7 @@ class CoverageDrawing {
 
     if (!window.MAPBOX_ACCESS_TOKEN) {
       this.showDrawingError(
-        "Mapbox token not configured. Cannot initialize drawing map."
+        "Mapbox token not configured. Cannot initialize drawing map.",
       );
       return;
     }
@@ -31,7 +31,8 @@ class CoverageDrawing {
     try {
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
       const mapStyle =
         theme === "light"
           ? "mapbox://styles/mapbox/light-v11"
@@ -71,14 +72,16 @@ class CoverageDrawing {
         });
       } else {
         this.showDrawingError(
-          "MapboxDraw library not loaded. Cannot enable drawing functionality."
+          "MapboxDraw library not loaded. Cannot enable drawing functionality.",
         );
       }
 
       this.drawingMap.addControl(new mapboxgl.NavigationControl(), "top-right");
     } catch (error) {
       console.error("Error initializing drawing map:", error);
-      this.showDrawingError(`Failed to initialize drawing map: ${error.message}`);
+      this.showDrawingError(
+        `Failed to initialize drawing map: ${error.message}`,
+      );
     }
   }
 
@@ -86,7 +89,7 @@ class CoverageDrawing {
    * Get drawing styles
    */
   getDrawingStyles() {
-    return [
+    const styles = [
       {
         id: "gl-draw-polygon-fill-inactive",
         type: "fill",
@@ -181,6 +184,8 @@ class CoverageDrawing {
         },
       },
     ];
+    this.drawingStylesCache = styles;
+    return styles;
   }
 
   /**
@@ -290,6 +295,7 @@ class CoverageDrawing {
    * Show drawing error
    */
   showDrawingError(message) {
+    this.lastDrawingErrorMessage = message;
     const mapContainer = document.getElementById("drawing-map");
     if (mapContainer) {
       mapContainer.innerHTML = `
@@ -305,6 +311,7 @@ class CoverageDrawing {
    * Show drawing validation result
    */
   showDrawingValidationResult(data) {
+    this.lastValidationResult = data;
     const resultDiv = document.getElementById("drawing-validation-result");
     const messageSpan = resultDiv?.querySelector(".drawing-validation-message");
 
@@ -318,6 +325,7 @@ class CoverageDrawing {
    * Hide drawing validation result
    */
   hideDrawingValidationResult() {
+    this.lastValidationHiddenAt = Date.now();
     const resultDiv = document.getElementById("drawing-validation-result");
     if (resultDiv) {
       resultDiv.classList.add("d-none");

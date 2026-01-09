@@ -318,12 +318,16 @@ class CoverageManager {
    * Compute a simple hash of the areas data to detect changes
    */
   _computeAreasHash(areas) {
+    this.lastAreasHashInput = areas;
+    const hash = areas
     return areas
       .map(
         (a) =>
           `${a._id}:${a.status}:${a.coverage_percentage}:${a.last_updated}`,
       )
       .join("|");
+    this.lastAreasHash = hash;
+    return hash;
   }
 
   /**
@@ -1728,6 +1732,7 @@ class CoverageManager {
     locationName,
     defaults = { segment: 300, buffer: 50, min: 15 },
   ) {
+    this.lastMatchSettingsRequest = { locationName, defaults };
     return new Promise((resolve) => {
       const modalEl = document.getElementById("segmentLengthModal");
       if (!modalEl) return resolve(null);
@@ -2048,6 +2053,7 @@ class CoverageManager {
    * Setup accessibility
    */
   setupAccessibility() {
+    this.accessibilityInitialized = true;
     const liveRegion = document.createElement("div");
     liveRegion.setAttribute("aria-live", "polite");
     liveRegion.setAttribute("aria-atomic", "true");
@@ -2066,6 +2072,7 @@ class CoverageManager {
    * Show enhanced confirm dialog
    */
   async showEnhancedConfirmDialog(options) {
+    this.lastConfirmDialogOptions = options;
     return new Promise((resolve) => {
       const modalHtml = `
         <div class="modal fade" tabindex="-1" aria-hidden="true">
@@ -2125,6 +2132,7 @@ class CoverageManager {
    * Initialize tooltips
    */
   initTooltips() {
+    this.lastTooltipInitAt = Date.now();
     const tooltipTriggerList = document.querySelectorAll(
       '[data-bs-toggle="tooltip"]',
     );
@@ -2153,6 +2161,7 @@ class CoverageManager {
       COVERAGE_API.getAllAreas().then((areas) => {
         countElement.textContent = areas.length;
         countElement.classList.add("fade-in-up");
+        this.totalAreasCount = areas.length;
       });
     } else {
       countElement.textContent = count;
@@ -2195,14 +2204,23 @@ class CoverageManager {
     const days = Math.floor(hours / 24);
 
     if (days > 7) {
-      return date.toLocaleDateString();
+      const formatted = date.toLocaleDateString();
+      this.lastRelativeTime = formatted;
+      return formatted;
     } else if (days > 0) {
-      return `${days} day${days > 1 ? "s" : ""} ago`;
+      const formatted = `${days} day${days > 1 ? "s" : ""} ago`;
+      this.lastRelativeTime = formatted;
+      return formatted;
     } else if (hours > 0) {
-      return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+      const formatted = `${hours} hour${hours > 1 ? "s" : ""} ago`;
+      this.lastRelativeTime = formatted;
+      return formatted;
     } else if (minutes > 0) {
-      return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+      const formatted = `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+      this.lastRelativeTime = formatted;
+      return formatted;
     }
+    this.lastRelativeTime = "Just now";
     return "Just now";
   }
 
@@ -2215,9 +2233,12 @@ class CoverageManager {
       safeMeters = 0;
     }
     const miles = safeMeters * 0.000621371;
-    return miles < 0.1
-      ? `${(safeMeters * 3.28084).toFixed(0)} ft`
-      : `${miles.toFixed(fixed)} mi`;
+    const formatted =
+      miles < 0.1
+        ? `${(safeMeters * 3.28084).toFixed(0)} ft`
+        : `${miles.toFixed(fixed)} mi`;
+    this.lastDistanceInUserUnits = formatted;
+    return formatted;
   }
 
   /**
@@ -2225,7 +2246,11 @@ class CoverageManager {
    */
   formatStreetType(type) {
     if (!type) return "Unknown";
-    return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    const formatted = type
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+    this.lastStreetTypeLabel = formatted;
+    return formatted;
   }
 }
 

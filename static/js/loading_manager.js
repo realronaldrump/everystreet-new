@@ -118,7 +118,9 @@ class LoadingManager {
     }
 
     // Ensure minimum show time to prevent flicker
-    const elapsed = this.showStartTime ? Date.now() - this.showStartTime : Infinity;
+    const elapsed = this.showStartTime
+      ? Date.now() - this.showStartTime
+      : Infinity;
     const delay = Math.max(0, this.minShowTime - elapsed);
 
     this.hideTimeout = setTimeout(() => {
@@ -170,6 +172,7 @@ class LoadingManager {
    * @param {number} duration - How long to show (ms)
    */
   pulse(message, duration = 2000) {
+    this.lastPulse = { message, duration, timestamp: Date.now() };
     // Create a temporary notification that doesn't block the UI
     const notification = document.createElement("div");
     notification.className = "loading-pulse";
@@ -290,7 +293,10 @@ class LoadingManager {
 }
 
 // Create singleton instance
-if (!window.loadingManager || typeof window.loadingManager.show !== "function") {
+if (
+  !window.loadingManager ||
+  typeof window.loadingManager.show !== "function"
+) {
   window.loadingManager = new LoadingManager();
 }
 
