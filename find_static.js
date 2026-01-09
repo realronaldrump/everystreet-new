@@ -1,34 +1,40 @@
-const fs = require('fs');
-const path = require('path');
-const acorn = require('acorn');
-const { execSync } = require('child_process');
+const fs = require("fs");
+const path = require("path");
+const acorn = require("acorn");
+const { execSync } = require("child_process");
 
-const jsFiles = execSync('find static/js -name "*.js"', { encoding: 'utf8' }).trim().split('\n');
+const jsFiles = execSync('find static/js -name "*.js"', { encoding: "utf8" })
+  .trim()
+  .split("\n");
 
 const allCandidates = [];
-jsFiles.forEach(file => {
+jsFiles.forEach((file) => {
   try {
-    const code = fs.readFileSync(file, 'utf8');
-    const ast = acorn.parse(code, { ecmaVersion: 2020, sourceType: 'module', allowImportExportEverywhere: true });
+    const code = fs.readFileSync(file, "utf8");
+    const ast = acorn.parse(code, {
+      ecmaVersion: 2020,
+      sourceType: "module",
+      allowImportExportEverywhere: true,
+    });
 
     const candidates = [];
 
     function walk(node, className = null) {
-      if (node.type === 'ClassDeclaration') {
+      if (node.type === "ClassDeclaration") {
         className = node.id.name;
-        node.body.body.forEach(member => walk(member, className));
-      } else if (node.type === 'MethodDefinition' && node.kind === 'method') {
+        node.body.body.forEach((member) => walk(member, className));
+      } else if (node.type === "MethodDefinition" && node.kind === "method") {
         const methodName = node.key.name;
-        if (methodName === 'constructor') return;
+        if (methodName === "constructor") return;
 
         // Check if method uses 'this'
         let usesThis = false;
         function checkThis(n) {
-          if (n.type === 'ThisExpression') {
+          if (n.type === "ThisExpression") {
             usesThis = true;
           }
           for (const key in n) {
-            if (n[key] && typeof n[key] === 'object') {
+            if (n[key] && typeof n[key] === "object") {
               if (Array.isArray(n[key])) {
                 n[key].forEach(checkThis);
               } else {

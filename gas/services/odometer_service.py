@@ -85,7 +85,10 @@ class OdometerService:
 
         if not trip:
             logger.warning(
-                "No trip found for IMEI %s (use_now=%s, timestamp=%s)", imei, use_now, timestamp
+                "No trip found for IMEI %s (use_now=%s, timestamp=%s)",
+                imei,
+                use_now,
+                timestamp,
             )
             return {"latitude": None, "longitude": None, "odometer": None}
 
@@ -99,7 +102,9 @@ class OdometerService:
         }
 
         logger.info(
-            "Vehicle Loc Debug: Found trip %s, EndOdo: %s", trip.get('transactionId'), location_data['odometer']
+            "Vehicle Loc Debug: Found trip %s, EndOdo: %s",
+            trip.get("transactionId"),
+            location_data["odometer"],
         )
 
         # Try to get coordinates from various sources
@@ -128,7 +133,8 @@ class OdometerService:
             elif trip.get("startOdometer"):
                 location_data["odometer"] = trip.get("startOdometer")
                 logger.info(
-                    "Vehicle Loc Debug: Fallback to startOdometer %s", location_data['odometer']
+                    "Vehicle Loc Debug: Fallback to startOdometer %s",
+                    location_data["odometer"],
                 )
 
         return location_data

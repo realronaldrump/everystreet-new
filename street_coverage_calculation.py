@@ -429,7 +429,9 @@ class CoverageCalculator:
                 base_trip_filter,
             )
             logger.info(
-                "Task %s: Found %d trips to process.", self.task_id, self.total_trips_to_process
+                "Task %s: Found %d trips to process.",
+                self.task_id,
+                self.total_trips_to_process,
             )
         except Exception as e:
             logger.error("Task %s: Error counting trips: %s", self.task_id, e)
@@ -771,7 +773,9 @@ class CoverageCalculator:
 
         # 4. Update Metadata
         logger.info(
-            "Task %s: Updating coverage metadata for %s...", self.task_id, self.location_name
+            "Task %s: Updating coverage metadata for %s...",
+            self.task_id,
+            self.location_name,
         )
         try:
             trip_ids_list = list(processed_trip_ids_set)
@@ -836,7 +840,10 @@ class CoverageCalculator:
         start_time = datetime.now(UTC)
         run_type = "incremental" if run_incremental else "full"
         logger.info(
-            "Task %s: Starting %s coverage for %s", self.task_id, run_type, self.location_name
+            "Task %s: Starting %s coverage for %s",
+            self.task_id,
+            run_type,
+            self.location_name,
         )
 
         try:

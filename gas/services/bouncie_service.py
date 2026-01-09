@@ -69,7 +69,10 @@ class BouncieService:
                 }
 
                 logger.info(
-                    "Bouncie API: IMEI %s - Odo: %s, Updated: %s", imei, result['odometer'], result['timestamp']
+                    "Bouncie API: IMEI %s - Odo: %s, Updated: %s",
+                    imei,
+                    result["odometer"],
+                    result["timestamp"],
                 )
                 return result
 
