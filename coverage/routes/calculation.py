@@ -80,12 +80,7 @@ async def get_coverage_status(task_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found",
         )
-    if progress.get("stage") == "error":
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=progress.get("error", "Unknown error"),
-        )
-
+    # Return progress data even if in error state - let frontend handle it
     return serialize_progress(progress)
 
 
