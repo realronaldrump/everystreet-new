@@ -4,8 +4,6 @@ import uiState from "../ui-state.js";
 import utils from "../utils.js";
 import eventManager from "./event-manager.js";
 
-// panelManager is not used directly in this module
-
 const mapControlsManager = {
   init() {
     const mapTypeSelect = uiState.getElement(CONFIG.selectors.mapTypeSelect);
@@ -18,9 +16,6 @@ const mapControlsManager = {
         this.updateMapType(e.target.value)
       );
     }
-    // Note: controls-toggle is handled in app-controller.js using Bootstrap Collapse API
-    // const toggleBtn = uiState.getElement(CONFIG.selectors.controlsToggle);
-    // if (toggleBtn) toggleBtn.addEventListener("click", () => this.toggleControlPanel());
 
     // Apply persisted settings on load - wait for map to be initialized
     let settingsApplied = false;

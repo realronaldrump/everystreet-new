@@ -22,9 +22,6 @@ async def get_app_settings_collection():
     return db_manager.get_collection("app_settings")
 
 
-# ... existing code ...
-
-
 async def get_app_settings() -> dict[str, Any]:
     """Retrieve app settings from database.
 

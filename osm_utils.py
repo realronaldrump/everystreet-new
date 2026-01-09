@@ -138,15 +138,6 @@ def _boundary_from_location(location: dict[str, Any]) -> BaseGeometry | None:
     return None
 
 
-def _features_from_polygon(
-    polygon: BaseGeometry,
-    tags: dict[str, Any],
-) -> gpd.GeoDataFrame:
-    if hasattr(ox, "features_from_polygon"):
-        return ox.features_from_polygon(polygon, tags=tags)
-    return ox.geometries_from_polygon(polygon, tags=tags)
-
-
 async def _geocode_location_gdf(location: dict[str, Any]) -> gpd.GeoDataFrame | None:
     queries: list[Any] = []
     osm_id = location.get("osm_id")
@@ -204,7 +195,7 @@ async def generate_geojson_osm(
 
         if streets_only:
             gdf = await asyncio.to_thread(
-                _features_from_polygon,
+                ox.features_from_polygon,
                 boundary_geom,
                 {"highway": True},
             )

@@ -288,11 +288,6 @@ class DrivingNavigation {
     }
   }
 
-  // ... (rest of the methods need to be converted) ...
-
-  // The rest of your methods, now converted to use the Mapbox GL JS API
-  // NOTE: This is a comprehensive rewrite.
-
   loadAutoFollowState() {
     if (!this.autoFollowToggle) return;
     const savedState = window.localStorage.getItem("drivingNavAutoFollow") === "true";
@@ -715,9 +710,6 @@ class DrivingNavigation {
     }
   }
 
-  // ... (the rest of the methods would be similarly converted)
-  // For brevity, I will provide the rest of the file converted.
-
   async findEfficientStreetClusters() {
     const areaId = this.selectedArea?._id || this.selectedArea?.id;
     if (!areaId) {
@@ -905,9 +897,6 @@ class DrivingNavigation {
       }
     });
   }
-
-  // ... (All other helper methods like createClusterPopup, displayEfficientClustersInfo, etc. are the same or have minor changes)
-  // The following are provided for completeness.
 
   async _parseError(error) {
     if (error instanceof Error) return error.message;
