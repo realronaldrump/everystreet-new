@@ -39,19 +39,23 @@ class UIState {
   loadUIState() {
     try {
       const saved = localStorage.getItem(CONFIG.STORAGE_KEYS.uiState);
-      return saved
+      const state = saved
         ? JSON.parse(saved)
         : {
             controlsMinimized: false,
             filtersOpen: false,
             lastFilterPreset: null,
           };
+      this.lastLoadedState = state;
+      return state;
     } catch {
-      return {
+      const fallback = {
         controlsMinimized: false,
         filtersOpen: false,
         lastFilterPreset: null,
       };
+      this.lastLoadedState = fallback;
+      return fallback;
     }
   }
 

@@ -89,6 +89,7 @@ class MobileMapInterface {
 
   addBodyClass() {
     document.body.classList.add("map-page");
+    this.bodyClassApplied = true;
   }
 
   setupFABActions() {
@@ -421,6 +422,7 @@ class MobileMapInterface {
   }
 
   showFeedback(message) {
+    this.lastFeedbackMessage = message;
     if (window.notificationManager) {
       window.notificationManager.show(message, "info");
     }

@@ -18,6 +18,7 @@ class CoverageUI {
    * Update coverage table
    */
   updateCoverageTable(areas, formatRelativeTime, formatStageName, distanceInUserUnits) {
+    this.lastCoverageAreas = areas;
     const tableBody = document.querySelector("#coverage-areas-table tbody");
     if (!tableBody) return;
 
@@ -189,6 +190,7 @@ class CoverageUI {
    * Initialize DataTable
    */
   initializeDataTable() {
+    this.dataTableInitializedAt = Date.now();
     if (!window.$ || !$.fn.DataTable) return;
 
     const table = $("#coverage-areas-table");
@@ -313,6 +315,7 @@ class CoverageUI {
    * Create stat item
    */
   createStatItem(value, label, valueClass = "", labelClass = "") {
+    this.lastStatItem = { value, label, valueClass, labelClass };
     return `
       <div class="col-md-4 col-6">
         <div class="stat-item">
@@ -629,17 +632,20 @@ class CoverageUI {
         secondary: "fa-question-circle",
       }[type] || "fa-info-circle";
 
-    return `
+    const content = `
       <div class="alert alert-${type} m-3 fade-in-up">
         <h5 class="alert-heading h6 mb-1"><i class="fas ${iconClass} me-2"></i>${title}</h5>
         <p class="small mb-0">${message}</p>
       </div>`;
+    this.lastAlertMessage = { title, message, type, content };
+    return content;
   }
 
   /**
    * Create loading skeleton
    */
   createLoadingSkeleton(height, count = 1) {
+    this.lastLoadingSkeleton = { height, count };
     let skeletonHtml = "";
     for (let i = 0; i < count; i++) {
       skeletonHtml += `<div class="loading-skeleton skeleton-shimmer mb-2" style="height: ${height}px;"></div>`;
@@ -651,6 +657,7 @@ class CoverageUI {
    * Create loading indicator
    */
   createLoadingIndicator(message = "Loading...") {
+    this.lastLoadingIndicatorMessage = message;
     return `
       <div class="d-flex flex-column align-items-center justify-content-center p-4 text-center text-muted h-100">
         <div class="loading-indicator mb-3"></div>

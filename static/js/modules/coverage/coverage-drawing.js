@@ -86,7 +86,7 @@ class CoverageDrawing {
    * Get drawing styles
    */
   getDrawingStyles() {
-    return [
+    const styles = [
       {
         id: "gl-draw-polygon-fill-inactive",
         type: "fill",
@@ -181,6 +181,8 @@ class CoverageDrawing {
         },
       },
     ];
+    this.drawingStylesCache = styles;
+    return styles;
   }
 
   /**
@@ -290,6 +292,7 @@ class CoverageDrawing {
    * Show drawing error
    */
   showDrawingError(message) {
+    this.lastDrawingErrorMessage = message;
     const mapContainer = document.getElementById("drawing-map");
     if (mapContainer) {
       mapContainer.innerHTML = `
@@ -305,6 +308,7 @@ class CoverageDrawing {
    * Show drawing validation result
    */
   showDrawingValidationResult(data) {
+    this.lastValidationResult = data;
     const resultDiv = document.getElementById("drawing-validation-result");
     const messageSpan = resultDiv?.querySelector(".drawing-validation-message");
 
@@ -318,6 +322,7 @@ class CoverageDrawing {
    * Hide drawing validation result
    */
   hideDrawingValidationResult() {
+    this.lastValidationHiddenAt = Date.now();
     const resultDiv = document.getElementById("drawing-validation-result");
     if (resultDiv) {
       resultDiv.classList.add("d-none");

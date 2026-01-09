@@ -295,6 +295,7 @@ class DrivingNavigation {
   }
 
   saveAutoFollowState(isEnabled) {
+    this.autoFollowState = isEnabled;
     window.localStorage.setItem("drivingNavAutoFollow", isEnabled);
   }
 
@@ -899,16 +900,22 @@ class DrivingNavigation {
   }
 
   async _parseError(error) {
-    if (error instanceof Error) return error.message;
-    if (error instanceof Response) {
+    this.lastParseError = error;
+    let message = "An unknown error occurred.";
+
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (error instanceof Response) {
       try {
         const err = await error.json();
-        return err.detail || JSON.stringify(err);
+        message = err.detail || JSON.stringify(err);
       } catch {
-        return error.statusText || `HTTP ${error.status}`;
+        message = error.statusText || `HTTP ${error.status}`;
       }
     }
-    return "An unknown error occurred.";
+
+    this.lastParsedErrorMessage = message;
+    return message;
   }
 
   showProgressContainer() {
@@ -979,7 +986,9 @@ class DrivingNavigation {
     const props = segment.properties;
     const streetName = props.street_name || "Unnamed Street";
     const segmentId = props.segment_id || "Unknown";
-    return `<div class="segment-popup"><h6>${streetName}</h6><div class="small text-muted">Segment ID: ${segmentId}</div><div class="mt-2"><button class="btn btn-sm btn-primary navigate-to-segment" data-segment-id="${segmentId}"><i class="fas fa-route me-1"></i> Navigate Here</button></div></div>`;
+    const content = `<div class="segment-popup"><h6>${streetName}</h6><div class="small text-muted">Segment ID: ${segmentId}</div><div class="mt-2"><button class="btn btn-sm btn-primary navigate-to-segment" data-segment-id="${segmentId}"><i class="fas fa-route me-1"></i> Navigate Here</button></div></div>`;
+    this.lastSegmentPopup = { segmentId, content };
+    return content;
   }
   async findRouteToSegment(segmentId) {
     if (!this.selectedArea || !segmentId) return;
@@ -1024,7 +1033,9 @@ class DrivingNavigation {
     const distanceMiles = (cluster.distance_to_cluster_m / 1609.34).toFixed(1);
     const lengthMiles = (cluster.total_length_m / 1609.34).toFixed(2);
     const score = cluster.efficiency_score.toFixed(2);
-    return `<div class="efficient-cluster-popup"><h6>Cluster #${rank + 1}</h6><div class="cluster-stats small"><div><i class="fas fa-road"></i> ${cluster.segment_count} streets</div><div><i class="fas fa-ruler"></i> ${lengthMiles} mi total</div><div><i class="fas fa-location-arrow"></i> ${distanceMiles} mi away</div><div><i class="fas fa-chart-line"></i> Score: ${score}</div></div><button class="btn btn-sm btn-primary mt-2 navigate-to-segment" data-segment-id="${cluster.nearest_segment.segment_id}"><i class="fas fa-route me-1"></i> Navigate to Cluster</button></div>`;
+    const content = `<div class="efficient-cluster-popup"><h6>Cluster #${rank + 1}</h6><div class="cluster-stats small"><div><i class="fas fa-road"></i> ${cluster.segment_count} streets</div><div><i class="fas fa-ruler"></i> ${lengthMiles} mi total</div><div><i class="fas fa-location-arrow"></i> ${distanceMiles} mi away</div><div><i class="fas fa-chart-line"></i> Score: ${score}</div></div><button class="btn btn-sm btn-primary mt-2 navigate-to-segment" data-segment-id="${cluster.nearest_segment.segment_id}"><i class="fas fa-route me-1"></i> Navigate to Cluster</button></div>`;
+    this.lastClusterPopup = { rank, content };
+    return content;
   }
   displayEfficientClustersInfo(clusters) {
     const routeDetailsContent = document.getElementById("route-details-content");
@@ -1070,6 +1081,7 @@ class DrivingNavigation {
     });
   }
   getCurrentPosition() {
+    this.lastGeolocationRequestTime = Date.now();
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject(new Error("Geolocation is not supported"));
@@ -1106,7 +1118,9 @@ class DrivingNavigation {
       "last-trip-end-multi": "last trip",
       "last-trip-end-point": "last trip",
     };
-    return sourceLabels[source] || source || "unknown";
+    const label = sourceLabels[source] || source || "unknown";
+    this.lastLocationSourceLabel = label;
+    return label;
   }
 }
 

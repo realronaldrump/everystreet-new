@@ -291,16 +291,24 @@ class UploadManager {
   }
 
   readFileAsText(file) {
+    this.lastReadFileName = file?.name;
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
+      reader.onload = (e) => {
+        this.lastReadFileContent = e.target.result;
+        resolve(e.target.result);
+      };
       reader.onerror = (error) => reject(error);
       reader.readAsText(file);
     });
   }
 
   getFileExtension(filename) {
-    return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1).toLowerCase();
+    const extension = filename
+      .slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1)
+      .toLowerCase();
+    this.lastFileExtension = extension;
+    return extension;
   }
 
   parseGPX(file, gpxContent) {

@@ -249,13 +249,18 @@ class CoverageProgress {
     const baseInterval = 5000; // 5 seconds
 
     if (stage === STATUS.PROCESSING_TRIPS || stage === STATUS.CALCULATING) {
-      return Math.min(baseInterval * 2, 15000);
+      const interval = Math.min(baseInterval * 2, 15000);
+      this.lastPollInterval = interval;
+      return interval;
     }
 
     if (retries > 100) {
-      return Math.min(baseInterval * 3, 20000);
+      const interval = Math.min(baseInterval * 3, 20000);
+      this.lastPollInterval = interval;
+      return interval;
     }
 
+    this.lastPollInterval = baseInterval;
     return baseInterval;
   }
 
@@ -332,6 +337,7 @@ class CoverageProgress {
    * Hide progress modal
    */
   hideProgressModal() {
+    this.lastProgressModalHideTime = Date.now();
     const modalElement = document.getElementById("taskProgressModal");
     if (!modalElement) return;
 
@@ -481,6 +487,7 @@ class CoverageProgress {
    * Update step indicators
    */
   updateStepIndicators(stage, progress) {
+    this.lastStepIndicatorState = { stage, progress };
     const modal = document.getElementById("taskProgressModal");
     if (!modal) return;
 
@@ -711,19 +718,40 @@ class CoverageProgress {
     if (!date) return "never";
     const seconds = Math.floor((Date.now() - new Date(date)) / 1000);
 
-    if (seconds < 2) return "just now";
-    if (seconds < 60) return `${seconds}s ago`;
+    if (seconds < 2) {
+      this.lastFormattedTimeAgo = "just now";
+      return "just now";
+    }
+    if (seconds < 60) {
+      const formatted = `${seconds}s ago`;
+      this.lastFormattedTimeAgo = formatted;
+      return formatted;
+    }
 
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 60) {
+      const formatted = `${minutes}m ago`;
+      this.lastFormattedTimeAgo = formatted;
+      return formatted;
+    }
 
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) {
+      const formatted = `${hours}h ago`;
+      this.lastFormattedTimeAgo = formatted;
+      return formatted;
+    }
 
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
+    if (days < 7) {
+      const formatted = `${days}d ago`;
+      this.lastFormattedTimeAgo = formatted;
+      return formatted;
+    }
 
-    return new Date(date).toLocaleDateString();
+    const formatted = new Date(date).toLocaleDateString();
+    this.lastFormattedTimeAgo = formatted;
+    return formatted;
   }
 
   /**
@@ -887,9 +915,12 @@ class CoverageProgress {
       validMeters = 0;
     }
     const miles = validMeters * 0.000621371;
-    return miles < 0.1
-      ? `${(validMeters * 3.28084).toFixed(0)} ft`
-      : `${miles.toFixed(fixed)} mi`;
+    const formatted =
+      miles < 0.1
+        ? `${(validMeters * 3.28084).toFixed(0)} ft`
+        : `${miles.toFixed(fixed)} mi`;
+    this.lastDistanceLabel = formatted;
+    return formatted;
   }
 
   /**
@@ -915,7 +946,9 @@ class CoverageProgress {
       [STATUS.UNKNOWN]: '<i class="fas fa-question-circle"></i>',
       [STATUS.POST_PREPROCESSING]: '<i class="fas fa-cog fa-spin"></i>',
     };
-    return icons[stage] || icons[STATUS.UNKNOWN];
+    const icon = icons[stage] || icons[STATUS.UNKNOWN];
+    this.lastStageIcon = { stage, icon };
+    return icon;
   }
 
   /**
@@ -930,7 +963,9 @@ class CoverageProgress {
       [STATUS.CANCELED]: "text-warning",
       [STATUS.POST_PREPROCESSING]: "text-info",
     };
-    return classes[stage] || "text-info";
+    const cls = classes[stage] || "text-info";
+    this.lastStageTextClass = cls;
+    return cls;
   }
 
   /**
@@ -956,16 +991,18 @@ class CoverageProgress {
       [STATUS.UNKNOWN]: "Unknown",
       [STATUS.POST_PREPROCESSING]: "Post-processing",
     };
-    return (
+    const formatted =
       stageNames[stage] ||
-      stage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-    );
+      stage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    this.lastStageName = formatted;
+    return formatted;
   }
 
   /**
    * Show success animation
    */
   showSuccessAnimation() {
+    this.lastSuccessAnimationAt = Date.now();
     const modal = document.getElementById("taskProgressModal");
     if (!modal) return;
 

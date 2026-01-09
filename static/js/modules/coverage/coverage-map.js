@@ -737,9 +737,12 @@ class CoverageMap {
       validMeters = 0;
     }
     const miles = validMeters * 0.000621371;
-    return miles < 0.1
-      ? `${(validMeters * 3.28084).toFixed(0)} ft`
-      : `${miles.toFixed(fixed)} mi`;
+    const formatted =
+      miles < 0.1
+        ? `${(validMeters * 3.28084).toFixed(0)} ft`
+        : `${miles.toFixed(fixed)} mi`;
+    this.lastDistanceLabel = formatted;
+    return formatted;
   }
 
   /**
@@ -747,7 +750,9 @@ class CoverageMap {
    */
   formatStreetType(type) {
     if (!type) return "Unknown";
-    return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    const formatted = type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    this.lastStreetTypeLabel = formatted;
+    return formatted;
   }
 
   /**
@@ -762,11 +767,13 @@ class CoverageMap {
         secondary: "fa-question-circle",
       }[type] || "fa-info-circle";
 
-    return `
+    const content = `
       <div class="alert alert-${type} m-3 fade-in-up">
         <h5 class="alert-heading h6 mb-1"><i class="fas ${iconClass} me-2"></i>${title}</h5>
         <p class="small mb-0">${message}</p>
       </div>`;
+    this.lastAlertMessage = { title, message, type, content };
+    return content;
   }
 }
 

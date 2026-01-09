@@ -170,6 +170,7 @@ class LoadingManager {
    * @param {number} duration - How long to show (ms)
    */
   pulse(message, duration = 2000) {
+    this.lastPulse = { message, duration, timestamp: Date.now() };
     // Create a temporary notification that doesn't block the UI
     const notification = document.createElement("div");
     notification.className = "loading-pulse";

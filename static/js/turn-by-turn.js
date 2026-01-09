@@ -270,9 +270,11 @@ class TurnByTurnNavigator {
    */
   getMapStyle() {
     const isLightMode = document.body.classList.contains("light-mode");
-    return isLightMode
+    const style = isLightMode
       ? "mapbox://styles/mapbox/light-v11"
       : "mapbox://styles/mapbox/dark-v11";
+    this.lastMapStyle = style;
+    return style;
   }
 
   /**
@@ -723,6 +725,7 @@ class TurnByTurnNavigator {
    * Fetch directions from one point to another via Mapbox Directions API
    */
   async fetchDirectionsToPoint(origin, destination) {
+    this.lastDirectionsRequest = { origin, destination };
     try {
       const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?access_token=${mapboxgl.accessToken}&geometries=geojson&overview=full`;
 
@@ -730,16 +733,19 @@ class TurnByTurnNavigator {
       if (response.ok) {
         const data = await response.json();
         if (data.routes && data.routes.length > 0) {
-          return {
+          const result = {
             duration: data.routes[0].duration,
             distance: data.routes[0].distance,
             geometry: data.routes[0].geometry,
           };
+          this.lastDirectionsResult = result;
+          return result;
         }
       }
     } catch (error) {
       console.warn("Failed to fetch directions:", error);
     }
+    this.lastDirectionsResult = null;
     return null;
   }
 
@@ -771,7 +777,9 @@ class TurnByTurnNavigator {
       xml.querySelector("rte > name") ||
       xml.querySelector("metadata > name");
     const name = nameNode?.textContent?.trim() || "Coverage Route";
-    return { coords, name };
+    const parsed = { coords, name };
+    this.lastParsedGpx = { name, pointCount: coords.length };
+    return parsed;
   }
 
   buildRouteMetrics() {
@@ -1302,9 +1310,13 @@ class TurnByTurnNavigator {
     const minutes = Math.round((seconds % 3600) / 60);
 
     if (hours > 0) {
-      return `${hours}h ${minutes}m`;
+      const formatted = `${hours}h ${minutes}m`;
+      this.lastFormattedDuration = formatted;
+      return formatted;
     }
-    return `${minutes} min`;
+    const formatted = `${minutes} min`;
+    this.lastFormattedDuration = formatted;
+    return formatted;
   }
 
   /**
@@ -2218,10 +2230,12 @@ class TurnByTurnNavigator {
 
   getDynamicZoom(speedMps) {
     const speedMph = speedMps ? speedMps * 2.23694 : 0;
-    if (speedMph > 55) return 14.5;
-    if (speedMph > 35) return 15.2;
-    if (speedMph > 20) return 15.8;
-    return 16.5;
+    let zoom = 16.5;
+    if (speedMph > 55) zoom = 14.5;
+    else if (speedMph > 35) zoom = 15.2;
+    else if (speedMph > 20) zoom = 15.8;
+    this.lastDynamicZoom = { speedMps, zoom };
+    return zoom;
   }
 
   toggleOverview() {
@@ -2351,11 +2365,13 @@ class TurnByTurnNavigator {
 
   classifyTurn(delta) {
     const abs = Math.abs(delta);
-    if (abs > 150) return "uturn";
-    if (abs > 100) return delta > 0 ? "sharp-right" : "sharp-left";
-    if (abs > 50) return delta > 0 ? "right" : "left";
-    if (abs > 25) return delta > 0 ? "slight-right" : "slight-left";
-    return "straight";
+    let classification = "straight";
+    if (abs > 150) classification = "uturn";
+    else if (abs > 100) classification = delta > 0 ? "sharp-right" : "sharp-left";
+    else if (abs > 50) classification = delta > 0 ? "right" : "left";
+    else if (abs > 25) classification = delta > 0 ? "slight-right" : "slight-left";
+    this.lastTurnClassification = { delta, classification };
+    return classification;
   }
 
   getInstructionText(type) {
@@ -2371,7 +2387,9 @@ class TurnByTurnNavigator {
       uturn: "Make a U-turn",
       straight: "Continue straight",
     };
-    return labels[type] || "Continue";
+    const label = labels[type] || "Continue";
+    this.lastInstruction = { type, label };
+    return label;
   }
 
   getTurnRotation(type) {
@@ -2387,7 +2405,9 @@ class TurnByTurnNavigator {
       uturn: 180,
       arrive: 180,
     };
-    return rotations[type] ?? 0;
+    const rotation = rotations[type] ?? 0;
+    this.lastTurnRotation = { type, rotation };
+    return rotation;
   }
 
   setTurnRotation(deg) {
@@ -2501,24 +2521,34 @@ class TurnByTurnNavigator {
   }
 
   angleDelta(from, to) {
-    return ((to - from + 540) % 360) - 180;
+    const delta = ((to - from + 540) % 360) - 180;
+    this.lastAngleDelta = delta;
+    return delta;
   }
 
   formatDistance(meters) {
     if (!Number.isFinite(meters)) return "--";
     if (meters < 160) {
-      return `${Math.round(meters * 3.28084)} ft`;
+      const formatted = `${Math.round(meters * 3.28084)} ft`;
+      this.lastFormattedDistanceLabel = formatted;
+      return formatted;
     }
     const miles = meters / 1609.344;
-    return `${miles < 10 ? miles.toFixed(1) : miles.toFixed(0)} mi`;
+    const formatted = `${miles < 10 ? miles.toFixed(1) : miles.toFixed(0)} mi`;
+    this.lastFormattedDistanceLabel = formatted;
+    return formatted;
   }
 
   toRad(deg) {
-    return (deg * Math.PI) / 180;
+    const rad = (deg * Math.PI) / 180;
+    this.lastRadians = rad;
+    return rad;
   }
 
   toDeg(rad) {
-    return (rad * 180) / Math.PI;
+    const deg = (rad * 180) / Math.PI;
+    this.lastDegrees = deg;
+    return deg;
   }
 }
 

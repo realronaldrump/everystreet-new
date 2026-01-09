@@ -152,6 +152,7 @@ class CoverageNavigation {
    * Get current position
    */
   getCurrentPosition() {
+    this.lastGeolocationRequest = Date.now();
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject(new Error("Geolocation is not supported"));
@@ -515,6 +516,8 @@ class CoverageNavigation {
    * Poll for task completion
    */
   async pollTaskCompletion(taskId, maxAttempts = 120, intervalMs = 2000) {
+    this.lastPolledTaskId = taskId;
+    this.lastPollIntervalMs = intervalMs;
     for (let i = 0; i < maxAttempts; i++) {
       try {
         const status = await COVERAGE_API.getTaskStatus(taskId);

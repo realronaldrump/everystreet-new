@@ -123,7 +123,7 @@ class OptimalRoutesManager {
   }
 
   cacheHudElements() {
-    return {
+    const elements = {
       container: document.getElementById("route-solver-hud"),
       scanner: document.getElementById("map-scanner-overlay"),
       stage: document.getElementById("hud-stage"),
@@ -135,6 +135,8 @@ class OptimalRoutesManager {
       elapsed: document.getElementById("hud-elapsed"),
       activity: document.getElementById("hud-activity"),
     };
+    this.lastHudElements = elements;
+    return elements;
   }
 
   setupEventListeners() {
@@ -1008,7 +1010,9 @@ class OptimalRoutesManager {
   }
 
   getStageMeta(stage) {
-    return STAGE_COPY[stage] || { label: "Working", message: "Processing..." };
+    const meta = STAGE_COPY[stage] || { label: "Working", message: "Processing..." };
+    this.lastStageMeta = { stage, meta };
+    return meta;
   }
 
   setStatusMessage(primary, secondary, stage, metrics, labelOverride) {
@@ -1094,7 +1098,9 @@ class OptimalRoutesManager {
 
   formatCount(value) {
     if (typeof value !== "number" || Number.isNaN(value)) return "--";
-    return value.toLocaleString();
+    const formatted = value.toLocaleString();
+    this.lastFormattedCount = formatted;
+    return formatted;
   }
 
   appendActivity(text) {
@@ -1169,11 +1175,16 @@ class OptimalRoutesManager {
     ];
 
     const currentIndex = stageOrder.indexOf(currentStage);
-    if (currentIndex === -1) return false;
-    return stageNames.every((name) => {
+    if (currentIndex === -1) {
+      this.lastStageCompletionCheck = { currentStage, result: false };
+      return false;
+    }
+    const result = stageNames.every((name) => {
       const stageIndex = stageOrder.indexOf(name);
       return stageIndex !== -1 && stageIndex < currentIndex;
     });
+    this.lastStageCompletionCheck = { currentStage, result };
+    return result;
   }
 
   showProgressSection() {
@@ -1442,10 +1453,13 @@ class OptimalRoutesManager {
 
   formatDistance(meters) {
     if (!meters && meters !== 0) return "--";
-    return `${(meters / 1609.344).toFixed(2)} mi`;
+    const formatted = `${(meters / 1609.344).toFixed(2)} mi`;
+    this.lastFormattedDistance = formatted;
+    return formatted;
   }
 
   showNotification(message, type = "info") {
+    this.lastNotification = { message, type };
     // Use the global notification manager if available
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
