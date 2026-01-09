@@ -27,8 +27,10 @@ EveryStreet is a street coverage tracking application that helps users track and
 ### Development Tools
 
 - **Python Linting**: Ruff (configured in `pyproject.toml`)
-- **JavaScript Linting**: Biome (configured in `biome.json`)
-- **Code Formatting**: Black (Python), Prettier (JavaScript)
+- **Python Formatting**: Ruff and Black (via DeepSource)
+- **JavaScript Linting/Formatting**: Biome (configured in `biome.json`)
+- **JavaScript Formatting**: Prettier (via DeepSource)
+- **Import Sorting**: isort (Python, via DeepSource)
 - **Type Checking**: Python type hints (not enforced by mypy)
 
 ## Code Style Guidelines
