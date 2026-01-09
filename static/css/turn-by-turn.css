@@ -87,7 +87,11 @@ body.light-mode .turn-by-turn {
   content: "";
   position: absolute;
   inset: -20%;
-  background: radial-gradient(circle at 70% 20%, rgb(var(--primary-rgb) / 12%), transparent 45%);
+  background: radial-gradient(
+    circle at 70% 20%,
+    rgb(var(--primary-rgb) / 12%),
+    transparent 45%
+  );
   pointer-events: none;
   z-index: 1;
 }
@@ -263,7 +267,9 @@ body.light-mode .turn-by-turn {
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: transform var(--nav-transition-fast), background var(--nav-transition-fast);
+  transition:
+    transform var(--nav-transition-fast),
+    background var(--nav-transition-fast);
 }
 
 .nav-control-btn.active {
@@ -316,7 +322,11 @@ body.light-mode .turn-by-turn {
   width: 100%;
   transform-origin: left;
   transform: scaleX(0);
-  background: linear-gradient(120deg, var(--nav-accent), var(--nav-accent-light));
+  background: linear-gradient(
+    120deg,
+    var(--nav-accent),
+    var(--nav-accent-light)
+  );
   transition: transform var(--nav-transition-normal);
 }
 
@@ -381,7 +391,9 @@ body.light-mode .turn-by-turn {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: transform var(--nav-transition-fast), background var(--nav-transition-fast);
+  transition:
+    transform var(--nav-transition-fast),
+    background var(--nav-transition-fast);
 }
 
 .nav-end-btn:hover {
@@ -399,7 +411,9 @@ body.light-mode .turn-by-turn {
   background: var(--nav-surface);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  transition: opacity var(--nav-transition-normal), transform var(--nav-transition-normal);
+  transition:
+    opacity var(--nav-transition-normal),
+    transform var(--nav-transition-normal);
 }
 
 .nav-setup.hidden {
@@ -471,7 +485,10 @@ body.light-mode .turn-by-turn {
   color: var(--text-on-primary);
   font-weight: var(--font-weight-bold);
   cursor: pointer;
-  transition: transform var(--nav-transition-fast), opacity var(--nav-transition-fast), box-shadow var(--nav-transition-fast);
+  transition:
+    transform var(--nav-transition-fast),
+    opacity var(--nav-transition-fast),
+    box-shadow var(--nav-transition-fast);
 }
 
 .nav-primary-btn:hover:not(:disabled) {
@@ -558,7 +575,9 @@ body.light-mode .turn-by-turn {
   border-radius: 50%;
   background: var(--nav-accent);
   border: 4px solid var(--surface-1);
-  box-shadow: 0 0 0 8px rgb(var(--primary-rgb) / 25%), var(--nav-shadow);
+  box-shadow:
+    0 0 0 8px rgb(var(--primary-rgb) / 25%),
+    var(--nav-shadow);
   display: grid;
   place-items: center;
   color: var(--text-on-primary);
@@ -727,7 +746,9 @@ body.light-mode .turn-by-turn {
   background: var(--nav-surface);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  transition: opacity var(--nav-transition-normal), transform var(--nav-transition-normal);
+  transition:
+    opacity var(--nav-transition-normal),
+    transform var(--nav-transition-normal);
 }
 
 .nav-preview[hidden] {
@@ -738,7 +759,8 @@ body.light-mode .turn-by-turn {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(env(safe-area-inset-top) + var(--nav-space-md)) var(--nav-space-md) var(--nav-space-md);
+  padding: calc(env(safe-area-inset-top) + var(--nav-space-md))
+    var(--nav-space-md) var(--nav-space-md);
   background: var(--nav-surface-strong);
   border-bottom: 1px solid var(--nav-border);
 }
