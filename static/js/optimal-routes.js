@@ -645,6 +645,9 @@ class OptimalRoutesManager {
     // Check for existing route
     await this.loadExistingRoute(areaId);
 
+    // Check for active/in-progress route generation task (e.g., after page refresh)
+    await this.checkForActiveTask(areaId);
+
     // Fly to area bounds and show legend
     await this.flyToArea(areaId);
     document.getElementById("map-legend").style.display = "block";
@@ -706,6 +709,47 @@ class OptimalRoutesManager {
       }
     } catch (error) {
       console.error("Error flying to area:", error);
+    }
+  }
+
+  async checkForActiveTask(areaId) {
+    /**
+     * Check if there's an active route generation task for this area.
+     * This handles page refresh/navigation scenarios where a task is running
+     * but the frontend lost the task_id.
+     */
+    try {
+      const response = await fetch(`/api/coverage_areas/${areaId}/active-task`);
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      if (data.active && data.task_id) {
+        console.log("Found active task:", data.task_id, "stage:", data.stage);
+
+        // Store task ID
+        this.currentTaskId = data.task_id;
+
+        // Show progress UI
+        this.showProgressSection();
+
+        // Pre-populate with current progress state
+        this.updateProgress({
+          status: data.status,
+          stage: data.stage,
+          progress: data.progress,
+          message: data.message || "Reconnecting to task...",
+          metrics: data.metrics,
+        });
+
+        // Connect to SSE for live updates
+        this.connectSSE(data.task_id);
+
+        this.showNotification("Reconnected to in-progress route generation", "info");
+      }
+    } catch (error) {
+      // Silently fail - this is just a nice-to-have check
+      console.debug("Could not check for active task:", error);
     }
   }
 

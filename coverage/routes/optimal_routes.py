@@ -238,6 +238,40 @@ async def delete_optimal_route(location_id: str):
     return {"status": "success", "message": "Optimal route deleted"}
 
 
+@router.get("/api/coverage_areas/{location_id}/active-task")
+async def get_active_route_task(location_id: str):
+    """Check if there's an active or recent route generation task for this location.
+
+    Returns the task_id and current progress if an active task is found,
+    allowing the frontend to reconnect after page refresh.
+    """
+    # Find any active/pending task for this location
+    # Sort by queued_at descending to get the most recent task
+    progress = await find_one_with_retry(
+        optimal_route_progress_collection,
+        {
+            "location_id": location_id,
+            "status": {"$in": ["queued", "running", "pending", "initializing"]},
+        },
+        sort=[("queued_at", -1)],
+    )
+
+    if not progress:
+        return {"active": False, "task_id": None}
+
+    return {
+        "active": True,
+        "task_id": progress.get("task_id"),
+        "status": progress.get("status", "pending"),
+        "stage": progress.get("stage", "initializing"),
+        "progress": progress.get("progress", 0),
+        "message": progress.get("message", ""),
+        "metrics": progress.get("metrics", {}),
+        "started_at": progress.get("started_at"),
+        "updated_at": progress.get("updated_at"),
+    }
+
+
 @router.get("/api/optimal-routes/{task_id}/progress")
 async def get_optimal_route_progress(task_id: str):
     """Get current progress for an optimal route generation task."""

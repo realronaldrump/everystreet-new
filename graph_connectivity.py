@@ -13,6 +13,7 @@ when the route solver encounters disconnected components.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -34,6 +35,38 @@ CORRIDOR_BUFFER_FT = 150.0  # Buffer width for corridor download (thin strip)
 MAX_BRIDGES_PER_ITERATION = 50  # Process this many bridges concurrently per iteration
 MAX_BRIDGING_ITERATIONS = 100  # Safety limit on iterations
 MAX_TOTAL_BRIDGES = 2000  # Maximum total bridges to create
+MAX_CONCURRENT_API_CALLS = 5  # Rate limit for Mapbox API calls
+
+# Connection pooling: shared httpx client for all Mapbox API requests
+_mapbox_client: httpx.AsyncClient | None = None
+_mapbox_client_lock = asyncio.Lock()
+
+# Rate limiting: semaphore to limit concurrent API calls
+_api_semaphore: asyncio.Semaphore | None = None
+
+
+async def get_mapbox_client() -> httpx.AsyncClient:
+    """Get or create a shared httpx client with connection pooling."""
+    global _mapbox_client
+    async with _mapbox_client_lock:
+        if _mapbox_client is None or _mapbox_client.is_closed:
+            _mapbox_client = httpx.AsyncClient(
+                limits=httpx.Limits(
+                    max_connections=10,
+                    max_keepalive_connections=5,
+                ),
+                timeout=httpx.Timeout(30.0, connect=10.0),
+            )
+            logger.debug("Created new shared httpx client for Mapbox API")
+        return _mapbox_client
+
+
+def get_api_semaphore() -> asyncio.Semaphore:
+    """Get or create the rate limiting semaphore."""
+    global _api_semaphore
+    if _api_semaphore is None:
+        _api_semaphore = asyncio.Semaphore(MAX_CONCURRENT_API_CALLS)
+    return _api_semaphore
 
 
 def _edge_length_m(G: nx.Graph, u: int, v: int, k: int | None = None) -> float:
@@ -223,7 +256,10 @@ async def fetch_bridge_route(
     }
 
     try:
-        async with httpx.AsyncClient() as client:
+        # Use shared client with connection pooling and rate limiting
+        semaphore = get_api_semaphore()
+        async with semaphore:
+            client = await get_mapbox_client()
             response = await client.get(url, params=params, timeout=timeout)
             response.raise_for_status()
             data = response.json()
@@ -242,6 +278,9 @@ async def fetch_bridge_route(
 
     except httpx.HTTPStatusError as e:
         logger.error("Mapbox Directions API HTTP error: %s", e.response.status_code)
+        # Add backoff for rate limit errors (429)
+        if e.response.status_code == 429:
+            await asyncio.sleep(1.0)  # Brief backoff
         return None
     except httpx.RequestError as e:
         logger.error("Mapbox Directions API request error: %s", e)
