@@ -91,7 +91,7 @@ class DatabaseManager:
                 30,
             ]
 
-            self._max_pool_size = int(os.getenv("MONGODB_MAX_POOL_SIZE", "10"))
+            self._max_pool_size = int(os.getenv("MONGODB_MAX_POOL_SIZE", "50"))
             self._connection_timeout_ms = int(
                 os.getenv(
                     "MONGODB_CONNECTION_TIMEOUT_MS",
@@ -151,7 +151,7 @@ class DatabaseManager:
                 "socketTimeoutMS": self._socket_timeout_ms,
                 "retryWrites": True,
                 "retryReads": True,
-                "waitQueueTimeoutMS": 10000,
+                "waitQueueTimeoutMS": 30000,
                 "appname": "EveryStreet",
             }
 
