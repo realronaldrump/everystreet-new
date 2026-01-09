@@ -807,6 +807,98 @@ def _validate_route(
     return errors, warnings, details
 
 
+async def fill_route_gaps(
+    route_coords: list[list[float]],
+    max_gap_ft: float = 1000.0,
+    progress_callback: Any | None = None,
+) -> list[list[float]]:
+    """
+    Fill gaps in a route with actual driving routes from Mapbox.
+
+    This is a simple post-processing step that finds any gaps larger than
+    max_gap_ft and fetches real driving routes to fill them.
+
+    Args:
+        route_coords: List of [lon, lat] coordinates
+        max_gap_ft: Threshold gap size in feet to trigger filling
+        progress_callback: Optional async callback(stage, pct, message)
+
+    Returns:
+        Route coordinates with gaps filled
+    """
+    if len(route_coords) < 2:
+        return route_coords
+
+    from graph_connectivity import fetch_bridge_route
+
+    gaps_to_fill: list[tuple[int, float]] = []  # (index, gap_ft)
+
+    # Find gaps
+    for i in range(1, len(route_coords)):
+        prev = route_coords[i - 1]
+        cur = route_coords[i]
+        if len(prev) < 2 or len(cur) < 2:
+            continue
+
+        d_miles = GeometryService.haversine_distance(
+            prev[0], prev[1], cur[0], cur[1], unit="miles"
+        )
+        d_ft = d_miles * 5280.0
+
+        if d_ft > max_gap_ft:
+            gaps_to_fill.append((i, d_ft))
+
+    if not gaps_to_fill:
+        logger.info("No gaps > %.0f ft found in route", max_gap_ft)
+        return route_coords
+
+    logger.info("Found %d gaps to fill in route", len(gaps_to_fill))
+
+    # Fill gaps (process in reverse order to preserve indices)
+    filled_coords = list(route_coords)
+    gaps_filled = 0
+
+    for idx, (gap_idx, gap_ft) in enumerate(reversed(gaps_to_fill)):
+        if progress_callback:
+            pct = int((idx + 1) / len(gaps_to_fill) * 100)
+            await progress_callback(
+                "filling_gaps",
+                pct,
+                f"Filling gap {idx + 1}/{len(gaps_to_fill)} ({gap_ft / 5280:.2f} mi)",
+            )
+
+        prev = filled_coords[gap_idx - 1]
+        cur = filled_coords[gap_idx]
+
+        from_xy = (prev[0], prev[1])
+        to_xy = (cur[0], cur[1])
+
+        # Fetch route from Mapbox
+        bridge_coords = await fetch_bridge_route(from_xy, to_xy)
+
+        if bridge_coords and len(bridge_coords) >= 2:
+            # Insert the bridge coordinates (excluding first/last which are the gap endpoints)
+            # to avoid duplicating points
+            insert_coords = bridge_coords[1:-1] if len(bridge_coords) > 2 else []
+            if insert_coords:
+                filled_coords = (
+                    filled_coords[:gap_idx] + insert_coords + filled_coords[gap_idx:]
+                )
+            gaps_filled += 1
+            logger.debug(
+                "Filled gap at index %d with %d coordinates", gap_idx, len(insert_coords)
+            )
+        else:
+            logger.warning(
+                "Could not fill gap at index %d (%.2f mi) - Mapbox returned no route",
+                gap_idx,
+                gap_ft / 5280,
+            )
+
+    logger.info("Filled %d/%d gaps in route", gaps_filled, len(gaps_to_fill))
+    return filled_coords
+
+
 async def generate_optimal_route_with_progress(
     location_id: str,
     task_id: str,
@@ -1225,76 +1317,13 @@ async def generate_optimal_route_with_progress(
                     ox.distance.nearest_nodes(G, start_coords[0], start_coords[1])
                 )
 
-        # Bridge disconnected clusters before solving
-        # This fetches corridor graphs via Mapbox to connect fragmented areas
-        await update_progress(
-            "connectivity_check",
-            70,
-            "Checking graph connectivity and bridging disconnected clusters...",
-        )
-
-        try:
-            from graph_connectivity import (
-                analyze_required_connectivity,
-                bridge_disconnected_clusters,
-            )
-
-            clusters = analyze_required_connectivity(G, required_reqs)
-            if len(clusters) > 1:
-                from config import get_app_settings
-
-                settings = await get_app_settings()
-                if not settings.get("mapbox_access_token"):
-                    raise ValueError(
-                        "Route generation failed: The street network has gaps that require bridging, "
-                        "but the Mapbox API token is missing. "
-                        "Please configure the Mapbox Access Token in the App Settings."
-                    )
-
-                logger.info(
-                    "Found %d disconnected clusters; attempting to bridge...",
-                    len(clusters),
-                )
-
-                async def bridge_progress(stage: str, pct: int, msg: str) -> None:
-                    # Map bridge progress (0-100) to overall progress (70-80)
-                    overall_pct = 70 + int(pct * 0.1)
-                    await update_progress(stage, overall_pct, msg)
-
-                G = await bridge_disconnected_clusters(
-                    G,
-                    required_reqs,
-                    node_xy,
-                    progress_callback=bridge_progress,
-                )
-
-                # Update node_xy with any new nodes from corridors
-                for n in G.nodes:
-                    if n not in node_xy and "x" in G.nodes[n] and "y" in G.nodes[n]:
-                        node_xy[n] = (float(G.nodes[n]["x"]), float(G.nodes[n]["y"]))
-
-                await update_progress(
-                    "connectivity_check",
-                    80,
-                    f"Bridging complete; graph now has {G.number_of_nodes()} nodes",
-                )
-            else:
-                await update_progress(
-                    "connectivity_check",
-                    80,
-                    "All required segments are connected; no bridging needed",
-                )
-        except ImportError:
-            logger.warning(
-                "graph_connectivity module not available; skipping bridge step"
-            )
-        except Exception as e:
-            logger.warning("Bridge step failed (continuing without): %s", e)
-
+        # NOTE: We no longer pre-bridge disconnected clusters with OSM downloads.
+        # Instead, we generate the route and fill gaps afterwards with Mapbox routes.
+        # This is much faster and simpler.
         await update_progress(
             "routing",
-            82,
-            f"Computing greedy route for {len(required_reqs)} required edges...",
+            75,
+            f"Computing optimal route for {len(required_reqs)} required edges...",
         )
 
         try:
@@ -1308,10 +1337,33 @@ async def generate_optimal_route_with_progress(
             logger.error("Greedy solver failed: %s", e, exc_info=True)
             raise ValueError(f"Route solver failed: {e}")
 
-        await update_progress("finalizing", 90, "Finalizing route geometry...")
-
         if not route_coords:
             raise ValueError("Failed to generate route coordinates")
+
+        # Fill gaps in the route with Mapbox driving directions
+        await update_progress("filling_gaps", 85, "Filling route gaps with driving routes...")
+
+        try:
+            from config import get_app_settings
+
+            settings = await get_app_settings()
+            if settings.get("mapbox_access_token"):
+                async def gap_progress(_stage: str, pct: int, msg: str) -> None:
+                    # Map gap-fill progress (0-100) to overall progress (85-95)
+                    overall_pct = 85 + int(pct * 0.1)
+                    await update_progress("filling_gaps", overall_pct, msg)
+
+                route_coords = await fill_route_gaps(
+                    route_coords,
+                    max_gap_ft=1000.0,  # Fill gaps > 1000ft (~0.2 miles)
+                    progress_callback=gap_progress,
+                )
+            else:
+                logger.warning("Mapbox token not configured; skipping gap-filling")
+        except Exception as e:
+            logger.warning("Gap-filling failed (continuing with gaps): %s", e)
+
+        await update_progress("finalizing", 95, "Finalizing route geometry...")
 
         errors, warnings, validation_details = _validate_route(
             route_coords, stats, mapped_segments, len(undriven)
