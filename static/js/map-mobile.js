@@ -65,7 +65,7 @@ class MobileMapInterface {
       return;
     }
 
-    this.addBodyClass();
+    MobileMapInterface.addBodyClass();
     this.calculateSheetMetrics();
     this.setState(this.currentState, { immediate: true });
 
@@ -87,7 +87,7 @@ class MobileMapInterface {
     this.sheetContent = this.sheet?.querySelector(".control-panel-body");
   }
 
-  addBodyClass() {
+  static addBodyClass() {
     document.body.classList.add("map-page");
   }
 
@@ -103,7 +103,7 @@ class MobileMapInterface {
     const refreshBtn = document.getElementById("mobile-refresh");
     this.bind(refreshBtn, "click", () => {
       document.getElementById("refresh-map")?.click();
-      this.showFeedback("Refreshing map...");
+      MobileMapInterface.showFeedback("Refreshing map...");
     });
   }
 
@@ -420,7 +420,7 @@ class MobileMapInterface {
     this.cleanupCallbacks.push(() => target.removeEventListener(event, handler));
   }
 
-  showFeedback(message) {
+  static showFeedback(message) {
     if (window.notificationManager) {
       window.notificationManager.show(message, "info");
     }

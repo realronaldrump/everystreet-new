@@ -242,14 +242,14 @@ class CoverageManager {
 
       // For silent updates, check if data actually changed before rebuilding
       if (skipRebuild && this._lastAreasHash) {
-        const newHash = this._computeAreasHash(areas);
+        const newHash = CoverageManager._computeAreasHash(areas);
         if (newHash === this._lastAreasHash) {
           // No changes, skip rebuild to prevent flicker
           return;
         }
         this._lastAreasHash = newHash;
       } else {
-        this._lastAreasHash = this._computeAreasHash(areas);
+        this._lastAreasHash = CoverageManager._computeAreasHash(areas);
       }
 
       this.ui.updateCoverageTable(
@@ -290,7 +290,7 @@ class CoverageManager {
   /**
    * Compute a simple hash of the areas data to detect changes
    */
-  _computeAreasHash(areas) {
+  static _computeAreasHash(areas) {
     return areas
       .map((a) => `${a._id}:${a.status}:${a.coverage_percentage}:${a.last_updated}`)
       .join("|");

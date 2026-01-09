@@ -429,10 +429,10 @@ class CoverageCalculator:
                 base_trip_filter,
             )
             logger.info(
-                f"Task {self.task_id}: Found {self.total_trips_to_process} trips to process."
+                "Task %s: Found %d trips to process.", self.task_id, self.total_trips_to_process
             )
         except Exception as e:
-            logger.error(f"Task {self.task_id}: Error counting trips: {e}")
+            logger.error("Task %s: Error counting trips: %s", self.task_id, e)
             return False
 
         if self.total_trips_to_process == 0:
@@ -472,7 +472,7 @@ class CoverageCalculator:
                     if isinstance(res, list):
                         self.newly_covered_segments.update(res)
                     elif isinstance(res, Exception):
-                        logger.error(f"Error querying intersections: {res}")
+                        logger.error("Error querying intersections: %s", res)
 
                 processed_count += len(tasks)
                 self.processed_trips_count = processed_count
@@ -525,7 +525,7 @@ class CoverageCalculator:
                     )
                     await asyncio.sleep(BATCH_PROCESS_DELAY)
             except Exception as e:
-                logger.error(f"Task {self.task_id}: Error updating DB: {e}")
+                logger.error("Task %s: Error updating DB: %s", self.task_id, e)
                 await self.update_progress("error", 90, f"Error updating DB: {e}")
 
         # 3. Calculate Final Stats via Aggregation (Source of Truth)
@@ -708,7 +708,7 @@ class CoverageCalculator:
 
             if not result or not result[0].get("overall"):
                 logger.error(
-                    f"Task {self.task_id}: Final stats aggregation returned empty."
+                    "Task %s: Final stats aggregation returned empty.", self.task_id
                 )
                 await self.update_progress(
                     "error",
@@ -765,13 +765,13 @@ class CoverageCalculator:
             }
 
         except Exception as e:
-            logger.error(f"Task {self.task_id}: Error calculating final stats: {e}")
+            logger.error("Task %s: Error calculating final stats: %s", self.task_id, e)
             await self.update_progress("error", 95, f"Error calculating stats: {e}")
             return None
 
         # 4. Update Metadata
         logger.info(
-            f"Task {self.task_id}: Updating coverage metadata for {self.location_name}..."
+            "Task %s: Updating coverage metadata for %s...", self.task_id, self.location_name
         )
         try:
             trip_ids_list = list(processed_trip_ids_set)
@@ -810,7 +810,7 @@ class CoverageCalculator:
             )
 
         except Exception as e:
-            logger.error(f"Task {self.task_id}: Error updating metadata: {e}")
+            logger.error("Task %s: Error updating metadata: %s", self.task_id, e)
             await self.update_progress("error", 97, f"Failed to update metadata: {e}")
 
         final_result = {
@@ -836,7 +836,7 @@ class CoverageCalculator:
         start_time = datetime.now(UTC)
         run_type = "incremental" if run_incremental else "full"
         logger.info(
-            f"Task {self.task_id}: Starting {run_type} coverage for {self.location_name}"
+            "Task %s: Starting %s coverage for %s", self.task_id, run_type, self.location_name
         )
 
         try:
@@ -864,13 +864,13 @@ class CoverageCalculator:
                             processed_trip_ids_set = set(map(str, ids))
                 except Exception as e:
                     logger.warning(
-                        f"Failed to load previous trip IDs: {e}. Running full."
+                        "Failed to load previous trip IDs: %s. Running full.", e
                     )
 
             # Process Trips
             trips_success = await self.process_trips(processed_trip_ids_set)
             if not trips_success:
-                logger.error(f"Task {self.task_id}: Trip processing failed.")
+                logger.error("Task %s: Trip processing failed.", self.task_id)
                 return None
 
             # Finalize
@@ -893,12 +893,12 @@ class CoverageCalculator:
                     self._geospatial_error_sample,
                 )
 
-            logger.info(f"Task {self.task_id}: Finished in {duration:.2f}s")
+            logger.info("Task %s: Finished in %.2fs", self.task_id, duration)
 
             return final_stats
 
         except Exception as e:
-            logger.exception(f"Task {self.task_id}: Unhandled error: {e}")
+            logger.exception("Task %s: Unhandled error: %s", self.task_id, e)
             await self.update_progress("error", 0, f"Unhandled error: {e}")
             return None
 
@@ -929,7 +929,7 @@ async def generate_and_store_geojson(
     if not location_name:
         return
 
-    logger.info(f"Task {task_id}: Generating GeoJSON for {location_name}...")
+    logger.info("Task %s: Generating GeoJSON for %s...", task_id, location_name)
     await progress_collection.update_one(
         {"_id": task_id},
         {"$set": {"stage": "generating_geojson", "message": "Creating map data..."}},
@@ -1013,10 +1013,10 @@ async def generate_and_store_geojson(
             {"_id": task_id},
             {"$set": {"stage": "complete", "progress": 100, "status": "complete"}},
         )
-        logger.info(f"Task {task_id}: GeoJSON generation complete.")
+        logger.info("Task %s: GeoJSON generation complete.", task_id)
 
     except Exception as e:
-        logger.error(f"Task {task_id}: GeoJSON generation failed: {e}")
+        logger.error("Task %s: GeoJSON generation failed: %s", task_id, e)
         if upload_stream:
             await upload_stream.abort()
 

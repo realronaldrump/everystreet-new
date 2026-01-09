@@ -30,7 +30,7 @@ async def get_vehicle_location_at_time(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error getting vehicle location: {str(e)}")
+        logger.error("Error getting vehicle location: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -45,5 +45,5 @@ async def estimate_odometer_reading(
         return result
 
     except Exception as e:
-        logger.error(f"Error estimating odometer: {e}")
+        logger.error("Error estimating odometer: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

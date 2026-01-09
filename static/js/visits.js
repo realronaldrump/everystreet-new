@@ -31,20 +31,20 @@
 
       this.statsUpdateTimer = null;
 
-      this.setupDurationSorting();
+      VisitsManager.setupDurationSorting();
       this.initialize();
     }
 
     async initialize() {
-      this.showInitialLoading();
+      VisitsManager.showInitialLoading();
       this.loadingManager.startOperation("Initializing Visits Page");
       try {
-        await this.mapController.initialize(this.getCurrentTheme());
+        await this.mapController.initialize(VisitsManager.getCurrentTheme());
         this.map = this.mapController.getMap();
         this.initializeDrawControls();
         this.initializeTables();
         this.setupEventListeners();
-        this.setupEnhancedUI();
+        VisitsManager.setupEnhancedUI();
 
         await Promise.all([
           this.loadPlaces(),
@@ -55,19 +55,19 @@
         this.updateStatsCounts();
         this.startStatsAnimation();
         this.loadingManager.finish("Initializing Visits Page");
-        this.hideInitialLoading();
+        VisitsManager.hideInitialLoading();
       } catch (error) {
         console.error("Error initializing visits page:", error);
         this.loadingManager.error("Failed to initialize visits page");
-        this.showErrorState();
+        VisitsManager.showErrorState();
       }
     }
 
-    getCurrentTheme() {
+    static getCurrentTheme() {
       return document.documentElement.getAttribute("data-bs-theme") || "dark";
     }
 
-    showInitialLoading() {
+    static showInitialLoading() {
       const loadingOverlay = document.getElementById("map-loading");
       if (loadingOverlay) {
         loadingOverlay.style.display = "flex";
@@ -76,7 +76,7 @@
       }
     }
 
-    hideInitialLoading() {
+    static hideInitialLoading() {
       const loadingOverlay = document.getElementById("map-loading");
       if (loadingOverlay) {
         loadingOverlay.style.pointerEvents = "none";
@@ -90,7 +90,7 @@
       }
     }
 
-    showErrorState() {
+    static showErrorState() {
       const mapContainer = document.getElementById("map");
       if (mapContainer) {
         mapContainer.innerHTML = `
@@ -103,7 +103,7 @@
       }
     }
 
-    setupEnhancedUI() {
+    static setupEnhancedUI() {
       document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
         anchor.addEventListener("click", (e) => {
           e.preventDefault();
@@ -165,14 +165,14 @@
     }
 
     startStatsAnimation() {
-      this.animateCounter("total-places-count", this.places.size, 1000);
+      VisitsManager.animateCounter("total-places-count", this.places.size, 1000);
       this.updateMonthlyVisits();
       this.statsUpdateTimer = setInterval(() => {
         this.updateStatsCounts();
       }, 30000);
     }
 
-    animateCounter(elementId, targetValue, duration = 1000) {
+    static animateCounter(elementId, targetValue, duration = 1000) {
       const element = document.getElementById(elementId);
       if (!element) return;
 
@@ -206,7 +206,7 @@
           (sum, p) => sum + (p.totalVisits || 0),
           0
         );
-        this.animateCounter("total-visits-count", totalVisits);
+        VisitsManager.animateCounter("total-visits-count", totalVisits);
       } catch (error) {
         console.error("Error updating stats:", error);
       }
@@ -453,7 +453,7 @@
       const placeName = placeNameInput?.value.trim();
 
       if (!placeName) {
-        this.showInputError(placeNameInput, "Please enter a name for the place.");
+        VisitsManager.showInputError(placeNameInput, "Please enter a name for the place.");
         return;
       }
       if (!this.currentPolygon) {
@@ -502,7 +502,7 @@
       }
     }
 
-    showInputError(input, message) {
+    static showInputError(input, message) {
       input?.classList.add("is-invalid");
       window.notificationManager?.show(message, "warning");
       input?.focus();
@@ -1038,7 +1038,7 @@
       this.suggestionsTable?.destroy();
     }
 
-    setupDurationSorting() {
+    static setupDurationSorting() {
       if (window.$ && $.fn.dataTable) {
         $.fn.dataTable.ext.type.order["duration-pre"] = (data) =>
           DateUtils.convertDurationToSeconds(data);

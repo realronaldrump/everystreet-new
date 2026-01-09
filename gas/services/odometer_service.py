@@ -42,11 +42,11 @@ class OdometerService:
             # Try to get real-time data from Bouncie API first
             bouncie_data = await BouncieService.fetch_vehicle_status(imei)
             if bouncie_data and bouncie_data.get("odometer"):
-                logger.info(f"Using real-time Bouncie data for IMEI {imei}")
+                logger.info("Using real-time Bouncie data for IMEI %s", imei)
                 return bouncie_data
 
             # Fallback to most recent trip if Bouncie API fails
-            logger.info(f"Falling back to local trip data for IMEI {imei}")
+            logger.info("Falling back to local trip data for IMEI %s", imei)
             trip = await find_one_with_retry(
                 trips_collection,
                 {"imei": imei},
@@ -85,7 +85,7 @@ class OdometerService:
 
         if not trip:
             logger.warning(
-                f"No trip found for IMEI {imei} (use_now={use_now}, timestamp={timestamp})"
+                "No trip found for IMEI %s (use_now=%s, timestamp=%s)", imei, use_now, timestamp
             )
             return {"latitude": None, "longitude": None, "odometer": None}
 
@@ -99,7 +99,7 @@ class OdometerService:
         }
 
         logger.info(
-            f"Vehicle Loc Debug: Found trip {trip.get('transactionId')}, EndOdo: {location_data['odometer']}"
+            "Vehicle Loc Debug: Found trip %s, EndOdo: %s", trip.get('transactionId'), location_data['odometer']
         )
 
         # Try to get coordinates from various sources
@@ -128,7 +128,7 @@ class OdometerService:
             elif trip.get("startOdometer"):
                 location_data["odometer"] = trip.get("startOdometer")
                 logger.info(
-                    f"Vehicle Loc Debug: Fallback to startOdometer {location_data['odometer']}"
+                    "Vehicle Loc Debug: Fallback to startOdometer %s", location_data['odometer']
                 )
 
         return location_data
