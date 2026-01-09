@@ -668,9 +668,7 @@ class CoverageCalculator:
                     }
                 )
 
-            final_street_types.sort(
-                key=lambda x: x["total_length_m"], reverse=True
-            )
+            final_street_types.sort(key=lambda x: x["total_length_m"], reverse=True)
 
             coverage_stats = {
                 "total_length_m": round(stats.get("total_length", 0), 2),
