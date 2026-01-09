@@ -2,7 +2,8 @@
 body.turn-by-turn-active {
   background: radial-gradient(circle at 20% 10%, #eaf2ff, #f5f6fb 50%, #f8f9fd);
   color: #0b1220;
-  font-family: "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, sans-serif;
+  font-family:
+    "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, sans-serif;
   color-scheme: light;
 }
 
@@ -42,7 +43,11 @@ body.turn-by-turn-active .main-content {
   content: "";
   position: absolute;
   inset: -20%;
-  background: radial-gradient(circle at 70% 20%, rgba(10, 132, 255, 0.08), transparent 45%);
+  background: radial-gradient(
+    circle at 70% 20%,
+    rgba(10, 132, 255, 0.08),
+    transparent 45%
+  );
   pointer-events: none;
   z-index: 1;
 }
@@ -215,7 +220,9 @@ body.turn-by-turn-active .main-content {
   box-shadow: var(--nav-shadow);
   display: grid;
   place-items: center;
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
 }
 
 .nav-control-btn.active {
@@ -326,7 +333,9 @@ body.turn-by-turn-active .main-content {
   border-radius: 999px;
   font-size: 0.85rem;
   font-weight: 600;
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
 }
 
 .nav-end-btn:hover {
@@ -341,10 +350,16 @@ body.turn-by-turn-active .main-content {
   place-items: center;
   padding: 16px;
   z-index: 3;
-  background: linear-gradient(135deg, rgba(248, 250, 255, 0.92), rgba(238, 241, 248, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 255, 0.92),
+    rgba(238, 241, 248, 0.92)
+  );
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
 .nav-setup.hidden {
@@ -404,10 +419,16 @@ body.turn-by-turn-active .main-content {
   border: none;
   padding: 12px 16px;
   border-radius: 16px;
-  background: linear-gradient(130deg, var(--nav-accent) 0%, var(--nav-accent-strong) 100%);
+  background: linear-gradient(
+    130deg,
+    var(--nav-accent) 0%,
+    var(--nav-accent-strong) 100%
+  );
   color: #ffffff;
   font-weight: 700;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .nav-primary-btn:disabled {

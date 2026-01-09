@@ -36,7 +36,11 @@
   </div>
 
   <div class="nav-controls">
-    <button class="nav-control-btn" id="nav-overview-btn" title="Route overview">
+    <button
+      class="nav-control-btn"
+      id="nav-overview-btn"
+      title="Route overview"
+    >
       <i class="fas fa-route" aria-hidden="true"></i>
     </button>
     <button class="nav-control-btn" id="nav-recenter-btn" title="Recenter">
@@ -98,10 +102,20 @@
         <option value="">Select a coverage area...</option>
       </select>
       <div class="nav-setup-actions">
-        <button class="nav-primary-btn" id="nav-load-route-btn" type="button" disabled>
+        <button
+          class="nav-primary-btn"
+          id="nav-load-route-btn"
+          type="button"
+          disabled
+        >
           Load Route
         </button>
-        <button class="nav-primary-btn" id="nav-start-btn" type="button" disabled>
+        <button
+          class="nav-primary-btn"
+          id="nav-start-btn"
+          type="button"
+          disabled
+        >
           Start Navigation
         </button>
       </div>
@@ -118,9 +132,7 @@
 <script>
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
 </script>
-<script
-  src="{{ url_for('static', path='js/turn-by-turn.js') | replace('http://', '//') }}"
-></script>
+<script src="{{ url_for('static', path='js/turn-by-turn.js') | replace('http://', '//') }}"></script>
 <script>
   document.body.classList.add("turn-by-turn-active");
 </script>

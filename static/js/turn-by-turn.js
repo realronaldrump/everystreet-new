@@ -47,7 +47,7 @@ class TurnByTurnNavigator {
     this.endMarker = null;
 
     this.prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
+      "(prefers-reduced-motion: reduce)",
     ).matches;
 
     this.cacheElements();
@@ -72,7 +72,9 @@ class TurnByTurnNavigator {
     this.turnIcon = document.getElementById("nav-turn-icon");
     this.turnIconGlyph = this.turnIcon?.querySelector("i");
     this.distanceToTurn = document.getElementById("nav-distance-to-turn");
-    this.primaryInstruction = document.getElementById("nav-primary-instruction");
+    this.primaryInstruction = document.getElementById(
+      "nav-primary-instruction",
+    );
     this.roadName = document.getElementById("nav-road-name");
 
     this.progressFill = document.getElementById("nav-progress-fill");
@@ -93,7 +95,7 @@ class TurnByTurnNavigator {
     this.recenterBtn?.addEventListener("click", () => this.recenter());
     this.routeBtn?.addEventListener("click", () => this.toggleSetupPanel());
     document.addEventListener("liveTrackingUpdated", (event) =>
-      this.handleLiveTrackingUpdate(event)
+      this.handleLiveTrackingUpdate(event),
     );
   }
 
@@ -245,7 +247,8 @@ class TurnByTurnNavigator {
 
   populateAreaSelect() {
     if (!this.areaSelect) return;
-    this.areaSelect.innerHTML = '<option value="">Select a coverage area...</option>';
+    this.areaSelect.innerHTML =
+      '<option value="">Select a coverage area...</option>';
     this.coverageAreas.forEach((area) => {
       const areaId = area._id || area.id;
       const name =
@@ -290,7 +293,8 @@ class TurnByTurnNavigator {
     this.resetRouteState();
     this.selectedAreaId = selectedValue;
     const selectedOption = this.areaSelect?.selectedOptions?.[0];
-    this.selectedAreaName = selectedOption?.dataset?.name || selectedOption?.textContent;
+    this.selectedAreaName =
+      selectedOption?.dataset?.name || selectedOption?.textContent;
     if (this.setupSummary) this.setupSummary.innerHTML = "";
 
     if (this.loadRouteBtn) this.loadRouteBtn.disabled = false;
@@ -313,7 +317,7 @@ class TurnByTurnNavigator {
 
     try {
       const response = await fetch(
-        `/api/coverage_areas/${this.selectedAreaId}/optimal-route/gpx`
+        `/api/coverage_areas/${this.selectedAreaId}/optimal-route/gpx`,
       );
       if (!response.ok) {
         if (response.status === 404) {
@@ -399,7 +403,10 @@ class TurnByTurnNavigator {
     this.segmentLengths = [];
     let total = 0;
     for (let i = 1; i < this.routeCoords.length; i += 1) {
-      const dist = this.distanceMeters(this.routeCoords[i - 1], this.routeCoords[i]);
+      const dist = this.distanceMeters(
+        this.routeCoords[i - 1],
+        this.routeCoords[i],
+      );
       this.segmentLengths.push(dist);
       total += dist;
       this.routeDistances.push(total);
@@ -414,15 +421,22 @@ class TurnByTurnNavigator {
     let lastDistance = 0;
 
     for (let i = 1; i < this.routeCoords.length - 1; i += 1) {
-      const inbound = this.bearing(this.routeCoords[i - 1], this.routeCoords[i]);
-      const outbound = this.bearing(this.routeCoords[i], this.routeCoords[i + 1]);
+      const inbound = this.bearing(
+        this.routeCoords[i - 1],
+        this.routeCoords[i],
+      );
+      const outbound = this.bearing(
+        this.routeCoords[i],
+        this.routeCoords[i + 1],
+      );
       const delta = this.angleDelta(inbound, outbound);
       const absDelta = Math.abs(delta);
       const along = this.routeDistances[i];
 
       if (absDelta < minAngle) continue;
       if (along - lastDistance < minTurnDistance) continue;
-      if (this.segmentLengths[i - 1] < 8 || this.segmentLengths[i] < 8) continue;
+      if (this.segmentLengths[i - 1] < 8 || this.segmentLengths[i] < 8)
+        continue;
 
       maneuvers.push({
         index: i,
@@ -481,7 +495,8 @@ class TurnByTurnNavigator {
 
     const endEl = document.createElement("div");
     endEl.className = "nav-end-marker";
-    endEl.innerHTML = '<i class="fas fa-flag-checkered" aria-hidden="true"></i>';
+    endEl.innerHTML =
+      '<i class="fas fa-flag-checkered" aria-hidden="true"></i>';
     this.endMarker = new mapboxgl.Marker({ element: endEl })
       .setLngLat(this.routeCoords[this.routeCoords.length - 1])
       .addTo(this.map);
@@ -562,7 +577,7 @@ class TurnByTurnNavigator {
       this.hideSetupPanel();
       this.setNavStatus(
         "Device GPS unavailable. Waiting for live tracking.",
-        true
+        true,
       );
       return;
     }
@@ -592,7 +607,7 @@ class TurnByTurnNavigator {
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 1000,
-      }
+      },
     );
   }
 
@@ -623,12 +638,11 @@ class TurnByTurnNavigator {
   handleLiveTrackingUpdate(event) {
     if (!this.isNavigating || this.watchId) return;
     const coords =
-      event.detail?.coords ||
-      event.detail?.trip?.coordinates ||
-      [];
+      event.detail?.coords || event.detail?.trip?.coordinates || [];
     if (!coords.length) return;
     const lastCoord = coords[coords.length - 1];
-    if (!Number.isFinite(lastCoord?.lat) || !Number.isFinite(lastCoord?.lon)) return;
+    if (!Number.isFinite(lastCoord?.lat) || !Number.isFinite(lastCoord?.lon))
+      return;
 
     const fix = {
       lat: lastCoord.lat,
@@ -644,7 +658,10 @@ class TurnByTurnNavigator {
 
   handleGeolocationError(error) {
     if (error.code === error.PERMISSION_DENIED) {
-      this.setNavStatus("Location permission denied. Waiting for live tracking.", true);
+      this.setNavStatus(
+        "Location permission denied. Waiting for live tracking.",
+        true,
+      );
       this.stopGeolocation();
       return;
     }
@@ -665,7 +682,10 @@ class TurnByTurnNavigator {
     if (!closest) return;
 
     const progressDistance = Math.min(closest.along, this.totalDistance);
-    const remainingDistance = Math.max(this.totalDistance - progressDistance, 0);
+    const remainingDistance = Math.max(
+      this.totalDistance - progressDistance,
+      0,
+    );
     const offRoute = closest.distance > this.offRouteThreshold;
 
     this.updateProgressLine(closest);
@@ -677,7 +697,12 @@ class TurnByTurnNavigator {
     this.updateEta(remainingDistance, speedMps);
     this.updateSpeed(speedMps);
 
-    this.updateInstruction(progressDistance, remainingDistance, offRoute, closest);
+    this.updateInstruction(
+      progressDistance,
+      remainingDistance,
+      offRoute,
+      closest,
+    );
     this.updateMarkerHeading(heading);
     this.updateCamera(current, heading, speedMps);
   }
@@ -687,7 +712,8 @@ class TurnByTurnNavigator {
     if (!this.positionMarker) {
       const markerEl = document.createElement("div");
       markerEl.className = "nav-position-marker";
-      markerEl.innerHTML = '<i class="fas fa-location-arrow" aria-hidden="true"></i>';
+      markerEl.innerHTML =
+        '<i class="fas fa-location-arrow" aria-hidden="true"></i>';
       this.positionMarker = new mapboxgl.Marker({
         element: markerEl,
         rotationAlignment: "map",
@@ -737,11 +763,13 @@ class TurnByTurnNavigator {
     if (!this.progressLabel || !this.progressValue) return;
     this.progressLabel.textContent = this.routeName;
     this.progressValue.textContent = `${this.formatDistance(
-      progressDistance
+      progressDistance,
     )} of ${this.formatDistance(this.totalDistance)}`;
 
     if (this.progressFill) {
-      const ratio = this.totalDistance ? progressDistance / this.totalDistance : 0;
+      const ratio = this.totalDistance
+        ? progressDistance / this.totalDistance
+        : 0;
       this.progressFill.style.transform = `scaleX(${Math.min(Math.max(ratio, 0), 1)})`;
     }
   }
@@ -783,7 +811,7 @@ class TurnByTurnNavigator {
     if (offRoute) {
       this.primaryInstruction.textContent = "Return to route";
       this.distanceToTurn.textContent = `Off by ${this.formatDistance(
-        closest.distance
+        closest.distance,
       )}`;
       if (this.roadName) this.roadName.textContent = this.routeName;
       this.turnIcon?.classList.add("off-route");
@@ -805,8 +833,12 @@ class TurnByTurnNavigator {
     const nextManeuver = this.getNextManeuver(progressDistance);
     if (!nextManeuver) return;
 
-    const distanceTo = Math.max(nextManeuver.distanceAlong - progressDistance, 0);
-    const distanceLabel = distanceTo < 25 ? "Now" : `In ${this.formatDistance(distanceTo)}`;
+    const distanceTo = Math.max(
+      nextManeuver.distanceAlong - progressDistance,
+      0,
+    );
+    const distanceLabel =
+      distanceTo < 25 ? "Now" : `In ${this.formatDistance(distanceTo)}`;
     const instruction = this.getInstructionText(nextManeuver.type);
     const rotation = this.getTurnRotation(nextManeuver.type);
 
@@ -853,7 +885,10 @@ class TurnByTurnNavigator {
       this.fitRouteBounds();
     } else if (this.lastPosition) {
       this.followMode = true;
-      this.updateCamera([this.lastPosition.lon, this.lastPosition.lat], this.lastHeading);
+      this.updateCamera(
+        [this.lastPosition.lon, this.lastPosition.lat],
+        this.lastHeading,
+      );
     }
     this.updateControlStates();
   }
@@ -863,7 +898,10 @@ class TurnByTurnNavigator {
     this.followMode = true;
     this.overviewMode = false;
     this.updateControlStates();
-    this.updateCamera([this.lastPosition.lon, this.lastPosition.lat], this.lastHeading);
+    this.updateCamera(
+      [this.lastPosition.lon, this.lastPosition.lat],
+      this.lastHeading,
+    );
   }
 
   updateControlStates() {
@@ -901,7 +939,8 @@ class TurnByTurnNavigator {
   }
 
   updateSignal(accuracy) {
-    if (!this.navSignal || !this.navSignalText || !Number.isFinite(accuracy)) return;
+    if (!this.navSignal || !this.navSignalText || !Number.isFinite(accuracy))
+      return;
     const rounded = Math.round(accuracy);
     this.navSignalText.textContent = `GPS ${rounded}m`;
     this.navSignal.classList.remove("good", "poor");
@@ -921,7 +960,7 @@ class TurnByTurnNavigator {
       if (deltaTime > 0) {
         const distance = this.distanceMeters(
           [this.lastPosition.lon, this.lastPosition.lat],
-          [fix.lon, fix.lat]
+          [fix.lon, fix.lat],
         );
         speedMps = distance / deltaTime;
       }
@@ -950,13 +989,13 @@ class TurnByTurnNavigator {
     if (!heading && this.lastPosition) {
       heading = this.bearing(
         [this.lastPosition.lon, this.lastPosition.lat],
-        [fix.lon, fix.lat]
+        [fix.lon, fix.lat],
       );
     }
     if (!heading && closest && closest.index < this.routeCoords.length - 1) {
       heading = this.bearing(
         this.routeCoords[closest.index],
-        this.routeCoords[closest.index + 1]
+        this.routeCoords[closest.index + 1],
       );
     }
     this.lastHeading = heading;
@@ -1017,7 +1056,7 @@ class TurnByTurnNavigator {
     if (!this.map || this.routeCoords.length < 2) return;
     const bounds = this.routeCoords.reduce(
       (b, coord) => b.extend(coord),
-      new mapboxgl.LngLatBounds(this.routeCoords[0], this.routeCoords[0])
+      new mapboxgl.LngLatBounds(this.routeCoords[0], this.routeCoords[0]),
     );
     this.map.fitBounds(bounds, {
       padding: 80,
@@ -1042,7 +1081,7 @@ class TurnByTurnNavigator {
         const proj = this.projectToSegment(
           current,
           this.routeCoords[i],
-          this.routeCoords[i + 1]
+          this.routeCoords[i + 1],
         );
         if (!closest || proj.distance < closest.distance) {
           closest = {

@@ -300,7 +300,7 @@ class LiveTripTracker {
           trip,
           coords,
         },
-      })
+      }),
     );
   }
 
@@ -386,11 +386,19 @@ class LiveTripTracker {
     // Update marker styling with smooth transition
     this.map.setPaintProperty(this.markerLayerId, "circle-color", color);
     this.map.setPaintProperty(this.markerLayerId, "circle-radius", radius);
-    this.map.setPaintProperty(this.markerLayerId, "circle-stroke-width", strokeWidth);
+    this.map.setPaintProperty(
+      this.markerLayerId,
+      "circle-stroke-width",
+      strokeWidth,
+    );
 
     // Sync pulse ring color
     if (this.map.getLayer(this.pulseLayerId)) {
-      this.map.setPaintProperty(this.pulseLayerId, "circle-stroke-color", color);
+      this.map.setPaintProperty(
+        this.pulseLayerId,
+        "circle-stroke-color",
+        color,
+      );
     }
 
     // Update line color to match current state
@@ -427,11 +435,15 @@ class LiveTripTracker {
       }
 
       try {
-        this.map.setPaintProperty(this.pulseLayerId, "circle-radius", pulseRadius);
+        this.map.setPaintProperty(
+          this.pulseLayerId,
+          "circle-radius",
+          pulseRadius,
+        );
         this.map.setPaintProperty(
           this.pulseLayerId,
           "circle-stroke-opacity",
-          Math.max(0.1, pulseOpacity)
+          Math.max(0.1, pulseOpacity),
         );
       } catch {
         // Layer might be removed during animation
@@ -495,7 +507,9 @@ class LiveTripTracker {
     }
 
     if (trip.totalIdlingTime > 0) {
-      optional["Idling Time"] = DateUtils.formatSecondsToHMS(trip.totalIdlingTime);
+      optional["Idling Time"] = DateUtils.formatSecondsToHMS(
+        trip.totalIdlingTime,
+      );
     }
 
     if (trip.hardBrakingCounts > 0) {
@@ -514,7 +528,7 @@ class LiveTripTracker {
           <span class="metric-label">${label}:</span>
           <span class="metric-value">${value}</span>
         </div>
-      `
+      `,
       )
       .join("");
 
@@ -530,7 +544,7 @@ class LiveTripTracker {
               <span class="metric-label">${label}:</span>
               <span class="metric-value">${value}</span>
             </div>
-          `
+          `,
           )
           .join("")}
       `
