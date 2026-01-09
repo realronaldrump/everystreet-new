@@ -24,7 +24,7 @@ async def get_gas_statistics(
         return serialize_document(stats)
 
     except Exception as e:
-        logger.error(f"Error calculating gas statistics: {str(e)}")
+        logger.error("Error calculating gas statistics: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -36,7 +36,7 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
         return result
 
     except Exception as e:
-        logger.error(f"Error syncing vehicles: {str(e)}")
+        logger.error("Error syncing vehicles: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -53,5 +53,5 @@ async def calculate_trip_gas_cost(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Error calculating trip gas cost: {str(e)}")
+        logger.error("Error calculating trip gas cost: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

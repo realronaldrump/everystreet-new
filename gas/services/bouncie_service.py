@@ -47,12 +47,12 @@ class BouncieService:
 
             async with session.get(url, headers=headers, params=params) as response:
                 if response.status != 200:
-                    logger.warning(f"Bouncie vehicles API failed: {response.status}")
+                    logger.warning("Bouncie vehicles API failed: %s", response.status)
                     return None
 
                 vehicles = await response.json()
                 if not vehicles:
-                    logger.warning(f"No vehicle found for IMEI {imei}")
+                    logger.warning("No vehicle found for IMEI %s", imei)
                     return None
 
                 vehicle = vehicles[0]  # API returns array
@@ -69,11 +69,13 @@ class BouncieService:
                 }
 
                 logger.info(
-                    f"Bouncie API: IMEI {imei} - Odo: {result['odometer']}, "
-                    f"Updated: {result['timestamp']}"
+                    "Bouncie API: IMEI %s - Odo: %s, Updated: %s",
+                    imei,
+                    result["odometer"],
+                    result["timestamp"],
                 )
                 return result
 
         except Exception as e:
-            logger.error(f"Error fetching vehicle status from Bouncie: {e}")
+            logger.error("Error fetching vehicle status from Bouncie: %s", e)
             return None

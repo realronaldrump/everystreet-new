@@ -54,7 +54,7 @@ class VehicleService:
             sort=[("created_at", -1)],
         )
 
-        logger.info(f"Fetched {len(vehicles)} vehicles (active_only={active_only})")
+        logger.info("Fetched %d vehicles (active_only=%s)", len(vehicles), active_only)
         return vehicles
 
     @staticmethod

@@ -25,7 +25,7 @@ async def get_vehicles(
         return [serialize_document(v) for v in vehicles]
 
     except Exception as e:
-        logger.error(f"Error fetching vehicles: {str(e)}")
+        logger.error("Error fetching vehicles: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -40,7 +40,7 @@ async def create_vehicle(vehicle_data: VehicleModel) -> dict[str, Any]:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error creating vehicle: {str(e)}")
+        logger.error("Error creating vehicle: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -57,7 +57,7 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> dict[str, Any
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Error updating vehicle: {str(e)}")
+        logger.error("Error updating vehicle: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -71,5 +71,5 @@ async def delete_vehicle(imei: str) -> dict[str, str]:
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Error deleting vehicle: {str(e)}")
+        logger.error("Error deleting vehicle: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

@@ -30,7 +30,7 @@ async def get_gas_fillups(
         return [serialize_document(f) for f in fillups]
 
     except Exception as e:
-        logger.error(f"Error fetching gas fillups: {str(e)}")
+        logger.error("Error fetching gas fillups: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -48,7 +48,7 @@ async def get_gas_fillup(fillup_id: str) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching gas fillup: {str(e)}")
+        logger.error("Error fetching gas fillup: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -65,7 +65,7 @@ async def create_gas_fillup(
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error creating gas fillup: {str(e)}")
+        logger.error("Error creating gas fillup: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -83,7 +83,7 @@ async def update_gas_fillup(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Error updating gas fillup: {str(e)}")
+        logger.error("Error updating gas fillup: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -97,5 +97,5 @@ async def delete_gas_fillup(fillup_id: str) -> dict[str, str]:
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Error deleting gas fillup: {str(e)}")
+        logger.error("Error deleting gas fillup: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

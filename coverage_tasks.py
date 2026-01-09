@@ -118,8 +118,12 @@ async def process_coverage_calculation(
             )
 
     except Exception as e:
-        error_msg = f"Unhandled error in coverage task orchestration {task_id} for {display_name}: {e!s}"
-        logger.exception(error_msg)
+        logger.exception(
+            "Unhandled error in coverage task orchestration %s for %s: %s",
+            task_id,
+            display_name,
+            e,
+        )
 
         try:
             await update_one_with_retry(
@@ -240,8 +244,12 @@ async def process_incremental_coverage_calculation(
             )
 
     except Exception as e:
-        error_msg = f"Unhandled error in incremental coverage task orchestration {task_id} for {display_name}: {e!s}"
-        logger.exception(error_msg)
+        logger.exception(
+            "Unhandled error in incremental coverage task orchestration %s for %s: %s",
+            task_id,
+            display_name,
+            e,
+        )
 
         try:
             await update_one_with_retry(
@@ -535,8 +543,12 @@ async def process_area(
 
     except Exception as e:
         overall_status = "error"
-        error_msg = f"Unhandled error during area processing task {task_id} for {display_name}: {e!s}"
-        logger.exception(error_msg)
+        logger.exception(
+            "Unhandled error during area processing task %s for %s: %s",
+            task_id,
+            display_name,
+            e,
+        )
 
         try:
             await update_one_with_retry(

@@ -512,12 +512,10 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
         )
 
         if result.modified_count > 0 or result.upserted_id is not None:
-            log_msg = (
-                f"Task configuration updated: {'; '.join(changes)}"
-                if changes
-                else "Task configuration updated (specific changes not detailed)."
-            )
-            logger.info(log_msg)
+            if changes:
+                logger.info("Task configuration updated: %s", "; ".join(changes))
+            else:
+                logger.info("Task configuration updated (specific changes not detailed).")
             return {
                 "status": "success",
                 "message": "Task configuration updated successfully.",

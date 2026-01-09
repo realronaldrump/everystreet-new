@@ -298,6 +298,5 @@ async def generate_geojson_osm(
         return geojson_data, None
 
     except Exception as e:
-        error_detail = f"Unexpected error generating GeoJSON: {e!s}"
-        logger.exception(error_detail)
-        return None, error_detail
+        logger.exception("Unexpected error generating GeoJSON: %s", e)
+        return None, "Unexpected error generating GeoJSON: " + str(e)
