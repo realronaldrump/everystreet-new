@@ -91,6 +91,15 @@ class TurnByTurnNavigator {
     this.liveSegmentsCovered = new Set();
     this.liveCoverageIncrease = 0;
 
+    // Real-time segment tracking for gamification
+    this.segmentsData = null; // GeoJSON FeatureCollection of all segments
+    this.segmentIndex = new Map(); // segment_id -> feature for fast lookup
+    this.drivenSegmentIds = new Set(); // Segments driven during this session
+    this.undrivenSegmentIds = new Set(); // Segments still to drive
+    this.totalSegmentLength = 0;
+    this.drivenSegmentLength = 0;
+    this.segmentMatchThresholdMeters = 25; // How close to count as "on" segment
+
     // Progress smoothing
     this.progressHistory = [];
     this.lastValidProgress = 0;
@@ -300,6 +309,85 @@ class TurnByTurnNavigator {
   setupMapLayers() {
     if (!this.map) return;
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
+
+    // === COVERAGE SEGMENT LAYERS (rendered first, below route) ===
+
+    // Source for undriven segments (red/to-do)
+    if (!this.map.getSource("coverage-undriven")) {
+      this.map.addSource("coverage-undriven", { type: "geojson", data: emptyGeoJSON });
+    }
+
+    // Source for driven segments (green/complete)
+    if (!this.map.getSource("coverage-driven")) {
+      this.map.addSource("coverage-driven", { type: "geojson", data: emptyGeoJSON });
+    }
+
+    // Source for segments just completed this session (animated)
+    if (!this.map.getSource("coverage-just-driven")) {
+      this.map.addSource("coverage-just-driven", { type: "geojson", data: emptyGeoJSON });
+    }
+
+    // Undriven segments layer - subtle red, shows what's left to do
+    if (!this.map.getLayer("coverage-undriven-line")) {
+      this.map.addLayer({
+        id: "coverage-undriven-line",
+        type: "line",
+        source: "coverage-undriven",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "#d48584", // danger/red - matches app palette
+          "line-width": 4,
+          "line-opacity": 0.6,
+        },
+      });
+    }
+
+    // Already driven segments layer - muted green
+    if (!this.map.getLayer("coverage-driven-line")) {
+      this.map.addLayer({
+        id: "coverage-driven-line",
+        type: "line",
+        source: "coverage-driven",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "#6b9d8a", // success green - matches app palette
+          "line-width": 4,
+          "line-opacity": 0.4,
+        },
+      });
+    }
+
+    // Just-driven segments - bright green with glow effect
+    if (!this.map.getLayer("coverage-just-driven-glow")) {
+      this.map.addLayer({
+        id: "coverage-just-driven-glow",
+        type: "line",
+        source: "coverage-just-driven",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "#6b9d8a",
+          "line-width": 10,
+          "line-opacity": 0.3,
+          "line-blur": 4,
+        },
+      });
+    }
+
+    if (!this.map.getLayer("coverage-just-driven-line")) {
+      this.map.addLayer({
+        id: "coverage-just-driven-line",
+        type: "line",
+        source: "coverage-just-driven",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "#4caf50", // bright green for just completed
+          "line-width": 5,
+          "line-opacity": 0.9,
+        },
+      });
+    }
+
+    // === ROUTE LAYERS (rendered on top of coverage) ===
 
     // Main route source
     if (!this.map.getSource("nav-route")) {
@@ -562,6 +650,9 @@ class TurnByTurnNavigator {
 
       // Initialize coverage display with actual baseline
       this.initializeCoverageDisplay();
+
+      // Load coverage area segments for real-time tracking
+      await this.loadCoverageSegments();
 
       // Fetch ETA via Mapbox Directions and show preview
       await this.fetchRouteETA();
@@ -1220,6 +1311,326 @@ class TurnByTurnNavigator {
     }
   }
 
+  /**
+   * Load coverage area segments for real-time tracking and gamification
+   */
+  async loadCoverageSegments() {
+    if (!this.selectedAreaId) return;
+
+    try {
+      const response = await fetch(`/api/coverage_areas/${this.selectedAreaId}/streets`);
+      if (!response.ok) {
+        console.warn("Failed to load coverage segments");
+        return;
+      }
+
+      const data = await response.json();
+      if (!data.geojson || !data.geojson.features) {
+        console.warn("No segment data in response");
+        return;
+      }
+
+      this.segmentsData = data.geojson;
+      this.segmentIndex.clear();
+      this.drivenSegmentIds.clear();
+      this.undrivenSegmentIds.clear();
+      this.totalSegmentLength = 0;
+      this.drivenSegmentLength = 0;
+
+      const drivenFeatures = [];
+      const undrivenFeatures = [];
+
+      // Index all segments and categorize
+      for (const feature of this.segmentsData.features) {
+        const segmentId = feature.properties?.segment_id;
+        const isDriven = feature.properties?.driven === true;
+        const isUndriveable = feature.properties?.undriveable === true;
+        const length = feature.properties?.segment_length || 0;
+
+        if (!segmentId || isUndriveable) continue;
+
+        this.segmentIndex.set(segmentId, feature);
+        this.totalSegmentLength += length;
+
+        if (isDriven) {
+          this.drivenSegmentIds.add(segmentId);
+          this.drivenSegmentLength += length;
+          drivenFeatures.push(feature);
+        } else {
+          this.undrivenSegmentIds.add(segmentId);
+          undrivenFeatures.push(feature);
+        }
+      }
+
+      // Update map layers
+      this.updateCoverageMapLayers(drivenFeatures, undrivenFeatures, []);
+
+      console.log(
+        `Loaded ${this.segmentIndex.size} segments: ` +
+        `${this.drivenSegmentIds.size} driven, ${this.undrivenSegmentIds.size} undriven`
+      );
+    } catch (error) {
+      console.error("Error loading coverage segments:", error);
+    }
+  }
+
+  /**
+   * Update coverage map layers with current segment states
+   */
+  updateCoverageMapLayers(drivenFeatures, undrivenFeatures, justDrivenFeatures) {
+    if (!this.map) return;
+
+    const drivenSource = this.map.getSource("coverage-driven");
+    const undrivenSource = this.map.getSource("coverage-undriven");
+    const justDrivenSource = this.map.getSource("coverage-just-driven");
+
+    if (drivenSource) {
+      drivenSource.setData({
+        type: "FeatureCollection",
+        features: drivenFeatures,
+      });
+    }
+
+    if (undrivenSource) {
+      undrivenSource.setData({
+        type: "FeatureCollection",
+        features: undrivenFeatures,
+      });
+    }
+
+    if (justDrivenSource) {
+      justDrivenSource.setData({
+        type: "FeatureCollection",
+        features: justDrivenFeatures,
+      });
+    }
+  }
+
+  /**
+   * Check if current position matches any undriven segments
+   * Called on each GPS update during navigation
+   */
+  checkSegmentCoverage(currentPosition) {
+    if (!this.segmentIndex.size || this.undrivenSegmentIds.size === 0) return;
+
+    const current = [currentPosition.lon, currentPosition.lat];
+    const newlyDriven = [];
+
+    // Check each undriven segment
+    for (const segmentId of this.undrivenSegmentIds) {
+      const feature = this.segmentIndex.get(segmentId);
+      if (!feature) continue;
+
+      // Check if current position is close to this segment
+      const distance = this.distanceToLineString(current, feature.geometry.coordinates);
+
+      if (distance <= this.segmentMatchThresholdMeters) {
+        // Mark as driven!
+        newlyDriven.push(segmentId);
+      }
+    }
+
+    // Process newly driven segments
+    if (newlyDriven.length > 0) {
+      this.markSegmentsDriven(newlyDriven);
+    }
+  }
+
+  /**
+   * Calculate minimum distance from a point to a LineString
+   */
+  distanceToLineString(point, lineCoords) {
+    let minDistance = Infinity;
+
+    for (let i = 0; i < lineCoords.length - 1; i++) {
+      const segmentStart = lineCoords[i];
+      const segmentEnd = lineCoords[i + 1];
+      const dist = this.distanceToSegment(point, segmentStart, segmentEnd);
+      if (dist < minDistance) {
+        minDistance = dist;
+      }
+    }
+
+    return minDistance;
+  }
+
+  /**
+   * Calculate distance from point to line segment
+   */
+  distanceToSegment(point, segStart, segEnd) {
+    const proj = this.projectToSegment(point, segStart, segEnd);
+    return proj.distance;
+  }
+
+  /**
+   * Mark segments as driven and update map with animation
+   */
+  markSegmentsDriven(segmentIds) {
+    const newlyDrivenFeatures = [];
+
+    for (const segmentId of segmentIds) {
+      if (!this.undrivenSegmentIds.has(segmentId)) continue;
+
+      const feature = this.segmentIndex.get(segmentId);
+      if (!feature) continue;
+
+      // Move from undriven to driven
+      this.undrivenSegmentIds.delete(segmentId);
+      this.drivenSegmentIds.add(segmentId);
+      this.liveSegmentsCovered.add(segmentId);
+
+      // Track length
+      const length = feature.properties?.segment_length || 0;
+      this.drivenSegmentLength += length;
+      this.liveCoverageIncrease += length;
+
+      newlyDrivenFeatures.push(feature);
+    }
+
+    if (newlyDrivenFeatures.length === 0) return;
+
+    // Rebuild feature arrays
+    const drivenFeatures = [];
+    const undrivenFeatures = [];
+
+    for (const [segmentId, feature] of this.segmentIndex) {
+      if (this.drivenSegmentIds.has(segmentId)) {
+        drivenFeatures.push(feature);
+      } else if (this.undrivenSegmentIds.has(segmentId)) {
+        undrivenFeatures.push(feature);
+      }
+    }
+
+    // Update map with glow effect on newly driven
+    this.updateCoverageMapLayers(drivenFeatures, undrivenFeatures, newlyDrivenFeatures);
+
+    // Update coverage stats in real-time
+    this.updateRealTimeCoverage();
+
+    // Trigger satisfaction feedback
+    this.onSegmentsCompleted(newlyDrivenFeatures.length);
+
+    // Persist to server (debounced, non-blocking)
+    this.queueSegmentPersistence(segmentIds);
+
+    // Clear the "just driven" glow after animation
+    setTimeout(() => {
+      const justDrivenSource = this.map?.getSource("coverage-just-driven");
+      if (justDrivenSource) {
+        justDrivenSource.setData({ type: "FeatureCollection", features: [] });
+      }
+    }, 1500);
+  }
+
+  /**
+   * Queue segment persistence to server (debounced to avoid flooding)
+   */
+  queueSegmentPersistence(segmentIds) {
+    // Add to pending queue
+    if (!this.pendingSegmentUpdates) {
+      this.pendingSegmentUpdates = new Set();
+    }
+    for (const id of segmentIds) {
+      this.pendingSegmentUpdates.add(id);
+    }
+
+    // Debounce: persist after 2 seconds of no new updates
+    clearTimeout(this.persistSegmentsTimeout);
+    this.persistSegmentsTimeout = setTimeout(() => {
+      this.persistDrivenSegments();
+    }, 2000);
+  }
+
+  /**
+   * Persist driven segments to server
+   */
+  async persistDrivenSegments() {
+    if (!this.pendingSegmentUpdates || this.pendingSegmentUpdates.size === 0) return;
+
+    const segmentIds = Array.from(this.pendingSegmentUpdates);
+    this.pendingSegmentUpdates.clear();
+
+    try {
+      // Use the bulk mark_driven endpoint
+      await fetch("/api/street_segments/mark_driven", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          segment_ids: segmentIds,
+          location_id: this.selectedAreaId,
+        }),
+      });
+      console.log(`Persisted ${segmentIds.length} driven segments to server`);
+    } catch (error) {
+      console.warn("Failed to persist segments:", error);
+      // Re-queue failed segments
+      for (const id of segmentIds) {
+        this.pendingSegmentUpdates.add(id);
+      }
+    }
+  }
+
+  /**
+   * Update coverage percentage in real-time based on actual segments
+   */
+  updateRealTimeCoverage() {
+    if (this.totalSegmentLength === 0) return;
+
+    const realCoveragePercent = (this.drivenSegmentLength / this.totalSegmentLength) * 100;
+
+    // Update the coverage progress bar
+    if (this.coverageProgressLive) {
+      this.coverageProgressLive.style.width = `${realCoveragePercent}%`;
+    }
+    if (this.coverageProgressValue) {
+      this.coverageProgressValue.textContent = `${realCoveragePercent.toFixed(1)}%`;
+    }
+
+    // Update baseline to show original vs new
+    const originalPercent = this.coverageBaseline.percentage || 0;
+    if (this.coverageProgressBaseline) {
+      this.coverageProgressBaseline.style.width = `${originalPercent}%`;
+    }
+  }
+
+  /**
+   * Satisfaction feedback when segments are completed
+   */
+  onSegmentsCompleted(count) {
+    if (count === 0) return;
+
+    // Subtle haptic feedback if available
+    if (navigator.vibrate) {
+      navigator.vibrate(count > 1 ? [30, 20, 30] : 30);
+    }
+
+    // Show visual feedback for multiple segments
+    if (count >= 2) {
+      this.showSegmentCompletionPopup(count);
+    }
+
+    // Track total for session stats
+    this.sessionSegmentsCompleted = (this.sessionSegmentsCompleted || 0) + count;
+  }
+
+  /**
+   * Show a brief popup when completing multiple segments at once
+   */
+  showSegmentCompletionPopup(count) {
+    // Don't spam popups
+    if (this.completionPopupTimeout) return;
+
+    const popup = document.createElement("div");
+    popup.className = "nav-segment-counter";
+    popup.textContent = `+${count} segments`;
+    document.body.appendChild(popup);
+
+    this.completionPopupTimeout = setTimeout(() => {
+      popup.remove();
+      this.completionPopupTimeout = null;
+    }, 700);
+  }
+
   updateSetupSummary() {
     if (!this.setupSummary) return;
     const turnCount = Math.max(this.maneuvers.length - 2, 0);
@@ -1272,6 +1683,18 @@ class TurnByTurnNavigator {
     this.showSetupPanel();
     this.setNavStatus("Navigation ended.");
     this.transitionTo(NAV_STATES.SETUP);
+
+    // Flush any pending segment updates
+    this.persistDrivenSegments();
+
+    // Show session summary if we completed segments
+    if (this.sessionSegmentsCompleted > 0) {
+      const increase = this.liveCoverageIncrease / 1609.344; // Convert to miles
+      console.log(
+        `Session complete: ${this.sessionSegmentsCompleted} segments, ` +
+        `${increase.toFixed(2)} miles covered`
+      );
+    }
   }
 
   /**
@@ -1366,6 +1789,9 @@ class TurnByTurnNavigator {
 
     const current = [fix.lon, fix.lat];
     this.updatePositionMarker(current);
+
+    // Always check segment coverage for real-time gamification
+    this.checkSegmentCoverage({ lon: fix.lon, lat: fix.lat });
 
     // Handle NAVIGATING_TO_START state - check if we've arrived at start
     if (this.navState === NAV_STATES.NAVIGATING_TO_START) {
@@ -1496,31 +1922,33 @@ class TurnByTurnNavigator {
       this.routeProgressValue.textContent = `${Math.round(routePercent)}%`;
     }
 
-    // Coverage area progress - use actual baseline from API
-    // The live coverage will be tracked separately but we show the baseline
-    // until real coverage data comes from server
-    const baselinePercent = this.coverageBaseline.percentage || 0;
+    // Coverage area progress - use REAL segment data if available
+    if (this.totalSegmentLength > 0) {
+      // We have real segment data - use actual coverage from segment tracking
+      // updateRealTimeCoverage() handles this when segments are completed
+      // Just keep the baseline display updated here
+      const originalPercent = this.coverageBaseline.percentage || 0;
+      if (this.coverageProgressBaseline) {
+        this.coverageProgressBaseline.style.width = `${originalPercent}%`;
+      }
+    } else {
+      // Fallback: estimate coverage when segment data isn't available
+      const baselinePercent = this.coverageBaseline.percentage || 0;
+      const routeMiles = progressDistance / 1609.344;
+      const totalAreaMiles = this.coverageBaseline.totalMi || 1;
+      const uncoveredFraction = (100 - baselinePercent) / 100;
+      const estimatedNewCoverage = (routeMiles / totalAreaMiles) * 100 * uncoveredFraction * 0.8;
+      const liveCoveragePercent = Math.min(100, baselinePercent + estimatedNewCoverage);
 
-    // For live coverage, we estimate: baseline + (route progress * route miles / total area miles)
-    // This gives a rough idea of how much new coverage is being added
-    const routeMiles = progressDistance / 1609.344;
-    const totalAreaMiles = this.coverageBaseline.totalMi || 1;
-    // Only count route miles that aren't already covered (uncovered portion)
-    const uncoveredFraction = (100 - baselinePercent) / 100;
-    const estimatedNewCoverage = (routeMiles / totalAreaMiles) * 100 * uncoveredFraction * 0.8; // 80% efficiency
-    const liveCoveragePercent = Math.min(100, baselinePercent + estimatedNewCoverage);
-
-    // Update coverage progress bar (baseline + live)
-    if (this.coverageProgressBaseline) {
-      this.coverageProgressBaseline.style.width = `${baselinePercent}%`;
-    }
-    if (this.coverageProgressLive) {
-      this.coverageProgressLive.style.width = `${liveCoveragePercent}%`;
-    }
-    if (this.coverageProgressValue) {
-      // Show the baseline percentage during navigation
-      // The live estimate is shown via the progress bar itself
-      this.coverageProgressValue.textContent = `${liveCoveragePercent.toFixed(1)}%`;
+      if (this.coverageProgressBaseline) {
+        this.coverageProgressBaseline.style.width = `${baselinePercent}%`;
+      }
+      if (this.coverageProgressLive) {
+        this.coverageProgressLive.style.width = `${liveCoveragePercent}%`;
+      }
+      if (this.coverageProgressValue) {
+        this.coverageProgressValue.textContent = `${liveCoveragePercent.toFixed(1)}%`;
+      }
     }
 
     // Also update legacy progress bar for backwards compatibility

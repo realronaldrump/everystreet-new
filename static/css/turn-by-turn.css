@@ -1089,6 +1089,41 @@ body.light-mode .turn-by-turn {
 }
 
 /* ================================================
+   Gamification - Segment Completion Counter
+   ================================================ */
+.nav-segment-counter {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgb(var(--success-rgb) / 90%);
+  color: var(--text-on-primary);
+  padding: var(--nav-space-md) var(--nav-space-lg);
+  border-radius: var(--nav-radius-lg);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  box-shadow: var(--glow-success-intense), var(--nav-shadow-xl);
+  z-index: 100;
+  pointer-events: none;
+  animation: segment-complete 0.6s ease-out forwards;
+}
+
+@keyframes segment-complete {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(1);
+  }
+}
+
+/* ================================================
    Mobile Adjustments for New Components
    ================================================ */
 @media (max-width: 768px) {
