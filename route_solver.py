@@ -1013,7 +1013,9 @@ async def generate_optimal_route_with_progress(
             progress_interval = max(25, total_for_progress // 40)
             last_update = time.monotonic()
 
-            for i, edge in enumerate(executor.map(process_segment_osmid, seg_data_list)):
+            for i, edge in enumerate(
+                executor.map(process_segment_osmid, seg_data_list)
+            ):
                 processed_segments = i + 1
                 if seg_data_list[i] is None:
                     if (
@@ -1021,7 +1023,9 @@ async def generate_optimal_route_with_progress(
                         or processed_segments % progress_interval == 0
                         or time.monotonic() - last_update >= 1.0
                     ):
-                        progress_pct = 50 + int(8 * processed_segments / total_for_progress)
+                        progress_pct = 50 + int(
+                            8 * processed_segments / total_for_progress
+                        )
                         await update_progress(
                             "mapping_segments",
                             progress_pct,

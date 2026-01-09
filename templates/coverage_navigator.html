@@ -73,16 +73,23 @@ block head_content %}
         <div id="route-details-content"></div>
         <div class="mt-3">
           <div class="btn-group w-100">
-            <button id="open-google-maps-btn" class="btn btn-outline-light" disabled>
+            <button
+              id="open-google-maps-btn"
+              class="btn btn-outline-light"
+              disabled
+            >
               <i class="fab fa-google me-2"></i>Open in Google Maps
             </button>
-            <button id="open-apple-maps-btn" class="btn btn-outline-light" disabled>
+            <button
+              id="open-apple-maps-btn"
+              class="btn btn-outline-light"
+              disabled
+            >
               <i class="fab fa-apple me-2"></i>Open in Apple Maps
             </button>
           </div>
         </div>
       </div>
-
     </div>
 
     <div id="route-progress-container" class="control-section">
@@ -111,7 +118,11 @@ block head_content %}
       <h5 class="h6 mb-2">
         <i class="fas fa-magic me-2"></i>Optimal Route Planner
       </h5>
-      <button id="generate-route-btn" class="btn btn-primary btn-lg w-100" disabled>
+      <button
+        id="generate-route-btn"
+        class="btn btn-primary btn-lg w-100"
+        disabled
+      >
         <i class="fas fa-magic me-2"></i>Generate Optimal Route
       </button>
       <div class="form-text mt-2">
@@ -132,7 +143,10 @@ block head_content %}
           <div class="stage-icon"><i class="fas fa-play"></i></div>
           <div class="stage-label">Starting</div>
         </div>
-        <div class="stage" data-stage="loading_area,loading_segments,loading_graph,fetching_osm">
+        <div
+          class="stage"
+          data-stage="loading_area,loading_segments,loading_graph,fetching_osm"
+        >
           <div class="stage-icon"><i class="fas fa-database"></i></div>
           <div class="stage-label">Loading</div>
         </div>
@@ -163,7 +177,10 @@ block head_content %}
       </div>
       <div id="progress-message" class="progress-message mt-2">
         <div id="progress-message-primary">Initializing...</div>
-        <div id="progress-message-secondary" class="progress-message-secondary"></div>
+        <div
+          id="progress-message-secondary"
+          class="progress-message-secondary"
+        ></div>
       </div>
       <div id="elapsed-time" class="elapsed-time mt-2">
         <i class="fas fa-clock me-1"></i>Elapsed:
@@ -172,7 +189,9 @@ block head_content %}
     </div>
 
     <div id="results-section" class="control-section" style="display: none">
-      <h5 class="mb-3"><i class="fas fa-chart-bar me-2"></i>Route Statistics</h5>
+      <h5 class="mb-3">
+        <i class="fas fa-chart-bar me-2"></i>Route Statistics
+      </h5>
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-icon"><i class="fas fa-road"></i></div>
@@ -214,7 +233,10 @@ block head_content %}
       </div>
 
       <div class="layer-controls mt-3 border-top pt-3">
-        <h6 class="mb-3 text-muted text-uppercase small" style="letter-spacing: 0.5px">
+        <h6
+          class="mb-3 text-muted text-uppercase small"
+          style="letter-spacing: 0.5px"
+        >
           Map Layers
         </h6>
         <div id="layer-list" class="layer-list">
@@ -222,10 +244,16 @@ block head_content %}
             <div class="layer-header">
               <div class="d-flex align-items-center">
                 <div class="layer-drag-controls me-2">
-                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up">
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-up"
+                    title="Move Up"
+                  >
                     <i class="fas fa-chevron-up"></i>
                   </button>
-                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down">
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-down"
+                    title="Move Down"
+                  >
                     <i class="fas fa-chevron-down"></i>
                   </button>
                 </div>
@@ -241,7 +269,9 @@ block head_content %}
               </div>
             </div>
             <div class="layer-opacity mt-2">
-              <label class="small text-muted mb-1 d-flex justify-content-between">
+              <label
+                class="small text-muted mb-1 d-flex justify-content-between"
+              >
                 <span>Opacity</span>
                 <span class="opacity-value">100%</span>
               </label>
@@ -260,10 +290,16 @@ block head_content %}
             <div class="layer-header">
               <div class="d-flex align-items-center">
                 <div class="layer-drag-controls me-2">
-                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up">
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-up"
+                    title="Move Up"
+                  >
                     <i class="fas fa-chevron-up"></i>
                   </button>
-                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down">
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-down"
+                    title="Move Down"
+                  >
                     <i class="fas fa-chevron-down"></i>
                   </button>
                 </div>
@@ -279,7 +315,9 @@ block head_content %}
               </div>
             </div>
             <div class="layer-opacity mt-2">
-              <label class="small text-muted mb-1 d-flex justify-content-between">
+              <label
+                class="small text-muted mb-1 d-flex justify-content-between"
+              >
                 <span>Opacity</span>
                 <span class="opacity-value">60%</span>
               </label>
@@ -298,10 +336,16 @@ block head_content %}
             <div class="layer-header">
               <div class="d-flex align-items-center">
                 <div class="layer-drag-controls me-2">
-                  <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up">
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-up"
+                    title="Move Up"
+                  >
                     <i class="fas fa-chevron-up"></i>
                   </button>
-                  <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down">
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-down"
+                    title="Move Down"
+                  >
                     <i class="fas fa-chevron-down"></i>
                   </button>
                 </div>
@@ -317,7 +361,9 @@ block head_content %}
               </div>
             </div>
             <div class="layer-opacity mt-2">
-              <label class="small text-muted mb-1 d-flex justify-content-between">
+              <label
+                class="small text-muted mb-1 d-flex justify-content-between"
+              >
                 <span>Opacity</span>
                 <span class="opacity-value">80%</span>
               </label>
@@ -335,7 +381,11 @@ block head_content %}
       </div>
     </div>
 
-    <div id="error-section" class="control-section error-section" style="display: none">
+    <div
+      id="error-section"
+      class="control-section error-section"
+      style="display: none"
+    >
       <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
       <div class="error-message" id="error-message">An error occurred.</div>
       <button id="retry-btn" class="btn btn-outline-danger mt-2">
@@ -353,7 +403,11 @@ block head_content %}
 
   <div class="map-container">
     <div id="coverage-map"></div>
-    <div id="map-scanner-overlay" class="map-scanner-overlay" aria-hidden="true"></div>
+    <div
+      id="map-scanner-overlay"
+      class="map-scanner-overlay"
+      aria-hidden="true"
+    ></div>
     <div id="route-solver-hud" class="route-solver-hud" aria-live="polite">
       <div class="hud-panel">
         <div class="hud-header">
@@ -397,7 +451,10 @@ block head_content %}
         <span>Undriven Streets</span>
       </div>
       <div class="legend-item">
-        <span class="legend-color" style="background: #9333ea; height: 5px"></span>
+        <span
+          class="legend-color"
+          style="background: #9333ea; height: 5px"
+        ></span>
         <span>Optimal Route</span>
       </div>
     </div>
@@ -412,12 +469,8 @@ block head_content %}
 <script>
   window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
 </script>
-<script
-  src="{{ url_for('static', path='js/coverage-navigator.js') | replace('http://', '//') }}"
-></script>
-<script
-  src="{{ url_for('static', path='js/driving-navigation.js') | replace('http://', '//') }}"
-></script>
+<script src="{{ url_for('static', path='js/coverage-navigator.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/driving-navigation.js') | replace('http://', '//') }}"></script>
 <script
   type="module"
   src="{{ url_for('static', path='js/optimal-routes.js') | replace('http://', '//') }}"
