@@ -47,7 +47,12 @@ class TurnByTurnNavigator {
     this.shortDistanceThreshold = 160;
     this.turnAngleThresholds = { uturn: 150, sharp: 100, turn: 50, slight: 25 };
     this.zoomThresholds = { highway: 55, arterial: 35, city: 20 };
-    this.zoomLevels = { highway: 14.5, arterial: 15.2, city: 15.8, default: 16.5 };
+    this.zoomLevels = {
+      highway: 14.5,
+      arterial: 15.2,
+      city: 15.8,
+      default: 16.5,
+    };
     this.angleDeltaOffset = 540;
     this.degToRadFactor = Math.PI / 180;
     this.radToDegFactor = 180 / Math.PI;
@@ -2345,7 +2350,8 @@ class TurnByTurnNavigator {
     const speedMph = speedMps ? speedMps * 2.23694 : 0;
     let zoom = this.zoomLevels.default;
     if (speedMph > this.zoomThresholds.highway) zoom = this.zoomLevels.highway;
-    else if (speedMph > this.zoomThresholds.arterial) zoom = this.zoomLevels.arterial;
+    else if (speedMph > this.zoomThresholds.arterial)
+      zoom = this.zoomLevels.arterial;
     else if (speedMph > this.zoomThresholds.city) zoom = this.zoomLevels.city;
     return zoom;
   }
@@ -2484,9 +2490,11 @@ class TurnByTurnNavigator {
     const abs = Math.abs(delta);
     let classification = "straight";
     if (abs > uturn) classification = "uturn";
-    else if (abs > sharp) classification = delta > 0 ? "sharp-right" : "sharp-left";
+    else if (abs > sharp)
+      classification = delta > 0 ? "sharp-right" : "sharp-left";
     else if (abs > turn) classification = delta > 0 ? "right" : "left";
-    else if (abs > slight) classification = delta > 0 ? "slight-right" : "slight-left";
+    else if (abs > slight)
+      classification = delta > 0 ? "slight-right" : "slight-left";
     return classification;
   }
 

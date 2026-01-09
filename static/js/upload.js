@@ -303,7 +303,9 @@ class UploadManager {
   }
 
   static getFileExtension(filename) {
-    return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1).toLowerCase();
+    return filename
+      .slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1)
+      .toLowerCase();
   }
 
   parseGPX(file, gpxContent) {
