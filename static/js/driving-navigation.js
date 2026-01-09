@@ -943,7 +943,6 @@ class DrivingNavigation {
   }
 
   async _parseError(error) {
-    this.lastParseError = error;
     let message = "An unknown error occurred.";
 
     if (error instanceof Error) {

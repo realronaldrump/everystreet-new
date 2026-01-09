@@ -259,10 +259,10 @@ class UploadManager {
   processFile(file, index) {
     return new Promise((resolve, reject) => {
       try {
-        const fileExtension = this.getFileExtension(file.name);
+        const fileExtension = UploadManager.getFileExtension(file.name);
 
         if (fileExtension === ".gpx") {
-          this.readFileAsText(file)
+          UploadManager.readFileAsText(file)
             .then((content) => {
               this.parseGPX(file, content);
               this.loadingManager.updateSubOperation("parsing", index + 1);
@@ -270,7 +270,7 @@ class UploadManager {
             })
             .catch((error) => reject(error));
         } else if (fileExtension === ".geojson") {
-          this.readFileAsText(file)
+          UploadManager.readFileAsText(file)
             .then((content) => {
               this.parseGeoJSON(file, content);
               this.loadingManager.updateSubOperation("parsing", index + 1);
@@ -293,25 +293,17 @@ class UploadManager {
     });
   }
 
-  readFileAsText(file) {
-    this.lastReadFileName = file?.name;
+  static readFileAsText(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        this.lastReadFileContent = e.target.result;
-        resolve(e.target.result);
-      };
+      reader.onload = (e) => resolve(e.target.result);
       reader.onerror = (error) => reject(error);
       reader.readAsText(file);
     });
   }
 
-  getFileExtension(filename) {
-    const extension = filename
-      .slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1)
-      .toLowerCase();
-    this.lastFileExtension = extension;
-    return extension;
+  static getFileExtension(filename) {
+    return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1).toLowerCase();
   }
 
   parseGPX(file, gpxContent) {

@@ -745,38 +745,30 @@ class CoverageProgress {
     if (!date) return "never";
     const seconds = Math.floor((Date.now() - new Date(date)) / 1000);
 
+    let formatted;
     if (seconds < 2) {
-      this.lastFormattedTimeAgo = "just now";
-      return "just now";
-    }
-    if (seconds < 60) {
-      const formatted = `${seconds}s ago`;
-      this.lastFormattedTimeAgo = formatted;
-      return formatted;
-    }
-
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) {
-      const formatted = `${minutes}m ago`;
-      this.lastFormattedTimeAgo = formatted;
-      return formatted;
-    }
-
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) {
-      const formatted = `${hours}h ago`;
-      this.lastFormattedTimeAgo = formatted;
-      return formatted;
-    }
-
-    const days = Math.floor(hours / 24);
-    if (days < 7) {
-      const formatted = `${days}d ago`;
-      this.lastFormattedTimeAgo = formatted;
-      return formatted;
+      formatted = "just now";
+    } else if (seconds < 60) {
+      formatted = `${seconds}s ago`;
+    } else {
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) {
+        formatted = `${minutes}m ago`;
+      } else {
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) {
+          formatted = `${hours}h ago`;
+        } else {
+          const days = Math.floor(hours / 24);
+          if (days < 7) {
+            formatted = `${days}d ago`;
+          } else {
+            formatted = new Date(date).toLocaleDateString();
+          }
+        }
+      }
     }
 
-    const formatted = new Date(date).toLocaleDateString();
     this.lastFormattedTimeAgo = formatted;
     return formatted;
   }

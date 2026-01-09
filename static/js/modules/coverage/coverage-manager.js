@@ -2151,7 +2151,6 @@ class CoverageManager {
    * Update total areas count
    */
   updateTotalAreasCount(count = null) {
-    this.totalAreasCount = count;
     const countElement = document.getElementById("total-areas-count");
     if (!countElement) return;
 
