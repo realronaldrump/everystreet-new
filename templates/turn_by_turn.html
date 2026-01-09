@@ -9,6 +9,7 @@
 <div class="turn-by-turn" id="turn-by-turn">
   <div id="turn-by-turn-map"></div>
 
+  <!-- Top Navigation Bar -->
   <div class="nav-top">
     <div class="nav-top-bar">
       <a class="nav-back" href="/coverage-navigator">
@@ -21,6 +22,7 @@
       </div>
     </div>
 
+    <!-- Turn Instruction Card -->
     <div class="nav-instruction-card" aria-live="polite">
       <div class="nav-turn-icon" id="nav-turn-icon">
         <i class="fas fa-arrow-up" aria-hidden="true"></i>
@@ -35,6 +37,7 @@
     </div>
   </div>
 
+  <!-- Map Control Buttons -->
   <div class="nav-controls">
     <button class="nav-control-btn" id="nav-overview-btn" title="Route overview">
       <i class="fas fa-route" aria-hidden="true"></i>
@@ -47,9 +50,37 @@
     </button>
   </div>
 
+  <!-- Bottom Stats Panel -->
   <div class="nav-bottom">
     <div class="nav-bottom-card">
-      <div class="nav-progress">
+      <!-- Dual Progress Bars -->
+      <div class="nav-dual-progress">
+        <!-- Route Progress -->
+        <div class="nav-progress-item">
+          <div class="progress-header">
+            <span class="progress-label">Route Progress</span>
+            <span class="progress-value" id="nav-route-progress-value">0%</span>
+          </div>
+          <div class="nav-progress-bar">
+            <div class="nav-progress-fill" id="nav-route-progress-fill"></div>
+          </div>
+        </div>
+
+        <!-- Coverage Area Progress -->
+        <div class="nav-progress-item">
+          <div class="progress-header">
+            <span class="progress-label">Area Coverage</span>
+            <span class="progress-value" id="nav-coverage-progress-value">0%</span>
+          </div>
+          <div class="nav-progress-bar coverage">
+            <div class="nav-progress-fill-baseline" id="nav-coverage-baseline"></div>
+            <div class="nav-progress-fill-live" id="nav-coverage-live"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legacy progress (hidden, for compatibility) -->
+      <div class="nav-progress" style="display: none;">
         <div class="nav-progress-bar">
           <div class="nav-progress-fill" id="nav-progress-fill"></div>
         </div>
@@ -59,6 +90,7 @@
         </div>
       </div>
 
+      <!-- Stats Grid -->
       <div class="nav-stats">
         <div class="nav-stat">
           <div class="label">Remaining</div>
@@ -74,23 +106,97 @@
         </div>
       </div>
 
+      <!-- Bottom Actions -->
       <div class="nav-bottom-actions">
         <div class="nav-status" id="nav-status" aria-live="polite">
           Waiting for route
         </div>
         <button class="nav-end-btn" id="nav-end-btn" type="button">
-          End Navigation
+          End
         </button>
       </div>
     </div>
   </div>
 
+  <!-- Route Preview Panel -->
+  <div class="nav-preview" id="nav-preview" hidden>
+    <div class="nav-preview-header">
+      <div class="nav-preview-title">Route Preview</div>
+      <button class="nav-preview-close" id="nav-change-route" type="button">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <div class="nav-preview-map" id="nav-preview-map-area">
+      <!-- Map shows through here -->
+    </div>
+
+    <div class="nav-preview-content">
+      <!-- Route Stats -->
+      <div class="nav-preview-stats">
+        <div class="preview-stat">
+          <span class="preview-stat-value" id="preview-distance">--</span>
+          <span class="preview-stat-label">Distance</span>
+        </div>
+        <div class="preview-stat">
+          <span class="preview-stat-value" id="preview-time">--</span>
+          <span class="preview-stat-label">Est. Time</span>
+        </div>
+        <div class="preview-stat">
+          <span class="preview-stat-value" id="preview-turns">--</span>
+          <span class="preview-stat-label">Turns</span>
+        </div>
+      </div>
+
+      <!-- Start Point Status -->
+      <div class="nav-preview-start" id="preview-start-status">
+        <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+        <span id="preview-start-text">Checking location...</span>
+      </div>
+
+      <!-- Preview Actions -->
+      <div class="nav-preview-actions">
+        <button class="nav-primary-btn" id="nav-start-from-here" type="button" hidden>
+          <i class="fas fa-directions" aria-hidden="true"></i>
+          Navigate to Start
+        </button>
+        <button class="nav-primary-btn full-width" id="nav-begin" type="button" hidden>
+          <i class="fas fa-play" aria-hidden="true"></i>
+          Start Navigation
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resume From Ahead Prompt -->
+  <div class="nav-resume-prompt" id="nav-resume-prompt" hidden>
+    <div class="nav-resume-header">
+      <div class="nav-resume-icon">
+        <i class="fas fa-route" aria-hidden="true"></i>
+      </div>
+      <div>
+        <div class="nav-resume-title">Off Route</div>
+        <div class="nav-resume-subtitle">Resume from nearest point ahead?</div>
+      </div>
+    </div>
+    <div class="nav-resume-distance" id="resume-distance-text">--</div>
+    <div class="nav-resume-actions">
+      <button class="nav-primary-btn secondary" id="nav-dismiss-resume" type="button">
+        Stay Off Route
+      </button>
+      <button class="nav-primary-btn" id="nav-resume-btn" type="button">
+        Resume Route
+      </button>
+    </div>
+  </div>
+
+  <!-- Setup Panel -->
   <div class="nav-setup" id="nav-setup">
     <div class="nav-setup-card">
       <div class="nav-setup-header">
-        <div class="nav-setup-title">Turn-by-Turn Coverage Route</div>
+        <div class="nav-setup-title">Turn-by-Turn Navigation</div>
         <p class="nav-setup-subtitle">
-          Load a coverage area route and start driving with live guidance.
+          Select a coverage area route and start driving with live guidance.
         </p>
       </div>
       <label for="nav-area-select" class="nav-label">Coverage Area</label>
@@ -98,11 +204,13 @@
         <option value="">Select a coverage area...</option>
       </select>
       <div class="nav-setup-actions">
-        <button class="nav-primary-btn" id="nav-load-route-btn" type="button" disabled>
+        <button class="nav-primary-btn secondary" id="nav-load-route-btn" type="button" disabled>
+          <i class="fas fa-map" aria-hidden="true"></i>
           Load Route
         </button>
         <button class="nav-primary-btn" id="nav-start-btn" type="button" disabled>
-          Start Navigation
+          <i class="fas fa-play" aria-hidden="true"></i>
+          Start
         </button>
       </div>
       <div class="nav-setup-status" id="nav-setup-status">
