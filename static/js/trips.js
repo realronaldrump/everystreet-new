@@ -11,6 +11,11 @@ import { escapeHtml } from "./modules/utils.js";
 let tripsTable = null;
 const selectedTripIds = new Set();
 
+// Use shared utilities from window.utils
+const formatDateTime = (s) => window.utils.formatDateTime(s);
+const formatDuration = (s) => window.utils.formatDuration(s);
+const sanitizeLocation = (l) => window.utils.sanitizeLocation(l);
+
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     await initializePage();
@@ -506,8 +511,3 @@ async function bulkDeleteTrips(ids) {
     window.notificationManager?.show("Failed to delete trips", "danger");
   }
 }
-
-// Use shared utilities from window.utils
-const formatDateTime = (s) => window.utils.formatDateTime(s);
-const formatDuration = (s) => window.utils.formatDuration(s);
-const sanitizeLocation = (l) => window.utils.sanitizeLocation(l);

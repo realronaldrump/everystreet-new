@@ -13,6 +13,10 @@ let vehicles = [];
 let recentFillups = [];
 let vehicleDiscoveryAttempted = false;
 
+// Use shared notification manager
+const showSuccess = (msg) => window.notificationManager?.show(msg, "success");
+const showError = (msg) => window.notificationManager?.show(msg, "danger");
+
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("Gas Tracking: DOM Loaded");
@@ -874,7 +878,3 @@ async function loadStatistics() {
     console.error("Error loading statistics:", error);
   }
 }
-
-// Use shared notification manager
-const showSuccess = (msg) => window.notificationManager?.show(msg, "success");
-const showError = (msg) => window.notificationManager?.show(msg, "danger");
