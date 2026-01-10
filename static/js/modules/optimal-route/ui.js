@@ -1,4 +1,4 @@
-import { STAGE_COPY, SCANNER_STAGES } from "./constants.js";
+import { SCANNER_STAGES, STAGE_COPY } from "./constants.js";
 
 export class OptimalRouteUI {
   constructor(config = {}) {
@@ -220,8 +220,8 @@ export class OptimalRouteUI {
         ? fallbackTotal
           ? `${this.formatCount(fallbackMatched || 0)}/${this.formatCount(fallbackTotal)}`
           : fallbackMatched != null
-          ? this.formatCount(fallbackMatched)
-          : "--"
+            ? this.formatCount(fallbackMatched)
+            : "--"
         : "--";
     }
   }
@@ -399,10 +399,10 @@ export class OptimalRouteUI {
     ).toFixed(1)}%`;
 
     document.getElementById("results-section").style.display = "block";
-    
+
     // Show legend
     document.getElementById("map-legend").style.display = "block";
-    
+
     this.setTurnByTurnEnabled(true);
     this.showNotification("Route generated successfully!", "success");
   }

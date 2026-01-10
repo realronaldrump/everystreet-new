@@ -6,9 +6,15 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException, status
 
 from date_utils import ensure_utc
-from db import (CollectionProxy, db_manager, delete_many_with_retry,
-                find_one_with_retry, insert_one_with_retry, serialize_datetime,
-                update_one_with_retry)
+from db import (
+    CollectionProxy,
+    db_manager,
+    delete_many_with_retry,
+    find_one_with_retry,
+    insert_one_with_retry,
+    serialize_datetime,
+    update_one_with_retry,
+)
 from models import CollectionModel, LocationModel, ValidateLocationModel
 from osm_utils import generate_geojson_osm
 from utils import validate_location_osm

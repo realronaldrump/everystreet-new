@@ -1,7 +1,7 @@
 import { OptimalRouteAPI } from "./api.js";
+import { OPTIMAL_ROUTES_DEFAULTS } from "./constants.js";
 import { OptimalRouteMap } from "./map.js";
 import { OptimalRouteUI } from "./ui.js";
-import { OPTIMAL_ROUTES_DEFAULTS } from "./constants.js";
 
 export class OptimalRoutesManager {
   constructor(options = {}) {
@@ -160,7 +160,7 @@ export class OptimalRoutesManager {
 
       this.ui.populateAreaSelect(areas);
       this.ui.updateSavedRoutes(areas, (areaId) => this.onAreaSelect(areaId));
-    } catch (error) {
+    } catch (_error) {
       this.ui.showNotification("Failed to load coverage areas", "danger");
     }
   }
@@ -189,22 +189,21 @@ export class OptimalRoutesManager {
 
     // Load streets
     try {
-      const { drivenFeatures, undrivenFeatures } = await this.api.loadStreetNetwork(
-        areaId
-      );
+      const { drivenFeatures, undrivenFeatures } =
+        await this.api.loadStreetNetwork(areaId);
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
-    } catch (e) {
+    } catch (_e) {
       // already logged in api
     }
 
     // Check for existing route
     try {
       const routeData = await this.api.loadExistingRoute(areaId);
-      if (routeData && routeData.coordinates) {
+      if (routeData?.coordinates) {
         this.map.displayRoute(routeData.coordinates, routeData);
         this.ui.showResults(routeData);
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
 
@@ -212,14 +211,14 @@ export class OptimalRoutesManager {
     const activeTask = await this.api.checkForActiveTask(areaId);
     if (activeTask) {
       this.currentTaskId = activeTask.task_id;
-      
+
       let startTime = Date.now();
       if (activeTask.started_at) {
         startTime = new Date(activeTask.started_at).getTime();
       }
-      
+
       this.ui.showProgressSection(startTime);
-      
+
       this.ui.updateProgress({
         status: activeTask.status,
         stage: activeTask.stage,
@@ -241,7 +240,7 @@ export class OptimalRoutesManager {
   }
 
   onMapLayersReady() {
-    // Re-apply current data if any? 
+    // Re-apply current data if any?
     // Usually logic flows from selection, so this might just be a hook.
   }
 
@@ -254,7 +253,10 @@ export class OptimalRoutesManager {
       // Check workers
       const workerStatus = await this.api.checkWorkerStatus();
       if (workerStatus.status === "no_workers") {
-        this.ui.showNotification("No workers available. Task will be queued.", "warning");
+        this.ui.showNotification(
+          "No workers available. Task will be queued.",
+          "warning"
+        );
       }
 
       const taskId = await this.api.generateRoute(this.selectedAreaId);
@@ -269,10 +271,10 @@ export class OptimalRoutesManager {
     this.ui.updateProgress(data);
   }
 
-  async onGenerationComplete(data) {
+  async onGenerationComplete(_data) {
     // Load the full route data now
     const routeData = await this.api.loadExistingRoute(this.selectedAreaId);
-    if (routeData && routeData.coordinates) {
+    if (routeData?.coordinates) {
       this.map.displayRoute(routeData.coordinates, routeData, true); // animate=true
       this.ui.showResults(routeData);
     } else {
@@ -289,7 +291,7 @@ export class OptimalRoutesManager {
     try {
       await this.api.cancelTask(this.currentTaskId);
       this.onCancelled();
-    } catch (e) {
+    } catch (_e) {
       this.ui.showNotification("Failed to cancel task", "danger");
     }
   }
@@ -319,7 +321,10 @@ export class OptimalRoutesManager {
       return;
     }
     if (this.ui.turnByTurnBtn?.disabled) {
-      this.ui.showNotification("Generate a route before starting navigation.", "warning");
+      this.ui.showNotification(
+        "Generate a route before starting navigation.",
+        "warning"
+      );
       return;
     }
     window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);

@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from bson import ObjectId
 from shapely.geometry import mapping, shape
@@ -20,9 +20,9 @@ from coverage.constants import (
     DEFAULT_MIN_MATCH_LENGTH_METERS,
     DEGREES_TO_METERS,
     FEET_TO_METERS,
+    MAX_TRIP_IDS_TO_STORE,
     MAX_TRIPS_PER_BATCH,
     MAX_UPDATE_BATCH_SIZE,
-    MAX_TRIP_IDS_TO_STORE,
     METERS_TO_MILES,
 )
 from db import (
@@ -38,9 +38,6 @@ from db import (
 )
 from geometry_service import GeometryService
 from models import validate_geojson_point_or_linestring
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -148,9 +145,7 @@ class CoverageCalculator:
                 "driveable_length_mi": round(
                     self.total_driveable_length * METERS_TO_MILES, 2
                 ),
-                "covered_length_mi": round(
-                    current_covered_length * METERS_TO_MILES, 2
-                ),
+                "covered_length_mi": round(current_covered_length * METERS_TO_MILES, 2),
                 "coverage_percentage": round(coverage_pct, 2),
                 "initial_covered_segments": self.initial_covered_segments_count,
                 "newly_covered_segments": len(self.newly_covered_segments),
@@ -528,9 +523,7 @@ class CoverageCalculator:
 
         return True
 
-    def _build_trip_filter(
-        self, processed_trip_ids_set: set[str]
-    ) -> dict[str, Any]:
+    def _build_trip_filter(self, processed_trip_ids_set: set[str]) -> dict[str, Any]:
         """Build MongoDB filter for trips query.
 
         Args:
@@ -870,9 +863,11 @@ class CoverageCalculator:
                 "driven_length_m": round(driven_length, 2),
                 "driveable_length_m": round(driveable_length, 2),
                 "coverage_percentage": round(
-                    (driven_length / driveable_length * 100)
-                    if driveable_length > 0
-                    else 0,
+                    (
+                        (driven_length / driveable_length * 100)
+                        if driveable_length > 0
+                        else 0
+                    ),
                     2,
                 ),
                 "total_segments": stats.get("total_segments", 0),
@@ -881,9 +876,7 @@ class CoverageCalculator:
             }
 
         except Exception as e:
-            logger.error(
-                "Task %s: Error calculating final stats: %s", self.task_id, e
-            )
+            logger.error("Task %s: Error calculating final stats: %s", self.task_id, e)
             await self.update_progress("error", 95, f"Error calculating stats: {e}")
             return None
 
@@ -1071,9 +1064,7 @@ class CoverageCalculator:
                 if isinstance(ids, list):
                     return set(map(str, ids))
         except Exception as e:
-            logger.warning(
-                "Failed to load previous trip IDs: %s. Running full.", e
-            )
+            logger.warning("Failed to load previous trip IDs: %s. Running full.", e)
         return set()
 
 
