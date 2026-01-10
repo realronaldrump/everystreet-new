@@ -6,7 +6,9 @@
 export class InvalidTripReview {
   constructor() {
     this.tableBody = document.querySelector("#invalidTripsTable tbody");
-    this.paginationContainer = document.getElementById("invalidTripsPagination");
+    this.paginationContainer = document.getElementById(
+      "invalidTripsPagination",
+    );
     this.trips = [];
     this.currentPage = 1;
     this.itemsPerPage = 10;
@@ -68,7 +70,7 @@ export class InvalidTripReview {
           </div>
         </td>
       </tr>
-    `
+    `,
       )
       .join("");
   }
@@ -102,7 +104,7 @@ export class InvalidTripReview {
       console.error("Error restoring trip:", error);
       window.notificationManager?.show(
         `Failed to restore trip: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -123,7 +125,7 @@ export class InvalidTripReview {
       });
     } else {
       confirmed = window.confirm(
-        "Are you sure you want to permanently delete this trip? This cannot be undone."
+        "Are you sure you want to permanently delete this trip? This cannot be undone.",
       );
     }
 
@@ -142,7 +144,7 @@ export class InvalidTripReview {
       console.error("Error deleting trip:", error);
       window.notificationManager?.show(
         `Failed to delete trip: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
