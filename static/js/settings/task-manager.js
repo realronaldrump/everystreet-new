@@ -350,7 +350,7 @@ export class TaskManager {
       }
       const data = await response.json();
       this.historyTotalPages = data.total_pages;
-      this.updateTaskHistoryTable(data.history);
+      TaskManager.updateTaskHistoryTable(data.history);
       this.updateHistoryPagination();
     } catch (error) {
       console.error("Error updating task history:", error);
@@ -362,7 +362,7 @@ export class TaskManager {
     }
   }
 
-  updateTaskHistoryTable(history) {
+  static updateTaskHistoryTable(history) {
     const tbody = document.querySelector("#taskHistoryTable tbody");
     if (!tbody) return;
 
@@ -857,7 +857,7 @@ export class TaskManager {
     return response.json();
   }
 
-  async showTaskDetails(taskId) {
+  static async showTaskDetails(taskId) {
     const modal = document.getElementById("taskDetailsModal");
     if (!modal) return;
 

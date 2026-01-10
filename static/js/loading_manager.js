@@ -276,8 +276,6 @@ class LoadingManager {
       error: (msg) => this.error(msg),
       addSubOperation: () => ({
         // No-op stubs for sub-operations (legacy compatibility)
-        update: () => {},
-        finish: () => {},
         error: (msg) => this.error(msg),
       }),
     };

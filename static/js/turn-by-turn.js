@@ -1105,7 +1105,7 @@ class TurnByTurnNavigator {
   /**
    * Checks if user is near the route start and updates preview UI
    */
-  async checkStartProximity() {
+  checkStartProximity() {
     if (!navigator.geolocation) {
       this.updateStartStatus("unknown", "Enable location to check proximity");
       this.showNavigateToStartButton();
@@ -1526,7 +1526,7 @@ class TurnByTurnNavigator {
    * Calculate distance from point to line segment
    */
   distanceToSegment(point, segStart, segEnd) {
-    const proj = this.projectToSegment(point, segStart, segEnd);
+    const proj = TurnByTurnNavigator.projectToSegment(point, segStart, segEnd);
     return proj.distance;
   }
 
@@ -1853,7 +1853,10 @@ class TurnByTurnNavigator {
 
     // Handle NAVIGATING_TO_START state - check if we've arrived at start
     if (this.navState === NAV_STATES.NAVIGATING_TO_START) {
-      const distToStart = TurnByTurnNavigator.distanceMeters(current, this.smartStartPoint);
+      const distToStart = TurnByTurnNavigator.distanceMeters(
+        current,
+        this.smartStartPoint
+      );
       this.smartStartDistance = distToStart;
 
       if (this.distanceToTurn) {
@@ -2478,7 +2481,7 @@ class TurnByTurnNavigator {
     const searchRange = (from, to) => {
       let closest = null;
       for (let i = from; i <= to; i += 1) {
-        const proj = this.projectToSegment(
+        const proj = TurnByTurnNavigator.projectToSegment(
           current,
           this.routeCoords[i],
           this.routeCoords[i + 1]
@@ -2504,7 +2507,7 @@ class TurnByTurnNavigator {
     return best;
   }
 
-  projectToSegment(point, a, b) {
+  static projectToSegment(point, a, b) {
     const refLat = (a[1] + b[1]) / 2;
     const p = TurnByTurnNavigator.toXY(point, refLat);
     const p1 = TurnByTurnNavigator.toXY(a, refLat);

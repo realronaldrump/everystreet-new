@@ -148,7 +148,7 @@ export function updateMobileTaskList(config, taskManager) {
   mobileList.querySelectorAll(".mobile-view-task").forEach((btn) => {
     btn.addEventListener("click", function () {
       const { taskId } = this.dataset;
-      taskManager?.showTaskDetails(taskId);
+      TaskManager.showTaskDetails(taskId);
     });
   });
 }
@@ -448,14 +448,7 @@ export function setupMobileDataManagement() {
 
 // Helper function for geocode progress polling
 async function pollGeocodeProgress(context) {
-  const {
-    taskId,
-    geocodeBtn,
-    statusEl,
-    progressBar,
-    progressMessage,
-    progressMetrics,
-  } = context;
+  const { taskId, geocodeBtn, statusEl } = context;
 
   try {
     const progressResponse = await fetch(`/api/geocode_trips/progress/${taskId}`);
@@ -523,7 +516,7 @@ function updateGeocodeProgressUI(context, progressData) {
 
 function handleGeocodeCompletion(context, progressData) {
   const { geocodeBtn, statusEl, progressBar } = context;
-  const {stage} = progressData;
+  const { stage } = progressData;
   const metrics = progressData.metrics || {};
 
   clearInterval(pollGeocodeProgress.pollInterval);

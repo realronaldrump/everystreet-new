@@ -145,7 +145,7 @@ class MapPool {
   /**
    * Evict least recently used maps if we're at the limit
    */
-  async _evictIfNeeded() {
+  _evictIfNeeded() {
     if (this.maps.size < this.maxMaps) return;
 
     // Find maps that are not in use and sort by last used

@@ -124,13 +124,12 @@
       const tooltipTriggerList = [].slice.call(
         document.querySelectorAll('[data-bs-toggle="tooltip"]')
       );
-      tooltipTriggerList.map(
-        (tooltipTriggerEl) =>
-          new bootstrap.Tooltip(tooltipTriggerEl, {
-            template:
-              '<div class="tooltip" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner bg-primary"></div></div>',
-          })
-      );
+      tooltipTriggerList.forEach((tooltipTriggerEl) => {
+        new bootstrap.Tooltip(tooltipTriggerEl, {
+          template:
+            '<div class="tooltip" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner bg-primary"></div></div>',
+        });
+      });
 
       document.querySelectorAll(".action-button").forEach((button) => {
         button.addEventListener("click", (e) => {
@@ -166,7 +165,7 @@
 
     startStatsAnimation() {
       VisitsManager.animateCounter("total-places-count", this.places.size, 1000);
-      this.updateMonthlyVisits();
+      VisitsManager.updateMonthlyVisits();
       this.statsUpdateTimer = setInterval(() => {
         this.updateStatsCounts();
       }, 30000);
@@ -212,7 +211,7 @@
       }
     }
 
-    async updateMonthlyVisits() {
+    static async updateMonthlyVisits() {
       try {
         const stats = await window.VisitsDataService.fetchPlaceStatistics({
           timeframe: "month",
@@ -372,7 +371,7 @@
       this.loadingManager.startOperation("Updating Statistics");
       const placeEntries = Array.from(this.places.entries());
       if (placeEntries.length === 0) {
-        this.chartManager.update([], () => {});
+        this.chartManager.update([], null);
         this.visitsTable?.clear().draw();
         VisitsManager.updateInsights([]);
         this.loadingManager.finish("Updating Statistics");
@@ -456,7 +455,10 @@
       const placeName = placeNameInput?.value.trim();
 
       if (!placeName) {
-        VisitsManager.showInputError(placeNameInput, "Please enter a name for the place.");
+        VisitsManager.showInputError(
+          placeNameInput,
+          "Please enter a name for the place."
+        );
         return;
       }
       if (!this.currentPolygon) {

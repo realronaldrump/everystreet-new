@@ -405,7 +405,7 @@ const searchManager = {
     utils.announce(`Selected ${result.type}: ${result.name}`);
   },
 
-  async highlightStreet(result) {
+  highlightStreet(result) {
     if (!state.map || !state.mapInitialized) {
       console.warn("Map not initialized");
       return;

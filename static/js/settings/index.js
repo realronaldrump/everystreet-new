@@ -263,7 +263,7 @@ function setupTaskConfigEventListeners(taskManager) {
       const forceBtn = e.target.closest(".force-stop-btn");
       if (detailsBtn) {
         const { taskId } = detailsBtn.dataset;
-        taskManager.showTaskDetails(taskId);
+        TaskManager.showTaskDetails(taskId);
       } else if (runBtn) {
         const { taskId } = runBtn.dataset;
         taskManager.runTask(taskId);
@@ -394,7 +394,7 @@ function init() {
   initAppSettings();
 
   // Initialize InvalidTripReview
-  new InvalidTripReview();
+  const _invalidTripReview = new InvalidTripReview();
 
   // Load initial task config
   taskManager.loadTaskConfig();

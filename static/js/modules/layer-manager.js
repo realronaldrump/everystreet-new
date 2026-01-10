@@ -752,7 +752,7 @@ const layerManager = {
       visibleTripCount,
     });
 
-    const { tripCount, glowLayers } = heatmapConfig;
+    const { glowLayers } = heatmapConfig;
 
     const existingSource = state.map.getSource(sourceId);
     const firstGlowLayerId = `${layerName}-layer-0`;

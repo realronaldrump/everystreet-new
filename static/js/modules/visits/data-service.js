@@ -3,7 +3,7 @@
     if (!response.ok) {
       throw new Error(context || `Request failed with status ${response.status}`);
     }
-    return response.json();
+    return await response.json();
   }
 
   async function fetchPlaces() {

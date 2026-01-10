@@ -70,7 +70,7 @@ class DrivingNavigation {
     this.loadAutoFollowState();
   }
 
-  async initMap() {
+  initMap() {
     if (this.config.useSharedMap && window.coverageMasterMap) {
       this.map = window.coverageMasterMap;
       return new Promise((resolve, reject) => {

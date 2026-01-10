@@ -548,7 +548,7 @@ class CoverageUI {
     );
     const locationId = area._id;
 
-    row.innerHTML = this._buildRowHTML(
+    row.innerHTML = CoverageUI._buildRowHTML(
       area,
       areaData,
       statusInfo,
@@ -628,8 +628,9 @@ class CoverageUI {
   /**
    * Build row HTML content
    * @private
+   * @static
    */
-  _buildRowHTML(
+  static _buildRowHTML(
     area,
     areaData,
     statusInfo,
