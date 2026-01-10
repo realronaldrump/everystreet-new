@@ -3,7 +3,7 @@
  * Handles dashboard, tables, charts, and UI components
  */
 
-/* global Chart, $ */
+/* global Chart, $, bootstrap */
 
 class CoverageUI {
   constructor(notificationManager) {
@@ -49,7 +49,7 @@ class CoverageUI {
     });
 
     areas.forEach((area, index) => {
-      const row = this._createCoverageTableRow(
+      const row = CoverageUI._createCoverageTableRow(
         area,
         index,
         formatRelativeTime,
@@ -323,18 +323,18 @@ class CoverageUI {
             position: "bottom",
             labels: { color: "#fff", boxWidth: 15, padding: 15 },
           },
-          tooltip: {
-            mode: "index",
-            intersect: false,
-            callbacks: {
-              label: (ctx) =>
-                `${ctx.dataset.label}: ${
-                  ctx.dataset.label === "% Covered"
-                    ? `${ctx.parsed.y.toFixed(1)}%`
-                    : `${ctx.parsed.y.toFixed(2)} mi`
-                }`,
+            tooltip: {
+              mode: "index",
+              intersect: false,
+              callbacks: {
+                label: (tooltipItem) =>
+                  `${tooltipItem.dataset.label}: ${
+                    tooltipItem.dataset.label === "% Covered"
+                      ? `${tooltipItem.parsed.y.toFixed(1)}%`
+                      : `${tooltipItem.parsed.y.toFixed(2)} mi`
+                  }`,
+              },
             },
-          },
         },
         scales: {
           x: {
@@ -519,7 +519,7 @@ class CoverageUI {
    * Create coverage table row
    * @private
    */
-  _createCoverageTableRow(
+  static _createCoverageTableRow(
     area,
     index,
     formatRelativeTime,

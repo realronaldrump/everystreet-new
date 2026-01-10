@@ -165,7 +165,7 @@ async function loadVehicles(options = {}) {
         "No vehicles detected yet. Auto-discovery attempted—please sync from Profile.",
         "warning"
       );
-      return;
+      return vehicles;
     }
 
     vehicles.forEach((vehicle) => {
@@ -184,13 +184,14 @@ async function loadVehicles(options = {}) {
         `Detected ${formatVehicleName(vehicles[0])} automatically.`,
         "success"
       );
+      return vehicles;
     } else if (vehicles.length > 0) {
       setVehicleStatus(
         "Vehicles detected. Select one to see its latest location and odometer.",
         "success"
       );
     }
-    
+    return vehicles;
   } catch (error) {
     console.error("Error loading vehicles:", error);
     setVehicleStatus(
@@ -198,6 +199,7 @@ async function loadVehicles(options = {}) {
       "danger"
     );
     showError("Failed to load vehicles");
+    return [];
   } finally {
     toggleVehicleLoading(false);
   }

@@ -1526,7 +1526,7 @@ class TurnByTurnNavigator {
    * Calculate distance from point to line segment
    */
   distanceToSegment(point, segStart, segEnd) {
-    const proj = TurnByTurnNavigator.projectToSegment(point, segStart, segEnd);
+    const proj = this.constructor.projectToSegment(point, segStart, segEnd);
     return proj.distance;
   }
 
