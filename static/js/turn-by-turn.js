@@ -1047,7 +1047,7 @@ class TurnByTurnNavigator {
 
     // Update preview stats
     if (this.previewDistance) {
-      this.previewDistance.textContent = this.formatDistance(this.totalDistance);
+      this.previewDistance.textContent = TurnByTurnNavigator.formatDistance(this.totalDistance);
     }
     if (this.previewTime) {
       this.previewTime.textContent = this.formatDuration(this.estimatedDriveTime);
@@ -1130,12 +1130,12 @@ class TurnByTurnNavigator {
           );
 
           if (directions) {
-            const distText = this.formatDistance(directions.distance);
+            const distText = TurnByTurnNavigator.formatDistance(directions.distance);
             const timeText = this.formatDuration(directions.duration);
             this.updateStartStatus("away", `${distText} away (${timeText} to start)`);
             this.navigateToStartRoute = directions.geometry;
           } else {
-            const distText = this.formatDistance(startInfo.distanceFromUser);
+            const distText = TurnByTurnNavigator.formatDistance(startInfo.distanceFromUser);
             this.updateStartStatus("away", `${distText} from start point`);
           }
           this.showNavigateToStartButton();
@@ -1279,7 +1279,7 @@ class TurnByTurnNavigator {
       this.primaryInstruction.textContent = "Drive to start point";
     }
     if (this.distanceToTurn && this.smartStartDistance) {
-      this.distanceToTurn.textContent = this.formatDistance(this.smartStartDistance);
+      this.distanceToTurn.textContent = TurnByTurnNavigator.formatDistance(this.smartStartDistance);
     }
     this.setNavStatus("Navigating to route start");
   }
@@ -1703,7 +1703,7 @@ class TurnByTurnNavigator {
     this.setupSummary.innerHTML = `
       <div class="summary-item">
         <span>Distance</span>
-        <span>${this.formatDistance(this.totalDistance)}</span>
+        <span>${TurnByTurnNavigator.formatDistance(this.totalDistance)}</span>
       </div>
       <div class="summary-item">
         <span>Turns</span>
@@ -1858,7 +1858,7 @@ class TurnByTurnNavigator {
       this.smartStartDistance = distToStart;
 
       if (this.distanceToTurn) {
-        this.distanceToTurn.textContent = this.formatDistance(distToStart);
+        this.distanceToTurn.textContent = TurnByTurnNavigator.formatDistance(distToStart);
       }
 
       if (distToStart <= this.config.startThresholdMeters) {
@@ -2049,7 +2049,7 @@ class TurnByTurnNavigator {
       };
 
       if (this.resumeDistanceText) {
-        this.resumeDistanceText.textContent = `${this.formatDistance(
+        this.resumeDistanceText.textContent = `${TurnByTurnNavigator.formatDistance(
           directions.distance
         )} (${this.formatDuration(directions.duration)})`;
       }
@@ -2163,9 +2163,9 @@ class TurnByTurnNavigator {
   updateProgressMeta(progressDistance) {
     if (!this.progressLabel || !this.progressValue) return;
     this.progressLabel.textContent = this.routeName;
-    this.progressValue.textContent = `${this.formatDistance(
+    this.progressValue.textContent = `${TurnByTurnNavigator.formatDistance(
       progressDistance
-    )} of ${this.formatDistance(this.totalDistance)}`;
+    )} of ${TurnByTurnNavigator.formatDistance(this.totalDistance)}`;
 
     if (this.progressFill) {
       const ratio = this.totalDistance ? progressDistance / this.totalDistance : 0;
@@ -2175,7 +2175,7 @@ class TurnByTurnNavigator {
 
   updateRemaining(distance) {
     if (this.remainingDistance) {
-      this.remainingDistance.textContent = this.formatDistance(distance);
+      this.remainingDistance.textContent = TurnByTurnNavigator.formatDistance(distance);
     }
   }
 
@@ -2209,7 +2209,7 @@ class TurnByTurnNavigator {
     this.turnIcon?.classList.remove("off-route", "arrive");
     if (offRoute) {
       this.primaryInstruction.textContent = "Return to route";
-      this.distanceToTurn.textContent = `Off by ${this.formatDistance(
+      this.distanceToTurn.textContent = `Off by ${TurnByTurnNavigator.formatDistance(
         closest.distance
       )}`;
       if (this.roadName) this.roadName.textContent = this.routeName;
@@ -2234,7 +2234,7 @@ class TurnByTurnNavigator {
 
     const distanceTo = Math.max(nextManeuver.distanceAlong - progressDistance, 0);
     const distanceLabel =
-      distanceTo < 25 ? "Now" : `In ${this.formatDistance(distanceTo)}`;
+      distanceTo < 25 ? "Now" : `In ${TurnByTurnNavigator.formatDistance(distanceTo)}`;
     const instruction = this.getInstructionText(nextManeuver.type);
     const rotation = this.getTurnRotation(nextManeuver.type);
 
@@ -2498,19 +2498,19 @@ class TurnByTurnNavigator {
 
   toXY(coord, refLat) {
     const r = 6371000;
-    const lat = this.toRad(coord[1]);
-    const lon = this.toRad(coord[0]);
-    const x = lon * Math.cos(this.toRad(refLat)) * r;
+    const lat = TurnByTurnNavigator.toRad(coord[1]);
+    const lon = TurnByTurnNavigator.toRad(coord[0]);
+    const x = lon * Math.cos(TurnByTurnNavigator.toRad(refLat)) * r;
     const y = lat * r;
     return { x, y };
   }
 
   distanceMeters(a, b) {
     const r = 6371000;
-    const dLat = this.toRad(b[1] - a[1]);
-    const dLon = this.toRad(b[0] - a[0]);
-    const lat1 = this.toRad(a[1]);
-    const lat2 = this.toRad(b[1]);
+    const dLat = TurnByTurnNavigator.toRad(b[1] - a[1]);
+    const dLon = TurnByTurnNavigator.toRad(b[0] - a[0]);
+    const lat1 = TurnByTurnNavigator.toRad(a[1]);
+    const lat2 = TurnByTurnNavigator.toRad(b[1]);
     const h =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
@@ -2518,35 +2518,35 @@ class TurnByTurnNavigator {
   }
 
   bearing(a, b) {
-    const lat1 = this.toRad(a[1]);
-    const lat2 = this.toRad(b[1]);
-    const dLon = this.toRad(b[0] - a[0]);
+    const lat1 = TurnByTurnNavigator.toRad(a[1]);
+    const lat2 = TurnByTurnNavigator.toRad(b[1]);
+    const dLon = TurnByTurnNavigator.toRad(b[0] - a[0]);
     const y = Math.sin(dLon) * Math.cos(lat2);
     const x =
       Math.cos(lat1) * Math.sin(lat2) -
       Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-    return (this.toDeg(Math.atan2(y, x)) + 360) % 360;
+    return (TurnByTurnNavigator.toDeg(Math.atan2(y, x)) + 360) % 360;
   }
 
   angleDelta(from, to) {
     return ((to - from + this.angleDeltaOffset) % 360) - 180;
   }
 
-  formatDistance(meters) {
+  static formatDistance(meters) {
     if (!Number.isFinite(meters)) return "--";
-    if (meters < this.shortDistanceThreshold) {
+    if (meters < 160) {
       return `${Math.round(meters * 3.28084)} ft`;
     }
     const miles = meters / 1609.344;
     return `${miles < 10 ? miles.toFixed(1) : miles.toFixed(0)} mi`;
   }
 
-  toRad(deg) {
-    return deg * this.degToRadFactor;
+  static toRad(deg) {
+    return deg * (Math.PI / 180);
   }
 
-  toDeg(rad) {
-    return rad * this.radToDegFactor;
+  static toDeg(rad) {
+    return rad * (180 / Math.PI);
   }
 }
 
