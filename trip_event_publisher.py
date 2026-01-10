@@ -49,7 +49,9 @@ async def get_redis_client() -> aioredis.Redis:
     redis_url = get_redis_url()
 
     try:
-        RedisClientState.client = await aioredis.from_url(redis_url, decode_responses=True)
+        RedisClientState.client = await aioredis.from_url(
+            redis_url, decode_responses=True
+        )
         await RedisClientState.client.ping()
         logger.info("Connected to Redis for trip event publishing")
         return RedisClientState.client

@@ -65,6 +65,7 @@ class AppState:
 
     mongo_handler = None
 
+
 # Initialize FastAPI App
 app = FastAPI(title="Every Street")
 

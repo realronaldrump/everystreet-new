@@ -40,7 +40,10 @@ async def get_session() -> aiohttp.ClientSession:
     current_pid = os.getpid()
 
     # Handle fork scenario: close inherited session from parent process
-    if SessionState.session is not None and current_pid != SessionState.session_owner_pid:
+    if (
+        SessionState.session is not None
+        and current_pid != SessionState.session_owner_pid
+    ):
         try:
             # We can't await close() on a session from another loop/process safely
             # usually, but we should at least discard it.
@@ -67,14 +70,20 @@ async def get_session() -> aiohttp.ClientSession:
     if SessionState.session is not None:
         try:
             current_loop = asyncio.get_running_loop()
-            if SessionState.session.loop != current_loop or SessionState.session.loop.is_closed():
+            if (
+                SessionState.session.loop != current_loop
+                or SessionState.session.loop.is_closed()
+            ):
                 logger.info(
                     "Detected event loop change (session loop: %s, current loop: %s). Creating new session.",
                     id(SessionState.session.loop),
                     id(current_loop),
                 )
                 try:
-                    if not SessionState.session.closed and not SessionState.session.loop.is_closed():
+                    if (
+                        not SessionState.session.closed
+                        and not SessionState.session.loop.is_closed()
+                    ):
                         await SessionState.session.close()
                 except Exception as e:
                     logger.warning("Error closing stale session: %s", e)
