@@ -515,7 +515,9 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
             if changes:
                 logger.info("Task configuration updated: %s", "; ".join(changes))
             else:
-                logger.info("Task configuration updated (specific changes not detailed).")
+                logger.info(
+                    "Task configuration updated (specific changes not detailed)."
+                )
             return {
                 "status": "success",
                 "message": "Task configuration updated successfully.",

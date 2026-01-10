@@ -1047,7 +1047,9 @@ class TurnByTurnNavigator {
 
     // Update preview stats
     if (this.previewDistance) {
-      this.previewDistance.textContent = TurnByTurnNavigator.formatDistance(this.totalDistance);
+      this.previewDistance.textContent = TurnByTurnNavigator.formatDistance(
+        this.totalDistance
+      );
     }
     if (this.previewTime) {
       this.previewTime.textContent = this.formatDuration(this.estimatedDriveTime);
@@ -1135,7 +1137,9 @@ class TurnByTurnNavigator {
             this.updateStartStatus("away", `${distText} away (${timeText} to start)`);
             this.navigateToStartRoute = directions.geometry;
           } else {
-            const distText = TurnByTurnNavigator.formatDistance(startInfo.distanceFromUser);
+            const distText = TurnByTurnNavigator.formatDistance(
+              startInfo.distanceFromUser
+            );
             this.updateStartStatus("away", `${distText} from start point`);
           }
           this.showNavigateToStartButton();
@@ -1279,7 +1283,9 @@ class TurnByTurnNavigator {
       this.primaryInstruction.textContent = "Drive to start point";
     }
     if (this.distanceToTurn && this.smartStartDistance) {
-      this.distanceToTurn.textContent = TurnByTurnNavigator.formatDistance(this.smartStartDistance);
+      this.distanceToTurn.textContent = TurnByTurnNavigator.formatDistance(
+        this.smartStartDistance
+      );
     }
     this.setNavStatus("Navigating to route start");
   }
@@ -1858,7 +1864,8 @@ class TurnByTurnNavigator {
       this.smartStartDistance = distToStart;
 
       if (this.distanceToTurn) {
-        this.distanceToTurn.textContent = TurnByTurnNavigator.formatDistance(distToStart);
+        this.distanceToTurn.textContent =
+          TurnByTurnNavigator.formatDistance(distToStart);
       }
 
       if (distToStart <= this.config.startThresholdMeters) {
@@ -2400,7 +2407,12 @@ class TurnByTurnNavigator {
   }
 
   static classifyTurn(delta) {
-    const { uturn, sharp, turn, slight } = { uturn: 150, sharp: 100, turn: 50, slight: 25 };
+    const { uturn, sharp, turn, slight } = {
+      uturn: 150,
+      sharp: 100,
+      turn: 50,
+      slight: 25,
+    };
     const abs = Math.abs(delta);
     let classification = "straight";
     if (abs > uturn) classification = "uturn";
