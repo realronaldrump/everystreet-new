@@ -1,5 +1,5 @@
 (() => {
-  async function parseJsonResponse(response, context) {
+  function parseJsonResponse(response, context) {
     if (!response.ok) {
       throw new Error(context || `Request failed with status ${response.status}`);
     }

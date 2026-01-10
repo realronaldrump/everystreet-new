@@ -170,7 +170,7 @@ const utils = {
    * Yield control back to the browser to keep the UI responsive.
    * @param {number} delay - Optional delay in milliseconds before yielding.
    */
-  async yieldToBrowser(delay = 0) {
+  yieldToBrowser(delay = 0) {
     return new Promise((resolve) => {
       if (delay > 0) {
         setTimeout(() => requestAnimationFrame(resolve), delay);
