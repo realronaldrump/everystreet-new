@@ -392,7 +392,7 @@ class CoverageMap {
   setupMapEventHandlers() {
     if (!this.map) return;
 
-    let moveEndTimer;
+    let moveEndTimer = null;
     this.map.on("moveend", () => {
       clearTimeout(moveEndTimer);
       moveEndTimer = setTimeout(() => {

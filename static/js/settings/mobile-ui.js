@@ -713,8 +713,8 @@ export function setupMobileRemapTrips() {
       const method =
         document.querySelector(".mobile-date-method-tab.active")?.dataset
           .method || "date";
-      let start_date;
-      let end_date;
+      let start_date = "";
+      let end_date = "";
       let interval_days = 0;
 
       if (method === "date") {

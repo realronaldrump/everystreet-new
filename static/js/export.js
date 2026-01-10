@@ -1001,7 +1001,7 @@
           }
           throw new Error(msg);
         }
-        let blob;
+        let blob = null;
         const displayName = area.display_name || "undriven_streets";
         const sanitizedName = displayName.replace(/[^a-zA-Z0-9]/g, "_");
         const now = new Date();

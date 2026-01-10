@@ -333,7 +333,7 @@ class CoverageManager {
 
     try {
       const cachedData = this.getCachedData(`dashboard-${locationId}`);
-      let coverageData;
+      let coverageData = null;
 
       if (cachedData) {
         coverageData = cachedData;
@@ -1564,7 +1564,7 @@ class CoverageManager {
 
       const isCustom =
         location.osm_type === "custom" || location.boundary_type === "custom";
-      let taskData;
+      let taskData = null;
 
       if (isCustom) {
         const geometry =

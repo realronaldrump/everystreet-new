@@ -758,7 +758,7 @@ if (typeof window !== "undefined") {
 
     dailyData.forEach((d) => {
       const date = new Date(d.date);
-      let key;
+      let key = "";
 
       if (state.currentView === "weekly") {
         const weekStart = new Date(date);

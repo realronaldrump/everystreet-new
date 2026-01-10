@@ -283,8 +283,8 @@ export function setupRemapMatchedTrips() {
   remapBtn.addEventListener("mousedown", async (e) => {
     if (e.button !== 0) return;
     const method = remapType.value;
-    let start_date;
-    let end_date;
+    let start_date = "";
+    let end_date = "";
     let interval_days = 0;
 
     if (method === "date") {

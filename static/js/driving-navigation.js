@@ -756,7 +756,8 @@ class DrivingNavigation {
       return;
     }
 
-    let currentLat, currentLon;
+    let currentLat = null;
+    let currentLon = null;
     if (this.lastKnownLocation) {
       currentLat = this.lastKnownLocation.lat;
       currentLon = this.lastKnownLocation.lon;

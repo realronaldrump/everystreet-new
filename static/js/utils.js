@@ -52,7 +52,7 @@ const utils = {
 
   // Debounce function
   debounce(func, wait) {
-    let timeout;
+    let timeout = null;
     let lastCallTime = 0;
 
     return function executedFunction(...args) {
@@ -78,8 +78,8 @@ const utils = {
 
   // Throttle function
   throttle(func, limit) {
-    let inThrottle;
-    let lastResult;
+    let inThrottle = false;
+    let lastResult = undefined;
 
     return function (...args) {
       if (!inThrottle) {
@@ -235,7 +235,7 @@ const utils = {
   },
 
   setStorage(key, value) {
-    let stringValue;
+    let stringValue = null;
     try {
       stringValue =
         typeof value === "object" ? JSON.stringify(value) : String(value);

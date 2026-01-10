@@ -24,7 +24,8 @@ class CoverageNavigation {
       return;
     }
 
-    let currentLat, currentLon;
+    let currentLat = null;
+    let currentLon = null;
     let positionSource = "unknown";
 
     try {

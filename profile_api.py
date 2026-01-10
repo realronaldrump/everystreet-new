@@ -262,7 +262,8 @@ async def sync_vehicles_from_bouncie():
         await update_bouncie_credentials({"authorized_devices": updated_devices})
 
         logger.info(
-            f"Synced {len(synced_vehicles)} vehicles from Bouncie. Updated authorized devices."
+            "Synced %d vehicles from Bouncie. Updated authorized devices.",
+            len(synced_vehicles),
         )
 
         return {

@@ -92,7 +92,8 @@ const dateUtils = {
    */
   async getDateRangePreset(range) {
     const today = dayjs();
-    let startDate, endDate;
+    let startDate = null;
+    let endDate = null;
 
     switch (range) {
       case "today":

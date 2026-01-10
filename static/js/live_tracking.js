@@ -363,7 +363,9 @@ class LiveTripTracker {
   updateMarkerStyle(speed) {
     if (!this.map || !this.map.getLayer(this.markerLayerId)) return;
 
-    let color, radius, strokeWidth;
+    let color = "";
+    let radius = 0;
+    let strokeWidth = 0;
 
     if (speed === 0) {
       color = "#ef4444"; // Red - stopped (matches --danger)

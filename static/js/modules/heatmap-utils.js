@@ -35,7 +35,10 @@ const heatmapUtils = {
     // - Moderate opacity so overlapping creates visible brightness
     // - More trips = slightly thinner lines and lower per-line opacity
 
-    let baseWidth, glowWidth, coreOpacity, glowOpacity;
+    let baseWidth = 0;
+    let glowWidth = 0;
+    let coreOpacity = 0;
+    let glowOpacity = 0;
 
     if (tripCount <= 5) {
       // Very few trips - make them visible

@@ -710,7 +710,7 @@ class CoverageProgress {
     if (!activityIndicator || !lastUpdateEl) return;
 
     const now = new Date();
-    let currentlyActive;
+    let currentlyActive = false;
 
     if (isActive !== null) {
       currentlyActive = isActive;
@@ -744,7 +744,7 @@ class CoverageProgress {
     if (!date) return "never";
     const seconds = Math.floor((Date.now() - new Date(date)) / 1000);
 
-    let formatted;
+    let formatted = "";
     if (seconds < 2) {
       formatted = "just now";
     } else if (seconds < 60) {
