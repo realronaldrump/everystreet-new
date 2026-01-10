@@ -71,6 +71,7 @@ class CustomPlace:
             created_at=created,
         )
 
+
 class PlaceService:
     """Service class for custom place operations."""
 

@@ -374,7 +374,6 @@ const utils = {
         el.style.opacity = 1;
       });
       setTimeout(resolve, duration);
-
     });
   },
 
@@ -394,7 +393,6 @@ const utils = {
         el.style.display = "none";
         resolve();
       }, duration);
-
     });
   },
 
