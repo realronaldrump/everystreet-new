@@ -189,16 +189,12 @@ const tripInteractions = {
   },
 
   async deleteMatchedTrip(tripId, popup) {
-    const useModal =
-      window.confirmationDialog && typeof window.confirmationDialog.show === "function";
-    const confirmed = useModal
-      ? await window.confirmationDialog.show({
-          title: "Delete Matched Trip",
-          message: "Are you sure you want to delete this matched trip?",
-          confirmText: "Delete",
-          confirmButtonClass: "btn-danger",
-        })
-      : confirm("Are you sure you want to delete this matched trip?");
+    const confirmed = await window.confirmationDialog.show({
+      title: "Delete Matched Trip",
+      message: "Are you sure you want to delete this matched trip?",
+      confirmText: "Delete",
+      confirmButtonClass: "btn-danger",
+    });
     if (!confirmed) return;
 
     try {
@@ -218,19 +214,13 @@ const tripInteractions = {
   },
 
   async deleteTrip(tripId, popup) {
-    const useModal =
-      window.confirmationDialog && typeof window.confirmationDialog.show === "function";
-    const confirmed = useModal
-      ? await window.confirmationDialog.show({
-          title: "Delete Trip",
-          message:
-            "Are you sure you want to delete this trip? This action cannot be undone.",
-          confirmText: "Delete",
-          confirmButtonClass: "btn-danger",
-        })
-      : confirm(
-          "Are you sure you want to delete this trip? This action cannot be undone."
-        );
+    const confirmed = await window.confirmationDialog.show({
+      title: "Delete Trip",
+      message:
+        "Are you sure you want to delete this trip? This action cannot be undone.",
+      confirmText: "Delete",
+      confirmButtonClass: "btn-danger",
+    });
     if (!confirmed) return;
 
     try {

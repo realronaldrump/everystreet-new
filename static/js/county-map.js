@@ -339,7 +339,10 @@
         // Poll for completion
         setTimeout(() => startRecalculatePolling(startedAt), 3000);
       } else {
-        alert(`Error starting calculation: ${data.error}`);
+        window.notificationManager.show(
+          `Error starting calculation: ${data.error}`,
+          "danger",
+        );
         clearRecalcState();
       }
     } catch (error) {

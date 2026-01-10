@@ -706,7 +706,7 @@ class CoverageCalculator:
 
             if not result or not result[0].get("overall"):
                 logger.error(
-                    f"Task {self.task_id}: Final stats aggregation returned empty."
+                    "Task %s: Final stats aggregation returned empty.", self.task_id
                 )
                 await self.update_progress(
                     "error",
@@ -769,7 +769,9 @@ class CoverageCalculator:
 
         # 4. Update Metadata
         logger.info(
-            f"Task {self.task_id}: Updating coverage metadata for {self.location_name}..."
+            "Task %s: Updating coverage metadata for %s...",
+            self.task_id,
+            self.location_name,
         )
         try:
             trip_ids_list = list(processed_trip_ids_set)
@@ -834,7 +836,10 @@ class CoverageCalculator:
         start_time = datetime.now(UTC)
         run_type = "incremental" if run_incremental else "full"
         logger.info(
-            f"Task {self.task_id}: Starting {run_type} coverage for {self.location_name}"
+            "Task %s: Starting %s coverage for %s",
+            self.task_id,
+            run_type,
+            self.location_name,
         )
 
         try:
@@ -862,7 +867,7 @@ class CoverageCalculator:
                             processed_trip_ids_set = set(map(str, ids))
                 except Exception as e:
                     logger.warning(
-                        f"Failed to load previous trip IDs: {e}. Running full."
+                        "Failed to load previous trip IDs: %s. Running full.", e
                     )
 
             # Process Trips

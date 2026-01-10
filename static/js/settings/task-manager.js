@@ -740,7 +740,12 @@ export class TaskManager {
         confirmVariant: "danger",
       });
     } else {
-      confirmed = window.confirm(confirmMessage);
+      confirmed = await window.confirmationDialog.show({
+        title: "Confirm Action",
+        message: confirmMessage,
+        confirmText: "Yes",
+        confirmButtonClass: "btn-primary",
+      });
     }
 
     if (!confirmed) return false;

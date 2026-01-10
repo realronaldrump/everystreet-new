@@ -760,11 +760,163 @@ class ConfirmationDialog {
   }
 }
 
+class PromptDialog {
+  constructor(config = {}) {
+    this.config = {
+      modalId: config.modalId || "promptModal",
+      backdropStatic: config.backdropStatic !== false,
+      defaultTitle: config.defaultTitle || "Input Required",
+      defaultMessage: config.defaultMessage || "Please enter a value:",
+      defaultConfirmText: config.defaultConfirmText || "OK",
+      defaultCancelText: config.defaultCancelText || "Cancel",
+      defaultConfirmButtonClass:
+        config.defaultConfirmButtonClass || "btn-primary",
+      defaultInputType: config.inputType || "text",
+    };
+
+    this.modalId = this.config.modalId;
+    this.activeModal = null;
+    this._createModal();
+  }
+
+  _createModal() {
+    if (document.getElementById(this.modalId)) return;
+
+    const modal = document.createElement("div");
+    modal.className = "modal fade";
+    modal.id = this.modalId;
+    modal.tabIndex = -1;
+
+    if (this.config.backdropStatic) {
+      modal.setAttribute("data-bs-backdrop", "static");
+    }
+
+    modal.innerHTML = `
+      <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white">
+          <div class="modal-header">
+            <h5 class="modal-title"></h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="modal-message mb-3"></p>
+            <input type="text" class="form-control bg-dark text-white border-secondary prompt-input" />
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary cancel-btn" data-bs-dismiss="modal"></button>
+            <button type="button" class="btn confirm-btn"></button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+  }
+
+  show(options = {}) {
+    return new Promise((resolve) => {
+      const modalElement = document.getElementById(this.modalId);
+      if (!modalElement) {
+        console.error("Prompt modal not found");
+        resolve(null);
+        return;
+      }
+
+      const title = options.title || this.config.defaultTitle;
+      const message = options.message || this.config.defaultMessage;
+      const confirmText = options.confirmText || this.config.defaultConfirmText;
+      const cancelText = options.cancelText || this.config.defaultCancelText;
+      const confirmButtonClass =
+        options.confirmButtonClass || this.config.defaultConfirmButtonClass;
+      const inputType = options.inputType || this.config.defaultInputType;
+      const placeholder = options.placeholder || "";
+      const defaultValue = options.defaultValue || "";
+
+      modalElement.querySelector(".modal-title").textContent = title;
+      modalElement.querySelector(".modal-message").textContent = message;
+
+      const input = modalElement.querySelector(".prompt-input");
+      input.type = inputType;
+      input.placeholder = placeholder;
+      input.value = defaultValue;
+
+      const confirmBtn = modalElement.querySelector(".confirm-btn");
+      const cancelBtn = modalElement.querySelector(".cancel-btn");
+
+      if (confirmBtn) {
+        confirmBtn.textContent = confirmText;
+        confirmBtn.className = `btn confirm-btn ${confirmButtonClass}`;
+      }
+
+      if (cancelBtn) {
+        cancelBtn.textContent = cancelText;
+      }
+
+      const cleanup = () => {
+        confirmBtn?.removeEventListener("mousedown", handleConfirm);
+        input?.removeEventListener("keypress", handleKeypress);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
+        modalElement.removeEventListener("shown.bs.modal", handleShown);
+      };
+
+      const handleConfirm = () => {
+        const value = input.value;
+        cleanup();
+        this.activeModal?.hide();
+        this.activeModal = null;
+        resolve(value);
+      };
+
+      const handleDismiss = () => {
+        cleanup();
+        this.activeModal = null;
+        resolve(null);
+      };
+
+      const handleKeypress = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleConfirm();
+        }
+      };
+
+      const handleShown = () => {
+        input.focus();
+      };
+
+      confirmBtn?.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        handleConfirm(e);
+      });
+      input?.addEventListener("keypress", handleKeypress);
+      modalElement.addEventListener("hidden.bs.modal", handleDismiss);
+      modalElement.addEventListener("shown.bs.modal", handleShown);
+
+      try {
+        this.activeModal = new bootstrap.Modal(modalElement);
+        this.activeModal.show();
+      } catch (error) {
+        console.error("Error showing modal:", error);
+        cleanup();
+        resolve(null);
+      }
+    });
+  }
+
+  hide() {
+    if (this.activeModal) {
+      this.activeModal.hide();
+      this.activeModal = null;
+    }
+  }
+}
+
 // Initialize global instances
 window.notificationManager =
   window.notificationManager || new NotificationManager();
 window.confirmationDialog =
   window.confirmationDialog || new ConfirmationDialog();
+window.promptDialog = window.promptDialog || new PromptDialog();
 
 // Export utilities
 window.handleError = handleError;

@@ -846,7 +846,14 @@ window.editFillup = (id) => {
  * Delete a fill-up
  */
 window.deleteFillup = async (id) => {
-  if (!confirm("Are you sure you want to delete this fill-up record?")) {
+  const confirmed = await window.confirmationDialog.show({
+    title: "Delete Fill-up",
+    message: "Are you sure you want to delete this fill-up record?",
+    confirmText: "Delete",
+    confirmButtonClass: "btn-danger",
+  });
+
+  if (!confirmed) {
     return;
   }
 

@@ -487,11 +487,15 @@
    * Delete vehicle
    */
   async function deleteVehicle(imei) {
-    if (
-      !confirm(
-        "Are you sure you want to delete this vehicle? This will mark it as inactive."
-      )
-    ) {
+    const confirmed = await window.confirmationDialog.show({
+      title: "Delete Vehicle",
+      message:
+        "Are you sure you want to delete this vehicle? This will mark it as inactive.",
+      confirmText: "Delete",
+      confirmButtonClass: "btn-danger",
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -517,7 +521,12 @@
    * Add new vehicle
    */
   async function addNewVehicle() {
-    const imei = prompt("Enter vehicle IMEI:");
+    const imei = await window.promptDialog.show({
+      title: "Add New Vehicle",
+      message: "Enter vehicle IMEI:",
+      placeholder: "IMEI",
+      confirmText: "Add Vehicle",
+    });
     if (!imei) return;
 
     try {

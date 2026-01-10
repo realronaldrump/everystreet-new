@@ -110,24 +110,13 @@ export class InvalidTripReview {
   }
 
   async deleteTrip(tripId) {
-    let confirmed = true;
-
-    if (
-      window.confirmationDialog &&
-      typeof window.confirmationDialog.show === "function"
-    ) {
-      confirmed = await window.confirmationDialog.show({
-        title: "Delete Trip",
-        message:
-          "Are you sure you want to permanently delete this trip? This cannot be undone.",
-        confirmLabel: "Delete",
-        confirmVariant: "danger",
-      });
-    } else {
-      confirmed = window.confirm(
+    const confirmed = await window.confirmationDialog.show({
+      title: "Delete Trip",
+      message:
         "Are you sure you want to permanently delete this trip? This cannot be undone.",
-      );
-    }
+      confirmText: "Delete",
+      confirmButtonClass: "btn-danger",
+    });
 
     if (!confirmed) return;
 
