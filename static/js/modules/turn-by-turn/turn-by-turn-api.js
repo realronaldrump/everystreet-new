@@ -3,7 +3,10 @@
  * Handles all network/API calls
  */
 
-import { DIRECTIONS_GEOMETRY, DIRECTIONS_PROFILE } from "./turn-by-turn-config.js";
+import {
+  DIRECTIONS_GEOMETRY,
+  DIRECTIONS_PROFILE,
+} from "./turn-by-turn-config.js";
 
 const TurnByTurnAPI = {
   /**
@@ -45,7 +48,9 @@ const TurnByTurnAPI = {
    * @returns {Promise<string>} GPX text
    */
   async fetchOptimalRouteGpx(areaId) {
-    const response = await fetch(`/api/coverage_areas/${areaId}/optimal-route/gpx`);
+    const response = await fetch(
+      `/api/coverage_areas/${areaId}/optimal-route/gpx`,
+    );
     if (!response.ok) {
       if (response.status === 404) {
         throw new Error("No optimal route found. Generate one first.");
