@@ -90,24 +90,24 @@ class CoverageUI {
     try {
       table.DataTable({
         order: [[5, "desc"]],
-        paging: false,
-        searching: false,
-        info: false,
-        responsive: true,
-        autoWidth: false,
-        columnDefs: [
-          { orderable: false, targets: 6 },
-          {
-            targets: 1,
-            render(data, type) {
-              return type === "display" ? data : parseFloat(data);
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: "#fff", boxWidth: 15, padding: 15 },
+          },
+          tooltip: {
+            mode: "index",
+            intersect: false,
+            callbacks: {
+              label: (tooltipItem) =>
+                `${tooltipItem.dataset.label}: ${
+                  tooltipItem.dataset.label === "% Covered"
+                    ? `${tooltipItem.parsed.y.toFixed(1)}%`
+                    : `${tooltipItem.parsed.y.toFixed(2)} mi`
+                }`,
             },
           },
-        ],
-        language: {
-          emptyTable: "No coverage areas defined yet.",
         },
-        drawCallback() {
           document.dispatchEvent(new CustomEvent("coverageTableRedrawn"));
         },
       });
@@ -323,18 +323,18 @@ class CoverageUI {
             position: "bottom",
             labels: { color: "#fff", boxWidth: 15, padding: 15 },
           },
-            tooltip: {
-              mode: "index",
-              intersect: false,
-              callbacks: {
-                label: (tooltipItem) =>
-                  `${tooltipItem.dataset.label}: ${
-                    tooltipItem.dataset.label === "% Covered"
-                      ? `${tooltipItem.parsed.y.toFixed(1)}%`
-                      : `${tooltipItem.parsed.y.toFixed(2)} mi`
-                  }`,
-              },
+          tooltip: {
+            mode: "index",
+            intersect: false,
+            callbacks: {
+              label: (tooltipItem) =>
+                `${tooltipItem.dataset.label}: ${
+                  tooltipItem.dataset.label === "% Covered"
+                    ? `${tooltipItem.parsed.y.toFixed(1)}%`
+                    : `${tooltipItem.parsed.y.toFixed(2)} mi`
+                }`,
             },
+          },
         },
         scales: {
           x: {
