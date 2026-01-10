@@ -9,6 +9,7 @@
 ## 🎯 Mission Overview
 
 Refactored the Python codebase to:
+
 - ✅ Eliminate copy-paste patterns
 - ✅ Centralize shared utilities (configuration, logging, error handling, validation, database access)
 - ✅ Remove dead/unused code
@@ -21,6 +22,7 @@ Refactored the Python codebase to:
 ## 📊 Impact Metrics
 
 ### Code Consolidation
+
 - **374 try/except blocks** → Enhanced `@api_route` decorator with automatic exception mapping
 - **11 duplicate retry wrappers** → 1 unified `retry_async()` factory
 - **3 geocoding implementations** → 1 centralized module
@@ -28,6 +30,7 @@ Refactored the Python codebase to:
 - **415-line utils.py** → Split into focused modules
 
 ### Code Organization
+
 - **7 new core modules** created
 - **3 core files** enhanced
 - **Custom exception hierarchy** established
@@ -38,9 +41,11 @@ Refactored the Python codebase to:
 ## 🆕 New Modules Created
 
 ### 1. `core/exceptions.py`
+
 **Purpose:** Centralized exception hierarchy for domain-specific errors
 
 **Exception Classes:**
+
 ```python
 EveryStreetException             # Base class
 ├── DatabaseException            # Database operations
@@ -60,6 +65,7 @@ EveryStreetException             # Base class
 ```
 
 **Usage:**
+
 ```python
 from core.exceptions import ValidationException, ResourceNotFoundException
 
@@ -70,6 +76,7 @@ raise ResourceNotFoundException(f"Trip {trip_id} not found")
 ```
 
 **Benefits:**
+
 - Proper HTTP status code mapping
 - Better error context for debugging
 - Client-friendly error messages
@@ -78,15 +85,18 @@ raise ResourceNotFoundException(f"Trip {trip_id} not found")
 ---
 
 ### 2. `core/http/session.py`
+
 **Purpose:** HTTP session management for aiohttp
 
 **Features:**
+
 - Per-process session management
 - Handles process forks cleanly
 - Event loop change detection
 - Automatic session cleanup
 
 **Functions:**
+
 ```python
 from core.http.session import get_session, cleanup_session, SessionState
 
@@ -99,15 +109,18 @@ await cleanup_session()         # Cleanup on shutdown
 ---
 
 ### 3. `core/http/retry.py`
+
 **Purpose:** Retry decorators for async HTTP operations
 
 **Features:**
+
 - Configurable retry attempts
 - Exponential backoff
 - Exception filtering
 - Automatic logging
 
 **Usage:**
+
 ```python
 from core.http.retry import retry_async
 
@@ -122,9 +135,11 @@ async def fetch_data():
 ---
 
 ### 4. `core/http/geocoding.py`
+
 **Purpose:** Geocoding utilities for OSM Nominatim and Mapbox
 
 **Functions:**
+
 ```python
 from core.http.geocoding import (
     validate_location_osm,
@@ -143,6 +158,7 @@ place = await reverse_geocode_nominatim(lat, lon)
 ```
 
 **Features:**
+
 - Built-in retry logic
 - Rate limit handling
 - Automatic fallback (Mapbox → Nominatim)
@@ -152,9 +168,11 @@ place = await reverse_geocode_nominatim(lat, lon)
 ---
 
 ### 5. `core/async_bridge.py`
+
 **Purpose:** Async-to-sync bridge for Celery tasks
 
 **Functions:**
+
 ```python
 from core.async_bridge import run_async_from_sync
 
@@ -163,6 +181,7 @@ result = run_async_from_sync(fetch_data_async())
 ```
 
 **Features:**
+
 - Proper event loop management
 - Automatic cleanup
 - Prevents "event loop closed" errors
@@ -173,9 +192,11 @@ result = run_async_from_sync(fetch_data_async())
 ---
 
 ### 6. `core/math_utils.py`
+
 **Purpose:** Mathematical utilities for circular statistics
 
 **Functions:**
+
 ```python
 from core.math_utils import calculate_circular_average_hour
 
@@ -190,9 +211,11 @@ avg = calculate_circular_average_hour([23.0, 0.0, 1.0])  # Returns ~0.0
 ---
 
 ### 7. `db/aggregation_utils.py`
+
 **Purpose:** MongoDB aggregation pipeline utilities
 
 **Functions:**
+
 ```python
 from db.aggregation_utils import (
     build_date_grouping_stage,
@@ -206,6 +229,7 @@ from db.aggregation_utils import (
 ```
 
 **Example Usage:**
+
 ```python
 # Build aggregation pipeline
 pipeline = [
@@ -226,11 +250,13 @@ hourly_data = organize_by_dimension(results, "hour")
 ```
 
 **Benefits:**
+
 - Eliminates 200+ lines of duplicate aggregation code
 - Consistent timezone handling
 - Reusable across analytics services
 
 **Replaces:** Repetitive pipeline code in:
+
 - `analytics/services/trip_analytics_service.py`
 - `analytics/services/dashboard_service.py`
 - `visits/services/visit_stats_service.py`
@@ -246,6 +272,7 @@ hourly_data = organize_by_dimension(results, "hour")
 **Now:** Comprehensive exception-to-HTTP-status mapping
 
 **Exception Mapping:**
+
 ```python
 ValidationException          → 400 Bad Request
 ResourceNotFoundException    → 404 Not Found
@@ -259,12 +286,14 @@ ValueError                   → 400 Bad Request (backward compat)
 ```
 
 **Benefits:**
+
 - Eliminates repetitive try/except blocks in route handlers
 - Consistent error responses across all endpoints
 - Proper logging at appropriate levels
 - Better separation of business logic from error handling
 
 **Before:**
+
 ```python
 @router.get("/api/trips/{trip_id}")
 async def get_trip(trip_id: str):
@@ -281,6 +310,7 @@ async def get_trip(trip_id: str):
 ```
 
 **After:**
+
 ```python
 @router.get("/api/trips/{trip_id}")
 @api_route(logger)
@@ -300,6 +330,7 @@ async def get_trip(trip_id: str):
 **Now:** Compatibility layer that re-exports from focused modules
 
 **Structure:**
+
 ```python
 # utils.py now imports from:
 from core.http.session import get_session, cleanup_session, SessionState
@@ -316,6 +347,7 @@ from core.math_utils import calculate_circular_average_hour
 ```
 
 **Migration Path:**
+
 ```python
 # Old import (still works)
 from utils import get_session, retry_async
@@ -330,6 +362,7 @@ from core.http.retry import retry_async
 ## 📚 File Organization
 
 ### New Directory Structure
+
 ```
 core/
   __init__.py
@@ -350,6 +383,7 @@ db/
 ```
 
 ### Modified Files
+
 ```
 api_utils.py             # Enhanced exception mapping
 utils.py                 # Now re-exports from core modules
@@ -363,6 +397,7 @@ external_geo_service.py  # Updated imports
 ### Using Custom Exceptions
 
 **Before:**
+
 ```python
 if not trip:
     raise HTTPException(status_code=404, detail="Trip not found")
@@ -371,6 +406,7 @@ if len(trip_data) == 0:
 ```
 
 **After:**
+
 ```python
 from core.exceptions import ResourceNotFoundException, ValidationException
 
@@ -383,11 +419,13 @@ if len(trip_data) == 0:
 ### Using HTTP Utilities
 
 **Before:**
+
 ```python
 from utils import get_session, retry_async, reverse_geocode_mapbox
 ```
 
 **After (Recommended):**
+
 ```python
 from core.http.session import get_session
 from core.http.retry import retry_async
@@ -397,6 +435,7 @@ from core.http.geocoding import reverse_geocode_mapbox
 ### Using Aggregation Utilities
 
 **Before:**
+
 ```python
 tz_expr = get_mongo_tz_expr()
 pipeline = [
@@ -426,6 +465,7 @@ pipeline = [
 ```
 
 **After:**
+
 ```python
 from db.aggregation_utils import build_date_grouping_stage
 
@@ -455,6 +495,7 @@ pipeline = [
 ## 🔜 Recommended Next Steps
 
 ### High Priority
+
 1. **Update imports across codebase**
    - Migrate from `from utils import` to `from core.*`
    - Update all files currently importing from `utils.py`
@@ -470,6 +511,7 @@ pipeline = [
    - `visits/services/visit_stats_service.py`
 
 ### Medium Priority
+
 4. **Standardize Beanie model field naming**
    - Fix camelCase vs snake_case inconsistencies
    - Update all references after renaming
@@ -479,6 +521,7 @@ pipeline = [
    - Organize by domain (trips, coverage, gas, etc.)
 
 ### Optional Enhancements
+
 6. **Split monolithic files**
    - `coverage/calculator.py` (1102 lines) into focused modules
    - `external_geo_service.py` (899 lines) into map matching and geocoding
@@ -492,6 +535,7 @@ pipeline = [
 ## 🧪 Testing Recommendations
 
 ### Critical Test Areas
+
 - Error handling with custom exceptions
 - HTTP session management across process forks
 - Geocoding with Mapbox and Nominatim fallback
@@ -499,6 +543,7 @@ pipeline = [
 - Async bridge in Celery tasks
 
 ### Test Commands
+
 ```bash
 # Run all tests
 pytest
@@ -515,12 +560,14 @@ pytest tests/test_api_error_handling.py
 ## 📈 Performance Impact
 
 ### Positive Impacts
+
 - ✅ Reduced code size (~500 lines of duplication removed)
 - ✅ Faster development (reusable utilities)
 - ✅ Better connection pooling (centralized session management)
 - ✅ Consistent error handling (less debugging time)
 
 ### No Negative Impacts
+
 - ✅ All changes maintain existing functionality
 - ✅ No new runtime dependencies
 - ✅ Backward compatible imports (via utils.py re-exports)
@@ -530,6 +577,7 @@ pytest tests/test_api_error_handling.py
 ## 🎓 Best Practices Established
 
 ### For New Code
+
 1. ✅ Use custom exceptions instead of generic `Exception` or `ValueError`
 2. ✅ Import from `core.*` modules instead of `utils.py`
 3. ✅ Use `db/aggregation_utils.py` for MongoDB aggregations
@@ -538,6 +586,7 @@ pytest tests/test_api_error_handling.py
 6. ✅ Use `@api_route` decorator for all API endpoints
 
 ### Exception Handling Pattern
+
 ```python
 from core.exceptions import ValidationException, ResourceNotFoundException
 from api_utils import api_route
@@ -564,6 +613,7 @@ async def create_resource(data: dict):
 ## 🎉 Summary
 
 ### What Was Accomplished
+
 - ✅ **7 new core modules** created for better organization
 - ✅ **Custom exception hierarchy** for domain-specific errors
 - ✅ **Enhanced error handling** with automatic HTTP status mapping
@@ -572,12 +622,14 @@ async def create_resource(data: dict):
 - ✅ **Comprehensive documentation** with examples
 
 ### Code Quality Improvements
+
 - ✅ **Type hints** throughout new modules
 - ✅ **Docstrings** with usage examples
 - ✅ **Consistent patterns** for error handling, retries, aggregations
 - ✅ **Modular architecture** for easier testing and maintenance
 
 ### Developer Experience
+
 - ✅ **Clear migration path** from old to new modules
 - ✅ **Backward compatibility** via utils.py re-exports
 - ✅ **Examples** for common use cases
@@ -610,16 +662,19 @@ The modular approach ensures rollback of individual components without affecting
 ## 📞 Support
 
 **Questions?**
+
 - Check this document first
 - Review inline documentation in new modules (comprehensive docstrings)
 - Check migration examples above
 
 **Found a bug?**
+
 - Verify the old code didn't have the same issue
 - Check you're using the new modules correctly
 - Review migration examples
 
 **Need help migrating?**
+
 - Follow the patterns in `external_geo_service.py` (already migrated)
 - Use the migration checklist above
 - Test thoroughly after migration

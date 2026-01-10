@@ -587,7 +587,7 @@ export class DrivingNavigation {
    * @returns {Promise<GeolocationPosition>}
    */
   async getCurrentPosition() {
-    const geolocationService = (await import('../geolocation-service.js')).default;
+    const geolocationService = (await import("../geolocation-service.js")).default;
     return geolocationService.getCurrentPosition({
       enableHighAccuracy: true,
       timeout: 10000,

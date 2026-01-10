@@ -3,7 +3,7 @@
  * Handles all API calls related to coverage areas
  */
 
-import apiClient from '../api-client.js';
+import apiClient from "../api-client.js";
 
 const COVERAGE_API = {
   /**
@@ -51,7 +51,7 @@ const COVERAGE_API = {
   async validateCustomBoundary(areaName, geometry) {
     return apiClient.post("/api/validate_custom_boundary", {
       area_name: areaName,
-      geometry
+      geometry,
     });
   },
 
@@ -138,7 +138,9 @@ const COVERAGE_API = {
       current_lon: currentLon.toString(),
       top_n: topN.toString(),
     });
-    return apiClient.get(`/api/driving-navigation/suggest-next-street/${locationId}?${params}`);
+    return apiClient.get(
+      `/api/driving-navigation/suggest-next-street/${locationId}?${params}`
+    );
   },
 
   /**
@@ -179,7 +181,7 @@ const COVERAGE_API = {
     try {
       return await apiClient.get(`/api/coverage_areas/${locationId}/optimal-route`);
     } catch (error) {
-      if (error.message.includes('404')) {
+      if (error.message.includes("404")) {
         return null; // No route generated yet
       }
       throw error;

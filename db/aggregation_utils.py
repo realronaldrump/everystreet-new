@@ -45,7 +45,7 @@ def build_date_grouping_stage(
         >>> build_date_grouping_stage(
         ...     date_field="$startTime",
         ...     group_by=["date", "hour"],
-        ...     sum_fields={"totalDistance": "$distance", "totalTime": "$duration"}
+        ...     sum_fields={"totalDistance": "$distance", "totalTime": "$duration"},
         ... )
     """
     if group_by is None:

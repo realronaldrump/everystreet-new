@@ -4,7 +4,6 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Query
-from pydantic import ValidationError
 
 from core.api import api_route
 from db import serialize_document

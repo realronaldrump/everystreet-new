@@ -157,8 +157,10 @@ async def upload_files(
                             if standardized_gpx_gps:
                                 trip_dict["gps"] = standardized_gpx_gps
                                 # Calculate distance based on the final unique coordinates
-                                trip_dict["distance"] = GeometryService.calculate_distance(
-                                    standardized_gpx_gps.get("coordinates", [])
+                                trip_dict["distance"] = (
+                                    GeometryService.calculate_distance(
+                                        standardized_gpx_gps.get("coordinates", [])
+                                    )
                                 )
 
                                 await process_and_store_trip(

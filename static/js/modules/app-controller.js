@@ -259,7 +259,7 @@ const AppController = {
     const centerBtn = utils.getElement("center-on-location");
     if (centerBtn) {
       centerBtn.addEventListener("click", async () => {
-        const geolocationService = (await import('./geolocation-service.js')).default;
+        const geolocationService = (await import("./geolocation-service.js")).default;
         if (!geolocationService.isSupported()) {
           window.notificationManager.show("Geolocation is not supported", "warning");
           return;

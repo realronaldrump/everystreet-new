@@ -154,7 +154,7 @@ class CoverageNavigation {
    */
   async getCurrentPosition() {
     this.lastGeolocationRequest = Date.now();
-    const geolocationService = (await import('../geolocation-service.js')).default;
+    const geolocationService = (await import("../geolocation-service.js")).default;
     return geolocationService.getCurrentPosition({
       enableHighAccuracy: true,
       timeout: 10000,

@@ -5,7 +5,7 @@
  * Handles all API calls related to task management
  */
 
-import apiClient from '../../modules/api-client.js';
+import apiClient from "../../modules/api-client.js";
 import { API_ENDPOINTS } from "./constants.js";
 import { getStatusHTML } from "./formatters.js";
 import { showDependencyErrorModal } from "./modals.js";

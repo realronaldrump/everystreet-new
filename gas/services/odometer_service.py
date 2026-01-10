@@ -37,7 +37,9 @@ class OdometerService:
             Dict with latitude, longitude, odometer, timestamp, address
         """
         if not use_now and not timestamp:
-            raise ValidationException("timestamp parameter is required when use_now is false")
+            raise ValidationException(
+                "timestamp parameter is required when use_now is false"
+            )
 
         if use_now:
             # Try to get real-time data from Bouncie API first

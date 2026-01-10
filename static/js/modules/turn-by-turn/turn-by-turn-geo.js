@@ -3,12 +3,12 @@
  * Pure geo/math utility functions (stateless)
  */
 
+import { distanceInUserUnits } from "../formatters.js";
 import {
   INSTRUCTION_LABELS,
   TURN_ANGLE_THRESHOLDS,
   TURN_ROTATIONS,
 } from "./turn-by-turn-config.js";
-import { distanceInUserUnits } from "../formatters.js";
 
 /**
  * Convert degrees to radians

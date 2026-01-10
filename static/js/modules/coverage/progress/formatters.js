@@ -3,11 +3,11 @@
  * Formatting utilities for stage names, icons, metrics, and distances
  */
 
-import { STATUS } from "./constants.js";
 import {
   distanceInUserUnits as baseDistanceInUserUnits,
   formatTimeAgo as baseFormatTimeAgo,
 } from "../../formatters.js";
+import { STATUS } from "./constants.js";
 
 /**
  * Format stage name for display

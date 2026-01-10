@@ -179,14 +179,16 @@ export function getStorage(key, defaultValue = null) {
  */
 export function setStorage(key, value) {
   try {
-    const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+    const stringValue =
+      typeof value === "object" ? JSON.stringify(value) : String(value);
     localStorage.setItem(key, stringValue);
     return true;
   } catch (e) {
     console.warn("Storage error:", e);
     clearOldCache();
     try {
-      const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+      const stringValue =
+        typeof value === "object" ? JSON.stringify(value) : String(value);
       localStorage.setItem(key, stringValue);
       return true;
     } catch {

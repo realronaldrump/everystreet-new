@@ -1,4 +1,4 @@
-import apiClient from '../api-client.js';
+import apiClient from "../api-client.js";
 
 export class OptimalRouteAPI {
   constructor(options = {}) {
@@ -60,7 +60,7 @@ export class OptimalRouteAPI {
       const data = await apiClient.get(`/api/coverage_areas/${areaId}/optimal-route`);
       return data;
     } catch (error) {
-      if (error.message && error.message.includes('404')) {
+      if (error.message?.includes("404")) {
         return null;
       }
       console.error("Error loading existing route:", error);

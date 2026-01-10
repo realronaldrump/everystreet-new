@@ -24,7 +24,6 @@ import {
   createFormatterContext,
   distanceInUserUnits,
   formatRelativeTime,
-  formatStreetType,
 } from "./coverage-utils.js";
 import { CoverageValidator } from "./coverage-validator.js";
 

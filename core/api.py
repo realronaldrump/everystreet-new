@@ -61,32 +61,42 @@ def api_route(logger: logging.Logger):
                     detail=e.message,
                 ) from e
             except AuthenticationException as e:
-                logger.warning("Authentication failed in %s: %s", func.__name__, e.message)
+                logger.warning(
+                    "Authentication failed in %s: %s", func.__name__, e.message
+                )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=e.message,
                 ) from e
             except AuthorizationException as e:
-                logger.warning("Authorization failed in %s: %s", func.__name__, e.message)
+                logger.warning(
+                    "Authorization failed in %s: %s", func.__name__, e.message
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=e.message,
                 ) from e
             except RateLimitException as e:
-                logger.warning("Rate limit exceeded in %s: %s", func.__name__, e.message)
+                logger.warning(
+                    "Rate limit exceeded in %s: %s", func.__name__, e.message
+                )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail=e.message,
                 ) from e
             except ExternalServiceException as e:
-                logger.error("External service error in %s: %s", func.__name__, e.message)
+                logger.error(
+                    "External service error in %s: %s", func.__name__, e.message
+                )
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail=f"External service error: {e.message}",
                 ) from e
             except EveryStreetException as e:
                 # Catch-all for other custom exceptions
-                logger.exception("Application error in %s: %s", func.__name__, e.message)
+                logger.exception(
+                    "Application error in %s: %s", func.__name__, e.message
+                )
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=e.message,

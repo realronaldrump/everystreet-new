@@ -3,7 +3,7 @@
  * Handles geolocation, speed calculation, and progress smoothing
  */
 
-import geolocationService from '../geolocation-service.js';
+import geolocationService from "../geolocation-service.js";
 import { bearing, distanceMeters } from "./turn-by-turn-geo.js";
 
 /**
@@ -98,7 +98,7 @@ class TurnByTurnGPS {
 
     const position = await geolocationService.getCurrentPosition({
       enableHighAccuracy: true,
-      timeout: 5000
+      timeout: 5000,
     });
 
     return {
