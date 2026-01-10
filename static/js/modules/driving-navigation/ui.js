@@ -15,13 +15,17 @@ export class DrivingNavigationUI {
     // DOM Elements
     this.areaSelect = document.getElementById(config.areaSelectId);
     this.findBtn = document.getElementById("find-next-street-btn");
-    this.findEfficientBtn = document.getElementById("find-efficient-street-btn");
+    this.findEfficientBtn = document.getElementById(
+      "find-efficient-street-btn",
+    );
     this.statusMsg = document.getElementById("status-message");
     this.targetInfo = document.getElementById("target-info");
     this.autoFollowToggle = document.getElementById("auto-follow-toggle");
     this.openGoogleMapsBtn = document.getElementById("open-google-maps-btn");
     this.openAppleMapsBtn = document.getElementById("open-apple-maps-btn");
-    this.progressContainer = document.getElementById("route-progress-container");
+    this.progressContainer = document.getElementById(
+      "route-progress-container",
+    );
     this.progressBar = document.getElementById("route-progress-bar");
     this.processingStatus = document.getElementById("processing-status");
     this.routeDetails = document.getElementById("route-details");
@@ -73,7 +77,8 @@ export class DrivingNavigationUI {
    */
   loadAutoFollowState() {
     if (!this.autoFollowToggle) return;
-    const savedState = window.localStorage.getItem("drivingNavAutoFollow") === "true";
+    const savedState =
+      window.localStorage.getItem("drivingNavAutoFollow") === "true";
     this.autoFollowToggle.checked = savedState;
   }
 
@@ -131,9 +136,11 @@ export class DrivingNavigationUI {
    */
   resetSteps() {
     this.currentStep = null;
-    [this.stepClustering, this.stepOptimizing, this.stepRendering].forEach((s) => {
-      if (s) s.className = "step";
-    });
+    [this.stepClustering, this.stepOptimizing, this.stepRendering].forEach(
+      (s) => {
+        if (s) s.className = "step";
+      },
+    );
   }
 
   /**
@@ -161,7 +168,8 @@ export class DrivingNavigationUI {
             : "step";
     }
     if (this.stepRendering) {
-      this.stepRendering.className = step === "rendering" ? "step active" : "step";
+      this.stepRendering.className =
+        step === "rendering" ? "step active" : "step";
     }
 
     this.updateProgress(stepConfig.progress, stepConfig.text);
@@ -223,7 +231,9 @@ export class DrivingNavigationUI {
    * @param {string} locationSource - Location source identifier
    */
   displayRouteDetailsContent(durationMinutes, distanceMiles, locationSource) {
-    const routeDetailsContent = document.getElementById("route-details-content");
+    const routeDetailsContent = document.getElementById(
+      "route-details-content",
+    );
     if (!routeDetailsContent) return;
 
     routeDetailsContent.innerHTML = `
@@ -241,7 +251,9 @@ export class DrivingNavigationUI {
    * @param {string[]} clusterColors - Array of color strings
    */
   displayEfficientClustersInfo(clusters, clusterColors) {
-    const routeDetailsContent = document.getElementById("route-details-content");
+    const routeDetailsContent = document.getElementById(
+      "route-details-content",
+    );
     if (!routeDetailsContent || !clusters || clusters.length === 0) return;
 
     const totalSegments = clusters.reduce((sum, c) => sum + c.segment_count, 0);
@@ -271,7 +283,7 @@ export class DrivingNavigationUI {
             <strong style="color: ${clusterColors[i]};">Cluster #${i + 1}</strong>
             - ${c.segment_count} streets, ${(c.distance_to_cluster_m / 1609.34).toFixed(1)} mi away
           </div>
-        `
+        `,
           )
           .join("")}
       </div>
@@ -292,7 +304,9 @@ export class DrivingNavigationUI {
     if (this.targetInfo) {
       this.targetInfo.innerHTML = "";
     }
-    const routeDetailsContent = document.getElementById("route-details-content");
+    const routeDetailsContent = document.getElementById(
+      "route-details-content",
+    );
     if (routeDetailsContent) {
       routeDetailsContent.innerHTML = "";
     }

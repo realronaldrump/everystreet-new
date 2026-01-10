@@ -80,7 +80,9 @@
     const utilsObj = window.utils || {};
     const today = formatDate(new Date());
     return {
-      start: utilsObj.getStorage ? utilsObj.getStorage("startDate", today) : today,
+      start: utilsObj.getStorage
+        ? utilsObj.getStorage("startDate", today)
+        : today,
       end: utilsObj.getStorage ? utilsObj.getStorage("endDate", today) : today,
     };
   }

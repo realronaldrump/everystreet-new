@@ -7,7 +7,10 @@
 import { buildExportUrl } from "./api.js";
 import { EXPORT_CONFIG, EXPORT_TIMEOUT_MS } from "./config.js";
 import { downloadFile } from "./download.js";
-import { validateLocation, validateLocationInput } from "./location-validator.js";
+import {
+  validateLocation,
+  validateLocationInput,
+} from "./location-validator.js";
 import { loadSavedExportSettings, saveExportSettings } from "./settings.js";
 import {
   cacheElements,
@@ -38,7 +41,7 @@ class ExportManager {
     this.initEventListeners();
     initDatePickers(this.elements);
     loadSavedExportSettings(this.elements, (format) =>
-      updateUIBasedOnFormat(format, this.elements)
+      updateUIBasedOnFormat(format, this.elements),
     );
     initUndrivenStreetsExport();
 
@@ -115,7 +118,7 @@ class ExportManager {
     if (this.activeExports[formType]) {
       window.notificationManager?.show(
         `Already exporting ${config.name}. Please wait...`,
-        "info"
+        "info",
       );
       return;
     }
@@ -124,31 +127,41 @@ class ExportManager {
     if (!formElement) return;
 
     const submitButton = formElement.querySelector('button[type="submit"]');
-    const originalText = setButtonLoading(submitButton, true, `Export ${config.name}`);
+    const originalText = setButtonLoading(
+      submitButton,
+      true,
+      `Export ${config.name}`,
+    );
 
     try {
       this.activeExports[formType] = true;
-      window.notificationManager?.show(`Starting ${config.name} export...`, "info");
+      window.notificationManager?.show(
+        `Starting ${config.name} export...`,
+        "info",
+      );
 
       const url = buildExportUrl(
         formType,
         config,
         this.elements,
         validateLocationInput,
-        () => saveExportSettings(this.elements)
+        () => saveExportSettings(this.elements),
       );
 
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => {
         abortController.abort();
         window.handleError?.(
-          `Export operation timed out after ${EXPORT_TIMEOUT_MS / 1000} seconds: ${config.name}`
+          `Export operation timed out after ${EXPORT_TIMEOUT_MS / 1000} seconds: ${config.name}`,
         );
       }, EXPORT_TIMEOUT_MS);
 
       try {
         await downloadFile(url, config.name, abortController.signal);
-        window.notificationManager?.show(`${config.name} export completed`, "success");
+        window.notificationManager?.show(
+          `${config.name} export completed`,
+          "success",
+        );
       } finally {
         clearTimeout(timeoutId);
       }
@@ -156,7 +169,7 @@ class ExportManager {
       console.error("Export error:", error);
       window.notificationManager?.show(
         `Export failed: ${error.message || "Unknown error"}`,
-        "error"
+        "error",
       );
     } finally {
       this.activeExports[formType] = false;

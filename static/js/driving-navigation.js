@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Check for required dependencies
   if (typeof mapboxgl === "undefined") {
     console.error(
-      "Mapbox GL JS library not found. Driving Navigation cannot initialize."
+      "Mapbox GL JS library not found. Driving Navigation cannot initialize.",
     );
     const mapContainerId =
       window.coverageNavigatorConfig?.drivingNavigation?.mapContainerId ||

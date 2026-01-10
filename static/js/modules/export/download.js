@@ -3,7 +3,10 @@
  * Manages file downloads with streaming and progress tracking
  */
 
-import { getContentTypeForFormat, getFilenameFromHeaders } from "./format-utils.js";
+import {
+  getContentTypeForFormat,
+  getFilenameFromHeaders,
+} from "./format-utils.js";
 
 /**
  * Download a file from a URL with progress tracking
@@ -16,14 +19,19 @@ export async function downloadFile(url, exportName, signal) {
   const urlWithTimestamp = `${url}${url.includes("?") ? "&" : "?"}timestamp=${Date.now()}`;
 
   try {
-    window.notificationManager?.show(`Requesting ${exportName} data...`, "info");
+    window.notificationManager?.show(
+      `Requesting ${exportName} data...`,
+      "info",
+    );
     console.info(`Requesting export from: ${urlWithTimestamp}`);
     window.loadingManager?.show(exportName);
 
     const fetchOptions = { signal };
     console.info(`Starting fetch for ${exportName} export...`);
     const response = await fetch(urlWithTimestamp, fetchOptions);
-    console.info(`Received response: status=${response.status}, ok=${response.ok}`);
+    console.info(
+      `Received response: status=${response.status}, ok=${response.ok}`,
+    );
 
     // Check for Content-Disposition header to identify file downloads
     const contentDisposition = response.headers.get("Content-Disposition");
@@ -60,7 +68,11 @@ export async function downloadFile(url, exportName, signal) {
 
     const formatMatch = urlWithTimestamp.match(/format=([^&]+)/);
     const format = formatMatch ? formatMatch[1] : null;
-    const filename = getFilenameFromHeaders(contentDisposition, exportName, format);
+    const filename = getFilenameFromHeaders(
+      contentDisposition,
+      exportName,
+      format,
+    );
 
     window.notificationManager?.show(`Downloading ${filename}...`, "info");
     console.info(`Starting download of ${filename}...`);
@@ -70,7 +82,7 @@ export async function downloadFile(url, exportName, signal) {
     console.error(`Export error for ${exportName}:`, error);
     if (error.name === "AbortError") {
       throw new Error(
-        "Export timed out. The file might be too large or the server is busy."
+        "Export timed out. The file might be too large or the server is busy.",
       );
     }
     const errorMsg = `Export failed: ${error.message || "Unknown error"}`;
@@ -101,7 +113,7 @@ async function processDownloadStream(response, filename, format, totalSize) {
     if (done) {
       reading = false;
       console.info(
-        `Finished reading response body, total size: ${receivedLength} bytes`
+        `Finished reading response body, total size: ${receivedLength} bytes`,
       );
       break;
     }
@@ -115,7 +127,7 @@ async function processDownloadStream(response, filename, format, totalSize) {
       receivedLength % Math.max(totalSize / 10, 1024 * 1024) < value.length
     ) {
       console.info(
-        `Download progress: ${Math.round((receivedLength / totalSize) * 100)}% (${receivedLength}/${totalSize} bytes)`
+        `Download progress: ${Math.round((receivedLength / totalSize) * 100)}% (${receivedLength}/${totalSize} bytes)`,
       );
     }
 
@@ -138,7 +150,10 @@ async function processDownloadStream(response, filename, format, totalSize) {
   const blob = new Blob([chunksAll], { type: contentType });
 
   triggerDownload(blob, filename, contentType);
-  window.notificationManager?.show(`Successfully exported ${filename}`, "success");
+  window.notificationManager?.show(
+    `Successfully exported ${filename}`,
+    "success",
+  );
 }
 
 /**
@@ -147,7 +162,10 @@ async function processDownloadStream(response, filename, format, totalSize) {
  * @param {number} totalSize - Total size in bytes
  */
 function updateProgress(receivedLength, totalSize) {
-  const progress = Math.min(Math.round((receivedLength / totalSize) * 100), 100);
+  const progress = Math.min(
+    Math.round((receivedLength / totalSize) * 100),
+    100,
+  );
 
   if (
     window.loadingManager &&

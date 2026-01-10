@@ -33,7 +33,9 @@ export function cacheElements() {
     }
   });
 
-  elements.validateButtons = document.querySelectorAll(".validate-location-btn");
+  elements.validateButtons = document.querySelectorAll(
+    ".validate-location-btn",
+  );
 
   // Advanced export elements
   elements.exportAllDates = document.getElementById("export-all-dates");
@@ -41,8 +43,12 @@ export function cacheElements() {
 
   // Data source checkboxes
   elements.includeTrips = document.getElementById("include-trips");
-  elements.includeMatchedTrips = document.getElementById("include-matched-trips");
-  elements.includeUploadedTrips = document.getElementById("include-uploaded-trips");
+  elements.includeMatchedTrips = document.getElementById(
+    "include-matched-trips",
+  );
+  elements.includeUploadedTrips = document.getElementById(
+    "include-uploaded-trips",
+  );
 
   // Data field checkboxes
   elements.includeBasicInfo = document.getElementById("include-basic-info");
@@ -55,7 +61,9 @@ export function cacheElements() {
   // CSV options
   elements.csvOptionsContainer = document.getElementById("csv-options");
   elements.includeGpsInCsv = document.getElementById("include-gps-in-csv");
-  elements.flattenLocationFields = document.getElementById("flatten-location-fields");
+  elements.flattenLocationFields = document.getElementById(
+    "flatten-location-fields",
+  );
 
   return elements;
 }
@@ -87,7 +95,8 @@ export function updateUIBasedOnFormat(format, elements) {
 
   // Show/hide CSV options
   if (elements.csvOptionsContainer) {
-    elements.csvOptionsContainer.style.display = format === "csv" ? "block" : "none";
+    elements.csvOptionsContainer.style.display =
+      format === "csv" ? "block" : "none";
   }
 
   // Apply format-specific restrictions
@@ -107,7 +116,8 @@ export function updateUIBasedOnFormat(format, elements) {
       if (elements.includeTelemetry) {
         elements.includeTelemetry.disabled = true;
         elements.includeTelemetry.parentElement.classList.add("text-muted");
-        elements.includeTelemetry.title = "Limited telemetry support in GPX format";
+        elements.includeTelemetry.title =
+          "Limited telemetry support in GPX format";
       }
       if (elements.includeMeta) {
         elements.includeMeta.disabled = true;
@@ -117,7 +127,8 @@ export function updateUIBasedOnFormat(format, elements) {
       if (elements.includeCustom) {
         elements.includeCustom.disabled = true;
         elements.includeCustom.parentElement.classList.add("text-muted");
-        elements.includeCustom.title = "Custom data not supported in GPX format";
+        elements.includeCustom.title =
+          "Custom data not supported in GPX format";
       }
       break;
 
@@ -170,7 +181,7 @@ export function setButtonLoading(
   button,
   isLoading,
   originalText = "",
-  loadingText = "Exporting..."
+  loadingText = "Exporting...",
 ) {
   if (!button) return originalText;
 

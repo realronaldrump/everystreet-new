@@ -27,7 +27,7 @@ export class CoverageSegmentActions {
     if (!activeLocationId || !segmentId) {
       this.manager.notificationManager.show(
         "Cannot perform action: Missing ID.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -37,7 +37,7 @@ export class CoverageSegmentActions {
       this.manager.notificationManager.show(
         `Segment marked as ${action}. Refreshing...`,
         "success",
-        2000
+        2000,
       );
 
       // Optimistic UI update
@@ -48,7 +48,7 @@ export class CoverageSegmentActions {
     } catch (error) {
       this.manager.notificationManager.show(
         `Failed to mark segment: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -66,7 +66,7 @@ export class CoverageSegmentActions {
     if (!activeLocationId) {
       this.manager.notificationManager.show(
         "Cannot perform bulk action: No active location.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -74,8 +74,8 @@ export class CoverageSegmentActions {
     // Mark all segments in parallel
     await Promise.allSettled(
       segmentIds.map((segId) =>
-        COVERAGE_API.markSegment(activeLocationId, segId, action)
-      )
+        COVERAGE_API.markSegment(activeLocationId, segId, action),
+      ),
     );
 
     // Optimistic update for all segments
@@ -93,7 +93,7 @@ export class CoverageSegmentActions {
     this.manager.notificationManager.show(
       `${segmentIds.length} segments marked as ${action}.`,
       "success",
-      2500
+      2500,
     );
 
     // Refresh and clear selection
@@ -122,7 +122,7 @@ export class CoverageSegmentActions {
     if (!streetsGeoJson?.features) return;
 
     const featureIndex = streetsGeoJson.features.findIndex(
-      (f) => f.properties.segment_id === segmentId
+      (f) => f.properties.segment_id === segmentId,
     );
 
     if (featureIndex === -1) return;
@@ -175,7 +175,10 @@ export class CoverageSegmentActions {
   async _refreshAfterAction(locationId) {
     const formatterContext = createFormatterContext();
 
-    await this.manager.dashboard.refreshDashboardData(locationId, formatterContext);
+    await this.manager.dashboard.refreshDashboardData(
+      locationId,
+      formatterContext,
+    );
     await this.manager.loadCoverageAreas();
   }
 }

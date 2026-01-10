@@ -92,7 +92,7 @@ export class DrivingNavigationAPI {
    */
   async findEfficientClusters(
     areaId,
-    { currentLat, currentLon, topN = 3, minClusterSize = 2 }
+    { currentLat, currentLon, topN = 3, minClusterSize = 2 },
   ) {
     const params = new URLSearchParams({
       current_lat: currentLat,

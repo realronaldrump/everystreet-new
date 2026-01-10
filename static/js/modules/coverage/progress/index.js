@@ -3,7 +3,12 @@
  * Re-exports all progress-related modules
  */
 
-export { POLLING_CONFIG, STATUS, STEP_ORDER, TERMINAL_STATUSES } from "./constants.js";
+export {
+  POLLING_CONFIG,
+  STATUS,
+  STEP_ORDER,
+  TERMINAL_STATUSES,
+} from "./constants.js";
 export {
   distanceInUserUnits,
   formatElapsedTime,

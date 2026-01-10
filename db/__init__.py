@@ -25,12 +25,6 @@ Usage:
 # Manager and Core
 # ============================================================================
 
-from db.manager import DatabaseManager, db_manager
-
-# ============================================================================
-# Collection Proxies
-# ============================================================================
-
 from db.collections import (
     CollectionProxy,
     archived_live_trips_collection,
@@ -49,11 +43,16 @@ from db.collections import (
     trips_collection,
     vehicles_collection,
 )
-
-# ============================================================================
-# CRUD Operations
-# ============================================================================
-
+from db.indexes import (
+    ensure_archived_trip_indexes,
+    ensure_gas_tracking_indexes,
+    ensure_location_indexes,
+    ensure_places_indexes,
+    ensure_street_coverage_indexes,
+    init_database,
+    init_task_history_collection,
+)
+from db.manager import DatabaseManager, db_manager
 from db.operations import (
     aggregate_with_retry,
     batch_cursor,
@@ -68,11 +67,11 @@ from db.operations import (
     update_many_with_retry,
     update_one_with_retry,
 )
-
-# ============================================================================
-# Serialization
-# ============================================================================
-
+from db.query import (
+    build_calendar_date_expr,
+    build_query_from_request,
+    parse_query_date,
+)
 from db.serializers import (
     json_dumps,
     serialize_datetime,
@@ -81,28 +80,29 @@ from db.serializers import (
 )
 
 # ============================================================================
+# Collection Proxies
+# ============================================================================
+
+
+# ============================================================================
+# CRUD Operations
+# ============================================================================
+
+
+# ============================================================================
+# Serialization
+# ============================================================================
+
+
+# ============================================================================
 # Query Building
 # ============================================================================
 
-from db.query import (
-    build_calendar_date_expr,
-    build_query_from_request,
-    parse_query_date,
-)
 
 # ============================================================================
 # Index Management
 # ============================================================================
 
-from db.indexes import (
-    ensure_archived_trip_indexes,
-    ensure_gas_tracking_indexes,
-    ensure_location_indexes,
-    ensure_places_indexes,
-    ensure_street_coverage_indexes,
-    init_database,
-    init_task_history_collection,
-)
 
 # ============================================================================
 # Public API

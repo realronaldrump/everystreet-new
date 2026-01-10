@@ -18,8 +18,9 @@ from db import (
     update_one_with_retry,
 )
 from progress_tracker import ProgressTracker
+
 from .constants import GRAPH_STORAGE_DIR, MAX_SEGMENTS
-from .core import solve_greedy_route, make_req_id
+from .core import make_req_id, solve_greedy_route
 from .gaps import fill_route_gaps
 from .geometry import _segment_midpoint
 from .graph import build_osmid_index, try_match_osmid

@@ -117,7 +117,10 @@ export class ProgressModal {
 
       // Remove focus from any element inside the modal to prevent
       // "Blocked aria-hidden" errors when Bootstrap adds aria-hidden=true
-      if (document.activeElement && modalElement.contains(document.activeElement)) {
+      if (
+        document.activeElement &&
+        modalElement.contains(document.activeElement)
+      ) {
         document.activeElement.blur();
       }
 
@@ -157,7 +160,7 @@ export class ProgressModal {
     if (progressBar) {
       const currentProgress = parseInt(
         progressBar.getAttribute("aria-valuenow") || "0",
-        10
+        10,
       );
 
       if (progress > currentProgress) {
@@ -179,7 +182,7 @@ export class ProgressModal {
         progressBar.classList.add(
           "progress-bar-striped",
           "progress-bar-animated",
-          "bg-primary"
+          "bg-primary",
         );
       }
     }
@@ -284,9 +287,11 @@ export class ProgressModal {
     const elapsedMs = Date.now() - this.processingStartTime;
     const elapsedText = formatElapsedTime(elapsedMs);
 
-    const elapsedTimeEl = document.querySelector("#taskProgressModal .elapsed-time");
+    const elapsedTimeEl = document.querySelector(
+      "#taskProgressModal .elapsed-time",
+    );
     const estimatedTimeEl = document.querySelector(
-      "#taskProgressModal .estimated-time"
+      "#taskProgressModal .estimated-time",
     );
 
     if (elapsedTimeEl) elapsedTimeEl.textContent = `Elapsed: ${elapsedText}`;
@@ -311,7 +316,8 @@ export class ProgressModal {
     if (isActive !== null) {
       currentlyActive = isActive;
     } else {
-      currentlyActive = this.lastActivityTime && now - this.lastActivityTime < 10000;
+      currentlyActive =
+        this.lastActivityTime && now - this.lastActivityTime < 10000;
     }
 
     if (currentlyActive) {

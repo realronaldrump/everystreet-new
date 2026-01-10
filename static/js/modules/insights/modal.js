@@ -25,7 +25,7 @@
       console.error("Error loading trips:", error);
       window.InsightsExport.showNotification(
         "Error loading trips. Please try again.",
-        "error"
+        "error",
       );
     }
   }
@@ -76,15 +76,22 @@
             ? new Date(trip.endTime).toLocaleString("en-US", { hour12: true })
             : "-";
           const duration = formatDuration(trip.duration || 0);
-          const distance = trip.distance ? `${trip.distance.toFixed(1)} mi` : "-";
+          const distance = trip.distance
+            ? `${trip.distance.toFixed(1)} mi`
+            : "-";
           const startLoc =
             trip.startLocation?.formatted_address ||
             trip.startLocation?.name ||
             "Unknown";
           const destLoc =
-            trip.destination?.formatted_address || trip.destination?.name || "Unknown";
-          const maxSpeed = trip.maxSpeed ? `${trip.maxSpeed.toFixed(1)} mph` : "-";
-          const tripId = trip.transactionId || trip._id?.$oid || trip._id || "-";
+            trip.destination?.formatted_address ||
+            trip.destination?.name ||
+            "Unknown";
+          const maxSpeed = trip.maxSpeed
+            ? `${trip.maxSpeed.toFixed(1)} mph`
+            : "-";
+          const tripId =
+            trip.transactionId || trip._id?.$oid || trip._id || "-";
 
           return `
           <tr>

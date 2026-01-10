@@ -65,16 +65,21 @@ export class StatePersistence {
    */
   saveState() {
     if (this.currentProcessingLocation && this.currentTaskId) {
-      const progressBar = document.querySelector("#taskProgressModal .progress-bar");
+      const progressBar = document.querySelector(
+        "#taskProgressModal .progress-bar",
+      );
       const progressMessageEl = document.querySelector(
-        "#taskProgressModal .progress-message"
+        "#taskProgressModal .progress-message",
       );
 
       const saveData = {
         location: this.currentProcessingLocation,
         taskId: this.currentTaskId,
         stage: progressMessageEl?.dataset.stage || STATUS.UNKNOWN,
-        progress: parseInt(progressBar?.getAttribute("aria-valuenow") || "0", 10),
+        progress: parseInt(
+          progressBar?.getAttribute("aria-valuenow") || "0",
+          10,
+        ),
         timestamp: new Date().toISOString(),
       };
 

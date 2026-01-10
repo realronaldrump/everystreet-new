@@ -30,7 +30,9 @@ export async function fetchTaskConfig() {
  * @throws {Error} If the request fails
  */
 export async function fetchTaskHistory(page, limit) {
-  const response = await fetch(`${API_ENDPOINTS.HISTORY}?page=${page}&limit=${limit}`);
+  const response = await fetch(
+    `${API_ENDPOINTS.HISTORY}?page=${page}&limit=${limit}`,
+  );
   if (!response.ok) {
     throw new Error("Failed to fetch task history");
   }
@@ -130,7 +132,7 @@ export async function runTask(taskId, context, onSuccess) {
     notifier.show(
       "Error",
       `Failed to start task ${taskId}: ${error.message}`,
-      "danger"
+      "danger",
     );
     return false;
   }
@@ -184,7 +186,9 @@ export async function forceStopTask(taskId, context, onSuccess) {
     hideLoadingOverlay();
 
     if (!response.ok) {
-      throw new Error(data.detail || data.message || "Failed to force stop task");
+      throw new Error(
+        data.detail || data.message || "Failed to force stop task",
+      );
     }
 
     const message = data.message || `Task ${taskId} has been reset.`;
@@ -201,7 +205,7 @@ export async function forceStopTask(taskId, context, onSuccess) {
     notifier.show(
       "Error",
       `Failed to force stop task ${taskId}: ${error.message}`,
-      "danger"
+      "danger",
     );
     return false;
   }
@@ -221,7 +225,7 @@ export async function scheduleManualFetch(
   endIso,
   mapMatch,
   context,
-  onSuccess
+  onSuccess,
 ) {
   const { notifier } = context;
 
@@ -241,13 +245,15 @@ export async function scheduleManualFetch(
     hideLoadingOverlay();
 
     if (!response.ok) {
-      throw new Error(result.detail || result.message || "Failed to schedule fetch");
+      throw new Error(
+        result.detail || result.message || "Failed to schedule fetch",
+      );
     }
 
     notifier.show(
       "Success",
       result.message || "Fetch scheduled successfully",
-      "success"
+      "success",
     );
 
     if (onSuccess) {
@@ -258,7 +264,11 @@ export async function scheduleManualFetch(
   } catch (error) {
     hideLoadingOverlay();
     console.error("Error scheduling manual fetch:", error);
-    notifier.show("Error", `Failed to schedule fetch: ${error.message}`, "danger");
+    notifier.show(
+      "Error",
+      `Failed to schedule fetch: ${error.message}`,
+      "danger",
+    );
     throw error;
   }
 }
@@ -325,7 +335,11 @@ export async function clearTaskHistory(context, onSuccess) {
   } catch (error) {
     hideLoadingOverlay();
     console.error("Error clearing task history:", error);
-    notifier.show("Error", `Failed to clear history: ${error.message}`, "danger");
+    notifier.show(
+      "Error",
+      `Failed to clear history: ${error.message}`,
+      "danger",
+    );
     return false;
   }
 }
@@ -343,11 +357,17 @@ export function gatherTaskConfigFromUI() {
     const { taskId } = row.dataset;
     if (!taskId) return;
 
-    const intervalSelect = row.querySelector(`select[data-task-id="${taskId}"]`);
-    const enabledCheckbox = row.querySelector(`input[data-task-id="${taskId}"]`);
+    const intervalSelect = row.querySelector(
+      `select[data-task-id="${taskId}"]`,
+    );
+    const enabledCheckbox = row.querySelector(
+      `input[data-task-id="${taskId}"]`,
+    );
 
     config.tasks[taskId] = {
-      interval_minutes: intervalSelect ? parseInt(intervalSelect.value, 10) : null,
+      interval_minutes: intervalSelect
+        ? parseInt(intervalSelect.value, 10)
+        : null,
       enabled: enabledCheckbox ? enabledCheckbox.checked : true,
     };
   });

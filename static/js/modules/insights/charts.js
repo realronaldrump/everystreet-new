@@ -108,7 +108,9 @@
    * Initialize the efficiency chart (doughnut chart)
    */
   function initEfficiencyChart() {
-    const efficiencyCtx = document.getElementById("efficiencyChart")?.getContext("2d");
+    const efficiencyCtx = document
+      .getElementById("efficiencyChart")
+      ?.getContext("2d");
     if (!efficiencyCtx) return;
 
     const chart = new Chart(efficiencyCtx, {
@@ -152,7 +154,9 @@
    * Initialize the time distribution chart (bar chart)
    */
   function initTimeDistChart() {
-    const timeDistCtx = document.getElementById("timeDistChart")?.getContext("2d");
+    const timeDistCtx = document
+      .getElementById("timeDistChart")
+      ?.getContext("2d");
     if (!timeDistCtx) return;
 
     const chart = new Chart(timeDistCtx, {
@@ -222,7 +226,10 @@
     const { analytics } = state.data;
     if (!analytics || !analytics.daily_distances) return;
 
-    const data = processTimeSeriesData(analytics.daily_distances, state.currentView);
+    const data = processTimeSeriesData(
+      analytics.daily_distances,
+      state.currentView,
+    );
 
     const chart = window.InsightsState.getChart("trends");
     if (!chart) return;
@@ -247,7 +254,11 @@
     const chart = window.InsightsState.getChart("efficiency");
     if (!chart) return;
 
-    chart.data.datasets[0].data = [fuelEfficiency, idleEfficiency, speedEfficiency];
+    chart.data.datasets[0].data = [
+      fuelEfficiency,
+      idleEfficiency,
+      speedEfficiency,
+    ];
     chart.update();
   }
 

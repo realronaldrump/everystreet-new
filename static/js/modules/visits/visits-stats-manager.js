@@ -49,7 +49,7 @@
         });
         const monthlyVisits = stats.reduce(
           (sum, p) => sum + (p.monthlyVisits || p.totalVisits || 0),
-          0
+          0,
         );
         this.animateCounter("month-visits-stat", monthlyVisits);
       } catch (error) {
@@ -75,7 +75,7 @@
       }
 
       const mostVisited = stats.reduce((max, place) =>
-        place.totalVisits > max.totalVisits ? place : max
+        place.totalVisits > max.totalVisits ? place : max,
       );
       document.getElementById("most-visited-place").textContent =
         `${mostVisited.name} (${mostVisited.totalVisits} visits)`;
@@ -91,7 +91,10 @@
         document.getElementById("avg-visit-duration").textContent = formatted;
       }
 
-      const totalVisits = stats.reduce((sum, place) => sum + place.totalVisits, 0);
+      const totalVisits = stats.reduce(
+        (sum, place) => sum + place.totalVisits,
+        0,
+      );
 
       const validFirstVisits = stats
         .filter((s) => s.firstVisit)
@@ -100,14 +103,17 @@
       let firstVisitDate;
       if (validFirstVisits.length > 0) {
         firstVisitDate = validFirstVisits.reduce((min, date) =>
-          date < min ? date : min
+          date < min ? date : min,
         );
       } else {
         firstVisitDate = new Date();
       }
 
-      const weeksSinceFirst = (Date.now() - firstVisitDate) / (1000 * 60 * 60 * 24 * 7);
-      const visitsPerWeek = (totalVisits / Math.max(weeksSinceFirst, 1)).toFixed(1);
+      const weeksSinceFirst =
+        (Date.now() - firstVisitDate) / (1000 * 60 * 60 * 24 * 7);
+      const visitsPerWeek = (
+        totalVisits / Math.max(weeksSinceFirst, 1)
+      ).toFixed(1);
       document.getElementById("visit-frequency").textContent =
         `${visitsPerWeek} visits/week`;
     }

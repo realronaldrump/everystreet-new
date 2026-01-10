@@ -86,7 +86,10 @@ export class DrivingNavigationMap {
         resolve();
       };
 
-      if (typeof this.map.isStyleLoaded === "function" && this.map.isStyleLoaded()) {
+      if (
+        typeof this.map.isStyleLoaded === "function" &&
+        this.map.isStyleLoaded()
+      ) {
         handleLoad();
       } else {
         this.map.on("load", handleLoad);
@@ -271,7 +274,7 @@ export class DrivingNavigationMap {
       // Fallback: search through all features
       const allFeatures = this.querySourceFeatures("undriven-streets");
       const targetFeature = allFeatures.find(
-        (f) => f.properties?.segment_id === segmentId
+        (f) => f.properties?.segment_id === segmentId,
       );
       if (targetFeature) {
         targetSource.setData({
@@ -319,7 +322,7 @@ export class DrivingNavigationMap {
       el.innerHTML = `<div class="cluster-marker-wrapper"><div class="cluster-marker-inner" style="background-color: ${this.clusterColors[index]};"><div class="cluster-number">${index + 1}</div><div class="cluster-count">${cluster.segment_count}</div></div></div>`;
 
       const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-        createPopupFn(cluster, index)
+        createPopupFn(cluster, index),
       );
 
       const marker = new mapboxgl.Marker(el)
@@ -371,7 +374,10 @@ export class DrivingNavigationMap {
       const feature = e.features[0];
       const popupContent = createPopupFn(feature);
 
-      new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(popupContent).addTo(this.map);
+      new mapboxgl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(popupContent)
+        .addTo(this.map);
     });
   }
 

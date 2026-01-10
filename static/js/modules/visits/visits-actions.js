@@ -11,7 +11,8 @@
       this.loadingManager = options.loadingManager || window.loadingManager;
       this.notificationManager =
         options.notificationManager || window.notificationManager;
-      this.confirmationDialog = options.confirmationDialog || window.confirmationDialog;
+      this.confirmationDialog =
+        options.confirmationDialog || window.confirmationDialog;
     }
 
     /**
@@ -27,14 +28,17 @@
       const placeNameInput = document.getElementById("place-name");
 
       if (!name) {
-        this._showInputError(placeNameInput, "Please enter a name for the place.");
+        this._showInputError(
+          placeNameInput,
+          "Please enter a name for the place.",
+        );
         return null;
       }
 
       if (!geometry) {
         this.notificationManager?.show(
           "Please draw a boundary for the place first.",
-          "warning"
+          "warning",
         );
         return null;
       }
@@ -56,7 +60,7 @@
 
         this.notificationManager?.show(
           `Place "${name}" saved successfully!`,
-          "success"
+          "success",
         );
 
         if (onSuccess) {
@@ -68,13 +72,14 @@
         console.error("Error saving place:", error);
         this.notificationManager?.show(
           "Failed to save place. Please try again.",
-          "danger"
+          "danger",
         );
         return null;
       } finally {
         saveBtn?.classList.remove("loading");
         if (saveBtn) {
-          saveBtn.innerHTML = '<i class="fas fa-save me-2"></i><span>Save Place</span>';
+          saveBtn.innerHTML =
+            '<i class="fas fa-save me-2"></i><span>Save Place</span>';
         }
         this.loadingManager?.finish("Saving Place");
         if (onComplete) {
@@ -94,7 +99,7 @@
       if (!place) {
         this.notificationManager?.show(
           "Attempted to delete non-existent place.",
-          "warning"
+          "warning",
         );
         return false;
       }
@@ -120,7 +125,7 @@
 
         this.notificationManager?.show(
           `Place "${place.name}" deleted successfully.`,
-          "success"
+          "success",
         );
 
         if (onSuccess) {
@@ -132,7 +137,7 @@
         console.error("Error deleting place:", error);
         this.notificationManager?.show(
           "Failed to delete place. Please try again.",
-          "danger"
+          "danger",
         );
         return false;
       } finally {
@@ -152,13 +157,19 @@
      */
     async saveEditedPlace({ placeId, newName, place, newGeometry, onSuccess }) {
       if (!placeId || !newName) {
-        this.notificationManager?.show("Place ID or Name is missing.", "warning");
+        this.notificationManager?.show(
+          "Place ID or Name is missing.",
+          "warning",
+        );
         document.getElementById("edit-place-name")?.focus();
         return null;
       }
 
       if (!place) {
-        this.notificationManager?.show("Cannot find place to update.", "danger");
+        this.notificationManager?.show(
+          "Cannot find place to update.",
+          "danger",
+        );
         return null;
       }
 
@@ -173,7 +184,7 @@
 
         const updatedPlace = await window.VisitsDataService.updatePlace(
           placeId,
-          requestBody
+          requestBody,
         );
 
         const modalEl = document.getElementById("edit-place-modal");
@@ -184,7 +195,7 @@
 
         this.notificationManager?.show(
           `Place "${newName}" updated successfully.`,
-          "success"
+          "success",
         );
 
         if (onSuccess) {
@@ -196,7 +207,7 @@
         console.error("Error updating place:", error);
         this.notificationManager?.show(
           "Failed to update place. Please try again.",
-          "danger"
+          "danger",
         );
         return null;
       } finally {

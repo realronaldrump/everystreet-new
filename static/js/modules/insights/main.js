@@ -25,7 +25,7 @@
     Array.from(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(
       (el) => {
         bootstrap.Tooltip.getOrCreateInstance(el);
-      }
+      },
     );
   }
 
@@ -90,13 +90,16 @@
         loadAllData();
         window.InsightsExport.showNotification(
           "Data refreshed successfully",
-          "success"
+          "success",
         );
       });
     }
 
     if (downloadBtn) {
-      downloadBtn.addEventListener("click", window.InsightsExport.generateReport);
+      downloadBtn.addEventListener(
+        "click",
+        window.InsightsExport.generateReport,
+      );
     }
 
     if (shareBtn) {
@@ -104,7 +107,10 @@
     }
 
     if (exportChartBtn) {
-      exportChartBtn.addEventListener("click", window.InsightsExport.exportChart);
+      exportChartBtn.addEventListener(
+        "click",
+        window.InsightsExport.exportChart,
+      );
     }
 
     if (exportDataBtn) {
@@ -134,18 +140,21 @@
       // Update current period length (in days) for metrics that rely on it
       const periodDays = window.InsightsFormatters.calculateDaysDiff(
         dateRange.start,
-        dateRange.end
+        dateRange.end,
       );
       window.InsightsState.updateState({ currentPeriod: periodDays });
 
       // Calculate previous-period date range for trend comparisons
       const prevRange = window.InsightsFormatters.calculatePreviousRange(
         dateRange.start,
-        periodDays
+        periodDays,
       );
 
       // Fetch all data
-      const allData = await window.InsightsAPI.loadAllData(dateRange, prevRange);
+      const allData = await window.InsightsAPI.loadAllData(
+        dateRange,
+        prevRange,
+      );
 
       // Update state with fetched data
       window.InsightsState.updateData(allData.current);
@@ -159,7 +168,7 @@
       console.error("Error loading data:", error);
       window.InsightsExport.showNotification(
         "Error loading data. Please try again.",
-        "error"
+        "error",
       );
     } finally {
       window.InsightsState.updateState({ isLoading: false });
@@ -244,7 +253,7 @@
       () => {
         loadAllData();
       },
-      5 * 60 * 1000
+      5 * 60 * 1000,
     );
 
     window.InsightsState.updateState({ autoRefreshInterval: intervalId });

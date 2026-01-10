@@ -38,7 +38,11 @@ export {
   updateRunningTaskDurations,
 } from "./history.js";
 // Modal functions
-export { showDependencyErrorModal, showErrorModal, showTaskDetails } from "./modals.js";
+export {
+  showDependencyErrorModal,
+  showErrorModal,
+  showTaskDetails,
+} from "./modals.js";
 // SSE functions
 export {
   createEventSource,
