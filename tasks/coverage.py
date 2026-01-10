@@ -14,6 +14,7 @@ from typing import Any
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
+from core.async_bridge import run_async_from_sync
 from coverage import compute_incremental_coverage
 from db import (
     coverage_metadata_collection,
@@ -22,7 +23,6 @@ from db import (
     update_one_with_retry,
 )
 from tasks.core import task_runner
-from utils import run_async_from_sync
 
 logger = get_task_logger(__name__)
 

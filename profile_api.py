@@ -19,8 +19,8 @@ from bouncie_credentials import (
     validate_bouncie_credentials,
 )
 from config import API_BASE_URL, AUTH_URL
+from core.http.session import get_session
 from db import update_one_with_retry, vehicles_collection
-from utils import get_session
 
 logger = logging.getLogger(__name__)
 

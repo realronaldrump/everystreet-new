@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, status
 
+from core.http.geocoding import validate_location_osm
 from date_utils import ensure_utc
 from db import (
     CollectionProxy,
@@ -17,7 +18,6 @@ from db import (
 )
 from models import CollectionModel, LocationModel, ValidateLocationModel
 from osm_utils import generate_geojson_osm
-from utils import validate_location_osm
 
 # Setup
 logger = logging.getLogger(__name__)

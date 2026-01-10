@@ -155,29 +155,6 @@ class CoverageProgress {
   }
 
   /**
-   * Calculate polling interval based on stage
-   * @deprecated Use calculatePollInterval from progress/polling.js
-   */
-  calculatePollInterval(stage, retries) {
-    const baseInterval = 5000;
-
-    if (stage === STATUS.PROCESSING_TRIPS || stage === STATUS.CALCULATING) {
-      const interval = Math.min(baseInterval * 2, 15000);
-      this.lastPollInterval = interval;
-      return interval;
-    }
-
-    if (retries > 100) {
-      const interval = Math.min(baseInterval * 3, 20000);
-      this.lastPollInterval = interval;
-      return interval;
-    }
-
-    this.lastPollInterval = baseInterval;
-    return baseInterval;
-  }
-
-  /**
    * Show progress modal
    */
   showProgressModal(message = "Processing...", progress = 0) {
@@ -316,47 +293,12 @@ class CoverageProgress {
   }
 
   /**
-   * Format metric stats
-   * @deprecated Use formatMetricStats from progress/formatters.js
-   */
-  formatMetricStats(stage, metrics) {
-    // Import and use the new formatter
-    return import("./progress/formatters.js").then(({ formatMetricStats }) => {
-      return formatMetricStats(stage, metrics);
-    });
-  }
-
-  /**
    * Distance in user units
    */
   distanceInUserUnits(meters, fixed = 2) {
     const formatted = distanceInUserUnits(meters, fixed);
     this.lastDistanceLabel = formatted;
     return formatted;
-  }
-
-  /**
-   * Get stage icon
-   * @deprecated Use getStageIcon from progress/formatters.js
-   */
-  getStageIcon(stage) {
-    return import("./progress/formatters.js").then(({ getStageIcon }) => {
-      const icon = getStageIcon(stage);
-      this.lastStageIcon = { stage, icon };
-      return icon;
-    });
-  }
-
-  /**
-   * Get stage text class
-   * @deprecated Use getStageTextClass from progress/formatters.js
-   */
-  getStageTextClass(stage) {
-    return import("./progress/formatters.js").then(({ getStageTextClass }) => {
-      const cls = getStageTextClass(stage);
-      this.lastStageTextClass = cls;
-      return cls;
-    });
   }
 
   /**

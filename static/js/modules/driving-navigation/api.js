@@ -3,6 +3,8 @@
  * Handles all fetch requests to the backend driving navigation endpoints.
  */
 
+import apiClient from '../api-client.js';
+
 export class DrivingNavigationAPI {
   constructor() {
     this.lastParsedErrorMessage = null;
@@ -18,12 +20,7 @@ export class DrivingNavigationAPI {
       return window.coverageNavigatorAreas;
     }
 
-    const response = await fetch("/api/coverage_areas");
-    if (!response.ok) {
-      throw new Error(`Failed to fetch areas: ${response.statusText}`);
-    }
-
-    const data = await response.json();
+    const data = await apiClient.get("/api/coverage_areas");
     if (!data.success || !data.areas) {
       throw new Error(data.error || "Invalid response format");
     }
@@ -38,18 +35,7 @@ export class DrivingNavigationAPI {
    * @returns {Promise<Object>} GeoJSON FeatureCollection of undriven streets
    */
   async fetchUndrivenStreets(location) {
-    const response = await fetch("/api/undriven_streets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(location),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || `HTTP error ${response.status}`);
-    }
-
-    return response.json();
+    return apiClient.post("/api/undriven_streets", location);
   }
 
   /**
@@ -67,17 +53,7 @@ export class DrivingNavigationAPI {
       ...(segmentId && { segment_id: segmentId }),
     };
 
-    const response = await fetch("/api/driving-navigation/next-route", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestPayload),
-    });
-
-    if (!response.ok) {
-      throw response;
-    }
-
-    return response.json();
+    return apiClient.post("/api/driving-navigation/next-route", requestPayload);
   }
 
   /**
@@ -102,13 +78,7 @@ export class DrivingNavigationAPI {
     });
 
     const url = `/api/driving-navigation/suggest-next-street/${areaId}?${params.toString()}`;
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw response;
-    }
-
-    return response.json();
+    return apiClient.get(url);
   }
 
   /**

@@ -330,32 +330,6 @@ class CoverageManager {
       countElement.classList.add("fade-in-up");
     }
   }
-
-  // ===== Utility methods (bound versions for backward compatibility) =====
-
-  /**
-   * Utility: Format relative time
-   * @deprecated Use imported formatRelativeTime instead
-   */
-  formatRelativeTime(dateString) {
-    return formatRelativeTime(dateString);
-  }
-
-  /**
-   * Utility: Distance in user units
-   * @deprecated Use imported distanceInUserUnits instead
-   */
-  distanceInUserUnits(meters, fixed = 2) {
-    return distanceInUserUnits(meters, fixed);
-  }
-
-  /**
-   * Utility: Format street type
-   * @deprecated Use imported formatStreetType instead
-   */
-  formatStreetType(type) {
-    return formatStreetType(type);
-  }
 }
 
 // Initialize on DOM ready

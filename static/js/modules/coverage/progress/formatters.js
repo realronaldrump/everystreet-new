@@ -4,6 +4,10 @@
  */
 
 import { STATUS } from "./constants.js";
+import {
+  distanceInUserUnits as baseDistanceInUserUnits,
+  formatTimeAgo as baseFormatTimeAgo,
+} from "../../formatters.js";
 
 /**
  * Format stage name for display
@@ -77,47 +81,19 @@ export function getStageTextClass(stage) {
 
 /**
  * Convert meters to user-friendly units (miles/feet)
+ * Delegates to central formatter
  */
 export function distanceInUserUnits(meters, fixed = 2) {
-  let validMeters = meters;
-  if (typeof meters !== "number" || Number.isNaN(meters)) {
-    validMeters = 0;
-  }
-  const miles = validMeters * 0.000621371;
-  return miles < 0.1
-    ? `${(validMeters * 3.28084).toFixed(0)} ft`
-    : `${miles.toFixed(fixed)} mi`;
+  return baseDistanceInUserUnits(meters, fixed);
 }
 
 /**
  * Format time ago from date
+ * Delegates to central formatter
  */
 export function formatTimeAgo(date) {
   if (!date) return "never";
-  const seconds = Math.floor((Date.now() - new Date(date)) / 1000);
-
-  if (seconds < 2) {
-    return "just now";
-  } else if (seconds < 60) {
-    return `${seconds}s ago`;
-  } else {
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) {
-      return `${minutes}m ago`;
-    } else {
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) {
-        return `${hours}h ago`;
-      } else {
-        const days = Math.floor(hours / 24);
-        if (days < 7) {
-          return `${days}d ago`;
-        } else {
-          return new Date(date).toLocaleDateString();
-        }
-      }
-    }
-  }
+  return baseFormatTimeAgo(date, true); // abbreviated = true for "30s ago" format
 }
 
 /**

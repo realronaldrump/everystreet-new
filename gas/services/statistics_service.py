@@ -6,6 +6,7 @@ from typing import Any
 
 from bson import ObjectId
 
+from core.exceptions import ResourceNotFoundException, ValidationException
 from db import (
     aggregate_with_retry,
     find_one_with_retry,
@@ -219,11 +220,11 @@ class StatisticsService:
                 trips_collection, {"transactionId": trip_id}
             )
         if not trip:
-            raise ValueError("Trip not found")
+            raise ResourceNotFoundException(f"Trip {trip_id} not found")
 
         trip_imei = imei or trip.get("imei")
         if not trip_imei:
-            raise ValueError("Cannot determine vehicle IMEI")
+            raise ValidationException("Cannot determine vehicle IMEI")
 
         # Get the most recent fill-up before or during this trip
         fillup = await find_one_with_retry(

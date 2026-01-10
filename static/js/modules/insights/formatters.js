@@ -89,7 +89,7 @@ export function calculatePreviousRange(startDate, periodDays) {
   };
 }
 
-// Default export as object for backward compatibility
+// Default export as object
 const InsightsFormatters = {
   formatDate,
   formatWeekRange,
@@ -100,10 +100,5 @@ const InsightsFormatters = {
   calculateDaysDiff,
   calculatePreviousRange,
 };
-
-// Keep window assignment for backward compatibility during transition
-if (typeof window !== "undefined") {
-  window.InsightsFormatters = InsightsFormatters;
-}
 
 export default InsightsFormatters;

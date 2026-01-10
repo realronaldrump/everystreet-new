@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from core.exceptions import ValidationException
 from db import (
     aggregate_with_retry,
     find_one_with_retry,
@@ -36,7 +37,7 @@ class OdometerService:
             Dict with latitude, longitude, odometer, timestamp, address
         """
         if not use_now and not timestamp:
-            raise ValueError("timestamp parameter is required when use_now is false")
+            raise ValidationException("timestamp parameter is required when use_now is false")
 
         if use_now:
             # Try to get real-time data from Bouncie API first

@@ -3,6 +3,7 @@
  * Handles geolocation, speed calculation, and progress smoothing
  */
 
+import geolocationService from '../geolocation-service.js';
 import { bearing, distanceMeters } from "./turn-by-turn-geo.js";
 
 /**
@@ -35,7 +36,7 @@ class TurnByTurnGPS {
    * @returns {boolean}
    */
   static isAvailable() {
-    return "geolocation" in navigator;
+    return geolocationService.isSupported();
   }
 
   /**
@@ -51,7 +52,7 @@ class TurnByTurnGPS {
       return;
     }
 
-    this.watchId = navigator.geolocation.watchPosition(
+    this.watchId = geolocationService.watchPosition(
       (position) => {
         const { latitude, longitude, accuracy, heading, speed } = position.coords;
         if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
@@ -81,7 +82,7 @@ class TurnByTurnGPS {
    */
   stopGeolocation() {
     if (this.watchId !== null) {
-      navigator.geolocation.clearWatch(this.watchId);
+      geolocationService.clearWatch(this.watchId);
       this.watchId = null;
     }
   }
@@ -90,24 +91,20 @@ class TurnByTurnGPS {
    * Get current position once
    * @returns {Promise<{lat: number, lon: number}>}
    */
-  getCurrentPosition() {
-    return new Promise((resolve, reject) => {
-      if (!TurnByTurnGPS.isAvailable()) {
-        reject(new Error("Geolocation not available"));
-        return;
-      }
+  async getCurrentPosition() {
+    if (!TurnByTurnGPS.isAvailable()) {
+      throw new Error("Geolocation not available");
+    }
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            lat: position.coords.latitude,
-            lon: position.coords.longitude,
-          });
-        },
-        reject,
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
+    const position = await geolocationService.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 5000
     });
+
+    return {
+      lat: position.coords.latitude,
+      lon: position.coords.longitude,
+    };
   }
 
   /**

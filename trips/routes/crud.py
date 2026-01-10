@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from api_utils import api_route
+from core.api import api_route
 from db import serialize_document
 from trips.services import TripCrudService
 

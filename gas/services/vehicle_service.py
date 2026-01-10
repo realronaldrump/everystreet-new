@@ -4,6 +4,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from core.exceptions import DuplicateResourceException, ResourceNotFoundException
 from db import (
     find_one_with_retry,
     find_with_retry,
@@ -75,7 +76,7 @@ class VehicleService:
             vehicles_collection, {"imei": vehicle_data["imei"]}
         )
         if existing:
-            raise ValueError("Vehicle with this IMEI already exists")
+            raise DuplicateResourceException("Vehicle with this IMEI already exists")
 
         vehicle_data["created_at"] = datetime.now(UTC)
         vehicle_data["updated_at"] = datetime.now(UTC)
@@ -102,7 +103,7 @@ class VehicleService:
         # Find the vehicle
         existing = await find_one_with_retry(vehicles_collection, {"imei": imei})
         if not existing:
-            raise ValueError("Vehicle not found")
+            raise ResourceNotFoundException(f"Vehicle with IMEI {imei} not found")
 
         # Update fields
         update_data["updated_at"] = datetime.now(UTC)
@@ -140,7 +141,7 @@ class VehicleService:
         )
 
         if result.matched_count == 0:
-            raise ValueError("Vehicle not found")
+            raise ResourceNotFoundException(f"Vehicle with IMEI {imei} not found")
 
         return {"status": "success", "message": "Vehicle marked as inactive"}
 

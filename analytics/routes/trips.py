@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from analytics.services import TimeAnalyticsService, TripAnalyticsService
-from api_utils import api_route
+from core.api import api_route
 from db import build_query_from_request, serialize_for_json
 
 logger = logging.getLogger(__name__)

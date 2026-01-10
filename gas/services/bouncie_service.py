@@ -5,7 +5,7 @@ from typing import Any
 
 from bouncie_oauth import BouncieOAuth
 from config import API_BASE_URL
-from utils import get_session
+from core.http.session import get_session
 
 logger = logging.getLogger(__name__)
 

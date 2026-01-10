@@ -6,8 +6,8 @@ from typing import Any
 
 import pytz
 
+from core.math_utils import calculate_circular_average_hour
 from db import aggregate_with_retry, db_manager
-from utils import calculate_circular_average_hour
 
 logger = logging.getLogger(__name__)
 trips_collection = db_manager.db["trips"]

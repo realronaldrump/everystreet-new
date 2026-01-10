@@ -8,6 +8,7 @@ import {
   TURN_ANGLE_THRESHOLDS,
   TURN_ROTATIONS,
 } from "./turn-by-turn-config.js";
+import { distanceInUserUnits } from "../formatters.js";
 
 /**
  * Convert degrees to radians
@@ -172,14 +173,10 @@ export function getTurnRotation(type) {
 
 /**
  * Format distance in meters to human-readable string
+ * Delegates to central formatter
  * @param {number} meters - Distance in meters
  * @returns {string} Formatted distance (feet or miles)
  */
 export function formatDistance(meters) {
-  if (!Number.isFinite(meters)) return "--";
-  if (meters < 160) {
-    return `${Math.round(meters * 3.28084)} ft`;
-  }
-  const miles = meters / 1609.344;
-  return `${miles < 10 ? miles.toFixed(1) : miles.toFixed(0)} mi`;
+  return distanceInUserUnits(meters, 1);
 }

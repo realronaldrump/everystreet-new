@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
-from api_utils import api_route
+from core.api import api_route
 from date_utils import parse_timestamp
 from db import build_query_from_request, json_dumps, trips_collection
 from geometry_service import GeometryService

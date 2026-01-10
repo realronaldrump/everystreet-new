@@ -3,17 +3,15 @@
  * Handles all API calls for the driving insights page
  */
 
+import apiClient from '../api-client.js';
+
 /**
  * Fetch driver behavior data
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Behavior data
  */
 export async function fetchBehavior(params) {
-  const response = await fetch(`/api/driver-behavior?${params}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch behavior data: ${response.status}`);
-  }
-  return response.json();
+  return apiClient.get(`/api/driver-behavior?${params}`, { cache: true });
 }
 
 /**
@@ -22,11 +20,7 @@ export async function fetchBehavior(params) {
  * @returns {Promise<Object>} Insights data
  */
 export async function fetchInsights(params) {
-  const response = await fetch(`/api/driving-insights?${params}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch insights data: ${response.status}`);
-  }
-  return response.json();
+  return apiClient.get(`/api/driving-insights?${params}`, { cache: true });
 }
 
 /**
@@ -35,11 +29,7 @@ export async function fetchInsights(params) {
  * @returns {Promise<Object>} Analytics data
  */
 export async function fetchAnalytics(params) {
-  const response = await fetch(`/api/trip-analytics?${params}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch analytics data: ${response.status}`);
-  }
-  return response.json();
+  return apiClient.get(`/api/trip-analytics?${params}`, { cache: true });
 }
 
 /**
@@ -48,11 +38,7 @@ export async function fetchAnalytics(params) {
  * @returns {Promise<Object>} Metrics data
  */
 export async function fetchMetrics(params) {
-  const response = await fetch(`/api/metrics?${params}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch metrics data: ${response.status}`);
-  }
-  return response.json();
+  return apiClient.get(`/api/metrics?${params}`, { cache: true });
 }
 
 /**
@@ -61,11 +47,7 @@ export async function fetchMetrics(params) {
  * @returns {Promise<Array>} Trip data
  */
 export async function fetchTimePeriodTrips(params) {
-  const response = await fetch(`/api/time-period-trips?${params}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch trips: ${response.status}`);
-  }
-  return response.json();
+  return apiClient.get(`/api/time-period-trips?${params}`);
 }
 
 /**

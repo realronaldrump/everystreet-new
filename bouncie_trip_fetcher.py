@@ -12,9 +12,10 @@ import aiohttp
 
 from bouncie_oauth import BouncieOAuth
 from config import API_BASE_URL, get_bouncie_config, get_mapbox_token
+from core.http.retry import retry_async
+from core.http.session import get_session
 from date_utils import parse_timestamp
 from trip_service import TripService
-from utils import get_session, retry_async
 
 logger = logging.getLogger(__name__)
 

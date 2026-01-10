@@ -5,6 +5,7 @@
  * Handles all API calls related to task management
  */
 
+import apiClient from '../../modules/api-client.js';
 import { API_ENDPOINTS } from "./constants.js";
 import { getStatusHTML } from "./formatters.js";
 import { showDependencyErrorModal } from "./modals.js";
@@ -15,11 +16,7 @@ import { showDependencyErrorModal } from "./modals.js";
  * @throws {Error} If the request fails
  */
 export async function fetchTaskConfig() {
-  const response = await fetch(API_ENDPOINTS.CONFIG);
-  if (!response.ok) {
-    throw new Error("Failed to load task configuration");
-  }
-  return response.json();
+  return apiClient.get(API_ENDPOINTS.CONFIG);
 }
 
 /**
@@ -30,11 +27,7 @@ export async function fetchTaskConfig() {
  * @throws {Error} If the request fails
  */
 export async function fetchTaskHistory(page, limit) {
-  const response = await fetch(`${API_ENDPOINTS.HISTORY}?page=${page}&limit=${limit}`);
-  if (!response.ok) {
-    throw new Error("Failed to fetch task history");
-  }
-  return response.json();
+  return apiClient.get(`${API_ENDPOINTS.HISTORY}?page=${page}&limit=${limit}`);
 }
 
 /**
@@ -44,18 +37,7 @@ export async function fetchTaskHistory(page, limit) {
  * @throws {Error} If the request fails
  */
 export async function submitTaskConfigUpdate(config) {
-  const response = await fetch(API_ENDPOINTS.CONFIG, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(config),
-  });
-
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.detail || "Failed to update configuration");
-  }
-
-  return response.json();
+  return apiClient.post(API_ENDPOINTS.CONFIG, config);
 }
 
 /**
@@ -71,19 +53,9 @@ export async function runTask(taskId, context, onSuccess) {
   try {
     showLoadingOverlay();
 
-    const response = await fetch(API_ENDPOINTS.RUN, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([taskId]),
-    });
-
-    const result = await response.json();
+    const result = await apiClient.post(API_ENDPOINTS.RUN, [taskId]);
 
     hideLoadingOverlay();
-
-    if (!response.ok) {
-      throw new Error(result.detail || "Failed to start task");
-    }
 
     if (result.status === "success") {
       if (result.results?.length > 0) {
@@ -174,18 +146,8 @@ export async function forceStopTask(taskId, context, onSuccess) {
 
   try {
     showLoadingOverlay();
-    const response = await fetch(API_ENDPOINTS.FORCE_STOP, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ task_id: taskId }),
-    });
-
-    const data = await response.json();
+    const data = await apiClient.post(API_ENDPOINTS.FORCE_STOP, { task_id: taskId });
     hideLoadingOverlay();
-
-    if (!response.ok) {
-      throw new Error(data.detail || data.message || "Failed to force stop task");
-    }
 
     const message = data.message || `Task ${taskId} has been reset.`;
     notifier.show("Task Reset", message, "warning");
@@ -227,22 +189,12 @@ export async function scheduleManualFetch(
 
   try {
     showLoadingOverlay();
-    const response = await fetch(API_ENDPOINTS.FETCH_TRIPS_RANGE, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        start_date: startIso,
-        end_date: endIso,
-        map_match: mapMatch,
-      }),
+    const result = await apiClient.post(API_ENDPOINTS.FETCH_TRIPS_RANGE, {
+      start_date: startIso,
+      end_date: endIso,
+      map_match: mapMatch,
     });
-
-    const result = await response.json();
     hideLoadingOverlay();
-
-    if (!response.ok) {
-      throw new Error(result.detail || result.message || "Failed to schedule fetch");
-    }
 
     notifier.show(
       "Success",
@@ -270,11 +222,7 @@ export async function scheduleManualFetch(
  * @throws {Error} If the request fails
  */
 export async function fetchTaskDetails(taskId) {
-  const response = await fetch(`${API_ENDPOINTS.DETAILS}/${taskId}`);
-  if (!response.ok) {
-    throw new Error("Failed to fetch task details");
-  }
-  return response.json();
+  return apiClient.get(`${API_ENDPOINTS.DETAILS}/${taskId}`);
 }
 
 /**
@@ -305,15 +253,8 @@ export async function clearTaskHistory(context, onSuccess) {
 
   try {
     showLoadingOverlay();
-    const response = await fetch(API_ENDPOINTS.HISTORY, {
-      method: "DELETE",
-    });
-
+    await apiClient.delete(API_ENDPOINTS.HISTORY);
     hideLoadingOverlay();
-
-    if (!response.ok) {
-      throw new Error("Failed to clear history");
-    }
 
     notifier.show("Success", "Task history cleared", "success");
 

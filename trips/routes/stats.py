@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 
-from api_utils import api_route
+from core.api import api_route
 from config import get_mapbox_token
 from models import DateRangeModel
 from trip_service import TripService

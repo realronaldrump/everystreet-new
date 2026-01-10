@@ -3,6 +3,7 @@
  * Handles all network/API calls
  */
 
+import apiClient from '../api-client.js';
 import { DIRECTIONS_GEOMETRY, DIRECTIONS_PROFILE } from "./turn-by-turn-config.js";
 
 const TurnByTurnAPI = {
@@ -11,11 +12,7 @@ const TurnByTurnAPI = {
    * @returns {Promise<Array>}
    */
   async fetchCoverageAreas() {
-    const response = await fetch("/api/coverage_areas");
-    if (!response.ok) {
-      throw new Error(`Failed to fetch areas: ${response.statusText}`);
-    }
-    const data = await response.json();
+    const data = await apiClient.get("/api/coverage_areas");
     if (!data.success || !data.areas) {
       throw new Error(data.error || "Invalid coverage areas response.");
     }
@@ -28,11 +25,7 @@ const TurnByTurnAPI = {
    * @returns {Promise<Object>}
    */
   async fetchCoverageArea(areaId) {
-    const response = await fetch(`/api/coverage_areas/${areaId}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch area: ${response.statusText}`);
-    }
-    const data = await response.json();
+    const data = await apiClient.get(`/api/coverage_areas/${areaId}`);
     if (!data.success || !data.coverage) {
       throw new Error(data.error || "Failed to fetch coverage area");
     }
@@ -45,14 +38,16 @@ const TurnByTurnAPI = {
    * @returns {Promise<string>} GPX text
    */
   async fetchOptimalRouteGpx(areaId) {
-    const response = await fetch(`/api/coverage_areas/${areaId}/optimal-route/gpx`);
-    if (!response.ok) {
-      if (response.status === 404) {
+    try {
+      return await apiClient.get(`/api/coverage_areas/${areaId}/optimal-route/gpx`, {
+        parseResponse: (response) => response.text()
+      });
+    } catch (error) {
+      if (error.message && error.message.includes('404')) {
         throw new Error("No optimal route found. Generate one first.");
       }
-      throw new Error(`Failed to load route: ${response.statusText}`);
+      throw error;
     }
-    return response.text();
   },
 
   /**
@@ -61,11 +56,7 @@ const TurnByTurnAPI = {
    * @returns {Promise<Object>} GeoJSON data
    */
   async fetchCoverageSegments(areaId) {
-    const response = await fetch(`/api/coverage_areas/${areaId}/streets`);
-    if (!response.ok) {
-      throw new Error("Failed to load coverage segments");
-    }
-    const data = await response.json();
+    const data = await apiClient.get(`/api/coverage_areas/${areaId}/streets`);
     if (!data.geojson || !data.geojson.features) {
       throw new Error("No segment data in response");
     }
@@ -146,17 +137,10 @@ const TurnByTurnAPI = {
    * @returns {Promise<void>}
    */
   async persistDrivenSegments(segmentIds, locationId) {
-    const response = await fetch("/api/street_segments/mark_driven", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        segment_ids: segmentIds,
-        location_id: locationId,
-      }),
+    await apiClient.post("/api/street_segments/mark_driven", {
+      segment_ids: segmentIds,
+      location_id: locationId,
     });
-    if (!response.ok) {
-      throw new Error("Failed to persist segments");
-    }
   },
 };
 

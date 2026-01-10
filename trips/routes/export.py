@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from api_utils import api_route
+from core.api import api_route
 from trips.services import TripQueryService
 
 logger = logging.getLogger(__name__)

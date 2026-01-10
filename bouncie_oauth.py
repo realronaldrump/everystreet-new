@@ -11,7 +11,8 @@ import aiohttp
 
 from bouncie_credentials import update_bouncie_credentials
 from config import AUTH_URL, get_bouncie_config
-from utils import get_session, retry_async
+from core.http.retry import retry_async
+from core.http.session import get_session
 
 logger = logging.getLogger(__name__)
 

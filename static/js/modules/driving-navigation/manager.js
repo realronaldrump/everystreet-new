@@ -586,17 +586,12 @@ export class DrivingNavigation {
    * Get the current geolocation position.
    * @returns {Promise<GeolocationPosition>}
    */
-  getCurrentPosition() {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("Geolocation is not supported"));
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      });
+  async getCurrentPosition() {
+    const geolocationService = (await import('../geolocation-service.js')).default;
+    return geolocationService.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
     });
   }
 

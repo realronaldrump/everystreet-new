@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from admin_api import router as admin_api_router
 from analytics import router as analytics_api_router
 from app_settings import ensure_settings_cached
+from core.http.session import cleanup_session
 from county_api import router as county_api_router
 from coverage_api import router as coverage_api_router
 from db import db_manager, init_database
@@ -29,7 +30,6 @@ from search_api import router as search_api_router
 from tasks_api import router as tasks_api_router
 from trips import router as trips_router
 from upload_api import router as upload_api_router
-from utils import cleanup_session
 from visits import init_collections
 from visits import router as visits_router
 

@@ -1,3 +1,5 @@
+import apiClient from '../api-client.js';
+
 export class OptimalRouteAPI {
   constructor(options = {}) {
     this.eventSource = null;
@@ -13,8 +15,7 @@ export class OptimalRouteAPI {
         return window.coverageNavigatorAreas;
       }
 
-      const response = await fetch("/api/coverage_areas");
-      const data = await response.json();
+      const data = await apiClient.get("/api/coverage_areas");
 
       if (!data.success || !data.areas) {
         console.error("Failed to load coverage areas");
@@ -30,12 +31,8 @@ export class OptimalRouteAPI {
 
   async loadStreetNetwork(areaId) {
     try {
-      const response = await fetch(`/api/coverage_areas/${areaId}/streets`);
-      if (!response.ok) {
-        throw new Error("Failed to load streets");
-      }
+      const data = await apiClient.get(`/api/coverage_areas/${areaId}/streets`);
 
-      const data = await response.json();
       if (!data.features || !Array.isArray(data.features)) {
         throw new Error("Invalid street data format");
       }
@@ -60,18 +57,12 @@ export class OptimalRouteAPI {
 
   async loadExistingRoute(areaId) {
     try {
-      const response = await fetch(`/api/coverage_areas/${areaId}/optimal-route`);
-
-      if (response.status === 404) {
+      const data = await apiClient.get(`/api/coverage_areas/${areaId}/optimal-route`);
+      return data;
+    } catch (error) {
+      if (error.message && error.message.includes('404')) {
         return null;
       }
-
-      if (!response.ok) {
-        throw new Error("Failed to load route");
-      }
-
-      return await response.json();
-    } catch (error) {
       console.error("Error loading existing route:", error);
       throw error;
     }
@@ -79,8 +70,7 @@ export class OptimalRouteAPI {
 
   async getAreaBounds(areaId) {
     try {
-      const response = await fetch(`/api/coverage_areas/${areaId}`);
-      const data = await response.json();
+      const data = await apiClient.get(`/api/coverage_areas/${areaId}`);
 
       if (!data.success || !data.coverage) return null;
 
@@ -97,10 +87,7 @@ export class OptimalRouteAPI {
 
   async checkForActiveTask(areaId) {
     try {
-      const response = await fetch(`/api/coverage_areas/${areaId}/active-task`);
-      if (!response.ok) return null;
-
-      const data = await response.json();
+      const data = await apiClient.get(`/api/coverage_areas/${areaId}/active-task`);
       if (data.active && data.task_id) {
         return data;
       }
@@ -113,8 +100,7 @@ export class OptimalRouteAPI {
 
   async checkWorkerStatus() {
     try {
-      const response = await fetch("/api/optimal-routes/worker-status");
-      return await response.json();
+      return await apiClient.get("/api/optimal-routes/worker-status");
     } catch (error) {
       console.warn("Could not check worker status:", error);
       return { status: "unknown", message: error.message };
@@ -123,17 +109,9 @@ export class OptimalRouteAPI {
 
   async generateRoute(areaId) {
     try {
-      const response = await fetch(
-        `/api/coverage_areas/${areaId}/generate-optimal-route`,
-        { method: "POST" }
+      const data = await apiClient.post(
+        `/api/coverage_areas/${areaId}/generate-optimal-route`
       );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Failed to start route generation");
-      }
-
-      const data = await response.json();
       return data.task_id;
     } catch (error) {
       console.error("Error starting route generation:", error);
@@ -150,11 +128,7 @@ export class OptimalRouteAPI {
         this.eventSource = null;
       }
 
-      const response = await fetch(`/api/optimal-routes/${taskId}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json();
+      const data = await apiClient.delete(`/api/optimal-routes/${taskId}`);
       this.onCancel(data);
       return data;
     } catch (error) {
@@ -165,9 +139,7 @@ export class OptimalRouteAPI {
 
   async clearRoute(areaId) {
     try {
-      await fetch(`/api/coverage_areas/${areaId}/optimal-route`, {
-        method: "DELETE",
-      });
+      await apiClient.delete(`/api/coverage_areas/${areaId}/optimal-route`);
     } catch (error) {
       console.warn("Failed to clear route from backend:", error);
     }

@@ -6,6 +6,7 @@ from typing import Any
 
 from bson import ObjectId
 
+from core.exceptions import ResourceNotFoundException, ValidationException
 from db import (
     delete_one_with_retry,
     find_one_with_retry,
@@ -79,7 +80,7 @@ class FillupService:
             Fill-up document or None if not found
         """
         if not ObjectId.is_valid(fillup_id):
-            raise ValueError("Invalid fillup ID")
+            raise ValidationException("Invalid fillup ID")
 
         return await find_one_with_retry(
             gas_fillups_collection, {"_id": ObjectId(fillup_id)}
@@ -236,14 +237,14 @@ class FillupService:
             ValueError: If fill-up not found
         """
         if not ObjectId.is_valid(fillup_id):
-            raise ValueError("Invalid fillup ID")
+            raise ValidationException("Invalid fillup ID")
 
         # Check if fillup exists
         existing = await find_one_with_retry(
             gas_fillups_collection, {"_id": ObjectId(fillup_id)}
         )
         if not existing:
-            raise ValueError("Fill-up not found")
+            raise ResourceNotFoundException("Fill-up not found")
 
         update_data["updated_at"] = datetime.now(UTC)
 
@@ -333,21 +334,21 @@ class FillupService:
             ValueError: If fill-up not found
         """
         if not ObjectId.is_valid(fillup_id):
-            raise ValueError("Invalid fillup ID")
+            raise ValidationException("Invalid fillup ID")
 
         # Get existing to find IMEI and time
         existing = await find_one_with_retry(
             gas_fillups_collection, {"_id": ObjectId(fillup_id)}
         )
         if not existing:
-            raise ValueError("Fill-up not found")
+            raise ResourceNotFoundException("Fill-up not found")
 
         result = await delete_one_with_retry(
             gas_fillups_collection, {"_id": ObjectId(fillup_id)}
         )
 
         if result.deleted_count == 0:
-            raise ValueError("Fill-up not found")
+            raise ResourceNotFoundException("Fill-up not found")
 
         # Recalculate the next entry now that this one is gone
         await FillupService.recalculate_subsequent_fillup(

@@ -258,33 +258,33 @@ const AppController = {
     // Center-on-location button (geolocation)
     const centerBtn = utils.getElement("center-on-location");
     if (centerBtn) {
-      centerBtn.addEventListener("click", () => {
-        if (!navigator.geolocation) {
+      centerBtn.addEventListener("click", async () => {
+        const geolocationService = (await import('./geolocation-service.js')).default;
+        if (!geolocationService.isSupported()) {
           window.notificationManager.show("Geolocation is not supported", "warning");
           return;
         }
         centerBtn.disabled = true;
         centerBtn.classList.add("btn-loading");
-        navigator.geolocation.getCurrentPosition(
-          ({ coords }) => {
-            state.map?.flyTo({
-              center: [coords.longitude, coords.latitude],
-              zoom: 14,
-              duration: 1000,
-            });
-            centerBtn.disabled = false;
-            centerBtn.classList.remove("btn-loading");
-          },
-          (err) => {
-            console.error("Geolocation error:", err);
-            window.notificationManager.show(
-              `Error getting location: ${err.message}`,
-              "danger"
-            );
-            centerBtn.disabled = false;
-            centerBtn.classList.remove("btn-loading");
-          }
-        );
+        try {
+          const position = await geolocationService.getCurrentPosition();
+          const { coords } = position;
+          state.map?.flyTo({
+            center: [coords.longitude, coords.latitude],
+            zoom: 14,
+            duration: 1000,
+          });
+          centerBtn.disabled = false;
+          centerBtn.classList.remove("btn-loading");
+        } catch (err) {
+          console.error("Geolocation error:", err);
+          window.notificationManager.show(
+            `Error getting location: ${err.message}`,
+            "danger"
+          );
+          centerBtn.disabled = false;
+          centerBtn.classList.remove("btn-loading");
+        }
       });
     }
 

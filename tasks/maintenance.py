@@ -18,13 +18,13 @@ from pydantic import ValidationError
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError, ConnectionFailure
 
+from core.async_bridge import run_async_from_sync
 from db import db_manager, find_with_retry, trips_collection
 from live_tracking import cleanup_stale_trips_logic
 from models import TripDataModel
 from tasks.config import check_dependencies
 from tasks.core import task_runner
 from trip_service import TripService
-from utils import run_async_from_sync
 
 logger = get_task_logger(__name__)
 

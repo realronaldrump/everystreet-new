@@ -7,8 +7,8 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from config import get_mapbox_token
 from date_utils import parse_timestamp
+from geometry_service import GeometryService
 from trip_service import TripService
-from utils import calculate_distance
 
 # Setup
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ async def process_geojson_trip(
                 "type": geom.get("type"),
                 "coordinates": geom.get("coordinates"),
             }
-            dist_miles = calculate_distance(geom.get("coordinates", []))
+            dist_miles = GeometryService.calculate_distance(geom.get("coordinates", []))
             trips.append(
                 {
                     "transactionId": tid,
@@ -157,7 +157,7 @@ async def upload_files(
                             if standardized_gpx_gps:
                                 trip_dict["gps"] = standardized_gpx_gps
                                 # Calculate distance based on the final unique coordinates
-                                trip_dict["distance"] = calculate_distance(
+                                trip_dict["distance"] = GeometryService.calculate_distance(
                                     standardized_gpx_gps.get("coordinates", [])
                                 )
 
