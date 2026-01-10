@@ -243,7 +243,10 @@ export function formatDateToString(date) {
  * @param {Object} options - Intl.DateTimeFormat options
  * @returns {string} Formatted date string
  */
-export function formatForDisplay(dateString, options = { dateStyle: "medium" }) {
+export function formatForDisplay(
+  dateString,
+  options = { dateStyle: "medium" },
+) {
   const d = typeof dayjs !== "undefined" ? dayjs(dateString) : null;
   if (!d || !d.isValid()) return dateString || "";
 
@@ -261,7 +264,11 @@ export function formatWeekRange(weekStr) {
   if (!weekStr) return "N/A";
 
   const [year, week] = weekStr.split("-W");
-  const simple = new Date(parseInt(year, 10), 0, 1 + (parseInt(week, 10) - 1) * 7);
+  const simple = new Date(
+    parseInt(year, 10),
+    0,
+    1 + (parseInt(week, 10) - 1) * 7,
+  );
   const dow = simple.getDay();
   const ISOweekStart = simple;
   if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
@@ -376,7 +383,9 @@ export function sanitizeLocation(location) {
     return (
       location.formatted_address ||
       location.name ||
-      [location.street, location.city, location.state].filter(Boolean).join(", ") ||
+      [location.street, location.city, location.state]
+        .filter(Boolean)
+        .join(", ") ||
       "Unknown"
     );
   }

@@ -25,6 +25,13 @@ from aiohttp import (
     ClientResponseError,
     ServerDisconnectedError,
 )
+from constants import (
+    HTTP_CONNECTION_LIMIT,
+    HTTP_TIMEOUT_CONNECT,
+    HTTP_TIMEOUT_SOCK_READ,
+    HTTP_TIMEOUT_TOTAL,
+    METERS_TO_MILES,
+)
 from tenacity import (
     before_sleep_log,
     retry,
@@ -33,13 +40,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from constants import (
-    HTTP_CONNECTION_LIMIT,
-    HTTP_TIMEOUT_CONNECT,
-    HTTP_TIMEOUT_SOCK_READ,
-    HTTP_TIMEOUT_TOTAL,
-    METERS_TO_MILES,
-)
 from geometry_service import GeometryService
 
 logger = logging.getLogger(__name__)
