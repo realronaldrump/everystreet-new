@@ -18,16 +18,19 @@ Successfully migrated all Python imports from `utils.py` and `api_utils.py` to o
 ### Core Module Creation
 
 #### 1. Created `core/api.py`
+
 - **Moved**: `api_route` decorator from `api_utils.py`
 - **Purpose**: Standardized FastAPI route error handling
 - **Usage**: `from core.api import api_route`
 
 #### 2. Enhanced `db/aggregation_utils.py`
+
 - **Moved**: `get_mongo_tz_expr()` from `api_utils.py`
 - **Purpose**: MongoDB timezone expression utilities
 - **Usage**: `from db.aggregation_utils import get_mongo_tz_expr`
 
 #### 3. Cleaned `utils.py`
+
 - **Removed**: All backward compatibility re-exports
 - **Kept**: Only `calculate_distance()` and `meters_to_miles()` functions
 - **Status**: Minimal utility module with clear deprecation notices
@@ -37,6 +40,7 @@ Successfully migrated all Python imports from `utils.py` and `api_utils.py` to o
 ## Import Migrations
 
 ### Files Updated to Use `core.http.session`
+
 - `gas/services/bouncie_service.py`
 - `bouncie_oauth.py`
 - `bouncie_trip_fetcher.py`
@@ -44,6 +48,7 @@ Successfully migrated all Python imports from `utils.py` and `api_utils.py` to o
 - `profile_api.py`
 
 ### Files Updated to Use `core.async_bridge`
+
 - `tasks/fetch.py`
 - `tasks/webhook.py`
 - `tasks/maintenance.py`
@@ -52,16 +57,20 @@ Successfully migrated all Python imports from `utils.py` and `api_utils.py` to o
 - `tasks/routes.py`
 
 ### Files Updated to Use `core.http.geocoding`
+
 - `admin_api.py`
 
 ### Files Updated to Use `core.http.retry`
+
 - `bouncie_oauth.py`
 - `bouncie_trip_fetcher.py`
 
 ### Files Updated to Use `core.math_utils`
+
 - `analytics/services/dashboard_service.py`
 
 ### Files Updated to Use `core.api`
+
 - `trips/routes/query.py`
 - `trips/routes/export.py`
 - `trips/routes/stats.py`
@@ -70,10 +79,12 @@ Successfully migrated all Python imports from `utils.py` and `api_utils.py` to o
 - `gas/routes/fillups.py` (also refactored with @api_route)
 
 ### Files Updated to Use `db.aggregation_utils`
+
 - `analytics/services/trip_analytics_service.py`
 - `analytics/services/time_analytics_service.py`
 
 ### Files Updated to Use `geometry_service.GeometryService`
+
 - `upload_api.py`
 
 ---
@@ -83,23 +94,28 @@ Successfully migrated all Python imports from `utils.py` and `api_utils.py` to o
 ### Gas Services Layer - Replaced Generic Exceptions
 
 #### `gas/services/vehicle_service.py`
+
 - ✅ Replaced `ValueError("Vehicle with this IMEI already exists")` → `DuplicateResourceException`
 - ✅ Replaced `ValueError("Vehicle not found")` → `ResourceNotFoundException`
 
 #### `gas/services/fillup_service.py`
+
 - ✅ Replaced `ValueError("Invalid fillup ID")` → `ValidationException`
 - ✅ Replaced `ValueError("Fill-up not found")` → `ResourceNotFoundException`
 
 #### `gas/services/statistics_service.py`
+
 - ✅ Replaced `ValueError("Trip not found")` → `ResourceNotFoundException`
 - ✅ Replaced `ValueError("Cannot determine vehicle IMEI")` → `ValidationException`
 
 #### `gas/services/odometer_service.py`
+
 - ✅ Replaced `ValueError("timestamp parameter is required...")` → `ValidationException`
 
 ### Gas Routes - Refactored with @api_route
 
 #### `gas/routes/fillups.py`
+
 - ✅ Removed all try/except HTTPException blocks
 - ✅ Applied `@api_route(logger)` decorator to all endpoints
 - ✅ Simplified error handling - decorator handles all exception mapping
@@ -110,6 +126,7 @@ Successfully migrated all Python imports from `utils.py` and `api_utils.py` to o
 ## Files Deleted
 
 ### `api_utils.py` - REMOVED ✅
+
 - All functionality moved to `core/api.py` and `db/aggregation_utils.py`
 - No longer needed as backward compatibility wrapper
 
@@ -118,12 +135,14 @@ Successfully migrated all Python imports from `utils.py` and `api_utils.py` to o
 ## Import Organization
 
 All files now follow clean import structure:
+
 1. Standard library imports
 2. Third-party imports
 3. Local core module imports
 4. Local application imports
 
 Example:
+
 ```python
 # Standard library
 import logging
@@ -146,7 +165,9 @@ from gas.services import FillupService
 ## Validation Results
 
 ### Syntax Validation
+
 ✅ All modified files pass Python syntax validation:
+
 - `utils.py` - Valid
 - `core/api.py` - Valid
 - `db/aggregation_utils.py` - Valid
@@ -154,7 +175,9 @@ from gas.services import FillupService
 - `gas/routes/fillups.py` - Valid
 
 ### Import Verification
+
 ✅ Verified zero remaining old imports:
+
 - No files import from `utils.py` (except for `calculate_distance` where needed)
 - No files import from `api_utils.py` (file deleted)
 - All imports use proper core module paths
@@ -164,21 +187,25 @@ from gas.services import FillupService
 ## Benefits Achieved
 
 ### 1. **Code Organization**
+
 - Clear separation of concerns
 - Core utilities in dedicated modules
 - Easy to find and understand functionality
 
 ### 2. **No Backward Compatibility Bloat**
+
 - Removed all re-export wrappers
 - Direct imports only
 - Cleaner dependency graph
 
 ### 3. **Better Error Handling**
+
 - Type-specific exceptions in service layer
 - Standardized HTTP error mapping via `@api_route`
 - Consistent error responses across API
 
 ### 4. **Maintainability**
+
 - Single source of truth for each utility
 - Clear migration path for remaining code
 - Reduced code duplication
@@ -188,14 +215,18 @@ from gas.services import FillupService
 ## Remaining Work (Optional Future Enhancements)
 
 ### Phase 2: Complete Exception Migration (Non-Critical)
+
 The following files still use generic exceptions but were not critical for this migration:
 
 #### Service Layer
+
 - `trip_service.py` - Uses HTTPException in a few places
 - Other service files may have generic exceptions
 
 #### API Routes
+
 The following routes could be refactored to use `@api_route`:
+
 - `gas/routes/location.py`
 - `gas/routes/vehicles.py`
 - `gas/routes/statistics.py`
@@ -204,6 +235,7 @@ The following routes could be refactored to use `@api_route`:
 Note: These files are functional and work correctly. The migration can continue incrementally as needed.
 
 ### Phase 3: Import Organization (Low Priority)
+
 - Run `isort` on all Python files for PEP 8 import ordering
 - This is cosmetic and not functionally required
 
