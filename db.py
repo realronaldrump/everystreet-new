@@ -26,11 +26,7 @@ from motor.motor_asyncio import (
     AsyncIOMotorDatabase,
     AsyncIOMotorGridFSBucket,
 )
-from pymongo.errors import (
-    ConnectionFailure,
-    DuplicateKeyError,
-    OperationFailure,
-)
+from pymongo.errors import ConnectionFailure, DuplicateKeyError, OperationFailure
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
