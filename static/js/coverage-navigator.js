@@ -1,3 +1,5 @@
+/* global mapBase */
+
 (() => {
   const baseConfig = window.coverageNavigatorConfig || {};
   const mapContainerId = baseConfig.mapContainerId || "coverage-map";
@@ -35,7 +37,9 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     if (!window.mapBase || typeof mapboxgl === "undefined") {
-      console.error("Mapbox GL JS library not found. Coverage map cannot load.");
+      console.error(
+        "Mapbox GL JS library not found. Coverage map cannot load.",
+      );
       return;
     }
 
