@@ -341,7 +341,7 @@
       } else {
         window.notificationManager.show(
           `Error starting calculation: ${data.error}`,
-          "danger",
+          "danger"
         );
         clearRecalcState();
       }
