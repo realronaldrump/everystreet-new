@@ -23,3 +23,15 @@ export function computeAreasHash(areas) {
     .map((a) => `${a._id}:${a.status}:${a.coverage_percentage}:${a.last_updated}`)
     .join("|");
 }
+
+/**
+ * Create a context object with necessary formatters for coverage UI/Dashboards
+ * @returns {Object} Object containing distanceFormatter, timeFormatter, etc.
+ */
+export function createFormatterContext() {
+  return {
+    distanceFormatter: distanceInUserUnits,
+    timeFormatter: formatRelativeTime,
+    streetTypeFormatter: formatStreetType,
+  };
+}
