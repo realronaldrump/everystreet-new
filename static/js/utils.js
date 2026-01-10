@@ -431,7 +431,15 @@ const utils = {
       }, 3000);
     });
   },
+  // Helper to format vehicle name
+  formatVehicleName(vehicle) {
+    if (!vehicle) return "Unknown Vehicle";
+    return vehicle.custom_name || `Vehicle ${vehicle.vin || vehicle.imei}`;
+  },
 };
+
+// Expose utils globally
+window.utils = utils;
 
 /**
  * NOTE: DateUtils has been consolidated into the module-based dateUtils.

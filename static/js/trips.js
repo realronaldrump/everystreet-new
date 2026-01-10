@@ -8,15 +8,18 @@
 
 import { CONFIG } from "./modules/config.js";
 import { TableManager } from "./modules/table-manager.js";
-import { escapeHtml } from "./modules/utils.js";
+import {
+  escapeHtml,
+  formatVehicleName,
+  formatDateTime,
+  formatDuration,
+  sanitizeLocation,
+  getStorage,
+  setStorage,
+} from "./modules/utils.js";
 
 let tripsTable = null;
 const selectedTripIds = new Set();
-
-// Use shared utilities from window.utils
-const formatDateTime = (s) => window.utils.formatDateTime(s);
-const formatDuration = (s) => window.utils.formatDuration(s);
-const sanitizeLocation = (l) => window.utils.sanitizeLocation(l);
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {
@@ -54,7 +57,7 @@ async function loadVehicles() {
     vehicles.forEach((v) => {
       const option = document.createElement("option");
       option.value = v.imei;
-      option.textContent = window.utils.formatVehicleName(v);
+      option.textContent = formatVehicleName(v);
       vehicleSelect.appendChild(option);
     });
   } catch (error) {
@@ -284,8 +287,8 @@ function getFilterValues() {
     fuel_min: getVal("trip-filter-fuel-min"),
     fuel_max: getVal("trip-filter-fuel-max"),
     has_fuel: document.getElementById("trip-filter-has-fuel")?.checked || false,
-    start_date: window.utils?.getStorage("startDate") || null,
-    end_date: window.utils?.getStorage("endDate") || null,
+    start_date: getStorage("startDate") || null,
+    end_date: getStorage("endDate") || null,
   };
 }
 
@@ -357,8 +360,8 @@ function updateFilterChips(triggerReload = false) {
       "Date",
       `${filters.start_date || "Any"} -> ${filters.end_date || "Any"}`,
       () => {
-        window.utils?.setStorage("startDate", null);
-        window.utils?.setStorage("endDate", null);
+        setStorage("startDate", null);
+        setStorage("endDate", null);
         document.dispatchEvent(new Event("filtersReset"));
         tripsTable.reload();
       }

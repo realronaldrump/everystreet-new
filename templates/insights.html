@@ -850,13 +850,13 @@ endblock %} {% block extra_css %}
 <script src="{{ CDN.countup }}"></script>
 
 <!-- Driving Insights Modules (loaded in dependency order) -->
-<script src="{{ url_for('static', path='js/modules/insights/state.js') | replace('http://', '//') }}"></script>
-<script src="{{ url_for('static', path='js/modules/insights/formatters.js') | replace('http://', '//') }}"></script>
-<script src="{{ url_for('static', path='js/modules/insights/api.js') | replace('http://', '//') }}"></script>
-<script src="{{ url_for('static', path='js/modules/insights/export.js') | replace('http://', '//') }}"></script>
-<script src="{{ url_for('static', path='js/modules/insights/modal.js') | replace('http://', '//') }}"></script>
-<script src="{{ url_for('static', path='js/modules/insights/charts.js') | replace('http://', '//') }}"></script>
-<script src="{{ url_for('static', path='js/modules/insights/metrics.js') | replace('http://', '//') }}"></script>
-<script src="{{ url_for('static', path='js/modules/insights/tables.js') | replace('http://', '//') }}"></script>
-<script src="{{ url_for('static', path='js/modules/insights/main.js') | replace('http://', '//') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/modules/insights/state.js') | replace('http://', '//') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/modules/insights/formatters.js') | replace('http://', '//') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/modules/insights/api.js') | replace('http://', '//') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/modules/insights/export.js') | replace('http://', '//') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/modules/insights/modal.js') | replace('http://', '//') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/modules/insights/charts.js') | replace('http://', '//') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/modules/insights/metrics.js') | replace('http://', '//') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/modules/insights/tables.js') | replace('http://', '//') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/modules/insights/main.js') | replace('http://', '//') }}"></script>
 {% endblock %}
