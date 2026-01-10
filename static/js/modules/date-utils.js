@@ -77,14 +77,18 @@ const dateUtils = {
    * Get start date from storage or current date.
    */
   getStartDate() {
-    return utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate();
+    return (
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate()
+    );
   },
 
   /**
    * Get end date from storage or current date.
    */
   getEndDate() {
-    return utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate();
+    return (
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate()
+    );
   },
 
   /**
@@ -180,7 +184,9 @@ const dateUtils = {
       }
     });
 
-    return new Intl.DateTimeFormat("en-US", formatterOptions).format(d.toDate());
+    return new Intl.DateTimeFormat("en-US", formatterOptions).format(
+      d.toDate(),
+    );
   },
 
   /**
@@ -328,7 +334,9 @@ const dateUtils = {
     const d = dayjs(date);
     const s = dayjs(startDate).startOf("day");
     const e = dayjs(endDate).endOf("day");
-    return d.isValid() && s.isValid() && e.isValid() && d.isBetween(s, e, null, "[]");
+    return (
+      d.isValid() && s.isValid() && e.isValid() && d.isBetween(s, e, null, "[]")
+    );
   },
 
   /**
@@ -375,9 +383,17 @@ const dateUtils = {
     const startDate = this.parseDateString(currentStart);
     const endDate = this.parseDateString(currentEnd);
     const days =
-      startDate && endDate ? dayjs(endDate).diff(dayjs(startDate), "day") + 1 : 0;
+      startDate && endDate
+        ? dayjs(endDate).diff(dayjs(startDate), "day") + 1
+        : 0;
 
-    const range = { start: currentStart, end: currentEnd, startDate, endDate, days };
+    const range = {
+      start: currentStart,
+      end: currentEnd,
+      startDate,
+      endDate,
+      days,
+    };
     utils.setStorage(cacheKey, range);
     return range;
   },
@@ -414,7 +430,8 @@ const dateUtils = {
    * Format vehicle speed with status.
    */
   formatVehicleSpeed(speed) {
-    const validSpeed = typeof speed === "number" ? speed : parseFloat(speed) || 0;
+    const validSpeed =
+      typeof speed === "number" ? speed : parseFloat(speed) || 0;
 
     let status = "stopped";
     if (validSpeed > 35) status = "fast";
