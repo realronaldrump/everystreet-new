@@ -145,7 +145,7 @@ const utils = {
     try {
       const result = await fn();
       const duration = performance.now() - startTime;
-      console.log(`Performance: ${name} took ${duration.toFixed(2)}ms`);
+
       return result;
     } catch (error) {
       const duration = performance.now() - startTime;

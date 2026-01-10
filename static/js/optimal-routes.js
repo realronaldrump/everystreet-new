@@ -521,9 +521,7 @@ class OptimalRoutesManager {
         });
       }
 
-      console.log(
-        `Loaded ${drivenFeatures.length} driven, ${undrivenFeatures.length} undriven streets`
-      );
+
     } catch (error) {
       console.error("Error loading street network:", error);
     }
@@ -741,7 +739,7 @@ class OptimalRoutesManager {
       const data = await response.json();
 
       if (data.active && data.task_id) {
-        console.log("Found active task:", data.task_id, "stage:", data.stage);
+
 
         // Store task ID
         this.currentTaskId = data.task_id;
@@ -809,7 +807,7 @@ class OptimalRoutesManager {
         } else if (workerStatus.status === "error") {
           console.warn("Worker status check failed:", workerStatus.message);
         } else {
-          console.log("Worker status:", workerStatus);
+
         }
       } catch (workerError) {
         console.warn("Could not check worker status:", workerError);
@@ -1416,7 +1414,7 @@ class OptimalRoutesManager {
         await fetch(`/api/coverage_areas/${this.selectedAreaId}/optimal-route`, {
           method: "DELETE",
         });
-        console.log("Route cleared from backend");
+
       } catch (error) {
         console.warn("Failed to clear route from backend:", error);
       }
@@ -1467,7 +1465,7 @@ class OptimalRoutesManager {
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
     } else {
-      console.log(`[${type}] ${message}`);
+
     }
   }
 }
