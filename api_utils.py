@@ -28,9 +28,10 @@ def api_route(logger: logging.Logger):
         async def wrapper(*args, **kwargs):
             try:
                 return await func(*args, **kwargs)
-            except HTTPException:
-                raise
             except Exception as e:
+                # Re-raise HTTPException as-is without logging or wrapping
+                if isinstance(e, HTTPException):
+                    raise
                 logger.exception("Error in %s: %s", func.__name__, e)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
