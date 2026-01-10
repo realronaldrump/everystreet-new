@@ -565,14 +565,8 @@ const layerManager = {
     const layerInfo = state.mapLayers[layerName];
 
     try {
-      if (!state.map.isStyleLoaded()) {
-        await new Promise((resolve) => {
-          state.map.once("styledata", resolve);
-          setTimeout(resolve, 1000);
-        });
-      }
+      await this._ensureStyleLoaded();
 
-      // Handle heatmap layers
       if (layerInfo.isHeatmap) {
         await this._updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo);
         return;
@@ -582,124 +576,166 @@ const layerManager = {
       const existingLayer = state.map.getLayer(layerId);
 
       if (existingSource && existingLayer) {
-        try {
-          existingSource.setData(data);
-
-          const colorValue = Array.isArray(layerInfo.color)
-            ? layerInfo.color
-            : layerInfo.color || "#331107";
-          state.map.setPaintProperty(layerId, "line-color", colorValue);
-          state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
-          state.map.setPaintProperty(layerId, "line-width", [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            10,
-            layerInfo.weight * 0.5,
-            15,
-            layerInfo.weight,
-            20,
-            layerInfo.weight * 2,
-          ]);
-
-          state.map.setLayoutProperty(
-            layerId,
-            "visibility",
-            layerInfo.visible ? "visible" : "none"
-          );
-
-          layerInfo.layer = data;
-          if (this._shouldEnableTripInteractions(layerName)) {
-            await this._setupTripInteractions(layerName, sourceId, layerInfo);
-          }
-          return;
-        } catch (updateError) {
-          console.warn(`Falling back to layer rebuild for ${layerName}:`, updateError);
-        }
-      }
-
-      if (existingLayer || existingSource) {
-        if (this._shouldEnableTripInteractions(layerName)) {
-          this._removeTripHitboxLayer(layerName);
-        }
-      }
-
-      if (existingLayer) {
-        const events = ["click", "mouseenter", "mouseleave"];
-        events.forEach((event) => {
-          state.map.off(event, layerId);
-        });
-        state.map.removeLayer(layerId);
-      }
-      if (existingSource) {
-        state.map.removeSource(sourceId);
-      }
-
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-
-      state.map.addSource(sourceId, {
-        type: "geojson",
-        data,
-        tolerance: 0.375,
-        buffer: 64,
-        maxzoom: 18,
-        generateId: true,
-        promoteId: "transactionId",
-      });
-
-      const layerConfig = {
-        id: layerId,
-        type: "line",
-        source: sourceId,
-        minzoom: layerInfo.minzoom || 0,
-        maxzoom: layerInfo.maxzoom || 22,
-        layout: {
-          visibility: layerInfo.visible ? "visible" : "none",
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": Array.isArray(layerInfo.color)
-            ? layerInfo.color
-            : layerInfo.color || "#331107",
-          "line-opacity": layerInfo.opacity,
-          "line-width": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            10,
-            layerInfo.weight * 0.5,
-            15,
-            layerInfo.weight,
-            20,
-            layerInfo.weight * 2,
-          ],
-        },
-      };
-
-      if (layerName === "undrivenStreets") {
-        layerConfig.paint["line-dasharray"] = [2, 2];
-      }
-
-      state.map.addLayer(layerConfig);
-
-      if (state.map.getLayer(layerId)) {
-        state.map.setLayoutProperty(
+        const updateSuccess = await this._tryUpdateExistingLayer(
+          layerName,
           layerId,
-          "visibility",
-          layerInfo.visible ? "visible" : "none"
+          sourceId,
+          layerInfo,
+          data
         );
+        if (updateSuccess) return;
       }
 
-      if (this._shouldEnableTripInteractions(layerName)) {
-        await this._setupTripInteractions(layerName, sourceId, layerInfo);
-      }
-
-      layerInfo.layer = data;
+      await this._rebuildLayer(layerName, layerId, sourceId, layerInfo, data);
     } catch (error) {
       console.error(`Error updating ${layerName} layer:`, error);
       window.notificationManager.show(`Failed to update ${layerName} layer`, "warning");
     }
+  },
+
+  async _ensureStyleLoaded() {
+    if (!state.map.isStyleLoaded()) {
+      await new Promise((resolve) => {
+        state.map.once("styledata", resolve);
+        setTimeout(resolve, 1000);
+      });
+    }
+  },
+
+  async _tryUpdateExistingLayer(layerName, layerId, sourceId, layerInfo, data) {
+    try {
+      const existingSource = state.map.getSource(sourceId);
+      existingSource.setData(data);
+
+      this._updateLayerStyles(layerId, layerInfo);
+      state.map.setLayoutProperty(
+        layerId,
+        "visibility",
+        layerInfo.visible ? "visible" : "none"
+      );
+
+      layerInfo.layer = data;
+      if (this._shouldEnableTripInteractions(layerName)) {
+        await this._setupTripInteractions(layerName, sourceId, layerInfo);
+      }
+      return true;
+    } catch (updateError) {
+      console.warn(`Falling back to layer rebuild for ${layerName}:`, updateError);
+      return false;
+    }
+  },
+
+  _updateLayerStyles(layerId, layerInfo) {
+    const colorValue = Array.isArray(layerInfo.color)
+      ? layerInfo.color
+      : layerInfo.color || "#331107";
+    state.map.setPaintProperty(layerId, "line-color", colorValue);
+    state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
+    state.map.setPaintProperty(layerId, "line-width", [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      10,
+      layerInfo.weight * 0.5,
+      15,
+      layerInfo.weight,
+      20,
+      layerInfo.weight * 2,
+    ]);
+  },
+
+  async _rebuildLayer(layerName, layerId, sourceId, layerInfo, data) {
+    this._removeExistingLayerAndSource(layerName, layerId, sourceId);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    this._createSource(sourceId, data);
+    this._createLayer(layerName, layerId, sourceId, layerInfo);
+
+    if (state.map.getLayer(layerId)) {
+      state.map.setLayoutProperty(
+        layerId,
+        "visibility",
+        layerInfo.visible ? "visible" : "none"
+      );
+    }
+
+    if (this._shouldEnableTripInteractions(layerName)) {
+      await this._setupTripInteractions(layerName, sourceId, layerInfo);
+    }
+
+    layerInfo.layer = data;
+  },
+
+  _removeExistingLayerAndSource(layerName, layerId, sourceId) {
+    const existingSource = state.map.getSource(sourceId);
+    const existingLayer = state.map.getLayer(layerId);
+
+    if (existingLayer || existingSource) {
+      if (this._shouldEnableTripInteractions(layerName)) {
+        this._removeTripHitboxLayer(layerName);
+      }
+    }
+
+    if (existingLayer) {
+      const events = ["click", "mouseenter", "mouseleave"];
+      events.forEach((event) => {
+        state.map.off(event, layerId);
+      });
+      state.map.removeLayer(layerId);
+    }
+    if (existingSource) {
+      state.map.removeSource(sourceId);
+    }
+  },
+
+  _createSource(sourceId, data) {
+    state.map.addSource(sourceId, {
+      type: "geojson",
+      data,
+      tolerance: 0.375,
+      buffer: 64,
+      maxzoom: 18,
+      generateId: true,
+      promoteId: "transactionId",
+    });
+  },
+
+  _createLayer(layerName, layerId, sourceId, layerInfo) {
+    const layerConfig = {
+      id: layerId,
+      type: "line",
+      source: sourceId,
+      minzoom: layerInfo.minzoom || 0,
+      maxzoom: layerInfo.maxzoom || 22,
+      layout: {
+        visibility: layerInfo.visible ? "visible" : "none",
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": Array.isArray(layerInfo.color)
+          ? layerInfo.color
+          : layerInfo.color || "#331107",
+        "line-opacity": layerInfo.opacity,
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10,
+          layerInfo.weight * 0.5,
+          15,
+          layerInfo.weight,
+          20,
+          layerInfo.weight * 2,
+        ],
+      },
+    };
+
+    if (layerName === "undrivenStreets") {
+      layerConfig.paint["line-dasharray"] = [2, 2];
+    }
+
+    state.map.addLayer(layerConfig);
   },
 
   /**

@@ -10,6 +10,16 @@ if ("PerformanceObserver" in window) {
   observer.observe({ entryTypes: ["largest-contentful-paint"] });
 }
 
+// Helper function for updating live tracking visibility
+function updateLiveTrackingVisibility() {
+  const liveTrackingPanel = document.getElementById("live-tracking-panel");
+  if (!liveTrackingPanel) return;
+  const showLiveTracking = window.localStorage.getItem("showLiveTracking");
+  // Default: show panel unless setting exists and is explicitly "false"
+  const shouldShow = showLiveTracking !== "false";
+  liveTrackingPanel.classList.toggle("d-none", !shouldShow);
+}
+
 // Script for toggling chevron in metrics collapse
 document.addEventListener("DOMContentLoaded", () => {
   const metricsButton = document.querySelector('[data-bs-target="#metrics-content"]');
@@ -28,17 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
       chevron.style.transform = "rotate(180deg)";
     }
 
-    // Toggle Live Tracking Panel visibility based on user setting
-    const liveTrackingPanel = document.getElementById("live-tracking-panel");
-    function updateLiveTrackingVisibility() {
-      if (!liveTrackingPanel) return;
-      const showLiveTracking = window.localStorage.getItem("showLiveTracking");
-      // Default: show panel unless setting exists and is explicitly "false"
-      const shouldShow = showLiveTracking !== "false";
-      liveTrackingPanel.classList.toggle("d-none", !shouldShow);
-    }
-
-    // Initial state
+    // Toggle Live Tracking Panel visibility based on user setting - initial state
     updateLiveTrackingVisibility();
 
     // Fetch server-side setting once and reconcile localStorage

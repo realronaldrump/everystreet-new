@@ -18,9 +18,8 @@ class CoverageManager {
   constructor() {
     // Initialize notification and confirmation dialog
     this.notificationManager = window.notificationManager || {
-      show: (message, type, _duration = 3000) => {
-
-      },
+      // Fallback no-op if notification manager not available
+      show: (message, type, _duration = 3000) => {},
     };
 
     this.confirmationDialog = window.confirmationDialog || {
@@ -1639,12 +1638,6 @@ class CoverageManager {
 
       const bsModal = new bootstrap.Modal(modalEl, { backdrop: "static" });
 
-      const cleanup = () => {
-        confirmBtn.removeEventListener("click", onConfirm);
-        cancelBtn.removeEventListener("click", onCancel);
-        modalEl.removeEventListener("hidden.bs.modal", onCancel);
-      };
-
       const onConfirm = () => {
         const segVal = parseInt(segEl.value, 10);
         const bufVal = parseFloat(bufEl.value);
@@ -1668,6 +1661,12 @@ class CoverageManager {
       const onCancel = () => {
         cleanup();
         resolve(null);
+      };
+
+      const cleanup = () => {
+        confirmBtn.removeEventListener("click", onConfirm);
+        cancelBtn.removeEventListener("click", onCancel);
+        modalEl.removeEventListener("hidden.bs.modal", onCancel);
       };
 
       confirmBtn.addEventListener("click", onConfirm);
@@ -1944,7 +1943,7 @@ class CoverageManager {
   /**
    * Show enhanced confirm dialog
    */
-  async showEnhancedConfirmDialog(options) {
+  showEnhancedConfirmDialog(options) {
     this.lastConfirmDialogOptions = options;
     return new Promise((resolve) => {
       const modalHtml = `

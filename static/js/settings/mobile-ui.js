@@ -446,6 +446,138 @@ export function setupMobileDataManagement() {
   setupMobileRemapTrips();
 }
 
+// Helper function for geocode progress polling
+async function pollGeocodeProgress(context) {
+  const {
+    taskId,
+    geocodeBtn,
+    statusEl,
+    progressBar,
+    progressMessage,
+    progressMetrics,
+  } = context;
+
+  try {
+    const progressResponse = await fetch(`/api/geocode_trips/progress/${taskId}`);
+    if (!progressResponse.ok) {
+      handleGeocodeProgressError(context, progressResponse.status);
+      return;
+    }
+
+    const progressData = await progressResponse.json();
+    updateGeocodeProgressUI(context, progressData);
+
+    if (progressData.stage === "completed" || progressData.stage === "error") {
+      handleGeocodeCompletion(context, progressData);
+    }
+  } catch (pollErr) {
+    console.error("Error polling progress:", pollErr);
+    clearInterval(pollGeocodeProgress.pollInterval);
+    geocodeBtn.disabled = false;
+    if (statusEl) {
+      statusEl.textContent = "Lost connection while monitoring progress.";
+      statusEl.classList.remove("info", "success");
+      statusEl.classList.add("error");
+    }
+    window.notificationManager?.show(
+      "Lost connection while monitoring geocoding progress",
+      "warning"
+    );
+  }
+}
+
+function handleGeocodeProgressError(context, status) {
+  const { geocodeBtn, statusEl } = context;
+  clearInterval(pollGeocodeProgress.pollInterval);
+  geocodeBtn.disabled = false;
+  const errorMessage =
+    status === 404
+      ? "Geocoding task not found."
+      : "Unable to retrieve geocoding progress.";
+  if (statusEl) {
+    statusEl.textContent = errorMessage;
+    statusEl.classList.remove("info", "success");
+    statusEl.classList.add("error");
+  }
+  window.notificationManager?.show(errorMessage, "danger");
+}
+
+function updateGeocodeProgressUI(context, progressData) {
+  const { progressBar, progressMessage, progressMetrics } = context;
+  const progress = progressData.progress || 0;
+  const message = progressData.message || "";
+  const metrics = progressData.metrics || {};
+
+  if (progressBar) {
+    progressBar.style.width = `${progress}%`;
+    progressBar.textContent = `${progress}%`;
+    progressBar.setAttribute("aria-valuenow", progress);
+  }
+
+  if (progressMessage) progressMessage.textContent = message;
+
+  if (progressMetrics && metrics.total > 0) {
+    progressMetrics.textContent = `Total: ${metrics.total} | Updated: ${metrics.updated || 0} | Skipped: ${metrics.skipped || 0} | Failed: ${metrics.failed || 0}`;
+  }
+}
+
+function handleGeocodeCompletion(context, progressData) {
+  const { geocodeBtn, statusEl, progressBar } = context;
+  const stage = progressData.stage;
+  const metrics = progressData.metrics || {};
+
+  clearInterval(pollGeocodeProgress.pollInterval);
+  geocodeBtn.disabled = false;
+
+  if (stage === "completed") {
+    updateGeocodeSuccessUI(statusEl, progressBar, metrics);
+    window.notificationManager.show(
+      `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
+      "success"
+    );
+  } else {
+    updateGeocodeErrorUI(statusEl, progressBar, progressData);
+    window.notificationManager.show(
+      `Geocoding failed: ${progressData.error || "Unknown error"}`,
+      "danger"
+    );
+  }
+}
+
+function updateGeocodeSuccessUI(statusEl, progressBar, metrics) {
+  if (progressBar) {
+    progressBar.classList.remove(
+      "progress-bar-animated",
+      "progress-bar-striped",
+      "bg-primary",
+      "bg-danger"
+    );
+    progressBar.classList.add("bg-success");
+  }
+  if (statusEl) {
+    statusEl.textContent = `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`;
+    statusEl.classList.remove("info");
+    statusEl.classList.add("success");
+  }
+}
+
+function updateGeocodeErrorUI(statusEl, progressBar, progressData) {
+  if (progressBar) {
+    progressBar.classList.remove(
+      "progress-bar-animated",
+      "progress-bar-striped",
+      "bg-primary",
+      "bg-success"
+    );
+    progressBar.classList.add("bg-danger");
+  }
+  if (statusEl) {
+    statusEl.textContent = `Error: ${progressData.error || "Unknown error"}`;
+    statusEl.classList.remove("info");
+    statusEl.classList.add("error");
+  }
+}
+
 export function setupMobileGeocodeTrips() {
   const geocodeTabs = document.querySelectorAll(
     '.mobile-date-method-tab[data-target="geocode"]'
@@ -546,102 +678,21 @@ export function setupMobileGeocodeTrips() {
       const taskId = data.task_id;
 
       // Start polling for progress
-      const pollInterval = setInterval(async () => {
-        try {
-          const progressResponse = await fetch(`/api/geocode_trips/progress/${taskId}`);
-          if (!progressResponse.ok) {
-            clearInterval(pollInterval);
-            geocodeBtn.disabled = false;
-            const errorMessage =
-              progressResponse.status === 404
-                ? "Geocoding task not found."
-                : "Unable to retrieve geocoding progress.";
-            if (statusEl) {
-              statusEl.textContent = errorMessage;
-              statusEl.classList.remove("info", "success");
-              statusEl.classList.add("error");
-            }
-            window.notificationManager?.show(errorMessage, "danger");
-            return;
-          }
+      const pollInterval = setInterval(
+        pollGeocodeProgress.bind(null, {
+          taskId,
+          pollInterval: null,
+          geocodeBtn,
+          statusEl,
+          progressBar,
+          progressMessage,
+          progressMetrics,
+        }),
+        1000
+      );
 
-          const progressData = await progressResponse.json();
-          const progress = progressData.progress || 0;
-          const stage = progressData.stage || "unknown";
-          const message = progressData.message || "";
-          const metrics = progressData.metrics || {};
-
-          if (progressBar) {
-            progressBar.style.width = `${progress}%`;
-            progressBar.textContent = `${progress}%`;
-            progressBar.setAttribute("aria-valuenow", progress);
-          }
-
-          if (progressMessage) progressMessage.textContent = message;
-
-          if (progressMetrics && metrics.total > 0) {
-            progressMetrics.textContent = `Total: ${metrics.total} | Updated: ${metrics.updated || 0} | Skipped: ${metrics.skipped || 0} | Failed: ${metrics.failed || 0}`;
-          }
-
-          if (stage === "completed" || stage === "error") {
-            clearInterval(pollInterval);
-            geocodeBtn.disabled = false;
-
-            if (stage === "completed") {
-              if (progressBar) {
-                progressBar.classList.remove(
-                  "progress-bar-animated",
-                  "progress-bar-striped",
-                  "bg-primary",
-                  "bg-danger"
-                );
-                progressBar.classList.add("bg-success");
-              }
-              if (statusEl) {
-                statusEl.textContent = `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`;
-                statusEl.classList.remove("info");
-                statusEl.classList.add("success");
-              }
-              window.notificationManager.show(
-                `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
-                "success"
-              );
-            } else {
-              if (progressBar) {
-                progressBar.classList.remove(
-                  "progress-bar-animated",
-                  "progress-bar-striped",
-                  "bg-primary",
-                  "bg-success"
-                );
-                progressBar.classList.add("bg-danger");
-              }
-              if (statusEl) {
-                statusEl.textContent = `Error: ${progressData.error || "Unknown error"}`;
-                statusEl.classList.remove("info");
-                statusEl.classList.add("error");
-              }
-              window.notificationManager.show(
-                `Geocoding failed: ${progressData.error || "Unknown error"}`,
-                "danger"
-              );
-            }
-          }
-        } catch (pollErr) {
-          console.error("Error polling progress:", pollErr);
-          clearInterval(pollInterval);
-          geocodeBtn.disabled = false;
-          if (statusEl) {
-            statusEl.textContent = "Lost connection while monitoring progress.";
-            statusEl.classList.remove("info", "success");
-            statusEl.classList.add("error");
-          }
-          window.notificationManager?.show(
-            "Lost connection while monitoring geocoding progress",
-            "warning"
-          );
-        }
-      }, 1000);
+      // Update pollInterval reference for cleanup
+      pollGeocodeProgress.pollInterval = pollInterval;
     } catch (err) {
       console.error("Error starting geocoding:", err);
       geocodeBtn.disabled = false;

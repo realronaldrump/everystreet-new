@@ -77,7 +77,7 @@ const utils = {
   // Throttle function
   throttle(func, limit) {
     let inThrottle = false;
-    let lastResult;
+    let lastResult = undefined;
 
     return function (...args) {
       if (!inThrottle) {

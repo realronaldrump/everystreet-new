@@ -470,7 +470,7 @@ class OptimalRoutesManager {
       return false;
     }
     this.setupMapLayers();
-    return !!this.map.getSource("streets-driven");
+    return Boolean(this.map.getSource("streets-driven"));
   }
 
   async loadStreetNetwork(areaId) {

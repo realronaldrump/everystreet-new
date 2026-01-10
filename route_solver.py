@@ -376,6 +376,244 @@ def _make_req_id(G: nx.MultiDiGraph, edge: EdgeRef) -> tuple[ReqId, list[EdgeRef
     return req_id, options
 
 
+def _initialize_route_state(
+    G: nx.MultiDiGraph,
+    required_reqs: dict[ReqId, list[EdgeRef]],
+    start_node: int | None,
+) -> tuple[int, dict[int, tuple[float, float]]]:
+    """Initialize routing state and return starting node and node coordinates."""
+    node_xy: dict[int, tuple[float, float]] = {
+        n: (float(G.nodes[n]["x"]), float(G.nodes[n]["y"]))
+        for n in G.nodes
+        if "x" in G.nodes[n] and "y" in G.nodes[n]
+    }
+
+    if start_node is not None and start_node in G.nodes:
+        current_node = start_node
+    else:
+        # pick any requirement start node if possible
+        any_req = next(iter(required_reqs.values()))
+        current_node = any_req[0][0]  # u of first option
+
+    return current_node, node_xy
+
+
+def _build_requirement_indices(
+    required_reqs: dict[ReqId, list[EdgeRef]],
+) -> tuple[dict[ReqId, list[int]], dict[int, int]]:
+    """Build indices mapping requirements to start nodes."""
+    req_to_starts: dict[ReqId, list[int]] = {}
+    start_counts: dict[int, int] = {}
+
+    for rid, opts in required_reqs.items():
+        starts = sorted({u for (u, _, _) in opts})
+        req_to_starts[rid] = starts
+        for s in starts:
+            start_counts[s] = start_counts.get(s, 0) + 1
+
+    return req_to_starts, start_counts
+
+
+def _calculate_required_distance(
+    G: nx.MultiDiGraph,
+    required_reqs: dict[ReqId, list[EdgeRef]],
+) -> float:
+    """Calculate total required distance from all requirements."""
+    required_dist = 0.0
+    for _rid, opts in required_reqs.items():
+        best = min((_edge_length_m(G, u, v, k) for (u, v, k) in opts), default=0.0)
+        required_dist += best
+    return required_dist
+
+
+def _build_component_structure(
+    G: nx.MultiDiGraph,
+    required_reqs: dict[ReqId, list[EdgeRef]],
+    req_to_starts: dict[ReqId, list[int]],
+) -> tuple[
+    dict[ReqId, int],
+    dict[int, set[ReqId]],
+    dict[int, set[int]],
+]:
+    """Build component-aware grouping for required edges."""
+    # Build undirected graph of requirements
+    req_repr_edge: dict[ReqId, EdgeRef] = {}
+    req_graph = nx.Graph()
+    for rid, opts in required_reqs.items():
+        best = min(opts, key=lambda e: _edge_length_m(G, e[0], e[1], e[2]))
+        req_repr_edge[rid] = best
+        req_graph.add_edge(best[0], best[1])
+
+    # Find connected components
+    node_to_comp: dict[int, int] = {}
+    for idx, nodes in enumerate(nx.connected_components(req_graph)):
+        for node in nodes:
+            node_to_comp[node] = idx
+
+    # Map requirements to components
+    req_to_comp: dict[ReqId, int] = {}
+    comp_to_rids: dict[int, set[ReqId]] = {}
+    for rid, edge in req_repr_edge.items():
+        comp_id = node_to_comp.get(edge[0])
+        if comp_id is None:
+            continue
+        req_to_comp[rid] = comp_id
+        comp_to_rids.setdefault(comp_id, set()).add(rid)
+
+    # Build component targets
+    comp_start_counts: dict[int, dict[int, int]] = {}
+    for rid, starts in req_to_starts.items():
+        comp_id = req_to_comp.get(rid)
+        if comp_id is None:
+            continue
+        comp_start_counts.setdefault(comp_id, {})
+        for s in starts:
+            comp_start_counts[comp_id][s] = comp_start_counts[comp_id].get(s, 0) + 1
+
+    comp_targets: dict[int, set[int]] = {}
+    for comp_id, counts in comp_start_counts.items():
+        comp_targets[comp_id] = set(counts.keys())
+
+    return req_to_comp, comp_to_rids, comp_targets
+
+
+def _handle_no_global_targets(
+    unvisited: set[ReqId],
+    skipped_disconnected: set[ReqId],
+) -> bool:
+    """Handle case when no more global targets are available."""
+    logger.warning(
+        "Routing complete with %d unreachable segments (disconnected graph components)",
+        len(unvisited),
+    )
+    for rid in list(unvisited):
+        skipped_disconnected.add(rid)
+        unvisited.discard(rid)
+    return True  # Signal to break main loop
+
+
+def _find_alternative_start(
+    G: nx.MultiDiGraph,
+    unvisited: set[ReqId],
+    req_to_starts: dict[ReqId, list[int]],
+    current_node: int,
+    node_xy: dict[int, tuple[float, float]],
+) -> int | None:
+    """Try to find an alternative starting point from unvisited requirements."""
+    old_node = current_node
+    for rid in list(unvisited):
+        for start in req_to_starts.get(rid, []):
+            if start in G.nodes and G.out_degree(start) > 0:
+                logger.info("Jumping to disconnected component at node %d", start)
+                _log_jump_distance(old_node, start, node_xy)
+                return start
+    return None
+
+
+def _log_jump_distance(
+    old_node: int,
+    new_node: int,
+    node_xy: dict[int, tuple[float, float]],
+) -> None:
+    """Log distance of jump between disconnected components."""
+    old_xy = node_xy.get(old_node)
+    new_xy = node_xy.get(new_node)
+    if old_xy and new_xy:
+        jump_dist = GeometryService.haversine_distance(
+            old_xy[0], old_xy[1], new_xy[0], new_xy[1], unit="miles"
+        )
+        logger.warning(
+            "Route contains %.2f mile gap between disconnected components "
+            "(nodes %d -> %d). Run bridge_disconnected_clusters() to fix.",
+            jump_dist,
+            old_node,
+            new_node,
+        )
+
+
+def _handle_unreachable_segments(
+    unvisited: set[ReqId],
+    skipped_disconnected: set[ReqId],
+    req_to_starts: dict[ReqId, list[int]],
+    start_counts: dict[int, int],
+    global_targets: set[int],
+    req_to_comp: dict[ReqId, int],
+    comp_targets: dict[int, set[int]],
+) -> None:
+    """Handle case when no reachable segments remain."""
+    logger.warning(
+        "Cannot reach %d remaining segments (graph disconnected). "
+        "Consider running bridge_disconnected_clusters() before solving.",
+        len(unvisited),
+    )
+    for rid in list(unvisited):
+        skipped_disconnected.add(rid)
+        # Remove from bookkeeping
+        for s in req_to_starts.get(rid, []):
+            start_counts[s] = start_counts.get(s, 1) - 1
+            if start_counts.get(s, 0) <= 0:
+                global_targets.discard(s)
+                comp_id = req_to_comp.get(rid)
+                if comp_id is not None:
+                    comp_targets.get(comp_id, set()).discard(s)
+    unvisited.clear()
+
+
+def _skip_unreachable_component(
+    active_comp: int,
+    comp_to_rids: dict[int, set[ReqId]],
+    unvisited: set[ReqId],
+    skipped_disconnected: set[ReqId],
+    req_to_starts: dict[ReqId, list[int]],
+    start_counts: dict[int, int],
+    global_targets: set[int],
+    req_to_comp: dict[ReqId, int],
+    comp_targets: dict[int, set[int]],
+) -> None:
+    """Skip segments in an unreachable component."""
+    comp_rids = comp_to_rids.get(active_comp, set()) & unvisited
+    if comp_rids:
+        logger.warning(
+            "Skipping %d segments in unreachable component %s",
+            len(comp_rids),
+            active_comp,
+        )
+        for rid in comp_rids:
+            skipped_disconnected.add(rid)
+            # Remove from bookkeeping
+            for s in req_to_starts.get(rid, []):
+                start_counts[s] = start_counts.get(s, 1) - 1
+                if start_counts.get(s, 0) <= 0:
+                    global_targets.discard(s)
+                    comp_id = req_to_comp.get(rid)
+                    if comp_id is not None:
+                        comp_targets.get(comp_id, set()).discard(s)
+            unvisited.discard(rid)
+
+
+def _create_route_stats(
+    total_dist: float,
+    required_dist: float,
+    deadhead_dist: float,
+    required_reqs_count: int,
+    skipped_count: int,
+    iterations: int,
+) -> dict[str, float]:
+    """Create statistics dictionary for the route."""
+    return {
+        "total_distance": float(total_dist),
+        "required_distance": float(required_dist),
+        "deadhead_distance": float(deadhead_dist),
+        "deadhead_percentage": float(
+            (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0
+        ),
+        "required_reqs": float(required_reqs_count),
+        "completed_reqs": float(required_reqs_count - skipped_count),
+        "skipped_disconnected": float(skipped_count),
+        "iterations": float(iterations),
+    }
+
+
 def _solve_greedy_route(
     G: nx.MultiDiGraph,
     required_reqs: dict[ReqId, list[EdgeRef]],
@@ -397,78 +635,20 @@ def _solve_greedy_route(
     route_edges: list[EdgeRef] = []
     skipped_disconnected: set[ReqId] = set()
 
-    # Pre-calc node coordinates
-    node_xy: dict[int, tuple[float, float]] = {
-        n: (float(G.nodes[n]["x"]), float(G.nodes[n]["y"]))
-        for n in G.nodes
-        if "x" in G.nodes[n] and "y" in G.nodes[n]
-    }
-
-    # Initialize current
-    if start_node is not None and start_node in G.nodes:
-        current_node = start_node
-    else:
-        # pick any requirement start node if possible
-        any_req = next(iter(required_reqs.values()))
-        current_node = any_req[0][0]  # u of first option
-
-    # Build start-node counts for early-exit Dijkstra targets
-    req_to_starts: dict[ReqId, list[int]] = {}
-    start_counts: dict[int, int] = {}
-
-    for rid, opts in required_reqs.items():
-        starts = sorted({u for (u, _, _) in opts})
-        req_to_starts[rid] = starts
-        for s in starts:
-            start_counts[s] = start_counts.get(s, 0) + 1
-
+    # Initialize state
+    current_node, node_xy = _initialize_route_state(G, required_reqs, start_node)
+    req_to_starts, start_counts = _build_requirement_indices(required_reqs)
     unvisited: set[ReqId] = set(required_reqs.keys())
 
-    # Stats
+    # Calculate distances
     total_dist = 0.0
-    required_dist = 0.0
+    required_dist = _calculate_required_distance(G, required_reqs)
     deadhead_dist = 0.0
 
-    # Required distance: count each requirement once (best of its options)
-    for _rid, opts in required_reqs.items():
-        best = min((_edge_length_m(G, u, v, k) for (u, v, k) in opts), default=0.0)
-        required_dist += best
-
-    # Component-aware grouping (undirected connectivity on required edges)
-    req_repr_edge: dict[ReqId, EdgeRef] = {}
-    req_graph = nx.Graph()
-    for rid, opts in required_reqs.items():
-        best = min(opts, key=lambda e: _edge_length_m(G, e[0], e[1], e[2]))
-        req_repr_edge[rid] = best
-        req_graph.add_edge(best[0], best[1])
-
-    node_to_comp: dict[int, int] = {}
-    for idx, nodes in enumerate(nx.connected_components(req_graph)):
-        for node in nodes:
-            node_to_comp[node] = idx
-
-    req_to_comp: dict[ReqId, int] = {}
-    comp_to_rids: dict[int, set[ReqId]] = {}
-    for rid, edge in req_repr_edge.items():
-        comp_id = node_to_comp.get(edge[0])
-        if comp_id is None:
-            continue
-        req_to_comp[rid] = comp_id
-        comp_to_rids.setdefault(comp_id, set()).add(rid)
-
-    comp_start_counts: dict[int, dict[int, int]] = {}
-    comp_targets: dict[int, set[int]] = {}
-    for rid, starts in req_to_starts.items():
-        comp_id = req_to_comp.get(rid)
-        if comp_id is None:
-            continue
-        comp_start_counts.setdefault(comp_id, {})
-        for s in starts:
-            comp_start_counts[comp_id][s] = comp_start_counts[comp_id].get(s, 0) + 1
-
-    for comp_id, counts in comp_start_counts.items():
-        comp_targets[comp_id] = set(counts.keys())
-
+    # Build component structure
+    req_to_comp, comp_to_rids, comp_targets = _build_component_structure(
+        G, required_reqs, req_to_starts
+    )
     global_targets: set[int] = set(start_counts.keys())
 
     # Helper to append geometry with stitching

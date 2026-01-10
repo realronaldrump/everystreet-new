@@ -354,7 +354,7 @@ const mapManager = {
   async fitBounds(animate = true) {
     if (!state.map || !state.mapInitialized) return;
 
-    await utils.measurePerformance("fitBounds", async () => {
+    await utils.measurePerformance("fitBounds", () => {
       const bounds = new mapboxgl.LngLatBounds();
       let hasFeatures = false;
 
