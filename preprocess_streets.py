@@ -10,6 +10,7 @@ This script:
     d. Saves the graph as a .graphml file to `data/graphs/{location_id}.graphml`.
 """
 
+import asyncio
 import logging
 import os
 import sys
@@ -107,8 +108,6 @@ async def preprocess_streets(
 
         # Run synchronous ox operations in a thread pool to avoid blocking the event loop
         # distinct from the main thread if running in an async context
-        import asyncio
-
         loop = asyncio.get_running_loop()
 
         def _download_and_save():
@@ -162,8 +161,6 @@ async def preprocess_all_graphs():
 
 
 if __name__ == "__main__":
-    import asyncio
-
     # We need to initialize db_manager or handle the async nature manually.
     # Since db.py exports collections that are already using the global db_manager,
     # and db_manager initializes lazily, we just need to run the async loop.
