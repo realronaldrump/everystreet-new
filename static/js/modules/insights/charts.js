@@ -4,9 +4,9 @@
  * Chart initialization and update logic for the driving insights page
  */
 
-import { getState, getChart, setChart } from "./state.js";
-import { formatHourLabel, formatDate, formatMonth } from "./formatters.js";
+import { formatDate, formatHourLabel, formatMonth } from "./formatters.js";
 import { loadAndShowTripsForTimePeriod } from "./modal.js";
+import { getChart, getState, setChart } from "./state.js";
 
 /**
  * Initialize all charts

@@ -5,12 +5,12 @@
  * Common formatters are imported from the central formatters module.
  */
 
-import { STATUS_COLORS } from "./constants.js";
 import {
   escapeHtml as baseEscapeHtml,
   formatDateTime as baseFormatDateTime,
   formatDurationMs,
 } from "../../modules/formatters.js";
+import { STATUS_COLORS } from "./constants.js";
 
 // Re-export base functions for backward compatibility
 export const escapeHtml = baseEscapeHtml;

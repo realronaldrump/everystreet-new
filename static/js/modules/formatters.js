@@ -86,8 +86,7 @@ export function formatDistance(miles) {
  * @returns {string} Formatted distance (e.g., "1.5 mi" or "500 ft")
  */
 export function distanceInUserUnits(meters, fixed = 2) {
-  const safeMeters =
-    typeof meters === "number" && !Number.isNaN(meters) ? meters : 0;
+  const safeMeters = typeof meters === "number" && !Number.isNaN(meters) ? meters : 0;
   const miles = safeMeters * 0.000621371;
   return miles < 0.1
     ? `${(safeMeters * 3.28084).toFixed(0)} ft`
@@ -226,7 +225,7 @@ export function formatDateTime(isoString) {
 export function formatDateToString(date) {
   if (!date) return null;
   const d = typeof dayjs !== "undefined" ? dayjs(date) : null;
-  if (d && d.isValid()) return d.format("YYYY-MM-DD");
+  if (d?.isValid()) return d.format("YYYY-MM-DD");
 
   // Fallback without dayjs
   const dateObj = date instanceof Date ? date : new Date(date);

@@ -35,31 +35,6 @@ Legacy usage (compatibility):
 # ============================================================================
 # Manager and Core
 # ============================================================================
-from db.manager import DatabaseManager, db_manager
-
-# ============================================================================
-# Beanie Document Models
-# ============================================================================
-from db.models import (
-    ALL_DOCUMENT_MODELS,
-    AppSettings,
-    ArchivedLiveTrip,
-    CoverageMetadata,
-    GasFillup,
-    LiveTrip,
-    MatchedTrip,
-    OptimalRouteProgress,
-    OsmData,
-    Place,
-    ProgressStatus,
-    ServerLog,
-    Street,
-    TaskConfig,
-    TaskHistory,
-    Trip,
-    Vehicle,
-)
-
 # ============================================================================
 # Collection Proxies (Backward Compatibility)
 # ============================================================================
@@ -98,6 +73,30 @@ from db.indexes import (
     ensure_street_coverage_indexes,
     init_database,
     init_task_history_collection,
+)
+from db.manager import DatabaseManager, db_manager
+
+# ============================================================================
+# Beanie Document Models
+# ============================================================================
+from db.models import (
+    ALL_DOCUMENT_MODELS,
+    AppSettings,
+    ArchivedLiveTrip,
+    CoverageMetadata,
+    GasFillup,
+    LiveTrip,
+    MatchedTrip,
+    OptimalRouteProgress,
+    OsmData,
+    Place,
+    ProgressStatus,
+    ServerLog,
+    Street,
+    TaskConfig,
+    TaskHistory,
+    Trip,
+    Vehicle,
 )
 
 # ============================================================================

@@ -4,10 +4,10 @@
  * Handles the trip details modal for the driving insights page
  */
 
-import { fetchTimePeriodTrips } from "./api.js";
-import { getDateRange, formatDuration, formatHourLabel } from "./formatters.js";
-import { showNotification } from "./export.js";
 import { escapeHtml } from "../formatters.js";
+import { fetchTimePeriodTrips } from "./api.js";
+import { showNotification } from "./export.js";
+import { formatDuration, formatHourLabel, getDateRange } from "./formatters.js";
 
 /**
  * Load and display trips for a specific time period

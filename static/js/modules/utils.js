@@ -6,24 +6,24 @@
  * Formatters are imported from the consolidated formatters.js module.
  */
 import { CONFIG } from "./config.js";
-import state from "./state.js";
 import {
   escapeHtml,
-  formatNumber,
+  formatDateTime,
   formatDistance,
   formatDuration,
-  formatDateTime,
+  formatNumber,
   formatVehicleName,
   sanitizeLocation,
 } from "./formatters.js";
+import state from "./state.js";
 
 // Re-export formatters for convenience
 export {
   escapeHtml,
-  formatNumber,
+  formatDateTime,
   formatDistance,
   formatDuration,
-  formatDateTime,
+  formatNumber,
   formatVehicleName,
   sanitizeLocation,
 } from "./formatters.js";

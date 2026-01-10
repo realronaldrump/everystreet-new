@@ -4,8 +4,8 @@
  * Handles table rendering and DataTables initialization for the driving insights page
  */
 
+import { formatDuration, formatMonth, formatWeekRange } from "./formatters.js";
 import { getState } from "./state.js";
-import { formatDuration, formatWeekRange, formatMonth } from "./formatters.js";
 
 /**
  * Update all tables with current data

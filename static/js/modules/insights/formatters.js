@@ -5,11 +5,11 @@
  * Common formatters are imported from the central formatters module.
  */
 import {
-  formatDateToString,
-  formatWeekRange,
-  formatMonth,
   formatDuration as baseDuration,
+  formatDateToString,
   formatHourLabel,
+  formatMonth,
+  formatWeekRange,
 } from "../formatters.js";
 import { getStorage } from "../utils.js";
 

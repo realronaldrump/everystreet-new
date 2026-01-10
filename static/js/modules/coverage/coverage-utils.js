@@ -5,8 +5,8 @@
  * Common formatters are now imported from the central formatters module.
  */
 import {
-  formatRelativeTime,
   distanceInUserUnits,
+  formatRelativeTime,
   formatStreetType,
 } from "../formatters.js";
 
