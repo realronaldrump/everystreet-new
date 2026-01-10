@@ -23,7 +23,7 @@ class TurnByTurnMap {
 
     // Accessibility
     this.prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
+      "(prefers-reduced-motion: reduce)",
     ).matches;
   }
 
@@ -113,7 +113,7 @@ class TurnByTurnMap {
           if (
             currentStyle &&
             !currentStyle.sprite?.includes(
-              newStyle.split("/").pop()?.replace("-v11", "")
+              newStyle.split("/").pop()?.replace("-v11", ""),
             )
           ) {
             this.map.once("styledata", () => {
@@ -138,11 +138,17 @@ class TurnByTurnMap {
     // === COVERAGE SEGMENT LAYERS ===
 
     if (!this.map.getSource("coverage-undriven")) {
-      this.map.addSource("coverage-undriven", { type: "geojson", data: emptyGeoJSON });
+      this.map.addSource("coverage-undriven", {
+        type: "geojson",
+        data: emptyGeoJSON,
+      });
     }
 
     if (!this.map.getSource("coverage-driven")) {
-      this.map.addSource("coverage-driven", { type: "geojson", data: emptyGeoJSON });
+      this.map.addSource("coverage-driven", {
+        type: "geojson",
+        data: emptyGeoJSON,
+      });
     }
 
     if (!this.map.getSource("coverage-just-driven")) {
@@ -220,11 +226,17 @@ class TurnByTurnMap {
     }
 
     if (!this.map.getSource("nav-route-progress")) {
-      this.map.addSource("nav-route-progress", { type: "geojson", data: emptyGeoJSON });
+      this.map.addSource("nav-route-progress", {
+        type: "geojson",
+        data: emptyGeoJSON,
+      });
     }
 
     if (!this.map.getSource("nav-to-start")) {
-      this.map.addSource("nav-to-start", { type: "geojson", data: emptyGeoJSON });
+      this.map.addSource("nav-to-start", {
+        type: "geojson",
+        data: emptyGeoJSON,
+      });
     }
 
     const isLightMode = document.body.classList.contains("light-mode");
@@ -349,7 +361,11 @@ class TurnByTurnMap {
    * @param {Array} undrivenFeatures
    * @param {Array} justDrivenFeatures
    */
-  updateCoverageMapLayers(drivenFeatures, undrivenFeatures, justDrivenFeatures) {
+  updateCoverageMapLayers(
+    drivenFeatures,
+    undrivenFeatures,
+    justDrivenFeatures,
+  ) {
     if (!this.map) return;
 
     const drivenSource = this.map.getSource("coverage-driven");
@@ -357,10 +373,16 @@ class TurnByTurnMap {
     const justDrivenSource = this.map.getSource("coverage-just-driven");
 
     if (drivenSource) {
-      drivenSource.setData({ type: "FeatureCollection", features: drivenFeatures });
+      drivenSource.setData({
+        type: "FeatureCollection",
+        features: drivenFeatures,
+      });
     }
     if (undrivenSource) {
-      undrivenSource.setData({ type: "FeatureCollection", features: undrivenFeatures });
+      undrivenSource.setData({
+        type: "FeatureCollection",
+        features: undrivenFeatures,
+      });
     }
     if (justDrivenSource) {
       justDrivenSource.setData({
@@ -418,7 +440,8 @@ class TurnByTurnMap {
     // End marker
     const endEl = document.createElement("div");
     endEl.className = "nav-end-marker";
-    endEl.innerHTML = '<i class="fas fa-flag-checkered" aria-hidden="true"></i>';
+    endEl.innerHTML =
+      '<i class="fas fa-flag-checkered" aria-hidden="true"></i>';
     this.endMarker = new mapboxgl.Marker({ element: endEl })
       .setLngLat(endCoord)
       .addTo(this.map);
@@ -434,7 +457,8 @@ class TurnByTurnMap {
     if (!this.positionMarker) {
       const markerEl = document.createElement("div");
       markerEl.className = "nav-position-marker";
-      markerEl.innerHTML = '<i class="fas fa-location-arrow" aria-hidden="true"></i>';
+      markerEl.innerHTML =
+        '<i class="fas fa-location-arrow" aria-hidden="true"></i>';
       this.positionMarker = new mapboxgl.Marker({
         element: markerEl,
         rotationAlignment: "map",
@@ -465,7 +489,7 @@ class TurnByTurnMap {
 
     const bounds = coords.reduce(
       (b, coord) => b.extend(coord),
-      new mapboxgl.LngLatBounds(coords[0], coords[0])
+      new mapboxgl.LngLatBounds(coords[0], coords[0]),
     );
 
     this.map.fitBounds(bounds, {

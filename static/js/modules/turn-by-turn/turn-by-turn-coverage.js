@@ -115,7 +115,10 @@ class TurnByTurnCoverage {
       if (!feature) continue;
 
       // Check if current position is close to this segment
-      const distance = distanceToLineString(current, feature.geometry.coordinates);
+      const distance = distanceToLineString(
+        current,
+        feature.geometry.coordinates,
+      );
 
       if (distance <= this.config.segmentMatchThresholdMeters) {
         newlyDriven.push(segmentId);
@@ -270,13 +273,17 @@ class TurnByTurnCoverage {
    * Persist driven segments to server
    */
   async persistDrivenSegments() {
-    if (!this.pendingSegmentUpdates || this.pendingSegmentUpdates.size === 0) return;
+    if (!this.pendingSegmentUpdates || this.pendingSegmentUpdates.size === 0)
+      return;
 
     const segmentIds = Array.from(this.pendingSegmentUpdates);
     this.pendingSegmentUpdates.clear();
 
     try {
-      await TurnByTurnAPI.persistDrivenSegments(segmentIds, this.selectedAreaId);
+      await TurnByTurnAPI.persistDrivenSegments(
+        segmentIds,
+        this.selectedAreaId,
+      );
     } catch {
       // Re-queue failed segments
       for (const id of segmentIds) {

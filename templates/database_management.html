@@ -11,9 +11,7 @@ block content %}
     <div class="card-body">
       <div class="row">
         <div class="col-md-6">
-          <p class="storage-text">
-            Using {{ storage_used_mb }}MB
-          </p>
+          <p class="storage-text">Using {{ storage_used_mb }}MB</p>
         </div>
         <div class="col-md-6">
           <button id="refresh-storage" class="btn btn-primary mb-2">
@@ -31,7 +29,10 @@ block content %}
     </div>
     <div class="card-body">
       <div class="table-responsive-lg">
-        <table class="table table-striped table-hover w-100" id="collections-table">
+        <table
+          class="table table-striped table-hover w-100"
+          id="collections-table"
+        >
           <thead>
             <tr>
               <th data-sort="name" style="cursor: pointer">
@@ -49,9 +50,15 @@ block content %}
           <tbody>
             {% for collection in collections %}
             <tr>
-              <td data-value="{{ collection.name }}" class="fw-medium">{{ collection.name }}</td>
-              <td data-value="{{ collection.document_count }}">{{ collection.document_count }}</td>
-              <td data-value="{{ collection.size_mb }}">{{ "%.2f"|format(collection.size_mb) }}</td>
+              <td data-value="{{ collection.name }}" class="fw-medium">
+                {{ collection.name }}
+              </td>
+              <td data-value="{{ collection.document_count }}">
+                {{ collection.document_count }}
+              </td>
+              <td data-value="{{ collection.size_mb }}">
+                {{ "%.2f"|format(collection.size_mb) }}
+              </td>
               <td>
                 <div class="btn-group btn-group-sm">
                   <button

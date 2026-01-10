@@ -39,7 +39,11 @@
 
   <!-- Map Control Buttons -->
   <div class="nav-controls">
-    <button class="nav-control-btn" id="nav-overview-btn" title="Route overview">
+    <button
+      class="nav-control-btn"
+      id="nav-overview-btn"
+      title="Route overview"
+    >
       <i class="fas fa-route" aria-hidden="true"></i>
     </button>
     <button class="nav-control-btn" id="nav-recenter-btn" title="Recenter">
@@ -70,17 +74,22 @@
         <div class="nav-progress-item">
           <div class="progress-header">
             <span class="progress-label">Area Coverage</span>
-            <span class="progress-value" id="nav-coverage-progress-value">0%</span>
+            <span class="progress-value" id="nav-coverage-progress-value"
+              >0%</span
+            >
           </div>
           <div class="nav-progress-bar coverage">
-            <div class="nav-progress-fill-baseline" id="nav-coverage-baseline"></div>
+            <div
+              class="nav-progress-fill-baseline"
+              id="nav-coverage-baseline"
+            ></div>
             <div class="nav-progress-fill-live" id="nav-coverage-live"></div>
           </div>
         </div>
       </div>
 
       <!-- Legacy progress (hidden, for compatibility) -->
-      <div class="nav-progress" style="display: none;">
+      <div class="nav-progress" style="display: none">
         <div class="nav-progress-bar">
           <div class="nav-progress-fill" id="nav-progress-fill"></div>
         </div>
@@ -111,9 +120,7 @@
         <div class="nav-status" id="nav-status" aria-live="polite">
           Waiting for route
         </div>
-        <button class="nav-end-btn" id="nav-end-btn" type="button">
-          End
-        </button>
+        <button class="nav-end-btn" id="nav-end-btn" type="button">End</button>
       </div>
     </div>
   </div>
@@ -161,7 +168,12 @@
 
       <!-- Preview Actions - single row -->
       <div class="nav-preview-actions">
-        <button class="nav-primary-btn secondary" id="nav-start-from-here" type="button" hidden>
+        <button
+          class="nav-primary-btn secondary"
+          id="nav-start-from-here"
+          type="button"
+          hidden
+        >
           <i class="fas fa-directions" aria-hidden="true"></i>
           <span>Navigate to Start</span>
         </button>
@@ -186,7 +198,11 @@
     </div>
     <div class="nav-resume-distance" id="resume-distance-text">--</div>
     <div class="nav-resume-actions">
-      <button class="nav-primary-btn secondary" id="nav-dismiss-resume" type="button">
+      <button
+        class="nav-primary-btn secondary"
+        id="nav-dismiss-resume"
+        type="button"
+      >
         Stay Off Route
       </button>
       <button class="nav-primary-btn" id="nav-resume-btn" type="button">
@@ -209,11 +225,21 @@
         <option value="">Select a coverage area...</option>
       </select>
       <div class="nav-setup-actions">
-        <button class="nav-primary-btn secondary" id="nav-load-route-btn" type="button" disabled>
+        <button
+          class="nav-primary-btn secondary"
+          id="nav-load-route-btn"
+          type="button"
+          disabled
+        >
           <i class="fas fa-map" aria-hidden="true"></i>
           Load Route
         </button>
-        <button class="nav-primary-btn" id="nav-start-btn" type="button" disabled>
+        <button
+          class="nav-primary-btn"
+          id="nav-start-btn"
+          type="button"
+          disabled
+        >
           <i class="fas fa-play" aria-hidden="true"></i>
           Start
         </button>
