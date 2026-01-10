@@ -538,7 +538,8 @@ class CoverageUI {
       statusInfo,
       progressBarColor,
       locationId,
-      formatStageName
+      formatStageName,
+      formatRelativeTime
     );
 
     return row;
@@ -620,7 +621,8 @@ class CoverageUI {
     statusInfo,
     progressBarColor,
     locationId,
-    formatStageName
+    formatStageName,
+    formatRelativeTime
   ) {
     const locationButtonData = JSON.stringify({
       display_name: area.location?.display_name || "",
