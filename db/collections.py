@@ -113,3 +113,8 @@ optimal_route_progress_collection = get_collection("optimal_route_progress")
 # Gas tracking
 gas_fillups_collection = get_collection("gas_fillups")
 vehicles_collection = get_collection("vehicles")
+app_settings_collection = get_collection("app_settings")
+bouncie_credentials_collection = get_collection("bouncie_credentials")
+server_logs_collection = get_collection("server_logs")
+county_visited_cache_collection = get_collection("county_visited_cache")
+county_topology_collection = get_collection("county_topology")

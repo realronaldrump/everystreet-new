@@ -94,3 +94,35 @@ def json_dumps(data: Any, **kwargs: Any) -> str:
         >>> json_str = json_dumps(doc, indent=2)
     """
     return json.dumps(serialize_for_json(data), **kwargs)
+
+
+def safe_float(value: Any, default: float = 0.0) -> float:
+    """Safely cast values to float, returning a fallback on failure.
+
+    Args:
+        value: The value to convert.
+        default: The default value to return if conversion fails.
+
+    Returns:
+        The converted float or the default value.
+    """
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def safe_int(value: Any, default: int = 0) -> int:
+    """Safely cast values to int, returning a fallback on failure.
+
+    Args:
+        value: The value to convert.
+        default: The default value to return if conversion fails.
+
+    Returns:
+        The converted int or the default value.
+    """
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
