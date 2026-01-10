@@ -318,6 +318,9 @@
               e.preventDefault();
               document.getElementById("zoom-to-fit")?.click();
               break;
+            default:
+              // Other keys - no action needed
+              break;
           }
         }
       });

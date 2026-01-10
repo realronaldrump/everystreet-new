@@ -806,8 +806,6 @@ class OptimalRoutesManager {
           console.warn("No workers available:", workerStatus);
         } else if (workerStatus.status === "error") {
           console.warn("Worker status check failed:", workerStatus.message);
-        } else {
-
         }
       } catch (workerError) {
         console.warn("Could not check worker status:", workerError);
@@ -1464,8 +1462,6 @@ class OptimalRoutesManager {
     // Use the global notification manager if available
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
-    } else {
-
     }
   }
 }

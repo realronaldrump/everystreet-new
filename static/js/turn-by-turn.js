@@ -1035,6 +1035,10 @@ class TurnByTurnNavigator {
       case NAV_STATES.ARRIVED:
         this.showArrivedUI();
         break;
+
+      default:
+        console.warn(`Unknown navigation state: ${state}`);
+        break;
     }
   }
 

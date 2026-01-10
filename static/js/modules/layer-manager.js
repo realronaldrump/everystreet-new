@@ -372,55 +372,67 @@ const layerManager = {
     if (loadingEl) loadingEl.classList.remove("d-none");
 
     if (visible) {
-      if (name === "matchedTrips" && !layerInfo.layer) {
-        await dataManager.fetchMatchedTrips();
-      } else if (name === "undrivenStreets" && !state.undrivenStreetsLoaded) {
-        await dataManager.fetchUndrivenStreets();
-      } else if (name === "drivenStreets" && !state.drivenStreetsLoaded) {
-        await dataManager.fetchDrivenStreets();
-      } else if (name === "allStreets" && !state.allStreetsLoaded) {
-        await dataManager.fetchAllStreets();
-      }
+      await this._loadLayerDataIfNeeded(name, layerInfo);
     }
 
-    // Handle heatmap layers (2 stacked glow layers)
     if (layerInfo.isHeatmap) {
-      const firstGlowLayer = `${name}-layer-0`;
-      if (state.map?.getLayer(firstGlowLayer)) {
-        for (let i = 0; i < 2; i++) {
-          const glowLayerId = `${name}-layer-${i}`;
-          if (state.map.getLayer(glowLayerId)) {
-            state.map.setLayoutProperty(
-              glowLayerId,
-              "visibility",
-              visible ? "visible" : "none"
-            );
-          }
-        }
-        if (visible) {
-          this._scheduleHeatmapRefresh(name);
-        }
-      } else if (visible && layerInfo.layer) {
-        await this.updateMapLayer(name, layerInfo.layer);
+      await this._toggleHeatmapLayer(name, layerInfo, visible);
+    } else {
+      await this._toggleStandardLayer(name, layerInfo, visible);
+    }
+
+    if (loadingEl) loadingEl.classList.add("d-none");
+  },
+
+  async _loadLayerDataIfNeeded(name, layerInfo) {
+    if (name === "matchedTrips" && !layerInfo.layer) {
+      await dataManager.fetchMatchedTrips();
+    } else if (name === "undrivenStreets" && !state.undrivenStreetsLoaded) {
+      await dataManager.fetchUndrivenStreets();
+    } else if (name === "drivenStreets" && !state.drivenStreetsLoaded) {
+      await dataManager.fetchDrivenStreets();
+    } else if (name === "allStreets" && !state.allStreetsLoaded) {
+      await dataManager.fetchAllStreets();
+    }
+  },
+
+  async _toggleHeatmapLayer(name, layerInfo, visible) {
+    const firstGlowLayer = `${name}-layer-0`;
+    if (state.map?.getLayer(firstGlowLayer)) {
+      this._updateHeatmapLayersVisibility(name, visible);
+      if (visible) {
+        this._scheduleHeatmapRefresh(name);
       }
-      const hitboxLayerId = `${name}-hitbox`;
-      if (state.map?.getLayer(hitboxLayerId)) {
+    } else if (visible && layerInfo.layer) {
+      await this.updateMapLayer(name, layerInfo.layer);
+    }
+    this._updateHitboxVisibility(name, visible);
+  },
+
+  _updateHeatmapLayersVisibility(name, visible) {
+    for (let i = 0; i < 2; i++) {
+      const glowLayerId = `${name}-layer-${i}`;
+      if (state.map.getLayer(glowLayerId)) {
         state.map.setLayoutProperty(
-          hitboxLayerId,
+          glowLayerId,
           "visibility",
           visible ? "visible" : "none"
         );
       }
-      if (loadingEl) loadingEl.classList.add("d-none");
-      return;
     }
+  },
 
+  async _toggleStandardLayer(name, layerInfo, visible) {
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
       state.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
     } else if (visible && layerInfo.layer) {
       await this.updateMapLayer(name, layerInfo.layer);
     }
+    this._updateHitboxVisibility(name, visible);
+  },
+
+  _updateHitboxVisibility(name, visible) {
     const hitboxLayerId = `${name}-hitbox`;
     if (state.map?.getLayer(hitboxLayerId)) {
       state.map.setLayoutProperty(
@@ -429,8 +441,6 @@ const layerManager = {
         visible ? "visible" : "none"
       );
     }
-
-    if (loadingEl) loadingEl.classList.add("d-none");
   },
 
   updateLayerStyle(name, property, value) {

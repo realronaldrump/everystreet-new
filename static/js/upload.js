@@ -563,15 +563,15 @@ class UploadManager {
 
     if (features.length > 0) {
       try {
-        const bounds = features.reduce((bounds, feature) => {
+        const previewBounds = features.reduce((accBounds, feature) => {
           const coords = feature.geometry.coordinates;
           coords.forEach(([lng, lat]) => {
-            bounds.extend([lng, lat]);
+            accBounds.extend([lng, lat]);
           });
-          return bounds;
+          return accBounds;
         }, new mapboxgl.LngLatBounds());
 
-        previewMap.fitBounds(bounds, {
+        previewMap.fitBounds(previewBounds, {
           padding: 50,
           maxZoom: 15,
         });

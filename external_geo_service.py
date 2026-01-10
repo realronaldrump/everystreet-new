@@ -424,57 +424,14 @@ class ExternalGeoService:
         Returns:
             Map matching result dictionary
         """
-
         async def call_mapbox_api(
             coords: list[list[float]],
             timestamps_chunk: list[int | None] | None = None,
         ) -> dict[str, Any]:
             """Call Mapbox Map Matching API using POST."""
-            base_url = "https://api.mapbox.com/matching/v5/mapbox/driving"
-
-            coordinates_data = []
-            for i, (lon, lat) in enumerate(coords):
-                coord = [lon, lat]
-                if (
-                    timestamps_chunk
-                    and i < len(timestamps_chunk)
-                    and timestamps_chunk[i] is not None
-                ):
-                    coord.append(timestamps_chunk[i])
-                coordinates_data.append(coord)
-
-            # Calculate adaptive radiuses
-            radiuses = []
-            for i, coord in enumerate(coords):
-                if (
-                    timestamps_chunk
-                    and i > 0
-                    and timestamps_chunk[i]
-                    and timestamps_chunk[i - 1]
-                ):
-                    time_diff = abs(timestamps_chunk[i] - timestamps_chunk[i - 1])
-                    if time_diff > 0:
-                        radiuses.append(50)
-                    else:
-                        radiuses.append(25)
-                else:
-                    if i > 0:
-                        prev_coord = coords[i - 1]
-                        distance = GeometryService.haversine_distance(
-                            prev_coord[0],
-                            prev_coord[1],
-                            coord[0],
-                            coord[1],
-                            unit="meters",
-                        )
-                        radiuses.append(50 if distance > 100 else 25)
-                    else:
-                        radiuses.append(25)
-
-            request_body = {
-                "coordinates": coordinates_data,
-                "radiuses": radiuses,
-            }
+            coordinates_data = self._build_coordinates_data(coords, timestamps_chunk)
+            radiuses = self._calculate_adaptive_radiuses(coords, timestamps_chunk)
+            request_body = {"coordinates": coordinates_data, "radiuses": radiuses}
 
             params = {
                 "access_token": self.mapbox_token,
@@ -484,62 +441,7 @@ class ExternalGeoService:
                 "steps": "false",
             }
 
-            max_attempts = 5
-            min_backoff = 2
-
-            async with map_match_semaphore:
-                for attempt in range(1, max_attempts + 1):
-                    async with mapbox_rate_limiter:
-                        pass
-
-                    try:
-                        async with session.post(
-                            base_url, params=params, json=request_body
-                        ) as response:
-                            if response.status == 429:
-                                retry_after = response.headers.get("Retry-After")
-                                wait = (
-                                    float(retry_after)
-                                    if retry_after
-                                    else min_backoff * (2 ** (attempt - 1))
-                                )
-                                if attempt < max_attempts:
-                                    await asyncio.sleep(wait)
-                                    continue
-                                return {
-                                    "code": "Error",
-                                    "message": "Too Many Requests (exceeded max attempts)",
-                                }
-
-                            if 400 <= response.status < 500:
-                                error_text = await response.text()
-                                return {
-                                    "code": "Error",
-                                    "message": f"Mapbox API error: {response.status}",
-                                    "details": error_text,
-                                }
-
-                            if response.status >= 500:
-                                if attempt < max_attempts:
-                                    await asyncio.sleep(
-                                        min_backoff * (2 ** (attempt - 1))
-                                    )
-                                    continue
-                                return {
-                                    "code": "Error",
-                                    "message": f"Mapbox server error: {response.status}",
-                                }
-
-                            response.raise_for_status()
-                            return await response.json()
-
-                    except Exception as e:
-                        if attempt < max_attempts:
-                            await asyncio.sleep(min_backoff * (2 ** (attempt - 1)))
-                            continue
-                        return {"code": "Error", "message": f"Mapbox API error: {e!s}"}
-
-                return {"code": "Error", "message": "All retry attempts failed"}
+            return await self._execute_mapbox_request(session, params, request_body)
 
         async def match_chunk(
             chunk_coords: list[list[float]],
@@ -547,54 +449,268 @@ class ExternalGeoService:
             depth: int = 0,
         ) -> list[list[float]] | None:
             """Match a chunk of coordinates."""
-            if len(chunk_coords) < 2:
-                return []
-            if len(chunk_coords) > 100:
-                logger.error("match_chunk received >100 coords unexpectedly.")
-                return []
+            if not self._is_valid_chunk(chunk_coords):
+                return [] if len(chunk_coords) < 2 else []
 
-            try:
-                data = await call_mapbox_api(chunk_coords, chunk_timestamps)
-                if data.get("code") == "Ok" and data.get("matchings"):
-                    return data["matchings"][0]["geometry"]["coordinates"]
+            matched_coords = await self._try_match_chunk(
+                chunk_coords, chunk_timestamps, call_mapbox_api
+            )
+            if matched_coords is not None:
+                return matched_coords
 
-                msg = data.get("message", "Mapbox API error (code != Ok)")
-                logger.warning("Mapbox chunk error: %s", msg)
-
-                if "invalid coordinates" in msg.lower():
-                    filtered = [
-                        c
-                        for c in chunk_coords
-                        if GeometryService.validate_coordinate_pair(c)[0]
-                    ]
-                    if len(filtered) >= 2 and len(filtered) < len(chunk_coords):
-                        return await match_chunk(filtered, None, depth)
-
-            except Exception as exc:
-                logger.warning("Unexpected error in mapbox chunk: %s", str(exc))
-
+            # Try recursive splitting if allowed
             if depth < max_retries and len(chunk_coords) > min_sub_chunk:
-                mid = len(chunk_coords) // 2
-                first_ts = chunk_timestamps[:mid] if chunk_timestamps else None
-                second_ts = chunk_timestamps[mid:] if chunk_timestamps else None
-                matched_first = await match_chunk(
-                    chunk_coords[:mid], first_ts, depth + 1
+                return await self._match_chunk_recursive(
+                    chunk_coords, chunk_timestamps, depth, match_chunk
                 )
-                matched_second = await match_chunk(
-                    chunk_coords[mid:], second_ts, depth + 1
-                )
-                if matched_first is not None and matched_second is not None:
-                    if (
-                        matched_first
-                        and matched_second
-                        and matched_first[-1] == matched_second[0]
-                    ):
-                        matched_second = matched_second[1:]
-                    return matched_first + matched_second
 
             return None
 
-        # Split into chunks
+        # Split coordinates into chunks
+        chunk_indices = self._create_chunk_indices(coordinates, chunk_size, overlap)
+        logger.info("Splitting %d coords into %d chunks", len(coordinates), len(chunk_indices))
+
+        # Process chunks and stitch results
+        final_matched = await self._process_and_stitch_chunks(
+            coordinates, all_timestamps, chunk_indices, match_chunk
+        )
+        if isinstance(final_matched, dict):  # Error dict
+            return final_matched
+
+        # Detect and fix jumps
+        final_matched = await self._fix_route_jumps(
+            final_matched, jump_threshold_m, match_chunk
+        )
+
+        logger.info("Final matched coords: %d points", len(final_matched))
+
+        return self._create_matching_result(final_matched)
+
+    def _build_coordinates_data(
+        self,
+        coords: list[list[float]],
+        timestamps_chunk: list[int | None] | None,
+    ) -> list[list[float | int]]:
+        """Build coordinate data with optional timestamps."""
+        coordinates_data = []
+        for i, (lon, lat) in enumerate(coords):
+            coord = [lon, lat]
+            if (
+                timestamps_chunk
+                and i < len(timestamps_chunk)
+                and timestamps_chunk[i] is not None
+            ):
+                coord.append(timestamps_chunk[i])
+            coordinates_data.append(coord)
+        return coordinates_data
+
+    def _calculate_adaptive_radiuses(
+        self,
+        coords: list[list[float]],
+        timestamps_chunk: list[int | None] | None,
+    ) -> list[int]:
+        """Calculate adaptive radiuses based on timestamps and distances."""
+        radiuses = []
+        for i, coord in enumerate(coords):
+            if i == 0:
+                radiuses.append(25)
+                continue
+
+            # Try timestamp-based radius first
+            if self._has_valid_timestamps(timestamps_chunk, i):
+                time_diff = abs(timestamps_chunk[i] - timestamps_chunk[i - 1])
+                radiuses.append(50 if time_diff > 0 else 25)
+            else:
+                # Fallback to distance-based radius
+                prev_coord = coords[i - 1]
+                distance = GeometryService.haversine_distance(
+                    prev_coord[0], prev_coord[1], coord[0], coord[1], unit="meters"
+                )
+                radiuses.append(50 if distance > 100 else 25)
+
+        return radiuses
+
+    @staticmethod
+    def _has_valid_timestamps(timestamps_chunk: list[int | None] | None, index: int) -> bool:
+        """Check if valid timestamps exist for current and previous index."""
+        return (
+            timestamps_chunk is not None
+            and index > 0
+            and timestamps_chunk[index] is not None
+            and timestamps_chunk[index - 1] is not None
+        )
+
+    async def _execute_mapbox_request(
+        self,
+        session: aiohttp.ClientSession,
+        params: dict,
+        request_body: dict,
+    ) -> dict[str, Any]:
+        """Execute Mapbox API request with retries."""
+        base_url = "https://api.mapbox.com/matching/v5/mapbox/driving"
+        max_attempts = 5
+        min_backoff = 2
+
+        async with map_match_semaphore:
+            for attempt in range(1, max_attempts + 1):
+                async with mapbox_rate_limiter:
+                    pass
+
+                try:
+                    async with session.post(
+                        base_url, params=params, json=request_body
+                    ) as response:
+                        result = await self._handle_mapbox_response(
+                            response, attempt, max_attempts, min_backoff
+                        )
+                        if result is not None:
+                            return result
+                except Exception as e:
+                    if attempt < max_attempts:
+                        await asyncio.sleep(min_backoff * (2 ** (attempt - 1)))
+                        continue
+                    return {"code": "Error", "message": f"Mapbox API error: {e!s}"}
+
+            return {"code": "Error", "message": "All retry attempts failed"}
+
+    async def _handle_mapbox_response(
+        self,
+        response: aiohttp.ClientResponse,
+        attempt: int,
+        max_attempts: int,
+        min_backoff: int,
+    ) -> dict[str, Any] | None:
+        """Handle different response status codes from Mapbox API."""
+        if response.status == 429:
+            return await self._handle_rate_limit(response, attempt, max_attempts, min_backoff)
+
+        if 400 <= response.status < 500:
+            error_text = await response.text()
+            return {
+                "code": "Error",
+                "message": f"Mapbox API error: {response.status}",
+                "details": error_text,
+            }
+
+        if response.status >= 500:
+            if attempt < max_attempts:
+                await asyncio.sleep(min_backoff * (2 ** (attempt - 1)))
+                return None
+            return {
+                "code": "Error",
+                "message": f"Mapbox server error: {response.status}",
+            }
+
+        response.raise_for_status()
+        return await response.json()
+
+    async def _handle_rate_limit(
+        self,
+        response: aiohttp.ClientResponse,
+        attempt: int,
+        max_attempts: int,
+        min_backoff: int,
+    ) -> dict[str, Any] | None:
+        """Handle rate limit responses."""
+        retry_after = response.headers.get("Retry-After")
+        wait = (
+            float(retry_after)
+            if retry_after
+            else min_backoff * (2 ** (attempt - 1))
+        )
+        if attempt < max_attempts:
+            await asyncio.sleep(wait)
+            return None
+        return {
+            "code": "Error",
+            "message": "Too Many Requests (exceeded max attempts)",
+        }
+
+    @staticmethod
+    def _is_valid_chunk(chunk_coords: list[list[float]]) -> bool:
+        """Validate chunk size."""
+        if len(chunk_coords) < 2:
+            return False
+        if len(chunk_coords) > 100:
+            logger.error("match_chunk received >100 coords unexpectedly.")
+            return False
+        return True
+
+    async def _try_match_chunk(
+        self,
+        chunk_coords: list[list[float]],
+        chunk_timestamps: list[int | None] | None,
+        call_mapbox_api,
+    ) -> list[list[float]] | None:
+        """Try to match a chunk using Mapbox API."""
+        try:
+            data = await call_mapbox_api(chunk_coords, chunk_timestamps)
+            if data.get("code") == "Ok" and data.get("matchings"):
+                return data["matchings"][0]["geometry"]["coordinates"]
+
+            msg = data.get("message", "Mapbox API error (code != Ok)")
+            logger.warning("Mapbox chunk error: %s", msg)
+
+            # Try filtering invalid coordinates
+            if "invalid coordinates" in msg.lower():
+                return await self._retry_with_filtered_coords(chunk_coords, call_mapbox_api)
+
+        except Exception as exc:
+            logger.warning("Unexpected error in mapbox chunk: %s", str(exc))
+
+        return None
+
+    async def _retry_with_filtered_coords(
+        self,
+        chunk_coords: list[list[float]],
+        call_mapbox_api,
+    ) -> list[list[float]] | None:
+        """Retry matching after filtering invalid coordinates."""
+        filtered = [
+            c
+            for c in chunk_coords
+            if GeometryService.validate_coordinate_pair(c)[0]
+        ]
+        if len(filtered) >= 2 and len(filtered) < len(chunk_coords):
+            # Recursively try with filtered coords (depth doesn't increment for this)
+            result = await self._try_match_chunk(filtered, None, call_mapbox_api)
+            return result
+        return None
+
+    async def _match_chunk_recursive(
+        self,
+        chunk_coords: list[list[float]],
+        chunk_timestamps: list[int | None] | None,
+        depth: int,
+        match_chunk,
+    ) -> list[list[float]] | None:
+        """Recursively split and match chunks."""
+        mid = len(chunk_coords) // 2
+        first_ts = chunk_timestamps[:mid] if chunk_timestamps else None
+        second_ts = chunk_timestamps[mid:] if chunk_timestamps else None
+
+        matched_first = await match_chunk(chunk_coords[:mid], first_ts, depth + 1)
+        matched_second = await match_chunk(chunk_coords[mid:], second_ts, depth + 1)
+
+        if matched_first is not None and matched_second is not None:
+            # Remove duplicate point at junction
+            if (
+                matched_first
+                and matched_second
+                and matched_first[-1] == matched_second[0]
+            ):
+                matched_second = matched_second[1:]
+            return matched_first + matched_second
+
+        return None
+
+    @staticmethod
+    def _create_chunk_indices(
+        coordinates: list[list[float]],
+        chunk_size: int,
+        overlap: int,
+    ) -> list[tuple[int, int]]:
+        """Create chunk indices with overlap."""
         n = len(coordinates)
         chunk_indices = []
         start_idx = 0
@@ -604,11 +720,18 @@ class ExternalGeoService:
             if end_idx == n:
                 break
             start_idx = end_idx - overlap
+        return chunk_indices
 
-        logger.info("Splitting %d coords into %d chunks", n, len(chunk_indices))
-
-        # Process chunks
+    async def _process_and_stitch_chunks(
+        self,
+        coordinates: list[list[float]],
+        all_timestamps: list[int | None] | None,
+        chunk_indices: list[tuple[int, int]],
+        match_chunk,
+    ) -> list[list[float]] | dict[str, Any]:
+        """Process all chunks and stitch them together."""
         final_matched: list[list[float]] = []
+
         for idx, (start_i, end_i) in enumerate(chunk_indices, 1):
             chunk_coords = coordinates[start_i:end_i]
             chunk_ts = (
@@ -627,49 +750,75 @@ class ExternalGeoService:
             if not final_matched:
                 final_matched = result
             else:
+                # Remove duplicate point at junction
                 if final_matched[-1] == result[0]:
                     result = result[1:]
                 final_matched.extend(result)
 
-        # Detect and fix jumps
-        def detect_jumps(coords: list[list[float]], threshold: float) -> list[int]:
-            suspicious = []
-            for i in range(len(coords) - 1):
-                dist = GeometryService.haversine_distance(
-                    coords[i][0],
-                    coords[i][1],
-                    coords[i + 1][0],
-                    coords[i + 1][1],
-                    unit="meters",
-                )
-                if dist > threshold:
-                    suspicious.append(i)
-            return suspicious
+        return final_matched
 
+    async def _fix_route_jumps(
+        self,
+        coords: list[list[float]],
+        threshold_m: float,
+        match_chunk,
+    ) -> list[list[float]]:
+        """Detect and fix jumps in the route."""
         for _ in range(2):
-            jumps = detect_jumps(final_matched, jump_threshold_m)
+            jumps = self._detect_jumps(coords, threshold_m)
             if not jumps:
                 break
 
-            new_coords = final_matched[:]
-            offset = 0
-            for j_idx in jumps:
-                i = j_idx + offset
-                if i < 1 or i >= len(new_coords) - 1:
-                    continue
-                sub_coords = new_coords[i - 1 : i + 2]
-                if len(sub_coords) < 2:
-                    continue
-                local_match = await match_chunk(sub_coords, None, depth=0)
-                if local_match and len(local_match) >= 2:
-                    new_coords = new_coords[: i - 1] + local_match + new_coords[i + 2 :]
-                    offset += len(local_match) - 3
-            final_matched = new_coords
+            coords = await self._repair_jumps(coords, jumps, match_chunk)
 
-        logger.info("Final matched coords: %d points", len(final_matched))
+        return coords
 
+    @staticmethod
+    def _detect_jumps(coords: list[list[float]], threshold: float) -> list[int]:
+        """Detect jumps larger than threshold in the route."""
+        suspicious = []
+        for i in range(len(coords) - 1):
+            dist = GeometryService.haversine_distance(
+                coords[i][0],
+                coords[i][1],
+                coords[i + 1][0],
+                coords[i + 1][1],
+                unit="meters",
+            )
+            if dist > threshold:
+                suspicious.append(i)
+        return suspicious
+
+    async def _repair_jumps(
+        self,
+        coords: list[list[float]],
+        jumps: list[int],
+        match_chunk,
+    ) -> list[list[float]]:
+        """Repair detected jumps by rematching local areas."""
+        new_coords = coords[:]
+        offset = 0
+
+        for j_idx in jumps:
+            i = j_idx + offset
+            if i < 1 or i >= len(new_coords) - 1:
+                continue
+
+            sub_coords = new_coords[i - 1 : i + 2]
+            if len(sub_coords) < 2:
+                continue
+
+            local_match = await match_chunk(sub_coords, None, depth=0)
+            if local_match and len(local_match) >= 2:
+                new_coords = new_coords[: i - 1] + local_match + new_coords[i + 2 :]
+                offset += len(local_match) - 3
+
+        return new_coords
+
+    def _create_matching_result(self, coords: list[list[float]]) -> dict[str, Any]:
+        """Create final matching result dictionary."""
         geometry = GeometryService.geometry_from_coordinate_pairs(
-            final_matched,
+            coords,
             allow_point=False,
             dedupe=False,
             validate=False,

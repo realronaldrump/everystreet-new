@@ -699,11 +699,6 @@ class ConfirmationDialog {
         cancelBtn.textContent = cancelText;
       }
 
-      const cleanup = () => {
-        confirmBtn?.removeEventListener("mousedown", handleConfirm);
-        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
-      };
-
       const handleConfirm = () => {
         confirmBtn?.blur();
         cleanup();
@@ -718,9 +713,14 @@ class ConfirmationDialog {
         resolve(false);
       };
 
+      const cleanup = () => {
+        confirmBtn?.removeEventListener("mousedown", handleConfirm);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
+      };
+
       confirmBtn?.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
-        handleConfirm(e);
+        handleConfirm();
       });
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);
 
@@ -834,13 +834,6 @@ class PromptDialog {
         cancelBtn.textContent = cancelText;
       }
 
-      const cleanup = () => {
-        confirmBtn?.removeEventListener("mousedown", handleConfirm);
-        input?.removeEventListener("keypress", handleKeypress);
-        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
-        modalElement.removeEventListener("shown.bs.modal", handleShown);
-      };
-
       const handleConfirm = () => {
         const { value } = input;
         cleanup();
@@ -866,9 +859,16 @@ class PromptDialog {
         input.focus();
       };
 
+      const cleanup = () => {
+        confirmBtn?.removeEventListener("mousedown", handleConfirm);
+        input?.removeEventListener("keypress", handleKeypress);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
+        modalElement.removeEventListener("shown.bs.modal", handleShown);
+      };
+
       confirmBtn?.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
-        handleConfirm(e);
+        handleConfirm();
       });
       input?.addEventListener("keypress", handleKeypress);
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);

@@ -24,7 +24,7 @@ class CoverageManager {
     };
 
     this.confirmationDialog = window.confirmationDialog || {
-      show: async (options) => this.showEnhancedConfirmDialog(options),
+      show: (options) => this.showEnhancedConfirmDialog(options),
     };
 
     // Initialize modules
@@ -792,7 +792,7 @@ class CoverageManager {
     }
 
     try {
-      this.pendingOperations.set(`update-${locationId}`, async () =>
+      this.pendingOperations.set(`update-${locationId}`, () =>
         this.updateCoverageForArea(locationId, mode, showNotification)
       );
 
@@ -1089,6 +1089,9 @@ class CoverageManager {
             case "driveable":
               feature.properties.undriveable = false;
               break;
+            default:
+              console.warn(`Unknown action: ${action}`);
+              break;
           }
           const newGeoJson = {
             ...this.coverageMap.streetsGeoJson,
@@ -1158,6 +1161,9 @@ class CoverageManager {
             break;
           case "driveable":
             feature.properties.undriveable = false;
+            break;
+          default:
+            console.warn(`Unknown action: ${action}`);
             break;
         }
         this.coverageMap.streetsGeoJson.features[idx] = { ...feature };
@@ -1607,14 +1613,17 @@ class CoverageManager {
   /**
    * Ask match settings
    */
-  async _askMatchSettings(
+  _askMatchSettings(
     locationName,
     defaults = { segment: 300, buffer: 50, min: 15 }
   ) {
     this.lastMatchSettingsRequest = { locationName, defaults };
     return new Promise((resolve) => {
       const modalEl = document.getElementById("segmentLengthModal");
-      if (!modalEl) return resolve(null);
+      if (!modalEl) {
+        resolve(null);
+        return;
+      }
 
       const segEl = modalEl.querySelector("#segment-length-modal-input");
       const bufEl = modalEl.querySelector("#modal-match-buffer");
