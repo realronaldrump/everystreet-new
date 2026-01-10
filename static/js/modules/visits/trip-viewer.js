@@ -45,7 +45,9 @@
       const startLocation =
         trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
       const endLocation =
-        trip.destination?.formatted_address || trip.destinationPlace || "Unknown";
+        trip.destination?.formatted_address ||
+        trip.destinationPlace ||
+        "Unknown";
 
       tripInfoContainer.innerHTML = `
         <div class="trip-details">
@@ -87,11 +89,18 @@
       `;
 
       const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-      modalElement.removeEventListener("shown.bs.modal", this._handleTripModalShown);
+      modalElement.removeEventListener(
+        "shown.bs.modal",
+        this._handleTripModalShown,
+      );
       this._handleTripModalShown = () => this._initializeOrUpdateTripMap(trip);
-      modalElement.addEventListener("shown.bs.modal", this._handleTripModalShown, {
-        once: true,
-      });
+      modalElement.addEventListener(
+        "shown.bs.modal",
+        this._handleTripModalShown,
+        {
+          once: true,
+        },
+      );
 
       modal.show();
     }
@@ -205,7 +214,9 @@
               scale: 1.2,
             })
               .setLngLat(startCoord)
-              .setPopup(new mapboxgl.Popup({ offset: 25 }).setText("Trip Start"))
+              .setPopup(
+                new mapboxgl.Popup({ offset: 25 }).setText("Trip Start"),
+              )
               .addTo(this.tripViewMap);
           }
 
@@ -221,7 +232,7 @@
 
           const bounds = coordinates.reduce(
             (b, c) => b.extend(c),
-            new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+            new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
           );
           this.tripViewMap.fitBounds(bounds, {
             padding: 50,
