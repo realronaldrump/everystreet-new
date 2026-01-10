@@ -1004,7 +1004,7 @@ async def generate_and_store_geojson(
             {"location.display_name": location_name},
             {
                 "$set": {
-                    "streets_geojson_gridfs_id": upload_stream._id,
+                    "streets_geojson_gridfs_id": upload_stream._id,  # pylint: disable=protected-access
                     "last_geojson_update": datetime.now(UTC),
                     "status": "completed",
                     "last_updated": datetime.now(UTC),

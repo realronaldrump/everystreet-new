@@ -85,7 +85,7 @@ class ExternalGeoService:
         Returns:
             Structured location data
         """
-        structured = self._get_empty_location_schema()
+        structured = self.get_empty_location_schema()
         structured["coordinates"]["lng"] = coordinates[0]
         structured["coordinates"]["lat"] = coordinates[1]
 
@@ -140,7 +140,7 @@ class ExternalGeoService:
         return structured
 
     @staticmethod
-    def _get_empty_location_schema() -> dict[str, Any]:
+    def get_empty_location_schema() -> dict[str, Any]:
         """Get empty location schema structure.
 
         Returns:

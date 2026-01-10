@@ -21,11 +21,6 @@ import osmnx as ox
 from dotenv import load_dotenv
 from shapely.geometry import box, shape
 
-# Add current directory to path to ensure imports work
-sys.path.insert(0, os.getcwd())
-
-from db import coverage_metadata_collection
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -137,6 +132,8 @@ async def preprocess_streets(
 
 async def preprocess_all_graphs():
     """Main function to process all coverage areas."""
+    from db import coverage_metadata_collection
+
     load_dotenv()
 
     # Ensure storage directory exists
@@ -164,5 +161,7 @@ if __name__ == "__main__":
     # We need to initialize db_manager or handle the async nature manually.
     # Since db.py exports collections that are already using the global db_manager,
     # and db_manager initializes lazily, we just need to run the async loop.
+    # Add current directory to path to ensure imports work
+    sys.path.insert(0, os.getcwd())
 
     asyncio.run(preprocess_all_graphs())

@@ -69,45 +69,45 @@ const dateManager = {
   },
 
   updateInputs(startDate, endDate) {
-    const s = uiState.getElement(CONFIG.selectors.startDate);
-    const e = uiState.getElement(CONFIG.selectors.endDate);
+    const startInputEl = uiState.getElement(CONFIG.selectors.startDate);
+    const endInputEl = uiState.getElement(CONFIG.selectors.endDate);
 
     // Helper to calculate "today" for diverse constraints if needed,
     // but here we just need to relax them effectively.
     // For start picker: maxDate usually constrains it to <= End Date.
     // For end picker: minDate usually constrains it to >= Start Date.
 
-    if (s?._flatpickr && e && e._flatpickr) {
+    if (startInputEl?._flatpickr && endInputEl && endInputEl._flatpickr) {
       // 1. Relax constraints temporarily to allow any valid range
       // Set start's max to today (or broadly valid) to unblock moving it forward
-      s._flatpickr.set("maxDate", "today");
+      startInputEl._flatpickr.set("maxDate", "today");
       // Set end's min to null (or very old) to unblock moving it backward
-      e._flatpickr.set("minDate", null);
+      endInputEl._flatpickr.set("minDate", null);
 
       // 2. Set the dates
       // true argument triggers onChange, which normally re-sets constraints.
       // However, we want to ensure values are set first.
-      s._flatpickr.setDate(startDate, false); // false = no event yet
-      e._flatpickr.setDate(endDate, false); // false = no event yet
+      startInputEl._flatpickr.setDate(startDate, false); // false = no event yet
+      endInputEl._flatpickr.setDate(endDate, false); // false = no event yet
 
       // 3. Re-establish strict cross-linking manually or trigger events if needed.
       // The init() logic binds onChange to update the OTHER picker's min/max.
       // We should manually sync them now to be safe and clean.
-      s._flatpickr.set("maxDate", endDate);
-      e._flatpickr.set("minDate", startDate);
+      startInputEl._flatpickr.set("maxDate", endDate);
+      endInputEl._flatpickr.set("minDate", startDate);
 
       // Optional: If we want to trigger internal listeners that might rely on change events
-      // s.dispatchEvent(new Event('change'));
-      // e.dispatchEvent(new Event('change'));
+      // startInputEl.dispatchEvent(new Event('change'));
+      // endInputEl.dispatchEvent(new Event('change'));
     } else {
       // Fallback or partial existence
-      if (s) {
-        if (s._flatpickr) s._flatpickr.setDate(startDate, true);
-        else s.value = startDate;
+      if (startInputEl) {
+        if (startInputEl._flatpickr) startInputEl._flatpickr.setDate(startDate, true);
+        else startInputEl.value = startDate;
       }
-      if (e) {
-        if (e._flatpickr) e._flatpickr.setDate(endDate, true);
-        else e.value = endDate;
+      if (endInputEl) {
+        if (endInputEl._flatpickr) endInputEl._flatpickr.setDate(endDate, true);
+        else endInputEl.value = endDate;
       }
     }
   },
@@ -170,16 +170,21 @@ const dateManager = {
     if (!indicator) return;
     const span = indicator.querySelector(".filter-date-range");
     if (!span) return;
-    const s = utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
-    const e = utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
+    const savedStartDate =
+      utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
+    const savedEndDate =
+      utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
     const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
-    const preset = this.detectPreset(s, e);
+    const preset = this.detectPreset(savedStartDate, savedEndDate);
     if (preset) {
       span.textContent =
         preset.charAt(0).toUpperCase() + preset.slice(1).replace("-", " ");
       indicator.setAttribute("data-preset", preset);
     } else {
-      span.textContent = s === e ? fmt(s) : `${fmt(s)} - ${fmt(e)}`;
+      span.textContent =
+        savedStartDate === savedEndDate
+          ? fmt(savedStartDate)
+          : `${fmt(savedStartDate)} - ${fmt(savedEndDate)}`;
       indicator.removeAttribute("data-preset");
     }
     indicator.classList.add("filter-changed");
@@ -194,9 +199,9 @@ const dateManager = {
       utils.showNotification("Date input elements missing", "danger");
       return;
     }
-    const s = sIn.value;
-    const e = eIn.value;
-    if (!dateUtils.isValidDateRange(s, e)) {
+    const startDateVal = sIn.value;
+    const endDateVal = eIn.value;
+    if (!dateUtils.isValidDateRange(startDateVal, endDateVal)) {
       utils.showNotification("Invalid date range", "warning");
       [sIn, eIn].forEach((el) => {
         el.classList.add("invalid-shake");
@@ -209,17 +214,21 @@ const dateManager = {
       btn.classList.add("btn-loading");
     }
     try {
-      utils.setStorage(CONFIG.storage.startDate, s);
-      utils.setStorage(CONFIG.storage.endDate, e);
+      utils.setStorage(CONFIG.storage.startDate, startDateVal);
+      utils.setStorage(CONFIG.storage.endDate, endDateVal);
       this.updateIndicator();
       await panelManager.close("filters");
       document.dispatchEvent(
         new CustomEvent("filtersApplied", {
-          detail: { startDate: s, endDate: e },
+          detail: { startDate: startDateVal, endDate: endDateVal },
         })
       );
       const fd = (d) => dateUtils.formatForDisplay(d, { dateStyle: "short" });
-      utils.showNotification(`Filters applied: ${fd(s)} to ${fd(e)}`, "success", 3000);
+      utils.showNotification(
+        `Filters applied: ${fd(startDateVal)} to ${fd(endDateVal)}`,
+        "success",
+        3000
+      );
     } finally {
       if (btn) {
         btn.disabled = false;

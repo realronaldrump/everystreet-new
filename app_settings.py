@@ -19,6 +19,16 @@ class SettingsCache:
 
     _cache: dict[str, Any] | None = None
 
+    @classmethod
+    def get_cache(cls) -> dict[str, Any] | None:
+        """Get the current cache."""
+        return cls._cache
+
+    @classmethod
+    def set_cache(cls, cache: dict[str, Any] | None) -> None:
+        """Set the cache."""
+        cls._cache = cache
+
 
 async def get_app_settings_collection():
     """Get the app_settings collection from db_manager."""
@@ -59,7 +69,7 @@ async def get_app_settings() -> dict[str, Any]:
                 "clarity_project_id": settings.get("clarity_project_id"),
             }
             # Update cache
-            SettingsCache._cache = result
+            SettingsCache.set_cache(result)
             return result
 
         logger.warning("No app settings found in database. Using environment defaults.")
@@ -106,7 +116,7 @@ async def update_app_settings(settings: dict[str, Any]) -> bool:
         if success:
             logger.info("Successfully updated app settings in database")
             # Invalidate cache
-            SettingsCache._cache = None
+            SettingsCache.set_cache(None)
         else:
             logger.warning("No changes made to app settings")
 
@@ -124,8 +134,9 @@ def get_cached_mapbox_token() -> str:
     Falls back to environment variable if cache is empty or missing.
     """
     token = ""
-    if SettingsCache._cache and SettingsCache._cache.get("mapbox_access_token"):
-        token = SettingsCache._cache["mapbox_access_token"]
+    cache = SettingsCache.get_cache()
+    if cache and cache.get("mapbox_access_token"):
+        token = cache["mapbox_access_token"]
 
     return token
 
@@ -137,8 +148,9 @@ def get_cached_clarity_id() -> str | None:
     The cache is populated when get_app_settings() is called.
     Falls back to None if cache not yet populated.
     """
-    if SettingsCache._cache:
-        return SettingsCache._cache.get("clarity_project_id")
+    cache = SettingsCache.get_cache()
+    if cache:
+        return cache.get("clarity_project_id")
     return None
 
 

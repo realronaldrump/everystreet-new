@@ -299,7 +299,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      let allLogsText = `Server Logs Export\n`;
+      let allLogsText = "Server Logs Export\n";
       allLogsText += `Generated: ${new Date().toLocaleString("en-US", {
         hour12: true,
       })}\n`;

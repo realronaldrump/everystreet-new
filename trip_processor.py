@@ -530,7 +530,7 @@ class TripProcessor:
         Returns:
             Structured location dictionary
         """
-        structured = ExternalGeoService._get_empty_location_schema()
+        structured = ExternalGeoService.get_empty_location_schema()
         structured["formatted_address"] = place.get("name", "")
 
         for component in ["address", "city", "state", "postal_code", "country"]:

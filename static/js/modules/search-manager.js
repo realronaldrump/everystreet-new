@@ -7,7 +7,7 @@
 
 import { CONFIG } from "./config.js";
 import state from "./state.js";
-import utils, { escapeHtml } from "./utils.js";
+import utils, { createElement, escapeHtml } from "./utils.js";
 
 const searchManager = {
   searchInput: null,
@@ -563,7 +563,7 @@ const searchManager = {
   },
 
   showLoading() {
-    const loading = utils.createElement("div", "Searching...", "search-loading");
+    const loading = createElement("div", "Searching...", "search-loading");
     this.searchResults.innerHTML = "";
     this.searchResults.appendChild(loading);
     this.positionDropdown();
@@ -571,11 +571,7 @@ const searchManager = {
   },
 
   showNoResults() {
-    const noResults = utils.createElement(
-      "div",
-      "No results found",
-      "search-no-results"
-    );
+    const noResults = createElement("div", "No results found", "search-no-results");
     this.searchResults.innerHTML = "";
     this.searchResults.appendChild(noResults);
     this.positionDropdown();
@@ -583,7 +579,7 @@ const searchManager = {
   },
 
   showError(message) {
-    const error = utils.createElement("div", message, "search-error");
+    const error = createElement("div", message, "search-error");
     this.searchResults.innerHTML = "";
     this.searchResults.appendChild(error);
     this.positionDropdown();
