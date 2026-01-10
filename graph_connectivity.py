@@ -47,7 +47,12 @@ async def get_mapbox_client() -> httpx.AsyncClient:
         MapboxClientState.client_lock = asyncio.Lock()
 
     # At this point, client_lock is guaranteed to be initialized
-    async with MapboxClientState.client_lock:
+    lock = MapboxClientState.client_lock
+    if lock is None:
+        lock = asyncio.Lock()
+        MapboxClientState.client_lock = lock
+
+    async with lock:
         if MapboxClientState.client is None or MapboxClientState.client.is_closed:
             MapboxClientState.client = httpx.AsyncClient(
                 limits=httpx.Limits(
@@ -69,7 +74,14 @@ def get_api_semaphore(loop: asyncio.AbstractEventLoop) -> asyncio.Semaphore:
     ):
         MapboxClientState.api_semaphore = asyncio.Semaphore(MAX_CONCURRENT_API_CALLS)
         MapboxClientState.api_semaphore_loop = loop
-    return MapboxClientState.api_semaphore
+
+    semaphore = MapboxClientState.api_semaphore
+    if semaphore is None:
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_API_CALLS)
+        MapboxClientState.api_semaphore = semaphore
+        MapboxClientState.api_semaphore_loop = loop
+
+    return semaphore
 
 
 async def fetch_bridge_route(

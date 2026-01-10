@@ -451,7 +451,7 @@ class ExternalGeoService:
         ) -> list[list[float]] | None:
             """Match a chunk of coordinates."""
             if not self._is_valid_chunk(chunk_coords):
-                return [] if len(chunk_coords) < 2 else []
+                return []
 
             matched_coords = await self._try_match_chunk(
                 chunk_coords, chunk_timestamps, call_mapbox_api
@@ -489,8 +489,8 @@ class ExternalGeoService:
 
         return self._create_matching_result(final_matched)
 
+    @staticmethod
     def _build_coordinates_data(
-        self,
         coords: list[list[float]],
         timestamps_chunk: list[int | None] | None,
     ) -> list[list[float | int]]:
@@ -611,8 +611,8 @@ class ExternalGeoService:
         response.raise_for_status()
         return await response.json()
 
+    @staticmethod
     async def _handle_rate_limit(
-        self,
         response: aiohttp.ClientResponse,
         attempt: int,
         max_attempts: int,
@@ -680,8 +680,8 @@ class ExternalGeoService:
             return result
         return None
 
+    @staticmethod
     async def _match_chunk_recursive(
-        self,
         chunk_coords: list[list[float]],
         chunk_timestamps: list[int | None] | None,
         depth: int,
@@ -725,8 +725,8 @@ class ExternalGeoService:
             start_idx = end_idx - overlap
         return chunk_indices
 
+    @staticmethod
     async def _process_and_stitch_chunks(
-        self,
         coordinates: list[list[float]],
         all_timestamps: list[int | None] | None,
         chunk_indices: list[tuple[int, int]],
@@ -792,8 +792,8 @@ class ExternalGeoService:
                 suspicious.append(i)
         return suspicious
 
+    @staticmethod
     async def _repair_jumps(
-        self,
         coords: list[list[float]],
         jumps: list[int],
         match_chunk,
@@ -818,7 +818,8 @@ class ExternalGeoService:
 
         return new_coords
 
-    def _create_matching_result(self, coords: list[list[float]]) -> dict[str, Any]:
+    @staticmethod
+    def _create_matching_result(coords: list[list[float]]) -> dict[str, Any]:
         """Create final matching result dictionary."""
         geometry = GeometryService.geometry_from_coordinate_pairs(
             coords,
