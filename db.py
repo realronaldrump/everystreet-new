@@ -30,7 +30,6 @@ from pymongo.errors import (
     ConnectionFailure,
     DuplicateKeyError,
     OperationFailure,
-    ServerSelectionTimeoutError,
 )
 
 if TYPE_CHECKING:
@@ -293,10 +292,8 @@ class DatabaseManager:
 
                     return await operation()
 
-            except (
-                ConnectionFailure,
-                ServerSelectionTimeoutError,
-            ) as e:
+            except ConnectionFailure as e:
+                # ServerSelectionTimeoutError is a subclass of ConnectionFailure, so this catches both
                 self._connection_healthy = False
                 logger.warning(
                     "Attempt %d/%d for %s failed due to connection error: %s. Retrying in %ds...",

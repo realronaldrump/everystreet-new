@@ -182,7 +182,7 @@ class StatisticsService:
                 synced_count += 1
 
         logger.info(
-            f"Vehicle sync complete: {synced_count} new, {updated_count} updated"
+            "Vehicle sync complete: %d new, %d updated", synced_count, updated_count
         )
 
         return {

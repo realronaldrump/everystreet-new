@@ -13,8 +13,11 @@ from db import db_manager, find_one_with_retry, update_one_with_retry
 
 logger = logging.getLogger(__name__)
 
-# In-memory cache for sync access
-_settings_cache: dict[str, Any] | None = None
+
+class SettingsCache:
+    """Cache container for app settings to avoid global variables."""
+
+    _cache: dict[str, Any] | None = None
 
 
 async def get_app_settings_collection():
@@ -30,7 +33,6 @@ async def get_app_settings() -> dict[str, Any]:
             - mapbox_access_token: str
             - clarity_project_id: str | None
     """
-    global _settings_cache
 
     def get_empty_settings() -> dict[str, Any]:
         """Return empty settings structure when none configured."""
@@ -57,7 +59,7 @@ async def get_app_settings() -> dict[str, Any]:
                 "clarity_project_id": settings.get("clarity_project_id"),
             }
             # Update cache
-            _settings_cache = result
+            SettingsCache._cache = result
             return result
 
         logger.warning("No app settings found in database. Using environment defaults.")
@@ -77,7 +79,6 @@ async def update_app_settings(settings: dict[str, Any]) -> bool:
     Returns:
         True if update was successful, False otherwise.
     """
-    global _settings_cache
 
     try:
         collection = await get_app_settings_collection()
@@ -105,7 +106,7 @@ async def update_app_settings(settings: dict[str, Any]) -> bool:
         if success:
             logger.info("Successfully updated app settings in database")
             # Invalidate cache
-            _settings_cache = None
+            SettingsCache._cache = None
         else:
             logger.warning("No changes made to app settings")
 
@@ -123,8 +124,8 @@ def get_cached_mapbox_token() -> str:
     Falls back to environment variable if cache is empty or missing.
     """
     token = ""
-    if _settings_cache and _settings_cache.get("mapbox_access_token"):
-        token = _settings_cache["mapbox_access_token"]
+    if SettingsCache._cache and SettingsCache._cache.get("mapbox_access_token"):
+        token = SettingsCache._cache["mapbox_access_token"]
 
     return token
 
@@ -136,8 +137,8 @@ def get_cached_clarity_id() -> str | None:
     The cache is populated when get_app_settings() is called.
     Falls back to None if cache not yet populated.
     """
-    if _settings_cache:
-        return _settings_cache.get("clarity_project_id")
+    if SettingsCache._cache:
+        return SettingsCache._cache.get("clarity_project_id")
     return None
 
 

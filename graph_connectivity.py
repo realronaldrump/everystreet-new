@@ -18,38 +18,35 @@ logger = logging.getLogger(__name__)
 # Rate limiting
 MAX_CONCURRENT_API_CALLS = 5
 
-# Connection pooling: shared httpx client for all Mapbox API requests
-_mapbox_client: httpx.AsyncClient | None = None
-_mapbox_client_lock: asyncio.Lock | None = None
-_mapbox_client_loop: asyncio.AbstractEventLoop | None = None
 
-# Rate limiting: semaphore to limit concurrent API calls
-_api_semaphore: asyncio.Semaphore | None = None
-_api_semaphore_loop: asyncio.AbstractEventLoop | None = None
+class MapboxClientState:
+    """State container for Mapbox API client to avoid global variables."""
+
+    client: httpx.AsyncClient | None = None
+    client_lock: asyncio.Lock | None = None
+    client_loop: asyncio.AbstractEventLoop | None = None
+    api_semaphore: asyncio.Semaphore | None = None
+    api_semaphore_loop: asyncio.AbstractEventLoop | None = None
 
 
 async def get_mapbox_client() -> httpx.AsyncClient:
     """Get or create a shared httpx client with connection pooling."""
-    global _mapbox_client
-    global _mapbox_client_lock
-    global _mapbox_client_loop
-
     loop = asyncio.get_running_loop()
     if (
-        _mapbox_client_loop is not loop
+        MapboxClientState.client_loop is not loop
         or loop.is_closed()
-        or _mapbox_client_lock is None
+        or MapboxClientState.client_lock is None
     ):
-        if _mapbox_client and not _mapbox_client.is_closed:
+        if MapboxClientState.client and not MapboxClientState.client.is_closed:
             with contextlib.suppress(Exception):
-                await _mapbox_client.aclose()
-        _mapbox_client = None
-        _mapbox_client_loop = loop
-        _mapbox_client_lock = asyncio.Lock()
+                await MapboxClientState.client.aclose()
+        MapboxClientState.client = None
+        MapboxClientState.client_loop = loop
+        MapboxClientState.client_lock = asyncio.Lock()
 
-    async with _mapbox_client_lock:
-        if _mapbox_client is None or _mapbox_client.is_closed:
-            _mapbox_client = httpx.AsyncClient(
+    async with MapboxClientState.client_lock:
+        if MapboxClientState.client is None or MapboxClientState.client.is_closed:
+            MapboxClientState.client = httpx.AsyncClient(
                 limits=httpx.Limits(
                     max_connections=10,
                     max_keepalive_connections=5,
@@ -57,17 +54,19 @@ async def get_mapbox_client() -> httpx.AsyncClient:
                 timeout=httpx.Timeout(30.0, connect=10.0),
             )
             logger.debug("Created new shared httpx client for Mapbox API")
-        return _mapbox_client
+        return MapboxClientState.client
 
 
 def get_api_semaphore(loop: asyncio.AbstractEventLoop) -> asyncio.Semaphore:
     """Get or create the rate limiting semaphore."""
-    global _api_semaphore
-    global _api_semaphore_loop
-    if _api_semaphore is None or _api_semaphore_loop is not loop or loop.is_closed():
-        _api_semaphore = asyncio.Semaphore(MAX_CONCURRENT_API_CALLS)
-        _api_semaphore_loop = loop
-    return _api_semaphore
+    if (
+        MapboxClientState.api_semaphore is None
+        or MapboxClientState.api_semaphore_loop is not loop
+        or loop.is_closed()
+    ):
+        MapboxClientState.api_semaphore = asyncio.Semaphore(MAX_CONCURRENT_API_CALLS)
+        MapboxClientState.api_semaphore_loop = loop
+    return MapboxClientState.api_semaphore
 
 
 async def fetch_bridge_route(

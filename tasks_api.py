@@ -665,9 +665,9 @@ async def background_tasks_sse(request: Request):
                     task_id,
                     task_config,
                 ) in config.get("tasks", {}).items():
-                    status = task_config.get("status", "IDLE")
+                    task_status = task_config.get("status", "IDLE")
                     updates[task_id] = {
-                        "status": status,
+                        "status": task_status,
                         "last_updated": serialize_datetime(
                             task_config.get("last_updated"),
                         ),

@@ -23,12 +23,11 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-# NOTE: Consider migrating to httpx in the future for simpler session lifecycle
-# management. httpx provides better support for both sync and async operations
-# and eliminates the need for complex PID tracking across process boundaries.
+class SessionState:
+    """State container for aiohttp session to avoid global variables."""
 
-_SESSION: aiohttp.ClientSession | None = None
-_SESSION_OWNER_PID: int | None = None
+    session: aiohttp.ClientSession | None = None
+    session_owner_pid: int | None = None
 
 
 async def get_session() -> aiohttp.ClientSession:
@@ -38,12 +37,13 @@ async def get_session() -> aiohttp.ClientSession:
     cleanly. Sessions are not shared across processes to avoid concurrency
     issues.
     """
-    global _SESSION, _SESSION_OWNER_PID
-
     current_pid = os.getpid()
 
     # Handle fork scenario: close inherited session from parent process
-    if _SESSION is not None and current_pid != _SESSION_OWNER_PID:
+    if (
+        SessionState.session is not None
+        and current_pid != SessionState.session_owner_pid
+    ):
         try:
             # We can't await close() on a session from another loop/process safely
             # usually, but we should at least discard it.
@@ -53,7 +53,7 @@ async def get_session() -> aiohttp.ClientSession:
             # Just discarding is often safer than trying to close on a broken loop.
             logger.debug(
                 "Discarding inherited session from parent process %s in child process %s",
-                _SESSION_OWNER_PID,
+                SessionState.session_owner_pid,
                 current_pid,
             )
         except Exception as e:
@@ -63,31 +63,37 @@ async def get_session() -> aiohttp.ClientSession:
                 exc_info=False,
             )
         finally:
-            _SESSION = None
-            _SESSION_OWNER_PID = None
+            SessionState.session = None
+            SessionState.session_owner_pid = None
 
     # Check for loop mismatch or closed loop
-    if _SESSION is not None:
+    if SessionState.session is not None:
         try:
             current_loop = asyncio.get_running_loop()
-            if _SESSION.loop != current_loop or _SESSION.loop.is_closed():
+            if (
+                SessionState.session.loop != current_loop
+                or SessionState.session.loop.is_closed()
+            ):
                 logger.info(
                     "Detected event loop change (session loop: %s, current loop: %s). Creating new session.",
-                    id(_SESSION.loop),
+                    id(SessionState.session.loop),
                     id(current_loop),
                 )
                 try:
-                    if not _SESSION.closed and not _SESSION.loop.is_closed():
-                        await _SESSION.close()
+                    if (
+                        not SessionState.session.closed
+                        and not SessionState.session.loop.is_closed()
+                    ):
+                        await SessionState.session.close()
                 except Exception as e:
                     logger.warning("Error closing stale session: %s", e)
-                _SESSION = None
+                SessionState.session = None
         except RuntimeError:
             # No running loop? Should not happen in get_session normally.
             pass
 
     # Create new session if needed
-    if _SESSION is None or _SESSION.closed:
+    if SessionState.session is None or SessionState.session.closed:
         timeout = aiohttp.ClientTimeout(total=30, connect=10, sock_read=20)
         headers = {
             "User-Agent": "EveryStreet/1.0",
@@ -98,30 +104,28 @@ async def get_session() -> aiohttp.ClientSession:
             force_close=False,
             enable_cleanup_closed=True,
         )
-        _SESSION = aiohttp.ClientSession(
+        SessionState.session = aiohttp.ClientSession(
             timeout=timeout,
             headers=headers,
             connector=connector,
         )
-        _SESSION_OWNER_PID = current_pid
+        SessionState.session_owner_pid = current_pid
         logger.debug("Created new aiohttp session for process %s", current_pid)
 
-    return _SESSION
+    return SessionState.session
 
 
 async def cleanup_session():
     """Close the shared session for the current process."""
-    global _SESSION, _SESSION_OWNER_PID
-
-    if _SESSION and not _SESSION.closed:
+    if SessionState.session and not SessionState.session.closed:
         try:
-            await _SESSION.close()
+            await SessionState.session.close()
             logger.info("Closed aiohttp session for process %s", os.getpid())
         except Exception as e:
             logger.warning("Error closing session: %s", e)
 
-    _SESSION = None
-    _SESSION_OWNER_PID = None
+    SessionState.session = None
+    SessionState.session_owner_pid = None
 
 
 def retry_async(

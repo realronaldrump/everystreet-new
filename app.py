@@ -59,8 +59,12 @@ class StaticFileFilter(logging.Filter):
 uvicorn_access_logger = logging.getLogger("uvicorn.access")
 uvicorn_access_logger.addFilter(StaticFileFilter())
 
-# MongoDB logging handler will be added during startup
-mongo_handler = None
+
+class AppState:
+    """Application state container to avoid global variables."""
+
+    mongo_handler = None
+
 
 # Initialize FastAPI App
 app = FastAPI(title="Every Street")
@@ -137,20 +141,18 @@ app_settings_collection = db_manager.db["app_settings"]
 @app.on_event("startup")
 async def startup_event():
     """Initialize database indexes and components on application startup."""
-    global mongo_handler
-
     try:
         await init_database()  # This already creates many indexes
         logger.info("Core database initialized successfully (indexes, etc.).")
 
         # Set up MongoDB logging handler
-        mongo_handler = MongoDBHandler(db_manager.db, "server_logs")
-        await mongo_handler.setup_indexes()
+        AppState.mongo_handler = MongoDBHandler(db_manager.db, "server_logs")
+        await AppState.mongo_handler.setup_indexes()
 
         # Add the MongoDB handler to the root logger
         root_logger = logging.getLogger()
-        mongo_handler.setLevel(logging.INFO)  # Log INFO and above to MongoDB
-        root_logger.addHandler(mongo_handler)
+        AppState.mongo_handler.setLevel(logging.INFO)  # Log INFO and above to MongoDB
+        root_logger.addHandler(AppState.mongo_handler)
         logger.info("MongoDB logging handler initialized and configured.")
 
         initialize_live_tracking_db(live_trips_collection)

@@ -22,8 +22,10 @@ logger = logging.getLogger(__name__)
 TRIP_UPDATES_CHANNEL = "trip_updates"
 
 
-# Singleton async Redis client instance
-_redis_client: aioredis.Redis | None = None
+class RedisClientState:
+    """State container for Redis client to avoid global variables."""
+
+    client: aioredis.Redis | None = None
 
 
 async def get_redis_client() -> aioredis.Redis:
@@ -35,24 +37,24 @@ async def get_redis_client() -> aioredis.Redis:
     Raises:
         RedisConnectionError: If unable to connect to Redis.
     """
-    global _redis_client
-
-    if _redis_client is not None:
+    if RedisClientState.client is not None:
         try:
-            await _redis_client.ping()
-            return _redis_client
+            await RedisClientState.client.ping()
+            return RedisClientState.client
         except (RedisConnectionError, AttributeError):
             logger.warning("Redis client connection lost, reconnecting...")
-            _redis_client = None
+            RedisClientState.client = None
 
     # Get Redis URL using centralized configuration
     redis_url = get_redis_url()
 
     try:
-        _redis_client = await aioredis.from_url(redis_url, decode_responses=True)
-        await _redis_client.ping()
+        RedisClientState.client = await aioredis.from_url(
+            redis_url, decode_responses=True
+        )
+        await RedisClientState.client.ping()
         logger.info("Connected to Redis for trip event publishing")
-        return _redis_client
+        return RedisClientState.client
     except RedisConnectionError as e:
         logger.error("Failed to connect to Redis: %s", e)
         raise

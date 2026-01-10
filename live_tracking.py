@@ -19,14 +19,16 @@ from trip_event_publisher import publish_trip_state
 
 logger = logging.getLogger(__name__)
 
-# Global collection reference (initialized by app.py)
-live_trips_collection_global: Collection | None = None
+
+class LiveTrackingState:
+    """State container for live tracking to avoid global variables."""
+
+    collection: Collection | None = None
 
 
 def initialize_db(db_live_trips):
     """Initialize the database collection used by this module."""
-    global live_trips_collection_global
-    live_trips_collection_global = db_live_trips
+    LiveTrackingState.collection = db_live_trips
     logger.info("Live tracking database initialized")
 
 
@@ -468,12 +470,12 @@ async def process_trip_end(
 
 async def get_active_trip() -> dict[str, Any] | None:
     """Get the currently active trip."""
-    if live_trips_collection_global is None:
+    if LiveTrackingState.collection is None:
         logger.error("Live trips collection not initialized")
         return None
 
     try:
-        trip = await live_trips_collection_global.find_one(
+        trip = await LiveTrackingState.collection.find_one(
             {"status": "active"}, sort=[("lastUpdate", -1)]
         )
         return trip
