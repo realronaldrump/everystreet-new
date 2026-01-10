@@ -56,7 +56,10 @@ export function calculateDaysDiff(startDate, endDate) {
   try {
     const startDateObj = new Date(startDate);
     const endDateObj = new Date(endDate);
-    if (!Number.isNaN(startDateObj.getTime()) && !Number.isNaN(endDateObj.getTime())) {
+    if (
+      !Number.isNaN(startDateObj.getTime()) &&
+      !Number.isNaN(endDateObj.getTime())
+    ) {
       const diffTime = endDateObj - startDateObj;
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
       return Math.max(diffDays, 1);

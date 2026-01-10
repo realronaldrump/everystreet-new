@@ -77,7 +77,9 @@ export function updateAnalyticsTable() {
   const { behavior } = state.data;
 
   const tableData =
-    state.currentView === "weekly" ? behavior.weekly || [] : behavior.monthly || [];
+    state.currentView === "weekly"
+      ? behavior.weekly || []
+      : behavior.monthly || [];
 
   const tbody = tableEl.querySelector("tbody");
   if (!tbody) return;
