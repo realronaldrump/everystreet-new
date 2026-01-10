@@ -62,7 +62,8 @@ export function bearing(a, b) {
   const dLon = toRad(b[0] - a[0]);
   const y = Math.sin(dLon) * Math.cos(lat2);
   const x =
-    Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
@@ -147,9 +148,11 @@ export function classifyTurn(delta) {
   const abs = Math.abs(delta);
   let classification = "straight";
   if (abs > uturn) classification = "uturn";
-  else if (abs > sharp) classification = delta > 0 ? "sharp-right" : "sharp-left";
+  else if (abs > sharp)
+    classification = delta > 0 ? "sharp-right" : "sharp-left";
   else if (abs > turn) classification = delta > 0 ? "right" : "left";
-  else if (abs > slight) classification = delta > 0 ? "slight-right" : "slight-left";
+  else if (abs > slight)
+    classification = delta > 0 ? "slight-right" : "slight-left";
   return classification;
 }
 

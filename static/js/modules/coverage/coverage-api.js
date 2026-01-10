@@ -3,7 +3,7 @@
  * Handles all API calls related to coverage areas
  */
 
-import apiClient from '../api-client.js';
+import apiClient from "../api-client.js";
 
 const COVERAGE_API = {
   /**
@@ -51,7 +51,7 @@ const COVERAGE_API = {
   async validateCustomBoundary(areaName, geometry) {
     return apiClient.post("/api/validate_custom_boundary", {
       area_name: areaName,
-      geometry
+      geometry,
     });
   },
 
@@ -95,14 +95,18 @@ const COVERAGE_API = {
    * Cancel processing for a location
    */
   async cancelProcessing(displayName) {
-    return apiClient.post("/api/coverage_areas/cancel", { display_name: displayName });
+    return apiClient.post("/api/coverage_areas/cancel", {
+      display_name: displayName,
+    });
   },
 
   /**
    * Delete a coverage area
    */
   async deleteArea(displayName) {
-    return apiClient.post("/api/coverage_areas/delete", { display_name: displayName });
+    return apiClient.post("/api/coverage_areas/delete", {
+      display_name: displayName,
+    });
   },
 
   /**
@@ -126,7 +130,10 @@ const COVERAGE_API = {
     if (!endpoint) {
       throw new Error(`Unknown action: ${action}`);
     }
-    return apiClient.post(endpoint, { location_id: locationId, segment_id: segmentId });
+    return apiClient.post(endpoint, {
+      location_id: locationId,
+      segment_id: segmentId,
+    });
   },
 
   /**
@@ -138,7 +145,9 @@ const COVERAGE_API = {
       current_lon: currentLon.toString(),
       top_n: topN.toString(),
     });
-    return apiClient.get(`/api/driving-navigation/suggest-next-street/${locationId}?${params}`);
+    return apiClient.get(
+      `/api/driving-navigation/suggest-next-street/${locationId}?${params}`,
+    );
   },
 
   /**
@@ -177,9 +186,11 @@ const COVERAGE_API = {
    */
   async getOptimalRoute(locationId) {
     try {
-      return await apiClient.get(`/api/coverage_areas/${locationId}/optimal-route`);
+      return await apiClient.get(
+        `/api/coverage_areas/${locationId}/optimal-route`,
+      );
     } catch (error) {
-      if (error.message.includes('404')) {
+      if (error.message.includes("404")) {
         return null; // No route generated yet
       }
       throw error;

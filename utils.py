@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 
 from constants import METERS_TO_MILES
+
 from geometry_service import GeometryService
 
 logger = logging.getLogger(__name__)

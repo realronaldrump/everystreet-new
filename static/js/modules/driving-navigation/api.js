@@ -3,7 +3,7 @@
  * Handles all fetch requests to the backend driving navigation endpoints.
  */
 
-import apiClient from '../api-client.js';
+import apiClient from "../api-client.js";
 
 export class DrivingNavigationAPI {
   constructor() {
@@ -68,7 +68,7 @@ export class DrivingNavigationAPI {
    */
   async findEfficientClusters(
     areaId,
-    { currentLat, currentLon, topN = 3, minClusterSize = 2 }
+    { currentLat, currentLon, topN = 3, minClusterSize = 2 },
   ) {
     const params = new URLSearchParams({
       current_lat: currentLat,

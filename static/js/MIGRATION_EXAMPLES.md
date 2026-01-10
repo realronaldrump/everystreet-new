@@ -9,9 +9,10 @@ This document provides concrete before/after examples for migrating to the new u
 ### Example 1: Simple GET Request
 
 **Before:**
+
 ```javascript
 async function loadTrips() {
-  const response = await fetch('/api/trips');
+  const response = await fetch("/api/trips");
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
@@ -20,11 +21,12 @@ async function loadTrips() {
 ```
 
 **After:**
+
 ```javascript
-import apiClient from './modules/api-client.js';
+import apiClient from "./modules/api-client.js";
 
 async function loadTrips() {
-  return apiClient.get('/api/trips');
+  return apiClient.get("/api/trips");
 }
 ```
 
@@ -33,13 +35,14 @@ async function loadTrips() {
 ### Example 2: POST Request with Error Handling
 
 **Before:**
+
 ```javascript
 async function createTrip(data) {
   try {
-    const response = await fetch('/api/trips', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+    const response = await fetch("/api/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
@@ -49,18 +52,19 @@ async function createTrip(data) {
 
     return response.json();
   } catch (error) {
-    console.error('Failed to create trip:', error);
+    console.error("Failed to create trip:", error);
     throw error;
   }
 }
 ```
 
 **After:**
+
 ```javascript
-import apiClient from './modules/api-client.js';
+import apiClient from "./modules/api-client.js";
 
 async function createTrip(data) {
-  return apiClient.post('/api/trips', data);
+  return apiClient.post("/api/trips", data);
   // Error handling is built-in!
 }
 ```
@@ -70,6 +74,7 @@ async function createTrip(data) {
 ### Example 3: Request with Retry Logic
 
 **Before:**
+
 ```javascript
 async function loadDataWithRetry(url, retries = 3) {
   for (let i = 0; i < retries; i++) {
@@ -83,15 +88,16 @@ async function loadDataWithRetry(url, retries = 3) {
       }
     } catch (error) {
       if (i === retries - 1) throw error;
-      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
+      await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, i)));
     }
   }
 }
 ```
 
 **After:**
+
 ```javascript
-import apiClient from './modules/api-client.js';
+import apiClient from "./modules/api-client.js";
 
 async function loadDataWithRetry(url) {
   return apiClient.get(url, { retry: true });
@@ -104,6 +110,7 @@ async function loadDataWithRetry(url) {
 ### Example 4: Cached Request
 
 **Before:**
+
 ```javascript
 const cache = new Map();
 
@@ -121,13 +128,14 @@ async function loadCached(url, ttl = 300000) {
 ```
 
 **After:**
+
 ```javascript
-import apiClient from './modules/api-client.js';
+import apiClient from "./modules/api-client.js";
 
 async function loadCached(url) {
   return apiClient.get(url, {
     cache: true,
-    cacheDuration: 300000
+    cacheDuration: 300000,
   });
 }
 ```
@@ -137,20 +145,21 @@ async function loadCached(url) {
 ### Example 5: File Upload with Progress
 
 **Before:**
+
 ```javascript
 function uploadFile(file, onProgress) {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
 
     const xhr = new XMLHttpRequest();
-    xhr.upload.addEventListener('progress', (e) => {
+    xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) {
         onProgress((e.loaded / e.total) * 100);
       }
     });
 
-    xhr.addEventListener('load', () => {
+    xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(JSON.parse(xhr.responseText));
       } else {
@@ -158,25 +167,26 @@ function uploadFile(file, onProgress) {
       }
     });
 
-    xhr.addEventListener('error', () => {
-      reject(new Error('Upload failed'));
+    xhr.addEventListener("error", () => {
+      reject(new Error("Upload failed"));
     });
 
-    xhr.open('POST', '/api/upload');
+    xhr.open("POST", "/api/upload");
     xhr.send(formData);
   });
 }
 ```
 
 **After:**
+
 ```javascript
-import apiClient from './modules/api-client.js';
+import apiClient from "./modules/api-client.js";
 
 async function uploadFile(file, onProgress) {
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append("file", file);
 
-  return apiClient.uploadFile('/api/upload', formData, (percent) => {
+  return apiClient.uploadFile("/api/upload", formData, (percent) => {
     onProgress(percent);
   });
 }
@@ -189,30 +199,32 @@ async function uploadFile(file, onProgress) {
 ### Example 1: Confirmation Dialog
 
 **Before (utils.js):**
+
 ```javascript
 async function deleteTrip(tripId) {
   const confirmed = await confirmationDialog(
-    'Delete Trip?',
-    'This action cannot be undone. Are you sure?'
+    "Delete Trip?",
+    "This action cannot be undone. Are you sure?",
   );
 
   if (confirmed) {
-    await fetch(`/api/trips/${tripId}`, { method: 'DELETE' });
+    await fetch(`/api/trips/${tripId}`, { method: "DELETE" });
   }
 }
 ```
 
 **After:**
+
 ```javascript
-import modalManager from './modules/modal-manager.js';
-import apiClient from './modules/api-client.js';
+import modalManager from "./modules/modal-manager.js";
+import apiClient from "./modules/api-client.js";
 
 async function deleteTrip(tripId) {
   const confirmed = await modalManager.showConfirm({
-    title: 'Delete Trip?',
-    message: 'This action cannot be undone. Are you sure?',
-    confirmText: 'Delete',
-    confirmClass: 'btn-danger'
+    title: "Delete Trip?",
+    message: "This action cannot be undone. Are you sure?",
+    confirmText: "Delete",
+    confirmClass: "btn-danger",
   });
 
   if (confirmed) {
@@ -226,11 +238,12 @@ async function deleteTrip(tripId) {
 ### Example 2: Prompt Dialog
 
 **Before:**
+
 ```javascript
 const dialog = new PromptDialog({
-  title: 'Rename Trip',
-  message: 'Enter new name',
-  defaultValue: currentName
+  title: "Rename Trip",
+  message: "Enter new name",
+  defaultValue: currentName,
 });
 
 const newName = await dialog.show();
@@ -240,14 +253,15 @@ if (newName) {
 ```
 
 **After:**
+
 ```javascript
-import modalManager from './modules/modal-manager.js';
+import modalManager from "./modules/modal-manager.js";
 
 const newName = await modalManager.showPrompt({
-  title: 'Rename Trip',
-  message: 'Enter new name',
+  title: "Rename Trip",
+  message: "Enter new name",
   defaultValue: currentName,
-  required: true
+  required: true,
 });
 
 if (newName) {
@@ -260,10 +274,11 @@ if (newName) {
 ### Example 3: Error Display
 
 **Before:**
+
 ```javascript
 function showError(message) {
-  const modal = document.createElement('div');
-  modal.className = 'modal fade';
+  const modal = document.createElement("div");
+  modal.className = "modal fade";
   modal.innerHTML = `
     <div class="modal-dialog">
       <div class="modal-content bg-dark text-white">
@@ -285,8 +300,9 @@ function showError(message) {
 ```
 
 **After:**
+
 ```javascript
-import modalManager from './modules/modal-manager.js';
+import modalManager from "./modules/modal-manager.js";
 
 async function showError(message) {
   await modalManager.showError(message);
@@ -300,6 +316,7 @@ async function showError(message) {
 ### Example 1: Get Current Position
 
 **Before:**
+
 ```javascript
 function getCurrentLocation() {
   return new Promise((resolve, reject) => {
@@ -307,25 +324,26 @@ function getCurrentLocation() {
       (position) => {
         resolve({
           lat: position.coords.latitude,
-          lng: position.coords.longitude
+          lng: position.coords.longitude,
         });
       },
       (error) => {
         if (error.code === 1) {
-          reject(new Error('Location permission denied'));
+          reject(new Error("Location permission denied"));
         } else {
-          reject(new Error('Failed to get location'));
+          reject(new Error("Failed to get location"));
         }
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000 },
     );
   });
 }
 ```
 
 **After:**
+
 ```javascript
-import geolocationService from './modules/geolocation-service.js';
+import geolocationService from "./modules/geolocation-service.js";
 
 async function getCurrentLocation() {
   const position = await geolocationService.getCurrentPosition();
@@ -338,6 +356,7 @@ async function getCurrentLocation() {
 ### Example 2: Watch Position
 
 **Before:**
+
 ```javascript
 let watchId = null;
 
@@ -347,13 +366,13 @@ function startTracking(callback) {
       callback({
         lat: position.coords.latitude,
         lng: position.coords.longitude,
-        accuracy: position.coords.accuracy
+        accuracy: position.coords.accuracy,
       });
     },
     (error) => {
-      console.error('Tracking error:', error);
+      console.error("Tracking error:", error);
     },
-    { enableHighAccuracy: true }
+    { enableHighAccuracy: true },
   );
 }
 
@@ -365,8 +384,9 @@ function stopTracking() {
 ```
 
 **After:**
+
 ```javascript
-import geolocationService from './modules/geolocation-service.js';
+import geolocationService from "./modules/geolocation-service.js";
 
 function startTracking(callback) {
   geolocationService.watchPosition(
@@ -374,8 +394,8 @@ function startTracking(callback) {
       callback(position.coords);
     },
     (error) => {
-      console.error('Tracking error:', error);
-    }
+      console.error("Tracking error:", error);
+    },
   );
 }
 
@@ -389,26 +409,28 @@ function stopTracking() {
 ### Example 3: Calculate Distance
 
 **Before:**
+
 ```javascript
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371e3; // Earth radius in meters
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
-  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-           Math.cos(φ1) * Math.cos(φ2) *
-           Math.sin(Δλ/2) * Math.sin(Δλ/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c; // in meters
 }
 ```
 
 **After:**
+
 ```javascript
-import geolocationService from './modules/geolocation-service.js';
+import geolocationService from "./modules/geolocation-service.js";
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
   return geolocationService.calculateDistance(lat1, lon1, lat2, lon2);
@@ -422,29 +444,31 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 ### Example 1: Basic Map Creation
 
 **Before:**
+
 ```javascript
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
 const map = new mapboxgl.Map({
-  container: 'map',
-  style: 'mapbox://styles/mapbox/dark-v11',
+  container: "map",
+  style: "mapbox://styles/mapbox/dark-v11",
   center: [-95.7, 37.0],
-  zoom: 4
+  zoom: 4,
 });
 
-map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+map.addControl(new mapboxgl.NavigationControl(), "top-right");
 ```
 
 **After:**
+
 ```javascript
-import mapFactory from './modules/map-factory.js';
+import mapFactory from "./modules/map-factory.js";
 
 // Initialize once at app start
 mapFactory.initialize(MAPBOX_ACCESS_TOKEN);
 
 // Create map
-const map = await mapFactory.createMap('map', {
+const map = await mapFactory.createMap("map", {
   center: [-95.7, 37.0],
-  zoom: 4
+  zoom: 4,
 });
 ```
 
@@ -453,31 +477,36 @@ const map = await mapFactory.createMap('map', {
 ### Example 2: Map with Geolocation
 
 **Before:**
+
 ```javascript
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
 const map = new mapboxgl.Map({
-  container: 'map',
-  style: 'mapbox://styles/mapbox/dark-v11',
+  container: "map",
+  style: "mapbox://styles/mapbox/dark-v11",
   center: [-95.7, 37.0],
-  zoom: 13
+  zoom: 13,
 });
 
-map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-map.addControl(new mapboxgl.GeolocateControl({
-  positionOptions: { enableHighAccuracy: true },
-  trackUserLocation: true
-}), 'top-right');
+map.addControl(new mapboxgl.NavigationControl(), "top-right");
+map.addControl(
+  new mapboxgl.GeolocateControl({
+    positionOptions: { enableHighAccuracy: true },
+    trackUserLocation: true,
+  }),
+  "top-right",
+);
 ```
 
 **After:**
+
 ```javascript
-import mapFactory from './modules/map-factory.js';
+import mapFactory from "./modules/map-factory.js";
 
 mapFactory.initialize(MAPBOX_ACCESS_TOKEN);
 
-const map = await mapFactory.createCoverageMap('map', {
+const map = await mapFactory.createCoverageMap("map", {
   center: [-95.7, 37.0],
-  zoom: 13
+  zoom: 13,
 });
 // Geolocate control is automatically added!
 ```
@@ -487,20 +516,22 @@ const map = await mapFactory.createCoverageMap('map', {
 ### Example 3: Add Markers
 
 **Before:**
+
 ```javascript
-const marker = new mapboxgl.Marker({ color: '#FF0000' })
+const marker = new mapboxgl.Marker({ color: "#FF0000" })
   .setLngLat([-95.7, 37.0])
-  .setPopup(new mapboxgl.Popup().setHTML('<h6>Start</h6>'))
+  .setPopup(new mapboxgl.Popup().setHTML("<h6>Start</h6>"))
   .addTo(map);
 ```
 
 **After:**
+
 ```javascript
-import mapFactory from './modules/map-factory.js';
+import mapFactory from "./modules/map-factory.js";
 
 const marker = mapFactory.addMarker(map, [-95.7, 37.0], {
-  color: '#FF0000',
-  popup: '<h6>Start</h6>'
+  color: "#FF0000",
+  popup: "<h6>Start</h6>",
 });
 ```
 
@@ -511,13 +542,15 @@ const marker = mapFactory.addMarker(map, [-95.7, 37.0], {
 ### Example 1: Format Distance
 
 **Before:**
+
 ```javascript
 const distance = window.utils.formatDistance(miles);
 ```
 
 **After:**
+
 ```javascript
-import { formatDistance } from './modules/formatters.js';
+import { formatDistance } from "./modules/formatters.js";
 
 const distance = formatDistance(miles);
 ```
@@ -527,13 +560,15 @@ const distance = formatDistance(miles);
 ### Example 2: Format Duration
 
 **Before:**
+
 ```javascript
 const duration = window.utils.formatDuration(seconds);
 ```
 
 **After:**
+
 ```javascript
-import { formatDuration } from './modules/formatters.js';
+import { formatDuration } from "./modules/formatters.js";
 
 const duration = formatDuration(seconds);
 ```
@@ -543,6 +578,7 @@ const duration = formatDuration(seconds);
 ### Example 3: Multiple Formatters
 
 **Before:**
+
 ```javascript
 // In your file
 const formatNumber = (n) => window.utils.formatNumber(n);
@@ -553,19 +589,24 @@ const formatDuration = (s) => window.utils.formatDuration(s);
 const stats = {
   trips: formatNumber(tripCount),
   distance: formatDistance(totalMiles),
-  duration: formatDuration(totalSeconds)
+  duration: formatDuration(totalSeconds),
 };
 ```
 
 **After:**
+
 ```javascript
-import { formatNumber, formatDistance, formatDuration } from './modules/formatters.js';
+import {
+  formatNumber,
+  formatDistance,
+  formatDuration,
+} from "./modules/formatters.js";
 
 // Usage (no wrapper functions needed!)
 const stats = {
   trips: formatNumber(tripCount),
   distance: formatDistance(totalMiles),
-  duration: formatDuration(totalSeconds)
+  duration: formatDuration(totalSeconds),
 };
 ```
 
@@ -584,17 +625,17 @@ const formatNumber = (n) => window.utils.formatNumber(n);
 
 async function loadData() {
   // Manual fetch with error handling
-  const response = await fetch('/api/insights');
+  const response = await fetch("/api/insights");
   if (!response.ok) {
-    throw new Error('Failed to load data');
+    throw new Error("Failed to load data");
   }
   return response.json();
 }
 
 function showError(message) {
   // Manual modal creation
-  const modal = document.createElement('div');
-  modal.className = 'modal fade';
+  const modal = document.createElement("div");
+  modal.className = "modal fade";
   modal.innerHTML = `...modal HTML...`;
   document.body.appendChild(modal);
   const bsModal = new bootstrap.Modal(modal);
@@ -614,12 +655,12 @@ async function initialize() {
 ### After: insights/index.js
 
 ```javascript
-import apiClient from './modules/api-client.js';
-import modalManager from './modules/modal-manager.js';
-import { formatDuration, formatNumber } from './modules/formatters.js';
+import apiClient from "./modules/api-client.js";
+import modalManager from "./modules/modal-manager.js";
+import { formatDuration, formatNumber } from "./modules/formatters.js";
 
 async function loadData() {
-  return apiClient.get('/api/insights', { cache: true });
+  return apiClient.get("/api/insights", { cache: true });
 }
 
 async function initialize() {
@@ -634,6 +675,7 @@ async function initialize() {
 
 **Lines saved:** 25+
 **Improvements:**
+
 - ✅ No global dependencies
 - ✅ Automatic error handling
 - ✅ Built-in caching
@@ -647,12 +689,13 @@ async function initialize() {
 When migrating a file, follow these steps:
 
 1. **Add imports at the top:**
+
    ```javascript
-   import apiClient from './modules/api-client.js';
-   import modalManager from './modules/modal-manager.js';
-   import geolocationService from './modules/geolocation-service.js';
-   import mapFactory from './modules/map-factory.js';
-   import { formatDistance, formatDuration } from './modules/formatters.js';
+   import apiClient from "./modules/api-client.js";
+   import modalManager from "./modules/modal-manager.js";
+   import geolocationService from "./modules/geolocation-service.js";
+   import mapFactory from "./modules/map-factory.js";
+   import { formatDistance, formatDuration } from "./modules/formatters.js";
    ```
 
 2. **Replace `fetch()` calls:**
@@ -684,42 +727,48 @@ When migrating a file, follow these steps:
 ### 1. Forgetting async/await
 
 ❌ **Wrong:**
+
 ```javascript
-const map = mapFactory.createMap('map'); // Returns Promise!
+const map = mapFactory.createMap("map"); // Returns Promise!
 ```
 
 ✅ **Correct:**
+
 ```javascript
-const map = await mapFactory.createMap('map');
+const map = await mapFactory.createMap("map");
 ```
 
 ### 2. Incorrect import paths
 
 ❌ **Wrong:**
+
 ```javascript
-import apiClient from './api-client.js'; // Wrong path!
+import apiClient from "./api-client.js"; // Wrong path!
 ```
 
 ✅ **Correct:**
+
 ```javascript
-import apiClient from './modules/api-client.js';
+import apiClient from "./modules/api-client.js";
 ```
 
 ### 3. Not cleaning up map resources
 
 ❌ **Wrong:**
+
 ```javascript
 // Creating map without cleanup
-const map = await mapFactory.createMap('map');
+const map = await mapFactory.createMap("map");
 // Later, create another without releasing
-const map2 = await mapFactory.createMap('map'); // Potential memory leak!
+const map2 = await mapFactory.createMap("map"); // Potential memory leak!
 ```
 
 ✅ **Correct:**
+
 ```javascript
-const map = await mapFactory.createMap('map', {}, 'my-map-key');
+const map = await mapFactory.createMap("map", {}, "my-map-key");
 // When done:
-mapFactory.releaseMap('my-map-key');
+mapFactory.releaseMap("my-map-key");
 ```
 
 ---

@@ -11,6 +11,7 @@ This document provides a step-by-step checklist for migrating the codebase to us
 Update all files that currently import from `utils.py` to use new core modules.
 
 #### Step 1: Find All Files
+
 ```bash
 grep -l "from utils import\|import utils" **/*.py
 ```
@@ -20,11 +21,13 @@ grep -l "from utils import\|import utils" **/*.py
 For each file found:
 
 **Before:**
+
 ```python
 from utils import get_session, retry_async, reverse_geocode_mapbox
 ```
 
 **After:**
+
 ```python
 from core.http.session import get_session
 from core.http.retry import retry_async
@@ -32,9 +35,11 @@ from core.http.geocoding import reverse_geocode_mapbox
 ```
 
 #### Files Already Migrated
+
 - [x] `external_geo_service.py`
 
 #### Files Needing Migration
+
 Search results will show all files that need updating.
 
 ---
@@ -44,6 +49,7 @@ Search results will show all files that need updating.
 ### Replace Generic Exceptions with Custom Exceptions
 
 #### Step 1: Find Generic Exception Usage
+
 ```bash
 # Find generic Exception raises
 grep -n "raise Exception\|raise ValueError" **/*.py
@@ -57,6 +63,7 @@ grep -n "raise HTTPException" **/*.py
 In service files (`*_service.py`, `*_processor.py`):
 
 **Before:**
+
 ```python
 def process_trip(trip_data):
     if not trip_data:
@@ -67,6 +74,7 @@ def process_trip(trip_data):
 ```
 
 **After:**
+
 ```python
 from core.exceptions import ValidationException, ExternalServiceException
 
@@ -83,6 +91,7 @@ def process_trip(trip_data):
 In route files (`*_api.py`, `routes/*.py`):
 
 **Before:**
+
 ```python
 @router.get("/api/trips/{trip_id}")
 async def get_trip(trip_id: str):
@@ -99,6 +108,7 @@ async def get_trip(trip_id: str):
 ```
 
 **After:**
+
 ```python
 from core.exceptions import ResourceNotFoundException
 
@@ -118,6 +128,7 @@ async def get_trip(trip_id: str):
 ### Migrate Analytics Services to Use `db/aggregation_utils.py`
 
 #### Files to Migrate
+
 - [ ] `analytics/services/trip_analytics_service.py`
 - [ ] `analytics/services/dashboard_service.py`
 - [ ] `visits/services/visit_stats_service.py`
@@ -126,6 +137,7 @@ async def get_trip(trip_id: str):
 #### Migration Pattern
 
 **Before:**
+
 ```python
 from api_utils import get_mongo_tz_expr
 
@@ -150,6 +162,7 @@ pipeline = [
 ```
 
 **After:**
+
 ```python
 from db.aggregation_utils import build_date_grouping_stage, organize_by_dimension
 
@@ -180,6 +193,7 @@ Follow PEP 8 import order in all Python files:
 3. Local application imports
 
 **Before:**
+
 ```python
 from db import trips_collection
 import asyncio
@@ -189,6 +203,7 @@ from utils import get_session
 ```
 
 **After:**
+
 ```python
 # Standard library
 import asyncio
@@ -203,6 +218,7 @@ from db import trips_collection
 ```
 
 #### Tool to Help
+
 ```bash
 # Install isort
 pip install isort
@@ -222,18 +238,22 @@ isort **/*.py
 ### Standardize Beanie Model Field Naming
 
 Currently models have mixed naming conventions:
+
 - camelCase: `transactionId`, `startTime`, `endTime`
 - snake_case: `last_updated`, `closed_reason`
 
 **Recommendation:** Choose one convention and apply consistently.
 
 #### Option 1: Keep camelCase (matches API responses)
+
 Benefits: Consistency with external APIs (Bouncie)
 
 #### Option 2: Convert to snake_case (Python convention)
+
 Benefits: Follows Python naming conventions
 
 **Implementation:**
+
 ```python
 # If choosing snake_case, add aliases for backward compatibility
 class Trip(Document):
@@ -253,6 +273,7 @@ class Trip(Document):
 Once all imports have been migrated to core modules, remove re-exports:
 
 **Current utils.py:**
+
 ```python
 # Re-export for backward compatibility
 from core.http.session import get_session
@@ -261,6 +282,7 @@ from core.http.retry import retry_async
 ```
 
 **After Migration:**
+
 ```python
 # Remove all re-exports
 # Keep only calculate_distance() and meters_to_miles()
@@ -288,6 +310,7 @@ Remove deprecation notices and update all documentation to reference new modules
 ### Critical Test Areas
 
 #### Error Handling
+
 - [ ] Test ValidationException → 400 response
 - [ ] Test ResourceNotFoundException → 404 response
 - [ ] Test RateLimitException → 429 response
@@ -295,6 +318,7 @@ Remove deprecation notices and update all documentation to reference new modules
 - [ ] Test generic Exception → 500 response
 
 #### HTTP Utilities
+
 - [ ] Test get_session() in main process
 - [ ] Test get_session() after fork (Celery workers)
 - [ ] Test retry_async() with network failures
@@ -302,12 +326,14 @@ Remove deprecation notices and update all documentation to reference new modules
 - [ ] Test geocoding fallback to Nominatim
 
 #### Aggregation Utilities
+
 - [ ] Test date grouping with UTC timezone
 - [ ] Test date grouping with custom timezone
 - [ ] Test organize_by_dimension() with various dimensions
 - [ ] Test edge cases (empty results, single result)
 
 #### Async Bridge
+
 - [ ] Test run_async_from_sync() in Celery task
 - [ ] Test event loop cleanup
 - [ ] Test multiple sequential calls
@@ -318,11 +344,13 @@ Remove deprecation notices and update all documentation to reference new modules
 ## Verification Commands
 
 ### Syntax Check All Files
+
 ```bash
 find . -name "*.py" -not -path "./venv/*" -not -path "./node_modules/*" -exec python3 -m py_compile {} \;
 ```
 
 ### Find Files Still Using Old Imports
+
 ```bash
 # Check for utils imports
 grep -r "from utils import" --include="*.py" --exclude-dir=venv --exclude-dir=node_modules .
@@ -332,6 +360,7 @@ grep -r "raise Exception\|raise ValueError" --include="*.py" --exclude-dir=venv 
 ```
 
 ### Run All Tests
+
 ```bash
 # Run pytest
 pytest
@@ -345,28 +374,34 @@ pytest --cov=. --cov-report=html
 ## Progress Tracking
 
 ### Phase 1: Import Updates
+
 - [x] external_geo_service.py
 - [ ] All other files importing from utils.py
 
 ### Phase 2: Exception Handling
+
 - [x] api_utils.py enhanced
 - [ ] Service layer files
 - [ ] API route handler files
 
 ### Phase 3: Aggregation Utilities
+
 - [ ] analytics/services/trip_analytics_service.py
 - [ ] analytics/services/dashboard_service.py
 - [ ] visits/services/visit_stats_service.py
 
 ### Phase 4: Import Organization
+
 - [ ] All Python files formatted with isort/black
 
 ### Phase 5: Naming Standardization
+
 - [ ] Decide on naming convention
 - [ ] Update Beanie models
 - [ ] Update all references
 
 ### Phase 6: Remove Backward Compatibility
+
 - [ ] utils.py re-exports removed
 - [ ] Documentation updated
 
@@ -387,17 +422,20 @@ If you encounter issues during migration:
 ## Support
 
 **Questions during migration?**
+
 - Check [PYTHON_REFACTORING_SUMMARY.md](./PYTHON_REFACTORING_SUMMARY.md)
 - Review inline documentation in new modules
 - Check migration examples above
 
 **Found an issue?**
+
 - Document it clearly
 - Create a minimal reproduction case
 - Check if the old code had the same issue
 - File an issue or ask for help
 
 **Need help with a specific file?**
+
 - Look at already-migrated files as examples (e.g., external_geo_service.py)
 - Follow the patterns shown in this checklist
 - Test thoroughly before and after
