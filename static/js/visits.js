@@ -124,8 +124,8 @@
       const tooltipTriggerList = [].slice.call(
         document.querySelectorAll('[data-bs-toggle="tooltip"]')
       );
-        tooltipTriggerList.forEach((tooltipTriggerEl) => {
-          bootstrap.Tooltip.getOrCreateInstance(tooltipTriggerEl, {
+      tooltipTriggerList.forEach((tooltipTriggerEl) => {
+        bootstrap.Tooltip.getOrCreateInstance(tooltipTriggerEl, {
           template:
             '<div class="tooltip" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner bg-primary"></div></div>',
         });
