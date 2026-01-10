@@ -11,7 +11,8 @@ import logging
 import os
 
 import aiohttp
-from constants import (
+
+from core.constants import (
     HTTP_CONNECTION_LIMIT,
     HTTP_TIMEOUT_CONNECT,
     HTTP_TIMEOUT_SOCK_READ,
