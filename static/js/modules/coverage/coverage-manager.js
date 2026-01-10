@@ -5,20 +5,18 @@
 
 /* global bootstrap, Chart, mapboxgl */
 
-import dateUtils from "../date-utils.js";
 import COVERAGE_API from "./coverage-api.js";
+import { CoverageCRUD } from "./coverage-crud.js";
+import { CoverageDashboard } from "./coverage-dashboard.js";
 import CoverageDrawing from "./coverage-drawing.js";
+import { CoverageExport } from "./coverage-export.js";
 import CoverageMap from "./coverage-map.js";
 import CoverageNavigation from "./coverage-navigation.js";
 import { CoverageProgress } from "./coverage-progress.js";
 import CoverageSelection from "./coverage-selection.js";
 import CoverageUI from "./coverage-ui.js";
-
 // New Modules
 import { CoverageValidator } from "./coverage-validator.js";
-import { CoverageCRUD } from "./coverage-crud.js";
-import { CoverageDashboard } from "./coverage-dashboard.js";
-import { CoverageExport } from "./coverage-export.js";
 
 class CoverageManager {
   constructor() {
@@ -47,7 +45,7 @@ class CoverageManager {
 
     // Initialize new refactored modules
     this.validator = new CoverageValidator(this.notificationManager, this.drawing);
-    
+
     // Dashboard module
     this.dashboard = new CoverageDashboard(
       this.notificationManager,
@@ -56,7 +54,7 @@ class CoverageManager {
       this.navigation,
       this.selection
     );
-    
+
     // CRUD module
     this.crud = new CoverageCRUD(
       this.notificationManager,
@@ -248,7 +246,7 @@ class CoverageManager {
     await this.dashboard.displayCoverageDashboard(locationId, {
       distanceFormatter: this.distanceInUserUnits.bind(this),
       timeFormatter: this.formatRelativeTime.bind(this),
-      streetTypeFormatter: this.formatStreetType.bind(this)
+      streetTypeFormatter: this.formatStreetType.bind(this),
     });
   }
 
@@ -389,7 +387,9 @@ class CoverageManager {
         break;
       case "update-incremental":
         if (locationId) {
-          this.crud.updateCoverageForArea(locationId, "incremental").finally(resetButton);
+          this.crud
+            .updateCoverageForArea(locationId, "incremental")
+            .finally(resetButton);
         }
         break;
       case "delete":
@@ -478,7 +478,7 @@ class CoverageManager {
       await this.dashboard.refreshDashboardData(activeLocationId, {
         distanceFormatter: this.distanceInUserUnits.bind(this),
         timeFormatter: this.formatRelativeTime.bind(this),
-        streetTypeFormatter: this.formatStreetType.bind(this)
+        streetTypeFormatter: this.formatStreetType.bind(this),
       });
       await this.loadCoverageAreas();
     } catch (error) {
@@ -555,9 +555,9 @@ class CoverageManager {
     );
 
     await this.dashboard.refreshDashboardData(activeLocationId, {
-        distanceFormatter: this.distanceInUserUnits.bind(this),
-        timeFormatter: this.formatRelativeTime.bind(this),
-        streetTypeFormatter: this.formatStreetType.bind(this)
+      distanceFormatter: this.distanceInUserUnits.bind(this),
+      timeFormatter: this.formatRelativeTime.bind(this),
+      streetTypeFormatter: this.formatStreetType.bind(this),
     });
     await this.loadCoverageAreas();
 
@@ -617,12 +617,12 @@ class CoverageManager {
     this.validator.resetValidationState();
   }
 
-
   /**
    * Find most efficient streets
    */
   async findMostEfficientStreets() {
-    const locationId = this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
+    const locationId =
+      this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
     if (!locationId) {
       this.notificationManager.show("Please select a coverage area first.", "warning");
       return;

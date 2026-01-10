@@ -6,15 +6,9 @@ from typing import Any
 
 from bson import ObjectId
 
-from db import (
-    delete_one_with_retry,
-    find_one_with_retry,
-    find_with_retry,
-    gas_fillups_collection,
-    insert_one_with_retry,
-    update_one_with_retry,
-    vehicles_collection,
-)
+from db import (delete_one_with_retry, find_one_with_retry, find_with_retry,
+                gas_fillups_collection, insert_one_with_retry,
+                update_one_with_retry, vehicles_collection)
 from gas.serializers import parse_iso_datetime
 
 logger = logging.getLogger(__name__)

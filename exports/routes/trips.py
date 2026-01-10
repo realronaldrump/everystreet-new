@@ -5,13 +5,8 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
-from db import (
-    build_calendar_date_expr,
-    build_query_from_request,
-    db_manager,
-    find_one_with_retry,
-    json_dumps,
-)
+from db import (build_calendar_date_expr, build_query_from_request, db_manager,
+                find_one_with_retry, json_dumps)
 from export_helpers import create_export_response, process_trip_for_export
 from exports.services import StreamingService
 

@@ -20,13 +20,10 @@ from celery.utils.log import get_task_logger
 
 from celery_app import app as celery_app
 from date_utils import ensure_utc, parse_timestamp
-from db import (
-    serialize_datetime,
-    task_config_collection,
-    task_history_collection,
-    update_one_with_retry,
-)
-from tasks.config import check_dependencies, get_task_config, update_task_history_entry
+from db import (serialize_datetime, task_config_collection,
+                task_history_collection, update_one_with_retry)
+from tasks.config import (check_dependencies, get_task_config,
+                          update_task_history_entry)
 from tasks.core import TASK_METADATA, TaskStatus, TaskStatusManager
 from tasks.fetch import fetch_all_missing_trips
 

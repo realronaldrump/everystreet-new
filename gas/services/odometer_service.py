@@ -3,12 +3,8 @@
 import logging
 from typing import Any
 
-from db import (
-    aggregate_with_retry,
-    find_one_with_retry,
-    gas_fillups_collection,
-    trips_collection,
-)
+from db import (aggregate_with_retry, find_one_with_retry,
+                gas_fillups_collection, trips_collection)
 from gas.serializers import parse_iso_datetime
 from gas.services.bouncie_service import BouncieService
 from geometry_service import GeometryService

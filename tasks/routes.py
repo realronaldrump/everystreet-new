@@ -12,7 +12,7 @@ from bson import ObjectId
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
-from route_solver import generate_optimal_route_with_progress, save_optimal_route
+from routes import generate_optimal_route_with_progress, save_optimal_route
 from tasks.core import task_runner
 from utils import run_async_from_sync
 

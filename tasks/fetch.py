@@ -17,13 +17,9 @@ from celery.utils.log import get_task_logger
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from config import get_bouncie_config
 from date_utils import parse_timestamp
-from db import (
-    count_documents_with_retry,
-    find_one_with_retry,
-    task_config_collection,
-    trips_collection,
-    update_one_with_retry,
-)
+from db import (count_documents_with_retry, find_one_with_retry,
+                task_config_collection, trips_collection,
+                update_one_with_retry)
 from tasks.core import task_runner
 from utils import run_async_from_sync
 

@@ -27,7 +27,10 @@ export class CoverageCRUD {
    * Add coverage area
    */
   async addCoverageArea() {
-    if (!this.validator.validatedLocation || !this.validator.validatedLocation.display_name) {
+    if (
+      !this.validator.validatedLocation ||
+      !this.validator.validatedLocation.display_name
+    ) {
       this.notificationManager.show("Please validate a location first.", "warning");
       return;
     }
@@ -132,7 +135,10 @@ export class CoverageCRUD {
    * Add custom coverage area
    */
   async addCustomCoverageArea() {
-    if (!this.validator.validatedCustomBoundary || !this.validator.validatedCustomBoundary.display_name) {
+    if (
+      !this.validator.validatedCustomBoundary ||
+      !this.validator.validatedCustomBoundary.display_name
+    ) {
       this.notificationManager.show(
         "Please validate your custom boundary first.",
         "warning"
@@ -286,7 +292,8 @@ export class CoverageCRUD {
       this.progress.currentTaskId = null;
       this.progress._addBeforeUnloadListener();
 
-      const isUpdatingDisplayedLocation = this.manager.dashboard.selectedLocation?._id === locationId;
+      const isUpdatingDisplayedLocation =
+        this.manager.dashboard.selectedLocation?._id === locationId;
 
       this.progress.showProgressModal(
         `Requesting ${mode} update for ${processingLocation.display_name}...`
@@ -424,7 +431,10 @@ export class CoverageCRUD {
 
       await this.manager.loadCoverageAreas();
 
-      if (this.manager.dashboard.selectedLocation?.location?.display_name === location.display_name) {
+      if (
+        this.manager.dashboard.selectedLocation?.location?.display_name ===
+        location.display_name
+      ) {
         this.manager.dashboard.closeCoverageDashboard();
       }
 
@@ -447,89 +457,91 @@ export class CoverageCRUD {
    * Reprocess streets for area
    */
   async reprocessStreetsForArea(locationId) {
-      try {
-        const data = await COVERAGE_API.getArea(locationId);
-        const { location } = data;
-        if (!location.display_name) throw new Error("Missing location");
-  
-        const metersToFeet = (value) => value * 3.28084;
-        const defaults = {
-          segment:
-            location.segment_length_feet ||
-            (location.segment_length_meters
-              ? metersToFeet(location.segment_length_meters)
-              : 300),
-          buffer:
-            location.match_buffer_feet ||
-            (location.match_buffer_meters
-              ? metersToFeet(location.match_buffer_meters)
-              : 50),
-          min:
-            location.min_match_length_feet ||
-            (location.min_match_length_meters
-              ? metersToFeet(location.min_match_length_meters)
-              : 15),
-        };
-        const settings = await this.manager._askMatchSettings(location.display_name, defaults);
-        if (settings === null) return;
-  
-        location.segment_length_feet = settings.segment;
-        location.match_buffer_feet = settings.buffer;
-        location.min_match_length_feet = settings.min;
-  
-        this.progress.showProgressModal(
-          `Reprocessing streets for ${location.display_name} (seg ${settings.segment} ft)...`,
-          0
-        );
-  
-        const isCustom =
-          location.osm_type === "custom" || location.boundary_type === "custom";
-        let taskData = null;
-  
-        if (isCustom) {
-          const geometry =
-            location.geojson?.geometry || location.geojson || location.geometry;
-          if (!geometry) {
-            throw new Error("Custom boundary is missing geometry");
-          }
-          taskData = await COVERAGE_API.preprocessCustomBoundary({
-            display_name: location.display_name,
-            area_name: location.display_name,
-            geometry,
-            segment_length_feet: settings.segment,
-            match_buffer_feet: settings.buffer,
-            min_match_length_feet: settings.min,
-          });
-        } else {
-          taskData = await COVERAGE_API.preprocessStreets(location);
-        }
-  
-        this.currentProcessingLocation = location;
-        this.progress.currentProcessingLocation = location;
-        this.progress.currentTaskId = taskData.task_id;
-        this.progress.activeTaskIds.add(taskData.task_id);
-        this.progress.saveProcessingState();
-  
-        await this.progress.pollCoverageProgress(taskData.task_id);
-        
-        this.notificationManager.show(
-            `Reprocessing for ${location.display_name} completed.`,
-            "success"
-        );
-        await this.manager.loadCoverageAreas(false, true);
+    try {
+      const data = await COVERAGE_API.getArea(locationId);
+      const { location } = data;
+      if (!location.display_name) throw new Error("Missing location");
 
-        // Refresh dashboard if needed
-        if (this.manager.dashboard.selectedLocation?._id === locationId) {
-            await this.manager.displayCoverageDashboard(locationId);
-        }
+      const metersToFeet = (value) => value * 3.28084;
+      const defaults = {
+        segment:
+          location.segment_length_feet ||
+          (location.segment_length_meters
+            ? metersToFeet(location.segment_length_meters)
+            : 300),
+        buffer:
+          location.match_buffer_feet ||
+          (location.match_buffer_meters
+            ? metersToFeet(location.match_buffer_meters)
+            : 50),
+        min:
+          location.min_match_length_feet ||
+          (location.min_match_length_meters
+            ? metersToFeet(location.min_match_length_meters)
+            : 15),
+      };
+      const settings = await this.manager._askMatchSettings(
+        location.display_name,
+        defaults
+      );
+      if (settings === null) return;
 
-      } catch (error) {
-        console.error("Error reprocessing streets:", error);
-        this.notificationManager.show(
-            `Failed to reprocess streets: ${error.message}`,
-            "danger"
-        );
-        this.progress.hideProgressModal();
+      location.segment_length_feet = settings.segment;
+      location.match_buffer_feet = settings.buffer;
+      location.min_match_length_feet = settings.min;
+
+      this.progress.showProgressModal(
+        `Reprocessing streets for ${location.display_name} (seg ${settings.segment} ft)...`,
+        0
+      );
+
+      const isCustom =
+        location.osm_type === "custom" || location.boundary_type === "custom";
+      let taskData = null;
+
+      if (isCustom) {
+        const geometry =
+          location.geojson?.geometry || location.geojson || location.geometry;
+        if (!geometry) {
+          throw new Error("Custom boundary is missing geometry");
+        }
+        taskData = await COVERAGE_API.preprocessCustomBoundary({
+          display_name: location.display_name,
+          area_name: location.display_name,
+          geometry,
+          segment_length_feet: settings.segment,
+          match_buffer_feet: settings.buffer,
+          min_match_length_feet: settings.min,
+        });
+      } else {
+        taskData = await COVERAGE_API.preprocessStreets(location);
       }
+
+      this.currentProcessingLocation = location;
+      this.progress.currentProcessingLocation = location;
+      this.progress.currentTaskId = taskData.task_id;
+      this.progress.activeTaskIds.add(taskData.task_id);
+      this.progress.saveProcessingState();
+
+      await this.progress.pollCoverageProgress(taskData.task_id);
+
+      this.notificationManager.show(
+        `Reprocessing for ${location.display_name} completed.`,
+        "success"
+      );
+      await this.manager.loadCoverageAreas(false, true);
+
+      // Refresh dashboard if needed
+      if (this.manager.dashboard.selectedLocation?._id === locationId) {
+        await this.manager.displayCoverageDashboard(locationId);
+      }
+    } catch (error) {
+      console.error("Error reprocessing streets:", error);
+      this.notificationManager.show(
+        `Failed to reprocess streets: ${error.message}`,
+        "danger"
+      );
+      this.progress.hideProgressModal();
+    }
   }
 }

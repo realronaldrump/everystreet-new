@@ -81,10 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-
-
   document.body.addEventListener("mousedown", async (event) => {
-
     if (event.button !== 0) return;
     const clearButton = event.target.closest(".clear-collection");
 
@@ -114,9 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
       th.addEventListener("click", () => {
         const column = th.dataset.sort;
         const dir =
-          currentSort.column === column && currentSort.dir === "asc"
-            ? "desc"
-            : "asc";
+          currentSort.column === column && currentSort.dir === "asc" ? "desc" : "asc";
 
         // Update Sort State
         currentSort = { column, dir };
@@ -137,8 +132,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const rows = Array.from(tbody.querySelectorAll("tr"));
 
         rows.sort((a, b) => {
-          const aVal = a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex].dataset.value;
-          const bVal = b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex].dataset.value;
+          const aVal =
+            a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
+              .dataset.value;
+          const bVal =
+            b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
+              .dataset.value;
 
           let comparison = 0;
           if (column === "name") {
@@ -158,7 +157,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function handleConfirmedAction() {
-
     try {
       let endpoint = "";
       let body = {};

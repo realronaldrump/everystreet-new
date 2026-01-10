@@ -14,12 +14,8 @@ from celery.utils.log import get_task_logger
 from pymongo.errors import ConnectionFailure
 
 from db import db_manager
-from live_tracking import (
-    process_trip_data,
-    process_trip_end,
-    process_trip_metrics,
-    process_trip_start,
-)
+from live_tracking import (process_trip_data, process_trip_end,
+                           process_trip_metrics, process_trip_start)
 from utils import run_async_from_sync
 
 logger = get_task_logger(__name__)

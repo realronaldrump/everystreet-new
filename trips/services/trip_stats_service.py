@@ -5,13 +5,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from date_utils import normalize_calendar_date
-from db import (
-    build_calendar_date_expr,
-    find_with_retry,
-    progress_collection,
-    trips_collection,
-    update_one_with_retry,
-)
+from db import (build_calendar_date_expr, find_with_retry, progress_collection,
+                trips_collection, update_one_with_retry)
 from trip_service import TripService
 
 logger = logging.getLogger(__name__)

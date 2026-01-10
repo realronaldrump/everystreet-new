@@ -7,13 +7,8 @@ from typing import Any
 from bson import ObjectId
 
 from date_utils import normalize_to_utc_datetime
-from db import (
-    delete_one_with_retry,
-    find_one_with_retry,
-    find_with_retry,
-    insert_one_with_retry,
-    update_one_with_retry,
-)
+from db import (delete_one_with_retry, find_one_with_retry, find_with_retry,
+                insert_one_with_retry, update_one_with_retry)
 from visits.services.collections import Collections
 
 logger = logging.getLogger(__name__)

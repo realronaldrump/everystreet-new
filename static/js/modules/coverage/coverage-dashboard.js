@@ -87,11 +87,7 @@ export class CoverageDashboard {
       // Assuming extraContext provides necessary formatters.
       const { distanceFormatter, timeFormatter, streetTypeFormatter } = extraContext;
 
-      this.ui.updateDashboardStats(
-        coverageData,
-        distanceFormatter,
-        timeFormatter
-      );
+      this.ui.updateDashboardStats(coverageData, distanceFormatter, timeFormatter);
       this.ui.updateStreetTypeCoverage(
         coverageData.street_types || [],
         distanceFormatter,
@@ -102,7 +98,7 @@ export class CoverageDashboard {
         streetTypeFormatter,
         distanceFormatter
       );
-      
+
       this.updateFilterButtonStates();
 
       this.coverageMap.initializeCoverageMap(coverageData);
@@ -124,14 +120,13 @@ export class CoverageDashboard {
       this.showTripsActive = localStorage.getItem("showTripsOverlay") === "true";
       const tripToggle = document.getElementById("toggle-trip-overlay");
       if (tripToggle) tripToggle.checked = this.showTripsActive;
-      
+
       // If trip overlay was active, ensure it's loaded
       if (this.showTripsActive) {
-          this.coverageMap.showTripsActive = true;
-          this.coverageMap.setupTripLayers();
-          this.coverageMap.loadTripsForView();
+        this.coverageMap.showTripsActive = true;
+        this.coverageMap.setupTripLayers();
+        this.coverageMap.loadTripsForView();
       }
-
     } catch (error) {
       console.error("Error displaying coverage dashboard:", error);
       locationNameElement.textContent = "Error loading data";
@@ -158,7 +153,7 @@ export class CoverageDashboard {
       const refreshData = await COVERAGE_API.refreshStats(locationId);
       if (refreshData.coverage) {
         this.selectedLocation = refreshData.coverage;
-        
+
         const { distanceFormatter, timeFormatter, streetTypeFormatter } = extraContext;
 
         this.ui.updateDashboardStats(
@@ -217,8 +212,7 @@ export class CoverageDashboard {
    * Update filter button states
    */
   updateFilterButtonStates(filterType = null) {
-    const currentFilter =
-      filterType || this.coverageMap.currentFilter;
+    const currentFilter = filterType || this.coverageMap.currentFilter;
     const filterButtons = document.querySelectorAll(
       ".map-controls button[data-filter]"
     );
@@ -318,8 +312,8 @@ export class CoverageDashboard {
       });
     }
   }
-    
-    /**
+
+  /**
    * Handle trip overlay toggle
    */
   handleTripOverlayToggle(enabled) {

@@ -14,12 +14,8 @@ from shapely.geometry import shape
 
 from coverage.gridfs_service import gridfs_service
 from coverage.serializers import serialize_coverage_details
-from db import (
-    aggregate_with_retry,
-    db_manager,
-    find_one_with_retry,
-    update_one_with_retry,
-)
+from db import (aggregate_with_retry, db_manager, find_one_with_retry,
+                update_one_with_retry)
 
 logger = logging.getLogger(__name__)
 

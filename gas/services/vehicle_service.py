@@ -4,13 +4,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from db import (
-    find_one_with_retry,
-    find_with_retry,
-    insert_one_with_retry,
-    update_one_with_retry,
-    vehicles_collection,
-)
+from db import (find_one_with_retry, find_with_retry, insert_one_with_retry,
+                update_one_with_retry, vehicles_collection)
 
 logger = logging.getLogger(__name__)
 

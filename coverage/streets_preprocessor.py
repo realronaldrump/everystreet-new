@@ -15,19 +15,12 @@ from bson import ObjectId
 from shapely.geometry import LineString, MultiLineString, MultiPoint, mapping
 from shapely.ops import split
 
-from coverage.location_settings import (
-    DEFAULT_SEGMENT_LENGTH_FEET,
-    FEET_TO_METERS,
-    normalize_location_settings,
-)
-from db import (
-    coverage_metadata_collection,
-    delete_many_with_retry,
-    insert_many_with_retry,
-    progress_collection,
-    streets_collection,
-    update_one_with_retry,
-)
+from coverage.location_settings import (DEFAULT_SEGMENT_LENGTH_FEET,
+                                        FEET_TO_METERS,
+                                        normalize_location_settings)
+from db import (coverage_metadata_collection, delete_many_with_retry,
+                insert_many_with_retry, progress_collection,
+                streets_collection, update_one_with_retry)
 from preprocess_streets import GRAPH_STORAGE_DIR, preprocess_streets
 
 logger = logging.getLogger(__name__)

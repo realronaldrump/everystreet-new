@@ -11,11 +11,8 @@ Modules:
 """
 
 from coverage.gridfs_service import gridfs_service
-from coverage.services import (
-    coverage_stats_service,
-    geometry_service,
-    segment_marking_service,
-)
+from coverage.services import (coverage_stats_service, geometry_service,
+                               segment_marking_service)
 
 __all__ = [
     "gridfs_service",

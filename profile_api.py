@@ -13,11 +13,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app_settings import get_app_settings, update_app_settings
-from bouncie_credentials import (
-    get_bouncie_credentials,
-    update_bouncie_credentials,
-    validate_bouncie_credentials,
-)
+from bouncie_credentials import (get_bouncie_credentials,
+                                 update_bouncie_credentials,
+                                 validate_bouncie_credentials)
 from config import API_BASE_URL, AUTH_URL
 from db import update_one_with_retry, vehicles_collection
 from utils import get_session

@@ -16,10 +16,12 @@ import os
 import sys
 from pathlib import Path
 
-import geopandas as gpd
 import osmnx as ox
 from dotenv import load_dotenv
 from shapely.geometry import box, shape
+
+from routes.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
+from routes.geometry import _buffer_polygon_for_routing
 
 # Configure logging
 logging.basicConfig(
@@ -27,28 +29,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-# Constants (Must match route_solver.py)
-FEET_PER_METER = 3.28084
-ROUTING_BUFFER_FT = 6500.0  # ~2000m
-GRAPH_STORAGE_DIR = Path("data/graphs")
-
-
-def _buffer_polygon_for_routing(polygon, buffer_ft: float):
-    """Buffer a WGS84 polygon by feet (project to UTM, buffer, reproject)."""
-    if buffer_ft <= 0:
-        return polygon
-    try:
-        # Convert feet to meters for internal projection operations
-        buffer_m = buffer_ft / FEET_PER_METER
-        gdf = gpd.GeoDataFrame(geometry=[polygon], crs="EPSG:4326")
-        projected = ox.projection.project_gdf(gdf)
-        buffered = projected.geometry.iloc[0].buffer(buffer_m)
-        buffered_gdf = gpd.GeoDataFrame(geometry=[buffered], crs=projected.crs)
-        return buffered_gdf.to_crs("EPSG:4326").geometry.iloc[0]
-    except Exception as e:
-        logger.warning("Routing buffer failed, using original polygon: %s", e)
-        return polygon
 
 
 async def preprocess_streets(

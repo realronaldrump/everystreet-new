@@ -12,13 +12,9 @@ from typing import Any
 from celery.utils.log import get_task_logger
 
 from date_utils import parse_timestamp
-from db import (
-    find_one_with_retry,
-    serialize_document,
-    task_config_collection,
-    task_history_collection,
-    update_one_with_retry,
-)
+from db import (find_one_with_retry, serialize_document,
+                task_config_collection, task_history_collection,
+                update_one_with_retry)
 
 # Import only for type checking to avoid circular dependency
 # (tasks.core imports from tasks.config inside task_runner decorator)

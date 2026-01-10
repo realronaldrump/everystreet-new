@@ -4,13 +4,8 @@ import json
 import logging
 from datetime import UTC, datetime
 
-from db import (
-    delete_many_with_retry,
-    delete_one_with_retry,
-    get_trip_by_id,
-    trips_collection,
-    update_one_with_retry,
-)
+from db import (delete_many_with_retry, delete_one_with_retry, get_trip_by_id,
+                trips_collection, update_one_with_retry)
 
 logger = logging.getLogger(__name__)
 
