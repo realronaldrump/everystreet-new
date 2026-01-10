@@ -46,9 +46,11 @@ export class OptimalRoutesManager {
     });
 
     // Generate button
-    document.getElementById("generate-route-btn")?.addEventListener("click", () => {
-      this.generateRoute();
-    });
+    document
+      .getElementById("generate-route-btn")
+      ?.addEventListener("click", () => {
+        this.generateRoute();
+      });
 
     // Export GPX
     document.getElementById("export-gpx-btn")?.addEventListener("click", () => {
@@ -61,9 +63,11 @@ export class OptimalRoutesManager {
     });
 
     // Clear route
-    document.getElementById("clear-route-btn")?.addEventListener("click", () => {
-      this.clearRoute();
-    });
+    document
+      .getElementById("clear-route-btn")
+      ?.addEventListener("click", () => {
+        this.clearRoute();
+      });
 
     // Retry button
     document.getElementById("retry-btn")?.addEventListener("click", () => {
@@ -71,9 +75,11 @@ export class OptimalRoutesManager {
     });
 
     // Cancel button
-    document.getElementById("cancel-task-btn")?.addEventListener("click", () => {
-      this.cancelTask();
-    });
+    document
+      .getElementById("cancel-task-btn")
+      ?.addEventListener("click", () => {
+        this.cancelTask();
+      });
 
     this.setupLayerControls();
   }
@@ -103,7 +109,9 @@ export class OptimalRoutesManager {
       const slider = document.getElementById(id);
       slider?.addEventListener("input", (e) => {
         const opacity = e.target.value / 100;
-        const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
+        const label = slider
+          .closest(".layer-opacity")
+          .querySelector(".opacity-value");
         if (label) label.textContent = `${e.target.value}%`;
 
         this.map.setLayerOpacity(layers, opacity);
@@ -155,7 +163,7 @@ export class OptimalRoutesManager {
 
       // Dispatch event
       document.dispatchEvent(
-        new CustomEvent("coverageAreasLoaded", { detail: { areas } })
+        new CustomEvent("coverageAreasLoaded", { detail: { areas } }),
       );
 
       this.ui.populateAreaSelect(areas);
@@ -189,9 +197,8 @@ export class OptimalRoutesManager {
 
     // Load streets
     try {
-      const { drivenFeatures, undrivenFeatures } = await this.api.loadStreetNetwork(
-        areaId
-      );
+      const { drivenFeatures, undrivenFeatures } =
+        await this.api.loadStreetNetwork(areaId);
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
     } catch (e) {
       // already logged in api
@@ -212,14 +219,14 @@ export class OptimalRoutesManager {
     const activeTask = await this.api.checkForActiveTask(areaId);
     if (activeTask) {
       this.currentTaskId = activeTask.task_id;
-      
+
       let startTime = Date.now();
       if (activeTask.started_at) {
         startTime = new Date(activeTask.started_at).getTime();
       }
-      
+
       this.ui.showProgressSection(startTime);
-      
+
       this.ui.updateProgress({
         status: activeTask.status,
         stage: activeTask.stage,
@@ -229,7 +236,10 @@ export class OptimalRoutesManager {
       });
 
       this.api.connectSSE(activeTask.task_id);
-      this.ui.showNotification("Reconnected to in-progress route generation", "info");
+      this.ui.showNotification(
+        "Reconnected to in-progress route generation",
+        "info",
+      );
     }
 
     // Fly to area
@@ -241,7 +251,7 @@ export class OptimalRoutesManager {
   }
 
   onMapLayersReady() {
-    // Re-apply current data if any? 
+    // Re-apply current data if any?
     // Usually logic flows from selection, so this might just be a hook.
   }
 
@@ -254,7 +264,10 @@ export class OptimalRoutesManager {
       // Check workers
       const workerStatus = await this.api.checkWorkerStatus();
       if (workerStatus.status === "no_workers") {
-        this.ui.showNotification("No workers available. Task will be queued.", "warning");
+        this.ui.showNotification(
+          "No workers available. Task will be queued.",
+          "warning",
+        );
       }
 
       const taskId = await this.api.generateRoute(this.selectedAreaId);
@@ -319,12 +332,15 @@ export class OptimalRoutesManager {
       return;
     }
     if (this.ui.turnByTurnBtn?.disabled) {
-      this.ui.showNotification("Generate a route before starting navigation.", "warning");
+      this.ui.showNotification(
+        "Generate a route before starting navigation.",
+        "warning",
+      );
       return;
     }
     window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
     window.location.href = `/turn-by-turn?areaId=${encodeURIComponent(
-      this.selectedAreaId
+      this.selectedAreaId,
     )}`;
   }
 

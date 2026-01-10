@@ -15,8 +15,7 @@ from celery.utils.log import get_task_logger
 
 from celery_app import app as celery_app
 from date_utils import parse_timestamp
-from tasks.config import (check_dependencies, get_task_config,
-                          update_task_history_entry)
+from tasks.config import check_dependencies, get_task_config, update_task_history_entry
 from tasks.core import TaskStatus, TaskStatusManager
 from utils import run_async_from_sync
 

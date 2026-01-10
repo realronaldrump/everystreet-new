@@ -1,8 +1,10 @@
 import asyncio
+
 import networkx as nx
+
 from routes.core import solve_greedy_route
 from routes.graph import dijkstra_to_any_target
-from routes.types import ReqId, EdgeRef
+from routes.types import EdgeRef, ReqId
 
 
 def test_greedy_solver_disconnected():
@@ -38,12 +40,12 @@ def test_greedy_solver_disconnected():
     # It will jump to 2->3 (disconnected) with a warning (logged).
     # It should complete both.
 
-    assert stats["completed_reqs"] == 2.0, (
-        f"Expected 2 completed req, got {stats['completed_reqs']}"
-    )
-    assert stats["skipped_disconnected"] == 0.0, (
-        f"Expected 0 skipped req, got {stats['skipped_disconnected']}"
-    )
+    assert (
+        stats["completed_reqs"] == 2.0
+    ), f"Expected 2 completed req, got {stats['completed_reqs']}"
+    assert (
+        stats["skipped_disconnected"] == 0.0
+    ), f"Expected 0 skipped req, got {stats['skipped_disconnected']}"
 
     print("SUCCESS: Disconnected graph handled correctly.")
 

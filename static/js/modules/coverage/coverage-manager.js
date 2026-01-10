@@ -37,14 +37,20 @@ class CoverageManager {
     this.coverageMap = new CoverageMap(this.notificationManager);
     this.ui = new CoverageUI(this.notificationManager);
     this.drawing = new CoverageDrawing(this.notificationManager);
-    this.selection = new CoverageSelection(this.coverageMap, this.notificationManager);
+    this.selection = new CoverageSelection(
+      this.coverageMap,
+      this.notificationManager,
+    );
     this.navigation = new CoverageNavigation(
       this.coverageMap,
-      this.notificationManager
+      this.notificationManager,
     );
 
     // Initialize new refactored modules
-    this.validator = new CoverageValidator(this.notificationManager, this.drawing);
+    this.validator = new CoverageValidator(
+      this.notificationManager,
+      this.drawing,
+    );
 
     // Dashboard module
     this.dashboard = new CoverageDashboard(
@@ -52,7 +58,7 @@ class CoverageManager {
       this.ui,
       this.coverageMap,
       this.navigation,
-      this.selection
+      this.selection,
     );
 
     // CRUD module
@@ -61,7 +67,7 @@ class CoverageManager {
       this.progress,
       this.confirmationDialog,
       this.validator,
-      this // Pass manager for reload triggers
+      this, // Pass manager for reload triggers
     );
 
     // Export module
@@ -90,16 +96,20 @@ class CoverageManager {
    */
   setupEventListeners() {
     // Location validation
-    document.getElementById("validate-location")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.validator.validateLocation();
-    });
+    document
+      .getElementById("validate-location")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.validator.validateLocation();
+      });
 
     // Drawing validation
-    document.getElementById("validate-drawing")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.validator.validateCustomBoundary();
-    });
+    document
+      .getElementById("validate-drawing")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.validator.validateCustomBoundary();
+      });
 
     // Clear drawing
     document.getElementById("clear-drawing")?.addEventListener("click", (e) => {
@@ -108,22 +118,28 @@ class CoverageManager {
     });
 
     // Add coverage area
-    document.getElementById("add-coverage-area")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.crud.addCoverageArea();
-    });
+    document
+      .getElementById("add-coverage-area")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.crud.addCoverageArea();
+      });
 
     // Add custom area
-    document.getElementById("add-custom-area")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.crud.addCustomCoverageArea();
-    });
+    document
+      .getElementById("add-custom-area")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.crud.addCustomCoverageArea();
+      });
 
     // Cancel processing
-    document.getElementById("cancel-processing")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.crud.cancelProcessing();
-    });
+    document
+      .getElementById("cancel-processing")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.crud.cancelProcessing();
+      });
 
     // Modal events
     document
@@ -132,45 +148,55 @@ class CoverageManager {
         this.progress.clearProcessingContext();
       });
 
-    document.getElementById("addAreaModal")?.addEventListener("shown.bs.modal", () => {
-      if (this.currentAreaDefinitionType === "draw") {
-        this.drawing.initializeDrawingMap();
-      }
-    });
+    document
+      .getElementById("addAreaModal")
+      ?.addEventListener("shown.bs.modal", () => {
+        if (this.currentAreaDefinitionType === "draw") {
+          this.drawing.initializeDrawingMap();
+        }
+      });
 
-    document.getElementById("addAreaModal")?.addEventListener("hidden.bs.modal", () => {
-      this.drawing.cleanupDrawingMap();
-      this.resetModalState();
-    });
+    document
+      .getElementById("addAreaModal")
+      ?.addEventListener("hidden.bs.modal", () => {
+        this.drawing.cleanupDrawingMap();
+        this.resetModalState();
+      });
 
     // Area definition type change
-    document.querySelectorAll('input[name="area-definition-type"]').forEach((radio) => {
-      radio.addEventListener("change", (e) => {
-        this.handleAreaDefinitionTypeChange(e.target.value);
+    document
+      .querySelectorAll('input[name="area-definition-type"]')
+      .forEach((radio) => {
+        radio.addEventListener("change", (e) => {
+          this.handleAreaDefinitionTypeChange(e.target.value);
+        });
       });
-    });
 
     // Table actions
-    document.querySelector("#coverage-areas-table")?.addEventListener("click", (e) => {
-      const targetButton = e.target.closest("button[data-action]");
-      const targetLink = e.target.closest("a.location-name-link");
-      if (targetButton) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.handleTableAction(targetButton);
-      } else if (targetLink) {
-        e.preventDefault();
-        e.stopPropagation();
-        const { locationId } = targetLink.dataset;
-        if (locationId) {
-          this.displayCoverageDashboard(locationId);
+    document
+      .querySelector("#coverage-areas-table")
+      ?.addEventListener("click", (e) => {
+        const targetButton = e.target.closest("button[data-action]");
+        const targetLink = e.target.closest("a.location-name-link");
+        if (targetButton) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.handleTableAction(targetButton);
+        } else if (targetLink) {
+          e.preventDefault();
+          e.stopPropagation();
+          const { locationId } = targetLink.dataset;
+          if (locationId) {
+            this.displayCoverageDashboard(locationId);
+          }
         }
-      }
-    });
+      });
 
     // Dashboard controls
     document.addEventListener("click", (e) => {
-      const filterButton = e.target.closest(".map-controls button[data-filter]");
+      const filterButton = e.target.closest(
+        ".map-controls button[data-filter]",
+      );
       if (filterButton) {
         this.coverageMap.setMapFilter(filterButton.dataset.filter);
         // Also update dashboard UI state
@@ -263,7 +289,11 @@ class CoverageManager {
    * @param {boolean} silent - Suppress notifications
    * @param {boolean} skipRebuild - Skip full table rebuild (for incremental updates)
    */
-  async loadCoverageAreas(showLoading = true, silent = false, skipRebuild = false) {
+  async loadCoverageAreas(
+    showLoading = true,
+    silent = false,
+    skipRebuild = false,
+  ) {
     const tableBody = document.querySelector("#coverage-areas-table tbody");
     if (!tableBody) return;
 
@@ -299,7 +329,7 @@ class CoverageManager {
         areas,
         this.formatRelativeTime.bind(this),
         this.progress.formatStageName.bind(this.progress),
-        this.distanceInUserUnits.bind(this)
+        this.distanceInUserUnits.bind(this),
       );
       this.ui.initializeDataTable();
       this.initTooltips();
@@ -309,7 +339,7 @@ class CoverageManager {
       if (!silent) {
         this.notificationManager.show(
           `Failed to load coverage areas: ${error.message}.`,
-          "danger"
+          "danger",
         );
       }
       if (tableBody) {
@@ -336,7 +366,10 @@ class CoverageManager {
   _computeAreasHash(areas) {
     this.lastAreasHashInput = areas;
     const hash = areas
-      .map((a) => `${a._id}:${a.status}:${a.coverage_percentage}:${a.last_updated}`)
+      .map(
+        (a) =>
+          `${a._id}:${a.status}:${a.coverage_percentage}:${a.last_updated}`,
+      )
       .join("|");
     this.lastAreasHash = hash;
     return hash;
@@ -353,7 +386,7 @@ class CoverageManager {
     if (!locationId && !locationStr) {
       this.notificationManager.show(
         "Action failed: Missing location identifier.",
-        "danger"
+        "danger",
       );
       return;
     }
@@ -365,7 +398,7 @@ class CoverageManager {
       } catch (_parseError) {
         this.notificationManager.show(
           "Action failed: Invalid location data.",
-          "danger"
+          "danger",
         );
         return;
       }
@@ -382,7 +415,9 @@ class CoverageManager {
     switch (action) {
       case "update-full":
         if (locationId) {
-          this.crud.updateCoverageForArea(locationId, "full").finally(resetButton);
+          this.crud
+            .updateCoverageForArea(locationId, "full")
+            .finally(resetButton);
         }
         break;
       case "update-incremental":
@@ -408,7 +443,10 @@ class CoverageManager {
         }
         break;
       default:
-        this.notificationManager.show(`Unknown table action: ${action}`, "warning");
+        this.notificationManager.show(
+          `Unknown table action: ${action}`,
+          "warning",
+        );
         resetButton();
     }
   }
@@ -418,9 +456,13 @@ class CoverageManager {
    */
   async handleMarkSegmentAction(action, segmentId) {
     const activeLocationId =
-      this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
+      this.dashboard.selectedLocation?._id ||
+      this.dashboard.currentDashboardLocationId;
     if (!activeLocationId || !segmentId) {
-      this.notificationManager.show("Cannot perform action: Missing ID.", "warning");
+      this.notificationManager.show(
+        "Cannot perform action: Missing ID.",
+        "warning",
+      );
       return;
     }
 
@@ -429,7 +471,7 @@ class CoverageManager {
       this.notificationManager.show(
         `Segment marked as ${action}. Refreshing...`,
         "success",
-        2000
+        2000,
       );
 
       // Optimistic UI update
@@ -438,10 +480,11 @@ class CoverageManager {
         this.coverageMap.map?.getSource("streets")
       ) {
         const featureIndex = this.coverageMap.streetsGeoJson.features.findIndex(
-          (f) => f.properties.segment_id === segmentId
+          (f) => f.properties.segment_id === segmentId,
         );
         if (featureIndex !== -1) {
-          const feature = this.coverageMap.streetsGeoJson.features[featureIndex];
+          const feature =
+            this.coverageMap.streetsGeoJson.features[featureIndex];
           switch (action) {
             case "driven":
               feature.properties.driven = true;
@@ -470,7 +513,7 @@ class CoverageManager {
           this.coverageMap.streetsGeoJson = newGeoJson;
           this.ui.updateUndrivenStreetsList(
             this.coverageMap.streetsGeoJson,
-            this.distanceInUserUnits.bind(this)
+            this.distanceInUserUnits.bind(this),
           );
         }
       }
@@ -484,7 +527,7 @@ class CoverageManager {
     } catch (error) {
       this.notificationManager.show(
         `Failed to mark segment: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -497,25 +540,26 @@ class CoverageManager {
     if (segmentIds.length === 0) return;
 
     const activeLocationId =
-      this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
+      this.dashboard.selectedLocation?._id ||
+      this.dashboard.currentDashboardLocationId;
     if (!activeLocationId) {
       this.notificationManager.show(
         "Cannot perform bulk action: No active location.",
-        "warning"
+        "warning",
       );
       return;
     }
 
     await Promise.allSettled(
       segmentIds.map((segId) =>
-        COVERAGE_API.markSegment(activeLocationId, segId, action)
-      )
+        COVERAGE_API.markSegment(activeLocationId, segId, action),
+      ),
     );
 
     // Optimistic update
     segmentIds.forEach((segId) => {
       const idx = this.coverageMap.streetsGeoJson?.features?.findIndex(
-        (f) => f.properties.segment_id === segId
+        (f) => f.properties.segment_id === segId,
       );
       if (idx !== undefined && idx !== -1) {
         const feature = this.coverageMap.streetsGeoJson.features[idx];
@@ -551,7 +595,7 @@ class CoverageManager {
     this.notificationManager.show(
       `${segmentIds.length} segments marked as ${action}.`,
       "success",
-      2500
+      2500,
     );
 
     await this.dashboard.refreshDashboardData(activeLocationId, {
@@ -572,7 +616,9 @@ class CoverageManager {
 
     const locationSearchForm = document.getElementById("location-search-form");
     const drawingInterface = document.getElementById("drawing-interface");
-    const locationSearchButtons = document.getElementById("location-search-buttons");
+    const locationSearchButtons = document.getElementById(
+      "location-search-buttons",
+    );
     const drawingButtons = document.getElementById("drawing-buttons");
 
     if (type === "location") {
@@ -622,9 +668,13 @@ class CoverageManager {
    */
   async findMostEfficientStreets() {
     const locationId =
-      this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
+      this.dashboard.selectedLocation?._id ||
+      this.dashboard.currentDashboardLocationId;
     if (!locationId) {
-      this.notificationManager.show("Please select a coverage area first.", "warning");
+      this.notificationManager.show(
+        "Please select a coverage area first.",
+        "warning",
+      );
       return;
     }
     await this.navigation.findMostEfficientStreets(locationId);
@@ -633,7 +683,10 @@ class CoverageManager {
   /**
    * Ask match settings (Utility used by CRUD)
    */
-  _askMatchSettings(locationName, defaults = { segment: 300, buffer: 50, min: 15 }) {
+  _askMatchSettings(
+    locationName,
+    defaults = { segment: 300, buffer: 50, min: 15 },
+  ) {
     this.lastMatchSettingsRequest = { locationName, defaults };
     return new Promise((resolve) => {
       const modalEl = document.getElementById("segmentLengthModal");
@@ -652,7 +705,8 @@ class CoverageManager {
       segEl.value = defaults.segment;
       bufEl.value = defaults.buffer;
       minEl.value = defaults.min;
-      if (titleEl) titleEl.textContent = `Re-segment Streets for ${locationName}`;
+      if (titleEl)
+        titleEl.textContent = `Re-segment Streets for ${locationName}`;
 
       const bsModal = new bootstrap.Modal(modalEl, { backdrop: "static" });
 
@@ -706,7 +760,8 @@ class CoverageManager {
             mutation.type === "attributes" &&
             mutation.attributeName === "data-bs-theme"
           ) {
-            const newTheme = document.documentElement.getAttribute("data-bs-theme");
+            const newTheme =
+              document.documentElement.getAttribute("data-bs-theme");
             this.coverageMap.updateTheme(newTheme);
             this.drawing.updateTheme(newTheme);
           }
@@ -733,7 +788,9 @@ class CoverageManager {
 
       const isModalProcessing =
         this.crud.currentProcessingLocation &&
-        document.getElementById("taskProgressModal")?.classList.contains("show");
+        document
+          .getElementById("taskProgressModal")
+          ?.classList.contains("show");
 
       // Don't auto-refresh while modal is open - polling handles updates there
       if (isModalProcessing) return;
@@ -864,11 +921,13 @@ class CoverageManager {
       notification.remove();
     });
 
-    notification.querySelector(".discard-task").addEventListener("click", () => {
-      localStorage.removeItem("coverageProcessingState");
-      this.notificationManager.show("Interrupted task discarded", "info");
-      notification.remove();
-    });
+    notification
+      .querySelector(".discard-task")
+      .addEventListener("click", () => {
+        localStorage.removeItem("coverageProcessingState");
+        this.notificationManager.show("Interrupted task discarded", "info");
+        notification.remove();
+      });
 
     document.querySelector("#alerts-container")?.prepend(notification);
   }
@@ -883,13 +942,17 @@ class CoverageManager {
         this.findMostEfficientStreets();
       });
 
-    document.getElementById("refresh-table-btn")?.addEventListener("click", () => {
-      this.loadCoverageAreas(true);
-    });
+    document
+      .getElementById("refresh-table-btn")
+      ?.addEventListener("click", () => {
+        this.loadCoverageAreas(true);
+      });
 
-    document.getElementById("close-dashboard-btn")?.addEventListener("click", () => {
-      this.dashboard.closeCoverageDashboard();
-    });
+    document
+      .getElementById("close-dashboard-btn")
+      ?.addEventListener("click", () => {
+        this.dashboard.closeCoverageDashboard();
+      });
   }
 
   /**
@@ -976,7 +1039,9 @@ class CoverageManager {
    */
   initTooltips() {
     this.lastTooltipInitAt = Date.now();
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipTriggerList = document.querySelectorAll(
+      '[data-bs-toggle="tooltip"]',
+    );
     tooltipTriggerList.forEach((tooltipTriggerEl) => {
       const existing = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
       if (existing) existing.dispose();
@@ -1066,7 +1131,9 @@ class CoverageManager {
    */
   formatStreetType(type) {
     if (!type) return "Unknown";
-    const formatted = type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    const formatted = type
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
     this.lastStreetTypeLabel = formatted;
     return formatted;
   }
@@ -1077,7 +1144,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof mapboxgl === "undefined") {
     const msg =
       "Error: Mapbox GL JS library failed to load. Map functionality will be unavailable.";
-    const errContainer = document.getElementById("alerts-container") || document.body;
+    const errContainer =
+      document.getElementById("alerts-container") || document.body;
     const errDiv = document.createElement("div");
     errDiv.className = "alert alert-danger m-3";
     errDiv.textContent = msg;
@@ -1086,7 +1154,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
   if (typeof Chart === "undefined") {
-    console.warn("Chart.js not loaded. Chart functionality will be unavailable.");
+    console.warn(
+      "Chart.js not loaded. Chart functionality will be unavailable.",
+    );
     const chartContainer = document.getElementById("street-type-chart");
     if (chartContainer)
       chartContainer.innerHTML =

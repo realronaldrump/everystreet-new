@@ -29,7 +29,7 @@
 
       // Tooltips
       const tooltipTriggerList = [].slice.call(
-        document.querySelectorAll('[data-bs-toggle="tooltip"]')
+        document.querySelectorAll('[data-bs-toggle="tooltip"]'),
       );
       tooltipTriggerList.forEach((tooltipTriggerEl) => {
         bootstrap.Tooltip.getOrCreateInstance(tooltipTriggerEl, {
@@ -137,18 +137,20 @@
         row.querySelector(".edit-place-btn").addEventListener("click", (e) => {
           const placeId = e.currentTarget.getAttribute("data-place-id");
           bootstrap.Modal.getInstance(
-            document.getElementById("manage-places-modal")
+            document.getElementById("manage-places-modal"),
           )?.hide();
           this.showEditPlaceModal(placeId, placesMap);
         });
 
-        row.querySelector(".delete-place-btn").addEventListener("click", (e) => {
-          const placeId = e.currentTarget.getAttribute("data-place-id");
-          bootstrap.Modal.getInstance(
-            document.getElementById("manage-places-modal")
-          )?.hide();
-          this.manager.deletePlace(placeId);
-        });
+        row
+          .querySelector(".delete-place-btn")
+          .addEventListener("click", (e) => {
+            const placeId = e.currentTarget.getAttribute("data-place-id");
+            bootstrap.Modal.getInstance(
+              document.getElementById("manage-places-modal"),
+            )?.hide();
+            this.manager.deletePlace(placeId);
+          });
       });
     }
 
@@ -206,16 +208,22 @@
     }
 
     async toggleView(placeId = null) {
-      const mainViewContainer = document.getElementById("visits-table-container");
-      const detailViewContainer = document.getElementById("trips-for-place-container");
+      const mainViewContainer = document.getElementById(
+        "visits-table-container",
+      );
+      const detailViewContainer = document.getElementById(
+        "trips-for-place-container",
+      );
 
       if (placeId) {
         const place = this.manager.places.get(placeId);
         if (!place) {
-          console.error(`Cannot switch to detail view: Place ID ${placeId} not found.`);
+          console.error(
+            `Cannot switch to detail view: Place ID ${placeId} not found.`,
+          );
           window.notificationManager?.show(
             "Could not find the selected place.",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -265,7 +273,7 @@
         () => {
           input.classList.remove("is-invalid");
         },
-        { once: true }
+        { once: true },
       );
     }
   }
