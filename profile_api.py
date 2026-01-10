@@ -272,9 +272,10 @@ async def sync_vehicles_from_bouncie():
             "authorized_devices": updated_devices,
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
+        # Re-raise HTTPException as-is without logging or wrapping
+        if isinstance(e, HTTPException):
+            raise
         logger.exception("Error syncing vehicles from Bouncie")
         raise HTTPException(status_code=500, detail=str(e))
 
