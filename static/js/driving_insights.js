@@ -35,9 +35,8 @@ if (typeof window !== "undefined") {
       document.querySelectorAll('[data-bs-toggle="tooltip"]')
     );
     tooltipTriggerList.forEach((el) => {
-      const tooltip = new bootstrap.Tooltip(el);
-      // Tooltip instance is stored but intentionally not used - it attaches to DOM element
-      void tooltip;
+      new bootstrap.Tooltip(el);
+      // Tooltip instance attaches to DOM element automatically
     });
 
     initCharts();
@@ -832,8 +831,6 @@ if (typeof window !== "undefined") {
   function showNotification(message, type = "info") {
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
-    } else {
-
     }
   }
 
@@ -864,7 +861,7 @@ if (typeof window !== "undefined") {
     a.click();
   }
 
-  async function generateReport() {
+  function generateReport() {
     showNotification("Generating report...", "info");
 
     // This would generate a PDF report

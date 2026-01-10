@@ -319,16 +319,6 @@ def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
     arcs = topology.get("arcs", [])
     transform_data = topology.get("transform")
 
-    def decode_arc(arc_index: int) -> list:
-        """Decode a single arc to coordinates."""
-        if arc_index < 0:
-            # Negative index means reverse the arc
-            arc = arcs[~arc_index]
-            coords = decode_coordinates(arc)
-            return list(reversed(coords))
-        arc = arcs[arc_index]
-        return decode_coordinates(arc)
-
     def decode_coordinates(arc: list) -> list:
         """Decode delta-encoded coordinates."""
         coords = []
@@ -349,6 +339,16 @@ def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
                 coords.append([x, y])
 
         return coords
+
+    def decode_arc(arc_index: int) -> list:
+        """Decode a single arc to coordinates."""
+        if arc_index < 0:
+            # Negative index means reverse the arc
+            arc = arcs[~arc_index]
+            coords = decode_coordinates(arc)
+            return list(reversed(coords))
+        arc = arcs[arc_index]
+        return decode_coordinates(arc)
 
     def arcs_to_coordinates(arc_indices: list) -> list:
         """Convert arc indices to a coordinate ring."""

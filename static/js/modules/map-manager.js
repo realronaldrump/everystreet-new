@@ -44,11 +44,11 @@ const mapManager = {
       const lngParam = parseFloat(urlParams.get("lng"));
       const zoomParam = parseFloat(urlParams.get("zoom"));
       const savedView = utils.getStorage("mapView");
-      const center =
+      const mapCenter =
         !Number.isNaN(latParam) && !Number.isNaN(lngParam)
           ? [lngParam, latParam]
           : savedView?.center || CONFIG.MAP.defaultCenter;
-      const zoom = !Number.isNaN(zoomParam)
+      const mapZoom = !Number.isNaN(zoomParam)
         ? zoomParam
         : savedView?.zoom || CONFIG.MAP.defaultZoom;
 
@@ -63,8 +63,8 @@ const mapManager = {
       state.map = new mapboxgl.Map({
         container: "map",
         style: initialStyle,
-        center,
-        zoom,
+        center: mapCenter,
+        zoom: mapZoom,
         maxZoom: CONFIG.MAP.maxZoom,
         attributionControl: false,
         logoPosition: "bottom-right",

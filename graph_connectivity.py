@@ -32,10 +32,12 @@ class MapboxClientState:
 async def get_mapbox_client() -> httpx.AsyncClient:
     """Get or create a shared httpx client with connection pooling."""
     loop = asyncio.get_running_loop()
+
+    # Initialize lock if it doesn't exist or is for a different loop
     if (
-        MapboxClientState.client_loop is not loop
+        MapboxClientState.client_lock is None
+        or MapboxClientState.client_loop is not loop
         or loop.is_closed()
-        or MapboxClientState.client_lock is None
     ):
         if MapboxClientState.client and not MapboxClientState.client.is_closed:
             with contextlib.suppress(Exception):
@@ -44,6 +46,7 @@ async def get_mapbox_client() -> httpx.AsyncClient:
         MapboxClientState.client_loop = loop
         MapboxClientState.client_lock = asyncio.Lock()
 
+    # At this point, client_lock is guaranteed to be initialized
     async with MapboxClientState.client_lock:
         if MapboxClientState.client is None or MapboxClientState.client.is_closed:
             MapboxClientState.client = httpx.AsyncClient(

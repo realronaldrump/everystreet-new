@@ -1302,12 +1302,12 @@ class OptimalRoutesManager {
     document.getElementById("map-legend").style.display = "block";
 
     // Fit bounds to route
-    const bounds = coordinates.reduce(
-      (bounds, coord) => bounds.extend(coord),
+    const routeBounds = coordinates.reduce(
+      (accBounds, coord) => accBounds.extend(coord),
       new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
     );
 
-    this.map.fitBounds(bounds, { padding: 50, duration: 1000 });
+    this.map.fitBounds(routeBounds, { padding: 50, duration: 1000 });
   }
 
   animateRouteDrawing(geojson) {

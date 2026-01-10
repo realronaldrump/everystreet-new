@@ -73,7 +73,7 @@ class DrivingNavigation {
   async initMap() {
     if (this.config.useSharedMap && window.coverageMasterMap) {
       this.map = window.coverageMasterMap;
-      return new Promise((resolve, reject) => {
+      return await new Promise((resolve, reject) => {
         this.attachMapHandlers(resolve, reject);
       });
     }
@@ -441,8 +441,14 @@ class DrivingNavigation {
   }
 
   async fetchAndDisplayUndrivenStreets() {
-    if (!this.selectedArea) return this.setStatus("Please select an area first.", true);
-    if (!this.map) return this.setStatus("Map not initialized.", true);
+    if (!this.selectedArea) {
+      this.setStatus("Please select an area first.", true);
+      return;
+    }
+    if (!this.map) {
+      this.setStatus("Map not initialized.", true);
+      return;
+    }
 
     this.showProgressContainer();
     this.updateProgress(0, "Loading undriven streets...");
@@ -528,7 +534,10 @@ class DrivingNavigation {
   }
 
   async findAndDisplayRoute() {
-    if (!this.selectedArea) return this.setStatus("Please select an area first.", true);
+    if (!this.selectedArea) {
+      this.setStatus("Please select an area first.", true);
+      return;
+    }
     if (this.isFetchingRoute) return;
 
     this.isFetchingRoute = true;

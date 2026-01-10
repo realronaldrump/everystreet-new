@@ -23,8 +23,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     if (!window.MAPBOX_ACCESS_TOKEN) {
       console.error("Gas Tracking: Mapbox token missing from window!");
-    } else {
-
     }
     await initializePage();
   } catch (e) {

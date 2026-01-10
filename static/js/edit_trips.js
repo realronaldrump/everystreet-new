@@ -158,7 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (saveChangesBtn) {
       saveChangesBtn.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
-        saveTripChanges(e);
+        saveTripChanges();
       });
     }
 
@@ -176,7 +176,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (applyFiltersBtn) {
         applyFiltersBtn.addEventListener("mousedown", (e) => {
           if (e.button !== 0) return;
-          loadTrips(e);
+          loadTrips();
         });
       }
     }
@@ -273,15 +273,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Fit bounds to all trips
     if (tripFeatures.length > 0) {
-      const bounds = tripFeatures.reduce((bounds, feature) => {
+      const mapBounds = tripFeatures.reduce((accBounds, feature) => {
         const coords = feature.geometry.coordinates;
         coords.forEach(([lng, lat]) => {
-          bounds.extend([lng, lat]);
+          accBounds.extend([lng, lat]);
         });
-        return bounds;
+        return accBounds;
       }, new mapboxgl.LngLatBounds());
 
-      editMap.fitBounds(bounds, {
+      editMap.fitBounds(mapBounds, {
         padding: 50,
         maxZoom: 15,
       });

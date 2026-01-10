@@ -429,8 +429,10 @@ async def process_trip_end(
         # Trigger periodic fetch for this specific trip range
         # This eliminates the delay between trip end and it appearing in history
         try:
-            celery_task_id = f"fetch_trip_{transaction_id}_{uuid.uuid4()}"
+            # Import here to avoid circular dependency (celery_app imports live_tracking)
             from celery_app import app as celery_app
+
+            celery_task_id = f"fetch_trip_{transaction_id}_{uuid.uuid4()}"
 
             # Pass specific time range to avoid full sync
             # Add small buffer to start/end times to safely catch all points

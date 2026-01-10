@@ -7,7 +7,7 @@ including retrieving configuration, checking dependencies, and updating task his
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from celery.utils.log import get_task_logger
 
@@ -19,7 +19,11 @@ from db import (
     task_history_collection,
     update_one_with_retry,
 )
-from tasks.core import TASK_METADATA, TaskStatus
+
+# Import only for type checking to avoid circular dependency
+# (tasks.core imports from tasks.config inside task_runner decorator)
+if TYPE_CHECKING:
+    from tasks.core import TaskStatus
 
 logger = get_task_logger(__name__)
 
@@ -34,6 +38,9 @@ async def get_task_config() -> dict[str, Any]:
     Returns:
         The task configuration dictionary. Returns a default structure on error.
     """
+    # Import here to avoid circular dependency
+    from tasks.core import TASK_METADATA, TaskStatus
+
     try:
         cfg = await find_one_with_retry(
             task_config_collection,
@@ -124,6 +131,9 @@ async def check_dependencies(
             'can_run': Boolean indicating if the task can run based on dependencies.
             'reason': String explaining why the task cannot run (if applicable).
     """
+    # Import here to avoid circular dependency
+    from tasks.core import TASK_METADATA, TaskStatus
+
     try:
         if task_id not in TASK_METADATA:
             return {

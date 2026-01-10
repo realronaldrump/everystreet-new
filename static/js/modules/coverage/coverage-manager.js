@@ -2007,8 +2007,7 @@ class CoverageManager {
         html: true,
         placement: "auto",
       });
-      // Tooltip instance is stored but intentionally not used - it attaches to DOM element
-      void tooltip;
+      // Tooltip instance attaches to DOM element automatically
     });
   }
 

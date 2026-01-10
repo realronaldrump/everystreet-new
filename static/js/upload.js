@@ -685,8 +685,8 @@ class UploadManager {
         try {
           const errorData = await response.json();
           errorDetail = errorData.detail || errorDetail;
-        } catch (error) {
-          void error;
+        } catch {
+          // Ignore JSON parse errors
         }
         throw new Error(errorDetail);
       }
@@ -872,8 +872,8 @@ class UploadManager {
               try {
                 const errData = await response.json();
                 errorMsg = errData.detail || errorMsg;
-              } catch (error) {
-                void error;
+              } catch {
+                // Ignore JSON parse errors
               }
               throw new Error(errorMsg);
             }
@@ -945,8 +945,8 @@ class UploadManager {
           try {
             const errorData = await response.json();
             errorDetail = errorData.detail || errorDetail;
-          } catch (error) {
-            void error;
+          } catch {
+            // Ignore JSON parse errors
           }
           throw new Error(errorDetail);
         }

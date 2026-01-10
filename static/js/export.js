@@ -768,9 +768,11 @@
     const reader = response.body.getReader();
     let receivedLength = 0;
     const chunks = [];
-    while (true) {
+    let reading = true;
+    while (reading) {
       const { done, value } = await reader.read();
       if (done) {
+        reading = false;
         console.info(
           `Finished reading response body, total size: ${receivedLength} bytes`
         );
@@ -935,8 +937,8 @@
           try {
             const errData = await response.json();
             msg = errData.detail || msg;
-          } catch (error) {
-            void error;
+          } catch {
+            // Ignore JSON parse errors
           }
           throw new Error(msg);
         }

@@ -248,8 +248,8 @@ const utils = {
               : String(value);
         localStorage.setItem(key, toStore);
         return true;
-      } catch (error) {
-        void error;
+      } catch {
+        // Ignore localStorage errors
         return false;
       }
     }

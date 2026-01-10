@@ -170,9 +170,9 @@ export function safeReplaceContent(element, html) {
  */
 export function createFragment(elements) {
   const fragment = document.createDocumentFragment();
-  elements.forEach((el) => {
-    if (el instanceof Node) {
-      fragment.appendChild(el);
+  elements.forEach((element) => {
+    if (element instanceof Node) {
+      fragment.appendChild(element);
     }
   });
   return fragment;

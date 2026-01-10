@@ -137,7 +137,7 @@
   }
 
   // Initialize the map
-  async function init() {
+  function init() {
     updateLoadingText("Initializing map...");
 
     // Create map with standard projection (not Albers - TopoJSON is unprojected)
@@ -252,11 +252,6 @@
             feature.properties.stopped = true;
           }
         });
-
-
-        if (Object.keys(countyStops).length > 0) {
-
-        }
 
         // Show last updated time if available
         if (data.lastUpdated) {
