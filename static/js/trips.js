@@ -10,11 +10,11 @@ import { CONFIG } from "./modules/config.js";
 import { TableManager } from "./modules/table-manager.js";
 import {
   escapeHtml,
-  formatVehicleName,
   formatDateTime,
   formatDuration,
-  sanitizeLocation,
+  formatVehicleName,
   getStorage,
+  sanitizeLocation,
   setStorage,
 } from "./modules/utils.js";
 
