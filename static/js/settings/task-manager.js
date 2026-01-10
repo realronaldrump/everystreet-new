@@ -71,14 +71,17 @@ export class TaskManager {
 
                 const forceButton = row.querySelector(".force-stop-btn");
                 if (forceButton) {
-                  forceButton.disabled = !["RUNNING", "PENDING"].includes(newStatus);
+                  forceButton.disabled = !["RUNNING", "PENDING"].includes(
+                    newStatus,
+                  );
                 }
 
                 if (
                   currentStatus === "RUNNING" &&
                   (newStatus === "COMPLETED" || newStatus === "FAILED")
                 ) {
-                  const taskName = row.querySelector(".task-name-display").textContent;
+                  const taskName =
+                    row.querySelector(".task-name-display").textContent;
                   const notificationType =
                     newStatus === "COMPLETED" ? "success" : "danger";
                   const message =
@@ -89,7 +92,7 @@ export class TaskManager {
                   this.notifier.show(
                     newStatus === "COMPLETED" ? "Success" : "Error",
                     message,
-                    notificationType
+                    notificationType,
                   );
                 }
               }
@@ -97,12 +100,16 @@ export class TaskManager {
 
             const lastRunCell = row.querySelector(".task-last-run");
             if (lastRunCell && update.last_run) {
-              lastRunCell.textContent = TaskManager.formatDateTime(update.last_run);
+              lastRunCell.textContent = TaskManager.formatDateTime(
+                update.last_run,
+              );
             }
 
             const nextRunCell = row.querySelector(".task-next-run");
             if (nextRunCell && update.next_run) {
-              nextRunCell.textContent = TaskManager.formatDateTime(update.next_run);
+              nextRunCell.textContent = TaskManager.formatDateTime(
+                update.next_run,
+              );
             }
           });
 
@@ -141,7 +148,7 @@ export class TaskManager {
             this.notifier.show(
               "Task Started",
               `Task ${displayName} is now running`,
-              "info"
+              "info",
             );
           }
         }
@@ -159,7 +166,9 @@ export class TaskManager {
                 row.querySelector(".task-name-display")?.textContent || taskId;
               if (taskStatus === "COMPLETED" || taskStatus === "FAILED") {
                 const type = taskStatus === "COMPLETED" ? "success" : "danger";
-                const runTime = Math.round((Date.now() - taskState.startTime) / 1000);
+                const runTime = Math.round(
+                  (Date.now() - taskState.startTime) / 1000,
+                );
                 const message =
                   taskStatus === "COMPLETED"
                     ? `Task ${displayName} completed successfully in ${runTime}s`
@@ -211,7 +220,7 @@ export class TaskManager {
       this.notifier.show(
         "Error",
         `Failed to load task configuration: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -248,7 +257,7 @@ export class TaskManager {
       ) {
         const type = status === "COMPLETED" ? "success" : "danger";
         const runTime = Math.round(
-          (Date.now() - this.activeTasksMap.get(taskId).startTime) / 1000
+          (Date.now() - this.activeTasksMap.get(taskId).startTime) / 1000,
         );
         const message =
           status === "COMPLETED"
@@ -296,7 +305,7 @@ export class TaskManager {
                 <option value="${opt.value}" ${opt.value === task.interval_minutes ? "selected" : ""}>
                   ${opt.label}
                 </option>
-              `
+              `,
                 )
                 .join("")}
             </select>`
@@ -343,7 +352,7 @@ export class TaskManager {
   async updateTaskHistory() {
     try {
       const response = await fetch(
-        `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`
+        `/api/background_tasks/history?page=${this.currentHistoryPage}&limit=${this.historyLimit}`,
       );
       if (!response.ok) {
         throw new Error("Failed to fetch task history");
@@ -357,7 +366,7 @@ export class TaskManager {
       this.notifier.show(
         "Error",
         `Failed to update task history: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -470,7 +479,8 @@ export class TaskManager {
             if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
               const durationCell = row.querySelector(".task-duration");
               if (durationCell) {
-                durationCell.textContent = TaskManager.formatDuration(elapsedMs);
+                durationCell.textContent =
+                  TaskManager.formatDuration(elapsedMs);
               }
             }
           } catch (e) {
@@ -495,7 +505,8 @@ export class TaskManager {
               if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
                 const durationElement = card.querySelector(".task-duration");
                 if (durationElement) {
-                  durationElement.textContent = TaskManager.formatDuration(elapsedMs);
+                  durationElement.textContent =
+                    TaskManager.formatDuration(elapsedMs);
                 }
               }
             } catch (e) {
@@ -559,7 +570,9 @@ export class TaskManager {
   }
 
   updateHistoryPagination() {
-    const paginationContainer = document.querySelector("#taskHistoryPagination");
+    const paginationContainer = document.querySelector(
+      "#taskHistoryPagination",
+    );
     if (!paginationContainer) return;
 
     paginationContainer.innerHTML = "";
@@ -690,7 +703,11 @@ export class TaskManager {
           startTime: new Date(),
         });
 
-        this.notifier.show("Task Started", `Task ${taskId} has been started`, "info");
+        this.notifier.show(
+          "Task Started",
+          `Task ${taskId} has been started`,
+          "info",
+        );
 
         const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
         if (row) {
@@ -717,7 +734,7 @@ export class TaskManager {
       this.notifier.show(
         "Error",
         `Failed to start task ${taskId}: ${error.message}`,
-        "danger"
+        "danger",
       );
       return false;
     }
@@ -762,7 +779,9 @@ export class TaskManager {
       hideLoadingOverlay();
 
       if (!response.ok) {
-        throw new Error(data.detail || data.message || "Failed to force stop task");
+        throw new Error(
+          data.detail || data.message || "Failed to force stop task",
+        );
       }
 
       const message = data.message || `Task ${taskId} has been reset.`;
@@ -776,7 +795,7 @@ export class TaskManager {
       this.notifier.show(
         "Error",
         `Failed to force stop task ${taskId}: ${error.message}`,
-        "danger"
+        "danger",
       );
       return false;
     }
@@ -799,13 +818,15 @@ export class TaskManager {
       hideLoadingOverlay();
 
       if (!response.ok) {
-        throw new Error(result.detail || result.message || "Failed to schedule fetch");
+        throw new Error(
+          result.detail || result.message || "Failed to schedule fetch",
+        );
       }
 
       this.notifier.show(
         "Success",
         result.message || "Fetch scheduled successfully",
-        "success"
+        "success",
       );
       await this.loadTaskConfig();
       return true;
@@ -815,7 +836,7 @@ export class TaskManager {
       this.notifier.show(
         "Error",
         `Failed to schedule fetch: ${error.message}`,
-        "danger"
+        "danger",
       );
       throw error;
     }
@@ -830,11 +851,17 @@ export class TaskManager {
       const { taskId } = row.dataset;
       if (!taskId) return;
 
-      const intervalSelect = row.querySelector(`select[data-task-id="${taskId}"]`);
-      const enabledCheckbox = row.querySelector(`input[data-task-id="${taskId}"]`);
+      const intervalSelect = row.querySelector(
+        `select[data-task-id="${taskId}"]`,
+      );
+      const enabledCheckbox = row.querySelector(
+        `input[data-task-id="${taskId}"]`,
+      );
 
       config.tasks[taskId] = {
-        interval_minutes: intervalSelect ? parseInt(intervalSelect.value, 10) : null,
+        interval_minutes: intervalSelect
+          ? parseInt(intervalSelect.value, 10)
+          : null,
         enabled: enabledCheckbox ? enabledCheckbox.checked : true,
       };
     });
@@ -990,7 +1017,7 @@ export class TaskManager {
       this.notifier.show(
         "Error",
         `Failed to clear history: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
