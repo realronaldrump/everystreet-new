@@ -225,11 +225,7 @@ const heatmapUtils = {
     const glowLayers = this.generateGlowLayers(styleTripCount, opacity, theme);
     const settings = this.getAdaptiveSettings(styleTripCount);
 
-    console.log(
-      `Heatmap: ${tripCount} trips (${styleTripCount} in view), core opacity: ` +
-        `${settings.coreOpacity}, glow opacity: ${settings.glowOpacity}, ` +
-        `base width: ${settings.baseWidth}`
-    );
+
 
     return {
       tripCount,

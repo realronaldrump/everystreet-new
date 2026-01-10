@@ -223,7 +223,7 @@
       feature.properties.stopped = false;
     });
 
-    console.log(`Loaded ${countyData.features.length} counties`);
+
   }
 
   // Load visited counties from API (cached)
@@ -253,9 +253,9 @@
           }
         });
 
-        console.log(`Marked ${Object.keys(countyVisits).length} counties as visited`);
+
         if (Object.keys(countyStops).length > 0) {
-          console.log(`Marked ${Object.keys(countyStops).length} counties as stopped`);
+
         }
 
         // Show last updated time if available
@@ -270,7 +270,7 @@
         }
       } else if (!data.cached) {
         // No cache - prompt user to calculate
-        console.log("No cached county data. Showing prompt...");
+
         showRecalculatePrompt();
         if (recalcState) {
           updateRecalculateUi(true, "Recalculating county data...");

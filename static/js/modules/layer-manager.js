@@ -708,9 +708,7 @@ const layerManager = {
 
     const { tripCount, glowLayers } = heatmapConfig;
 
-    console.log(
-      `Heatmap: ${tripCount} trips, creating ${glowLayers.length} glow layers`
-    );
+
 
     const existingSource = state.map.getSource(sourceId);
     const firstGlowLayerId = `${layerName}-layer-0`;

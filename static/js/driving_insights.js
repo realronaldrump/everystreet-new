@@ -833,7 +833,7 @@ if (typeof window !== "undefined") {
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
     } else {
-      console.log(`${type}: ${message}`);
+
     }
   }
 

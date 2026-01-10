@@ -19,12 +19,12 @@ const showError = (msg) => window.notificationManager?.show(msg, "danger");
 
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", async () => {
-  console.log("Gas Tracking: DOM Loaded");
+
   try {
     if (!window.MAPBOX_ACCESS_TOKEN) {
       console.error("Gas Tracking: Mapbox token missing from window!");
     } else {
-      console.log("Gas Tracking: Mapbox token found");
+
     }
     await initializePage();
   } catch (e) {

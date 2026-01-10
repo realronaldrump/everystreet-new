@@ -19,7 +19,7 @@ class CoverageManager {
     // Initialize notification and confirmation dialog
     this.notificationManager = window.notificationManager || {
       show: (message, type, _duration = 3000) => {
-        console.log(`[${type || "info"}] Notification: ${message}`);
+
       },
     };
 
