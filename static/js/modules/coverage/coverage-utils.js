@@ -20,7 +20,9 @@ export { formatRelativeTime, distanceInUserUnits, formatStreetType };
  */
 export function computeAreasHash(areas) {
   return areas
-    .map((a) => `${a._id}:${a.status}:${a.coverage_percentage}:${a.last_updated}`)
+    .map(
+      (a) => `${a._id}:${a.status}:${a.coverage_percentage}:${a.last_updated}`,
+    )
     .join("|");
 }
 
