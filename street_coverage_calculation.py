@@ -474,7 +474,7 @@ class CoverageCalculator:
                     if isinstance(res, list):
                         self.newly_covered_segments.update(res)
                     elif isinstance(res, Exception):
-                            logger.error("Error querying intersections: %s", res)
+                        logger.error("Error querying intersections: %s", res)
                 # Update Progress
                 progress_pct = 50 + (processed_count / self.total_trips_to_process * 40)
                 await self.update_progress(

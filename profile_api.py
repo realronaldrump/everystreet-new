@@ -190,7 +190,9 @@ async def sync_vehicles_from_bouncie():
         async with session.get(f"{API_BASE_URL}/vehicles", headers=headers) as resp:
             if resp.status != 200:
                 error_text = await resp.text()
-                logger.error("Failed to fetch vehicles: %s - %s", resp.status, error_text)
+                logger.error(
+                    "Failed to fetch vehicles: %s - %s", resp.status, error_text
+                )
                 raise HTTPException(
                     status_code=502,
                     detail=f"Failed to fetch vehicles from Bouncie: {error_text}",

@@ -85,7 +85,10 @@ class OdometerService:
 
         if not trip:
             logger.warning(
-                "No trip found for IMEI %s (use_now=%s, timestamp=%s)", imei, use_now, timestamp
+                "No trip found for IMEI %s (use_now=%s, timestamp=%s)",
+                imei,
+                use_now,
+                timestamp,
             )
             return {"latitude": None, "longitude": None, "odometer": None}
 
