@@ -4,7 +4,10 @@
  */
 
 import apiClient from "../api-client.js";
-import { DIRECTIONS_GEOMETRY, DIRECTIONS_PROFILE } from "./turn-by-turn-config.js";
+import {
+  DIRECTIONS_GEOMETRY,
+  DIRECTIONS_PROFILE,
+} from "./turn-by-turn-config.js";
 
 const TurnByTurnAPI = {
   /**
@@ -39,9 +42,12 @@ const TurnByTurnAPI = {
    */
   async fetchOptimalRouteGpx(areaId) {
     try {
-      return await apiClient.get(`/api/coverage_areas/${areaId}/optimal-route/gpx`, {
-        parseResponse: (response) => response.text(),
-      });
+      return await apiClient.get(
+        `/api/coverage_areas/${areaId}/optimal-route/gpx`,
+        {
+          parseResponse: (response) => response.text(),
+        },
+      );
     } catch (error) {
       if (error.message?.includes("404")) {
         throw new Error("No optimal route found. Generate one first.");
