@@ -502,14 +502,23 @@
 <script src="{{ CDN.chartjs }}"></script>
 <!-- DataTables JS -->
 <script src="{{ CDN.datatables_js }}"></script>
+<!-- Visits Core Modules -->
 <script src="{{ url_for('static', path='js/modules/visits/geometry.js') | replace('http://', '//') }}"></script>
 <script src="{{ url_for('static', path='js/modules/visits/data-service.js') | replace('http://', '//') }}"></script>
 <script src="{{ url_for('static', path='js/modules/visits/table-factory.js') | replace('http://', '//') }}"></script>
 <script src="{{ url_for('static', path='js/modules/visits/chart-manager.js') | replace('http://', '//') }}"></script>
 <script src="{{ url_for('static', path='js/modules/visits/map-controller.js') | replace('http://', '//') }}"></script>
 <script src="{{ url_for('static', path='js/modules/visits/trip-viewer.js') | replace('http://', '//') }}"></script>
+<!-- Visits Feature Modules -->
+<script src="{{ url_for('static', path='js/modules/visits/visits-helpers.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/visits/visits-data-loader.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/visits/visits-drawing.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/visits/visits-actions.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/visits/visits-events.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/visits/visits-popup.js') | replace('http://', '//') }}"></script>
 <script src="{{ url_for('static', path='js/modules/visits/visits-stats-manager.js') | replace('http://', '//') }}"></script>
 <script src="{{ url_for('static', path='js/modules/visits/visits-ui-manager.js') | replace('http://', '//') }}"></script>
+<!-- Visits Manager (Main Orchestrator) -->
 <script src="{{ url_for('static', path='js/modules/visits/visits-manager.js') | replace('http://', '//') }}"></script>
 
 <script src="{{ url_for('static', path='js/visits.js') | replace('http://', '//') }}"></script>

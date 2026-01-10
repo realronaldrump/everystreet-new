@@ -17,7 +17,6 @@ from db import (
     streets_collection,
     update_one_with_retry,
 )
-from preprocess_streets import preprocess_streets
 from progress_tracker import ProgressTracker
 from .constants import GRAPH_STORAGE_DIR, MAX_SEGMENTS
 from .core import solve_greedy_route, make_req_id
@@ -130,6 +129,9 @@ async def generate_optimal_route_with_progress(
 
                 # Ensure storage directory exists
                 GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+                # Import here to avoid circular import
+                from preprocess_streets import preprocess_streets
 
                 await preprocess_streets(loc_data, task_id)
 

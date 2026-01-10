@@ -19,7 +19,7 @@ import {
 } from "./geocode-remap.js";
 import { InvalidTripReview } from "./invalid-trip-review.js";
 import { initMobileUI } from "./mobile-ui.js";
-import { TaskManager } from "./task-manager.js";
+import { showTaskDetails, TaskManager } from "./task-manager.js";
 
 // Initialize task manager globally
 window.taskManager = null;
@@ -263,7 +263,7 @@ function setupTaskConfigEventListeners(taskManager) {
       const forceBtn = e.target.closest(".force-stop-btn");
       if (detailsBtn) {
         const { taskId } = detailsBtn.dataset;
-        TaskManager.showTaskDetails(taskId);
+        showTaskDetails(taskId);
       } else if (runBtn) {
         const { taskId } = runBtn.dataset;
         taskManager.runTask(taskId);

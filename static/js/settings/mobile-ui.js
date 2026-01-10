@@ -1,6 +1,13 @@
 /* global showLoadingOverlay, hideLoadingOverlay, bootstrap, flatpickr, DateUtils, notificationManager */
 
-import { TaskManager } from "./task-manager.js";
+import {
+  escapeHtml,
+  formatDateTime,
+  formatDuration,
+  getStatusColor,
+  showErrorModal,
+  showTaskDetails,
+} from "./task-manager.js";
 
 /**
  * Mobile UI module - handles all mobile-specific UI rendering and interactions
@@ -104,11 +111,11 @@ export function updateMobileTaskList(config, taskManager) {
 
           <div class="mobile-task-info-item">
             <span class="mobile-task-info-label">Last Run</span>
-            <div class="mobile-task-info-value">${task.last_run ? TaskManager.formatDateTime(task.last_run) : "Never"}</div>
+            <div class="mobile-task-info-value">${task.last_run ? formatDateTime(task.last_run) : "Never"}</div>
           </div>
           <div class="mobile-task-info-item full-width">
             <span class="mobile-task-info-label">Next Run</span>
-            <div class="mobile-task-info-value">${task.next_run ? TaskManager.formatDateTime(task.next_run) : "Not scheduled"}</div>
+            <div class="mobile-task-info-value">${task.next_run ? formatDateTime(task.next_run) : "Not scheduled"}</div>
           </div>
         </div>
         <div class="mobile-task-actions">
@@ -148,7 +155,7 @@ export function updateMobileTaskList(config, taskManager) {
   mobileList.querySelectorAll(".mobile-view-task").forEach((btn) => {
     btn.addEventListener("click", function () {
       const { taskId } = this.dataset;
-      TaskManager.showTaskDetails(taskId);
+      showTaskDetails(taskId);
     });
   });
 }
@@ -188,7 +195,7 @@ export function updateMobileHistoryList(history, taskManager) {
     if (entry.runtime !== null && entry.runtime !== undefined) {
       const runtimeMs = parseFloat(entry.runtime);
       if (!Number.isNaN(runtimeMs)) {
-        durationText = TaskManager.formatDuration(runtimeMs);
+        durationText = formatDuration(runtimeMs);
       }
     } else if (entry.status === "RUNNING" && entry.timestamp) {
       try {
@@ -196,7 +203,7 @@ export function updateMobileHistoryList(history, taskManager) {
         const now = new Date();
         const elapsedMs = now - startTime;
         if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
-          durationText = TaskManager.formatDuration(elapsedMs);
+          durationText = formatDuration(elapsedMs);
           card.dataset.startTime = entry.timestamp;
           card.dataset.isRunning = "true";
         }
@@ -218,13 +225,13 @@ export function updateMobileHistoryList(history, taskManager) {
       resultText = "N/A";
     }
 
-    const statusClass = TaskManager.getStatusColor(entry.status);
+    const statusClass = getStatusColor(entry.status);
 
     card.innerHTML = `
       <div class="mobile-history-header">
         <div>
           <div class="mobile-history-task-name">${entry.task_id}</div>
-          <div class="mobile-history-time">${TaskManager.formatDateTime(entry.timestamp)}</div>
+          <div class="mobile-history-time">${formatDateTime(entry.timestamp)}</div>
         </div>
         <span class="badge bg-${statusClass}">${entry.status}</span>
       </div>
@@ -242,7 +249,7 @@ export function updateMobileHistoryList(history, taskManager) {
         entry.error
           ? `
       <button class="btn btn-danger btn-sm w-100 mt-2 mobile-view-error" 
-        data-error="${taskManager.escapeHtml(entry.error)}">
+        data-error="${escapeHtml(entry.error)}">
         <i class="fas fa-exclamation-circle"></i> View Error
       </button>
       `
@@ -257,7 +264,7 @@ export function updateMobileHistoryList(history, taskManager) {
   mobileList.querySelectorAll(".mobile-view-error").forEach((btn) => {
     btn.addEventListener("click", function () {
       const errorMessage = this.dataset.error;
-      taskManager?.showErrorModal(errorMessage);
+      showErrorModal(errorMessage);
     });
   });
 
