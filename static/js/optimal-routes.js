@@ -101,9 +101,11 @@ class OptimalRoutesManager {
     this.coverageAreas = [];
     this.areaSelect = document.getElementById(this.config.areaSelectId);
     this.turnByTurnBtn = document.getElementById("start-turn-by-turn-btn");
-    this.progressMessagePrimary = document.getElementById("progress-message-primary");
+    this.progressMessagePrimary = document.getElementById(
+      "progress-message-primary",
+    );
     this.progressMessageSecondary = document.getElementById(
-      "progress-message-secondary"
+      "progress-message-secondary",
     );
     this.hud = this.cacheHudElements();
     this.activityLog = [];
@@ -146,9 +148,11 @@ class OptimalRoutesManager {
     });
 
     // Generate button
-    document.getElementById("generate-route-btn")?.addEventListener("click", () => {
-      this.generateRoute();
-    });
+    document
+      .getElementById("generate-route-btn")
+      ?.addEventListener("click", () => {
+        this.generateRoute();
+      });
 
     // Export GPX
     document.getElementById("export-gpx-btn")?.addEventListener("click", () => {
@@ -161,9 +165,11 @@ class OptimalRoutesManager {
     });
 
     // Clear route
-    document.getElementById("clear-route-btn")?.addEventListener("click", () => {
-      this.clearRoute();
-    });
+    document
+      .getElementById("clear-route-btn")
+      ?.addEventListener("click", () => {
+        this.clearRoute();
+      });
 
     // Retry button
     document.getElementById("retry-btn")?.addEventListener("click", () => {
@@ -171,9 +177,11 @@ class OptimalRoutesManager {
     });
 
     // Cancel button
-    document.getElementById("cancel-task-btn")?.addEventListener("click", () => {
-      this.cancelTask();
-    });
+    document
+      .getElementById("cancel-task-btn")
+      ?.addEventListener("click", () => {
+        this.cancelTask();
+      });
 
     this.setupLayerControls();
   }
@@ -204,7 +212,9 @@ class OptimalRoutesManager {
       slider?.addEventListener("input", (e) => {
         const opacity = e.target.value / 100;
         // Update label
-        const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
+        const label = slider
+          .closest(".layer-opacity")
+          .querySelector(".opacity-value");
         if (label) label.textContent = `${e.target.value}%`;
 
         this.setLayerOpacity(layers, opacity);
@@ -238,7 +248,11 @@ class OptimalRoutesManager {
     layerIds.forEach((id) => {
       try {
         if (this.map.getLayer(id)) {
-          this.map.setLayoutProperty(id, "visibility", isVisible ? "visible" : "none");
+          this.map.setLayoutProperty(
+            id,
+            "visibility",
+            isVisible ? "visible" : "none",
+          );
         }
       } catch (e) {
         console.warn(`Could not toggle layer ${id}:`, e.message);
@@ -352,7 +366,10 @@ class OptimalRoutesManager {
         this.setupMapLayers();
         resolve();
       };
-      if (typeof this.map.isStyleLoaded === "function" && this.map.isStyleLoaded()) {
+      if (
+        typeof this.map.isStyleLoaded === "function" &&
+        this.map.isStyleLoaded()
+      ) {
         handleLoad();
       } else {
         this.map.on("load", handleLoad);
@@ -466,7 +483,10 @@ class OptimalRoutesManager {
   ensureMapLayers() {
     if (!this.map) return false;
     if (this.map.getSource("streets-driven")) return true;
-    if (typeof this.map.isStyleLoaded === "function" && !this.map.isStyleLoaded()) {
+    if (
+      typeof this.map.isStyleLoaded === "function" &&
+      !this.map.isStyleLoaded()
+    ) {
       return false;
     }
     this.setupMapLayers();
@@ -520,8 +540,6 @@ class OptimalRoutesManager {
           features: undrivenFeatures,
         });
       }
-
-
     } catch (error) {
       console.error("Error loading street network:", error);
     }
@@ -548,7 +566,7 @@ class OptimalRoutesManager {
 
       // Dispatch event so DrivingNavigation can sync with the loaded areas
       document.dispatchEvent(
-        new CustomEvent("coverageAreasLoaded", { detail: { areas } })
+        new CustomEvent("coverageAreasLoaded", { detail: { areas } }),
       );
 
       if (this.areaSelect && this.config.populateAreaSelect) {
@@ -564,7 +582,9 @@ class OptimalRoutesManager {
           option.dataset.coverage = coverage;
           const totalLength = area.total_length || area.total_length_m || 0;
           const drivenLength = area.driven_length || area.driven_length_m || 0;
-          option.dataset.remaining = this.formatDistance(totalLength - drivenLength);
+          option.dataset.remaining = this.formatDistance(
+            totalLength - drivenLength,
+          );
           this.areaSelect.appendChild(option);
         });
       }
@@ -644,7 +664,9 @@ class OptimalRoutesManager {
     }
 
     // Show area stats
-    const selectedOption = this.areaSelect?.querySelector(`option[value="${areaId}"]`);
+    const selectedOption = this.areaSelect?.querySelector(
+      `option[value="${areaId}"]`,
+    );
     if (selectedOption) {
       document.getElementById("area-coverage").textContent =
         `${selectedOption.dataset.coverage}%`;
@@ -681,7 +703,9 @@ class OptimalRoutesManager {
 
   async loadExistingRoute(areaId, options = {}) {
     try {
-      const response = await fetch(`/api/coverage_areas/${areaId}/optimal-route`);
+      const response = await fetch(
+        `/api/coverage_areas/${areaId}/optimal-route`,
+      );
 
       if (response.status === 404) {
         // No route yet
@@ -718,7 +742,7 @@ class OptimalRoutesManager {
             [west, south],
             [east, north],
           ],
-          { padding: 50, duration: 1000 }
+          { padding: 50, duration: 1000 },
         );
       }
     } catch (error) {
@@ -739,8 +763,6 @@ class OptimalRoutesManager {
       const data = await response.json();
 
       if (data.active && data.task_id) {
-
-
         // Store task ID
         this.currentTaskId = data.task_id;
 
@@ -774,7 +796,10 @@ class OptimalRoutesManager {
         // Connect to SSE for live updates
         this.connectSSE(data.task_id);
 
-        this.showNotification("Reconnected to in-progress route generation", "info");
+        this.showNotification(
+          "Reconnected to in-progress route generation",
+          "info",
+        );
       }
     } catch (error) {
       // Silently fail - this is just a nice-to-have check
@@ -801,13 +826,12 @@ class OptimalRoutesManager {
             "⚠️ No Celery workers detected. Task will be queued but may not be processed.",
             "queued",
             this.currentMetrics,
-            meta.label
+            meta.label,
           );
           console.warn("No workers available:", workerStatus);
         } else if (workerStatus.status === "error") {
           console.warn("Worker status check failed:", workerStatus.message);
         } else {
-
         }
       } catch (workerError) {
         console.warn("Could not check worker status:", workerError);
@@ -816,7 +840,7 @@ class OptimalRoutesManager {
       // Start the generation task
       const response = await fetch(
         `/api/coverage_areas/${this.selectedAreaId}/generate-optimal-route`,
-        { method: "POST" }
+        { method: "POST" },
       );
 
       if (!response.ok) {
@@ -842,9 +866,12 @@ class OptimalRoutesManager {
     }
 
     try {
-      const response = await fetch(`/api/optimal-routes/${this.currentTaskId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `/api/optimal-routes/${this.currentTaskId}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       const data = await response.json();
 
@@ -887,7 +914,9 @@ class OptimalRoutesManager {
     this.waitingCount = 0;
     this.lastProgressTime = Date.now();
 
-    this.eventSource = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
+    this.eventSource = new EventSource(
+      `/api/optimal-routes/${taskId}/progress/sse`,
+    );
 
     this.eventSource.onmessage = (event) => {
       try {
@@ -926,12 +955,18 @@ class OptimalRoutesManager {
         const status = (data.status || "").toLowerCase();
         const stage = (data.stage || "").toLowerCase();
 
-        if (status === "completed" || stage === "complete" || data.progress >= 100) {
+        if (
+          status === "completed" ||
+          stage === "complete" ||
+          data.progress >= 100
+        ) {
           this.eventSource.close();
           this.onGenerationComplete();
         } else if (status === "failed") {
           this.eventSource.close();
-          this.showError(data.error || data.message || "Route generation failed");
+          this.showError(
+            data.error || data.message || "Route generation failed",
+          );
         } else if (status === "cancelled") {
           this.eventSource.close();
           document.getElementById("progress-section").style.display = "none";
@@ -954,7 +989,7 @@ class OptimalRoutesManager {
       // If we never got past waiting, show a helpful error
       if (this.waitingCount > 0) {
         this.showError(
-          "Connection lost while waiting for task. Ensure the Celery worker is running."
+          "Connection lost while waiting for task. Ensure the Celery worker is running.",
         );
       }
       // Otherwise it might just be normal connection close after completion
@@ -965,7 +1000,9 @@ class OptimalRoutesManager {
     const stage = (data.stage || "initializing").toLowerCase();
     const rawMetrics = data.metrics || {};
     const metrics =
-      Object.keys(rawMetrics).length > 0 ? rawMetrics : this.currentMetrics || {};
+      Object.keys(rawMetrics).length > 0
+        ? rawMetrics
+        : this.currentMetrics || {};
     this.currentStage = stage;
     this.currentMetrics = metrics;
     this.setHudActive(true);
@@ -978,7 +1015,7 @@ class OptimalRoutesManager {
 
     const { primary, secondary, label } = this.buildProgressMessages(
       stage,
-      data.message
+      data.message,
     );
     this.setStatusMessage(primary, secondary, stage, metrics, label);
 
@@ -1060,7 +1097,8 @@ class OptimalRoutesManager {
     const fallbackTotal = metrics.fallback_total ?? null;
     const fallbackMatched = metrics.fallback_matched ?? null;
     const mappedSegments =
-      metrics.mapped_segments ?? Number(osmMatched || 0) + Number(fallbackMatched || 0);
+      metrics.mapped_segments ??
+      Number(osmMatched || 0) + Number(fallbackMatched || 0);
 
     if (this.hud.segments) {
       this.hud.segments.textContent = hasMetrics
@@ -1133,7 +1171,7 @@ class OptimalRoutesManager {
 
         row.append(time, message);
         return row;
-      })
+      }),
     );
 
     this.lastActivityMessage = text;
@@ -1204,7 +1242,7 @@ class OptimalRoutesManager {
     this.resetHud();
     const { primary, secondary, label } = this.buildProgressMessages(
       "initializing",
-      ""
+      "",
     );
     this.setStatusMessage(primary, secondary, "initializing", {}, label);
     this.setHudActive(true);
@@ -1304,7 +1342,7 @@ class OptimalRoutesManager {
     // Fit bounds to route
     const routeBounds = coordinates.reduce(
       (accBounds, coord) => accBounds.extend(coord),
-      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
     );
 
     this.map.fitBounds(routeBounds, { padding: 50, duration: 1000 });
@@ -1359,15 +1397,12 @@ class OptimalRoutesManager {
 
   showResults(data) {
     // Update stats
-    document.getElementById("stat-total-distance").textContent = this.formatDistance(
-      data.total_distance_m
-    );
-    document.getElementById("stat-required-distance").textContent = this.formatDistance(
-      data.required_distance_m
-    );
-    document.getElementById("stat-deadhead-distance").textContent = this.formatDistance(
-      data.deadhead_distance_m
-    );
+    document.getElementById("stat-total-distance").textContent =
+      this.formatDistance(data.total_distance_m);
+    document.getElementById("stat-required-distance").textContent =
+      this.formatDistance(data.required_distance_m);
+    document.getElementById("stat-deadhead-distance").textContent =
+      this.formatDistance(data.deadhead_distance_m);
     document.getElementById("stat-deadhead-percent").textContent = `${(
       100 - (data.deadhead_percentage || 0)
     ).toFixed(1)}%`;
@@ -1411,10 +1446,12 @@ class OptimalRoutesManager {
     // Call backend to delete the route
     if (this.selectedAreaId) {
       try {
-        await fetch(`/api/coverage_areas/${this.selectedAreaId}/optimal-route`, {
-          method: "DELETE",
-        });
-
+        await fetch(
+          `/api/coverage_areas/${this.selectedAreaId}/optimal-route`,
+          {
+            method: "DELETE",
+          },
+        );
       } catch (error) {
         console.warn("Failed to clear route from backend:", error);
       }
@@ -1430,12 +1467,15 @@ class OptimalRoutesManager {
       return;
     }
     if (this.turnByTurnBtn?.disabled) {
-      this.showNotification("Generate a route before starting navigation.", "warning");
+      this.showNotification(
+        "Generate a route before starting navigation.",
+        "warning",
+      );
       return;
     }
     window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
     window.location.href = `/turn-by-turn?areaId=${encodeURIComponent(
-      this.selectedAreaId
+      this.selectedAreaId,
     )}`;
   }
 
@@ -1465,7 +1505,6 @@ class OptimalRoutesManager {
     if (window.notificationManager) {
       window.notificationManager.show(message, type);
     } else {
-
     }
   }
 }
