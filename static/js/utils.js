@@ -732,6 +732,7 @@ class ConfirmationDialog {
 
       try {
         this.activeModal = new bootstrap.Modal(modalElement);
+        modalElement.removeAttribute("aria-hidden");
         this.activeModal.show();
       } catch (error) {
         console.error("Error showing modal:", error);

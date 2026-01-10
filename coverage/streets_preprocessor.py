@@ -232,6 +232,9 @@ async def build_street_segments(
                             "undriveable": False,
                             "osm_id": osmid,
                         },
+                        "area_id": ObjectId(location_id),
+                        "area_version": 1,
+                        "segment_id": f"{location_id}-{segment_count}",
                     }
                 )
 
