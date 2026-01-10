@@ -30,7 +30,6 @@ from pymongo.errors import (
     ConnectionFailure,
     DuplicateKeyError,
     OperationFailure,
-    ServerSelectionTimeoutError,
 )
 
 if TYPE_CHECKING:
