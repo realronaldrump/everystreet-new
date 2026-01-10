@@ -225,8 +225,6 @@ const heatmapUtils = {
     const glowLayers = this.generateGlowLayers(styleTripCount, opacity, theme);
     const settings = this.getAdaptiveSettings(styleTripCount);
 
-
-
     return {
       tripCount,
       styleTripCount,
