@@ -31,28 +31,35 @@ block content %}
     </div>
     <div class="card-body">
       <div class="table-responsive-lg">
-        <table class="table table-dark table-striped">
+        <table class="table table-striped table-hover w-100" id="collections-table">
           <thead>
             <tr>
-              <th>Collection</th>
-              <th>Documents</th>
-              <th>Size (MB)</th>
+              <th data-sort="name" style="cursor: pointer">
+                Collection <i class="fas fa-sort small text-muted ms-1"></i>
+              </th>
+              <th data-sort="count" style="cursor: pointer">
+                Documents <i class="fas fa-sort small text-muted ms-1"></i>
+              </th>
+              <th data-sort="size" style="cursor: pointer">
+                Size (MB) <i class="fas fa-sort small text-muted ms-1"></i>
+              </th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {% for collection in collections %}
             <tr>
-              <td>{{ collection.name }}</td>
-              <td>{{ collection.document_count }}</td>
-              <td>{{ "%.2f"|format(collection.size_mb) }}</td>
+              <td data-value="{{ collection.name }}" class="fw-medium">{{ collection.name }}</td>
+              <td data-value="{{ collection.document_count }}">{{ collection.document_count }}</td>
+              <td data-value="{{ collection.size_mb }}">{{ "%.2f"|format(collection.size_mb) }}</td>
               <td>
-                <div class="btn-group">
+                <div class="btn-group btn-group-sm">
                   <button
-                    class="btn btn-sm btn-danger clear-collection"
+                    class="btn btn-outline-danger clear-collection"
                     data-collection="{{ collection.name }}"
+                    title="Clear Collection"
                   >
-                    <i class="fas fa-trash"></i> Clear
+                    <i class="fas fa-trash"></i>
                   </button>
                 </div>
               </td>

@@ -81,7 +81,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+
+
   document.body.addEventListener("mousedown", async (event) => {
+
     if (event.button !== 0) return;
     const clearButton = event.target.closest(".clear-collection");
 
@@ -101,7 +104,61 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Table Sorting Logic
+  const table = document.getElementById("collections-table");
+  if (table) {
+    const headers = table.querySelectorAll("th[data-sort]");
+    let currentSort = { column: null, dir: "asc" };
+
+    headers.forEach((th) => {
+      th.addEventListener("click", () => {
+        const column = th.dataset.sort;
+        const dir =
+          currentSort.column === column && currentSort.dir === "asc"
+            ? "desc"
+            : "asc";
+
+        // Update Sort State
+        currentSort = { column, dir };
+
+        // Update Icons
+        headers.forEach((h) => {
+          const icon = h.querySelector("i");
+          if (icon) {
+            icon.className = "fas fa-sort small text-muted ms-1";
+            if (h === th) {
+              icon.className = `fas fa-sort-${dir === "asc" ? "up" : "down"} small text-primary ms-1`;
+            }
+          }
+        });
+
+        // Sort Rows
+        const tbody = table.querySelector("tbody");
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+
+        rows.sort((a, b) => {
+          const aVal = a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex].dataset.value;
+          const bVal = b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex].dataset.value;
+
+          let comparison = 0;
+          if (column === "name") {
+            comparison = aVal.localeCompare(bVal);
+          } else {
+            // Numeric sort for count and size
+            comparison = parseFloat(aVal) - parseFloat(bVal);
+          }
+
+          return dir === "asc" ? comparison : -comparison;
+        });
+
+        // Re-append sorted rows
+        rows.forEach((row) => tbody.appendChild(row));
+      });
+    });
+  }
+
   async function handleConfirmedAction() {
+
     try {
       let endpoint = "";
       let body = {};
