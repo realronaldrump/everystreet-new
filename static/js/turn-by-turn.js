@@ -856,7 +856,7 @@ class TurnByTurnNavigator {
         index: i,
         distanceAlong: along,
         delta,
-        type: this.classifyTurn(delta),
+        type: TurnByTurnNavigator.classifyTurn(delta),
       });
       lastDistance = along;
     }
@@ -2235,8 +2235,8 @@ class TurnByTurnNavigator {
     const distanceTo = Math.max(nextManeuver.distanceAlong - progressDistance, 0);
     const distanceLabel =
       distanceTo < 25 ? "Now" : `In ${TurnByTurnNavigator.formatDistance(distanceTo)}`;
-    const instruction = this.getInstructionText(nextManeuver.type);
-    const rotation = this.getTurnRotation(nextManeuver.type);
+    const instruction = TurnByTurnNavigator.getInstructionText(nextManeuver.type);
+    const rotation = TurnByTurnNavigator.getTurnRotation(nextManeuver.type);
 
     this.distanceToTurn.textContent = distanceLabel;
     this.primaryInstruction.textContent = instruction;
@@ -2399,8 +2399,8 @@ class TurnByTurnNavigator {
     return this.maneuvers.find((m) => m.distanceAlong > progressDistance + 5);
   }
 
-  classifyTurn(delta) {
-    const { uturn, sharp, turn, slight } = this.turnAngleThresholds;
+  static classifyTurn(delta) {
+    const { uturn, sharp, turn, slight } = { uturn: 150, sharp: 100, turn: 50, slight: 25 };
     const abs = Math.abs(delta);
     let classification = "straight";
     if (abs > uturn) classification = "uturn";
@@ -2410,12 +2410,36 @@ class TurnByTurnNavigator {
     return classification;
   }
 
-  getInstructionText(type) {
-    return this.instructionLabels[type] || "Continue";
+  static getInstructionText(type) {
+    const instructionLabels = {
+      depart: "Head out on route",
+      arrive: "Arrive at destination",
+      "sharp-left": "Sharp left",
+      "sharp-right": "Sharp right",
+      left: "Turn left",
+      right: "Turn right",
+      "slight-left": "Bear left",
+      "slight-right": "Bear right",
+      uturn: "Make a U-turn",
+      straight: "Continue straight",
+    };
+    return instructionLabels[type] || "Continue";
   }
 
-  getTurnRotation(type) {
-    return this.turnRotations[type] ?? 0;
+  static getTurnRotation(type) {
+    const turnRotations = {
+      depart: 0,
+      straight: 0,
+      "slight-left": -45,
+      "slight-right": 45,
+      left: -90,
+      right: 90,
+      "sharp-left": -135,
+      "sharp-right": 135,
+      uturn: 180,
+      arrive: 180,
+    };
+    return turnRotations[type] ?? 0;
   }
 
   setTurnRotation(deg) {
