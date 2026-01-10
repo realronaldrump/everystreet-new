@@ -62,7 +62,7 @@
 
     addPlace(place, refreshSource = true) {
       if (!place?.geometry || !place?._id) return;
-      const feature = this._createFeature(place);
+      const feature = VisitsMapController._createFeature(place);
       this.placeFeatures.set(place._id, feature);
       this.customPlacesData.features.push(feature);
       if (refreshSource) {
@@ -219,7 +219,7 @@
      * @param {Object} place - Place object
      * @returns {HTMLElement} - Safe DOM content
      */
-    createPlacePopupContent(place) {
+    static createPlacePopupContent(place) {
       const container = document.createElement("div");
       container.className = "place-popup-content";
 
@@ -242,7 +242,7 @@
       this.activePopup = null;
     }
 
-    _createFeature(place) {
+    static _createFeature(place) {
       return {
         type: "Feature",
         id: place._id,

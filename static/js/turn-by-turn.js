@@ -1853,7 +1853,7 @@ class TurnByTurnNavigator {
 
     // Handle NAVIGATING_TO_START state - check if we've arrived at start
     if (this.navState === NAV_STATES.NAVIGATING_TO_START) {
-      const distToStart = this.distanceMeters(current, this.smartStartPoint);
+      const distToStart = TurnByTurnNavigator.distanceMeters(current, this.smartStartPoint);
       this.smartStartDistance = distToStart;
 
       if (this.distanceToTurn) {
@@ -2069,7 +2069,7 @@ class TurnByTurnNavigator {
     let bestDistance = Infinity;
 
     for (let i = searchStart; i < this.routeCoords.length; i++) {
-      const dist = this.distanceMeters(userCoord, this.routeCoords[i]);
+      const dist = TurnByTurnNavigator.distanceMeters(userCoord, this.routeCoords[i]);
       if (dist < bestDistance && dist < this.config.resumeSearchRadiusMeters) {
         bestDistance = dist;
         bestIndex = i;
@@ -2351,7 +2351,7 @@ class TurnByTurnNavigator {
       const last = this.lastPositionTime;
       const deltaTime = (now - last) / 1000;
       if (deltaTime > 0) {
-        const distance = this.distanceMeters(
+        const distance = TurnByTurnNavigator.distanceMeters(
           [this.lastPosition.lon, this.lastPosition.lat],
           [fix.lon, fix.lat]
         );
@@ -2380,13 +2380,13 @@ class TurnByTurnNavigator {
   resolveHeading(fix, closest) {
     let heading = Number.isFinite(fix.heading) ? fix.heading : null;
     if (!heading && this.lastPosition) {
-      heading = this.bearing(
+      heading = TurnByTurnNavigator.bearing(
         [this.lastPosition.lon, this.lastPosition.lat],
         [fix.lon, fix.lat]
       );
     }
     if (!heading && closest && closest.index < this.routeCoords.length - 1) {
-      heading = this.bearing(
+      heading = TurnByTurnNavigator.bearing(
         this.routeCoords[closest.index],
         this.routeCoords[closest.index + 1]
       );
@@ -2506,9 +2506,9 @@ class TurnByTurnNavigator {
 
   projectToSegment(point, a, b) {
     const refLat = (a[1] + b[1]) / 2;
-    const p = this.toXY(point, refLat);
-    const p1 = this.toXY(a, refLat);
-    const p2 = this.toXY(b, refLat);
+    const p = TurnByTurnNavigator.toXY(point, refLat);
+    const p1 = TurnByTurnNavigator.toXY(a, refLat);
+    const p2 = TurnByTurnNavigator.toXY(b, refLat);
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const lenSq = dx * dx + dy * dy;
@@ -2525,7 +2525,7 @@ class TurnByTurnNavigator {
     return { distance, t, point: [projLng, projLat] };
   }
 
-  toXY(coord, refLat) {
+  static toXY(coord, refLat) {
     const r = 6371000;
     const lat = TurnByTurnNavigator.toRad(coord[1]);
     const lon = TurnByTurnNavigator.toRad(coord[0]);
@@ -2534,7 +2534,7 @@ class TurnByTurnNavigator {
     return { x, y };
   }
 
-  distanceMeters(a, b) {
+  static distanceMeters(a, b) {
     const r = 6371000;
     const dLat = TurnByTurnNavigator.toRad(b[1] - a[1]);
     const dLon = TurnByTurnNavigator.toRad(b[0] - a[0]);
@@ -2546,7 +2546,7 @@ class TurnByTurnNavigator {
     return 2 * r * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
   }
 
-  bearing(a, b) {
+  static bearing(a, b) {
     const lat1 = TurnByTurnNavigator.toRad(a[1]);
     const lat2 = TurnByTurnNavigator.toRad(b[1]);
     const dLon = TurnByTurnNavigator.toRad(b[0] - a[0]);

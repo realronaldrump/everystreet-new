@@ -528,21 +528,21 @@ class CoverageUI {
   ) {
     const row = document.createElement("tr");
     const status = area.status || "unknown";
-    const statusInfo = this._getAreaStatus(status);
+    const statusInfo = CoverageUI._getAreaStatus(status);
 
-    row.className = this._getRowClassName(statusInfo);
+    row.className = CoverageUI._getRowClassName(statusInfo);
 
     if (index < 5) {
       row.style.animationDelay = `${index * 0.05}s`;
       row.classList.add("fade-in-up");
     }
 
-    const areaData = this._extractAreaData(
+    const areaData = CoverageUI._extractAreaData(
       area,
       formatRelativeTime,
       distanceInUserUnits
     );
-    const progressBarColor = this._getProgressBarColor(
+    const progressBarColor = CoverageUI._getProgressBarColor(
       statusInfo,
       area.coverage_percentage
     );
@@ -564,7 +564,7 @@ class CoverageUI {
    * Get area status information
    * @private
    */
-  _getAreaStatus(status) {
+  static _getAreaStatus(status) {
     const processingStatuses = [
       "processing_trips",
       "preprocessing",
@@ -590,7 +590,7 @@ class CoverageUI {
    * Get row class name based on status
    * @private
    */
-  _getRowClassName(statusInfo) {
+  static _getRowClassName(statusInfo) {
     if (statusInfo.isProcessing) return "processing-row table-info";
     if (statusInfo.hasError) return "table-danger";
     if (statusInfo.isCanceled) return "table-warning";
@@ -601,7 +601,7 @@ class CoverageUI {
    * Extract area data for display
    * @private
    */
-  _extractAreaData(area, _formatRelativeTime, distanceInUserUnits) {
+  static _extractAreaData(area, _formatRelativeTime, distanceInUserUnits) {
     return {
       lastUpdated: area.last_updated
         ? new Date(area.last_updated).toLocaleString("en-US", { hour12: true })
@@ -618,7 +618,7 @@ class CoverageUI {
    * Get progress bar color based on coverage
    * @private
    */
-  _getProgressBarColor(statusInfo, coveragePercentage) {
+  static _getProgressBarColor(statusInfo, coveragePercentage) {
     if (statusInfo.hasError || statusInfo.isCanceled) return "bg-secondary";
     if (coveragePercentage < 25) return "bg-danger";
     if (coveragePercentage < 75) return "bg-warning";
@@ -641,7 +641,7 @@ class CoverageUI {
       display_name: area.location?.display_name || "",
     }).replace(/'/g, "&apos;");
 
-    const statusIndicator = this._buildStatusIndicator(
+    const statusIndicator = CoverageUI._buildStatusIndicator(
       area,
       statusInfo,
       formatStageName
@@ -710,7 +710,7 @@ class CoverageUI {
    * Build status indicator HTML
    * @private
    */
-  _buildStatusIndicator(area, statusInfo, formatStageName) {
+  static _buildStatusIndicator(area, statusInfo, formatStageName) {
     if (statusInfo.hasError) {
       return `<div class="text-danger small mt-1" title="${area.last_error || ""}"><i class="fas fa-exclamation-circle me-1"></i>Error occurred</div>`;
     }

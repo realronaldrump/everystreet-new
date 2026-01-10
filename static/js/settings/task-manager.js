@@ -416,7 +416,7 @@ export class TaskManager {
       let detailsContent = "N/A";
       if (entry.error) {
         detailsContent = `<button class="btn btn-sm btn-danger view-error-btn"
-                  data-error="${this.escapeHtml(entry.error)}">
+                  data-error="${TaskManager.escapeHtml(entry.error)}">
                   <i class="fas fa-exclamation-circle"></i> View Error
                 </button>`;
       } else if (entry.status === "COMPLETED") {
@@ -449,14 +449,14 @@ export class TaskManager {
     errorButtons.forEach((btn) => {
       btn.addEventListener("mousedown", (_e) => {
         const errorMessage = btn.dataset.error;
-        this.showErrorModal(errorMessage);
+        TaskManager.showErrorModal(errorMessage);
       });
     });
 
-    this.updateRunningTaskDurations();
+    TaskManager.updateRunningTaskDurations();
   }
 
-  updateRunningTaskDurations() {
+  static updateRunningTaskDurations() {
     // Update desktop table
     const tbody = document.querySelector("#taskHistoryTable tbody");
     if (tbody) {
@@ -511,11 +511,11 @@ export class TaskManager {
       clearInterval(this.durationUpdateInterval);
     }
     this.durationUpdateInterval = setInterval(() => {
-      this.updateRunningTaskDurations();
+      TaskManager.updateRunningTaskDurations();
     }, 1000);
   }
 
-  escapeHtml(str) {
+  static escapeHtml(str) {
     if (!str) return "";
     return String(str)
       .replace(/&/g, "&amp;")
@@ -525,7 +525,7 @@ export class TaskManager {
       .replace(/'/g, "&#039;");
   }
 
-  showErrorModal(errorMessage) {
+  static showErrorModal(errorMessage) {
     let modal = document.getElementById("errorModal");
     if (!modal) {
       modal = document.createElement("div");
@@ -680,7 +680,7 @@ export class TaskManager {
           const taskResult = result.results.find((r) => r.task === taskId);
 
           if (taskResult && !taskResult.success) {
-            this.showDependencyErrorModal(taskId, taskResult.message);
+            TaskManager.showDependencyErrorModal(taskId, taskResult.message);
             return false;
           }
         }
@@ -821,7 +821,7 @@ export class TaskManager {
     }
   }
 
-  gatherTaskConfigFromUI() {
+  static gatherTaskConfigFromUI() {
     const config = { tasks: {} };
     const globalSwitch = document.getElementById("globalDisableSwitch");
     config.disabled = globalSwitch?.checked || false;
@@ -842,7 +842,7 @@ export class TaskManager {
     return config;
   }
 
-  async submitTaskConfigUpdate(config) {
+  static async submitTaskConfigUpdate(config) {
     const response = await fetch("/api/background_tasks/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -923,7 +923,7 @@ export class TaskManager {
               ? `
           <div class="alert alert-danger">
             <strong>Last Error:</strong><br>
-            <pre class="mb-0" style="white-space: pre-wrap;">${this.escapeHtml(details.last_error)}</pre>
+            <pre class="mb-0" style="white-space: pre-wrap;">${TaskManager.escapeHtml(details.last_error)}</pre>
           </div>
           `
               : ""
@@ -995,7 +995,7 @@ export class TaskManager {
     }
   }
 
-  showDependencyErrorModal(_taskId, errorMessage) {
+  static showDependencyErrorModal(_taskId, errorMessage) {
     let modal = document.getElementById("dependencyErrorModal");
     if (!modal) {
       modal = document.createElement("div");
