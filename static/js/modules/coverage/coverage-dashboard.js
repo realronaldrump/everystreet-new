@@ -11,7 +11,7 @@ export class CoverageDashboard {
     uiModule,
     coverageMapModule,
     navigationModule,
-    selectionModule
+    selectionModule,
   ) {
     this.notificationManager = notificationManager;
     this.ui = uiModule;
@@ -41,14 +41,16 @@ export class CoverageDashboard {
     this.currentDashboardLocationId = locationId;
 
     const dashboardElement = document.getElementById("coverage-dashboard");
-    const locationNameElement = document.getElementById("dashboard-location-name");
+    const locationNameElement = document.getElementById(
+      "dashboard-location-name",
+    );
     const mapContainer = document.getElementById("coverage-map");
 
     if (!dashboardElement || !locationNameElement || !mapContainer) {
       console.error("Essential dashboard elements not found.");
       this.notificationManager.show(
         "UI Error: Dashboard components missing.",
-        "danger"
+        "danger",
       );
       return;
     }
@@ -61,10 +63,14 @@ export class CoverageDashboard {
       '<span class="loading-skeleton" style="width: 150px; display: inline-block;"></span>';
 
     const chartContainer = document.getElementById("street-type-chart");
-    if (chartContainer) chartContainer.innerHTML = this.ui.createLoadingSkeleton(180);
+    if (chartContainer)
+      chartContainer.innerHTML = this.ui.createLoadingSkeleton(180);
     const coverageEl = document.getElementById("street-type-coverage");
-    if (coverageEl) coverageEl.innerHTML = this.ui.createLoadingSkeleton(100, 3);
-    mapContainer.innerHTML = this.ui.createLoadingIndicator("Loading map data...");
+    if (coverageEl)
+      coverageEl.innerHTML = this.ui.createLoadingSkeleton(100, 3);
+    mapContainer.innerHTML = this.ui.createLoadingIndicator(
+      "Loading map data...",
+    );
 
     try {
       const cachedData = this.getCachedData(`dashboard-${locationId}`);
@@ -85,24 +91,25 @@ export class CoverageDashboard {
 
       // Pass context helpers if needed, or bind them in the manager.
       // Assuming extraContext provides necessary formatters.
-      const { distanceFormatter, timeFormatter, streetTypeFormatter } = extraContext;
+      const { distanceFormatter, timeFormatter, streetTypeFormatter } =
+        extraContext;
 
       this.ui.updateDashboardStats(
         coverageData,
         distanceFormatter,
-        timeFormatter
+        timeFormatter,
       );
       this.ui.updateStreetTypeCoverage(
         coverageData.street_types || [],
         distanceFormatter,
-        streetTypeFormatter
+        streetTypeFormatter,
       );
       this.ui.createStreetTypeChart(
         coverageData.street_types || [],
         streetTypeFormatter,
-        distanceFormatter
+        distanceFormatter,
       );
-      
+
       this.updateFilterButtonStates();
 
       this.coverageMap.initializeCoverageMap(coverageData);
@@ -117,32 +124,32 @@ export class CoverageDashboard {
       if (coverageData.streets_geojson) {
         this.ui.updateUndrivenStreetsList(
           coverageData.streets_geojson,
-          distanceFormatter
+          distanceFormatter,
         );
       }
 
-      this.showTripsActive = localStorage.getItem("showTripsOverlay") === "true";
+      this.showTripsActive =
+        localStorage.getItem("showTripsOverlay") === "true";
       const tripToggle = document.getElementById("toggle-trip-overlay");
       if (tripToggle) tripToggle.checked = this.showTripsActive;
-      
+
       // If trip overlay was active, ensure it's loaded
       if (this.showTripsActive) {
-          this.coverageMap.showTripsActive = true;
-          this.coverageMap.setupTripLayers();
-          this.coverageMap.loadTripsForView();
+        this.coverageMap.showTripsActive = true;
+        this.coverageMap.setupTripLayers();
+        this.coverageMap.loadTripsForView();
       }
-
     } catch (error) {
       console.error("Error displaying coverage dashboard:", error);
       locationNameElement.textContent = "Error loading data";
       this.notificationManager.show(
         `Error loading dashboard: ${error.message}`,
-        "danger"
+        "danger",
       );
       mapContainer.innerHTML = this.ui.createAlertMessage(
         "Dashboard Load Error",
         error.message,
-        "danger"
+        "danger",
       );
     } finally {
       // Optional: Initialize tooltips if needed here or in manager
@@ -158,37 +165,39 @@ export class CoverageDashboard {
       const refreshData = await COVERAGE_API.refreshStats(locationId);
       if (refreshData.coverage) {
         this.selectedLocation = refreshData.coverage;
-        
-        const { distanceFormatter, timeFormatter, streetTypeFormatter } = extraContext;
+
+        const { distanceFormatter, timeFormatter, streetTypeFormatter } =
+          extraContext;
 
         this.ui.updateDashboardStats(
           refreshData.coverage,
           distanceFormatter,
-          timeFormatter
+          timeFormatter,
         );
         this.coverageMap.addCoverageSummary(refreshData.coverage);
         this.ui.updateStreetTypeCoverage(
           refreshData.coverage.street_types || [],
           distanceFormatter,
-          streetTypeFormatter
+          streetTypeFormatter,
         );
-        if (this.ui.streetTypeChartInstance) this.ui.streetTypeChartInstance.destroy();
+        if (this.ui.streetTypeChartInstance)
+          this.ui.streetTypeChartInstance.destroy();
         this.ui.createStreetTypeChart(
           refreshData.coverage.street_types || [],
           streetTypeFormatter,
-          distanceFormatter
+          distanceFormatter,
         );
       } else {
         this.notificationManager.show(
           `Failed to refresh stats: ${refreshData.detail || "Unknown error"}`,
-          "warning"
+          "warning",
         );
       }
     } catch (e) {
       console.error("Error refreshing stats:", e);
       this.notificationManager.show(
         `Error fetching updated stats: ${e.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -217,10 +226,9 @@ export class CoverageDashboard {
    * Update filter button states
    */
   updateFilterButtonStates(filterType = null) {
-    const currentFilter =
-      filterType || this.coverageMap.currentFilter;
+    const currentFilter = filterType || this.coverageMap.currentFilter;
     const filterButtons = document.querySelectorAll(
-      ".map-controls button[data-filter]"
+      ".map-controls button[data-filter]",
     );
     filterButtons.forEach((btn) => {
       btn.classList.remove(
@@ -232,7 +240,7 @@ export class CoverageDashboard {
         "btn-danger",
         "btn-outline-danger",
         "btn-warning",
-        "btn-outline-warning"
+        "btn-outline-warning",
       );
 
       let buttonClass = "";
@@ -243,8 +251,10 @@ export class CoverageDashboard {
         else if (currentFilter === "undriveable") buttonClass = "btn-warning";
         else buttonClass = "btn-primary";
       } else {
-        if (btn.dataset.filter === "driven") buttonClass = "btn-outline-success";
-        else if (btn.dataset.filter === "undriven") buttonClass = "btn-outline-danger";
+        if (btn.dataset.filter === "driven")
+          buttonClass = "btn-outline-success";
+        else if (btn.dataset.filter === "undriven")
+          buttonClass = "btn-outline-danger";
         else if (btn.dataset.filter === "undriveable")
           buttonClass = "btn-outline-warning";
         else buttonClass = "btn-outline-primary";
@@ -261,13 +271,13 @@ export class CoverageDashboard {
     if (!this.coverageMap.map || !this.coverageMap.streetsGeoJson) return;
 
     const matchingFeatures = this.coverageMap.streetsGeoJson.features.filter(
-      (f) => (f.properties?.street_name || "Unnamed") === streetName
+      (f) => (f.properties?.street_name || "Unnamed") === streetName,
     );
 
     if (!matchingFeatures.length) {
       this.notificationManager?.show(
         `No geometry found for '${streetName}'.`,
-        "warning"
+        "warning",
       );
       return;
     }
@@ -318,8 +328,8 @@ export class CoverageDashboard {
       });
     }
   }
-    
-    /**
+
+  /**
    * Handle trip overlay toggle
    */
   handleTripOverlayToggle(enabled) {

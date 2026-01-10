@@ -37,7 +37,10 @@ export class CoverageExport {
           .then((canvas) => {
             canvas.toBlob((blob) => {
               if (!blob) {
-                this.notificationManager.show("Failed to create image blob.", "danger");
+                this.notificationManager.show(
+                  "Failed to create image blob.",
+                  "danger",
+                );
                 return;
               }
               const url = URL.createObjectURL(blob);
@@ -62,7 +65,7 @@ export class CoverageExport {
             console.error("html2canvas export error:", error);
             this.notificationManager.show(
               `Map export failed: ${error.message}`,
-              "danger"
+              "danger",
             );
           });
       }, 500);
@@ -77,7 +80,10 @@ export class CoverageExport {
       script.crossOrigin = "anonymous";
       script.onload = doExport;
       script.onerror = () =>
-        this.notificationManager.show("Failed to load export library.", "danger");
+        this.notificationManager.show(
+          "Failed to load export library.",
+          "danger",
+        );
       document.head.appendChild(script);
     } else {
       doExport();
