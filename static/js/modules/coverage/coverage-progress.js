@@ -1,3 +1,4 @@
+/* global bootstrap */
 /**
  * Coverage Progress Module
  * Handles progress tracking, polling, and modal management

@@ -1,3 +1,4 @@
+/* global mapboxgl */
 (() => {
   class VisitsMapController {
     constructor({ geometryUtils, mapStyles, onPlaceClicked }) {

@@ -842,7 +842,7 @@ class PromptDialog {
       };
 
       const handleConfirm = () => {
-        const {value} = input;
+        const { value } = input;
         cleanup();
         this.activeModal?.hide();
         this.activeModal = null;

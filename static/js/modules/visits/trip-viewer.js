@@ -1,4 +1,4 @@
-/* global DateUtils */
+/* global DateUtils, bootstrap, mapboxgl */
 (() => {
   class TripViewer {
     constructor({ geometryUtils, mapStyles }) {

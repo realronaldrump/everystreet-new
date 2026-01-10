@@ -1,3 +1,4 @@
+/* global bootstrap */
 import { CONFIG } from "./config.js";
 import dataManager from "./data-manager.js";
 import dateUtils from "./date-utils.js";

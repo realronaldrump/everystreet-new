@@ -182,7 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (module || func || line) {
           detailsHtml = `
             <div class="log-details">
-              ${module ? `${module}` : ""}${func ? `.${func}()` : ""}${line ? `:${line}` : ""}
+              ${module || ""}${func ? `.${func}()` : ""}${line ? `:${line}` : ""}
             </div>
           `;
         }
