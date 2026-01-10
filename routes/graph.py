@@ -1,5 +1,6 @@
 import contextlib
 import heapq
+
 import networkx as nx
 from shapely.geometry import LineString
 

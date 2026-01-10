@@ -1,11 +1,13 @@
 import logging
+from typing import Any
+
 import geopandas as gpd
 import osmnx as ox
 from shapely.geometry import LineString, Point
-from typing import Any
+
+from geometry_service import GeometryService
 
 from .constants import FEET_PER_METER
-from geometry_service import GeometryService
 
 logger = logging.getLogger(__name__)
 

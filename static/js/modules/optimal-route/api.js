@@ -60,7 +60,9 @@ export class OptimalRouteAPI {
 
   async loadExistingRoute(areaId) {
     try {
-      const response = await fetch(`/api/coverage_areas/${areaId}/optimal-route`);
+      const response = await fetch(
+        `/api/coverage_areas/${areaId}/optimal-route`,
+      );
 
       if (response.status === 404) {
         return null;
@@ -125,7 +127,7 @@ export class OptimalRouteAPI {
     try {
       const response = await fetch(
         `/api/coverage_areas/${areaId}/generate-optimal-route`,
-        { method: "POST" }
+        { method: "POST" },
       );
 
       if (!response.ok) {
@@ -178,7 +180,9 @@ export class OptimalRouteAPI {
       this.eventSource.close();
     }
 
-    this.eventSource = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
+    this.eventSource = new EventSource(
+      `/api/optimal-routes/${taskId}/progress/sse`,
+    );
 
     this.eventSource.onmessage = (event) => {
       try {
@@ -188,7 +192,11 @@ export class OptimalRouteAPI {
         const status = (data.status || "").toLowerCase();
         const stage = (data.stage || "").toLowerCase();
 
-        if (status === "completed" || stage === "complete" || data.progress >= 100) {
+        if (
+          status === "completed" ||
+          stage === "complete" ||
+          data.progress >= 100
+        ) {
           this.eventSource.close();
           this.eventSource = null;
           this.onComplete(data);

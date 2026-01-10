@@ -14,8 +14,12 @@ from typing import Any
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
-from db import (coverage_metadata_collection, find_with_retry,
-                progress_collection, update_one_with_retry)
+from db import (
+    coverage_metadata_collection,
+    find_with_retry,
+    progress_collection,
+    update_one_with_retry,
+)
 from street_coverage_calculation import compute_incremental_coverage
 from tasks.core import task_runner
 from utils import run_async_from_sync

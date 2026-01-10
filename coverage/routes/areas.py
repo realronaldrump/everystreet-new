@@ -13,11 +13,16 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from coverage.location_settings import normalize_location_settings
-from coverage.serializers import (serialize_coverage_area,
-                                  serialize_coverage_details)
+from coverage.serializers import serialize_coverage_area, serialize_coverage_details
 from coverage_tasks import process_area
-from db import (db_manager, delete_many_with_retry, delete_one_with_retry,
-                find_one_with_retry, find_with_retry, update_one_with_retry)
+from db import (
+    db_manager,
+    delete_many_with_retry,
+    delete_one_with_retry,
+    find_one_with_retry,
+    find_with_retry,
+    update_one_with_retry,
+)
 from models import DeleteCoverageAreaModel, LocationModel
 
 logger = logging.getLogger(__name__)
