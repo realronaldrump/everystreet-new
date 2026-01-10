@@ -424,6 +424,7 @@ class ExternalGeoService:
         Returns:
             Map matching result dictionary
         """
+
         async def call_mapbox_api(
             coords: list[list[float]],
             timestamps_chunk: list[int | None] | None = None,
@@ -468,7 +469,9 @@ class ExternalGeoService:
 
         # Split coordinates into chunks
         chunk_indices = self._create_chunk_indices(coordinates, chunk_size, overlap)
-        logger.info("Splitting %d coords into %d chunks", len(coordinates), len(chunk_indices))
+        logger.info(
+            "Splitting %d coords into %d chunks", len(coordinates), len(chunk_indices)
+        )
 
         # Process chunks and stitch results
         final_matched = await self._process_and_stitch_chunks(
@@ -531,7 +534,9 @@ class ExternalGeoService:
         return radiuses
 
     @staticmethod
-    def _has_valid_timestamps(timestamps_chunk: list[int | None] | None, index: int) -> bool:
+    def _has_valid_timestamps(
+        timestamps_chunk: list[int | None] | None, index: int
+    ) -> bool:
         """Check if valid timestamps exist for current and previous index."""
         return (
             timestamps_chunk is not None
@@ -582,7 +587,9 @@ class ExternalGeoService:
     ) -> dict[str, Any] | None:
         """Handle different response status codes from Mapbox API."""
         if response.status == 429:
-            return await self._handle_rate_limit(response, attempt, max_attempts, min_backoff)
+            return await self._handle_rate_limit(
+                response, attempt, max_attempts, min_backoff
+            )
 
         if 400 <= response.status < 500:
             error_text = await response.text()
@@ -613,11 +620,7 @@ class ExternalGeoService:
     ) -> dict[str, Any] | None:
         """Handle rate limit responses."""
         retry_after = response.headers.get("Retry-After")
-        wait = (
-            float(retry_after)
-            if retry_after
-            else min_backoff * (2 ** (attempt - 1))
-        )
+        wait = float(retry_after) if retry_after else min_backoff * (2 ** (attempt - 1))
         if attempt < max_attempts:
             await asyncio.sleep(wait)
             return None
@@ -653,7 +656,9 @@ class ExternalGeoService:
 
             # Try filtering invalid coordinates
             if "invalid coordinates" in msg.lower():
-                return await self._retry_with_filtered_coords(chunk_coords, call_mapbox_api)
+                return await self._retry_with_filtered_coords(
+                    chunk_coords, call_mapbox_api
+                )
 
         except Exception as exc:
             logger.warning("Unexpected error in mapbox chunk: %s", str(exc))
@@ -667,9 +672,7 @@ class ExternalGeoService:
     ) -> list[list[float]] | None:
         """Retry matching after filtering invalid coordinates."""
         filtered = [
-            c
-            for c in chunk_coords
-            if GeometryService.validate_coordinate_pair(c)[0]
+            c for c in chunk_coords if GeometryService.validate_coordinate_pair(c)[0]
         ]
         if len(filtered) >= 2 and len(filtered) < len(chunk_coords):
             # Recursively try with filtered coords (depth doesn't increment for this)

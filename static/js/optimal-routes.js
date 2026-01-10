@@ -520,8 +520,6 @@ class OptimalRoutesManager {
           features: undrivenFeatures,
         });
       }
-
-
     } catch (error) {
       console.error("Error loading street network:", error);
     }
@@ -739,8 +737,6 @@ class OptimalRoutesManager {
       const data = await response.json();
 
       if (data.active && data.task_id) {
-
-
         // Store task ID
         this.currentTaskId = data.task_id;
 
@@ -1412,7 +1408,6 @@ class OptimalRoutesManager {
         await fetch(`/api/coverage_areas/${this.selectedAreaId}/optimal-route`, {
           method: "DELETE",
         });
-
       } catch (error) {
         console.warn("Failed to clear route from backend:", error);
       }

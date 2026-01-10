@@ -7,7 +7,7 @@ including retrieving configuration, checking dependencies, and updating task his
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from celery.utils.log import get_task_logger
 
@@ -22,8 +22,6 @@ from db import (
 
 # Import only for type checking to avoid circular dependency
 # (tasks.core imports from tasks.config inside task_runner decorator)
-if TYPE_CHECKING:
-    from tasks.core import TaskStatus
 
 logger = get_task_logger(__name__)
 

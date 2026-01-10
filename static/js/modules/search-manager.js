@@ -41,8 +41,6 @@ const searchManager = {
         }
       }, 100)
     );
-
-
   },
 
   setupEventListeners() {

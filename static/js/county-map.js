@@ -222,8 +222,6 @@
       feature.properties.visited = false;
       feature.properties.stopped = false;
     });
-
-
   }
 
   // Load visited counties from API (cached)

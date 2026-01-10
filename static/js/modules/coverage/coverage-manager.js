@@ -19,7 +19,7 @@ class CoverageManager {
     // Initialize notification and confirmation dialog
     this.notificationManager = window.notificationManager || {
       // Fallback no-op if notification manager not available
-      show: (message, type, _duration = 3000) => {},
+      show: (_message, _type, _duration = 3000) => {},
     };
 
     this.confirmationDialog = window.confirmationDialog || {
@@ -1612,10 +1612,7 @@ class CoverageManager {
   /**
    * Ask match settings
    */
-  _askMatchSettings(
-    locationName,
-    defaults = { segment: 300, buffer: 50, min: 15 }
-  ) {
+  _askMatchSettings(locationName, defaults = { segment: 300, buffer: 50, min: 15 }) {
     this.lastMatchSettingsRequest = { locationName, defaults };
     return new Promise((resolve) => {
       const modalEl = document.getElementById("segmentLengthModal");
@@ -2009,7 +2006,7 @@ class CoverageManager {
     tooltipTriggerList.forEach((tooltipTriggerEl) => {
       const existing = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
       if (existing) existing.dispose();
-      const tooltip = new bootstrap.Tooltip(tooltipTriggerEl, {
+      const _tooltip = new bootstrap.Tooltip(tooltipTriggerEl, {
         animation: true,
         delay: { show: 500, hide: 100 },
         html: true,

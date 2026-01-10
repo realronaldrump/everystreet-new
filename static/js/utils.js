@@ -77,7 +77,7 @@ const utils = {
   // Throttle function
   throttle(func, limit) {
     let inThrottle = false;
-    let lastResult = undefined;
+    let lastResult;
 
     return function (...args) {
       if (!inThrottle) {
@@ -144,7 +144,7 @@ const utils = {
     const startTime = performance.now();
     try {
       const result = await fn();
-      const duration = performance.now() - startTime;
+      const _duration = performance.now() - startTime;
 
       return result;
     } catch (error) {

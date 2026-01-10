@@ -519,7 +519,13 @@ class CoverageUI {
    * Create coverage table row
    * @private
    */
-  _createCoverageTableRow(area, index, formatRelativeTime, formatStageName, distanceInUserUnits) {
+  _createCoverageTableRow(
+    area,
+    index,
+    formatRelativeTime,
+    formatStageName,
+    distanceInUserUnits
+  ) {
     const row = document.createElement("tr");
     const status = area.status || "unknown";
     const statusInfo = this._getAreaStatus(status);
@@ -531,8 +537,15 @@ class CoverageUI {
       row.classList.add("fade-in-up");
     }
 
-    const areaData = this._extractAreaData(area, formatRelativeTime, distanceInUserUnits);
-    const progressBarColor = this._getProgressBarColor(statusInfo, area.coverage_percentage);
+    const areaData = this._extractAreaData(
+      area,
+      formatRelativeTime,
+      distanceInUserUnits
+    );
+    const progressBarColor = this._getProgressBarColor(
+      statusInfo,
+      area.coverage_percentage
+    );
     const locationId = area._id;
 
     row.innerHTML = this._buildRowHTML(
@@ -569,7 +582,7 @@ class CoverageUI {
       status,
       isProcessing: processingStatuses.includes(status),
       hasError: status === "error",
-      isCanceled: status === "canceled"
+      isCanceled: status === "canceled",
     };
   }
 
@@ -588,7 +601,7 @@ class CoverageUI {
    * Extract area data for display
    * @private
    */
-  _extractAreaData(area, formatRelativeTime, distanceInUserUnits) {
+  _extractAreaData(area, _formatRelativeTime, distanceInUserUnits) {
     return {
       lastUpdated: area.last_updated
         ? new Date(area.last_updated).toLocaleString("en-US", { hour12: true })
@@ -597,7 +610,7 @@ class CoverageUI {
       totalLengthMiles: distanceInUserUnits(area.total_length),
       drivenLengthMiles: distanceInUserUnits(area.driven_length),
       coveragePercentage: area.coverage_percentage?.toFixed(1) || "0.0",
-      totalSegments: area.total_segments?.toLocaleString() || 0
+      totalSegments: area.total_segments?.toLocaleString() || 0,
     };
   }
 
@@ -616,12 +629,23 @@ class CoverageUI {
    * Build row HTML content
    * @private
    */
-  _buildRowHTML(area, areaData, statusInfo, progressBarColor, locationId, formatStageName) {
+  _buildRowHTML(
+    area,
+    areaData,
+    statusInfo,
+    progressBarColor,
+    locationId,
+    formatStageName
+  ) {
     const locationButtonData = JSON.stringify({
       display_name: area.location?.display_name || "",
     }).replace(/'/g, "&apos;");
 
-    const statusIndicator = this._buildStatusIndicator(area, statusInfo, formatStageName);
+    const statusIndicator = this._buildStatusIndicator(
+      area,
+      statusInfo,
+      formatStageName
+    );
     const disabledAttr = statusInfo.isProcessing ? "disabled" : "";
 
     return `

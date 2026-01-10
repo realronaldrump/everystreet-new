@@ -523,7 +523,7 @@ function updateGeocodeProgressUI(context, progressData) {
 
 function handleGeocodeCompletion(context, progressData) {
   const { geocodeBtn, statusEl, progressBar } = context;
-  const stage = progressData.stage;
+  const {stage} = progressData;
   const metrics = progressData.metrics || {};
 
   clearInterval(pollGeocodeProgress.pollInterval);

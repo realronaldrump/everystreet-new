@@ -983,7 +983,6 @@ class TurnByTurnNavigator {
    * State machine transition - updates UI based on navigation state
    */
   transitionTo(newState) {
-
     this.previousState = this.navState;
     this.navState = newState;
     this.updateUIForState(newState);
@@ -1438,8 +1437,6 @@ class TurnByTurnNavigator {
 
       // Update map layers
       this.updateCoverageMapLayers(drivenFeatures, undrivenFeatures, []);
-
-
     } catch (error) {
       console.error("Error loading coverage segments:", error);
     }
@@ -1631,7 +1628,6 @@ class TurnByTurnNavigator {
           location_id: this.selectedAreaId,
         }),
       });
-
     } catch (error) {
       console.warn("Failed to persist segments:", error);
       // Re-queue failed segments
@@ -1758,8 +1754,7 @@ class TurnByTurnNavigator {
 
     // Show session summary if we completed segments
     if (this.sessionSegmentsCompleted > 0) {
-      const increase = this.liveCoverageIncrease / 1609.344; // Convert to miles
-
+      const _increase = this.liveCoverageIncrease / 1609.344; // Convert to miles
     }
   }
 
