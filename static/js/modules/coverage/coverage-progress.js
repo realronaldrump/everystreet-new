@@ -486,7 +486,7 @@ class CoverageProgress {
   /**
    * Mark error step based on progress level and update previous steps
    */
-  _markErrorStepByProgress(progress, steps, markError, markComplete) {
+  static _markErrorStepByProgress(progress, steps, markError, markComplete) {
     const errorSteps = [
       { threshold: 75, step: "calculating" },
       { threshold: 50, step: "indexing" },
@@ -513,7 +513,7 @@ class CoverageProgress {
   /**
    * Mark error on active step for canceled tasks
    */
-  _markCanceledStep(steps, markError) {
+  static _markCanceledStep(steps, markError) {
     const stepOrder = ["calculating", "indexing", "preprocessing", "initializing"];
     for (const stepKey of stepOrder) {
       if (steps[stepKey]?.classList.contains("active")) {
@@ -527,7 +527,7 @@ class CoverageProgress {
   /**
    * Mark steps based on completion stage
    */
-  _markStepsByStage(stage, progress, markComplete, markActive) {
+  static _markStepsByStage(stage, progress, markComplete, markActive) {
     switch (stage) {
       case STATUS.INITIALIZING:
         markActive("initializing");
@@ -563,7 +563,12 @@ class CoverageProgress {
         markComplete("complete");
         break;
       default:
-        this._markStepsByProgress(progress, stage, markComplete, markActive);
+        CoverageProgress._markStepsByProgress(
+          progress,
+          stage,
+          markComplete,
+          markActive
+        );
         break;
     }
   }
@@ -571,7 +576,7 @@ class CoverageProgress {
   /**
    * Mark steps based on progress percentage as fallback
    */
-  _markStepsByProgress(progress, stage, markComplete, markActive) {
+  static _markStepsByProgress(progress, stage, markComplete, markActive) {
     if (progress >= 100) {
       markComplete("initializing");
       markComplete("preprocessing");
@@ -644,16 +649,21 @@ class CoverageProgress {
     };
 
     if (stage === STATUS.ERROR) {
-      this._markErrorStepByProgress(progress, steps, markError, markComplete);
+      CoverageProgress._markErrorStepByProgress(
+        progress,
+        steps,
+        markError,
+        markComplete
+      );
       return;
     }
 
     if (stage === STATUS.CANCELED) {
-      this._markCanceledStep(steps, markError);
+      CoverageProgress._markCanceledStep(steps, markError);
       return;
     }
 
-    this._markStepsByStage(stage, progress, markComplete, markActive);
+    CoverageProgress._markStepsByStage(stage, progress, markComplete, markActive);
   }
 
   /**

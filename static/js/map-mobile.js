@@ -44,7 +44,7 @@ class MobileMapInterface {
     this.flingThreshold = 80;
     this.minStateGap = 40;
 
-    this.resizeHandler = this.debounce(() => this.recomputeLayout(), 150);
+    this.resizeHandler = MobileMapInterface.debounce(() => this.recomputeLayout(), 150);
 
     this.init();
   }
@@ -428,7 +428,7 @@ class MobileMapInterface {
     }
   }
 
-  debounce(fn, wait = 150) {
+  static debounce(fn, wait = 150) {
     let timerId = null;
     return (...args) => {
       if (timerId) {
@@ -436,7 +436,7 @@ class MobileMapInterface {
       }
       timerId = window.setTimeout(() => {
         timerId = null;
-        fn.apply(this, args);
+        fn(...args);
       }, wait);
     };
   }
