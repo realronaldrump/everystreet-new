@@ -42,7 +42,7 @@ const searchManager = {
       }, 100)
     );
 
-    console.log("Search manager initialized");
+
   },
 
   setupEventListeners() {
