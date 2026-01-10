@@ -18,8 +18,10 @@ class CoverageManager {
   constructor() {
     // Initialize notification and confirmation dialog
     this.notificationManager = window.notificationManager || {
-      // Fallback no-op if notification manager not available
-      show: (_message, _type, _duration = 3000) => {},
+      // Fallback: log when notification manager is missing so actions remain traceable
+      show: (message, type = "info", _duration = 3000) => {
+        console.info(`[Coverage notice:${type}]`, message);
+      },
     };
 
     this.confirmationDialog = window.confirmationDialog || {
@@ -1635,12 +1637,6 @@ class CoverageManager {
 
       const bsModal = new bootstrap.Modal(modalEl, { backdrop: "static" });
 
-      const cleanup = () => {
-        confirmBtn.removeEventListener("click", onConfirm);
-        cancelBtn.removeEventListener("click", onCancel);
-        modalEl.removeEventListener("hidden.bs.modal", onCancel);
-      };
-
       const onConfirm = () => {
         const segVal = parseInt(segEl.value, 10);
         const bufVal = parseFloat(bufEl.value);
@@ -1664,6 +1660,12 @@ class CoverageManager {
       const onCancel = () => {
         cleanup();
         resolve(null);
+      };
+
+      const cleanup = () => {
+        confirmBtn.removeEventListener("click", onConfirm);
+        cancelBtn.removeEventListener("click", onCancel);
+        modalEl.removeEventListener("hidden.bs.modal", onCancel);
       };
 
       confirmBtn.addEventListener("click", onConfirm);

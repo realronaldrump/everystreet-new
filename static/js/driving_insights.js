@@ -33,7 +33,7 @@ if (typeof window !== "undefined") {
     // Enable Bootstrap tooltips used in the page (e.g., Total Distance column)
     Array.from(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(
       (el) => {
-        new bootstrap.Tooltip(el);
+        bootstrap.Tooltip.getOrCreateInstance(el);
         // Tooltip instance attaches to DOM element automatically
       }
     );
