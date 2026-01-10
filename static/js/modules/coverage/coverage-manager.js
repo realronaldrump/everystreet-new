@@ -1637,13 +1637,7 @@ class CoverageManager {
 
       const bsModal = new bootstrap.Modal(modalEl, { backdrop: "static" });
 
-      function cleanup() {
-        confirmBtn.removeEventListener("click", onConfirm);
-        cancelBtn.removeEventListener("click", onCancel);
-        modalEl.removeEventListener("hidden.bs.modal", onCancel);
-      }
-
-      const onConfirm = () => {
+      function onConfirm() {
         const segVal = parseInt(segEl.value, 10);
         const bufVal = parseFloat(bufEl.value);
         const minVal = parseFloat(minEl.value);
@@ -1661,12 +1655,18 @@ class CoverageManager {
         } else {
           resolve({ segment: segVal, buffer: bufVal, min: minVal });
         }
-      };
+      }
 
-      const onCancel = () => {
+      function onCancel() {
         cleanup();
         resolve(null);
-      };
+      }
+
+      function cleanup() {
+        confirmBtn.removeEventListener("click", onConfirm);
+        cancelBtn.removeEventListener("click", onCancel);
+        modalEl.removeEventListener("hidden.bs.modal", onCancel);
+      }
 
       confirmBtn.addEventListener("click", onConfirm);
       cancelBtn.addEventListener("click", onCancel);
