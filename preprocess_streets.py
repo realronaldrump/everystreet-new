@@ -10,6 +10,8 @@ This script:
     d. Saves the graph as a .graphml file to `data/graphs/{location_id}.graphml`.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
@@ -23,11 +25,6 @@ from shapely.geometry import box, shape
 from routes.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
 from routes.geometry import _buffer_polygon_for_routing
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 

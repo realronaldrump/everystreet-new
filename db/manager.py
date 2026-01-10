@@ -71,6 +71,7 @@ class DatabaseManager:
             self._gridfs_bucket_instance: AsyncIOMotorGridFSBucket | None = None
             self._bound_loop: asyncio.AbstractEventLoop | None = None
             self._connection_healthy = True
+            self._beanie_initialized = False
             self._db_semaphore = asyncio.Semaphore(10)
             self._collections: dict[str, AsyncIOMotorCollection] = {}
             self._initialized = True
@@ -177,6 +178,7 @@ class DatabaseManager:
                 self._collections = {}
                 self._gridfs_bucket_instance = None
                 self._bound_loop = None
+                self._beanie_initialized = False
 
     def _check_loop_and_reconnect(self) -> None:
         """Check if event loop has changed and reconnect if necessary."""
@@ -590,6 +592,26 @@ class DatabaseManager:
         # The actual lookup needs to be async but we return None as a fallback
         return None
 
+    async def init_beanie(self) -> None:
+        """Initialize Beanie ODM with all document models.
+
+        This should be called once during application startup.
+        """
+        if self._beanie_initialized:
+            logger.debug("Beanie already initialized, skipping")
+            return
+
+        from beanie import init_beanie
+
+        from db.models import ALL_DOCUMENT_MODELS
+
+        await init_beanie(database=self.db, document_models=ALL_DOCUMENT_MODELS)
+        self._beanie_initialized = True
+        logger.info(
+            "Beanie ODM initialized with %d document models",
+            len(ALL_DOCUMENT_MODELS),
+        )
+
     async def cleanup_connections(self) -> None:
         """Clean up MongoDB client connections."""
         if self._client:
@@ -604,6 +626,7 @@ class DatabaseManager:
                 self._collections = {}
                 self._gridfs_bucket_instance = None
                 self._connection_healthy = False
+                self._beanie_initialized = False
                 logger.info("MongoDB client state reset")
 
     def __del__(self) -> None:

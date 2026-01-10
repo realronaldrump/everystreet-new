@@ -142,6 +142,10 @@ app_settings_collection = db_manager.db["app_settings"]
 async def startup_event():
     """Initialize database indexes and components on application startup."""
     try:
+        # Initialize Beanie ODM first
+        await db_manager.init_beanie()
+        logger.info("Beanie ODM initialized successfully.")
+
         await init_database()  # This already creates many indexes
         logger.info("Core database initialized successfully (indexes, etc.).")
 

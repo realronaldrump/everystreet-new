@@ -1,5 +1,16 @@
+"""Utility functions for async operations, HTTP sessions, and common helpers.
+
+This module provides:
+- Shared aiohttp session management
+- Retry decorators for async functions
+- Geocoding utilities
+- Distance calculations
+- Async-to-sync bridge for Celery tasks
+"""
+
+from __future__ import annotations
+
 import asyncio
-import functools
 import logging
 import math
 import os
@@ -14,10 +25,23 @@ from aiohttp import (
     ClientResponseError,
     ServerDisconnectedError,
 )
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
+from constants import (
+    HTTP_CONNECTION_LIMIT,
+    HTTP_TIMEOUT_CONNECT,
+    HTTP_TIMEOUT_SOCK_READ,
+    HTTP_TIMEOUT_TOTAL,
+    METERS_TO_MILES,
+)
 from geometry_service import GeometryService
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -45,12 +69,6 @@ async def get_session() -> aiohttp.ClientSession:
         and current_pid != SessionState.session_owner_pid
     ):
         try:
-            # We can't await close() on a session from another loop/process safely
-            # usually, but we should at least discard it.
-            # If we are in a new process, the fd's might be shared but loop is gone.
-            # Best effort close if loop is running?
-            # Actually, aiohttp sessions are tied to a loop. If we fork, the loop in child is different/broken.
-            # Just discarding is often safer than trying to close on a broken loop.
             logger.debug(
                 "Discarding inherited session from parent process %s in child process %s",
                 SessionState.session_owner_pid,
@@ -75,9 +93,7 @@ async def get_session() -> aiohttp.ClientSession:
                 or SessionState.session.loop.is_closed()
             ):
                 logger.info(
-                    "Detected event loop change (session loop: %s, current loop: %s). Creating new session.",
-                    id(SessionState.session.loop),
-                    id(current_loop),
+                    "Detected event loop change. Creating new session.",
                 )
                 try:
                     if (
@@ -94,13 +110,17 @@ async def get_session() -> aiohttp.ClientSession:
 
     # Create new session if needed
     if SessionState.session is None or SessionState.session.closed:
-        timeout = aiohttp.ClientTimeout(total=30, connect=10, sock_read=20)
+        timeout = aiohttp.ClientTimeout(
+            total=HTTP_TIMEOUT_TOTAL,
+            connect=HTTP_TIMEOUT_CONNECT,
+            sock_read=HTTP_TIMEOUT_SOCK_READ,
+        )
         headers = {
             "User-Agent": "EveryStreet/1.0",
             "Accept": "application/json",
         }
         connector = aiohttp.TCPConnector(
-            limit=20,
+            limit=HTTP_CONNECTION_LIMIT,
             force_close=False,
             enable_cleanup_closed=True,
         )
@@ -129,10 +149,10 @@ async def cleanup_session():
 
 
 def retry_async(
-    max_retries=3,
-    retry_delay=1.0,
-    backoff_factor=2.0,
-    retry_exceptions=(
+    max_retries: int = 3,
+    retry_delay: float = 1.0,
+    backoff_factor: float = 2.0,
+    retry_exceptions: tuple = (
         ClientConnectorError,
         ClientResponseError,
         ServerDisconnectedError,
@@ -140,45 +160,29 @@ def retry_async(
         asyncio.TimeoutError,
     ),
 ):
-    """Decorator for retrying async functions on specified exceptions."""
+    """Factory that returns a tenacity retry decorator configured with provided parameters.
 
-    def decorator(func):
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            last_exception = None
-            delay = retry_delay
+    Args:
+        max_retries: Maximum number of retry attempts (in addition to the first attempt).
+        retry_delay: Initial delay between retries in seconds (used as multiplier).
+        backoff_factor: Exponential backoff base for increasing delay between retries.
+        retry_exceptions: Tuple of exception types that should trigger a retry.
 
-            for attempt in range(max_retries + 1):
-                try:
-                    return await func(*args, **kwargs)
-                except retry_exceptions as e:
-                    last_exception = e
-                    if attempt < max_retries:
-                        logger.warning(
-                            "Retry %d/%d for %s: %s. Retrying in %.2fs",
-                            attempt + 1,
-                            max_retries,
-                            func.__name__,
-                            e,
-                            delay,
-                        )
-                        await asyncio.sleep(delay)
-                        delay *= backoff_factor
-                    else:
-                        logger.error(
-                            "Failed after %d retries: %s",
-                            max_retries,
-                            func.__name__,
-                        )
-                        raise
-
-            if last_exception:
-                raise last_exception
-            return None
-
-        return wrapper
-
-    return decorator
+    Returns:
+        A tenacity retry decorator configured with the specified parameters.
+    """
+    return retry(
+        # stop_after_attempt includes the first attempt, so add 1 to match original logic
+        stop=stop_after_attempt(max_retries + 1),
+        # Configure exponential backoff: wait = multiplier * (exp_base ** attempt)
+        wait=wait_exponential(multiplier=retry_delay, exp_base=backoff_factor),
+        # Filter specific exceptions that should trigger retry
+        retry=retry_if_exception_type(retry_exceptions),
+        # Log before each sleep using the module logger
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        # Ensure the last exception is re-raised if all retries fail
+        reraise=True,
+    )
 
 
 @retry_async()
@@ -288,8 +292,11 @@ async def reverse_geocode_mapbox(
 
 
 def meters_to_miles(meters: float) -> float:
-    """Convert meters to miles."""
-    return meters / 1609.34
+    """Convert meters to miles.
+
+    Note: For new code, prefer importing from constants module directly.
+    """
+    return meters * METERS_TO_MILES
 
 
 def calculate_distance(

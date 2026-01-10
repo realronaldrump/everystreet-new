@@ -1,46 +1,48 @@
 /* global $ */
 /**
- * Insights Tables Module
+ * Insights Tables Module (ES6)
  * Handles table rendering and DataTables initialization for the driving insights page
  */
-(() => {
-  /**
-   * Update all tables with current data
-   */
-  function updateTables() {
-    updateDestinationsTable();
-    updateAnalyticsTable();
+
+import { getState } from "./state.js";
+import { formatDuration, formatWeekRange, formatMonth } from "./formatters.js";
+
+/**
+ * Update all tables with current data
+ */
+export function updateTables() {
+  updateDestinationsTable();
+  updateAnalyticsTable();
+}
+
+/**
+ * Update the destinations table with top destinations data
+ */
+export function updateDestinationsTable() {
+  const state = getState();
+  const { insights } = state.data;
+
+  const destinations = insights.top_destinations || [];
+
+  const tbody = document.querySelector("#destinations-table tbody");
+  if (!tbody) return;
+
+  if (!destinations.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="5" class="text-center">No destination data in the selected date range.</td></tr>';
+    return;
   }
 
-  /**
-   * Update the destinations table with top destinations data
-   */
-  function updateDestinationsTable() {
-    const state = window.InsightsState.getState();
-    const { insights } = state.data;
-    const formatDuration = window.InsightsFormatters.formatDuration;
-
-    const destinations = insights.top_destinations || [];
-
-    const tbody = document.querySelector("#destinations-table tbody");
-    if (!tbody) return;
-
-    if (!destinations.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="5" class="text-center">No destination data in the selected date range.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = destinations
-      .map((dest) => {
-        const duration = formatDuration(dest.duration_seconds || 0);
-        const last = dest.lastVisit
-          ? new Date(dest.lastVisit).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })
-          : "-";
-        return `
+  tbody.innerHTML = destinations
+    .map((dest) => {
+      const duration = formatDuration(dest.duration_seconds || 0);
+      const last = dest.lastVisit
+        ? new Date(dest.lastVisit).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
+        : "-";
+      return `
       <tr>
         <td>${dest.location || "Unknown"}</td>
         <td>${dest.visits}</td>
@@ -49,53 +51,50 @@
         <td>${last}</td>
       </tr>
     `;
-      })
-      .join("");
+    })
+    .join("");
 
-    // Initialize DataTable if not already
-    if (!$.fn.DataTable.isDataTable("#destinations-table")) {
-      $("#destinations-table").DataTable({
-        order: [[1, "desc"]],
-        pageLength: 5,
-        lengthChange: false,
-        searching: false,
-        info: false,
-      });
-    }
+  // Initialize DataTable if not already
+  if (!$.fn.DataTable.isDataTable("#destinations-table")) {
+    $("#destinations-table").DataTable({
+      order: [[1, "desc"]],
+      pageLength: 5,
+      lengthChange: false,
+      searching: false,
+      info: false,
+    });
   }
+}
 
-  /**
-   * Update the analytics table with weekly/monthly data
-   */
-  function updateAnalyticsTable() {
-    const tableEl = document.getElementById("analytics-table");
-    if (!tableEl) return;
+/**
+ * Update the analytics table with weekly/monthly data
+ */
+export function updateAnalyticsTable() {
+  const tableEl = document.getElementById("analytics-table");
+  if (!tableEl) return;
 
-    const state = window.InsightsState.getState();
-    const { behavior } = state.data;
-    const formatDuration = window.InsightsFormatters.formatDuration;
-    const formatWeekRange = window.InsightsFormatters.formatWeekRange;
-    const formatMonth = window.InsightsFormatters.formatMonth;
+  const state = getState();
+  const { behavior } = state.data;
 
-    const tableData =
-      state.currentView === "weekly" ? behavior.weekly || [] : behavior.monthly || [];
+  const tableData =
+    state.currentView === "weekly" ? behavior.weekly || [] : behavior.monthly || [];
 
-    const tbody = tableEl.querySelector("tbody");
-    if (!tbody) return;
+  const tbody = tableEl.querySelector("tbody");
+  if (!tbody) return;
 
-    tbody.innerHTML = tableData
-      .map((row) => {
-        const period =
-          state.currentView === "weekly"
-            ? formatWeekRange(row.week)
-            : formatMonth(row.month);
+  tbody.innerHTML = tableData
+    .map((row) => {
+      const period =
+        state.currentView === "weekly"
+          ? formatWeekRange(row.week)
+          : formatMonth(row.month);
 
-        const efficiency =
-          row.distance > 0 && row.fuelConsumed > 0
-            ? (row.distance / row.fuelConsumed).toFixed(1)
-            : "N/A";
+      const efficiency =
+        row.distance > 0 && row.fuelConsumed > 0
+          ? (row.distance / row.fuelConsumed).toFixed(1)
+          : "N/A";
 
-        return `
+      return `
         <tr>
           <td>${period}</td>
           <td>${row.trips}</td>
@@ -106,25 +105,31 @@
           <td>${efficiency} MPG</td>
         </tr>
       `;
-      })
-      .join("");
+    })
+    .join("");
 
-    // Initialize or refresh DataTable
-    if ($.fn.DataTable.isDataTable("#analytics-table")) {
-      $("#analytics-table").DataTable().clear().destroy(true);
-    }
-
-    $("#analytics-table").DataTable({
-      order: [[0, "desc"]],
-      pageLength: 10,
-      responsive: true,
-    });
+  // Initialize or refresh DataTable
+  if ($.fn.DataTable.isDataTable("#analytics-table")) {
+    $("#analytics-table").DataTable().clear().destroy(true);
   }
 
-  // Expose to window for module access
-  window.InsightsTables = {
-    updateTables,
-    updateDestinationsTable,
-    updateAnalyticsTable,
-  };
-})();
+  $("#analytics-table").DataTable({
+    order: [[0, "desc"]],
+    pageLength: 10,
+    responsive: true,
+  });
+}
+
+// Default export as object for backward compatibility
+const InsightsTables = {
+  updateTables,
+  updateDestinationsTable,
+  updateAnalyticsTable,
+};
+
+// Keep window assignment for backward compatibility during transition
+if (typeof window !== "undefined") {
+  window.InsightsTables = InsightsTables;
+}
+
+export default InsightsTables;

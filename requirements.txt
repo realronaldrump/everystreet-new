@@ -1,5 +1,6 @@
 gunicorn
 aiohttp
+beanie
 celery
 certifi
 fastapi
@@ -31,3 +32,4 @@ pycln
 aiolimiter
 osmnx
 networkx
+tenacity

@@ -1,7 +1,11 @@
 """Database operations module.
 
-Provides retry-wrapped CRUD operations for MongoDB collections.
-All operations use the DatabaseManager's retry logic for resilience.
+With Beanie ODM, most CRUD operations are now handled directly on Document models.
+This module provides compatibility functions for code that still uses the old patterns,
+and utility functions for cursor/aggregation operations.
+
+These functions now delegate directly to Motor without custom retry logic,
+as Motor's retryWrites/retryReads handles transient failures automatically.
 """
 
 from __future__ import annotations
@@ -23,8 +27,6 @@ if TYPE_CHECKING:
         InsertOneResult,
         UpdateResult,
     )
-
-from db.manager import db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,7 @@ async def batch_cursor(
 
 
 # ============================================================================
-# Find Operations
+# Find Operations (Compatibility Layer)
 # ============================================================================
 
 
@@ -76,7 +78,10 @@ async def find_one_with_retry(
     projection: Any = None,
     sort: Any = None,
 ) -> dict[str, Any] | None:
-    """Find a single document with retry logic.
+    """Find a single document.
+
+    Note: Retry logic is now handled by Motor's retryReads.
+    This function is kept for backward compatibility.
 
     Args:
         collection: The MongoDB collection.
@@ -86,28 +91,10 @@ async def find_one_with_retry(
 
     Returns:
         The matching document or None.
-
-    Raises:
-        Exception: If operation fails after all retries.
     """
-
-    async def _operation() -> dict[str, Any] | None:
-        if sort:
-            return await collection.find_one(query, projection, sort=sort)
-        return await collection.find_one(query, projection)
-
-    try:
-        return await db_manager.execute_with_retry(
-            _operation,
-            operation_name=f"find_one on {collection.name}",
-        )
-    except Exception as e:
-        logger.error(
-            "find_one_with_retry failed on %s: %s",
-            collection.name,
-            str(e),
-        )
-        raise
+    if sort:
+        return await collection.find_one(query, projection, sort=sort)
+    return await collection.find_one(query, projection)
 
 
 async def find_with_retry(
@@ -119,7 +106,9 @@ async def find_with_retry(
     skip: int | None = None,
     batch_size: int = 100,
 ) -> list[dict[str, Any]]:
-    """Find multiple documents with retry logic.
+    """Find multiple documents.
+
+    Note: Retry logic is now handled by Motor's retryReads.
 
     Args:
         collection: The MongoDB collection.
@@ -133,31 +122,24 @@ async def find_with_retry(
     Returns:
         List of matching documents.
     """
+    cursor = collection.find(query, projection)
+    if sort:
+        cursor = cursor.sort(sort)
+    if skip:
+        cursor = cursor.skip(skip)
+    if limit:
+        cursor = cursor.limit(limit)
 
-    async def _operation() -> list[dict[str, Any]]:
-        cursor = collection.find(query, projection)
-        if sort:
-            cursor = cursor.sort(sort)
-        if skip:
-            cursor = cursor.skip(skip)
-        if limit:
-            cursor = cursor.limit(limit)
-
-        results: list[dict[str, Any]] = []
-        async for batch in batch_cursor(cursor, batch_size):
-            results.extend(batch)
-            if limit and len(results) >= limit:
-                return results[:limit]
-        return results
-
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"find on {collection.name}",
-    )
+    results: list[dict[str, Any]] = []
+    async for batch in batch_cursor(cursor, batch_size):
+        results.extend(batch)
+        if limit and len(results) >= limit:
+            return results[:limit]
+    return results
 
 
 # ============================================================================
-# Update Operations
+# Update Operations (Compatibility Layer)
 # ============================================================================
 
 
@@ -167,7 +149,9 @@ async def update_one_with_retry(
     update: dict[str, Any],
     upsert: bool = False,
 ) -> UpdateResult:
-    """Update a single document with retry logic.
+    """Update a single document.
+
+    Note: Retry logic is now handled by Motor's retryWrites.
 
     Args:
         collection: The MongoDB collection.
@@ -178,14 +162,7 @@ async def update_one_with_retry(
     Returns:
         The UpdateResult from MongoDB.
     """
-
-    async def _operation() -> UpdateResult:
-        return await collection.update_one(filter_query, update, upsert=upsert)
-
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"update_one on {collection.name}",
-    )
+    return await collection.update_one(filter_query, update, upsert=upsert)
 
 
 async def update_many_with_retry(
@@ -194,7 +171,9 @@ async def update_many_with_retry(
     update: dict[str, Any],
     upsert: bool = False,
 ) -> UpdateResult:
-    """Update multiple documents with retry logic.
+    """Update multiple documents.
+
+    Note: Retry logic is now handled by Motor's retryWrites.
 
     Args:
         collection: The MongoDB collection.
@@ -205,18 +184,11 @@ async def update_many_with_retry(
     Returns:
         The UpdateResult from MongoDB.
     """
-
-    async def _operation() -> UpdateResult:
-        return await collection.update_many(filter_query, update, upsert=upsert)
-
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"update_many on {collection.name}",
-    )
+    return await collection.update_many(filter_query, update, upsert=upsert)
 
 
 # ============================================================================
-# Insert Operations
+# Insert Operations (Compatibility Layer)
 # ============================================================================
 
 
@@ -224,7 +196,9 @@ async def insert_one_with_retry(
     collection: AsyncIOMotorCollection,
     document: dict[str, Any],
 ) -> InsertOneResult:
-    """Insert a single document with retry logic.
+    """Insert a single document.
+
+    Note: Retry logic is now handled by Motor's retryWrites.
 
     Args:
         collection: The MongoDB collection.
@@ -233,14 +207,7 @@ async def insert_one_with_retry(
     Returns:
         The InsertOneResult from MongoDB.
     """
-
-    async def _operation() -> InsertOneResult:
-        return await collection.insert_one(document)
-
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"insert_one on {collection.name}",
-    )
+    return await collection.insert_one(document)
 
 
 async def insert_many_with_retry(
@@ -249,7 +216,9 @@ async def insert_many_with_retry(
     *,
     ordered: bool = False,
 ) -> InsertManyResult:
-    """Insert multiple documents with retry logic.
+    """Insert multiple documents.
+
+    Note: Retry logic is now handled by Motor's retryWrites.
 
     Args:
         collection: The MongoDB collection.
@@ -259,18 +228,11 @@ async def insert_many_with_retry(
     Returns:
         The InsertManyResult from MongoDB.
     """
-
-    async def _operation() -> InsertManyResult:
-        return await collection.insert_many(documents, ordered=ordered)
-
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"insert_many on {collection.name}",
-    )
+    return await collection.insert_many(documents, ordered=ordered)
 
 
 # ============================================================================
-# Delete Operations
+# Delete Operations (Compatibility Layer)
 # ============================================================================
 
 
@@ -278,7 +240,9 @@ async def delete_one_with_retry(
     collection: AsyncIOMotorCollection,
     filter_query: dict[str, Any],
 ) -> DeleteResult:
-    """Delete a single document with retry logic.
+    """Delete a single document.
+
+    Note: Retry logic is now handled by Motor's retryWrites.
 
     Args:
         collection: The MongoDB collection.
@@ -287,21 +251,16 @@ async def delete_one_with_retry(
     Returns:
         The DeleteResult from MongoDB.
     """
-
-    async def _operation() -> DeleteResult:
-        return await collection.delete_one(filter_query)
-
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"delete_one on {collection.name}",
-    )
+    return await collection.delete_one(filter_query)
 
 
 async def delete_many_with_retry(
     collection: AsyncIOMotorCollection,
     filter_query: dict[str, Any],
 ) -> DeleteResult:
-    """Delete multiple documents with retry logic.
+    """Delete multiple documents.
+
+    Note: Retry logic is now handled by Motor's retryWrites.
 
     Args:
         collection: The MongoDB collection.
@@ -310,18 +269,11 @@ async def delete_many_with_retry(
     Returns:
         The DeleteResult from MongoDB.
     """
-
-    async def _operation() -> DeleteResult:
-        return await collection.delete_many(filter_query)
-
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"delete_many on {collection.name}",
-    )
+    return await collection.delete_many(filter_query)
 
 
 # ============================================================================
-# Aggregation Operations
+# Aggregation Operations (Compatibility Layer)
 # ============================================================================
 
 
@@ -331,7 +283,9 @@ async def aggregate_with_retry(
     batch_size: int = 100,
     allow_disk_use: bool = True,
 ) -> list[dict[str, Any]]:
-    """Execute an aggregation pipeline with retry logic.
+    """Execute an aggregation pipeline.
+
+    Note: Retry logic is now handled by Motor's retryReads.
 
     Args:
         collection: The MongoDB collection.
@@ -342,18 +296,11 @@ async def aggregate_with_retry(
     Returns:
         List of aggregation results.
     """
-
-    async def _operation() -> list[dict[str, Any]]:
-        result: list[dict[str, Any]] = []
-        cursor = collection.aggregate(pipeline, allowDiskUse=allow_disk_use)
-        async for batch in batch_cursor(cursor, batch_size):
-            result.extend(batch)
-        return result
-
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"aggregate on {collection.name}",
-    )
+    result: list[dict[str, Any]] = []
+    cursor = collection.aggregate(pipeline, allowDiskUse=allow_disk_use)
+    async for batch in batch_cursor(cursor, batch_size):
+        result.extend(batch)
+    return result
 
 
 async def count_documents_with_retry(
@@ -361,7 +308,9 @@ async def count_documents_with_retry(
     filter_query: dict[str, Any],
     **kwargs: Any,
 ) -> int:
-    """Count documents matching a filter with retry logic.
+    """Count documents matching a filter.
+
+    Note: Retry logic is now handled by Motor's retryReads.
 
     Args:
         collection: The MongoDB collection.
@@ -371,14 +320,7 @@ async def count_documents_with_retry(
     Returns:
         Number of matching documents.
     """
-
-    async def _operation() -> int:
-        return await collection.count_documents(filter_query, **kwargs)
-
-    return await db_manager.execute_with_retry(
-        _operation,
-        operation_name=f"count_documents on {collection.name}",
-    )
+    return await collection.count_documents(filter_query, **kwargs)
 
 
 # ============================================================================

@@ -1,48 +1,29 @@
 /**
  * Task Manager Formatters
- * Utility functions for formatting task data for display
+ * Task-specific formatting utilities
+ *
+ * Common formatters are imported from the central formatters module.
  */
 
 import { STATUS_COLORS } from "./constants.js";
+import {
+  escapeHtml as baseEscapeHtml,
+  formatDateTime as baseFormatDateTime,
+  formatDurationMs,
+} from "../../modules/formatters.js";
 
-/**
- * Escape HTML special characters to prevent XSS
- * @param {string} str - String to escape
- * @returns {string} Escaped string
- */
-export function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-/**
- * Format a date/time for display
- * @param {string|Date} date - Date to format
- * @returns {string} Formatted date string
- */
-export function formatDateTime(date) {
-  if (!date) return "N/A";
-  const d = new Date(date);
-  return d.toLocaleString();
-}
+// Re-export base functions for backward compatibility
+export const escapeHtml = baseEscapeHtml;
+export const formatDateTime = baseFormatDateTime;
 
 /**
  * Format a duration in milliseconds for display
+ * Wraps the central formatDurationMs for backward compatibility
  * @param {number} ms - Duration in milliseconds
  * @returns {string} Formatted duration string (e.g., "1h 30m", "45m 30s", "30s")
  */
 export function formatDuration(ms) {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  if (hours > 0) return `${hours}h ${minutes % 60}m`;
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-  return `${seconds}s`;
+  return formatDurationMs(ms);
 }
 
 /**

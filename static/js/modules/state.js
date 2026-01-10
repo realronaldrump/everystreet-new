@@ -104,6 +104,21 @@ class AppState {
     return el;
   }
 
+  /**
+   * Get all elements matching selector (cached)
+   * @param {string} selector - CSS selector
+   * @returns {NodeList} Matching elements
+   */
+  getAllElements(selector) {
+    const key = `all_${selector}`;
+    if (this.dom.has(key)) {
+      return this.dom.get(key);
+    }
+    const nodes = document.querySelectorAll(selector);
+    this.dom.set(key, nodes);
+    return nodes;
+  }
+
   clearElementCache() {
     this.dom.clear();
   }
