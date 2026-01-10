@@ -28,7 +28,7 @@ from typing import Any
 
 from beanie import Document, Indexed
 from pydantic import Field
-from pymongo import DESCENDING
+from pymongo import ASCENDING, DESCENDING, IndexModel
 
 
 class Trip(Document):
@@ -307,7 +307,7 @@ class GasFillup(Document):
 class Vehicle(Document):
     """Vehicle document for fleet management."""
 
-    imei: Indexed(str, unique=True)
+    imei: str  # Removed Indexed wrapper to avoid default index creation
     vin: str | None = None
     custom_name: str | None = None
     make: str | None = None
@@ -319,6 +319,14 @@ class Vehicle(Document):
 
     class Settings:
         name = "vehicles"
+        indexes = [
+            IndexModel(
+                [("imei", ASCENDING)],
+                name="vehicles_imei_idx",
+                unique=True,
+                background=True,
+            )
+        ]
 
     class Config:
         extra = "allow"
