@@ -1,4 +1,4 @@
-/* global   */
+/* global DateUtils, flatpickr, handleError, loadingManager, notificationManager */
 
 (() => {
   const elements = {};

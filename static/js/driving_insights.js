@@ -1,4 +1,4 @@
-/* global Chart, CountUp, $, bootstrap */
+/* global Chart, CountUp, $, bootstrap, DateUtils, notificationManager */
 
 // Ensure CountUp is defined when using the UMD build, which attaches the class under `countUp.CountUp`.
 // This creates an alias so the rest of the file can safely reference `CountUp`.

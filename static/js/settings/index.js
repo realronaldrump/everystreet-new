@@ -1,4 +1,4 @@
-/* global showLoadingOverlay, hideLoadingOverlay, bootstrap */
+/* global showLoadingOverlay, hideLoadingOverlay, bootstrap, notificationManager */
 
 /**
  * Settings Page Entry Point

@@ -1,4 +1,4 @@
-/* global mapboxgl, notificationManager */
+/* global mapboxgl, notificationManager, confirmationDialog */
 
 const DRIVING_NAV_DEFAULTS = {
   areaSelectId: "area-select",

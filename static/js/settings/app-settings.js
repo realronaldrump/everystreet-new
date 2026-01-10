@@ -1,3 +1,5 @@
+/* global notificationManager */
+
 /**
  * App Settings Module - Handles app preferences, tab switching, and settings form
  */

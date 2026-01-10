@@ -1,3 +1,5 @@
+/* global mapBase */
+
 (() => {
   const baseConfig = window.coverageNavigatorConfig || {};
   const mapContainerId = baseConfig.mapContainerId || "coverage-map";

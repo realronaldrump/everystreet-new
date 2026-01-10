@@ -1,4 +1,4 @@
-/* global bootstrap */
+/* global bootstrap, DateUtils, confirmationDialog, handleError, notificationManager */
 
 // Consolidated utility functions that will be used across the application
 const utils = {
