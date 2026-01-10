@@ -73,7 +73,7 @@ class DrivingNavigation {
   async initMap() {
     if (this.config.useSharedMap && window.coverageMasterMap) {
       this.map = window.coverageMasterMap;
-      return await new Promise((resolve, reject) => {
+      return new Promise((resolve, reject) => {
         this.attachMapHandlers(resolve, reject);
       });
     }
