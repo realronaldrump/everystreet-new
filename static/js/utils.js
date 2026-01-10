@@ -77,7 +77,7 @@ const utils = {
   // Throttle function
   throttle(func, limit) {
     let inThrottle = false;
-    let lastResult;
+    let lastResult = null;
 
     return function (...args) {
       if (!inThrottle) {
@@ -171,7 +171,7 @@ const utils = {
    * @param {number} delay - Optional delay in milliseconds before yielding.
    */
   async yieldToBrowser(delay = 0) {
-    return await new Promise((resolve) => {
+    return new Promise((resolve) => {
       if (delay > 0) {
         setTimeout(() => requestAnimationFrame(resolve), delay);
       } else {
@@ -363,7 +363,10 @@ const utils = {
   // Fade in animation
   fadeIn(el, duration = 200) {
     return new Promise((resolve) => {
-      if (!el) return resolve();
+      if (!el) {
+        resolve();
+        return;
+      }
       el.style.opacity = 0;
       el.style.display = el.style.display || "block";
       el.style.transition = `opacity ${duration}ms`;
@@ -371,14 +374,17 @@ const utils = {
         el.style.opacity = 1;
       });
       setTimeout(resolve, duration);
-      
+
     });
   },
 
   // Fade out animation
   fadeOut(el, duration = 200) {
     return new Promise((resolve) => {
-      if (!el) return resolve();
+      if (!el) {
+        resolve();
+        return;
+      }
       el.style.opacity = 1;
       el.style.transition = `opacity ${duration}ms`;
       requestAnimationFrame(() => {
@@ -388,7 +394,7 @@ const utils = {
         el.style.display = "none";
         resolve();
       }, duration);
-      
+
     });
   },
 
@@ -701,10 +707,10 @@ class ConfirmationDialog {
         cancelBtn.textContent = cancelText;
       }
 
-      const cleanup = () => {
+      function cleanup() {
         confirmBtn?.removeEventListener("mousedown", handleConfirm);
         modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
-      };
+      }
 
       const handleConfirm = () => {
         confirmBtn?.blur();
@@ -836,12 +842,12 @@ class PromptDialog {
         cancelBtn.textContent = cancelText;
       }
 
-      const cleanup = () => {
+      function cleanup() {
         confirmBtn?.removeEventListener("mousedown", handleConfirm);
         input?.removeEventListener("keypress", handleKeypress);
         modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
         modalElement.removeEventListener("shown.bs.modal", handleShown);
-      };
+      }
 
       const handleConfirm = () => {
         const { value } = input;
