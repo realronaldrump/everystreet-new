@@ -707,11 +707,6 @@ class ConfirmationDialog {
         cancelBtn.textContent = cancelText;
       }
 
-      function cleanup() {
-        confirmBtn?.removeEventListener("mousedown", handleConfirm);
-        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
-      }
-
       const handleConfirm = () => {
         confirmBtn?.blur();
         cleanup();
@@ -725,6 +720,11 @@ class ConfirmationDialog {
         this.activeModal = null;
         resolve(false);
       };
+
+      function cleanup() {
+        confirmBtn?.removeEventListener("mousedown", handleConfirm);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
+      }
 
       confirmBtn?.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;
@@ -842,13 +842,6 @@ class PromptDialog {
         cancelBtn.textContent = cancelText;
       }
 
-      function cleanup() {
-        confirmBtn?.removeEventListener("mousedown", handleConfirm);
-        input?.removeEventListener("keypress", handleKeypress);
-        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
-        modalElement.removeEventListener("shown.bs.modal", handleShown);
-      }
-
       const handleConfirm = () => {
         const { value } = input;
         cleanup();
@@ -873,6 +866,13 @@ class PromptDialog {
       const handleShown = () => {
         input.focus();
       };
+
+      function cleanup() {
+        confirmBtn?.removeEventListener("mousedown", handleConfirm);
+        input?.removeEventListener("keypress", handleKeypress);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
+        modalElement.removeEventListener("shown.bs.modal", handleShown);
+      }
 
       confirmBtn?.addEventListener("mousedown", (e) => {
         if (e.button !== 0) return;

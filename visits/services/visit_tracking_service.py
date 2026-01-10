@@ -4,7 +4,7 @@ import logging
 
 from date_utils import normalize_to_utc_datetime
 from db import aggregate_with_retry
-from visits.services.place_service import Collections
+from visits.services.collections import Collections
 
 logger = logging.getLogger(__name__)
 

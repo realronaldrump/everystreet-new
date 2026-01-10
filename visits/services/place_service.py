@@ -14,6 +14,7 @@ from db import (
     insert_one_with_retry,
     update_one_with_retry,
 )
+from visits.services.collections import Collections
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +70,6 @@ class CustomPlace:
             geometry=data["geometry"],
             created_at=created,
         )
-
-
-class Collections:
-    """Shared collections for places and trips."""
-
-    places = None
-    trips = None
-
 
 class PlaceService:
     """Service class for custom place operations."""

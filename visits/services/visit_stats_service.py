@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from db import aggregate_with_retry, find_with_retry, serialize_datetime
-from visits.services.place_service import Collections
+from visits.services.collections import Collections
 from visits.services.visit_tracking_service import VisitTrackingService
 
 logger = logging.getLogger(__name__)

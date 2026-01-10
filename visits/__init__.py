@@ -14,7 +14,7 @@ The package is organized into:
 from fastapi import APIRouter
 
 from visits.routes import places, stats, visits
-from visits.services.place_service import Collections
+from visits.services.collections import Collections
 
 # Create main router that aggregates all visit-related routes
 # Note: No prefix here since individual routes already have /api/ paths
