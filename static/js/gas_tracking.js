@@ -190,7 +190,7 @@ async function loadVehicles(options = {}) {
         "success"
       );
     }
-    return;
+    
   } catch (error) {
     console.error("Error loading vehicles:", error);
     setVehicleStatus(
