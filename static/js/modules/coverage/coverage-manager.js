@@ -3,7 +3,7 @@
  * Coordinates all coverage management modules
  */
 
-/* global bootstrap, Chart, mapboxgl, html2canvas */
+/* global bootstrap, Chart, mapboxgl */
 
 import dateUtils from "../date-utils.js";
 import COVERAGE_API from "./coverage-api.js";
@@ -13,6 +13,12 @@ import CoverageNavigation from "./coverage-navigation.js";
 import { CoverageProgress } from "./coverage-progress.js";
 import CoverageSelection from "./coverage-selection.js";
 import CoverageUI from "./coverage-ui.js";
+
+// New Modules
+import { CoverageValidator } from "./coverage-validator.js";
+import { CoverageCRUD } from "./coverage-crud.js";
+import { CoverageDashboard } from "./coverage-dashboard.js";
+import { CoverageExport } from "./coverage-export.js";
 
 class CoverageManager {
   constructor() {
@@ -28,7 +34,7 @@ class CoverageManager {
       show: (options) => this.showEnhancedConfirmDialog(options),
     };
 
-    // Initialize modules
+    // Initialize core modules
     this.progress = new CoverageProgress(this.notificationManager);
     this.coverageMap = new CoverageMap(this.notificationManager);
     this.ui = new CoverageUI(this.notificationManager);
@@ -39,17 +45,35 @@ class CoverageManager {
       this.notificationManager
     );
 
+    // Initialize new refactored modules
+    this.validator = new CoverageValidator(this.notificationManager, this.drawing);
+    
+    // Dashboard module
+    this.dashboard = new CoverageDashboard(
+      this.notificationManager,
+      this.ui,
+      this.coverageMap,
+      this.navigation,
+      this.selection
+    );
+    
+    // CRUD module
+    this.crud = new CoverageCRUD(
+      this.notificationManager,
+      this.progress,
+      this.confirmationDialog,
+      this.validator,
+      this // Pass manager for reload triggers
+    );
+
+    // Export module
+    this.exporter = new CoverageExport(this.notificationManager);
+
     // State
-    this.selectedLocation = null;
-    this.currentDashboardLocationId = null;
-    this.currentProcessingLocation = null;
-    this.validatedLocation = null;
-    this.validatedCustomBoundary = null;
     this.currentAreaDefinitionType = "location";
     this.currentFilter = "all";
-    this.showTripsActive = false;
-    this.pendingOperations = new Map();
-    this.dataCache = new Map();
+    this.lastAreasHash = null;
+    this.isAutoRefreshing = false;
     this.cacheTimeout = 5 * 60 * 1000;
 
     // Initialize
@@ -70,13 +94,13 @@ class CoverageManager {
     // Location validation
     document.getElementById("validate-location")?.addEventListener("click", (e) => {
       e.preventDefault();
-      this.validateLocation();
+      this.validator.validateLocation();
     });
 
     // Drawing validation
     document.getElementById("validate-drawing")?.addEventListener("click", (e) => {
       e.preventDefault();
-      this.validateCustomBoundary();
+      this.validator.validateCustomBoundary();
     });
 
     // Clear drawing
@@ -88,19 +112,19 @@ class CoverageManager {
     // Add coverage area
     document.getElementById("add-coverage-area")?.addEventListener("click", (e) => {
       e.preventDefault();
-      this.addCoverageArea();
+      this.crud.addCoverageArea();
     });
 
     // Add custom area
     document.getElementById("add-custom-area")?.addEventListener("click", (e) => {
       e.preventDefault();
-      this.addCustomCoverageArea();
+      this.crud.addCustomCoverageArea();
     });
 
     // Cancel processing
     document.getElementById("cancel-processing")?.addEventListener("click", (e) => {
       e.preventDefault();
-      this.cancelProcessing(this.currentProcessingLocation);
+      this.crud.cancelProcessing();
     });
 
     // Modal events
@@ -151,6 +175,8 @@ class CoverageManager {
       const filterButton = e.target.closest(".map-controls button[data-filter]");
       if (filterButton) {
         this.coverageMap.setMapFilter(filterButton.dataset.filter);
+        // Also update dashboard UI state
+        this.dashboard.updateFilterButtonStates(filterButton.dataset.filter);
       }
 
       const exportButton = e.target.closest("#export-coverage-map");
@@ -160,7 +186,7 @@ class CoverageManager {
 
       const tripToggle = e.target.closest("#toggle-trip-overlay");
       if (tripToggle) {
-        this.handleTripOverlayToggle(tripToggle.checked);
+        this.dashboard.handleTripOverlayToggle(tripToggle.checked);
       }
     });
   }
@@ -182,11 +208,11 @@ class CoverageManager {
     });
 
     document.addEventListener("coverageShowStreet", (e) => {
-      this.showStreetOnMap(e.detail);
+      this.dashboard.showStreetOnMap(e.detail);
     });
 
     document.addEventListener("coverageFilterChanged", (e) => {
-      this.updateFilterButtonStates(e.detail);
+      this.dashboard.updateFilterButtonStates(e.detail);
     });
 
     document.addEventListener("coverageRetryTask", (e) => {
@@ -213,6 +239,24 @@ class CoverageManager {
       // Map is ready, ensure selection toolbar is created
       this.selection.createBulkActionToolbar();
     });
+  }
+
+  /**
+   * Wrapper for Dashboard Display
+   */
+  async displayCoverageDashboard(locationId) {
+    await this.dashboard.displayCoverageDashboard(locationId, {
+      distanceFormatter: this.distanceInUserUnits.bind(this),
+      timeFormatter: this.formatRelativeTime.bind(this),
+      streetTypeFormatter: this.formatStreetType.bind(this)
+    });
+  }
+
+  /**
+   * Wrapper for Export
+   */
+  exportCoverageMap() {
+    this.exporter.exportCoverageMap(this.dashboard.selectedLocation);
   }
 
   /**
@@ -301,683 +345,6 @@ class CoverageManager {
   }
 
   /**
-   * Display coverage dashboard
-   */
-  async displayCoverageDashboard(locationId) {
-    this.currentDashboardLocationId = locationId;
-
-    const dashboardElement = document.getElementById("coverage-dashboard");
-    const locationNameElement = document.getElementById("dashboard-location-name");
-    const mapContainer = document.getElementById("coverage-map");
-
-    if (!dashboardElement || !locationNameElement || !mapContainer) {
-      console.error("Essential dashboard elements not found.");
-      this.notificationManager.show(
-        "UI Error: Dashboard components missing.",
-        "danger"
-      );
-      return;
-    }
-
-    this.ui.clearDashboardUI();
-    dashboardElement.style.display = "block";
-    dashboardElement.classList.add("fade-in-up");
-
-    locationNameElement.innerHTML =
-      '<span class="loading-skeleton" style="width: 150px; display: inline-block;"></span>';
-
-    const chartContainer = document.getElementById("street-type-chart");
-    if (chartContainer) chartContainer.innerHTML = this.ui.createLoadingSkeleton(180);
-    const coverageEl = document.getElementById("street-type-coverage");
-    if (coverageEl) coverageEl.innerHTML = this.ui.createLoadingSkeleton(100, 3);
-    mapContainer.innerHTML = this.ui.createLoadingIndicator("Loading map data...");
-
-    try {
-      const cachedData = this.getCachedData(`dashboard-${locationId}`);
-      let coverageData = null;
-
-      if (cachedData) {
-        coverageData = cachedData;
-        // Cache hits are normal operation - no need to notify user
-      } else {
-        coverageData = await COVERAGE_API.getArea(locationId);
-        const streetsGeoJson = await COVERAGE_API.getStreets(locationId, true);
-        coverageData.streets_geojson = streetsGeoJson;
-        this.setCachedData(`dashboard-${locationId}`, coverageData);
-      }
-
-      this.selectedLocation = coverageData;
-      locationNameElement.textContent =
-        coverageData.location.display_name || "Unnamed Area";
-      this.ui.updateDashboardStats(
-        coverageData,
-        this.distanceInUserUnits.bind(this),
-        this.formatRelativeTime.bind(this)
-      );
-      this.ui.updateStreetTypeCoverage(
-        coverageData.street_types || [],
-        this.distanceInUserUnits.bind(this),
-        this.formatStreetType.bind(this)
-      );
-      this.ui.createStreetTypeChart(
-        coverageData.street_types || [],
-        this.formatStreetType.bind(this),
-        this.distanceInUserUnits.bind(this)
-      );
-      this.updateFilterButtonStates();
-
-      this.coverageMap.initializeCoverageMap(coverageData);
-
-      // Initialize bulk action toolbar after map is ready
-      this.selection.createBulkActionToolbar();
-
-      // Load any existing optimal route
-      this.navigation.loadExistingOptimalRoute(locationId);
-
-      // Update undriven streets list
-      if (coverageData.streets_geojson) {
-        this.ui.updateUndrivenStreetsList(
-          coverageData.streets_geojson,
-          this.distanceInUserUnits.bind(this)
-        );
-      }
-
-      this.showTripsActive = localStorage.getItem("showTripsOverlay") === "true";
-      const tripToggle = document.getElementById("toggle-trip-overlay");
-      if (tripToggle) tripToggle.checked = this.showTripsActive;
-    } catch (error) {
-      console.error("Error displaying coverage dashboard:", error);
-      locationNameElement.textContent = "Error loading data";
-      this.notificationManager.show(
-        `Error loading dashboard: ${error.message}`,
-        "danger"
-      );
-      mapContainer.innerHTML = this.ui.createAlertMessage(
-        "Dashboard Load Error",
-        error.message,
-        "danger"
-      );
-    } finally {
-      this.initTooltips();
-    }
-  }
-
-  /**
-   * Validate location
-   */
-  async validateLocation() {
-    const locationInputEl = document.getElementById("location-input");
-    const locationTypeEl = document.getElementById("location-type");
-    const validateButton = document.getElementById("validate-location");
-    const addButton = document.getElementById("add-coverage-area");
-
-    if (!locationInputEl || !locationTypeEl || !validateButton || !addButton) {
-      console.error("Validation form elements not found.");
-      return;
-    }
-
-    const locationInput = locationInputEl.value.trim();
-    const locType = locationTypeEl.value;
-
-    locationInputEl.classList.remove("is-invalid", "is-valid");
-    addButton.disabled = true;
-    this.validatedLocation = null;
-
-    if (!locationInput) {
-      locationInputEl.classList.add("is-invalid", "shake-animation");
-      this.notificationManager.show("Please enter a location.", "warning");
-      return;
-    }
-
-    const originalButtonContent = validateButton.innerHTML;
-    validateButton.disabled = true;
-    validateButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validating...';
-
-    try {
-      const data = await COVERAGE_API.validateLocation(locationInput, locType);
-
-      if (!data || !data.osm_id || !data.display_name) {
-        locationInputEl.classList.add("is-invalid");
-        this.notificationManager.show(
-          "Location not found. Please check your input.",
-          "warning"
-        );
-      } else {
-        locationInputEl.classList.add("is-valid");
-        this.validatedLocation = data;
-        addButton.disabled = false;
-
-        const validationResult = document.getElementById("validation-result");
-        if (validationResult) {
-          validationResult.classList.remove("d-none");
-          validationResult.querySelector(".validation-message").textContent =
-            `Found: ${data.display_name}`;
-        }
-
-        this.notificationManager.show(
-          `Location validated: ${data.display_name}`,
-          "success"
-        );
-        addButton.focus();
-      }
-    } catch (error) {
-      console.error("Error validating location:", error);
-      locationInputEl.classList.add("is-invalid");
-      this.notificationManager.show(`Validation failed: ${error.message}`, "danger");
-    } finally {
-      validateButton.disabled = false;
-      validateButton.innerHTML = originalButtonContent;
-    }
-  }
-
-  /**
-   * Add coverage area
-   */
-  async addCoverageArea() {
-    if (!this.validatedLocation || !this.validatedLocation.display_name) {
-      this.notificationManager.show("Please validate a location first.", "warning");
-      return;
-    }
-
-    const addButton = document.getElementById("add-coverage-area");
-    const modal = bootstrap.Modal.getInstance(document.getElementById("addAreaModal"));
-
-    if (!addButton) return;
-
-    const originalButtonContent = addButton.innerHTML;
-    addButton.disabled = true;
-    addButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
-
-    const locationToAdd = { ...this.validatedLocation };
-    const segLenEl = document.getElementById("segment-length-input");
-    if (segLenEl?.value) {
-      const val = parseInt(segLenEl.value, 10);
-      if (!Number.isNaN(val) && val > 0) locationToAdd.segment_length_feet = val;
-    }
-    const bufEl = document.getElementById("match-buffer-input");
-    if (bufEl?.value) {
-      const v = parseFloat(bufEl.value);
-      if (!Number.isNaN(v) && v > 0) locationToAdd.match_buffer_feet = v;
-    }
-    const minEl = document.getElementById("min-match-length-input");
-    if (minEl?.value) {
-      const v2 = parseFloat(minEl.value);
-      if (!Number.isNaN(v2) && v2 > 0) locationToAdd.min_match_length_feet = v2;
-    }
-
-    try {
-      const areas = await COVERAGE_API.getAllAreas();
-      const exists = areas.some(
-        (area) => area.location?.display_name === locationToAdd.display_name
-      );
-
-      if (exists) {
-        this.notificationManager.show("This area is already being tracked.", "warning");
-        return;
-      }
-
-      if (modal) modal.hide();
-
-      this.currentProcessingLocation = locationToAdd;
-      this.progress.currentProcessingLocation = locationToAdd;
-      this.progress.currentTaskId = null;
-      this.progress._addBeforeUnloadListener();
-
-      this.progress.showProgressModal(
-        `Starting processing for ${locationToAdd.display_name}...`,
-        0
-      );
-
-      const taskData = await COVERAGE_API.preprocessStreets(locationToAdd);
-
-      this.notificationManager.show("Coverage area processing started.", "info");
-
-      if (taskData?.task_id) {
-        this.progress.currentTaskId = taskData.task_id;
-        this.progress.activeTaskIds.add(taskData.task_id);
-        this.progress.saveProcessingState();
-
-        await this.progress.pollCoverageProgress(taskData.task_id, (_data) => {
-          // Progress updates handled by progress module
-        });
-
-        this.notificationManager.show(
-          `Processing for ${locationToAdd.display_name} completed.`,
-          "success"
-        );
-
-        await this.loadCoverageAreas();
-
-        // If we are on the dashboard for this location, refresh it
-        if (this.currentDashboardLocationId && this.selectedLocation) {
-          // We don't have the ID of the new location easily here without reloading,
-          // but typically "add" implies we might want to switch to it or just refresh list.
-          // For now, just reloading the list is sufficient as the user is likely on the list view or another dashboard.
-        }
-      } else {
-        this.progress.hideProgressModal();
-        this.notificationManager.show(
-          "Processing started, but no task ID received.",
-          "warning"
-        );
-        await this.loadCoverageAreas();
-      }
-
-      const locationInput = document.getElementById("location-input");
-      if (locationInput) {
-        locationInput.value = "";
-        locationInput.classList.remove("is-valid", "is-invalid");
-      }
-      this.validatedLocation = null;
-      this.updateTotalAreasCount();
-    } catch (error) {
-      console.error("Error adding coverage area:", error);
-      this.notificationManager.show(
-        `Failed to add coverage area: ${error.message}`,
-        "danger"
-      );
-      this.progress.hideProgressModal();
-      await this.loadCoverageAreas();
-    } finally {
-      addButton.disabled = true;
-      addButton.innerHTML = originalButtonContent;
-    }
-  }
-
-  /**
-   * Validate custom boundary
-   */
-  async validateCustomBoundary() {
-    const customAreaNameInput = document.getElementById("custom-area-name");
-    const validateButton = document.getElementById("validate-drawing");
-    const addButton = document.getElementById("add-custom-area");
-
-    if (!customAreaNameInput || !validateButton) {
-      console.error("Required form elements not found.");
-      return;
-    }
-
-    const areaName = customAreaNameInput.value.trim();
-    if (!areaName) {
-      customAreaNameInput.classList.add("is-invalid", "shake-animation");
-      this.notificationManager.show("Please enter an area name.", "warning");
-      return;
-    }
-
-    const drawnFeatures = this.drawing.getAllDrawnFeatures();
-    if (!drawnFeatures.features || drawnFeatures.features.length === 0) {
-      this.notificationManager.show("Please draw a polygon boundary first.", "warning");
-      return;
-    }
-
-    const polygon = drawnFeatures.features[0];
-    if (polygon.geometry.type !== "Polygon") {
-      this.notificationManager.show("Please draw a polygon boundary.", "warning");
-      return;
-    }
-
-    customAreaNameInput.classList.remove("is-invalid", "is-valid");
-    if (addButton) addButton.disabled = true;
-    this.validatedCustomBoundary = null;
-    this.drawing.hideDrawingValidationResult();
-
-    const originalButtonContent = validateButton.innerHTML;
-    validateButton.disabled = true;
-    validateButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validating...';
-
-    try {
-      const data = await COVERAGE_API.validateCustomBoundary(
-        areaName,
-        polygon.geometry
-      );
-
-      if (!data || !data.valid) {
-        customAreaNameInput.classList.add("is-invalid");
-        this.notificationManager.show(
-          "Custom boundary validation failed. Please check your drawing.",
-          "warning"
-        );
-      } else {
-        customAreaNameInput.classList.add("is-valid");
-        this.validatedCustomBoundary = data;
-        this.drawing.validatedCustomBoundary = data;
-        if (addButton) addButton.disabled = false;
-
-        this.drawing.showDrawingValidationResult(data);
-
-        this.notificationManager.show(
-          `Custom boundary "${data.display_name}" validated successfully!`,
-          "success"
-        );
-
-        if (addButton) addButton.focus();
-      }
-    } catch (error) {
-      console.error("Error validating custom boundary:", error);
-      customAreaNameInput.classList.add("is-invalid");
-      this.notificationManager.show(`Validation failed: ${error.message}`, "danger");
-    } finally {
-      validateButton.disabled = false;
-      validateButton.innerHTML = originalButtonContent;
-    }
-  }
-
-  /**
-   * Add custom coverage area
-   */
-  async addCustomCoverageArea() {
-    if (!this.validatedCustomBoundary || !this.validatedCustomBoundary.display_name) {
-      this.notificationManager.show(
-        "Please validate your custom boundary first.",
-        "warning"
-      );
-      return;
-    }
-
-    const addButton = document.getElementById("add-custom-area");
-    const modal = bootstrap.Modal.getInstance(document.getElementById("addAreaModal"));
-
-    if (!addButton) return;
-
-    const originalButtonContent = addButton.innerHTML;
-    addButton.disabled = true;
-    addButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
-
-    const customAreaToAdd = { ...this.validatedCustomBoundary };
-    const segLenEl2 = document.getElementById("segment-length-input");
-    if (segLenEl2?.value) {
-      const val2 = parseInt(segLenEl2.value, 10);
-      if (!Number.isNaN(val2) && val2 > 0) customAreaToAdd.segment_length_feet = val2;
-    }
-    const bufElC = document.getElementById("match-buffer-input");
-    if (bufElC?.value) {
-      const v = parseFloat(bufElC.value);
-      if (!Number.isNaN(v) && v > 0) customAreaToAdd.match_buffer_feet = v;
-    }
-    const minElC = document.getElementById("min-match-length-input");
-    if (minElC?.value) {
-      const v2 = parseFloat(minElC.value);
-      if (!Number.isNaN(v2) && v2 > 0) customAreaToAdd.min_match_length_feet = v2;
-    }
-
-    try {
-      const areas = await COVERAGE_API.getAllAreas();
-      const exists = areas.some(
-        (area) => area.location?.display_name === customAreaToAdd.display_name
-      );
-
-      if (exists) {
-        this.notificationManager.show(
-          "This area name is already being tracked.",
-          "warning"
-        );
-        return;
-      }
-
-      if (modal) modal.hide();
-
-      this.currentProcessingLocation = customAreaToAdd;
-      this.progress.currentProcessingLocation = customAreaToAdd;
-      this.progress.currentTaskId = null;
-      this.progress._addBeforeUnloadListener();
-
-      this.progress.showProgressModal(
-        `Starting processing for ${customAreaToAdd.display_name}...`,
-        0
-      );
-
-      const taskData = await COVERAGE_API.preprocessCustomBoundary(customAreaToAdd);
-
-      this.notificationManager.show("Custom coverage area processing started.", "info");
-
-      if (taskData?.task_id) {
-        this.progress.currentTaskId = taskData.task_id;
-        this.progress.activeTaskIds.add(taskData.task_id);
-        this.progress.saveProcessingState();
-
-        await this.progress.pollCoverageProgress(taskData.task_id);
-
-        this.notificationManager.show(
-          `Processing for ${customAreaToAdd.display_name} completed.`,
-          "success"
-        );
-
-        await this.loadCoverageAreas();
-      } else {
-        this.progress.hideProgressModal();
-        this.notificationManager.show(
-          "Processing started, but no task ID received.",
-          "warning"
-        );
-        await this.loadCoverageAreas();
-      }
-
-      const customAreaName = document.getElementById("custom-area-name");
-      if (customAreaName) {
-        customAreaName.value = "";
-      }
-      this.validatedCustomBoundary = null;
-      this.updateTotalAreasCount();
-    } catch (error) {
-      console.error("Error adding custom coverage area:", error);
-      this.notificationManager.show(
-        `Failed to add custom coverage area: ${error.message}`,
-        "danger"
-      );
-      this.progress.hideProgressModal();
-      await this.loadCoverageAreas();
-    } finally {
-      addButton.disabled = true;
-      addButton.innerHTML = originalButtonContent;
-    }
-  }
-
-  /**
-   * Update coverage for area
-   */
-  async updateCoverageForArea(locationId, mode = "full", showNotification = true) {
-    if (!locationId) {
-      this.notificationManager.show(
-        "Invalid location ID provided for update.",
-        "warning"
-      );
-      return;
-    }
-
-    if (this.pendingOperations.has(`update-${locationId}`)) {
-      this.notificationManager.show(
-        "Update already in progress for this location.",
-        "info"
-      );
-      return;
-    }
-
-    try {
-      this.pendingOperations.set(`update-${locationId}`, () =>
-        this.updateCoverageForArea(locationId, mode, showNotification)
-      );
-
-      const locationData = await COVERAGE_API.getArea(locationId);
-
-      if (
-        this.currentProcessingLocation?.display_name ===
-        locationData.location.display_name
-      ) {
-        this.notificationManager.show(
-          `Update already in progress for ${locationData.location.display_name}.`,
-          "info"
-        );
-        this.progress.showProgressModal(
-          `Update already running for ${locationData.location.display_name}...`
-        );
-        return;
-      }
-
-      const processingLocation = { ...locationData.location };
-
-      this.currentProcessingLocation = processingLocation;
-      this.progress.currentProcessingLocation = processingLocation;
-      this.progress.currentTaskId = null;
-      this.progress._addBeforeUnloadListener();
-
-      const isUpdatingDisplayedLocation = this.selectedLocation?._id === locationId;
-
-      this.progress.showProgressModal(
-        `Requesting ${mode} update for ${processingLocation.display_name}...`
-      );
-
-      const data = await COVERAGE_API.updateCoverage(processingLocation, mode);
-
-      if (data.task_id) {
-        this.progress.currentTaskId = data.task_id;
-        this.progress.activeTaskIds.add(data.task_id);
-        this.progress.saveProcessingState();
-
-        await this.progress.pollCoverageProgress(data.task_id);
-
-        if (showNotification) {
-          this.notificationManager.show(
-            `Coverage updated for ${processingLocation.display_name}.`,
-            "success"
-          );
-        }
-
-        // Reload the list to show updated timestamps
-        await this.loadCoverageAreas(false, true);
-
-        // If we are currently viewing this location's dashboard, refresh it
-        if (isUpdatingDisplayedLocation) {
-          await this.displayCoverageDashboard(locationId);
-        }
-      } else {
-        this.progress.hideProgressModal();
-        this.notificationManager.show(
-          "Update started, but no task ID received.",
-          "warning"
-        );
-        await this.loadCoverageAreas();
-      }
-    } catch (error) {
-      console.error("Error updating coverage:", error);
-      if (showNotification) {
-        this.notificationManager.show(
-          `Coverage update failed: ${error.message}`,
-          "danger"
-        );
-      }
-      this.progress.hideProgressModal();
-      await this.loadCoverageAreas();
-      throw error;
-    } finally {
-      this.pendingOperations.delete(`update-${locationId}`);
-    }
-  }
-
-  /**
-   * Cancel processing
-   */
-  async cancelProcessing(location = null) {
-    const locationToCancel = location || this.currentProcessingLocation;
-
-    if (!locationToCancel || !locationToCancel.display_name) {
-      this.notificationManager.show("No active processing to cancel.", "warning");
-      return;
-    }
-
-    const confirmed = await this.confirmationDialog.show({
-      title: "Cancel Processing",
-      message: `Are you sure you want to cancel processing for <strong>${locationToCancel.display_name}</strong>?`,
-      details: "This will stop the current operation. You can restart it later.",
-      confirmText: "Yes, Cancel",
-      cancelText: "No, Continue",
-      confirmButtonClass: "btn-danger",
-    });
-
-    if (!confirmed) return;
-
-    this.notificationManager.show(
-      `Attempting to cancel processing for ${locationToCancel.display_name}...`,
-      "info"
-    );
-
-    try {
-      await COVERAGE_API.cancelProcessing(locationToCancel.display_name);
-
-      this.notificationManager.show(
-        `Processing for ${locationToCancel.display_name} cancelled.`,
-        "success"
-      );
-
-      if (
-        this.currentProcessingLocation?.display_name === locationToCancel.display_name
-      ) {
-        if (this.progress.currentTaskId) {
-          this.progress.activeTaskIds.delete(this.progress.currentTaskId);
-          this.progress._removeBeforeUnloadListener();
-        }
-        this.progress.hideProgressModal();
-      }
-
-      await this.loadCoverageAreas();
-    } catch (error) {
-      console.error("Error cancelling processing:", error);
-      this.notificationManager.show(
-        `Failed to cancel processing: ${error.message}`,
-        "danger"
-      );
-    }
-  }
-
-  /**
-   * Delete area
-   */
-  async deleteArea(location) {
-    if (!location || !location.display_name) {
-      this.notificationManager.show("Invalid location data for deletion.", "warning");
-      return;
-    }
-
-    const confirmed = await this.confirmationDialog.show({
-      title: "Delete Coverage Area",
-      message: `Are you sure you want to delete <strong>${location.display_name}</strong>?`,
-      details:
-        "This will permanently delete all associated street data, statistics, and history. This action cannot be undone.",
-      confirmText: "Delete Permanently",
-      confirmButtonClass: "btn-danger",
-    });
-
-    if (!confirmed) return;
-
-    try {
-      this.notificationManager.show(
-        `Deleting coverage area: ${location.display_name}...`,
-        "info"
-      );
-
-      await COVERAGE_API.deleteArea(location.display_name);
-
-      await this.loadCoverageAreas();
-
-      if (this.selectedLocation?.location?.display_name === location.display_name) {
-        this.closeCoverageDashboard();
-      }
-
-      this.notificationManager.show(
-        `Coverage area '${location.display_name}' deleted.`,
-        "success"
-      );
-
-      this.updateTotalAreasCount();
-    } catch (error) {
-      console.error("Error deleting coverage area:", error);
-      this.notificationManager.show(
-        `Error deleting coverage area: ${error.message}`,
-        "danger"
-      );
-    }
-  }
-
-  /**
    * Handle table action
    */
   handleTableAction(button) {
@@ -1017,27 +384,27 @@ class CoverageManager {
     switch (action) {
       case "update-full":
         if (locationId) {
-          this.updateCoverageForArea(locationId, "full").finally(resetButton);
+          this.crud.updateCoverageForArea(locationId, "full").finally(resetButton);
         }
         break;
       case "update-incremental":
         if (locationId) {
-          this.updateCoverageForArea(locationId, "incremental").finally(resetButton);
+          this.crud.updateCoverageForArea(locationId, "incremental").finally(resetButton);
         }
         break;
       case "delete":
         if (locationData) {
-          this.deleteArea(locationData).finally(resetButton);
+          this.crud.deleteArea(locationData).finally(resetButton);
         }
         break;
       case "cancel":
         if (locationData) {
-          this.cancelProcessing(locationData).finally(resetButton);
+          this.crud.cancelProcessing(locationData).finally(resetButton);
         }
         break;
       case "reprocess":
         if (locationId) {
-          this.reprocessStreetsForArea(locationId).finally(resetButton);
+          this.crud.reprocessStreetsForArea(locationId).finally(resetButton);
         }
         break;
       default:
@@ -1051,7 +418,7 @@ class CoverageManager {
    */
   async handleMarkSegmentAction(action, segmentId) {
     const activeLocationId =
-      this.selectedLocation?._id || this.currentDashboardLocationId;
+      this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
     if (!activeLocationId || !segmentId) {
       this.notificationManager.show("Cannot perform action: Missing ID.", "warning");
       return;
@@ -1108,7 +475,11 @@ class CoverageManager {
         }
       }
 
-      await this.refreshDashboardData(activeLocationId);
+      await this.dashboard.refreshDashboardData(activeLocationId, {
+        distanceFormatter: this.distanceInUserUnits.bind(this),
+        timeFormatter: this.formatRelativeTime.bind(this),
+        streetTypeFormatter: this.formatStreetType.bind(this)
+      });
       await this.loadCoverageAreas();
     } catch (error) {
       this.notificationManager.show(
@@ -1126,7 +497,7 @@ class CoverageManager {
     if (segmentIds.length === 0) return;
 
     const activeLocationId =
-      this.selectedLocation?._id || this.currentDashboardLocationId;
+      this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
     if (!activeLocationId) {
       this.notificationManager.show(
         "Cannot perform bulk action: No active location.",
@@ -1183,115 +554,14 @@ class CoverageManager {
       2500
     );
 
-    await this.refreshDashboardData(activeLocationId);
+    await this.dashboard.refreshDashboardData(activeLocationId, {
+        distanceFormatter: this.distanceInUserUnits.bind(this),
+        timeFormatter: this.formatRelativeTime.bind(this),
+        streetTypeFormatter: this.formatStreetType.bind(this)
+    });
     await this.loadCoverageAreas();
 
     this.selection.clearSelection();
-  }
-
-  /**
-   * Refresh dashboard data
-   */
-  async refreshDashboardData(locationId) {
-    try {
-      const refreshData = await COVERAGE_API.refreshStats(locationId);
-      if (refreshData.coverage) {
-        this.selectedLocation = refreshData.coverage;
-        this.ui.updateDashboardStats(
-          refreshData.coverage,
-          this.distanceInUserUnits.bind(this),
-          this.formatRelativeTime.bind(this)
-        );
-        this.coverageMap.addCoverageSummary(refreshData.coverage);
-        this.ui.updateStreetTypeCoverage(
-          refreshData.coverage.street_types || [],
-          this.distanceInUserUnits.bind(this),
-          this.formatStreetType.bind(this)
-        );
-        if (this.ui.streetTypeChartInstance) this.ui.streetTypeChartInstance.destroy();
-        this.ui.createStreetTypeChart(
-          refreshData.coverage.street_types || [],
-          this.formatStreetType.bind(this),
-          this.distanceInUserUnits.bind(this)
-        );
-      } else {
-        this.notificationManager.show(
-          `Failed to refresh stats: ${refreshData.detail || "Unknown error"}`,
-          "warning"
-        );
-      }
-    } catch (e) {
-      console.error("Error refreshing stats:", e);
-      this.notificationManager.show(
-        `Error fetching updated stats: ${e.message}`,
-        "danger"
-      );
-    }
-  }
-
-  /**
-   * Show street on map
-   */
-  showStreetOnMap(streetName) {
-    if (!this.coverageMap.map || !this.coverageMap.streetsGeoJson) return;
-
-    const matchingFeatures = this.coverageMap.streetsGeoJson.features.filter(
-      (f) => (f.properties?.street_name || "Unnamed") === streetName
-    );
-
-    if (!matchingFeatures.length) {
-      this.notificationManager?.show(
-        `No geometry found for '${streetName}'.`,
-        "warning"
-      );
-      return;
-    }
-
-    const selSource = "selected-street";
-    const selLayer = "selected-street-layer";
-    if (this.coverageMap.map.getLayer(selLayer))
-      this.coverageMap.map.removeLayer(selLayer);
-    if (this.coverageMap.map.getSource(selSource))
-      this.coverageMap.map.removeSource(selSource);
-
-    this.coverageMap.map.addSource(selSource, {
-      type: "geojson",
-      data: {
-        type: "FeatureCollection",
-        features: matchingFeatures,
-      },
-    });
-
-    this.coverageMap.map.addLayer({
-      id: selLayer,
-      type: "line",
-      source: selSource,
-      paint: {
-        "line-color": "#00e5ff",
-        "line-width": 6,
-        "line-opacity": 0.9,
-      },
-      layout: { "line-cap": "round", "line-join": "round" },
-    });
-
-    const bounds = new mapboxgl.LngLatBounds();
-    matchingFeatures.forEach((f) => {
-      const geom = f.geometry;
-      if (!geom) return;
-      const extendCoord = (coord) => bounds.extend(coord);
-      if (geom.type === "LineString") geom.coordinates.forEach(extendCoord);
-      else if (geom.type === "MultiLineString")
-        geom.coordinates.forEach((line) => {
-          line.forEach(extendCoord);
-        });
-    });
-    if (!bounds.isEmpty()) {
-      this.coverageMap.map.fitBounds(bounds, {
-        padding: 40,
-        maxZoom: 18,
-        duration: 800,
-      });
-    }
   }
 
   /**
@@ -1319,7 +589,7 @@ class CoverageManager {
       this.drawing.initializeDrawingMap();
     }
 
-    this.resetModalValidationState();
+    this.validator.resetValidationState();
   }
 
   /**
@@ -1344,185 +614,15 @@ class CoverageManager {
       customAreaName.value = "";
     }
 
-    this.resetModalValidationState();
+    this.validator.resetValidationState();
   }
 
-  /**
-   * Reset modal validation state
-   */
-  resetModalValidationState() {
-    this.validatedLocation = null;
-    this.validatedCustomBoundary = null;
-
-    const validationResult = document.getElementById("validation-result");
-    const drawingValidationResult = document.getElementById(
-      "drawing-validation-result"
-    );
-
-    if (validationResult) validationResult.classList.add("d-none");
-    if (drawingValidationResult) drawingValidationResult.classList.add("d-none");
-
-    const addLocationButton = document.getElementById("add-coverage-area");
-    const addCustomButton = document.getElementById("add-custom-area");
-
-    if (addLocationButton) addLocationButton.disabled = true;
-    if (addCustomButton) addCustomButton.disabled = true;
-  }
-
-  /**
-   * Handle trip overlay toggle
-   */
-  handleTripOverlayToggle(enabled) {
-    this.showTripsActive = enabled;
-    this.coverageMap.showTripsActive = enabled;
-
-    if (enabled) {
-      this.coverageMap.setupTripLayers();
-      this.coverageMap.loadTripsForView();
-    } else {
-      this.coverageMap.clearTripOverlay();
-    }
-
-    localStorage.setItem("showTripsOverlay", enabled.toString());
-  }
-
-  /**
-   * Update filter button states
-   */
-  updateFilterButtonStates(filterType = null) {
-    const currentFilter =
-      filterType || this.currentFilter || this.coverageMap.currentFilter;
-    const filterButtons = document.querySelectorAll(
-      ".map-controls button[data-filter]"
-    );
-    filterButtons.forEach((btn) => {
-      btn.classList.remove(
-        "active",
-        "btn-primary",
-        "btn-outline-primary",
-        "btn-success",
-        "btn-outline-success",
-        "btn-danger",
-        "btn-outline-danger",
-        "btn-warning",
-        "btn-outline-warning"
-      );
-
-      let buttonClass = "";
-      if (btn.dataset.filter === currentFilter) {
-        btn.classList.add("active");
-        if (currentFilter === "driven") buttonClass = "btn-success";
-        else if (currentFilter === "undriven") buttonClass = "btn-danger";
-        else if (currentFilter === "undriveable") buttonClass = "btn-warning";
-        else buttonClass = "btn-primary";
-      } else {
-        if (btn.dataset.filter === "driven") buttonClass = "btn-outline-success";
-        else if (btn.dataset.filter === "undriven") buttonClass = "btn-outline-danger";
-        else if (btn.dataset.filter === "undriveable")
-          buttonClass = "btn-outline-warning";
-        else buttonClass = "btn-outline-primary";
-      }
-
-      btn.classList.add(buttonClass);
-    });
-  }
-
-  /**
-   * Close coverage dashboard
-   */
-  closeCoverageDashboard() {
-    const dashboard = document.getElementById("coverage-dashboard");
-    if (dashboard) {
-      dashboard.style.opacity = "0";
-      dashboard.style.transform = "translateY(20px)";
-
-      setTimeout(() => {
-        dashboard.style.display = "none";
-        dashboard.style.opacity = "";
-        dashboard.style.transform = "";
-        this.ui.clearDashboardUI();
-        this.coverageMap.cleanup();
-        this.navigation.clearEfficientStreetMarkers();
-      }, 300);
-    }
-  }
-
-  /**
-   * Export coverage map
-   */
-  exportCoverageMap() {
-    const mapContainer = document.getElementById("coverage-map");
-    if (!this.coverageMap.map || !mapContainer) {
-      this.notificationManager.show("Map not ready for export.", "warning");
-      return;
-    }
-    this.notificationManager.show("Preparing map export...", "info");
-
-    const doExport = () => {
-      setTimeout(() => {
-        html2canvas(mapContainer, {
-          useCORS: true,
-          backgroundColor: "#1e1e1e",
-          logging: false,
-          allowTaint: true,
-          width: mapContainer.offsetWidth,
-          height: mapContainer.offsetHeight,
-        })
-          .then((canvas) => {
-            canvas.toBlob((blob) => {
-              if (!blob) {
-                this.notificationManager.show("Failed to create image blob.", "danger");
-                return;
-              }
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              const locationName =
-                this.selectedLocation?.location?.display_name || "coverage_map";
-              const dateStr = dateUtils.formatDateToString(new Date());
-              a.download = `${locationName
-                .replace(/[^a-z0-9]/gi, "_")
-                .toLowerCase()}_${dateStr}.png`;
-              document.body.appendChild(a);
-              a.click();
-              setTimeout(() => {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                this.notificationManager.show("Map exported.", "success");
-              }, 100);
-            }, "image/png");
-          })
-          .catch((error) => {
-            console.error("html2canvas export error:", error);
-            this.notificationManager.show(
-              `Map export failed: ${error.message}`,
-              "danger"
-            );
-          });
-      }, 500);
-    };
-
-    if (typeof html2canvas === "undefined") {
-      const script = document.createElement("script");
-      script.src =
-        "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-      script.integrity =
-        "sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==";
-      script.crossOrigin = "anonymous";
-      script.onload = doExport;
-      script.onerror = () =>
-        this.notificationManager.show("Failed to load export library.", "danger");
-      document.head.appendChild(script);
-    } else {
-      doExport();
-    }
-  }
 
   /**
    * Find most efficient streets
    */
   async findMostEfficientStreets() {
-    const locationId = this.selectedLocation?._id || this.currentDashboardLocationId;
+    const locationId = this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
     if (!locationId) {
       this.notificationManager.show("Please select a coverage area first.", "warning");
       return;
@@ -1531,88 +631,7 @@ class CoverageManager {
   }
 
   /**
-   * Reprocess streets for area
-   */
-  async reprocessStreetsForArea(locationId) {
-    try {
-      const data = await COVERAGE_API.getArea(locationId);
-      const { location } = data;
-      if (!location.display_name) throw new Error("Missing location");
-
-      const metersToFeet = (value) => value * 3.28084;
-      const defaults = {
-        segment:
-          location.segment_length_feet ||
-          (location.segment_length_meters
-            ? metersToFeet(location.segment_length_meters)
-            : 300),
-        buffer:
-          location.match_buffer_feet ||
-          (location.match_buffer_meters
-            ? metersToFeet(location.match_buffer_meters)
-            : 50),
-        min:
-          location.min_match_length_feet ||
-          (location.min_match_length_meters
-            ? metersToFeet(location.min_match_length_meters)
-            : 15),
-      };
-      const settings = await this._askMatchSettings(location.display_name, defaults);
-      if (settings === null) return;
-
-      location.segment_length_feet = settings.segment;
-      location.match_buffer_feet = settings.buffer;
-      location.min_match_length_feet = settings.min;
-
-      this.progress.showProgressModal(
-        `Reprocessing streets for ${location.display_name} (seg ${settings.segment} ft)...`,
-        0
-      );
-
-      const isCustom =
-        location.osm_type === "custom" || location.boundary_type === "custom";
-      let taskData = null;
-
-      if (isCustom) {
-        const geometry =
-          location.geojson?.geometry || location.geojson || location.geometry;
-        if (!geometry) {
-          throw new Error("Custom boundary is missing geometry");
-        }
-        taskData = await COVERAGE_API.preprocessCustomBoundary({
-          display_name: location.display_name,
-          area_name: location.display_name,
-          geometry,
-          segment_length_feet: settings.segment,
-          match_buffer_feet: settings.buffer,
-          min_match_length_feet: settings.min,
-        });
-      } else {
-        taskData = await COVERAGE_API.preprocessStreets(location);
-      }
-
-      this.currentProcessingLocation = location;
-      this.progress.currentProcessingLocation = location;
-      this.progress.currentTaskId = taskData.task_id;
-      this.progress.activeTaskIds.add(taskData.task_id);
-      this.progress.saveProcessingState();
-
-      await this.progress.pollCoverageProgress(taskData.task_id);
-
-      this.notificationManager.show(
-        `Reprocessing completed for ${location.display_name}`,
-        "success"
-      );
-      await this.loadCoverageAreas();
-    } catch (err) {
-      console.error("Reprocess error", err);
-      this.notificationManager.show(`Reprocess failed: ${err.message}`, "danger");
-      this.progress.hideProgressModal();
-    }
-  }
-
-  /**
-   * Ask match settings
+   * Ask match settings (Utility used by CRUD)
    */
   _askMatchSettings(locationName, defaults = { segment: 300, buffer: 50, min: 15 }) {
     this.lastMatchSettingsRequest = { locationName, defaults };
@@ -1713,7 +732,7 @@ class CoverageManager {
       if (this.isAutoRefreshing) return;
 
       const isModalProcessing =
-        this.currentProcessingLocation &&
+        this.crud.currentProcessingLocation &&
         document.getElementById("taskProgressModal")?.classList.contains("show");
 
       // Don't auto-refresh while modal is open - polling handles updates there
@@ -1841,7 +860,7 @@ class CoverageManager {
     `;
 
     notification.querySelector(".resume-task").addEventListener("click", () => {
-      this.resumeInterruptedTask(progressData);
+      this.crud.resumeInterruptedTask(progressData);
       notification.remove();
     });
 
@@ -1852,53 +871,6 @@ class CoverageManager {
     });
 
     document.querySelector("#alerts-container")?.prepend(notification);
-  }
-
-  /**
-   * Resume interrupted task
-   */
-  async resumeInterruptedTask(savedData) {
-    const { location } = savedData;
-    const { taskId } = savedData;
-
-    if (!location || !location.display_name || !taskId) {
-      this.notificationManager.show("Cannot resume task: Incomplete data.", "warning");
-      localStorage.removeItem("coverageProcessingState");
-      return;
-    }
-
-    this.currentProcessingLocation = location;
-    this.progress.currentProcessingLocation = location;
-    this.progress.currentTaskId = taskId;
-    this.progress._addBeforeUnloadListener();
-
-    this.progress.showProgressModal(
-      `Checking status for ${location.display_name}...`,
-      savedData.progress || 0
-    );
-
-    this.progress.activeTaskIds.add(taskId);
-
-    try {
-      await this.progress.pollCoverageProgress(taskId);
-
-      this.notificationManager.show(
-        `Task for ${location.display_name} completed.`,
-        "success"
-      );
-
-      await this.loadCoverageAreas();
-
-      if (this.selectedLocation?._id === location._id) {
-        await this.displayCoverageDashboard(this.selectedLocation._id);
-      }
-    } catch (pollError) {
-      this.notificationManager.show(
-        `Failed to resume task: ${pollError.message}`,
-        "danger"
-      );
-      await this.loadCoverageAreas();
-    }
   }
 
   /**
@@ -1916,7 +888,7 @@ class CoverageManager {
     });
 
     document.getElementById("close-dashboard-btn")?.addEventListener("click", () => {
-      this.closeCoverageDashboard();
+      this.dashboard.closeCoverageDashboard();
     });
   }
 
@@ -2014,7 +986,6 @@ class CoverageManager {
         html: true,
         placement: "auto",
       });
-      // Tooltip instance attaches to DOM element automatically
     });
   }
 
@@ -2035,25 +1006,6 @@ class CoverageManager {
       countElement.textContent = count;
       countElement.classList.add("fade-in-up");
     }
-  }
-
-  /**
-   * Cache management
-   */
-  getCachedData(key) {
-    const cached = this.dataCache.get(key);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
-      return cached.data;
-    }
-    this.dataCache.delete(key);
-    return null;
-  }
-
-  setCachedData(key, data) {
-    this.dataCache.set(key, {
-      data,
-      timestamp: Date.now(),
-    });
   }
 
   /**
