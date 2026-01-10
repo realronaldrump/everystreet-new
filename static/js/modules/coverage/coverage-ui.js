@@ -90,24 +90,8 @@ class CoverageUI {
     try {
       table.DataTable({
         order: [[5, "desc"]],
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: { color: "#fff", boxWidth: 15, padding: 15 },
-          },
-          tooltip: {
-            mode: "index",
-            intersect: false,
-            callbacks: {
-              label: (tooltipItem) =>
-                `${tooltipItem.dataset.label}: ${
-                  tooltipItem.dataset.label === "% Covered"
-                    ? `${tooltipItem.parsed.y.toFixed(1)}%`
-                    : `${tooltipItem.parsed.y.toFixed(2)} mi`
-                }`,
-            },
-          },
-        },
+        // Notify listeners after each draw so dependent widgets can refresh.
+        drawCallback: () => {
           document.dispatchEvent(new CustomEvent("coverageTableRedrawn"));
         },
       });
