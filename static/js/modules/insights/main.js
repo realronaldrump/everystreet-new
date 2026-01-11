@@ -33,7 +33,7 @@ function initTooltips() {
     Array.from(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(
       (el) => {
         bootstrap.Tooltip.getOrCreateInstance(el);
-      }
+      },
     );
   }
 }
@@ -97,10 +97,7 @@ function setupFabActions() {
   if (refreshBtn) {
     refreshBtn.addEventListener("click", () => {
       loadAllData();
-      InsightsExport.showNotification(
-        "Data refreshed successfully",
-        "success"
-      );
+      InsightsExport.showNotification("Data refreshed successfully", "success");
     });
   }
 
@@ -143,14 +140,14 @@ export async function loadAllData() {
     // Update current period length (in days) for metrics that rely on it
     const periodDays = InsightsFormatters.calculateDaysDiff(
       dateRange.start,
-      dateRange.end
+      dateRange.end,
     );
     InsightsState.updateState({ currentPeriod: periodDays });
 
     // Calculate previous-period date range for trend comparisons
     const prevRange = InsightsFormatters.calculatePreviousRange(
       dateRange.start,
-      periodDays
+      periodDays,
     );
 
     // Fetch all data
@@ -168,7 +165,7 @@ export async function loadAllData() {
     console.error("Error loading data:", error);
     InsightsExport.showNotification(
       "Error loading data. Please try again.",
-      "error"
+      "error",
     );
   } finally {
     InsightsState.updateState({ isLoading: false });
@@ -253,7 +250,7 @@ function startAutoRefresh() {
     () => {
       loadAllData();
     },
-    5 * 60 * 1000
+    5 * 60 * 1000,
   );
 
   InsightsState.updateState({ autoRefreshInterval: intervalId });
