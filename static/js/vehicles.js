@@ -5,8 +5,12 @@
 
 (() => {
   // State
+  let allVehicles = [];
   let currentVehicle = null;
   let bouncieOdometer = null;
+
+  // LocalStorage key for persisting selected vehicle
+  const STORAGE_KEY = "selectedVehicleImei";
 
   // DOM Elements
   const elements = {
@@ -44,6 +48,10 @@
     saveManualOdometerBtn: document.getElementById("save-manual-odometer-btn"),
     saveSettingsBtn: document.getElementById("save-settings-btn"),
 
+    // Vehicle selector
+    vehicleSelectorCard: document.getElementById("vehicle-selector-card"),
+    vehicleSelect: document.getElementById("vehicle-select"),
+
     // Toast
     notificationToast: document.getElementById("notification-toast"),
     toastTitle: document.getElementById("toast-title"),
@@ -78,6 +86,9 @@
     if (elements.saveSettingsBtn) {
       elements.saveSettingsBtn.addEventListener("click", saveSettings);
     }
+    if (elements.vehicleSelect) {
+      elements.vehicleSelect.addEventListener("change", handleVehicleSelectChange);
+    }
   }
 
   /**
@@ -99,18 +110,99 @@
         return;
       }
 
-      // For single-user app, just get the first/primary vehicle
-      currentVehicle = vehicles.find((v) => v.is_active) || vehicles[0];
-      displayVehicle(currentVehicle);
-      showContent();
+      // Store all vehicles
+      allVehicles = vehicles;
 
-      // Fetch live Bouncie odometer reading
-      fetchBouncieOdometer();
+      // Show vehicle selector if multiple vehicles
+      if (vehicles.length > 1) {
+        populateVehicleSelector(vehicles);
+        elements.vehicleSelectorCard.style.display = "block";
+      } else {
+        elements.vehicleSelectorCard.style.display = "none";
+      }
+
+      // Determine which vehicle to display
+      const savedImei = localStorage.getItem(STORAGE_KEY);
+      let vehicleToDisplay = null;
+
+      // Try to find saved vehicle
+      if (savedImei) {
+        vehicleToDisplay = vehicles.find((v) => v.imei === savedImei);
+      }
+
+      // Fall back to first active vehicle, or first vehicle
+      if (!vehicleToDisplay) {
+        vehicleToDisplay = vehicles.find((v) => v.is_active) || vehicles[0];
+      }
+
+      selectVehicle(vehicleToDisplay.imei);
+      showContent();
     } catch (error) {
       console.error("Error loading vehicle:", error);
       showEmpty();
       showNotification("Error", "Failed to load vehicle data", "error");
     }
+  }
+
+  /**
+   * Populate the vehicle selector dropdown
+   */
+  function populateVehicleSelector(vehicles) {
+    if (!elements.vehicleSelect) return;
+
+    elements.vehicleSelect.innerHTML = "";
+
+    vehicles.forEach((vehicle) => {
+      const option = document.createElement("option");
+      option.value = vehicle.imei;
+      option.textContent = getVehicleDisplayName(vehicle);
+      elements.vehicleSelect.appendChild(option);
+    });
+  }
+
+  /**
+   * Get display name for a vehicle
+   */
+  function getVehicleDisplayName(vehicle) {
+    if (vehicle.custom_name) {
+      return vehicle.custom_name;
+    }
+    const parts = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean);
+    return parts.length > 0 ? parts.join(" ") : `Vehicle ${vehicle.imei}`;
+  }
+
+  /**
+   * Handle vehicle selector change
+   */
+  function handleVehicleSelectChange() {
+    const selectedImei = elements.vehicleSelect.value;
+    if (selectedImei) {
+      selectVehicle(selectedImei);
+    }
+  }
+
+  /**
+   * Select and display a vehicle by IMEI
+   */
+  function selectVehicle(imei) {
+    const vehicle = allVehicles.find((v) => v.imei === imei);
+    if (!vehicle) return;
+
+    currentVehicle = vehicle;
+
+    // Persist selection
+    localStorage.setItem(STORAGE_KEY, imei);
+
+    // Update dropdown selection
+    if (elements.vehicleSelect) {
+      elements.vehicleSelect.value = imei;
+    }
+
+    // Display the vehicle
+    displayVehicle(vehicle);
+
+    // Fetch live Bouncie odometer reading
+    fetchBouncieOdometer();
   }
 
   /**
