@@ -12,6 +12,7 @@ import logging
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.http.session import cleanup_session
+from db import db_manager
 
 if TYPE_CHECKING:
     from collections.abc import Coroutine
@@ -50,7 +51,21 @@ def run_async_from_sync(
     # This prevents "attached to a different loop" errors with Motor
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+
+    async def _setup_db() -> None:
+        """
+        Ensure the database connection and ODM are initialized for the current loop.
+        """
+        # Trigger loop detection and potential reconnection in db_manager
+        _ = db_manager.db
+
+        # Re-initialize Beanie for the new loop/client if necessary
+        # This binds the models to the current loop's client
+        await db_manager.init_beanie()
+
     try:
+        # Initialize DB for this new loop before running the task
+        loop.run_until_complete(_setup_db())
         return loop.run_until_complete(coro)
     except Exception:
         logger.error(
