@@ -17,7 +17,7 @@ from coverage.location_settings import normalize_location_settings
 from coverage.services import geometry_service
 from coverage_tasks import process_area
 from db import CoverageMetadata, ProgressStatus
-from models import CustomBoundaryModel, ValidateCustomBoundaryModel
+from db.schemas import CustomBoundaryModel, ValidateCustomBoundaryModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

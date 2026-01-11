@@ -20,7 +20,12 @@ from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
 
 from db import db_manager
-from db.models import ArchivedLiveTrip, LiveTrip, Trip
+from db.models import ArchivedLiveTrip, LiveTrip
+from db.schemas import (
+    ActiveTripResponseUnion,
+    ActiveTripSuccessResponse,
+    NoActiveTripResponse,
+)
 from live_tracking import (
     get_active_trip,
     get_trip_updates,
@@ -28,11 +33,6 @@ from live_tracking import (
     process_trip_end,
     process_trip_metrics,
     process_trip_start,
-)
-from models import (
-    ActiveTripResponseUnion,
-    ActiveTripSuccessResponse,
-    NoActiveTripResponse,
 )
 from redis_config import get_redis_url
 from trip_event_publisher import TRIP_UPDATES_CHANNEL

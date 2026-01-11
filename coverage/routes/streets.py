@@ -15,10 +15,23 @@ from gridfs import errors
 from coverage.gridfs_service import gridfs_service
 from coverage.services import segment_marking_service
 from db import CoverageMetadata, Street
-from models import LocationModel
+from db.schemas import LocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def sanitize_features(features: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Ensure features are JSON serializable by converting ObjectIds to strings."""
+    for feature in features:
+        if "properties" in feature:
+            props = feature["properties"]
+            for key, value in props.items():
+                if isinstance(value, ObjectId):
+                    props[key] = str(value)
+        if "id" in feature and isinstance(feature["id"], ObjectId):
+            feature["id"] = str(feature["id"])
+    return features
 
 
 @router.get("/api/coverage_areas/{location_id}/geojson/gridfs")

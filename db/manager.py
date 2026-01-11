@@ -16,11 +16,9 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import certifi
 from gridfs import AsyncGridFSBucket
 from pymongo import AsyncMongoClient
-from pymongo.errors import ConnectionFailure, OperationFailure
+from pymongo.errors import ConnectionFailure
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
-
     from pymongo.asynchronous.collection import AsyncCollection
     from pymongo.asynchronous.database import AsyncDatabase
 
@@ -71,8 +69,6 @@ class DatabaseManager:
             self._bound_loop: asyncio.AbstractEventLoop | None = None
             self._connection_healthy = True
             self._beanie_initialized = False
-            self._db_semaphore = asyncio.Semaphore(10)
-            self._collections: dict[str, AsyncCollection] = {}
             self._initialized = True
             self._conn_retry_backoff = [1, 2, 5, 10, 30]
 
@@ -142,7 +138,6 @@ class DatabaseManager:
             self._client = AsyncMongoClient(mongo_uri, **client_kwargs)
             self._db = self._client[self._db_name]
             self._connection_healthy = True
-            self._collections = {}
             self._gridfs_bucket_instance = None
             logger.info("MongoDB client initialized successfully")
 
@@ -169,15 +164,11 @@ class DatabaseManager:
         Note: With PyMongo's AsyncMongoClient, close() is async. In sync context,
         we just reset the references and let garbage collection handle cleanup.
         """
-        if self._client:
-            # Can't await close() in sync context - just reset references
-            logger.debug("Resetting MongoDB client state due to event loop change")
-            self._client = None
-            self._db = None
-            self._collections = {}
-            self._gridfs_bucket_instance = None
-            self._bound_loop = None
-            self._beanie_initialized = False
+        self._client = None
+        self._db = None
+        self._gridfs_bucket_instance = None
+        self._bound_loop = None
+        self._beanie_initialized = False
 
     def _check_loop_and_reconnect(self) -> None:
         """Check if event loop has changed and reconnect if necessary."""
@@ -275,7 +266,7 @@ class DatabaseManager:
         return self._max_retry_attempts
 
     def get_collection(self, collection_name: str) -> AsyncCollection:
-        """Get a collection by name with caching.
+        """Get a raw MongoDB collection by name.
 
         Args:
             collection_name: Name of the collection.
@@ -283,315 +274,7 @@ class DatabaseManager:
         Returns:
             The AsyncCollection instance.
         """
-        if collection_name not in self._collections or not self._connection_healthy:
-            self._collections[collection_name] = self.db[collection_name]
-        return self._collections[collection_name]
-
-    def ensure_connection(self) -> None:
-        """Ensure the database connection is initialized."""
-        if not self._connection_healthy:
-            self._initialize_client()
-
-    async def execute_with_retry(
-        self,
-        operation: Callable[[], Awaitable[T]],
-        max_attempts: int | None = None,
-        operation_name: str = "database operation",
-    ) -> T:
-        """Execute a database operation with retry logic.
-
-        Uses exponential backoff for retries on connection failures and
-        transient errors.
-
-        Args:
-            operation: Async callable to execute.
-            max_attempts: Maximum retry attempts (defaults to config value).
-            operation_name: Name of operation for logging.
-
-        Returns:
-            The result of the operation.
-
-        Raises:
-            ConnectionFailure: If all retry attempts fail.
-            OperationFailure: For non-transient operation failures.
-            RuntimeError: If all retries exhausted.
-        """
-        if max_attempts is None:
-            max_attempts = self._max_retry_attempts
-
-        attempts = 0
-
-        while attempts < max_attempts:
-            attempts += 1
-            retry_delay = self._conn_retry_backoff[
-                min(attempts - 1, len(self._conn_retry_backoff) - 1)
-            ]
-
-            try:
-                async with self._db_semaphore:
-                    # Ensure connection is active
-                    _ = self.client
-                    _ = self.db
-                    if not self._connection_healthy:
-                        self._initialize_client()
-
-                    return await operation()
-
-            except ConnectionFailure as e:
-                self._connection_healthy = False
-                logger.warning(
-                    "Attempt %d/%d for %s failed due to connection error: %s. "
-                    "Retrying in %ds...",
-                    attempts,
-                    max_attempts,
-                    operation_name,
-                    str(e),
-                    retry_delay,
-                )
-
-                if attempts >= max_attempts:
-                    logger.error(
-                        "All %d connection attempts for %s failed. Last error: %s",
-                        max_attempts,
-                        operation_name,
-                        str(e),
-                    )
-                    raise ConnectionFailure(
-                        f"Failed to connect after {max_attempts} attempts "
-                        f"for {operation_name}"
-                    ) from e
-
-                await asyncio.sleep(retry_delay)
-
-            except OperationFailure as e:
-                is_transient = e.has_error_label(
-                    "TransientTransactionError"
-                ) or e.code in [11600, 11602]
-
-                if is_transient and attempts < max_attempts:
-                    logger.warning(
-                        "Attempt %d/%d for %s failed with transient OperationFailure "
-                        "(Code: %s): %s. Retrying in %ds...",
-                        attempts,
-                        max_attempts,
-                        operation_name,
-                        e.code,
-                        str(e),
-                        retry_delay,
-                    )
-                    await asyncio.sleep(retry_delay)
-                else:
-                    logger.error(
-                        "Error in %s (attempt %d/%d, Code: %s): %s",
-                        operation_name,
-                        attempts,
-                        max_attempts,
-                        e.code,
-                        str(e),
-                        exc_info=False,
-                    )
-                    raise
-
-            except Exception as e:
-                logger.error(
-                    "Unexpected error in %s (attempt %d/%d): %s",
-                    operation_name,
-                    attempts,
-                    max_attempts,
-                    str(e),
-                    exc_info=True,
-                )
-                raise
-
-        raise RuntimeError(
-            f"All {max_attempts} retry attempts failed for {operation_name}"
-        )
-
-    async def safe_create_index(
-        self,
-        collection_name: str,
-        keys: str | list[tuple[str, int]],
-        **kwargs: Any,
-    ) -> str | None:
-        """Safely create an index, handling conflicts and duplicates.
-
-        Args:
-            collection_name: Name of the collection.
-            keys: Index keys specification.
-            **kwargs: Additional index options (name, unique, background, etc.).
-
-        Returns:
-            Index name if created or already exists, None on conflict.
-        """
-        from pymongo.errors import DuplicateKeyError
-
-        try:
-            collection = self.get_collection(collection_name)
-            existing_indexes = await collection.index_information()
-            keys_tuple = tuple(
-                sorted(list(keys) if isinstance(keys, list) else [(keys, 1)])
-            )
-
-            # Check if index with same keys already exists
-            for idx_name, idx_info in existing_indexes.items():
-                if idx_name == "_id_":
-                    continue
-
-                idx_keys = tuple(sorted(idx_info.get("key", [])))
-                if idx_keys == keys_tuple:
-                    logger.debug(
-                        "Index with keys %s already exists as '%s' on %s, "
-                        "skipping creation",
-                        keys_tuple,
-                        idx_name,
-                        collection_name,
-                    )
-                    return idx_name
-
-            # Check if index with same name exists
-            if "name" in kwargs:
-                index_name = kwargs["name"]
-                if index_name in existing_indexes:
-                    logger.debug(
-                        "Index %s already exists, skipping creation",
-                        index_name,
-                    )
-                    return index_name
-
-            async def _create_index() -> str:
-                return await collection.create_index(keys, **kwargs)
-
-            result = await self.execute_with_retry(
-                _create_index,
-                operation_name=f"index creation on {collection_name}",
-            )
-            logger.info(
-                "Index created on %s with keys %s (Name: %s)",
-                collection_name,
-                keys,
-                result,
-            )
-            return result
-
-        except DuplicateKeyError:
-            logger.warning(
-                "Index already exists on %s, ignoring DuplicateKeyError",
-                collection_name,
-            )
-            return self._get_existing_index_name(collection_name, keys)
-
-        except OperationFailure as e:
-            return await self._handle_index_operation_failure(
-                e, collection_name, keys, kwargs
-            )
-
-    async def _handle_index_operation_failure(
-        self,
-        error: OperationFailure,
-        collection_name: str,
-        keys: str | list[tuple[str, int]],
-        kwargs: dict[str, Any],
-    ) -> str | None:
-        """Handle OperationFailure during index creation.
-
-        Args:
-            error: The OperationFailure exception.
-            collection_name: Name of the collection.
-            keys: Index keys specification.
-            kwargs: Index options.
-
-        Returns:
-            Index name if recreated successfully, None otherwise.
-
-        Raises:
-            OperationFailure: For unhandled operation failures.
-        """
-        collection = self.get_collection(collection_name)
-
-        if error.code == 85:  # IndexOptionsConflict
-            index_name_to_create = kwargs.get("name")
-            if index_name_to_create and index_name_to_create in str(
-                (error.details or {}).get("errmsg", "")
-            ):
-                logger.warning(
-                    "IndexOptionsConflict for index '%s' on collection '%s'. "
-                    "Attempting to drop and recreate. Error: %s",
-                    index_name_to_create,
-                    collection_name,
-                    str(error),
-                )
-                try:
-                    await collection.drop_index(index_name_to_create)
-                    logger.info(
-                        "Successfully dropped conflicting index '%s' on '%s'. "
-                        "Retrying creation.",
-                        index_name_to_create,
-                        collection_name,
-                    )
-
-                    async def _create_index() -> str:
-                        return await collection.create_index(keys, **kwargs)
-
-                    result = await self.execute_with_retry(
-                        _create_index,
-                        operation_name=(
-                            f"index recreation on {collection_name} after conflict"
-                        ),
-                    )
-                    logger.info(
-                        "Index recreated on %s with keys %s (Name: %s)",
-                        collection_name,
-                        keys,
-                        result,
-                    )
-                    return result
-                except Exception as drop_recreate_e:
-                    logger.error(
-                        "Failed to drop and recreate index '%s' on '%s' "
-                        "after IndexOptionsConflict: %s",
-                        index_name_to_create,
-                        collection_name,
-                        str(drop_recreate_e),
-                    )
-                    return None
-            else:
-                logger.warning(
-                    "IndexOptionsConflict on %s (but not a simple name/options "
-                    "mismatch or name not specified): %s",
-                    collection_name,
-                    str(error),
-                )
-                return None
-
-        elif error.code in (86, 68):  # Index key specs or name conflict
-            logger.warning(
-                "Index conflict (key specs or name already exists and "
-                "options match): %s",
-                str(error),
-            )
-            return None
-
-        else:
-            logger.error("Error creating index: %s", str(error))
-            raise
-
-    def _get_existing_index_name(
-        self,
-        _collection_name: str,
-        _keys: str | list[tuple[str, int]],
-    ) -> str | None:
-        """Get the name of an existing index with matching keys.
-
-        Args:
-            collection_name: Name of the collection.
-            keys: Index keys specification.
-
-        Returns:
-            Index name if found, None otherwise.
-        """
-        # This is a sync helper, should be called after DuplicateKeyError
-        # The actual lookup needs to be async but we return None as a fallback
-        return None
+        return self.db[collection_name]
 
     async def init_beanie(self) -> None:
         """Initialize Beanie ODM with all document models.
@@ -624,7 +307,6 @@ class DatabaseManager:
             finally:
                 self._client = None
                 self._db = None
-                self._collections = {}
                 self._gridfs_bucket_instance = None
                 self._connection_healthy = False
                 self._beanie_initialized = False
@@ -640,7 +322,6 @@ class DatabaseManager:
             # Cannot await close() in __del__ - just reset references
             self._client = None
             self._db = None
-            self._collections = {}
             self._gridfs_bucket_instance = None
 
 

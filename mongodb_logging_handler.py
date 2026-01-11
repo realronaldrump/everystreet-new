@@ -23,7 +23,6 @@ class MongoDBHandler(logging.Handler):
 
     async def setup_indexes(self):
         """No-op as Beanie handles index creation at model level."""
-        pass
 
     def emit(self, record: logging.LogRecord) -> None:
         """

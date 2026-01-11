@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from config import get_mapbox_token
 from db.models import Trip
+from db.schemas import BulkProcessModel, DateRangeModel
 from trip_service import ProcessingOptions, TripService
 
 # Setup
@@ -16,23 +17,10 @@ router = APIRouter()
 trip_service = TripService(get_mapbox_token())
 
 
-# Pydantic Models specific to this module
 class ProcessTripOptions(BaseModel):
     map_match: bool = True
     validate_only: bool = False
     geocode_only: bool = False
-
-
-class BulkProcessModel(BaseModel):
-    query: dict
-    options: dict = {}
-    limit: int = 100
-
-
-class DateRangeModel(BaseModel):
-    start_date: str
-    end_date: str
-    interval_days: int = 0
 
 
 # API Endpoints

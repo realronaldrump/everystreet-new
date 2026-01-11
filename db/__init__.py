@@ -31,15 +31,6 @@ from __future__ import annotations
 
 import logging
 
-from db.indexes import (
-    ensure_archived_trip_indexes,
-    ensure_gas_tracking_indexes,
-    ensure_location_indexes,
-    ensure_places_indexes,
-    ensure_street_coverage_indexes,
-    init_database,
-    init_task_history_collection,
-)
 from db.manager import DatabaseManager, db_manager
 
 # ============================================================================
@@ -75,10 +66,6 @@ from db.query import (
     parse_query_date,
 )
 
-# ============================================================================
-# Utilities
-# ============================================================================
-from db.serializers import safe_float, safe_int
 
 logger = logging.getLogger(__name__)
 
@@ -111,19 +98,8 @@ __all__ = [
     "BouncieCredentials",
     "ALL_DOCUMENT_MODELS",
     "ALL_DOCUMENT_MODELS",
-    # Utilities
-    "safe_float",
-    "safe_int",
     # Query Building
     "parse_query_date",
     "build_calendar_date_expr",
     "build_query_from_request",
-    # Index Management
-    "init_task_history_collection",
-    "ensure_street_coverage_indexes",
-    "ensure_location_indexes",
-    "ensure_archived_trip_indexes",
-    "ensure_gas_tracking_indexes",
-    "ensure_places_indexes",
-    "init_database",
 ]
