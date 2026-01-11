@@ -242,7 +242,6 @@ def init_worker(**_kwargs):
 
         loop = asyncio.get_event_loop()
         # Ensure db_manager is ready
-        db_manager.ensure_connection()
         loop.run_until_complete(db_manager.init_beanie())
         logger.info("Beanie ODM initialized.")
 
