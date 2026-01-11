@@ -4,12 +4,7 @@ import logging
 from typing import Any
 
 from core.exceptions import ValidationException
-from db import (
-    aggregate_with_retry,
-    find_one_with_retry,
-    gas_fillups_collection,
-    trips_collection,
-)
+from db.models import GasFillup, Trip
 from gas.serializers import parse_iso_datetime
 from gas.services.bouncie_service import BouncieService
 from geometry_service import GeometryService
@@ -50,41 +45,32 @@ class OdometerService:
 
             # Fallback to most recent trip if Bouncie API fails
             logger.info("Falling back to local trip data for IMEI %s", imei)
-            trip = await find_one_with_retry(
-                trips_collection,
-                {"imei": imei},
-                sort=[("endTime", -1)],
-            )
+            trip = await Trip.find_one(Trip.imei == imei).sort(-Trip.endTime)
         else:
             # Parse timestamp
             target_time = parse_iso_datetime(timestamp)
 
             # Find the trip closest to this timestamp
             # First, try to find a trip that contains this timestamp
-            trip = await find_one_with_retry(
-                trips_collection,
-                {
-                    "imei": imei,
-                    "startTime": {"$lte": target_time},
-                    "endTime": {"$gte": target_time},
-                },
+            trip = await Trip.find_one(
+                Trip.imei == imei,
+                Trip.startTime <= target_time,
+                Trip.endTime >= target_time,
             )
 
             # If no trip contains the timestamp, find the closest trip before it
             if not trip:
-                trip = await find_one_with_retry(
-                    trips_collection,
-                    {"imei": imei, "endTime": {"$lte": target_time}},
-                    sort=[("endTime", -1)],
-                )
+                trip = await Trip.find_one(
+                    Trip.imei == imei,
+                    Trip.endTime <= target_time,
+                ).sort(-Trip.endTime)
 
             # If still no trip, find the closest trip after it
             if not trip:
-                trip = await find_one_with_retry(
-                    trips_collection,
-                    {"imei": imei, "startTime": {"$gte": target_time}},
-                    sort=[("startTime", 1)],
-                )
+                trip = await Trip.find_one(
+                    Trip.imei == imei,
+                    Trip.startTime >= target_time,
+                ).sort(Trip.startTime)
 
         if not trip:
             logger.warning(
@@ -96,45 +82,49 @@ class OdometerService:
             return {"latitude": None, "longitude": None, "odometer": None}
 
         # Extract location from the end of the trip
+        destination_address = None
+        if trip.destination and isinstance(trip.destination, dict):
+            destination_address = trip.destination.get("formatted_address")
+
         location_data = {
             "latitude": None,
             "longitude": None,
-            "odometer": trip.get("endOdometer"),
-            "timestamp": trip.get("endTime"),
-            "address": trip.get("destination", {}).get("formatted_address"),
+            "odometer": trip.endOdometer,
+            "timestamp": trip.endTime,
+            "address": destination_address,
         }
 
         logger.info(
             "Vehicle Loc Debug: Found trip %s, EndOdo: %s",
-            trip.get("transactionId"),
+            trip.transactionId,
             location_data["odometer"],
         )
 
         # Try to get coordinates from various sources
         # 1. GPS Data (Most accurate)
-        if trip.get("gps"):
+        if trip.gps:
             location_data = OdometerService._extract_gps_coordinates(
-                trip["gps"], location_data
+                trip.gps, location_data
             )
 
         # 2. End Location (Direct lat/lon)
-        if not location_data["latitude"] and trip.get("endLocation"):
+        if not location_data["latitude"] and trip.endLocation:
             location_data = OdometerService._extract_end_location(
-                trip["endLocation"], location_data
+                trip.endLocation, location_data
             )
 
         # 3. Start Location (Fallback if trip has no movement)
-        if not location_data["latitude"] and trip.get("startLocation"):
+        if not location_data["latitude"] and trip.startLocation:
             location_data = OdometerService._extract_start_location(
-                trip["startLocation"], location_data
+                trip.startLocation, location_data
             )
 
         # Odometer Fallback
         if location_data["odometer"] is None:
-            if trip.get("endOdometer"):
-                location_data["odometer"] = trip.get("endOdometer")
-            elif trip.get("startOdometer"):
-                location_data["odometer"] = trip.get("startOdometer")
+            if trip.endOdometer:
+                location_data["odometer"] = trip.endOdometer
+            elif trip.startOdometer:
+                location_data["odometer"] = trip.startOdometer
                 logger.info(
                     "Vehicle Loc Debug: Fallback to startOdometer %s",
                     location_data["odometer"],
@@ -244,63 +234,51 @@ class OdometerService:
 
         # 1. Find Anchors (Gas Fill-ups)
         # Previous trusted fill-up
-        prev_fillup = await find_one_with_retry(
-            gas_fillups_collection,
-            {
-                "imei": imei,
-                "fillup_time": {"$lte": target_time},
-                "odometer": {"$ne": None},
-            },
-            sort=[("fillup_time", -1)],
-        )
+        prev_fillup = await GasFillup.find_one(
+            GasFillup.imei == imei,
+            GasFillup.fillup_time <= target_time,
+            GasFillup.odometer != None,
+        ).sort(-GasFillup.fillup_time)
 
         # Next trusted fill-up
-        next_fillup = await find_one_with_retry(
-            gas_fillups_collection,
-            {
-                "imei": imei,
-                "fillup_time": {"$gt": target_time},
-                "odometer": {"$ne": None},
-            },
-            sort=[("fillup_time", 1)],
-        )
+        next_fillup = await GasFillup.find_one(
+            GasFillup.imei == imei,
+            GasFillup.fillup_time > target_time,
+            GasFillup.odometer != None,
+        ).sort(GasFillup.fillup_time)
 
         best_anchor = None
         anchor_type = None  # "prev" or "next"
 
         # Decide which anchor to use (closest)
         if prev_fillup and next_fillup:
-            diff_prev = abs((target_time - prev_fillup["fillup_time"]).total_seconds())
-            diff_next = abs((next_fillup["fillup_time"] - target_time).total_seconds())
+            diff_prev = abs((target_time - prev_fillup.fillup_time).total_seconds())
+            diff_next = abs((next_fillup.fillup_time - target_time).total_seconds())
             if diff_prev < diff_next:
-                best_anchor = prev_fillup
+                best_anchor = {"fillup_time": prev_fillup.fillup_time, "odometer": prev_fillup.odometer}
                 anchor_type = "prev"
             else:
-                best_anchor = next_fillup
+                best_anchor = {"fillup_time": next_fillup.fillup_time, "odometer": next_fillup.odometer}
                 anchor_type = "next"
         elif prev_fillup:
-            best_anchor = prev_fillup
+            best_anchor = {"fillup_time": prev_fillup.fillup_time, "odometer": prev_fillup.odometer}
             anchor_type = "prev"
         elif next_fillup:
-            best_anchor = next_fillup
+            best_anchor = {"fillup_time": next_fillup.fillup_time, "odometer": next_fillup.odometer}
             anchor_type = "next"
 
         # 2. If no fill-up anchor, try to find a trip anchor
         if not best_anchor:
-            prev_trip = await find_one_with_retry(
-                trips_collection,
-                {
-                    "imei": imei,
-                    "endTime": {"$lte": target_time},
-                    "endOdometer": {"$ne": None},
-                },
-                sort=[("endTime", -1)],
-            )
+            prev_trip = await Trip.find_one(
+                Trip.imei == imei,
+                Trip.endTime <= target_time,
+                Trip.endOdometer != None,
+            ).sort(-Trip.endTime)
             if prev_trip:
                 # Standardize structure to look like fillup for calc
                 best_anchor = {
-                    "fillup_time": prev_trip["endTime"],
-                    "odometer": prev_trip["endOdometer"],
+                    "fillup_time": prev_trip.endTime,
+                    "odometer": prev_trip.endOdometer,
                 }
                 anchor_type = "prev"
 
@@ -322,7 +300,7 @@ class OdometerService:
             {"$group": {"_id": None, "total_distance": {"$sum": "$distance"}}},
         ]
 
-        result = await aggregate_with_retry(trips_collection, pipeline)
+        result = await Trip.aggregate(pipeline).to_list()
         distance_sum = result[0]["total_distance"] if result else 0
         distance_sum = round(distance_sum, 1)
 

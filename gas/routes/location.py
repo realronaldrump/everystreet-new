@@ -5,7 +5,6 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from db import serialize_document
 from gas.services import OdometerService
 
 logger = logging.getLogger(__name__)
@@ -25,7 +24,7 @@ async def get_vehicle_location_at_time(
         location_data = await OdometerService.get_vehicle_location_at_time(
             imei, timestamp, use_now
         )
-        return serialize_document(location_data)
+        return location_data
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

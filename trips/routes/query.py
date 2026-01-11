@@ -1,5 +1,6 @@
 """API routes for trip querying and filtering."""
 
+import json
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -7,7 +8,8 @@ from fastapi.responses import StreamingResponse
 
 from core.api import api_route
 from date_utils import parse_timestamp
-from db import build_query_from_request, json_dumps, trips_collection
+from db import build_query_from_request
+from db.models import Trip
 from geometry_service import GeometryService
 from trips.serializers import _safe_float, _safe_int
 from trips.services import TripCostService, TripQueryService
@@ -48,23 +50,24 @@ async def get_trips(request: Request):
         "endOdometer": 1,
         "averageSpeed": 1,
     }
-    cursor = (
-        trips_collection.find(query, projection).sort("endTime", -1).batch_size(1000)
-    )
+    # Use Beanie cursor iteration
+    trip_cursor = Trip.find(query).sort(-Trip.endTime)
 
-    # Pre-fetch has prices for cost calculation
+    # Pre-fetch gas prices for cost calculation
     price_map = await TripCostService.get_fillup_price_map()
 
     async def stream():
         yield '{"type":"FeatureCollection","features":['
         first = True
-        async for trip in cursor:
-            st = parse_timestamp(trip.get("startTime"))
-            et = parse_timestamp(trip.get("endTime"))
+        async for trip in trip_cursor:
+            # Convert Beanie model to dict for processing
+            trip_dict = trip.model_dump() if isinstance(trip, Trip) else trip
+            st = parse_timestamp(trip_dict.get("startTime"))
+            et = parse_timestamp(trip_dict.get("endTime"))
             duration = (et - st).total_seconds() if st and et else None
 
-            geom = GeometryService.parse_geojson(trip.get("gps"))
-            matched_geom = GeometryService.parse_geojson(trip.get("matchedGps"))
+            geom = GeometryService.parse_geojson(trip_dict.get("gps"))
+            matched_geom = GeometryService.parse_geojson(trip_dict.get("matchedGps"))
 
             # Use matched geometry as the main feature geometry if requested
             final_geom = geom
@@ -78,31 +81,32 @@ async def get_trips(request: Request):
             )
             num_points = len(coords) if isinstance(coords, list) else 0
             props = {
-                "transactionId": trip.get("transactionId"),
-                "imei": trip.get("imei"),
+                "transactionId": trip_dict.get("transactionId"),
+                "imei": trip_dict.get("imei"),
                 "startTime": st.isoformat() if st else None,
                 "endTime": et.isoformat() if et else None,
                 "duration": duration,
-                "distance": _safe_float(trip.get("distance"), 0),
-                "maxSpeed": _safe_float(trip.get("maxSpeed"), 0),
-                "timeZone": trip.get("timeZone"),
-                "startLocation": trip.get("startLocation"),
-                "destination": trip.get("destination"),
-                "totalIdleDuration": trip.get("totalIdleDuration"),
-                "fuelConsumed": _safe_float(trip.get("fuelConsumed"), 0),
-                "source": trip.get("source"),
-                "hardBrakingCount": trip.get("hardBrakingCount"),
-                "hardAccelerationCount": trip.get("hardAccelerationCount"),
-                "startOdometer": trip.get("startOdometer"),
-                "endOdometer": trip.get("endOdometer"),
-                "averageSpeed": trip.get("averageSpeed"),
+                "distance": _safe_float(trip_dict.get("distance"), 0),
+                "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
+                "timeZone": trip_dict.get("timeZone"),
+                "startLocation": trip_dict.get("startLocation"),
+                "destination": trip_dict.get("destination"),
+                "totalIdleDuration": trip_dict.get("totalIdleDuration"),
+                "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
+                "source": trip_dict.get("source"),
+                "hardBrakingCount": trip_dict.get("hardBrakingCount"),
+                "hardAccelerationCount": trip_dict.get("hardAccelerationCount"),
+                "startOdometer": trip_dict.get("startOdometer"),
+                "endOdometer": trip_dict.get("endOdometer"),
+                "averageSpeed": trip_dict.get("averageSpeed"),
                 "pointsRecorded": num_points,
-                "estimated_cost": TripCostService.calculate_trip_cost(trip, price_map),
+                "estimated_cost": TripCostService.calculate_trip_cost(trip_dict, price_map),
                 "matchedGps": matched_geom,
-                "matchStatus": trip.get("matchStatus"),
+                "matchStatus": trip_dict.get("matchStatus"),
             }
             feature = GeometryService.feature_from_geometry(final_geom, props)
-            chunk = json_dumps(feature, separators=(",", ":"))
+            # Use standard json.dumps - Beanie models are already serializable
+            chunk = json.dumps(feature, separators=(",", ":"))
             if not first:
                 yield ","
             yield chunk

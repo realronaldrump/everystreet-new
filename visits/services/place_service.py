@@ -7,14 +7,7 @@ from typing import Any
 from bson import ObjectId
 
 from date_utils import normalize_to_utc_datetime
-from db import (
-    delete_one_with_retry,
-    find_one_with_retry,
-    find_with_retry,
-    insert_one_with_retry,
-    update_one_with_retry,
-)
-from visits.services.collections import Collections
+from db.models import Place
 
 logger = logging.getLogger(__name__)
 
@@ -82,11 +75,13 @@ class PlaceService:
         Returns:
             List of place dictionaries with _id as string
         """
-        places = await find_with_retry(Collections.places, {})
+        places = await Place.find_all().to_list()
         return [
             {
-                "_id": str(p["_id"]),
-                **CustomPlace.from_dict(p).to_dict(),
+                "_id": str(p.id),
+                "name": p.name,
+                "geometry": p.geometry,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
             }
             for p in places
         ]
@@ -102,14 +97,17 @@ class PlaceService:
         Returns:
             Created place dictionary
         """
-        place_obj = CustomPlace(name, geometry)
-        result = await insert_one_with_retry(
-            Collections.places,
-            place_obj.to_dict(),
+        place = Place(
+            name=name,
+            geometry=geometry,
+            created_at=datetime.now(UTC),
         )
+        await place.insert()
         return {
-            "_id": str(result.inserted_id),
-            **place_obj.to_dict(),
+            "_id": str(place.id),
+            "name": place.name,
+            "geometry": place.geometry,
+            "created_at": place.created_at.isoformat() if place.created_at else None,
         }
 
     @staticmethod
@@ -125,10 +123,9 @@ class PlaceService:
         Raises:
             ValueError: If place_id is invalid ObjectId
         """
-        await delete_one_with_retry(
-            Collections.places,
-            {"_id": ObjectId(place_id)},
-        )
+        place = await Place.get(ObjectId(place_id))
+        if place:
+            await place.delete()
         return {
             "status": "success",
             "message": "Place deleted",
@@ -153,38 +150,22 @@ class PlaceService:
         Raises:
             ValueError: If place not found or invalid ObjectId
         """
-        place = await find_one_with_retry(
-            Collections.places,
-            {"_id": ObjectId(place_id)},
-        )
+        place = await Place.get(ObjectId(place_id))
         if not place:
             raise ValueError("Place not found")
 
-        update_fields = {}
         if name is not None:
-            update_fields["name"] = name
+            place.name = name
         if geometry is not None:
-            update_fields["geometry"] = geometry
+            place.geometry = geometry
 
-        if not update_fields:
-            return {
-                "_id": place_id,
-                **CustomPlace.from_dict(place).to_dict(),
-            }
+        await place.save()
 
-        await update_one_with_retry(
-            Collections.places,
-            {"_id": ObjectId(place_id)},
-            {"$set": update_fields},
-        )
-
-        updated_place = await find_one_with_retry(
-            Collections.places,
-            {"_id": ObjectId(place_id)},
-        )
         return {
             "_id": place_id,
-            **CustomPlace.from_dict(updated_place).to_dict(),
+            "name": place.name,
+            "geometry": place.geometry,
+            "created_at": place.created_at.isoformat() if place.created_at else None,
         }
 
     @staticmethod
@@ -200,7 +181,12 @@ class PlaceService:
         Raises:
             ValueError: If place_id is invalid ObjectId
         """
-        return await find_one_with_retry(
-            Collections.places,
-            {"_id": ObjectId(place_id)},
-        )
+        place = await Place.get(ObjectId(place_id))
+        if not place:
+            return None
+        return {
+            "_id": str(place.id),
+            "name": place.name,
+            "geometry": place.geometry,
+            "created_at": place.created_at.isoformat() if place.created_at else None,
+        }

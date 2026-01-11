@@ -7,15 +7,7 @@ from typing import Any
 from bson import ObjectId
 
 from core.exceptions import ResourceNotFoundException, ValidationException
-from db import (
-    aggregate_with_retry,
-    find_one_with_retry,
-    gas_fillups_collection,
-    insert_one_with_retry,
-    trips_collection,
-    update_one_with_retry,
-    vehicles_collection,
-)
+from db.models import GasFillup, Trip, Vehicle
 from gas.serializers import parse_iso_datetime
 
 logger = logging.getLogger(__name__)
@@ -89,7 +81,7 @@ class StatisticsService:
             ]
         )
 
-        results = await aggregate_with_retry(gas_fillups_collection, pipeline)
+        results = await GasFillup.aggregate(pipeline).to_list()
 
         if not results:
             return {
@@ -137,14 +129,14 @@ class StatisticsService:
             {"$match": {"_id": {"$ne": None}}},
         ]
 
-        trip_vehicles = await aggregate_with_retry(trips_collection, pipeline)
+        trip_vehicles = await Trip.aggregate(pipeline).to_list()
 
         synced_count = 0
         updated_count = 0
 
         # Get all existing vehicles to memory to avoid N+1 queries
-        existing_vehicles = await vehicles_collection.find().to_list(None)
-        existing_map = {v["imei"]: v for v in existing_vehicles}
+        existing_vehicles = await Vehicle.find_all().to_list()
+        existing_map = {v.imei: v for v in existing_vehicles}
 
         for tv in trip_vehicles:
             imei = tv["_id"]
@@ -157,29 +149,22 @@ class StatisticsService:
 
             if existing:
                 # Update VIN if we have it and it's not set
-                if vin and not existing.get("vin"):
-                    await update_one_with_retry(
-                        vehicles_collection,
-                        {"imei": imei},
-                        {
-                            "$set": {
-                                "vin": vin,
-                                "updated_at": datetime.now(UTC),
-                            }
-                        },
-                    )
+                if vin and not existing.vin:
+                    existing.vin = vin
+                    existing.updated_at = datetime.now(UTC)
+                    await existing.save()
                     updated_count += 1
             else:
                 # Create new vehicle
-                vehicle_doc = {
-                    "imei": imei,
-                    "vin": vin,
-                    "custom_name": None,
-                    "is_active": True,
-                    "created_at": datetime.now(UTC),
-                    "updated_at": datetime.now(UTC),
-                }
-                await insert_one_with_retry(vehicles_collection, vehicle_doc)
+                vehicle = Vehicle(
+                    imei=imei,
+                    vin=vin,
+                    custom_name=None,
+                    is_active=True,
+                    created_at=datetime.now(UTC),
+                    updated_at=datetime.now(UTC),
+                )
+                await vehicle.insert()
                 synced_count += 1
 
         logger.info(
@@ -212,49 +197,41 @@ class StatisticsService:
         # Get the trip
         trip = None
         if ObjectId.is_valid(trip_id):
-            trip = await find_one_with_retry(
-                trips_collection, {"_id": ObjectId(trip_id)}
-            )
+            trip = await Trip.get(ObjectId(trip_id))
         if not trip:
-            trip = await find_one_with_retry(
-                trips_collection, {"transactionId": trip_id}
-            )
+            trip = await Trip.find_one(Trip.transactionId == trip_id)
         if not trip:
             raise ResourceNotFoundException(f"Trip {trip_id} not found")
 
-        trip_imei = imei or trip.get("imei")
+        trip_imei = imei or trip.imei
         if not trip_imei:
             raise ValidationException("Cannot determine vehicle IMEI")
 
         # Get the most recent fill-up before or during this trip
-        fillup = await find_one_with_retry(
-            gas_fillups_collection,
-            {
-                "imei": trip_imei,
-                "fillup_time": {"$lte": trip.get("endTime")},
-            },
-            sort=[("fillup_time", -1)],
-        )
+        fillup = await GasFillup.find_one(
+            GasFillup.imei == trip_imei,
+            GasFillup.fillup_time <= trip.endTime,
+        ).sort(-GasFillup.fillup_time)
 
         if not fillup:
             # No fill-up data available
             return {
                 "trip_id": trip_id,
-                "distance": trip.get("distance", 0),
+                "distance": trip.distance or 0,
                 "estimated_cost": None,
                 "message": "No fill-up data available",
             }
 
         # Calculate cost based on fuel consumed or estimated MPG
-        fuel_consumed = trip.get("fuelConsumed")
-        price_per_gallon = fillup.get("price_per_gallon")
+        fuel_consumed = trip.fuelConsumed
+        price_per_gallon = fillup.price_per_gallon
 
         if fuel_consumed and price_per_gallon:
             estimated_cost = fuel_consumed * price_per_gallon
-        elif fillup.get("calculated_mpg") and price_per_gallon:
+        elif fillup.calculated_mpg and price_per_gallon:
             # Estimate based on distance and MPG
-            distance = trip.get("distance", 0)
-            mpg = fillup["calculated_mpg"]
+            distance = trip.distance or 0
+            mpg = fillup.calculated_mpg
             estimated_gallons = distance / mpg if mpg > 0 else 0
             estimated_cost = estimated_gallons * price_per_gallon
         else:
@@ -262,9 +239,9 @@ class StatisticsService:
 
         return {
             "trip_id": trip_id,
-            "distance": trip.get("distance", 0),
+            "distance": trip.distance or 0,
             "fuel_consumed": fuel_consumed,
             "price_per_gallon": price_per_gallon,
             "estimated_cost": round(estimated_cost, 2) if estimated_cost else None,
-            "mpg_used": fillup.get("calculated_mpg"),
+            "mpg_used": fillup.calculated_mpg,
         }

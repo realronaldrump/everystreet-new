@@ -4,8 +4,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from db import aggregate_with_retry, find_with_retry, serialize_datetime
-from visits.services.collections import Collections
+from db.models import Place, Trip
 from visits.services.visit_tracking_service import VisitTrackingService
 
 logger = logging.getLogger(__name__)
@@ -52,8 +51,8 @@ class VisitStatsService:
         return {
             "totalVisits": total_visits,
             "averageTimeSpent": VisitTrackingService.format_duration(avg_duration),
-            "firstVisit": serialize_datetime(first_visit),
-            "lastVisit": serialize_datetime(last_visit),
+            "firstVisit": first_visit.isoformat() if first_visit else None,
+            "lastVisit": last_visit.isoformat() if last_visit else None,
             "averageTimeSinceLastVisit": VisitTrackingService.format_duration(
                 avg_time_between
             ),
@@ -67,12 +66,13 @@ class VisitStatsService:
         Returns:
             List of place statistics dictionaries
         """
-        places = await find_with_retry(Collections.places, {})
+        places = await Place.find_all().to_list()
         if not places:
             return []
 
         results = []
-        for place in places:
+        for place_model in places:
+            place = place_model.model_dump()
             visits = await VisitTrackingService.calculate_visits_for_place(place)
 
             total_visits = len(visits)
@@ -89,14 +89,14 @@ class VisitStatsService:
 
             results.append(
                 {
-                    "_id": str(place["_id"]),
+                    "_id": str(place_model.id),
                     "name": place["name"],
                     "totalVisits": total_visits,
                     "averageTimeSpent": VisitTrackingService.format_duration(
                         avg_duration
                     ),
-                    "firstVisit": serialize_datetime(first_visit),
-                    "lastVisit": serialize_datetime(last_visit),
+                    "firstVisit": first_visit.isoformat() if first_visit else None,
+                    "lastVisit": last_visit.isoformat() if last_visit else None,
                 }
             )
         return results
@@ -133,9 +133,9 @@ class VisitStatsService:
                 {
                     "id": arrival_trip_id,
                     "transactionId": transaction_id,
-                    "endTime": serialize_datetime(visit["arrival_time"]),
+                    "endTime": visit["arrival_time"].isoformat() if visit["arrival_time"] else None,
                     "departureTime": (
-                        serialize_datetime(visit["departure_time"])
+                        visit["departure_time"].isoformat()
                         if visit["departure_time"]
                         else None
                     ),
@@ -232,14 +232,14 @@ class VisitStatsService:
             {"$limit": 100},
         ]
 
-        results = await aggregate_with_retry(Collections.trips, pipeline)
+        results = await Trip.aggregate(pipeline).to_list()
 
         places_data = [
             {
                 "name": doc["_id"],
                 "totalVisits": doc["totalVisits"],
-                "firstVisit": serialize_datetime(doc["firstVisit"]),
-                "lastVisit": serialize_datetime(doc["lastVisit"]),
+                "firstVisit": doc["firstVisit"].isoformat() if doc.get("firstVisit") else None,
+                "lastVisit": doc["lastVisit"].isoformat() if doc.get("lastVisit") else None,
             }
             for doc in results
         ]
@@ -349,18 +349,15 @@ class VisitStatsService:
             {"$limit": 50},
         ]
 
-        clusters = await aggregate_with_retry(Collections.trips, pipeline)
+        clusters = await Trip.aggregate(pipeline).to_list()
 
         # Build list of existing custom place polygons for overlap check
-        existing_places = await find_with_retry(
-            Collections.places, {}, projection={"geometry": 1}
-        )
+        existing_places = await Place.find_all().to_list()
         existing_polygons = []
-        for p in existing_places:
+        for place in existing_places:
             try:
-                g = p.get("geometry")
-                if g:
-                    existing_polygons.append(shp_shape(g))
+                if place.geometry:
+                    existing_polygons.append(shp_shape(place.geometry))
             except Exception:  # noqa: BLE001
                 continue
 
@@ -398,8 +395,8 @@ class VisitStatsService:
                 {
                     "suggestedName": f"Area near {round(center_lat, 3)}, {round(center_lng, 3)}",
                     "totalVisits": c["totalVisits"],
-                    "firstVisit": serialize_datetime(c["firstVisit"]),
-                    "lastVisit": serialize_datetime(c["lastVisit"]),
+                    "firstVisit": c["firstVisit"].isoformat() if c.get("firstVisit") else None,
+                    "lastVisit": c["lastVisit"].isoformat() if c.get("lastVisit") else None,
                     "centroid": [center_lng, center_lat],
                     "boundary": boundary,
                 }

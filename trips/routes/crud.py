@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from core.api import api_route
-from db import serialize_document
 from trips.services import TripCrudService
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ async def get_single_trip(trip_id: str):
         )
     return {
         "status": "success",
-        "trip": serialize_document(trip),
+        "trip": trip,  # FastAPI auto-serializes Beanie models
     }
 
 

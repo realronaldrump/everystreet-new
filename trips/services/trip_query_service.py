@@ -4,7 +4,8 @@ import logging
 from typing import Any
 
 from date_utils import parse_timestamp
-from db import build_calendar_date_expr, trips_collection, vehicles_collection
+from db import build_calendar_date_expr
+from db.models import Trip, Vehicle
 from geometry_service import GeometryService
 from trips.serializers import _safe_float
 
@@ -114,8 +115,9 @@ class TripQueryService:
                 {"destination.formatted_address": search_regex},
             ]
 
-        total_count = await trips_collection.count_documents({})
-        filtered_count = await trips_collection.count_documents(query)
+        # Use Beanie count methods
+        total_count = await Trip.count()
+        filtered_count = await Trip.find(query).count()
 
         sort_column = None
         sort_direction = -1
@@ -140,6 +142,7 @@ class TripQueryService:
             sort_column = "imei"
 
         if sort_column == "duration":
+            # Use aggregation for computed duration sort
             pipeline = [
                 {"$match": query},
                 {"$addFields": {"duration": {"$subtract": ["$endTime", "$startTime"]}}},
@@ -147,34 +150,38 @@ class TripQueryService:
                 {"$skip": start},
                 {"$limit": length},
             ]
-            trips_list = await trips_collection.aggregate(pipeline).to_list(
-                length=length
-            )
+            trips_list = await Trip.aggregate(pipeline).to_list()
         else:
-            cursor = (
-                trips_collection.find(query)
-                .sort([(sort_column, sort_direction)])
-                .skip(start)
-                .limit(length)
-            )
-            trips_list = await cursor.to_list(length=length)
+            # Use Beanie query builder
+            trips_query = Trip.find(query)
+            if sort_direction == -1:
+                trips_query = trips_query.sort(f"-{sort_column}")
+            else:
+                trips_query = trips_query.sort(sort_column)
+            trips_list = await trips_query.skip(start).limit(length).to_list()
 
         formatted_data = []
         for trip in trips_list:
-            start_time = parse_timestamp(trip.get("startTime"))
-            end_time = parse_timestamp(trip.get("endTime"))
+            # Handle both Beanie models and aggregation dicts
+            if isinstance(trip, Trip):
+                trip_dict = trip.model_dump()
+            else:
+                trip_dict = trip
+
+            start_time = parse_timestamp(trip_dict.get("startTime"))
+            end_time = parse_timestamp(trip_dict.get("endTime"))
             duration = (
                 (end_time - start_time).total_seconds()
                 if start_time and end_time
                 else None
             )
 
-            imei = trip.get("imei", "")
-            start_location = trip.get("startLocation", "Unknown")
+            imei = trip_dict.get("imei", "")
+            start_location = trip_dict.get("startLocation", "Unknown")
             if isinstance(start_location, dict):
                 start_location = start_location.get("formatted_address", "Unknown")
 
-            destination = trip.get("destination", "Unknown")
+            destination = trip_dict.get("destination", "Unknown")
             if isinstance(destination, dict):
                 destination = destination.get("formatted_address", "Unknown")
 
@@ -182,18 +189,18 @@ class TripQueryService:
             from trips.services.trip_cost_service import TripCostService
 
             formatted_trip = {
-                "transactionId": trip.get("transactionId", ""),
+                "transactionId": trip_dict.get("transactionId", ""),
                 "imei": imei,
                 "startTime": start_time.isoformat() if start_time else None,
                 "endTime": end_time.isoformat() if end_time else None,
                 "duration": duration,
-                "distance": _safe_float(trip.get("distance"), 0),
+                "distance": _safe_float(trip_dict.get("distance"), 0),
                 "startLocation": start_location,
                 "destination": destination,
-                "maxSpeed": _safe_float(trip.get("maxSpeed"), 0),
-                "totalIdleDuration": trip.get("totalIdleDuration", 0),
-                "fuelConsumed": _safe_float(trip.get("fuelConsumed"), 0),
-                "estimated_cost": TripCostService.calculate_trip_cost(trip, price_map),
+                "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
+                "totalIdleDuration": trip_dict.get("totalIdleDuration", 0),
+                "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
+                "estimated_cost": TripCostService.calculate_trip_cost(trip_dict, price_map),
             }
             formatted_data.append(formatted_trip)
 
@@ -201,11 +208,9 @@ class TripQueryService:
         imeis = {trip.get("imei") for trip in formatted_data if trip.get("imei")}
         vehicle_map: dict[str, dict] = {}
         if imeis:
-            vehicles = await vehicles_collection.find(
-                {"imei": {"$in": list(imeis)}}
-            ).to_list(None)
+            vehicles = await Vehicle.find(Vehicle.imei.in_(list(imeis))).to_list()
             for vehicle in vehicles:
-                vehicle_map[vehicle.get("imei")] = vehicle
+                vehicle_map[vehicle.imei] = vehicle.model_dump()
 
         for trip in formatted_data:
             imei = trip.get("imei")
@@ -246,26 +251,33 @@ class TripQueryService:
         Returns:
             dict with status, trips list, and count
         """
-        from db import serialize_document
+        # Use Beanie projection
+        trips = await Trip.find(
+            Trip.invalid == True,
+            projection_model=None,  # Use dict projection
+        ).sort(-Trip.validated_at).limit(1000).to_list()
 
-        cursor = trips_collection.find(
-            {"invalid": True},
-            {
-                "transactionId": 1,
-                "startTime": 1,
-                "endTime": 1,
-                "distance": 1,
-                "validation_message": 1,
-                "source": 1,
-                "validated_at": 1,
-            },
-        ).sort("validated_at", -1)
+        # Convert Beanie models to dicts for response
+        trips_data = []
+        for trip in trips:
+            if isinstance(trip, Trip):
+                trip_dict = {
+                    "transactionId": trip.transactionId,
+                    "startTime": trip.startTime,
+                    "endTime": trip.endTime,
+                    "distance": trip.distance,
+                    "validation_message": getattr(trip, "validation_message", None),
+                    "source": getattr(trip, "source", None),
+                    "validated_at": getattr(trip, "validated_at", None),
+                }
+            else:
+                trip_dict = trip
+            trips_data.append(trip_dict)
 
-        trips = await cursor.to_list(length=1000)
         return {
             "status": "success",
-            "trips": [serialize_document(t) for t in trips],
-            "count": len(trips),
+            "trips": trips_data,
+            "count": len(trips_data),
         }
 
     @staticmethod
@@ -311,18 +323,11 @@ class TripQueryService:
             "invalid": {"$ne": True},
         }
 
-        projection = {
-            "_id": 0,
-            "matchedGps.coordinates": 1,
-            "transactionId": 1,
-        }
-
-        cursor = trips_collection.find(query, projection)
-
+        # Use Beanie cursor iteration
         trip_features = []
-        async for trip_doc in cursor:
-            if trip_doc.get("matchedGps") and trip_doc["matchedGps"].get("coordinates"):
-                coords = trip_doc["matchedGps"]["coordinates"]
+        async for trip in Trip.find(query):
+            if trip.matchedGps and trip.matchedGps.get("coordinates"):
+                coords = trip.matchedGps["coordinates"]
                 geometry = GeometryService.geometry_from_coordinate_pairs(
                     coords,
                     allow_point=False,
@@ -333,7 +338,7 @@ class TripQueryService:
                     feature = GeometryService.feature_from_geometry(
                         geometry,
                         properties={
-                            "transactionId": trip_doc.get("transactionId", "N/A")
+                            "transactionId": trip.transactionId or "N/A"
                         },
                     )
                     trip_features.append(feature)

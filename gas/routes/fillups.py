@@ -6,7 +6,6 @@ from typing import Any
 from fastapi import APIRouter, Query
 
 from core.api import api_route
-from db import serialize_document
 from gas.services import FillupService
 from models import GasFillupCreateModel
 
@@ -25,7 +24,7 @@ async def get_gas_fillups(
 ) -> list[dict[str, Any]]:
     """Get gas fill-up records with optional filters."""
     fillups = await FillupService.get_fillups(imei, vin, start_date, end_date, limit)
-    return [serialize_document(f) for f in fillups]
+    return fillups  # FastAPI auto-serializes Beanie models
 
 
 @router.get("/api/gas-fillups/{fillup_id}")
@@ -37,7 +36,7 @@ async def get_gas_fillup(fillup_id: str) -> dict[str, Any]:
         from core.exceptions import ResourceNotFoundException
 
         raise ResourceNotFoundException("Fill-up not found")
-    return serialize_document(fillup)
+    return fillup  # FastAPI auto-serializes Beanie model
 
 
 @router.post("/api/gas-fillups")
@@ -48,7 +47,7 @@ async def create_gas_fillup(
     """Create a new gas fill-up record."""
     fillup_dict = fillup_data.model_dump(exclude_none=True)
     fillup = await FillupService.create_fillup(fillup_dict)
-    return serialize_document(fillup)
+    return fillup  # FastAPI auto-serializes Beanie model
 
 
 @router.put("/api/gas-fillups/{fillup_id}")
@@ -60,7 +59,7 @@ async def update_gas_fillup(
     # Use exclude_unset=True to know what the user actually sent
     update_data = fillup_data.model_dump(exclude_unset=True)
     fillup = await FillupService.update_fillup(fillup_id, update_data)
-    return serialize_document(fillup)
+    return fillup  # FastAPI auto-serializes Beanie model
 
 
 @router.delete("/api/gas-fillups/{fillup_id}")

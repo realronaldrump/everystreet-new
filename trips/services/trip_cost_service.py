@@ -4,7 +4,7 @@ import bisect
 import logging
 
 from date_utils import parse_timestamp
-from db import gas_fillups_collection
+from db.models import GasFillup
 from trips.serializers import _safe_float
 
 logger = logging.getLogger(__name__)
@@ -34,17 +34,12 @@ class TripCostService:
             "imei": {"$ne": None},
         }
 
-        projection = {"imei": 1, "fillup_time": 1, "price_per_gallon": 1}
-        # Sort by time to ensure ordered lists
-        cursor = gas_fillups_collection.find(fillup_query, projection).sort(
-            "fillup_time", 1
-        )
-
+        # Use Beanie cursor iteration
         price_map = {}
-        async for fillup in cursor:
-            imei = fillup.get("imei")
-            ts = fillup.get("fillup_time")
-            price = fillup.get("price_per_gallon")
+        async for fillup in GasFillup.find(fillup_query).sort(GasFillup.fillup_time):
+            imei = fillup.imei
+            ts = fillup.fillup_time
+            price = fillup.price_per_gallon
 
             if imei not in price_map:
                 price_map[imei] = ([], [])
@@ -59,7 +54,7 @@ class TripCostService:
                 price_map[imei][0].append(ts)
                 price_map[imei][1].append(price)
 
-        # Ensure lists are strictly sorted by timestamp (in case mixed types messed up Mongo sort or order)
+        # Ensure lists are strictly sorted by timestamp
         for imei in price_map:
             if price_map[imei][0]:
                 # Zip and sort by timestamp
@@ -94,8 +89,6 @@ class TripCostService:
             return None
 
         # Find the insertion point for start_time in timestamps to get the most recent past fill-up
-        # bisect_right returns an insertion point after (to the right of) any existing entries of x in a.
-        # The element to the left of this index is the one <= start_time
         try:
             idx = bisect.bisect_right(timestamps, start_time)
 

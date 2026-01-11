@@ -3,8 +3,7 @@
 import logging
 
 from date_utils import normalize_to_utc_datetime
-from db import aggregate_with_retry
-from visits.services.collections import Collections
+from db.models import Trip
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +58,7 @@ class VisitTrackingService:
             {"$sort": {"endTime": 1}},
             {
                 "$lookup": {
-                    "from": (
-                        Collections.trips.name
-                        if hasattr(Collections.trips, "name")
-                        else "trips"
-                    ),
+                    "from": "trips",
                     "let": {"arrivalEnd": "$endTime"},
                     "pipeline": [
                         {"$match": {"$expr": {"$gt": ["$startTime", "$$arrivalEnd"]}}},
@@ -148,7 +143,7 @@ class VisitTrackingService:
             },
         ]
 
-        docs = await aggregate_with_retry(Collections.trips, pipeline)
+        docs = await Trip.aggregate(pipeline).to_list()
 
         visits: list[dict] = []
         for doc in docs:

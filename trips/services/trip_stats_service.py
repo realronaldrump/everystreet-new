@@ -5,13 +5,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from date_utils import normalize_calendar_date
-from db import (
-    build_calendar_date_expr,
-    find_with_retry,
-    progress_collection,
-    trips_collection,
-    update_one_with_retry,
-)
+from db import build_calendar_date_expr
+from db.models import ProgressStatus, Trip
 from trip_service import TripService
 
 logger = logging.getLogger(__name__)
@@ -78,64 +73,49 @@ class TripStatsService:
                 query = {"$expr": range_expr}
 
             # Initialize progress tracking
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "initializing",
-                        "progress": 0,
-                        "message": "Finding trips to geocode...",
-                        "updated_at": datetime.now(UTC),
-                        "task_type": "geocoding",
-                        "metrics": {
-                            "total": 0,
-                            "processed": 0,
-                            "updated": 0,
-                            "skipped": 0,
-                            "failed": 0,
-                        },
-                    }
+            progress = ProgressStatus(
+                operation_id=task_id,
+                operation_type="geocoding",
+                status="running",
+                stage="initializing",
+                progress=0,
+                message="Finding trips to geocode...",
+                started_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                metadata={
+                    "total": 0,
+                    "processed": 0,
+                    "updated": 0,
+                    "skipped": 0,
+                    "failed": 0,
                 },
-                upsert=True,
             )
+            await progress.insert()
 
             # Find trips matching query
-            trips_list = await find_with_retry(trips_collection, query)
+            trips_list = await Trip.find(query).to_list()
             trip_ids = [
-                trip.get("transactionId")
+                trip.transactionId
                 for trip in trips_list
-                if trip.get("transactionId")
+                if trip.transactionId
             ]
 
             total_trips = len(trip_ids)
 
             # Update progress with total count
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "processing",
-                        "progress": 0,
-                        "message": f"Found {total_trips} trips to process",
-                        "metrics.total": total_trips,
-                    }
-                },
-            )
+            progress.stage = "processing"
+            progress.message = f"Found {total_trips} trips to process"
+            progress.metadata["total"] = total_trips
+            progress.updated_at = datetime.now(UTC)
+            await progress.save()
 
             if total_trips == 0:
-                await update_one_with_retry(
-                    progress_collection,
-                    {"_id": task_id},
-                    {
-                        "$set": {
-                            "stage": "completed",
-                            "progress": 100,
-                            "message": "No trips found matching criteria",
-                        }
-                    },
-                )
+                progress.stage = "completed"
+                progress.status = "completed"
+                progress.progress = 100
+                progress.message = "No trips found matching criteria"
+                progress.updated_at = datetime.now(UTC)
+                await progress.save()
                 return {
                     "task_id": task_id,
                     "message": "No trips found matching criteria",
@@ -145,21 +125,12 @@ class TripStatsService:
             # Define progress callback
             async def progress_callback(current: int, total: int, trip_id: str):
                 progress_pct = int((current / total) * 100) if total > 0 else 0
-                await update_one_with_retry(
-                    progress_collection,
-                    {"_id": task_id},
-                    {
-                        "$set": {
-                            "progress": progress_pct,
-                            "message": f"Geocoding trip {current} of {total}",
-                            "current_trip_id": trip_id,
-                            "updated_at": datetime.now(UTC),
-                        },
-                        "$inc": {
-                            "metrics.processed": 1,
-                        },
-                    },
-                )
+                progress.progress = progress_pct
+                progress.message = f"Geocoding trip {current} of {total}"
+                progress.metadata["current_trip_id"] = trip_id
+                progress.metadata["processed"] = progress.metadata.get("processed", 0) + 1
+                progress.updated_at = datetime.now(UTC)
+                await progress.save()
 
             # Process geocoding
             result = await self.trip_service.refresh_geocoding(
@@ -169,29 +140,23 @@ class TripStatsService:
             )
 
             # Update final progress
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "completed",
-                        "progress": 100,
-                        "message": (
-                            f"Completed: {result['updated']} updated, "
-                            f"{result['skipped']} skipped, "
-                            f"{result['failed']} failed"
-                        ),
-                        "metrics": {
-                            "total": result["total"],
-                            "processed": result["total"],
-                            "updated": result["updated"],
-                            "skipped": result["skipped"],
-                            "failed": result["failed"],
-                        },
-                        "updated_at": datetime.now(UTC),
-                    }
-                },
+            progress.stage = "completed"
+            progress.status = "completed"
+            progress.progress = 100
+            progress.message = (
+                f"Completed: {result['updated']} updated, "
+                f"{result['skipped']} skipped, "
+                f"{result['failed']} failed"
             )
+            progress.metadata = {
+                "total": result["total"],
+                "processed": result["total"],
+                "updated": result["updated"],
+                "skipped": result["skipped"],
+                "failed": result["failed"],
+            }
+            progress.updated_at = datetime.now(UTC)
+            await progress.save()
 
             return {
                 "task_id": task_id,
@@ -208,19 +173,13 @@ class TripStatsService:
         except Exception as e:
             logger.exception("Error in geocode_trips: %s", e)
             # Update progress with error
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": task_id},
-                {
-                    "$set": {
-                        "stage": "error",
-                        "progress": 0,
-                        "message": f"Error: {str(e)}",
-                        "error": str(e),
-                        "updated_at": datetime.now(UTC),
-                    }
-                },
-            )
+            progress.stage = "error"
+            progress.status = "failed"
+            progress.progress = 0
+            progress.message = f"Error: {str(e)}"
+            progress.error = str(e)
+            progress.updated_at = datetime.now(UTC)
+            await progress.save()
             raise
 
     @staticmethod
@@ -236,11 +195,9 @@ class TripStatsService:
         Raises:
             ValueError: If task not found
         """
-        from db import find_one_with_retry, serialize_datetime
-
-        progress = await find_one_with_retry(
-            progress_collection,
-            {"_id": task_id, "task_type": "geocoding"},
+        progress = await ProgressStatus.find_one(
+            ProgressStatus.operation_id == task_id,
+            ProgressStatus.operation_type == "geocoding",
         )
 
         if not progress:
@@ -248,13 +205,13 @@ class TripStatsService:
 
         return {
             "task_id": task_id,
-            "stage": progress.get("stage", "unknown"),
-            "progress": progress.get("progress", 0),
-            "message": progress.get("message", ""),
-            "metrics": progress.get("metrics", {}),
-            "current_trip_id": progress.get("current_trip_id"),
-            "error": progress.get("error"),
-            "updated_at": serialize_datetime(progress.get("updated_at")),
+            "stage": progress.stage or "unknown",
+            "progress": progress.progress or 0,
+            "message": progress.message or "",
+            "metrics": progress.metadata or {},
+            "current_trip_id": progress.metadata.get("current_trip_id") if progress.metadata else None,
+            "error": progress.error,
+            "updated_at": progress.updated_at.isoformat() if progress.updated_at else None,
         }
 
     async def regeocode_single_trip(self, trip_id: str):

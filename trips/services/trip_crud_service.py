@@ -4,13 +4,7 @@ import json
 import logging
 from datetime import UTC, datetime
 
-from db import (
-    delete_many_with_retry,
-    delete_one_with_retry,
-    get_trip_by_id,
-    trips_collection,
-    update_one_with_retry,
-)
+from db.models import Trip
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +13,16 @@ class TripCrudService:
     """Service class for trip create, update, and delete operations."""
 
     @staticmethod
-    async def get_trip(trip_id: str):
+    async def get_trip(trip_id: str) -> Trip | None:
         """Get a single trip by its transaction ID.
 
         Args:
             trip_id: Transaction ID of the trip
 
         Returns:
-            Trip document or None if not found
+            Trip model or None if not found
         """
-        return await get_trip_by_id(trip_id, trips_collection)
+        return await Trip.find_one(Trip.transactionId == trip_id)
 
     @staticmethod
     async def delete_trip(trip_id: str):
@@ -43,23 +37,17 @@ class TripCrudService:
         Raises:
             ValueError: If trip not found
         """
-        trip = await get_trip_by_id(trip_id, trips_collection)
+        trip = await Trip.find_one(Trip.transactionId == trip_id)
         if not trip:
             raise ValueError("Trip not found")
 
-        result = await delete_one_with_retry(trips_collection, {"_id": trip["_id"]})
+        await trip.delete()
 
-        # Retry once more (matches original behavior)
-        result = await delete_one_with_retry(trips_collection, {"_id": trip["_id"]})
-
-        if result.deleted_count >= 1:
-            return {
-                "status": "success",
-                "message": "Trip deleted successfully",
-                "deleted_trips": result.deleted_count,
-            }
-
-        raise ValueError("Failed to delete trip after finding it.")
+        return {
+            "status": "success",
+            "message": "Trip deleted successfully",
+            "deleted_trips": 1,
+        }
 
     @staticmethod
     async def bulk_delete_trips(trip_ids: list[str]):
@@ -77,13 +65,7 @@ class TripCrudService:
         if not trip_ids:
             raise ValueError("No trip IDs provided")
 
-        result = await delete_many_with_retry(
-            trips_collection, {"transactionId": {"$in": trip_ids}}
-        )
-        # Retry once more (matches original behavior)
-        result = await delete_many_with_retry(
-            trips_collection, {"transactionId": {"$in": trip_ids}}
-        )
+        result = await Trip.find(Trip.transactionId.in_(trip_ids)).delete()
 
         return {
             "status": "success",
@@ -106,39 +88,30 @@ class TripCrudService:
         Raises:
             ValueError: If trip not found or invalid data
         """
-        trip_to_update = await get_trip_by_id(trip_id, trips_collection)
-        if not trip_to_update:
+        trip = await Trip.find_one(Trip.transactionId == trip_id)
+        if not trip:
             raise ValueError("Trip not found")
 
-        update_payload = {}
         if geometry_data:
             if isinstance(geometry_data, str):
                 try:
                     geometry_data = json.loads(geometry_data)
                 except json.JSONDecodeError:
                     raise ValueError("Invalid JSON format for geometry field.")
-            update_payload["gps"] = geometry_data
+            trip.gps = geometry_data
 
         if properties_data:
             for key, value in properties_data.items():
-                if key not in ["_id", "transactionId"]:
-                    update_payload[key] = value
+                if key not in ["_id", "transactionId"] and hasattr(trip, key):
+                    setattr(trip, key, value)
 
-        if not update_payload:
+        if not geometry_data and not properties_data:
             return {"status": "no_change", "message": "No data provided to update."}
 
-        update_payload["last_modified"] = datetime.now(UTC)
+        trip.last_modified = datetime.now(UTC)
+        await trip.save()
 
-        result = await update_one_with_retry(
-            trips_collection,
-            {"transactionId": trip_id},
-            {"$set": update_payload},
-        )
-
-        if result.modified_count > 0:
-            return {"status": "success", "message": "Trip updated successfully."}
-
-        return {"status": "no_change", "message": "Trip data was already up-to-date."}
+        return {"status": "success", "message": "Trip updated successfully."}
 
     @staticmethod
     async def restore_trip(trip_id: str):
@@ -153,14 +126,14 @@ class TripCrudService:
         Raises:
             ValueError: If trip not found
         """
-        trip = await get_trip_by_id(trip_id, trips_collection)
+        trip = await Trip.find_one(Trip.transactionId == trip_id)
         if not trip:
             raise ValueError("Trip not found")
 
-        # Unset invalid flag in trips_collection (matched status is part of the same doc now)
-        await trips_collection.update_one(
-            {"_id": trip["_id"]},
-            {"$unset": {"invalid": "", "validation_message": "", "validated_at": ""}},
-        )
+        # Unset invalid flags
+        trip.invalid = None
+        trip.validation_message = None
+        trip.validated_at = None
+        await trip.save()
 
         return {"status": "success", "message": "Trip allocated as valid."}

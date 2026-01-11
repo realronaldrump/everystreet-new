@@ -5,7 +5,6 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from db import serialize_document
 from gas.services import StatisticsService
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ async def get_gas_statistics(
     """Get gas consumption statistics."""
     try:
         stats = await StatisticsService.get_gas_statistics(imei, start_date, end_date)
-        return serialize_document(stats)
+        return stats
 
     except Exception as e:
         logger.error("Error calculating gas statistics: %s", e)

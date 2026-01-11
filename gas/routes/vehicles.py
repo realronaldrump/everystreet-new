@@ -5,7 +5,6 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from db import serialize_document
 from gas.services import VehicleService
 from models import VehicleModel
 
@@ -22,7 +21,8 @@ async def get_vehicles(
     """Get all vehicles or filter by IMEI/VIN."""
     try:
         vehicles = await VehicleService.get_vehicles(imei, vin, active_only)
-        return [serialize_document(v) for v in vehicles]
+        # FastAPI auto-serializes Beanie models
+        return vehicles
 
     except Exception as e:
         logger.error("Error fetching vehicles: %s", e)
@@ -35,7 +35,8 @@ async def create_vehicle(vehicle_data: VehicleModel) -> dict[str, Any]:
     try:
         vehicle_dict = vehicle_data.model_dump(exclude={"id"}, exclude_none=True)
         vehicle = await VehicleService.create_vehicle(vehicle_dict)
-        return serialize_document(vehicle)
+        # FastAPI auto-serializes Beanie model
+        return vehicle
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -52,7 +53,8 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> dict[str, Any
             exclude={"id", "imei", "created_at"}, exclude_none=True
         )
         vehicle = await VehicleService.update_vehicle(imei, update_data)
-        return serialize_document(vehicle)
+        # FastAPI auto-serializes Beanie model
+        return vehicle
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

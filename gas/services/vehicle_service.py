@@ -5,13 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.exceptions import DuplicateResourceException, ResourceNotFoundException
-from db import (
-    find_one_with_retry,
-    find_with_retry,
-    insert_one_with_retry,
-    update_one_with_retry,
-    vehicles_collection,
-)
+from db.models import Vehicle
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +18,7 @@ class VehicleService:
         imei: str | None = None,
         vin: str | None = None,
         active_only: bool = True,
-    ) -> list[dict[str, Any]]:
+    ) -> list[Vehicle]:
         """Get all vehicles or filter by IMEI/VIN.
 
         Args:
@@ -33,61 +27,55 @@ class VehicleService:
             active_only: Only return active vehicles (default True)
 
         Returns:
-            List of vehicle documents
+            List of Vehicle models
         """
-        query: dict[str, Any] = {}
+        conditions = []
 
         if imei:
-            query["imei"] = imei
+            conditions.append(Vehicle.imei == imei)
         if vin:
-            query["vin"] = vin
+            conditions.append(Vehicle.vin == vin)
         if active_only:
-            # Treat missing is_active field as active (backward compatibility)
-            query["$or"] = [
-                {"is_active": True},
-                {"is_active": {"$exists": False}},
-                {"is_active": None},
-            ]
+            conditions.append(Vehicle.is_active == True)
 
-        vehicles = await find_with_retry(
-            vehicles_collection,
-            query,
-            sort=[("created_at", -1)],
-        )
+        if conditions:
+            query = Vehicle.find(*conditions)
+        else:
+            query = Vehicle.find_all()
+
+        vehicles = await query.sort(-Vehicle.created_at).to_list()
 
         logger.info("Fetched %d vehicles (active_only=%s)", len(vehicles), active_only)
         return vehicles
 
     @staticmethod
-    async def create_vehicle(vehicle_data: dict[str, Any]) -> dict[str, Any]:
+    async def create_vehicle(vehicle_data: dict[str, Any]) -> Vehicle:
         """Create a new vehicle record.
 
         Args:
             vehicle_data: Vehicle data dictionary
 
         Returns:
-            Created vehicle document
+            Created Vehicle model
 
         Raises:
-            ValueError: If vehicle with IMEI already exists
+            DuplicateResourceException: If vehicle with IMEI already exists
         """
         # Check if vehicle with this IMEI already exists
-        existing = await find_one_with_retry(
-            vehicles_collection, {"imei": vehicle_data["imei"]}
-        )
+        existing = await Vehicle.find_one(Vehicle.imei == vehicle_data["imei"])
         if existing:
             raise DuplicateResourceException("Vehicle with this IMEI already exists")
 
         vehicle_data["created_at"] = datetime.now(UTC)
         vehicle_data["updated_at"] = datetime.now(UTC)
 
-        result = await insert_one_with_retry(vehicles_collection, vehicle_data)
-        vehicle_data["_id"] = result.inserted_id
+        vehicle = Vehicle(**vehicle_data)
+        await vehicle.insert()
 
-        return vehicle_data
+        return vehicle
 
     @staticmethod
-    async def update_vehicle(imei: str, update_data: dict[str, Any]) -> dict[str, Any]:
+    async def update_vehicle(imei: str, update_data: dict[str, Any]) -> Vehicle:
         """Update a vehicle's information.
 
         Args:
@@ -95,26 +83,25 @@ class VehicleService:
             update_data: Fields to update
 
         Returns:
-            Updated vehicle document
+            Updated Vehicle model
 
         Raises:
-            ValueError: If vehicle not found
+            ResourceNotFoundException: If vehicle not found
         """
         # Find the vehicle
-        existing = await find_one_with_retry(vehicles_collection, {"imei": imei})
-        if not existing:
+        vehicle = await Vehicle.find_one(Vehicle.imei == imei)
+        if not vehicle:
             raise ResourceNotFoundException(f"Vehicle with IMEI {imei} not found")
 
         # Update fields
-        update_data["updated_at"] = datetime.now(UTC)
+        for key, value in update_data.items():
+            if hasattr(vehicle, key):
+                setattr(vehicle, key, value)
 
-        await update_one_with_retry(
-            vehicles_collection, {"imei": imei}, {"$set": update_data}
-        )
+        vehicle.updated_at = datetime.now(UTC)
+        await vehicle.save()
 
-        # Fetch and return updated vehicle
-        updated = await find_one_with_retry(vehicles_collection, {"imei": imei})
-        return updated
+        return vehicle
 
     @staticmethod
     async def delete_vehicle(imei: str) -> dict[str, str]:
@@ -127,32 +114,26 @@ class VehicleService:
             Success message
 
         Raises:
-            ValueError: If vehicle not found
+            ResourceNotFoundException: If vehicle not found
         """
-        result = await update_one_with_retry(
-            vehicles_collection,
-            {"imei": imei},
-            {
-                "$set": {
-                    "is_active": False,
-                    "updated_at": datetime.now(UTC),
-                }
-            },
-        )
-
-        if result.matched_count == 0:
+        vehicle = await Vehicle.find_one(Vehicle.imei == imei)
+        if not vehicle:
             raise ResourceNotFoundException(f"Vehicle with IMEI {imei} not found")
+
+        vehicle.is_active = False
+        vehicle.updated_at = datetime.now(UTC)
+        await vehicle.save()
 
         return {"status": "success", "message": "Vehicle marked as inactive"}
 
     @staticmethod
-    async def get_vehicle_by_imei(imei: str) -> dict[str, Any] | None:
+    async def get_vehicle_by_imei(imei: str) -> Vehicle | None:
         """Get a vehicle by IMEI.
 
         Args:
             imei: Vehicle IMEI
 
         Returns:
-            Vehicle document or None if not found
+            Vehicle model or None if not found
         """
-        return await find_one_with_retry(vehicles_collection, {"imei": imei})
+        return await Vehicle.find_one(Vehicle.imei == imei)
