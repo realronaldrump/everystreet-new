@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from analytics.services import DashboardService
@@ -18,7 +19,7 @@ async def get_driving_insights(request: Request):
     try:
         query = await build_query_from_request(request)
         combined = await DashboardService.get_driving_insights(query)
-        return JSONResponse(content=combined)
+        return JSONResponse(content=jsonable_encoder(combined))
     except Exception as e:
         logger.exception(
             "Error in get_driving_insights: %s",
@@ -36,7 +37,7 @@ async def get_metrics(request: Request):
     try:
         query = await build_query_from_request(request)
         response_content = await DashboardService.get_metrics(query)
-        return JSONResponse(content=response_content)
+        return JSONResponse(content=jsonable_encoder(response_content))
 
     except Exception as e:
         logger.exception("Error in get_metrics: %s", e)
