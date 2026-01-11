@@ -31,24 +31,50 @@ from __future__ import annotations
 
 import logging
 
-from db.indexes import (ensure_archived_trip_indexes,
-                        ensure_gas_tracking_indexes, ensure_location_indexes,
-                        ensure_places_indexes, ensure_street_coverage_indexes,
-                        init_database, init_task_history_collection)
+from db.indexes import (
+    ensure_archived_trip_indexes,
+    ensure_gas_tracking_indexes,
+    ensure_location_indexes,
+    ensure_places_indexes,
+    ensure_street_coverage_indexes,
+    init_database,
+    init_task_history_collection,
+)
 from db.manager import DatabaseManager, db_manager
+
 # ============================================================================
 # Beanie Document Models
 # ============================================================================
-from db.models import (ALL_DOCUMENT_MODELS, AppSettings, ArchivedLiveTrip,
-                       BouncieCredentials, CoverageMetadata, GasFillup,
-                       LiveTrip, MatchedTrip, OptimalRouteProgress, OsmData,
-                       Place, ProgressStatus, ServerLog, Street, TaskConfig,
-                       TaskHistory, Trip, Vehicle)
+from db.models import (
+    ALL_DOCUMENT_MODELS,
+    AppSettings,
+    ArchivedLiveTrip,
+    BouncieCredentials,
+    CoverageMetadata,
+    GasFillup,
+    LiveTrip,
+    MatchedTrip,
+    OptimalRouteProgress,
+    OsmData,
+    Place,
+    ProgressStatus,
+    ServerLog,
+    Street,
+    TaskConfig,
+    TaskHistory,
+    Trip,
+    Vehicle,
+)
+
 # ============================================================================
 # Query Building
 # ============================================================================
-from db.query import (build_calendar_date_expr, build_query_from_request,
-                      parse_query_date)
+from db.query import (
+    build_calendar_date_expr,
+    build_query_from_request,
+    parse_query_date,
+)
+
 # ============================================================================
 # Utilities
 # ============================================================================

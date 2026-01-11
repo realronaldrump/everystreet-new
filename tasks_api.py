@@ -7,9 +7,15 @@ from pydantic import BaseModel
 from date_utils import normalize_to_utc_datetime
 from db.models import TaskHistory
 from models import BackgroundTasksConfigModel
-from tasks import (TASK_METADATA, force_reset_task, get_all_task_metadata,
-                   get_task_config, trigger_fetch_all_missing_trips,
-                   trigger_manual_fetch_trips_range, update_task_schedule)
+from tasks import (
+    TASK_METADATA,
+    force_reset_task,
+    get_all_task_metadata,
+    get_task_config,
+    trigger_fetch_all_missing_trips,
+    trigger_manual_fetch_trips_range,
+    update_task_schedule,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

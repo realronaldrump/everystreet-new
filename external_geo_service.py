@@ -13,8 +13,7 @@ import aiohttp
 import pyproj
 from aiolimiter import AsyncLimiter
 
-from core.http.geocoding import (reverse_geocode_mapbox,
-                                 reverse_geocode_nominatim)
+from core.http.geocoding import reverse_geocode_mapbox, reverse_geocode_nominatim
 from core.http.session import get_session
 from date_utils import parse_timestamp
 from geometry_service import GeometryService

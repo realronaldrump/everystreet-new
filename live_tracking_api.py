@@ -8,18 +8,33 @@ from datetime import UTC, datetime
 from typing import Any
 
 import redis.asyncio as aioredis
-from fastapi import (APIRouter, HTTPException, Request, WebSocket,
-                     WebSocketDisconnect, status)
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
 
 from db import db_manager
 from db.models import ArchivedLiveTrip, LiveTrip
-from live_tracking import (get_active_trip, get_trip_updates,
-                           process_trip_data, process_trip_end,
-                           process_trip_metrics, process_trip_start)
-from models import (ActiveTripResponseUnion, ActiveTripSuccessResponse,
-                    NoActiveTripResponse, TripDataModel)
+from live_tracking import (
+    get_active_trip,
+    get_trip_updates,
+    process_trip_data,
+    process_trip_end,
+    process_trip_metrics,
+    process_trip_start,
+)
+from models import (
+    ActiveTripResponseUnion,
+    ActiveTripSuccessResponse,
+    NoActiveTripResponse,
+    TripDataModel,
+)
 from redis_config import get_redis_url
 from trip_event_publisher import TRIP_UPDATES_CHANNEL
 
