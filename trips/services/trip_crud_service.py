@@ -4,6 +4,8 @@ import json
 import logging
 from datetime import UTC, datetime
 
+from beanie.operators import In
+
 from db.models import Trip
 
 logger = logging.getLogger(__name__)
@@ -65,7 +67,7 @@ class TripCrudService:
         if not trip_ids:
             raise ValueError("No trip IDs provided")
 
-        result = await Trip.find(Trip.transactionId.in_(trip_ids)).delete()
+        result = await Trip.find(In(Trip.transactionId, trip_ids)).delete()
 
         return {
             "status": "success",

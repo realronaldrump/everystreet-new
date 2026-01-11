@@ -262,7 +262,7 @@ class TripQueryService:
         # Use Beanie projection
         trips = (
             await Trip.find(
-                Trip.invalid,
+                Trip.invalid == True,  # noqa: E712
                 projection_model=None,  # Use dict projection
             )
             .sort(-Trip.validated_at)

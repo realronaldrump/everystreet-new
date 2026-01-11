@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from beanie.operators import In
 from celery.utils.log import get_task_logger
 
 from db.models import TaskConfig, TaskHistory
@@ -124,7 +125,7 @@ async def check_dependencies(
 
         # Query all dependencies at once
         dep_configs = await TaskConfig.find(
-            TaskConfig.task_id.in_(dependencies)
+            In(TaskConfig.task_id, dependencies)
         ).to_list()
         dep_map = {d.task_id: d for d in dep_configs}
 

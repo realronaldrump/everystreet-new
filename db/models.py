@@ -70,6 +70,10 @@ class Trip(Document):
     destinationPlaceId: str | None = None
     destinationPlaceName: str | None = None
 
+    # Validation fields
+    invalid: bool | None = None
+    validated_at: datetime | None = None
+
     class Settings:
         name = "trips"
         use_state_management = True

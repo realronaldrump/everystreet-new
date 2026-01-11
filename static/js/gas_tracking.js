@@ -48,7 +48,7 @@ async function initializePage() {
 
     // Set current time as default
     setCurrentTime();
-  } catch (error) {
+  } catch (_error) {
     showError("Failed to initialize page");
   }
 }
@@ -56,10 +56,10 @@ async function initializePage() {
 /**
  * Initialize Mapbox map
  */
-  async function initializeMap() {
-    if (!window.MAPBOX_ACCESS_TOKEN) {
-      return;
-    }
+async function initializeMap() {
+  if (!window.MAPBOX_ACCESS_TOKEN) {
+    return;
+  }
 
   // Use the shared map factory if available to ensure consistent styling
   if (window.mapBase?.createMap) {
@@ -186,7 +186,7 @@ async function loadVehicles(options = {}) {
       );
     }
     return vehicles;
-  } catch (error) {
+  } catch (_error) {
     setVehicleStatus(
       "Could not load vehicles automatically. Please sync from Profile.",
       "danger"
@@ -232,7 +232,7 @@ async function attemptVehicleDiscovery() {
         if (step.tolerateStatuses?.includes(response.status)) {
           continue;
         }
-        const errorText = await response.text();
+        const _errorText = await response.text();
         // Tolerated error, continue to next step
         continue;
       }
@@ -243,7 +243,7 @@ async function attemptVehicleDiscovery() {
         showSuccess(step.successMessage);
         return true;
       }
-    } catch (err) {
+    } catch (_err) {
       // Vehicle discovery error, continue to next step
     }
   }
@@ -326,7 +326,7 @@ async function updateLocationAndOdometer() {
       // Don't clear manual input if user typed something
       if (!odometerInput.value) odometerInput.placeholder = "Enter manually";
     }
-  } catch (error) {
+  } catch (_error) {
     locationText.textContent = "Error loading location";
     locationText.classList.add("text-muted");
     odometerDisplay.textContent = "--";
@@ -497,7 +497,7 @@ async function autoCalcOdometer() {
     } else {
       showError("Could not estimate: No previous/next trusted odometer found.");
     }
-  } catch (error) {
+  } catch (_error) {
     showError("Failed to auto-calculate odometer");
   } finally {
     // Restore button
@@ -672,7 +672,7 @@ async function loadRecentFillups() {
     }
 
     fillupList.innerHTML = fillups.map((fillup) => createFillupItem(fillup)).join("");
-  } catch (error) {
+  } catch (_error) {
     fillupList.innerHTML =
       '<p class="text-center text-danger">Error loading fill-ups</p>';
   }
@@ -837,7 +837,7 @@ window.deleteFillup = async (id) => {
     }
 
     await Promise.all([loadRecentFillups(), loadStatistics()]);
-  } catch (error) {
+  } catch (_error) {
     showError("Failed to delete fill-up");
   }
 };
@@ -869,5 +869,7 @@ async function loadStatistics() {
     document.getElementById("cost-per-mile").textContent = stats.cost_per_mile
       ? `$${stats.cost_per_mile.toFixed(3)}`
       : "$0.00";
+  } catch (_error) {
+    // Error loading statistics - silently ignore
   }
 }

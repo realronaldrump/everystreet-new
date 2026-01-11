@@ -207,7 +207,7 @@ export function updateMobileHistoryList(history, taskManager) {
           card.dataset.startTime = entry.timestamp;
           card.dataset.isRunning = "true";
         }
-      } catch (e) {
+      } catch (_e) {
         // Error calculating elapsed time - silently ignore
       }
     }
@@ -470,7 +470,7 @@ async function pollGeocodeProgress(context) {
     if (progressData.stage === "completed" || progressData.stage === "error") {
       handleGeocodeCompletion(context, progressData);
     }
-  } catch (pollErr) {
+  } catch (_pollErr) {
     // Error polling progress - silently ignore
     clearInterval(pollGeocodeProgress.pollInterval);
     geocodeBtn.disabled = false;
@@ -664,7 +664,7 @@ export function setupMobileGeocodeTrips() {
       if (progressMessage) progressMessage.textContent = "Initializing...";
       if (progressMetrics) progressMetrics.textContent = "";
 
-      const response = await fetch("/api/geocode_trips", {
+      const _response = await fetch("/api/geocode_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ start_date, end_date, interval_days }),
@@ -674,11 +674,11 @@ export function setupMobileGeocodeTrips() {
         throw new Error("Failed to start geocoding");
       }
 
-      const data = await response.json();
-      const taskId = data.task_id;
+      const _data = await response.json();
+      const _taskId = data.task_id;
 
       // Start polling for progress
-      const pollInterval = setInterval(
+      const _pollInterval = setInterval(
         pollGeocodeProgress.bind(null, {
           taskId,
           pollInterval: null,
@@ -720,7 +720,7 @@ export function setupMobileGeocodeTrips() {
 
       // Update pollInterval reference for cleanup
       pollGeocodeProgress.pollInterval = pollInterval;
-    } catch (err) {
+    } catch (_err) {
       geocodeBtn.disabled = false;
       if (statusEl) {
         statusEl.textContent = "Error starting geocoding. See console.";
@@ -822,7 +822,7 @@ export function setupMobileRemapTrips() {
           remapStatus.textContent = data.message;
         }
         window.notificationManager.show(data.message, "success");
-      } catch (error) {
+      } catch (_error) {
         hideLoadingOverlay();
         if (remapStatus) {
           remapStatus.classList.remove("info");

@@ -72,7 +72,7 @@ async def get_server_logs(
         total_count = await ServerLog.find(query_filter).count()
 
         return {
-            "logs": [log.model_dump() for log in logs],
+            "logs": [log.model_dump(mode="json") for log in logs],
             "total_count": total_count,
             "returned_count": len(logs),
             "limit": limit,

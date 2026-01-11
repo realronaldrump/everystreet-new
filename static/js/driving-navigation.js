@@ -38,8 +38,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return;
   }
-    return;
-  }
 
   // Initialize driving navigation and expose globally for backwards compatibility
   window.drivingNav = new DrivingNavigation();

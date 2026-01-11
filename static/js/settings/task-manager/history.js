@@ -48,7 +48,7 @@ export function renderTaskHistoryTable(history) {
           row.dataset.startTime = entry.timestamp;
           row.dataset.isRunning = "true";
         }
-      } catch (e) {
+      } catch (_e) {
         // Error calculating elapsed time - silently ignore
       }
     }
@@ -131,7 +131,7 @@ export function updateRunningTaskDurations() {
               durationCell.textContent = formatDuration(elapsedMs);
             }
           }
-        } catch (e) {
+        } catch (_e) {
           // Error updating duration - silently ignore
         }
       }
@@ -156,7 +156,7 @@ export function updateRunningTaskDurations() {
                 durationElement.textContent = formatDuration(elapsedMs);
               }
             }
-          } catch (e) {
+          } catch (_e) {
             // Error updating duration - silently ignore
           }
         }
