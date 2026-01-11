@@ -25,7 +25,7 @@ const COVERAGE_API = {
     // Use longer timeout (60s) for getAllAreas as it can be slow with many areas
     const data = await apiClient.get("/api/coverage_areas", {
       cache: !bypassCache,
-      timeout: 60000
+      timeout: 60000,
     });
     if (!data.success) {
       throw new Error(data.error || "API returned failure");
@@ -84,7 +84,10 @@ const COVERAGE_API = {
    * Start preprocessing custom boundary
    */
   async preprocessCustomBoundary(location) {
-    const result = await apiClient.post("/api/preprocess_custom_boundary", location);
+    const result = await apiClient.post(
+      "/api/preprocess_custom_boundary",
+      location,
+    );
     this.invalidateCache();
     return result;
   },
@@ -140,7 +143,7 @@ const COVERAGE_API = {
    */
   async refreshStats(locationId) {
     const result = await apiClient.post(
-      `/api/coverage_areas/${locationId}/refresh_stats`
+      `/api/coverage_areas/${locationId}/refresh_stats`,
     );
     this.invalidateCache();
     return result;
@@ -178,7 +181,7 @@ const COVERAGE_API = {
       top_n: topN.toString(),
     });
     return apiClient.get(
-      `/api/driving-navigation/suggest-next-street/${locationId}?${params}`
+      `/api/driving-navigation/suggest-next-street/${locationId}?${params}`,
     );
   },
 
@@ -222,7 +225,9 @@ const COVERAGE_API = {
    */
   async getOptimalRoute(locationId) {
     try {
-      return await apiClient.get(`/api/coverage_areas/${locationId}/optimal-route`);
+      return await apiClient.get(
+        `/api/coverage_areas/${locationId}/optimal-route`,
+      );
     } catch (error) {
       if (error.message.includes("404")) {
         return null; // No route generated yet
