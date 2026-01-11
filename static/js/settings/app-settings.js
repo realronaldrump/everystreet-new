@@ -26,7 +26,9 @@ export function setupTabSwitching() {
 
 export function setupAppSettingsForm() {
   const darkModeToggle = document.getElementById("dark-mode-toggle");
-  const highlightRecentTrips = document.getElementById("highlight-recent-trips");
+  const highlightRecentTrips = document.getElementById(
+    "highlight-recent-trips",
+  );
   const autoCenterToggle = document.getElementById("auto-center-toggle");
   const showLiveTracking = document.getElementById("show-live-tracking");
   const polylineColor = document.getElementById("polyline-color");
@@ -57,9 +59,11 @@ export function setupAppSettingsForm() {
     if (showLiveTracking) showLiveTracking.checked = slt !== false;
     if (geocodeTripsOnFetch) geocodeTripsOnFetch.checked = gtof !== false;
     if (polylineColor)
-      polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
+      polylineColor.value =
+        pc || localStorage.getItem("polylineColor") || "#00FF00";
     if (polylineOpacity) {
-      polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
+      polylineOpacity.value =
+        po || localStorage.getItem("polylineOpacity") || "0.8";
       if (opacityValue) opacityValue.textContent = polylineOpacity.value;
     }
   }
@@ -108,7 +112,10 @@ export function setupAppSettingsForm() {
         throw new Error(`Server returned ${resp.status}`);
       }
     } catch (_err) {
-      window.notificationManager?.show("Failed to save settings on server", "danger");
+      window.notificationManager?.show(
+        "Failed to save settings on server",
+        "danger",
+      );
       return;
     }
 
@@ -129,7 +136,7 @@ export function setupAppSettingsForm() {
       try {
         window.liveTracker.updatePolylineStyle(
           payload.polylineColor,
-          payload.polylineOpacity
+          payload.polylineOpacity,
         );
       } catch (_err) {}
     }

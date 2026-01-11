@@ -9,8 +9,7 @@ from collections.abc import AsyncIterator
 
 from bson import ObjectId
 from fastapi.encoders import jsonable_encoder
-from gridfs import AsyncGridFSBucket
-from gridfs import errors
+from gridfs import AsyncGridFSBucket, errors
 
 from db.manager import db_manager
 from db.models import CoverageMetadata, Street
