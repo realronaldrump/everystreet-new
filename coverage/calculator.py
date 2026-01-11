@@ -171,11 +171,10 @@ class CoverageCalculator:
                 # Ensure all fields are set
                 await status_doc.insert()
 
-        except Exception as e:
+        except Exception:
             logger.exception(
-                "Task %s: Error updating progress: %s",
+                "Task %s: Error updating progress",
                 self.task_id,
-                e,
             )
 
     async def calculate_initial_stats(self) -> bool:
@@ -275,14 +274,10 @@ class CoverageCalculator:
                     self.location_name,
                 )
 
-            return True
-
         except Exception as e:
-            logger.error(
-                "Task %s: Error calculating stats: %s",
+            logger.exception(
+                "Task %s: Error calculating stats",
                 self.task_id,
-                e,
-                exc_info=True,
             )
             await self.update_progress(
                 "error",
@@ -290,6 +285,8 @@ class CoverageCalculator:
                 f"Stats calculation error: {e}",
             )
             return False
+
+        return True
 
     @staticmethod
     def _is_valid_trip(
@@ -397,17 +394,13 @@ class CoverageCalculator:
 
             # Query MongoDB using Beanie
             # Using raw find to get specific fields including geometry
-            docs = (
-                await Street.find(
-                    {
-                        "properties.location": self.location_name,
-                        "properties.driven": False,
-                        "geometry": {"$geoIntersects": {"$geometry": query_geometry}},
-                    },
-                )
-                .project(model=Street)
-                .to_list()
-            )  # Fetch all matches
+            docs = await Street.find(
+                {
+                    "properties.location": self.location_name,
+                    "properties.driven": False,
+                    "geometry": {"$geoIntersects": {"$geometry": query_geometry}},
+                },
+            ).to_list()  # Fetch all matches
 
             # Since we need only specific fields and Street model returns objects, we can optimize.
             # But Beanie Street(Document) includes all fields.
@@ -429,17 +422,15 @@ class CoverageCalculator:
                 if self._geometry_length_m(intersection) >= self.min_match_length:
                     matched_segments.append(doc.properties["segment_id"])
 
-            return matched_segments
         except Exception as e:
             # Rate-limit error logging to prevent spam
             self._geospatial_error_count += 1
             if self._geospatial_error_count == 1:
                 self._geospatial_error_sample = str(e)
                 logger.exception(
-                    "Task %s: Geospatial query failed: %s "
+                    "Task %s: Geospatial query failed "
                     "(further errors will be summarized)",
                     self.task_id,
-                    e,
                 )
             elif self._geospatial_error_count % 50 == 0:
                 logger.warning(
@@ -448,6 +439,8 @@ class CoverageCalculator:
                     self._geospatial_error_count,
                 )
             return []
+
+        return matched_segments
 
     async def process_trips(self, processed_trip_ids_set: set[str]) -> bool:
         """
@@ -476,8 +469,8 @@ class CoverageCalculator:
                 self.task_id,
                 self.total_trips_to_process,
             )
-        except Exception as e:
-            logger.exception("Task %s: Error counting trips: %s", self.task_id, e)
+        except Exception:
+            logger.exception("Task %s: Error counting trips", self.task_id)
             return False
 
         if self.total_trips_to_process == 0:
@@ -488,8 +481,8 @@ class CoverageCalculator:
 
         # Manual batching using Beanie iterator
         batch: list[Trip] = []
-        async for trip_doc in Trip.find(base_trip_filter).project(
-            model=Trip,
+        async for trip_doc in Trip.find(
+            base_trip_filter
         ):  # Project to Trip model (includes gps, id)
             batch.append(trip_doc)
 
@@ -718,7 +711,7 @@ class CoverageCalculator:
                 )
                 await asyncio.sleep(BATCH_PROCESS_DELAY)
         except Exception as e:
-            logger.exception("Task %s: Error updating DB: %s", self.task_id, e)
+            logger.exception("Task %s: Error updating DB", self.task_id)
             await self.update_progress("error", 90, f"Error updating DB: {e}")
 
     async def _calculate_final_stats(self) -> dict[str, Any] | None:
@@ -941,9 +934,8 @@ class CoverageCalculator:
 
         except Exception as e:
             logger.exception(
-                "Task %s: Error calculating final stats: %s",
+                "Task %s: Error calculating final stats",
                 self.task_id,
-                e,
             )
             await self.update_progress("error", 95, f"Error calculating stats: {e}")
             return None
@@ -1036,7 +1028,7 @@ class CoverageCalculator:
             ).update(update_doc, upsert=True)
 
         except Exception as e:
-            logger.exception("Task %s: Error updating metadata: %s", self.task_id, e)
+            logger.exception("Task %s: Error updating metadata", self.task_id)
             await self.update_progress("error", 97, f"Failed to update metadata: {e}")
 
     async def compute_coverage(
@@ -1092,9 +1084,11 @@ class CoverageCalculator:
 
             if final_stats:
                 # Trigger GeoJSON generation in background
-                asyncio.create_task(
+                task = asyncio.create_task(
                     generate_and_store_geojson(self.location_name, self.task_id),
                 )
+                # Keep a weak reference if needed, or just silence linter
+                _ = task
 
             duration = (datetime.now(UTC) - start_time).total_seconds()
 
@@ -1110,12 +1104,12 @@ class CoverageCalculator:
 
             logger.info("Task %s: Finished in %.2fs", self.task_id, duration)
 
-            return final_stats
-
         except Exception as e:
-            logger.exception("Task %s: Unhandled error: %s", self.task_id, e)
+            logger.exception("Task %s: Unhandled error", self.task_id)
             await self.update_progress("error", 0, f"Unhandled error: {e}")
             return None
+
+        return final_stats
 
     async def _load_previous_trip_ids(self) -> set[str]:
         """
