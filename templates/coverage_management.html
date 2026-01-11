@@ -1,141 +1,168 @@
-{% extends "base.html" %}
-
-{% block title %}
-
-Coverage Management
-{% endblock %}
-
-{%
-block head_content %}
-
+{% extends "base.html" %} {% block title %} Coverage Management {% endblock %}
+{% block head_content %}
 
 <!-- Mapbox Draw CSS -->
 <link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" type="text/css" />
 <!-- Mapbox GL CSS -->
 <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-<link rel="stylesheet"
-      href="{{ url_for('static', path='css/coverage-management.css') | replace('http://', '//') }}" />
-{% endblock %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/coverage-management.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 
-
-{% block content %}
-
-  <div class="container-fluid">
-    <div class="row">
-      <div class="col-12">
-        <!-- Hero Section -->
-        <div class="hero-section">
-          <div class="row align-items-center">
-            <div class="col-md-8">
-              <h1 class="mb-3">
-                <i class="fas fa-map-marked-alt me-3"></i>Coverage Management
-              </h1>
-              <p class="lead mb-0 opacity-75">
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12">
+      <!-- Hero Section -->
+      <div class="hero-section">
+        <div class="row align-items-center">
+          <div class="col-md-8">
+            <h1 class="mb-3">
+              <i class="fas fa-map-marked-alt me-3"></i>Coverage Management
+            </h1>
+            <p class="lead mb-0 opacity-75">
               Track and manage street coverage across your service areas.
               Monitor progress, identify gaps, and optimize your routes.
-              </p>
-            </div>
-            <div class="col-md-4 text-md-end">
-              <div class="d-flex flex-column align-items-md-end">
-                <div class="text-secondary small mb-2">
-Total Coverage Areas
-                </div>
-                <div class="display-4 fw-bold text-primary" id="total-areas-count">
+            </p>
+          </div>
+          <div class="col-md-4 text-md-end">
+            <div class="d-flex flex-column align-items-md-end">
+              <div class="text-secondary small mb-2">Total Coverage Areas</div>
+              <div
+                class="display-4 fw-bold text-primary"
+                id="total-areas-count"
+              >
                 0
+              </div>
+            </div>
+          </div>
+
+          <!-- Minimized Progress Indicator -->
+          <div
+            id="minimized-progress-indicator"
+            class="minimized-progress-badge"
+            style="display: none"
+          >
+            <div class="d-flex align-items-center gap-2">
+              <i class="fas fa-cog fa-spin"></i>
+              <span class="minimized-location-name"></span>
+              <span class="badge bg-primary minimized-progress-percent"
+                >0%</span
+              >
+              <button
+                type="button"
+                class="btn btn-sm btn-link text-white p-0 ms-1"
+                id="restore-progress-modal"
+                title="Expand"
+              >
+                <i class="fas fa-expand"></i>
+              </button>
+            </div>
+          </div>
+          {% endblock %} {% block extra_js %}
+
+          <!-- Mapbox GL JS -->
+          <script src="{{ CDN.mapbox_gl_js }}"></script>
+          <!-- Mapbox Draw -->
+          <script src="{{ CDN.mapbox_draw_js }}"></script>
+          <script>
+            // Set Mapbox access token from server-injected variable
+            window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+          </script>
+          <!-- Chart.js -->
+          <script src="{{ CDN.chartjs }}"></script>
+          <!-- Coverage Management Script -->
+          <script
+            type="module"
+            src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"
+          ></script>
+          <!-- Segment Length Modal -->
+          <div
+            class="modal fade"
+            id="segmentLengthModal"
+            tabindex="-1"
+            aria-hidden="true"
+          >
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Re-segment Streets</h5>
+                  <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                  ></button>
+                </div>
+                <div class="modal-body">
+                  <div class="mb-3">
+                    <label for="segment-length-modal-input" class="form-label">
+                      Street Segment Length (feet)
+                    </label>
+                    <input
+                      type="number"
+                      id="segment-length-modal-input"
+                      class="form-control"
+                      min="25"
+                      step="10"
+                      value="150"
+                    />
+                    <small class="form-text text-secondary"
+                      >Lower values give more precise coverage but increase
+                      processing time.</small
+                    >
+                  </div>
+                  <div class="mb-3">
+                    <label for="modal-match-buffer" class="form-label">
+                      Trip Buffer Radius (feet)
+                    </label>
+                    <input
+                      type="number"
+                      id="modal-match-buffer"
+                      class="form-control"
+                      min="5"
+                      step="5"
+                      value="25"
+                    />
+                  </div>
+                  <div class="mb-3">
+                    <label for="modal-min-match" class="form-label">
+                      Min Overlap Length (feet)
+                    </label>
+                    <input
+                      type="number"
+                      id="modal-min-match"
+                      class="form-control"
+                      min="1"
+                      step="1"
+                      value="15"
+                    />
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    data-bs-dismiss="modal"
+                    id="segment-length-cancel-btn"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    id="segment-length-confirm-btn"
+                  >
+                    <i class="fas fa-check me-1"></i>Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endblock %}
+        </div>
       </div>
     </div>
   </div>
-
-  <!-- Minimized Progress Indicator -->
-  <div id="minimized-progress-indicator" class="minimized-progress-badge" style="display: none;">
-    <div class="d-flex align-items-center gap-2">
-      <i class="fas fa-cog fa-spin"></i>
-      <span class="minimized-location-name"></span>
-      <span class="badge bg-primary minimized-progress-percent">0%</span>
-      <button type="button" class="btn btn-sm btn-link text-white p-0 ms-1" id="restore-progress-modal" title="Expand">
-        <i class="fas fa-expand"></i>
-      </button>
-    </div>
-  </div>
-{% endblock %}
-
-
-{% block extra_js %}
-
-
-  <!-- Mapbox GL JS -->
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <!-- Mapbox Draw -->
-  <script src="{{ CDN.mapbox_draw_js }}"></script>
-  <script>
-      // Set Mapbox access token from server-injected variable
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  </script>
-  <!-- Chart.js -->
-  <script src="{{ CDN.chartjs }}"></script>
-  <!-- Coverage Management Script -->
-  <script type="module"
-          src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"></script>
-  <!-- Segment Length Modal -->
-  <div class="modal fade" id="segmentLengthModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">
-Re-segment Streets
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label for="segment-length-modal-input" class="form-label">
-Street Segment Length (feet)
-            </label>
-            <input type="number"
-                   id="segment-length-modal-input"
-                   class="form-control"
-                   min="25"
-                   step="10"
-                   value="150" />
-            <small class="form-text text-secondary">Lower values give more precise coverage but increase processing
-                                                                                                                                                            time.</small>
-          </div>
-          <div class="mb-3">
-            <label for="modal-match-buffer" class="form-label">
-Trip Buffer Radius (feet)
-            </label>
-            <input type="number"
-                   id="modal-match-buffer"
-                   class="form-control"
-                   min="5"
-                   step="5"
-                   value="25" />
-          </div>
-          <div class="mb-3">
-            <label for="modal-min-match" class="form-label">
-Min Overlap Length (feet)
-            </label>
-            <input type="number"
-                   id="modal-min-match"
-                   class="form-control"
-                   min="1"
-                   step="1"
-                   value="15" />
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button"
-                  class="btn btn-outline-secondary"
-                  data-bs-dismiss="modal"
-                  id="segment-length-cancel-btn">
-          Cancel
-          </button>
-          <button type="button" class="btn btn-primary" id="segment-length-confirm-btn">
-            <i class="fas fa-check me-1"></i>Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-{% endblock %}
+</div>
