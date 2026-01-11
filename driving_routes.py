@@ -8,8 +8,7 @@ from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from config import get_mapbox_token
-from db import db_manager
-from db.models import CoverageMetadata, Trip
+from db.models import CoverageMetadata, Street, Trip
 from live_tracking import get_active_trip
 from models import LocationModel
 
@@ -344,15 +343,17 @@ async def find_connected_undriven_clusters(
             detail=f"Coverage area with ID '{location_id}' not found.",
         )
 
-    location_name = coverage_doc.location.display_name
+    location_name = (
+        coverage_doc.location.get("display_name") if coverage_doc.location else None
+    )
     if not location_name:
         raise HTTPException(
             status_code=404,
             detail="Coverage area is missing display name.",
         )
 
-    streets_collection = db_manager.get_collection("streets")
-    undriven_streets_cursor = streets_collection.find(
+    # Use Beanie Street model instead of raw collection
+    undriven_streets_cursor = Street.find(
         {
             "properties.location": location_name,
             "properties.driven": False,
@@ -364,8 +365,8 @@ async def find_connected_undriven_clusters(
     adjacency = defaultdict(list)
 
     async for street in undriven_streets_cursor:
-        segment_id = street.get("_id")
-        geom = street.get("geometry", {})
+        segment_id = street.id
+        geom = street.geometry or {}
         coords = geom.get("coordinates", [])
 
         if not coords:

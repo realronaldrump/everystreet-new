@@ -9,7 +9,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 
-from bson import ObjectId
+from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
@@ -46,18 +46,13 @@ async def get_coverage_areas():
 
 
 @router.get("/api/coverage_areas/{location_id}")
-async def get_coverage_area_details(location_id: str):
+async def get_coverage_area_details(location_id: PydanticObjectId):
     """Get detailed information about a coverage area."""
     overall_start_time = time.perf_counter()
     logger.info("[%s] Request received for coverage area details.", location_id)
 
-    try:
-        obj_location_id = ObjectId(location_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid location_id format")
-
     t_start_find_meta = time.perf_counter()
-    coverage_doc = await CoverageMetadata.get(obj_location_id)
+    coverage_doc = await CoverageMetadata.get(location_id)
     t_end_find_meta = time.perf_counter()
     logger.info(
         "[%s] Found coverage_doc in %.4fs.",
