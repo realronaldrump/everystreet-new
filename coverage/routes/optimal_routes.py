@@ -245,7 +245,7 @@ async def get_active_route_task(location_id: str):
     route_data = progress.route or {}
     return {
         "active": True,
-        "task_id": route_data.get("task_id"),
+        "task_id": progress.task_id,
         "status": progress.status or "pending",
         "stage": route_data.get("stage", "initializing"),
         "progress": progress.progress or 0,
@@ -295,8 +295,7 @@ async def cancel_optimal_route_task(task_id: str):
 
         cancelled_count = 0
         for task in active_tasks:
-            route_data = task.route or {}
-            tid = route_data.get("task_id")
+            tid = task.task_id
             if tid:
                 # Revoke each Celery task
                 with contextlib.suppress(Exception):
