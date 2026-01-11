@@ -106,7 +106,7 @@ class ModalManager {
           {
             text: confirmText,
             class: "btn btn-primary",
-            callback: async (_e, _btn) => {
+            callback: async () => {
               const input = document.getElementById(inputId);
               const value = input.value.trim();
 
@@ -426,7 +426,7 @@ class ModalManager {
    * Close all open modals
    */
   closeAll() {
-    this.modals.forEach((modal, _id) => {
+    this.modals.forEach((modal) => {
       modal.hide();
     });
   }

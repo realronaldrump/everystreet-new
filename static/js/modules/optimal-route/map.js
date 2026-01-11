@@ -328,7 +328,7 @@ export class OptimalRouteMap {
     });
   }
 
-  updateLayerOrder(_layerOrder) {
+  updateLayerOrder() {
     if (!this.map || !this.mapLayersReady) return;
 
     // layerOrder should be an object mapping group IDs to lists of layer IDs

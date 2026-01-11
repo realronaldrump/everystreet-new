@@ -77,7 +77,7 @@ const mapManager = {
               if (parsed.hostname === "events.mapbox.com") {
                 return null;
               }
-            } catch (_e) {
+            } catch {
               // Ignore parse errors, do not block
             }
           }

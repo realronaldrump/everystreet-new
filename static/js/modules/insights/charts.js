@@ -387,10 +387,8 @@ function processDailyData(weekdayData) {
 /**
  * Calculate fuel efficiency score (0-100)
  * @param {Object} insights - Insights data
- * @param {Object} _behavior - Behavior data (unused)
- * @returns {number} Fuel efficiency percentage
  */
-export function calculateFuelEfficiency(insights, _behavior) {
+export function calculateFuelEfficiency(insights) {
   const mpg =
     insights.total_distance > 0 && insights.total_fuel_consumed > 0
       ? insights.total_distance / insights.total_fuel_consumed

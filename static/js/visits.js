@@ -1,4 +1,4 @@
-/* global Chart, DateUtils, bootstrap, $, visitsManager */
+/* global Chart, DateUtils, bootstrap */
 
 (() => {
   document.addEventListener("DOMContentLoaded", () => {

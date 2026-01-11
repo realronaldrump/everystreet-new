@@ -145,7 +145,7 @@ class AppState {
   }
 
   cancelAllRequests() {
-    this.abortControllers.forEach((controller, _key) => {
+    this.abortControllers.forEach((controller) => {
       try {
         controller.abort();
       } catch (e) {

@@ -160,7 +160,7 @@ export class OptimalRoutesManager {
 
       this.ui.populateAreaSelect(areas);
       this.ui.updateSavedRoutes(areas, (areaId) => this.onAreaSelect(areaId));
-    } catch (_error) {
+    } catch {
       this.ui.showNotification("Failed to load coverage areas", "danger");
     }
   }
@@ -192,7 +192,7 @@ export class OptimalRoutesManager {
       const { drivenFeatures, undrivenFeatures } =
         await this.api.loadStreetNetwork(areaId);
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
-    } catch (_e) {
+    } catch {
       // already logged in api
     }
 
@@ -203,7 +203,7 @@ export class OptimalRoutesManager {
         this.map.displayRoute(routeData.coordinates, routeData);
         this.ui.showResults(routeData);
       }
-    } catch (_e) {
+    } catch {
       // ignore
     }
 
@@ -271,7 +271,7 @@ export class OptimalRoutesManager {
     this.ui.updateProgress(data);
   }
 
-  async onGenerationComplete(_data) {
+  async onGenerationComplete() {
     // Load the full route data now
     const routeData = await this.api.loadExistingRoute(this.selectedAreaId);
     if (routeData?.coordinates) {
@@ -291,7 +291,7 @@ export class OptimalRoutesManager {
     try {
       await this.api.cancelTask(this.currentTaskId);
       this.onCancelled();
-    } catch (_e) {
+    } catch {
       this.ui.showNotification("Failed to cancel task", "danger");
     }
   }

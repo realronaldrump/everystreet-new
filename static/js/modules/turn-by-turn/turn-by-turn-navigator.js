@@ -83,7 +83,7 @@ class TurnByTurnNavigator {
    */
   setupCallbacks() {
     // State change callback
-    this.state.setStateChangeCallback((newState, _prevState) => {
+    this.state.setStateChangeCallback((newState) => {
       this.ui.updateForState(newState, this.getStateData(newState));
     });
 
