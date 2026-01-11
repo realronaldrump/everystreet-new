@@ -176,9 +176,16 @@ async def export_optimal_route_gpx(location_id: PydanticObjectId):
     elif coverage_doc.location and coverage_doc.location.get("optimal_route_data"):
         route = coverage_doc.location.get("optimal_route_data")
 
-    if route and not route.get("coordinates") and route.get("route_coordinates"):
-        route["coordinates"] = route["route_coordinates"]
-    if not route or not route.get("coordinates"):
+    # Prepare route data (handle dict or Pydantic model)
+    route_data = route if isinstance(route, dict) else route.model_dump(by_alias=True)
+
+    if (
+        route_data
+        and not route_data.get("coordinates")
+        and route_data.get("route_coordinates")
+    ):
+        route_data["coordinates"] = route_data["route_coordinates"]
+    if not route_data or not route_data.get("coordinates"):
         raise HTTPException(
             status_code=404,
             detail="No optimal route available. Generate one first.",
@@ -190,7 +197,7 @@ async def export_optimal_route_gpx(location_id: PydanticObjectId):
         else "Route"
     )
     gpx_content = build_gpx_from_coords(
-        route["coordinates"],
+        route_data["coordinates"],
         name=f"Optimal Route - {location_name}",
     )
 

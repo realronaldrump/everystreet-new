@@ -66,7 +66,9 @@ class APIClient {
       }
 
       // Handle response
-      const data = await this._handleResponse(response);
+      const data = options.parseResponse
+        ? await options.parseResponse(response)
+        : await this._handleResponse(response);
 
       // Cache successful GET requests
       if (method === "GET" && cache) {
