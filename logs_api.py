@@ -5,9 +5,6 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from db import db_manager
-from db.models import ServerLog
-
 logger = logging.getLogger(__name__)
 router = APIRouter()
 

@@ -30,6 +30,18 @@ Usage:
 # ============================================================================
 # Manager and Core
 # ============================================================================
+# ============================================================================
+# Index Management
+# ============================================================================
+from db.indexes import (
+    ensure_archived_trip_indexes,
+    ensure_gas_tracking_indexes,
+    ensure_location_indexes,
+    ensure_places_indexes,
+    ensure_street_coverage_indexes,
+    init_database,
+    init_task_history_collection,
+)
 from db.manager import DatabaseManager, db_manager
 
 # ============================================================================
@@ -53,19 +65,6 @@ from db.models import (
     TaskHistory,
     Trip,
     Vehicle,
-)
-
-# ============================================================================
-# Index Management
-# ============================================================================
-from db.indexes import (
-    ensure_archived_trip_indexes,
-    ensure_gas_tracking_indexes,
-    ensure_location_indexes,
-    ensure_places_indexes,
-    ensure_street_coverage_indexes,
-    init_database,
-    init_task_history_collection,
 )
 
 # ============================================================================

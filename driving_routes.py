@@ -1,20 +1,15 @@
-import contextlib
 import logging
 import math
-import time
-from collections import defaultdict, deque
-from datetime import UTC, datetime
+from collections import defaultdict
 from typing import Any
 
 import httpx
-from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from config import get_mapbox_token
 from db import db_manager
-from db.models import CoverageMetadata, Street, Trip
-from geometry_service import GeometryService
+from db.models import CoverageMetadata, Trip
 from live_tracking import get_active_trip
 from models import LocationModel
 
@@ -430,7 +425,7 @@ async def find_clusters_endpoint(location_id: str = Query(...)):
     try:
         clusters = await find_connected_undriven_clusters(location_id)
         return JSONResponse(content={"clusters": clusters})
-    except HTTPException as e:
+    except HTTPException:
         raise
     except Exception as e:
         logger.exception("Error finding clusters: %s", e)

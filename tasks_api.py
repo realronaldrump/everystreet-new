@@ -1,24 +1,17 @@
-import asyncio
-import json
 import logging
-from datetime import UTC, datetime, timedelta
-from math import ceil
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Body, HTTPException, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel
 
 from date_utils import normalize_to_utc_datetime
-from db import db_manager
 from db.models import TaskHistory
 from models import BackgroundTasksConfigModel
 from tasks import (
     TASK_METADATA,
-    TaskStatus,
     force_reset_task,
     get_all_task_metadata,
     get_task_config,
-    manual_run_task,
     trigger_fetch_all_missing_trips,
     trigger_manual_fetch_trips_range,
     update_task_schedule,
@@ -196,6 +189,7 @@ async def run_background_task(
 async def get_task_status(task_id: str):
     """Get current status of a background task."""
     from celery.result import AsyncResult
+
     from celery_app import app as celery_app
 
     try:

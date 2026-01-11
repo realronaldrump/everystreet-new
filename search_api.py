@@ -9,11 +9,10 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from bson import ObjectId
 
 from config import get_mapbox_token
 from db import db_manager
-from db.models import CoverageMetadata, Street
+from db.models import CoverageMetadata
 from external_geo_service import ExternalGeoService
 
 logger = logging.getLogger(__name__)

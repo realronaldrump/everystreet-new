@@ -48,7 +48,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         }
 
     try:
-        bouncie_credentials = db_manager.get_collection("bouncie_credentials")
+        db_manager.get_collection("bouncie_credentials")
         credentials = await collection.find_one(
             collection,
             {"_id": "bouncie_credentials"},
@@ -103,7 +103,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
         True if update was successful, False otherwise.
     """
     try:
-        bouncie_credentials = db_manager.get_collection("bouncie_credentials")
+        db_manager.get_collection("bouncie_credentials")
 
         # Build update_data with ONLY the fields that were explicitly provided
         update_data = {}

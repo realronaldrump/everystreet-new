@@ -13,7 +13,6 @@ from celery.utils.log import get_task_logger
 
 from date_utils import parse_timestamp
 from db.models import TaskConfig, TaskHistory
-from db import db_manager
 
 logger = get_task_logger(__name__)
 
