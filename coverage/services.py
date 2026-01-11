@@ -14,23 +14,13 @@ from shapely.geometry import shape
 
 from coverage.gridfs_service import gridfs_service
 from coverage.serializers import serialize_coverage_details
-from db import (
-    aggregate_with_retry,
-    db_manager,
-    find_one_with_retry,
-    update_one_with_retry,
-)
+from db import CoverageMetadata, Street
 
 logger = logging.getLogger(__name__)
 
 
 class CoverageStatsService:
     """Service for calculating and managing coverage statistics."""
-
-    def __init__(self):
-        """Initialize coverage stats service."""
-        self.coverage_metadata_collection = db_manager.db["coverage_metadata"]
-        self.streets_collection = db_manager.db["streets"]
 
     async def recalculate_stats(self, location_id: ObjectId) -> dict | None:
         """Recalculate statistics for a coverage area.
@@ -42,15 +32,9 @@ class CoverageStatsService:
             Updated coverage area data or None on error
         """
         try:
-            coverage_area = await find_one_with_retry(
-                self.coverage_metadata_collection,
-                {"_id": location_id},
-                {"location.display_name": 1},
-            )
+            coverage_area = await CoverageMetadata.get(location_id)
 
-            if not coverage_area or not coverage_area.get("location", {}).get(
-                "display_name",
-            ):
+            if not coverage_area or not coverage_area.location.get("display_name"):
                 logger.error(
                     "Cannot recalculate stats: Coverage area %s or its "
                     "display_name not found.",
@@ -58,51 +42,41 @@ class CoverageStatsService:
                 )
                 return None
 
-            location_name = coverage_area["location"]["display_name"]
+            location_name = coverage_area.location["display_name"]
 
             # Aggregate stats from streets collection
             stats = await self._aggregate_street_stats(location_name)
 
             # Update metadata
-            update_result = await update_one_with_retry(
-                self.coverage_metadata_collection,
-                {"_id": location_id},
-                {
-                    "$set": {
-                        **stats,
-                        "needs_stats_update": False,
-                        "last_stats_update": datetime.now(UTC),
-                        "last_modified": datetime.now(UTC),
-                    },
-                },
-            )
+            update_data = {
+                **stats,
+                "needs_stats_update": False,
+                "last_stats_update": datetime.now(UTC),
+                "last_modified": datetime.now(UTC),
+            }
+            await coverage_area.update({"$set": update_data})
 
-            if update_result.modified_count == 0:
-                logger.warning(
-                    "Stats recalculated for %s, but metadata document was not "
-                    "modified (maybe no change or error?).",
-                    location_id,
-                )
-            else:
-                logger.info(
-                    "Successfully recalculated and updated stats for %s.",
-                    location_id,
-                )
+            # Check if updated (Beanie doesn't return modified_count directly from update(),
+            # but we can assume success if no exception raised)
+            logger.info(
+                "Successfully recalculated and updated stats for %s.",
+                location_id,
+            )
 
             # Fetch and return updated document
-            updated_coverage_area = await find_one_with_retry(
-                self.coverage_metadata_collection,
-                {"_id": location_id},
-            )
+            # Re-fetch to get latest state
+            updated_coverage_area = await CoverageMetadata.get(location_id)
 
             if updated_coverage_area:
-                return serialize_coverage_details(updated_coverage_area)
+                return serialize_coverage_details(
+                    updated_coverage_area.model_dump(by_alias=True)
+                )
 
             # Fallback response
             base_response = {
                 **stats,
                 "_id": str(location_id),
-                "location": coverage_area.get("location", {}),
+                "location": coverage_area.location,
                 "last_updated": datetime.now(UTC).isoformat(),
                 "last_stats_update": datetime.now(UTC).isoformat(),
             }
@@ -115,20 +89,24 @@ class CoverageStatsService:
                 e,
                 exc_info=True,
             )
-            await update_one_with_retry(
-                self.coverage_metadata_collection,
-                {"_id": location_id},
-                {
-                    "$set": {
-                        "status": "error",
-                        "last_error": f"Stats recalc failed: {e}",
-                    },
-                },
-            )
+            # Try to update status to error
+            try:
+                error_area = await CoverageMetadata.get(location_id)
+                if error_area:
+                    await error_area.update(
+                        {
+                            "$set": {
+                                "status": "error",
+                                "last_error": f"Stats recalc failed: {e}",
+                            }
+                        }
+                    )
+            except Exception:
+                pass
             return None
 
     async def _aggregate_street_stats(self, location_name: str) -> dict:
-        """Aggregate statistics from streets collection.
+        """Aggregate statistics from street documents.
 
         Args:
             location_name: Location display name
@@ -182,7 +160,7 @@ class CoverageStatsService:
             },
         ]
 
-        results = await aggregate_with_retry(self.streets_collection, pipeline)
+        results = await Street.aggregate(pipeline).to_list()
 
         if not results:
             return {
@@ -285,8 +263,6 @@ class SegmentMarkingService:
 
     def __init__(self):
         """Initialize segment marking service."""
-        self.streets_collection = db_manager.db["streets"]
-        self.coverage_metadata_collection = db_manager.db["coverage_metadata"]
         self.stats_service = CoverageStatsService()
 
     async def mark_segment(
@@ -325,10 +301,7 @@ class SegmentMarkingService:
             )
 
         # Find segment
-        segment_doc = await find_one_with_retry(
-            self.streets_collection,
-            {"properties.segment_id": segment_id},
-        )
+        segment_doc = await Street.find_one({"properties.segment_id": segment_id})
 
         if not segment_doc:
             raise HTTPException(
@@ -337,22 +310,16 @@ class SegmentMarkingService:
             )
 
         # Validate location match
-        coverage_meta = await find_one_with_retry(
-            self.coverage_metadata_collection,
-            {"_id": obj_location_id},
-            {"location.display_name": 1},
-        )
+        coverage_meta = await CoverageMetadata.get(obj_location_id)
 
-        if not coverage_meta or not coverage_meta.get("location", {}).get(
-            "display_name"
-        ):
+        if not coverage_meta or not coverage_meta.location.get("display_name"):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Coverage location metadata not found for the given ID.",
             )
 
-        expected_location_name = coverage_meta["location"]["display_name"]
-        segment_location_name = segment_doc.get("properties", {}).get("location")
+        expected_location_name = coverage_meta.location["display_name"]
+        segment_location_name = segment_doc.properties.get("location")
 
         if segment_location_name != expected_location_name:
             logger.warning(
@@ -370,11 +337,7 @@ class SegmentMarkingService:
         update_payload["properties.last_manual_update"] = datetime.now(UTC)
 
         # Update segment
-        result = await update_one_with_retry(
-            self.streets_collection,
-            {"_id": segment_doc["_id"]},
-            {"$set": update_payload},
-        )
+        result = await segment_doc.update({"$set": update_payload})
 
         if result.modified_count == 0 and result.matched_count > 0:
             logger.info(
@@ -383,23 +346,21 @@ class SegmentMarkingService:
                 action_name,
             )
         elif result.matched_count == 0:
+            # This case shouldn't happen with Beanie unless doc was deleted concurrently
             logger.warning(
-                "Segment %s with _id %s not found during update for action '%s'.",
+                "Segment %s not found during update for action '%s'.",
                 segment_id,
-                segment_doc["_id"],
                 action_name,
             )
 
         # Mark metadata for stats update
-        await update_one_with_retry(
-            self.coverage_metadata_collection,
-            {"_id": obj_location_id},
+        await coverage_meta.update(
             {
                 "$set": {
                     "needs_stats_update": True,
                     "last_modified": datetime.now(UTC),
-                },
-            },
+                }
+            }
         )
 
         # Recalculate stats & regenerate GeoJSON (don't block response)

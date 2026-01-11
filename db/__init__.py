@@ -185,6 +185,30 @@ async def update_one_with_retry(
     )
 
 
+async def update_many_with_retry(
+    collection: AsyncIOMotorCollection,
+    filter_dict: dict[str, Any],
+    update: dict[str, Any],
+    max_attempts: int = 3,
+) -> Any:
+    """Update many documents with retry logic.
+
+    Args:
+        collection: Motor collection
+        filter_dict: MongoDB filter
+        update: Update specification
+        max_attempts: Max retry attempts
+
+    Returns:
+        UpdateResult
+    """
+    return await db_manager.execute_with_retry(
+        lambda: collection.update_many(filter_dict, update),
+        max_attempts=max_attempts,
+        operation_name="update_many",
+    )
+
+
 async def delete_one_with_retry(
     collection: AsyncIOMotorCollection,
     filter_dict: dict[str, Any],
@@ -248,6 +272,30 @@ async def insert_one_with_retry(
         lambda: collection.insert_one(document),
         max_attempts=max_attempts,
         operation_name="insert_one",
+    )
+
+
+async def insert_many_with_retry(
+    collection: AsyncIOMotorCollection,
+    documents: list[dict[str, Any]],
+    max_attempts: int = 3,
+    ordered: bool = True,
+) -> Any:
+    """Insert many documents with retry logic.
+
+    Args:
+        collection: Motor collection
+        documents: List of documents to insert
+        max_attempts: Max retry attempts
+        ordered: Whether to stop on first error
+
+    Returns:
+        InsertManyResult
+    """
+    return await db_manager.execute_with_retry(
+        lambda: collection.insert_many(documents, ordered=ordered),
+        max_attempts=max_attempts,
+        operation_name="insert_many",
     )
 
 
@@ -396,6 +444,10 @@ task_config_collection = property(lambda self: db_manager.db["task_config"])
 coverage_metadata_collection = property(lambda self: db_manager.db["coverage_metadata"])
 streets_collection = property(lambda self: db_manager.db["streets"])
 progress_collection = property(lambda self: db_manager.db["progress_status"])
+optimal_route_progress_collection = property(
+    lambda self: db_manager.db["optimal_route_progress"]
+)
+osm_data_collection = property(lambda self: db_manager.db["osm_data"])
 
 
 # Create actual collection accessors (not properties)
@@ -415,11 +467,21 @@ def _get_task_config_collection() -> AsyncIOMotorCollection:
     return db_manager.db["task_config"]
 
 
+def _get_optimal_route_progress_collection() -> AsyncIOMotorCollection:
+    return db_manager.db["optimal_route_progress"]
+
+
+def _get_osm_data_collection() -> AsyncIOMotorCollection:
+    return db_manager.db["osm_data"]
+
+
 # Make collection accessors available as module-level callables
 trips_collection = _get_trips_collection
 vehicles_collection = _get_vehicles_collection
 places_collection = _get_places_collection
 task_config_collection = _get_task_config_collection
+optimal_route_progress_collection = _get_optimal_route_progress_collection
+osm_data_collection = _get_osm_data_collection
 
 
 # ============================================================================
@@ -471,9 +533,11 @@ __all__ = [
     "find_one_with_retry",
     "find_with_retry",
     "update_one_with_retry",
+    "update_many_with_retry",
     "delete_one_with_retry",
     "delete_many_with_retry",
     "insert_one_with_retry",
+    "insert_many_with_retry",
     "count_documents_with_retry",
     "aggregate_with_retry",
     "batch_cursor",
@@ -483,4 +547,6 @@ __all__ = [
     "vehicles_collection",
     "places_collection",
     "task_config_collection",
+    "optimal_route_progress_collection",
+    "osm_data_collection",
 ]
