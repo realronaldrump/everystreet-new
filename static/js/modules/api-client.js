@@ -45,18 +45,21 @@ class APIClient {
     };
 
     if (body) {
-      fetchOptions.body = typeof body === "string" ? body : JSON.stringify(body);
+      fetchOptions.body =
+        typeof body === "string" ? body : JSON.stringify(body);
     }
 
     // Execute with timeout and retry
     const controller = new AbortController();
-    const timeoutId = timeout ? setTimeout(() => controller.abort(), timeout) : null;
+    const timeoutId = timeout
+      ? setTimeout(() => controller.abort(), timeout)
+      : null;
 
     try {
       const response = await this._fetchWithRetry(
         url,
         { ...fetchOptions, signal: signal || controller.signal },
-        retry ? this.retryAttempts : 1
+        retry ? this.retryAttempts : 1,
       );
 
       if (timeoutId) clearTimeout(timeoutId);
@@ -119,7 +122,10 @@ class APIClient {
         if (contentType?.includes("application/json")) {
           const errorData = await response.json();
           errorDetail =
-            errorData.detail || errorData.error || errorData.message || errorDetail;
+            errorData.detail ||
+            errorData.error ||
+            errorData.message ||
+            errorDetail;
         } else {
           const text = await response.text();
           errorDetail = text || errorDetail;
@@ -155,7 +161,10 @@ class APIClient {
       return new Error(`Request timeout: ${url}`);
     }
 
-    if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
+    if (
+      error instanceof TypeError &&
+      error.message.includes("Failed to fetch")
+    ) {
       return new Error(`Network error - please check your connection`);
     }
 
@@ -224,7 +233,9 @@ class APIClient {
         } else {
           try {
             const error = JSON.parse(xhr.responseText);
-            reject(new Error(error.detail || error.error || `HTTP ${xhr.status}`));
+            reject(
+              new Error(error.detail || error.error || `HTTP ${xhr.status}`),
+            );
           } catch (_e) {
             reject(new Error(`HTTP ${xhr.status}`));
           }
