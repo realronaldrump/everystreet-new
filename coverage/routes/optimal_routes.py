@@ -60,14 +60,12 @@ async def start_optimal_route_generation(
         location=str(location_id),
         task_id=task.id,
         status="queued",
+        stage="queued",
         progress=0,
+        message="Task queued, waiting for worker...",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
-    progress.route = {
-        "stage": "queued",
-        "message": "Task queued, waiting for worker...",
-    }
     await progress.insert()
 
     logger.info(
@@ -327,19 +325,18 @@ async def get_optimal_route_progress(task_id: str):
     if not progress:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    route_data = progress.route or {}
     return {
         "task_id": task_id,
         "location_id": progress.location,
         "status": progress.status or "pending",
-        "stage": route_data.get("stage", "initializing"),
+        "stage": progress.stage or "initializing",
         "progress": progress.progress or 0,
-        "message": route_data.get("message", ""),
-        "metrics": route_data.get("metrics", {}),
-        "error": route_data.get("error"),
-        "started_at": route_data.get("started_at"),
+        "message": progress.message or "",
+        "metrics": progress.metrics or {},
+        "error": progress.error,
+        "started_at": progress.started_at,
         "updated_at": progress.updated_at,
-        "completed_at": route_data.get("completed_at"),
+        "completed_at": progress.completed_at,
     }
 
 
@@ -374,12 +371,11 @@ async def stream_optimal_route_progress(task_id: str):
                     await asyncio.sleep(1)
                     continue
 
-                route_data = progress.route or {}
                 current_progress = progress.progress or 0
-                current_stage = route_data.get("stage")
+                current_stage = progress.stage or "initializing"
                 current_status = progress.status or "running"
-                current_message = route_data.get("message", "")
-                current_metrics = route_data.get("metrics", {}) or {}
+                current_message = progress.message or ""
+                current_metrics = progress.metrics or {}
 
                 if (
                     current_progress != last_progress
@@ -398,8 +394,12 @@ async def stream_optimal_route_progress(task_id: str):
                         "progress": current_progress,
                         "message": current_message,
                         "metrics": current_metrics,
-                        "error": route_data.get("error"),
-                        "started_at": route_data.get("started_at"),
+                        "error": progress.error,
+                        "started_at": (
+                            progress.started_at.isoformat()
+                            if progress.started_at
+                            else None
+                        ),
                         "updated_at": (
                             progress.updated_at.isoformat()
                             if progress.updated_at
@@ -415,8 +415,12 @@ async def stream_optimal_route_progress(task_id: str):
                         "progress": current_progress,
                         "message": current_message,
                         "metrics": current_metrics,
-                        "error": route_data.get("error"),
-                        "completed_at": route_data.get("completed_at"),
+                        "error": progress.error,
+                        "completed_at": (
+                            progress.completed_at.isoformat()
+                            if progress.completed_at
+                            else None
+                        ),
                     }
                     yield f"data: {json.dumps(final_data)}\n\n"
                     break

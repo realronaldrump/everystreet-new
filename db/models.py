@@ -527,10 +527,15 @@ class OptimalRouteProgress(Document):
     location: str | None = None
     task_id: str | None = None
     status: str | None = None
+    stage: str | None = None
     progress: float = 0.0
-    route: dict[str, Any] | None = None
+    message: str | None = None
+    error: str | None = None
+    metrics: dict[str, Any] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
     class Settings:
         name = "optimal_route_progress"
