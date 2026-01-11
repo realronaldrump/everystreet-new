@@ -11,6 +11,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from bson import ObjectId
 from models import validate_geojson_point_or_linestring
 from shapely.geometry import mapping, shape
 
@@ -1091,9 +1092,7 @@ class CoverageCalculator:
         try:
             metadata = await CoverageMetadata.find_one(
                 {"location.display_name": self.location_name}
-            ).project(
-                model=CoverageMetadata
-            )  # Or just fetch and access field
+            ).project(model=CoverageMetadata)  # Or just fetch and access field
 
             # Since processed_trips is a dict inside the model (field checked in previous view)
             # CoverageMetadata has field `location` (dict) and `display_name`?

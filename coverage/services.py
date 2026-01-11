@@ -353,8 +353,8 @@ class SegmentMarkingService:
 
         # Recalculate stats & regenerate GeoJSON (don't block response)
         try:
-            await self.stats_service.recalculate_stats(obj_location_id)
-            await gridfs_service.regenerate_streets_geojson(obj_location_id)
+            await self.stats_service.recalculate_stats(location_id_str)
+            await gridfs_service.regenerate_streets_geojson(location_id_str)
         except Exception as bg_err:
             logger.warning(
                 "Post-mark background update failed for %s: %s",

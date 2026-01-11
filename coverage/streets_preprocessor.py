@@ -11,6 +11,7 @@ from typing import Any
 
 import geopandas as gpd
 import osmnx as ox
+from bson import ObjectId
 from shapely.geometry import LineString, MultiLineString, MultiPoint, mapping
 from shapely.ops import split
 

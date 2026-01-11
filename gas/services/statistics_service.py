@@ -4,6 +4,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from bson import ObjectId
+
 from core.exceptions import ResourceNotFoundException, ValidationException
 from db.models import GasFillup, Trip, Vehicle
 from gas.serializers import parse_iso_datetime

@@ -1,3 +1,4 @@
+/* global bootstrap */
 /**
  * Insights Main Module (ES6)
  * Main initialization and event handling for the driving insights page

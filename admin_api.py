@@ -27,6 +27,7 @@ from db.models import (
     Trip,
     Vehicle,
 )
+from osm_utils import generate_geojson_osm
 
 # Map collection names to Beanie Document models for admin operations
 COLLECTION_TO_MODEL = {
@@ -46,7 +47,7 @@ COLLECTION_TO_MODEL = {
     "vehicles": Vehicle,
     "server_logs": ServerLog,
 }
-from osm_utils import generate_geojson_osm
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

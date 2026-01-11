@@ -163,10 +163,7 @@ class VisitStatsService:
         trips_data.sort(key=lambda x: x.endTime or datetime.min, reverse=True)
 
         # Get place name
-        if isinstance(place, PlaceResponse):
-            name = place.name
-        else:
-            name = place.name or ""
+        name = place.name if isinstance(place, PlaceResponse) else place.name or ""
 
         return PlaceVisitsResponse(trips=trips_data, name=name)
 

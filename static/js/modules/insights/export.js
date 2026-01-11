@@ -1,3 +1,4 @@
+/* global $ */
 /**
  * Insights Export Module
  * Handles export, sharing, and report generation for the driving insights page

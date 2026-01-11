@@ -1,3 +1,4 @@
+/* global CountUp */
 /**
  * Insights Metrics Module (ES6)
  * Handles counter animations and metric updates for the driving insights page
