@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from bson import ObjectId
+
 from db.manager import db_manager
 from db.models import CoverageMetadata, ProgressStatus, Street
 

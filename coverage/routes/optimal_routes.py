@@ -390,7 +390,11 @@ async def stream_optimal_route_progress(task_id: str):
                         "metrics": current_metrics,
                         "error": route_data.get("error"),
                         "started_at": route_data.get("started_at"),
-                        "updated_at": progress.updated_at.isoformat() if progress.updated_at else None,
+                        "updated_at": (
+                            progress.updated_at.isoformat()
+                            if progress.updated_at
+                            else None
+                        ),
                     }
                     yield f"data: {json.dumps(data)}\n\n"
 
