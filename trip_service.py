@@ -413,13 +413,13 @@ class TripService:
                 else:
                     if result.get("saved_id"):
                         processed_trip_ids.append(transaction_id)
-
-            return processed_trip_ids
         except Exception as exc:
             if progress_section is not None:
                 progress_section["status"] = "failed"
                 progress_section["message"] = f"Failed to process trips: {exc}"
             raise
+        else:
+            return processed_trip_ids
         finally:
             if (
                 progress_section is not None
