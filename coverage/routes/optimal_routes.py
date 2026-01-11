@@ -240,16 +240,15 @@ async def get_active_route_task(location_id: str):
     if not progress:
         return {"active": False, "task_id": None}
 
-    route_data = progress.route or {}
     return {
         "active": True,
         "task_id": progress.task_id,
         "status": progress.status or "pending",
-        "stage": route_data.get("stage", "initializing"),
+        "stage": progress.stage or "initializing",
         "progress": progress.progress or 0,
-        "message": route_data.get("message", ""),
-        "metrics": route_data.get("metrics", {}),
-        "started_at": route_data.get("started_at"),
+        "message": progress.message or "",
+        "metrics": progress.metrics or {},
+        "started_at": progress.started_at,
         "updated_at": progress.updated_at,
     }
 
@@ -301,10 +300,8 @@ async def cancel_optimal_route_task(task_id: str):
 
                 # Mark as cancelled
                 task.status = "cancelled"
-                if task.route:
-                    task.route["stage"] = "cancelled"
-                    task.route["message"] = "Task cancelled by user"
-                    task.route["cancelled_at"] = datetime.now(UTC).isoformat()
+                task.stage = "cancelled"
+                task.message = "Task cancelled by user"
                 await task.save()
                 cancelled_count += 1
 
