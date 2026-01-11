@@ -54,7 +54,7 @@ class MapFactory {
         interactive,
         ...options,
       },
-      key
+      key,
     );
 
     // Add controls
@@ -168,7 +168,7 @@ class MapFactory {
           showZoom: true,
           visualizePitch: true,
         }),
-        "top-right"
+        "top-right",
       );
     }
 
@@ -181,7 +181,10 @@ class MapFactory {
         trackUserLocation: true,
         showUserHeading: true,
       });
-      map.addControl(geolocateControl, controls.geolocatePosition || "top-right");
+      map.addControl(
+        geolocateControl,
+        controls.geolocatePosition || "top-right",
+      );
     }
 
     // Fullscreen control
@@ -196,7 +199,7 @@ class MapFactory {
           maxWidth: 100,
           unit: "imperial",
         }),
-        "bottom-left"
+        "bottom-left",
       );
     }
 
