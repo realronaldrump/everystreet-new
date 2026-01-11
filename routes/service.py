@@ -94,21 +94,21 @@ async def generate_optimal_route_with_progress(
         # Use Street Beanie model to find segments
         # Using raw pymongo for specific projection and large result set if preferred,
         # but Beanie find also supports this.
-        # Use Street Beanie model to find segments with projection
+        # Direct Motor access to avoid Beanie projection issues
         undriven_objs = (
-            await Street.find(
+            await Street.get_motor_collection()
+            .find(
                 {
                     "properties.location": location_name,
                     "properties.driven": False,
                     "properties.undriveable": {"$ne": True},
                 },
-            )
-            .project(
-                {
+                projection={
                     "geometry": 1,
                     "properties.segment_id": 1,
                     "properties.segment_length": 1,
                     "properties.street_name": 1,
+                    "properties.osm_id": 1,  # Ensure we fetch osm_id if it exists
                 },
             )
             .to_list(length=MAX_SEGMENTS)
