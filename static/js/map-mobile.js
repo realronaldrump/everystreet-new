@@ -61,7 +61,6 @@ class MobileMapInterface {
     this.cacheElements();
 
     if (!this.sheet) {
-      console.warn("Unified control panel (#map-controls) not found");
       return;
     }
 
@@ -445,9 +444,7 @@ class MobileMapInterface {
     this.cleanupCallbacks.forEach((fn) => {
       try {
         fn();
-      } catch (err) {
-        console.warn("Failed to cleanup mobile interface listener", err);
-      }
+      } catch (_err) {}
     });
     this.cleanupCallbacks = [];
   }

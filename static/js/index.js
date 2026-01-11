@@ -52,9 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
             updateLiveTrackingVisibility();
           }
         }
-      } catch (err) {
-        console.warn("Unable to sync showLiveTracking setting:", err);
-      }
+      } catch (_err) {}
     })();
 
     // Respond to changes from other tabs/windows or settings page

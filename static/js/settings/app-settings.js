@@ -75,8 +75,7 @@ export function setupAppSettingsForm() {
         console.warn("Failed to fetch app settings. HTTP", res.status);
         applySettings();
       }
-    } catch (err) {
-      console.error("Error fetching app settings:", err);
+    } catch (_err) {
       applySettings();
     }
   })();
@@ -110,7 +109,6 @@ export function setupAppSettingsForm() {
         throw new Error(`Server returned ${resp.status}`);
       }
     } catch (err) {
-      console.error("Error saving settings to server:", err);
       window.notificationManager?.show("Failed to save settings on server", "danger");
       return;
     }
@@ -134,9 +132,7 @@ export function setupAppSettingsForm() {
           payload.polylineColor,
           payload.polylineOpacity
         );
-      } catch (err) {
-        console.error("Error updating live tracker style:", err);
-      }
+      } catch (_err) {}
     }
   }
 

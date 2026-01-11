@@ -54,11 +54,9 @@ class UploadManager {
           this.loadingManager.finish();
         })
         .catch((error) => {
-          console.error("Error initializing upload manager:", error);
           this.loadingManager.error("Failed to initialize upload manager");
         });
     } catch (error) {
-      console.error("Error initializing upload manager:", error);
       this.loadingManager.error("Failed to initialize upload manager");
     }
   }
@@ -246,7 +244,6 @@ class UploadManager {
       this.updatePreviewMap();
       this.updateStats();
     } catch (error) {
-      console.error("Error during file processing:", error);
       this.loadingManager.error("Error during file processing.");
     } finally {
       this.loadingManager.finish();
@@ -371,7 +368,6 @@ class UploadManager {
 
       this.state.selectedFiles.push(fileEntry);
     } catch (error) {
-      console.error("Error parsing GPX:", error);
       this.loadingManager.error(`Error parsing GPX file: ${file.name}`);
       window.notificationManager.show(
         `Error parsing ${file.name}: ${error.message}`,
@@ -402,7 +398,6 @@ class UploadManager {
         );
       }
     } catch (error) {
-      console.error("Error parsing GeoJSON:", error);
       this.loadingManager.error(`Error parsing GeoJSON file: ${file.name}`);
       window.notificationManager.show(
         `Error parsing ${file.name}: ${error.message}`,
@@ -417,17 +412,11 @@ class UploadManager {
       !feature.properties ||
       feature.geometry.type !== "LineString"
     ) {
-      console.warn(
-        `Skipping invalid or non-LineString feature ${index + 1} in ${file.name}`
-      );
       return;
     }
 
     const { coordinates } = feature.geometry;
     if (!Array.isArray(coordinates) || coordinates.length < 2) {
-      console.warn(
-        `Skipping feature ${index + 1} in ${file.name} due to insufficient coordinates.`
-      );
       return;
     }
 
@@ -464,9 +453,6 @@ class UploadManager {
   processGeoJSONGeometry(geometry, file) {
     const { coordinates } = geometry;
     if (!Array.isArray(coordinates) || coordinates.length < 2) {
-      console.warn(
-        `Skipping geometry in ${file.name} due to insufficient coordinates.`
-      );
       return;
     }
 
@@ -534,9 +520,6 @@ class UploadManager {
         );
 
         if (validCoords.length < 2) {
-          console.warn(
-            `Skipping preview for ${entry.filename}: Insufficient valid coordinates.`
-          );
           return null;
         }
 
@@ -576,7 +559,6 @@ class UploadManager {
           maxZoom: 15,
         });
       } catch (e) {
-        console.error("Error fitting map bounds:", e);
         previewMap.setCenter(this.config.map.defaultCenter);
         previewMap.setZoom(this.config.map.defaultZoom);
       }
@@ -626,8 +608,6 @@ class UploadManager {
       this.updateFileList();
       this.updatePreviewMap();
       this.updateStats();
-    } else {
-      console.warn(`Attempted to remove file at invalid index: ${index}`);
     }
   }
 
@@ -650,7 +630,6 @@ class UploadManager {
         formData.append("files", entry.file, entry.filename);
         this.loadingManager.updateSubOperation("uploading", index + 1);
       } else {
-        console.warn(`File object missing for ${entry.filename}, skipping.`);
         window.notificationManager.show(
           `Could not upload ${entry.filename}: File data missing. Please re-select the file.`,
           "warning"
@@ -704,7 +683,6 @@ class UploadManager {
         throw new Error(data.message || "Error uploading files");
       }
     } catch (error) {
-      console.error("Error uploading files:", error);
       window.notificationManager.show(
         `Error uploading files: ${error.message}`,
         "danger"
@@ -757,6 +735,46 @@ class UploadManager {
     } finally {
       this.loadingManager.finish();
     }
+  }
+
+  async loadUploadSourceTrips() {
+    this.loadingManager.startOperation("Loading Uploaded Trips");
+
+    try {
+      const response = await fetch("/api/trips");
+
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+
+      const geojsonData = await response.json();
+
+      if (geojsonData?.type === "FeatureCollection") {
+        const allTrips = geojsonData.features.map((feature) => ({
+          _id: feature.properties.transactionId,
+          transactionId: feature.properties.transactionId,
+          filename: feature.properties.filename || "N/A",
+          startTime: feature.properties.startTime,
+          endTime: feature.properties.endTime,
+          source: feature.properties.source || "unknown",
+        }));
+
+        const uploadSourceTrips = allTrips.filter((trip) =>
+          this.config.uploadSources.includes(trip.source)
+        );
+
+        this.displayUploadSourceTrips(uploadSourceTrips);
+      } else {
+        throw new Error("Invalid data format received from /api/trips");
+      }
+    } catch (error) {
+      window.notificationManager.show("Error loading trips from server", "danger");
+      this.loadingManager.error(`Error fetching trips: ${error.message}`);
+      this.displayUploadSourceTrips([]);
+    } finally {
+      this.loadingManager.finish();
+    }
+  }
   }
 
   displayUploadSourceTrips(trips) {

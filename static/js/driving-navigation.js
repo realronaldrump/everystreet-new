@@ -27,11 +27,7 @@ export { DrivingNavigationUI } from "./modules/driving-navigation/ui.js";
  * Initialize driving navigation when DOM is ready.
  */
 document.addEventListener("DOMContentLoaded", () => {
-  // Check for required dependencies
   if (typeof mapboxgl === "undefined") {
-    console.error(
-      "Mapbox GL JS library not found. Driving Navigation cannot initialize."
-    );
     const mapContainerId =
       window.coverageNavigatorConfig?.drivingNavigation?.mapContainerId ||
       "driving-map";
@@ -40,6 +36,8 @@ document.addEventListener("DOMContentLoaded", () => {
       mapDiv.innerHTML =
         '<div class="alert alert-danger m-3">Error: Mapping library failed to load.</div>';
     }
+    return;
+  }
     return;
   }
 

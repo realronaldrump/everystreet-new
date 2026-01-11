@@ -77,7 +77,6 @@
         );
       }
     } catch (error) {
-      console.error("Error loading credentials:", error);
       showStatus(`Error loading credentials: ${error.message}`, "error");
     }
   }
@@ -99,7 +98,6 @@
         showStatus("Failed to unmask credentials", "error");
       }
     } catch (error) {
-      console.error("Error unmasking credentials:", error);
       showStatus(`Error unmasking credentials: ${error.message}`, "error");
     }
   }
@@ -271,7 +269,6 @@
         );
       }
     } catch (error) {
-      console.error("Error saving credentials:", error);
       showStatus(`Error saving credentials: ${error.message}`, "error");
     }
   }
@@ -379,7 +376,6 @@
         });
       }
     } catch (error) {
-      console.error("Error loading vehicles:", error);
       if (vehiclesList) {
         vehiclesList.innerHTML =
           '<p class="text-center text-danger py-3">Error loading vehicles</p>';
@@ -478,7 +474,6 @@
       showStatus("Vehicle updated successfully!", "success");
       await loadVehicles();
     } catch (error) {
-      console.error("Error saving vehicle:", error);
       showStatus(error.message || "Failed to save vehicle", "error");
     }
   }
@@ -512,7 +507,6 @@
       showStatus("Vehicle deleted successfully!", "success");
       await loadVehicles();
     } catch (error) {
-      console.error("Error deleting vehicle:", error);
       showStatus(error.message || "Failed to delete vehicle", "error");
     }
   }
@@ -553,7 +547,6 @@
       showStatus("Vehicle added successfully!", "success");
       await loadVehicles();
     } catch (error) {
-      console.error("Error adding vehicle:", error);
       showStatus(error.message || "Failed to add vehicle", "error");
     }
   }
@@ -580,7 +573,6 @@
       // Reload vehicles and credentials (to update authorized devices)
       await Promise.all([loadVehicles(), loadCredentials()]);
     } catch (error) {
-      console.error("Error syncing vehicles:", error);
       showStatus(`Error syncing vehicles: ${error.message}`, "error");
     }
   }
@@ -662,7 +654,6 @@
         }
       }
     } catch (error) {
-      console.error("Error loading app settings:", error);
       if (statusEl) {
         statusEl.textContent = `Error loading settings: ${error.message}`;
         statusEl.className = "alert alert-danger mt-3";
@@ -744,7 +735,6 @@
         }
       }
     } catch (error) {
-      console.error("Error saving app settings:", error);
       if (statusEl) {
         statusEl.textContent = `Error saving settings: ${error.message}`;
         statusEl.className = "alert alert-danger mt-3";

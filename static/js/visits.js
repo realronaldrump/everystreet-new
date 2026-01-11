@@ -39,17 +39,14 @@
       if (typeof window.VisitsManager === "undefined")
         missingLibraries.push("VisitsManager class (modules not loaded?)");
 
-      const errorMessage = `Critical libraries not loaded: ${missingLibraries.join(", ")}`;
-      console.error(errorMessage);
-
       const errorDiv = document.createElement("div");
       errorDiv.className = "alert alert-danger m-4";
       errorDiv.innerHTML = `
         <i class="fas fa-exclamation-triangle me-2"></i>
-        <strong>Error:</strong> Could not load necessary components for the Visits page. 
-        Please refresh the page.
+        <strong>Error:</strong> Could not load necessary components for Visits page. 
+        Please refresh page.
       `;
       document.body.prepend(errorDiv);
     }
-  });
+  }
 })();

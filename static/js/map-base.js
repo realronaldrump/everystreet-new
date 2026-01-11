@@ -41,7 +41,7 @@
       ...rest,
     });
     map.addControl(new mapboxgl.NavigationControl());
-    map.on("error", (err) => console.error("Mapbox error:", err));
+    map.on("error", () => {});
     return map;
   }
 

@@ -172,7 +172,6 @@
         setupInteractions();
         updateStats();
       } catch (error) {
-        console.error("Error initializing county map:", error);
         updateLoadingText(`Error: ${error.message}`);
       }
     });
@@ -273,9 +272,7 @@
       if (recalcState && isRecalculating) {
         startRecalculatePolling(recalcState.startedAt);
       }
-    } catch (error) {
-      console.error("Error loading visited counties:", error);
-    }
+    } catch (_error) {}
   }
 
   // Format date for display
@@ -339,7 +336,6 @@
         clearRecalcState();
       }
     } catch (error) {
-      console.error("Error triggering recalculate:", error);
       clearRecalcState();
     }
   }
@@ -375,7 +371,6 @@
 
       setTimeout(() => checkAndRefresh(startedAt), 2000);
     } catch (error) {
-      console.error("Error checking cache status:", error);
       setTimeout(() => checkAndRefresh(startedAt), 3000);
     }
   }

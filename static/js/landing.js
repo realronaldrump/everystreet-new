@@ -49,9 +49,7 @@
         loadGasStats(),
         checkLiveTracking(),
       ]);
-    } catch (error) {
-      console.error("Error loading landing page data:", error);
-    }
+    } catch (_error) {}
   }
 
   /**
@@ -76,7 +74,6 @@
         formatNumber
       );
     } catch (error) {
-      console.error("Error loading metrics:", error);
       if (elements.statMiles) elements.statMiles.textContent = "--";
       if (elements.statTrips) elements.statTrips.textContent = "--";
     }
@@ -108,7 +105,6 @@
       // Populate activity feed
       populateActivityFeed(trips);
     } catch (error) {
-      console.error("Error loading recent trips:", error);
       populateActivityFeed([]);
     }
   }
@@ -129,9 +125,7 @@
           valueEl.textContent = data.average_mpg.toFixed(1);
         }
       }
-    } catch (error) {
-      console.error("Error loading gas stats:", error);
-    }
+    } catch (_error) {}
   }
 
   /**
@@ -154,7 +148,6 @@
         }
       }
     } catch (error) {
-      console.error("Error checking live tracking:", error);
       if (elements.liveIndicator) {
         elements.liveIndicator.classList.remove("active");
       }

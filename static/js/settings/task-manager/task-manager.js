@@ -159,7 +159,6 @@ export class TaskManager {
       TaskManager.updateTaskHistoryTable(data.history);
       this.updateHistoryPagination();
     } catch (error) {
-      console.error("Error updating task history:", error);
       this.notifier.show(
         "Error",
         `Failed to update task history: ${error.message}`,

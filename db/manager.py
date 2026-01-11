@@ -14,12 +14,10 @@ from datetime import UTC
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import certifi
-from motor.motor_asyncio import (
-    AsyncIOMotorClient,
-    AsyncIOMotorCollection,
-    AsyncIOMotorDatabase,
-    AsyncIOMotorGridFSBucket,
-)
+from gridfs import AsyncGridFSBucket
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConnectionFailure, OperationFailure
 
 if TYPE_CHECKING:
@@ -66,14 +64,14 @@ class DatabaseManager:
     def __init__(self) -> None:
         """Initialize the database manager with configuration from environment."""
         if not getattr(self, "_initialized", False):
-            self._client: AsyncIOMotorClient | None = None
-            self._db: AsyncIOMotorDatabase | None = None
-            self._gridfs_bucket_instance: AsyncIOMotorGridFSBucket | None = None
+            self._client: AsyncMongoClient | None = None
+            self._db: AsyncDatabase | None = None
+            self._gridfs_bucket_instance: AsyncGridFSBucket | None = None
             self._bound_loop: asyncio.AbstractEventLoop | None = None
             self._connection_healthy = True
             self._beanie_initialized = False
             self._db_semaphore = asyncio.Semaphore(10)
-            self._collections: dict[str, AsyncIOMotorCollection] = {}
+            self._collections: dict[str, AsyncCollection] = {}
             self._initialized = True
             self._conn_retry_backoff = [1, 2, 5, 10, 30]
 
@@ -140,7 +138,7 @@ class DatabaseManager:
                     tlsCAFile=certifi.where(),
                 )
 
-            self._client = AsyncIOMotorClient(mongo_uri, **client_kwargs)
+            self._client = AsyncMongoClient(mongo_uri, **client_kwargs)
             self._db = self._client[self._db_name]
             self._connection_healthy = True
             self._collections = {}
@@ -210,7 +208,7 @@ class DatabaseManager:
             self._close_client_sync()
 
     @property
-    def db(self) -> AsyncIOMotorDatabase:
+    def db(self) -> AsyncDatabase:
         """Get the database instance, initializing if necessary.
 
         Returns:

@@ -20,12 +20,8 @@ const showError = (msg) => window.notificationManager?.show(msg, "danger");
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", async () => {
   try {
-    if (!window.MAPBOX_ACCESS_TOKEN) {
-      console.error("Gas Tracking: Mapbox token missing from window!");
-    }
     await initializePage();
   } catch (e) {
-    console.error("Gas Tracking: Critical initialization error:", e);
     showError(`Critical Error: ${e.message}`);
   }
 });
@@ -60,11 +56,10 @@ async function initializePage() {
 /**
  * Initialize Mapbox map
  */
-async function initializeMap() {
-  if (!window.MAPBOX_ACCESS_TOKEN) {
-    console.error("Mapbox access token not found");
-    return;
-  }
+  async function initializeMap() {
+    if (!window.MAPBOX_ACCESS_TOKEN) {
+      return;
+    }
 
   // Use the shared map factory if available to ensure consistent styling
   if (window.mapBase?.createMap) {

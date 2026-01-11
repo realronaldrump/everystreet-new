@@ -23,7 +23,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await initializePage();
   } catch (e) {
-    console.error("Trips Page: Critical initialization error:", e);
     window.notificationManager?.show(`Critical Error: ${e.message}`, "danger");
   }
 });
@@ -59,7 +58,6 @@ async function loadVehicles() {
       vehicleSelect.appendChild(option);
     });
   } catch (error) {
-    console.error("Error loading vehicles:", error);
     window.notificationManager?.show("Failed to load vehicles list", "warning");
   }
 }
@@ -488,7 +486,6 @@ async function deleteTrip(id) {
     selectedTripIds.delete(id);
     tripsTable.reload();
   } catch (e) {
-    console.error("Delete failed", e);
     window.notificationManager?.show("Failed to delete trip", "danger");
   }
 }
@@ -508,9 +505,10 @@ async function bulkDeleteTrips(ids) {
     selectedTripIds.clear();
     const selectAllEl = document.getElementById("select-all-trips");
     if (selectAllEl) selectAllEl.checked = false;
-    tripsTable.reload();
-  } catch (e) {
-    console.error("Bulk delete failed", e);
-    window.notificationManager?.show("Failed to delete trips", "danger");
+      tripsTable.reload();
+    } catch (e) {
+      window.notificationManager?.show("Failed to delete trips", "danger");
+    }
   }
+}
 }
