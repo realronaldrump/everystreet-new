@@ -20,14 +20,11 @@ from coverage_tasks import (
     process_coverage_calculation,
     process_incremental_coverage_calculation,
 )
-from db import db_manager, find_one_with_retry, update_one_with_retry
+from db import ProgressStatus
 from models import LocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-progress_collection = db_manager.db["progress_status"]
-coverage_metadata_collection = db_manager.db["coverage_metadata"]
 
 
 @router.post("/api/street_coverage")
@@ -37,21 +34,17 @@ async def get_street_coverage(location: LocationModel):
         display_name = location.display_name or "Unknown Location"
         task_id = str(uuid.uuid4())
 
-        await update_one_with_retry(
-            progress_collection,
-            {"_id": task_id},
-            {
-                "$set": {
-                    "stage": "initializing",
-                    "progress": 0,
-                    "message": "Task queued, starting...",
-                    "updated_at": datetime.now(UTC),
-                    "location": display_name,
-                    "status": "queued",
-                },
-            },
-            upsert=True,
+        # Create progress status using Beanie
+        progress = ProgressStatus(
+            id=task_id,
+            operation_type="initializing",
+            progress=0,
+            message="Task queued, starting...",
+            updated_at=datetime.now(UTC),
+            status="queued",
+            result={"location": display_name},
         )
+        await progress.insert()
 
         asyncio.create_task(
             process_coverage_calculation(location.dict(), task_id),
@@ -74,14 +67,14 @@ async def get_street_coverage(location: LocationModel):
 @router.get("/api/street_coverage/{task_id}")
 async def get_coverage_status(task_id: str):
     """Get status of a coverage calculation task."""
-    progress = await find_one_with_retry(progress_collection, {"_id": task_id})
+    progress = await ProgressStatus.find_one({"_id": task_id})
     if not progress:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found",
         )
     # Return progress data even if in error state - let frontend handle it
-    return serialize_progress(progress)
+    return serialize_progress(progress.model_dump())
 
 
 @router.post("/api/street_coverage/incremental")
@@ -91,21 +84,17 @@ async def get_incremental_street_coverage(location: LocationModel):
         display_name = location.display_name or "Unknown Location"
         task_id = str(uuid.uuid4())
 
-        await update_one_with_retry(
-            progress_collection,
-            {"_id": task_id},
-            {
-                "$set": {
-                    "stage": "initializing",
-                    "progress": 0,
-                    "message": "Task queued, starting...",
-                    "updated_at": datetime.now(UTC),
-                    "location": display_name,
-                    "status": "queued",
-                },
-            },
-            upsert=True,
+        # Create progress status using Beanie
+        progress = ProgressStatus(
+            id=task_id,
+            operation_type="initializing",
+            progress=0,
+            message="Task queued, starting...",
+            updated_at=datetime.now(UTC),
+            status="queued",
+            result={"location": display_name},
         )
+        await progress.insert()
 
         asyncio.create_task(
             process_incremental_coverage_calculation(location.dict(), task_id),

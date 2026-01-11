@@ -3,6 +3,7 @@
 Handles CRUD operations for coverage areas and their details.
 """
 
+import asyncio
 import logging
 import time
 import uuid
@@ -15,31 +16,19 @@ from fastapi.responses import JSONResponse
 from coverage.location_settings import normalize_location_settings
 from coverage.serializers import serialize_coverage_area, serialize_coverage_details
 from coverage_tasks import process_area
-from db import (
-    db_manager,
-    delete_many_with_retry,
-    delete_one_with_retry,
-    find_one_with_retry,
-    find_with_retry,
-    update_one_with_retry,
-)
+from db import CoverageMetadata, OsmData, ProgressStatus, Street, db_manager
 from models import DeleteCoverageAreaModel, LocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-coverage_metadata_collection = db_manager.db["coverage_metadata"]
-streets_collection = db_manager.db["streets"]
-progress_collection = db_manager.db["progress_status"]
-osm_data_collection = db_manager.db["osm_data"]
 
 
 @router.get("/api/coverage_areas")
 async def get_coverage_areas():
     """Get all coverage areas."""
     try:
-        areas = await find_with_retry(coverage_metadata_collection, {})
-        processed_areas = [serialize_coverage_area(area) for area in areas]
+        areas = await CoverageMetadata.find_all().to_list()
+        processed_areas = [serialize_coverage_area(area.model_dump()) for area in areas]
 
         return {
             "success": True,
@@ -68,10 +57,7 @@ async def get_coverage_area_details(location_id: str):
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
     t_start_find_meta = time.perf_counter()
-    coverage_doc = await find_one_with_retry(
-        coverage_metadata_collection,
-        {"_id": obj_location_id},
-    )
+    coverage_doc = await CoverageMetadata.get(obj_location_id)
     t_end_find_meta = time.perf_counter()
     logger.info(
         "[%s] Found coverage_doc in %.4fs.",
@@ -85,7 +71,7 @@ async def get_coverage_area_details(location_id: str):
             detail="Coverage area not found",
         )
 
-    location_info = coverage_doc.get("location")
+    location_info = coverage_doc.location
     if not isinstance(location_info, dict) or not location_info.get("display_name"):
         logger.error(
             "Coverage area %s has malformed or missing 'location' data.",
@@ -102,7 +88,7 @@ async def get_coverage_area_details(location_id: str):
 
     result = {
         "success": True,
-        "coverage": serialize_coverage_details(coverage_doc),
+        "coverage": serialize_coverage_details(coverage_doc.model_dump()),
     }
 
     overall_end_time = time.perf_counter()
@@ -128,11 +114,10 @@ async def preprocess_streets_route(location_data: LocationModel):
                 detail="Invalid location data provided (missing display_name).",
             )
 
-        existing = await find_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": display_name},
+        existing = await CoverageMetadata.find_one(
+            {"location.display_name": display_name}
         )
-        if existing and existing.get("status") in {
+        if existing and existing.status in {
             "processing",
             "preprocessing",
             "calculating",
@@ -143,43 +128,52 @@ async def preprocess_streets_route(location_data: LocationModel):
                 detail="This area is already being processed",
             )
 
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": display_name},
-            {
-                "$set": {
-                    "location": validated_location_dict,
-                    "status": "processing",
-                    "last_error": None,
-                    "last_updated": datetime.now(UTC),
-                    "total_length": 0,
-                    "driven_length": 0,
-                    "coverage_percentage": 0,
-                    "total_segments": 0,
-                },
-            },
-            upsert=True,
-        )
+        # Upsert coverage metadata
+        if existing:
+            existing.location = validated_location_dict
+            existing.status = "processing"
+            existing.last_error = None
+            existing.last_updated = datetime.now(UTC)
+            existing.total_length_miles = 0
+            existing.driven_length_miles = 0
+            existing.coverage_percentage = 0
+            existing.total_streets = 0
+            await existing.save()
+        else:
+            new_coverage = CoverageMetadata(
+                location=validated_location_dict,
+                status="processing",
+                last_updated=datetime.now(UTC),
+                total_length_miles=0,
+                driven_length_miles=0,
+                coverage_percentage=0,
+                total_streets=0,
+            )
+            await new_coverage.insert()
 
         task_id = str(uuid.uuid4())
 
-        await update_one_with_retry(
-            progress_collection,
-            {"_id": task_id},
-            {
-                "$set": {
-                    "stage": "initializing",
-                    "progress": 0,
-                    "message": "Task queued, starting...",
-                    "updated_at": datetime.now(UTC),
-                    "location": display_name,
-                    "status": "queued",
-                },
-            },
-            upsert=True,
-        )
-
-        import asyncio
+        # Create or update progress status
+        progress = await ProgressStatus.find_one({"_id": task_id})
+        if progress:
+            progress.operation_type = "initializing"
+            progress.progress = 0
+            progress.message = "Task queued, starting..."
+            progress.updated_at = datetime.now(UTC)
+            progress.status = "queued"
+            await progress.save()
+        else:
+            progress = ProgressStatus(
+                id=task_id,
+                operation_type="initializing",
+                progress=0,
+                message="Task queued, starting...",
+                updated_at=datetime.now(UTC),
+                status="queued",
+            )
+            # Store location in result dict for reference
+            progress.result = {"location": display_name}
+            await progress.insert()
 
         asyncio.create_task(process_area(validated_location_dict, task_id))
         return {
@@ -187,6 +181,8 @@ async def preprocess_streets_route(location_data: LocationModel):
             "task_id": task_id,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(
             "Error in preprocess_streets_route for %s: %s",
@@ -195,15 +191,13 @@ async def preprocess_streets_route(location_data: LocationModel):
         )
         try:
             if display_name:
-                await coverage_metadata_collection.update_one(
-                    {"location.display_name": display_name},
-                    {
-                        "$set": {
-                            "status": "error",
-                            "last_error": str(e),
-                        },
-                    },
+                existing = await CoverageMetadata.find_one(
+                    {"location.display_name": display_name}
                 )
+                if existing:
+                    existing.status = "error"
+                    existing.last_error = str(e)
+                    await existing.save()
         except Exception as db_err:
             logger.error(
                 "Failed to update error status for %s: %s",
@@ -227,9 +221,8 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
                 detail="Invalid location display name",
             )
 
-        coverage_metadata = await find_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": display_name},
+        coverage_metadata = await CoverageMetadata.find_one(
+            {"location.display_name": display_name}
         )
 
         if not coverage_metadata:
@@ -241,7 +234,7 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
         # Delete GridFS files
         from coverage.gridfs_service import gridfs_service
 
-        if gridfs_id := coverage_metadata.get("streets_geojson_gridfs_id"):
+        if gridfs_id := coverage_metadata.streets_geojson_id:
             await gridfs_service.delete_file(gridfs_id, display_name)
 
         # Delete all GridFS files tagged with this location
@@ -249,10 +242,7 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
 
         # Delete progress data
         try:
-            await delete_many_with_retry(
-                progress_collection,
-                {"location": display_name},
-            )
+            await ProgressStatus.find({"result.location": display_name}).delete()
             logger.info("Deleted progress data for %s", display_name)
         except Exception as progress_err:
             logger.warning(
@@ -263,10 +253,7 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
 
         # Delete cached OSM data
         try:
-            await delete_many_with_retry(
-                osm_data_collection,
-                {"location.display_name": display_name},
-            )
+            await OsmData.find({"location": display_name}).delete()
             logger.info("Deleted cached OSM data for %s", display_name)
         except Exception as osm_err:
             logger.warning(
@@ -276,17 +263,11 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
             )
 
         # Delete street segments
-        await delete_many_with_retry(
-            streets_collection,
-            {"properties.location": display_name},
-        )
+        await Street.find({"properties.location": display_name}).delete()
         logger.info("Deleted street segments for %s", display_name)
 
         # Delete coverage metadata
-        await delete_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": display_name},
-        )
+        await coverage_metadata.delete()
         logger.info("Deleted coverage metadata for %s", display_name)
 
         return {
@@ -294,6 +275,8 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
             "message": "Coverage area and all associated data deleted successfully",
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(
             "Error deleting coverage area: %s",
@@ -316,16 +299,13 @@ async def cancel_coverage_area(location: DeleteCoverageAreaModel):
                 detail="Invalid location display name",
             )
 
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": display_name},
-            {
-                "$set": {
-                    "status": "canceled",
-                    "last_error": "Task was canceled by user.",
-                },
-            },
+        coverage = await CoverageMetadata.find_one(
+            {"location.display_name": display_name}
         )
+        if coverage:
+            coverage.status = "canceled"
+            coverage.last_error = "Task was canceled by user."
+            await coverage.save()
 
         return {
             "status": "success",

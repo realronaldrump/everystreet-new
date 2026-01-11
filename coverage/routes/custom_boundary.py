@@ -16,15 +16,11 @@ from shapely.geometry import shape
 from coverage.location_settings import normalize_location_settings
 from coverage.services import geometry_service
 from coverage_tasks import process_area
-from db import db_manager
-from db.models import CoverageMetadata, ProgressStatus
+from db import CoverageMetadata, ProgressStatus
 from models import CustomBoundaryModel, ValidateCustomBoundaryModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-coverage_metadata_collection = db_manager.get_collection("coverage_metadata")
-progress_collection = db_manager.get_collection("progress_status")
 
 
 @router.post("/api/validate_custom_boundary")
@@ -114,10 +110,8 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
     }
     location_dict = normalize_location_settings(location_dict)
 
-    existing = await CoverageMetadata.find_one(
-        CoverageMetadata.location.display_name == display_name
-    )
-    if existing and existing.get("status") in {
+    existing = await CoverageMetadata.find_one({"location.display_name": display_name})
+    if existing and existing.status in {
         "processing",
         "preprocessing",
         "calculating",
@@ -128,40 +122,42 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
             detail="This area is already being processed",
         )
 
-    await update_one_with_retry(
-        coverage_metadata_collection,
-        {"location.display_name": display_name},
-        {
-            "$set": {
-                "location": location_dict,
-                "status": "processing",
-                "last_error": None,
-                "last_updated": datetime.now(UTC),
-                "total_length": 0,
-                "driven_length": 0,
-                "coverage_percentage": 0,
-                "total_segments": 0,
-            },
-        },
-        upsert=True,
-    )
+    # Upsert coverage metadata using Beanie
+    if existing:
+        existing.location = location_dict
+        existing.status = "processing"
+        existing.last_error = None
+        existing.last_updated = datetime.now(UTC)
+        existing.total_length_miles = 0
+        existing.driven_length_miles = 0
+        existing.coverage_percentage = 0
+        existing.total_streets = 0
+        await existing.save()
+    else:
+        coverage = CoverageMetadata(
+            location=location_dict,
+            status="processing",
+            last_updated=datetime.now(UTC),
+            total_length_miles=0,
+            driven_length_miles=0,
+            coverage_percentage=0,
+            total_streets=0,
+        )
+        await coverage.insert()
 
     task_id = str(uuid.uuid4())
 
-    progress = await ProgressStatus.find_one(
-        ProgressStatus.id == task_id,
-        {
-            "$set": {
-                "stage": "initializing",
-                "progress": 0,
-                "message": "Task queued, starting...",
-                "updated_at": datetime.now(UTC),
-                "location": display_name,
-                "status": "queued",
-            },
-        },
-        upsert=True,
+    # Create progress status using Beanie
+    progress = ProgressStatus(
+        id=task_id,
+        operation_type="initializing",
+        progress=0,
+        message="Task queued, starting...",
+        updated_at=datetime.now(UTC),
+        status="queued",
+        result={"location": display_name},
     )
+    await progress.insert()
 
     asyncio.create_task(process_area(location_dict, task_id))
 

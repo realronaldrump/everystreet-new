@@ -16,13 +16,13 @@ from gridfs import errors
 from coverage.gridfs_service import gridfs_service
 from coverage.serializers import sanitize_features
 from coverage.services import segment_marking_service
-from db import batch_cursor, count_documents_with_retry, db_manager, find_one_with_retry
+from db import CoverageMetadata, Street, db_manager
 from models import LocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-coverage_metadata_collection = db_manager.db["coverage_metadata"]
+# Keep raw collection access for complex geo queries that Beanie doesn't support well
 streets_collection = db_manager.db["streets"]
 
 
@@ -35,14 +35,7 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
-    coverage_doc = await find_one_with_retry(
-        coverage_metadata_collection,
-        {"_id": obj_location_id},
-        {
-            "streets_geojson_gridfs_id": 1,
-            "location.display_name": 1,
-        },
-    )
+    coverage_doc = await CoverageMetadata.get(obj_location_id)
 
     if not coverage_doc:
         logger.warning("[%s] Coverage area metadata not found for ID.", location_id)
@@ -51,9 +44,11 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
             detail="Coverage area metadata not found",
         )
 
-    gridfs_id = coverage_doc.get("streets_geojson_gridfs_id")
-    location_name = coverage_doc.get("location", {}).get(
-        "display_name", "UnknownLocation"
+    gridfs_id = coverage_doc.streets_geojson_id
+    location_name = (
+        coverage_doc.location.get("display_name", "UnknownLocation")
+        if coverage_doc.location
+        else "UnknownLocation"
     )
 
     if not gridfs_id:
@@ -141,17 +136,16 @@ async def get_coverage_area_streets(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
-    meta = await find_one_with_retry(
-        coverage_metadata_collection,
-        {"_id": obj_location_id},
-        {"location.display_name": 1},
-    )
+    meta = await CoverageMetadata.get(obj_location_id)
     if not meta:
         raise HTTPException(
             status_code=404,
             detail="Coverage area not found",
         )
-    name = meta["location"]["display_name"]
+    name = meta.location.get("display_name") if meta.location else None
+    if not name:
+        raise HTTPException(status_code=500, detail="Coverage area has no display name")
+
     query = {"properties.location": name}
     if undriven:
         query["properties.driven"] = False
@@ -193,14 +187,12 @@ async def get_coverage_area_streets_viewport(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
-    meta = await find_one_with_retry(
-        coverage_metadata_collection,
-        {"_id": obj_location_id},
-        {"location.display_name": 1},
-    )
+    meta = await CoverageMetadata.get(obj_location_id)
     if not meta:
         raise HTTPException(status_code=404, detail="Coverage area not found")
-    name = meta["location"]["display_name"]
+    name = meta.location.get("display_name") if meta.location else None
+    if not name:
+        raise HTTPException(status_code=500, detail="Coverage area has no display name")
 
     viewport_poly = {
         "type": "Polygon",
@@ -253,9 +245,8 @@ async def get_undriven_streets(location: LocationModel):
             location_name,
         )
 
-        coverage_metadata = await find_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": location_name},
+        coverage_metadata = await CoverageMetadata.find_one(
+            {"location.display_name": location_name}
         )
 
         if not coverage_metadata:
@@ -273,7 +264,7 @@ async def get_undriven_streets(location: LocationModel):
             "properties.driven": False,
         }
 
-        count = await count_documents_with_retry(streets_collection, query)
+        count = await streets_collection.count_documents(query)
         logger.info(
             "Found %d undriven street documents for '%s'.",
             count,
@@ -290,11 +281,9 @@ async def get_undriven_streets(location: LocationModel):
 
         features = []
         cursor = streets_collection.find(query)
-
-        async for street_batch in batch_cursor(cursor):
-            for street_doc in street_batch:
-                if "geometry" in street_doc and "properties" in street_doc:
-                    features.append(street_doc)
+        async for street_doc in cursor:
+            if "geometry" in street_doc and "properties" in street_doc:
+                features.append(street_doc)
 
         content_to_return = {
             "type": "FeatureCollection",
@@ -304,6 +293,8 @@ async def get_undriven_streets(location: LocationModel):
             content=json.loads(bson.json_util.dumps(content_to_return)),
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(
             "Unexpected error getting undriven streets for '%s': %s",
@@ -321,17 +312,17 @@ async def get_undriven_streets(location: LocationModel):
 async def get_street_segment_details(segment_id: str):
     """Get details for a specific street segment."""
     try:
-        segment = await find_one_with_retry(
-            streets_collection,
-            {"properties.segment_id": segment_id},
-            projection={"_id": 0},
-        )
+        segment = await Street.find_one({"properties.segment_id": segment_id})
         if not segment:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Segment not found",
             )
-        return segment
+        # Return as dict without _id
+        result = segment.model_dump(exclude={"id"})
+        return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(
             "Error fetching segment details for segment_id %s: %s",

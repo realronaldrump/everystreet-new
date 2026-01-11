@@ -4,6 +4,7 @@ Handles generating, retrieving, and exporting optimal completion routes.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 from datetime import UTC, datetime
@@ -13,13 +14,10 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 
 from coverage.serializers import serialize_optimal_route
-from db import db_manager, find_one_with_retry, update_one_with_retry
+from db import CoverageMetadata, OptimalRouteProgress
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-coverage_metadata_collection = db_manager.db["coverage_metadata"]
-optimal_route_progress_collection = db_manager.db["optimal_route_progress"]
 
 
 @router.post("/api/coverage_areas/{location_id}/generate-optimal-route")
@@ -36,16 +34,12 @@ async def start_optimal_route_generation(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
-    coverage_doc = await find_one_with_retry(
-        coverage_metadata_collection,
-        {"_id": obj_location_id},
-        {"location.display_name": 1, "status": 1},
-    )
+    coverage_doc = await CoverageMetadata.get(obj_location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
-    if coverage_doc.get("status") == "processing":
+    if coverage_doc.status == "processing":
         raise HTTPException(
             status_code=400,
             detail="Coverage area is still being processed. Wait for completion.",
@@ -60,22 +54,20 @@ async def start_optimal_route_generation(
 
     # Create initial progress document so SSE can track queued state
     # before worker picks up the task
-    await update_one_with_retry(
-        optimal_route_progress_collection,
-        {"task_id": task.id},
-        {
-            "$set": {
-                "task_id": task.id,
-                "location_id": location_id,
-                "status": "queued",
-                "stage": "queued",
-                "progress": 0,
-                "message": "Task queued, waiting for worker...",
-                "queued_at": datetime.now(UTC),
-            }
-        },
-        upsert=True,
+    progress = OptimalRouteProgress(
+        location=location_id,
+        status="queued",
+        progress=0,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
+    # Store task_id in route dict for reference
+    progress.route = {
+        "task_id": task.id,
+        "stage": "queued",
+        "message": "Task queued, waiting for worker...",
+    }
+    await progress.insert()
 
     logger.info(
         "Started optimal route generation task %s for location %s",
@@ -143,18 +135,18 @@ async def get_optimal_route(location_id: str):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
-    coverage_doc = await find_one_with_retry(
-        coverage_metadata_collection,
-        {"_id": obj_location_id},
-        {"optimal_route": 1, "location.display_name": 1},
-    )
+    coverage_doc = await CoverageMetadata.get(obj_location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
-    route = coverage_doc.get("optimal_route")
-    if not route:
-        route = coverage_doc.get("location", {}).get("optimal_route_data")
+    # Get route from the model - check several possible locations
+    route = None
+    if hasattr(coverage_doc, "optimal_route") and coverage_doc.optimal_route:
+        route = coverage_doc.optimal_route
+    elif coverage_doc.location and coverage_doc.location.get("optimal_route_data"):
+        route = coverage_doc.location.get("optimal_route_data")
+
     if not route:
         raise HTTPException(
             status_code=404,
@@ -165,7 +157,9 @@ async def get_optimal_route(location_id: str):
 
     return {
         "status": "success",
-        "location_name": coverage_doc.get("location", {}).get("display_name"),
+        "location_name": coverage_doc.location.get("display_name")
+        if coverage_doc.location
+        else None,
         **route,
     }
 
@@ -180,18 +174,18 @@ async def export_optimal_route_gpx(location_id: str):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
-    coverage_doc = await find_one_with_retry(
-        coverage_metadata_collection,
-        {"_id": obj_location_id},
-        {"optimal_route": 1, "location.display_name": 1},
-    )
+    coverage_doc = await CoverageMetadata.get(obj_location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
-    route = coverage_doc.get("optimal_route")
-    if not route:
-        route = coverage_doc.get("location", {}).get("optimal_route_data")
+    # Get route from the model
+    route = None
+    if hasattr(coverage_doc, "optimal_route") and coverage_doc.optimal_route:
+        route = coverage_doc.optimal_route
+    elif coverage_doc.location and coverage_doc.location.get("optimal_route_data"):
+        route = coverage_doc.location.get("optimal_route_data")
+
     if route and not route.get("coordinates") and route.get("route_coordinates"):
         route["coordinates"] = route["route_coordinates"]
     if not route or not route.get("coordinates"):
@@ -200,7 +194,11 @@ async def export_optimal_route_gpx(location_id: str):
             detail="No optimal route available. Generate one first.",
         )
 
-    location_name = coverage_doc.get("location", {}).get("display_name", "Route")
+    location_name = (
+        coverage_doc.location.get("display_name", "Route")
+        if coverage_doc.location
+        else "Route"
+    )
     gpx_content = build_gpx_from_coords(
         route["coordinates"],
         name=f"Optimal Route - {location_name}",
@@ -226,14 +224,15 @@ async def delete_optimal_route(location_id: str):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
-    result = await update_one_with_retry(
-        coverage_metadata_collection,
-        {"_id": obj_location_id},
-        {"$unset": {"optimal_route": 1}},
-    )
+    coverage_doc = await CoverageMetadata.get(obj_location_id)
 
-    if result.matched_count == 0:
+    if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
+
+    # Unset optimal_route field
+    if hasattr(coverage_doc, "optimal_route"):
+        coverage_doc.optimal_route = None
+        await coverage_doc.save()
 
     return {"status": "success", "message": "Optimal route deleted"}
 
@@ -246,29 +245,29 @@ async def get_active_route_task(location_id: str):
     allowing the frontend to reconnect after page refresh.
     """
     # Find any active/pending task for this location
-    # Sort by queued_at descending to get the most recent task
-    progress = await find_one_with_retry(
-        optimal_route_progress_collection,
+    # Sort by created_at descending to get the most recent task
+    progress = await OptimalRouteProgress.find_one(
         {
-            "location_id": location_id,
+            "location": location_id,
             "status": {"$in": ["queued", "running", "pending", "initializing"]},
         },
-        sort=[("queued_at", -1)],
+        sort=[("created_at", -1)],
     )
 
     if not progress:
         return {"active": False, "task_id": None}
 
+    route_data = progress.route or {}
     return {
         "active": True,
-        "task_id": progress.get("task_id"),
-        "status": progress.get("status", "pending"),
-        "stage": progress.get("stage", "initializing"),
-        "progress": progress.get("progress", 0),
-        "message": progress.get("message", ""),
-        "metrics": progress.get("metrics", {}),
-        "started_at": progress.get("started_at"),
-        "updated_at": progress.get("updated_at"),
+        "task_id": route_data.get("task_id"),
+        "status": progress.status or "pending",
+        "stage": route_data.get("stage", "initializing"),
+        "progress": progress.progress or 0,
+        "message": route_data.get("message", ""),
+        "metrics": route_data.get("metrics", {}),
+        "started_at": route_data.get("started_at"),
+        "updated_at": progress.updated_at,
     }
 
 
@@ -282,21 +281,15 @@ async def cancel_optimal_route_task(task_id: str):
     from celery_app import app as celery_app
 
     # Check if task exists
-    progress = await find_one_with_retry(
-        optimal_route_progress_collection,
-        {"task_id": task_id},
-    )
+    progress = await OptimalRouteProgress.find_one({"route.task_id": task_id})
 
     if not progress:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    location_id = progress.get("location_id")
-    current_status = progress.get("status", "")
+    location_id = progress.location
+    current_status = progress.status or ""
 
-    if current_status in ("completed", "failed", "cancelled"):
-        # Even if this task is done, cancel any other active tasks for this location
-        pass
-    else:
+    if current_status not in ("completed", "failed", "cancelled"):
         # Revoke the Celery task
         try:
             celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")
@@ -307,36 +300,29 @@ async def cancel_optimal_route_task(task_id: str):
     # Cancel ALL active tasks for this location (not just this one)
     if location_id:
         active_statuses = ["queued", "running", "pending", "initializing"]
-        active_tasks = optimal_route_progress_collection.find(
+        active_tasks = await OptimalRouteProgress.find(
             {
-                "location_id": location_id,
+                "location": location_id,
                 "status": {"$in": active_statuses},
             }
-        )
+        ).to_list()
 
         cancelled_count = 0
-        async for task in active_tasks:
-            tid = task.get("task_id")
+        for task in active_tasks:
+            route_data = task.route or {}
+            tid = route_data.get("task_id")
             if tid:
                 # Revoke each Celery task
-                import contextlib
-
                 with contextlib.suppress(Exception):
                     celery_app.control.revoke(tid, terminate=True, signal="SIGTERM")
 
                 # Mark as cancelled
-                await update_one_with_retry(
-                    optimal_route_progress_collection,
-                    {"task_id": tid},
-                    {
-                        "$set": {
-                            "status": "cancelled",
-                            "stage": "cancelled",
-                            "message": "Task cancelled by user",
-                            "cancelled_at": datetime.now(UTC),
-                        }
-                    },
-                )
+                task.status = "cancelled"
+                if task.route:
+                    task.route["stage"] = "cancelled"
+                    task.route["message"] = "Task cancelled by user"
+                    task.route["cancelled_at"] = datetime.now(UTC).isoformat()
+                await task.save()
                 cancelled_count += 1
 
         logger.info(
@@ -349,26 +335,24 @@ async def cancel_optimal_route_task(task_id: str):
 @router.get("/api/optimal-routes/{task_id}/progress")
 async def get_optimal_route_progress(task_id: str):
     """Get current progress for an optimal route generation task."""
-    progress = await find_one_with_retry(
-        optimal_route_progress_collection,
-        {"task_id": task_id},
-    )
+    progress = await OptimalRouteProgress.find_one({"route.task_id": task_id})
 
     if not progress:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    route_data = progress.route or {}
     return {
         "task_id": task_id,
-        "location_id": progress.get("location_id"),
-        "status": progress.get("status", "pending"),
-        "stage": progress.get("stage", "initializing"),
-        "progress": progress.get("progress", 0),
-        "message": progress.get("message", ""),
-        "metrics": progress.get("metrics", {}),
-        "error": progress.get("error"),
-        "started_at": progress.get("started_at"),
-        "updated_at": progress.get("updated_at"),
-        "completed_at": progress.get("completed_at"),
+        "location_id": progress.location,
+        "status": progress.status or "pending",
+        "stage": route_data.get("stage", "initializing"),
+        "progress": progress.progress or 0,
+        "message": route_data.get("message", ""),
+        "metrics": route_data.get("metrics", {}),
+        "error": route_data.get("error"),
+        "started_at": route_data.get("started_at"),
+        "updated_at": progress.updated_at,
+        "completed_at": route_data.get("completed_at"),
     }
 
 
@@ -388,9 +372,8 @@ async def stream_optimal_route_progress(task_id: str):
             poll_count += 1
 
             try:
-                progress = await find_one_with_retry(
-                    optimal_route_progress_collection,
-                    {"task_id": task_id},
+                progress = await OptimalRouteProgress.find_one(
+                    {"route.task_id": task_id}
                 )
 
                 if not progress:
@@ -404,11 +387,12 @@ async def stream_optimal_route_progress(task_id: str):
                     await asyncio.sleep(1)
                     continue
 
-                current_progress = progress.get("progress", 0)
-                current_stage = progress.get("stage")
-                current_status = progress.get("status", "running")
-                current_message = progress.get("message", "")
-                current_metrics = progress.get("metrics", {}) or {}
+                route_data = progress.route or {}
+                current_progress = progress.progress or 0
+                current_stage = route_data.get("stage")
+                current_status = progress.status or "running"
+                current_message = route_data.get("message", "")
+                current_metrics = route_data.get("metrics", {}) or {}
 
                 if (
                     current_progress != last_progress
@@ -427,9 +411,9 @@ async def stream_optimal_route_progress(task_id: str):
                         "progress": current_progress,
                         "message": current_message,
                         "metrics": current_metrics,
-                        "error": progress.get("error"),
-                        "started_at": progress.get("started_at"),
-                        "updated_at": progress.get("updated_at"),
+                        "error": route_data.get("error"),
+                        "started_at": route_data.get("started_at"),
+                        "updated_at": progress.updated_at,
                     }
                     yield f"data: {json.dumps(data, default=str)}\n\n"
 
@@ -440,8 +424,8 @@ async def stream_optimal_route_progress(task_id: str):
                         "progress": current_progress,
                         "message": current_message,
                         "metrics": current_metrics,
-                        "error": progress.get("error"),
-                        "completed_at": progress.get("completed_at"),
+                        "error": route_data.get("error"),
+                        "completed_at": route_data.get("completed_at"),
                     }
                     yield f"data: {json.dumps(final_data, default=str)}\n\n"
                     break
