@@ -347,6 +347,8 @@ class CoverageMetadata(Document):
     coverage_percentage: float | None = None
     total_length_miles: float | None = None
     driven_length_miles: float | None = None
+    total_length_m: float | None = None
+    driven_length_m: float | None = None
     last_updated: datetime | None = None
     last_calculated: datetime | None = None
     boundary: dict[str, Any] | None = None

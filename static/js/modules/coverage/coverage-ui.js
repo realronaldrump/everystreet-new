@@ -642,8 +642,8 @@ class CoverageUI {
         ? new Date(area.last_updated).toLocaleString("en-US", { hour12: true })
         : "Never",
       lastUpdatedOrder: area.last_updated ? new Date(area.last_updated).getTime() : 0,
-      totalLengthMiles: isProcessing && !hasData ? "--" : distanceInUserUnits(area.total_length),
-      drivenLengthMiles: isProcessing && !hasData ? "--" : distanceInUserUnits(area.driven_length),
+      totalLengthMiles: isProcessing && !hasData ? "--" : distanceInUserUnits(area.total_length_m || area.total_length || 0),
+      drivenLengthMiles: isProcessing && !hasData ? "--" : distanceInUserUnits(area.driven_length_m || area.driven_length || 0),
       coveragePercentage: area.coverage_percentage?.toFixed(1) || "0.0",
       totalSegments: isProcessing && !hasData ? "--" : (area.total_segments?.toLocaleString() || 0),
     };
@@ -699,10 +699,10 @@ class CoverageUI {
         ${statusIndicator}
       </td>
       <td data-label="Total Length" class="text-end" data-order="${
-        parseFloat(area.total_length || 0) * 0.000621371
+        parseFloat(area.total_length_m || area.total_length || 0) * 0.000621371
       }">${areaData.totalLengthMiles}</td>
       <td data-label="Driven Length" class="text-end" data-order="${
-        parseFloat(area.driven_length || 0) * 0.000621371
+        parseFloat(area.driven_length_m || area.driven_length || 0) * 0.000621371
       }">${areaData.drivenLengthMiles}</td>
       <td data-label="Coverage" data-order="${parseFloat(area.coverage_percentage || 0)}">
         <div class="progress" style="height: 22px;" title="${areaData.coveragePercentage}% coverage">

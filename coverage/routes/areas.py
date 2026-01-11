@@ -140,6 +140,8 @@ async def preprocess_streets_route(location_data: LocationModel):
             existing.last_updated = datetime.now(UTC)
             existing.total_length_miles = 0
             existing.driven_length_miles = 0
+            existing.total_length_m = 0.0
+            existing.driven_length_m = 0.0
             existing.coverage_percentage = 0
             existing.total_streets = 0
             await existing.save()
@@ -150,6 +152,8 @@ async def preprocess_streets_route(location_data: LocationModel):
                 last_updated=datetime.now(UTC),
                 total_length_miles=0,
                 driven_length_miles=0,
+                total_length_m=0.0,
+                driven_length_m=0.0,
                 coverage_percentage=0,
                 total_streets=0,
             )
