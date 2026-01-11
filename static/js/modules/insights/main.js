@@ -97,10 +97,7 @@ function setupFabActions() {
   if (refreshBtn) {
     refreshBtn.addEventListener("click", () => {
       loadAllData();
-      InsightsExport.showNotification(
-        "Data refreshed successfully",
-        "success"
-      );
+      InsightsExport.showNotification("Data refreshed successfully", "success");
     });
   }
 
@@ -166,10 +163,7 @@ export async function loadAllData() {
     InsightsTables.updateTables();
   } catch (error) {
     console.error("Error loading data:", error);
-    InsightsExport.showNotification(
-      "Error loading data. Please try again.",
-      "error"
-    );
+    InsightsExport.showNotification("Error loading data. Please try again.", "error");
   } finally {
     InsightsState.updateState({ isLoading: false });
     hideLoadingStates();

@@ -11,6 +11,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from models import validate_geojson_point_or_linestring
 from shapely.geometry import mapping, shape
 
 from coverage.constants import (
@@ -26,7 +27,6 @@ from coverage.constants import (
 )
 from db.models import CoverageMetadata, ProgressStatus, Street, Trip
 from geometry_service import GeometryService
-from models import validate_geojson_point_or_linestring
 
 logger = logging.getLogger(__name__)
 

@@ -66,7 +66,6 @@ from db.query import (
     parse_query_date,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

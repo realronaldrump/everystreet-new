@@ -19,7 +19,6 @@ from pymongo import AsyncMongoClient
 from pymongo.errors import ConnectionFailure
 
 if TYPE_CHECKING:
-    from pymongo.asynchronous.collection import AsyncCollection
     from pymongo.asynchronous.database import AsyncDatabase
 
 logger = logging.getLogger(__name__)

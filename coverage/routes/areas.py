@@ -12,11 +12,11 @@ from datetime import UTC, datetime
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
+from models import DeleteCoverageAreaModel, LocationModel
 
 from coverage.location_settings import normalize_location_settings
 from coverage_tasks import process_area
 from db import CoverageMetadata, OsmData, ProgressStatus, Street
-from models import DeleteCoverageAreaModel, LocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
