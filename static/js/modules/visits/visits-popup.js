@@ -52,12 +52,16 @@
       // Show loading popup
       const popup = this.mapController?.showPlacePopup(
         this._createLoadingPopupHTML(place.name),
-        targetLngLat
+        targetLngLat,
       );
 
       try {
         const stats = await this.dataLoader.loadPlaceDetailStatistics(placeId);
-        const popupContent = this._createStatsPopupHTML(placeId, place.name, stats);
+        const popupContent = this._createStatsPopupHTML(
+          placeId,
+          place.name,
+          stats,
+        );
 
         popup?.setHTML(popupContent);
 
@@ -68,7 +72,10 @@
       } catch (error) {
         console.error("Error fetching place statistics:", error);
         popup?.setHTML(this._createErrorPopupHTML(place.name));
-        this.notificationManager?.show("Failed to fetch place statistics", "danger");
+        this.notificationManager?.show(
+          "Failed to fetch place statistics",
+          "danger",
+        );
       }
     }
 
@@ -100,7 +107,9 @@
      */
     _createStatsPopupHTML(placeId, placeName, stats) {
       const formatDate = (dateStr) =>
-        dateStr ? DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" }) : "N/A";
+        dateStr
+          ? DateUtils.formatForDisplay(dateStr, { dateStyle: "medium" })
+          : "N/A";
       const formatAvg = (value) => value || "N/A";
 
       return `
@@ -167,22 +176,26 @@
       const popupNode = popup?.getElement();
       if (!popupNode) return;
 
-      popupNode.querySelector(".view-trips-btn")?.addEventListener("click", (e) => {
-        e.preventDefault();
-        const id = e.currentTarget.getAttribute("data-place-id");
-        if (id) {
-          this.mapController?.closePopup();
-          this.onViewTrips(id);
-        }
-      });
+      popupNode
+        .querySelector(".view-trips-btn")
+        ?.addEventListener("click", (e) => {
+          e.preventDefault();
+          const id = e.currentTarget.getAttribute("data-place-id");
+          if (id) {
+            this.mapController?.closePopup();
+            this.onViewTrips(id);
+          }
+        });
 
-      popupNode.querySelector(".zoom-to-place-btn")?.addEventListener("click", (e) => {
-        e.preventDefault();
-        const id = e.currentTarget.getAttribute("data-place-id");
-        if (id) {
-          this.onZoomToPlace(id);
-        }
-      });
+      popupNode
+        .querySelector(".zoom-to-place-btn")
+        ?.addEventListener("click", (e) => {
+          e.preventDefault();
+          const id = e.currentTarget.getAttribute("data-place-id");
+          if (id) {
+            this.onZoomToPlace(id);
+          }
+        });
     }
   }
 
