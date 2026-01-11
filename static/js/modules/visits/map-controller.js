@@ -32,7 +32,7 @@
 
           this.map.addControl(
             new mapboxgl.NavigationControl({ showCompass: false }),
-            "bottom-right"
+            "bottom-right",
           );
 
           this.map.on("load", () => {
@@ -78,7 +78,7 @@
       }
       const feature = this.placeFeatures.get(placeId);
       this.customPlacesData.features = this.customPlacesData.features.filter(
-        (f) => f !== feature
+        (f) => f !== feature,
       );
       this.placeFeatures.delete(placeId);
       this._refreshPlacesSource();
@@ -159,8 +159,8 @@
 
     toggleMapStyle() {
       this.mapStyle = this.mapStyle === "satellite" ? "dark" : "satellite";
-      const styleUrl
-        = this.mapStyle === "satellite"
+      const styleUrl =
+        this.mapStyle === "satellite"
           ? "mapbox://styles/mapbox/satellite-streets-v12"
           : "mapbox://styles/mapbox/dark-v11";
 
@@ -175,8 +175,8 @@
 
     updateTheme(theme) {
       this.mapStyle = theme === "light" ? "light" : "dark";
-      const styleUrl
-        = this.mapStyle === "light"
+      const styleUrl =
+        this.mapStyle === "light"
           ? "mapbox://styles/mapbox/light-v11"
           : "mapbox://styles/mapbox/dark-v11";
 
@@ -318,7 +318,8 @@
           type: "line",
           source: "custom-places",
           paint: {
-            "line-color": this.mapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
+            "line-color":
+              this.mapStyles.MAP_LAYER_COLORS.customPlaces.highlight,
             "line-width": 4,
             "line-opacity": 0,
           },
@@ -343,13 +344,13 @@
           if (hoveredStateId !== null && hoveredStateId !== undefined) {
             this.map.setFeatureState(
               { source: "custom-places", id: hoveredStateId },
-              { hover: false }
+              { hover: false },
             );
           }
           hoveredStateId = featureId;
           this.map.setFeatureState(
             { source: "custom-places", id: hoveredStateId },
-            { hover: true }
+            { hover: true },
           );
           this.map.getCanvas().style.cursor = "pointer";
         }
@@ -359,7 +360,7 @@
         if (hoveredStateId !== null && hoveredStateId !== undefined) {
           this.map.setFeatureState(
             { source: "custom-places", id: hoveredStateId },
-            { hover: false }
+            { hover: false },
           );
         }
         hoveredStateId = null;
@@ -382,7 +383,11 @@
       }
       this.map.setPaintProperty("custom-places-highlight", "line-opacity", 0.8);
       setTimeout(() => {
-        this.map?.setPaintProperty("custom-places-highlight", "line-opacity", 0);
+        this.map?.setPaintProperty(
+          "custom-places-highlight",
+          "line-opacity",
+          0,
+        );
       }, 300);
     }
 

@@ -3,20 +3,21 @@
 (() => {
   document.addEventListener("DOMContentLoaded", () => {
     if (
-      typeof Chart !== "undefined"
-      && typeof $ !== "undefined"
-      && typeof bootstrap !== "undefined"
-      && typeof DateUtils !== "undefined"
-      && typeof window.mapBase !== "undefined"
-      && typeof window.mapBase.createMap === "function"
-      && typeof window.VisitsManager !== "undefined" // Ensure VisitsManager class is loaded
+      typeof Chart !== "undefined" &&
+      typeof $ !== "undefined" &&
+      typeof bootstrap !== "undefined" &&
+      typeof DateUtils !== "undefined" &&
+      typeof window.mapBase !== "undefined" &&
+      typeof window.mapBase.createMap === "function" &&
+      typeof window.VisitsManager !== "undefined" // Ensure VisitsManager class is loaded
     ) {
       window.visitsManager = new window.VisitsManager();
 
       const themeObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (mutation.attributeName === "data-bs-theme") {
-            const newTheme = document.documentElement.getAttribute("data-bs-theme");
+            const newTheme =
+              document.documentElement.getAttribute("data-bs-theme");
             window.visitsManager?.updateMapTheme(newTheme);
           }
         });

@@ -28,7 +28,9 @@ export function setupTabSwitching() {
 
 export function setupAppSettingsForm() {
   const darkModeToggle = document.getElementById("dark-mode-toggle");
-  const highlightRecentTrips = document.getElementById("highlight-recent-trips");
+  const highlightRecentTrips = document.getElementById(
+    "highlight-recent-trips",
+  );
   const autoCenterToggle = document.getElementById("auto-center-toggle");
   const showLiveTracking = document.getElementById("show-live-tracking");
   const polylineColor = document.getElementById("polyline-color");
@@ -49,8 +51,8 @@ export function setupAppSettingsForm() {
       geocodeTripsOnFetch: gtof,
     } = settings;
 
-    const isDarkMode
-      = document.documentElement.getAttribute("data-bs-theme") === "dark";
+    const isDarkMode =
+      document.documentElement.getAttribute("data-bs-theme") === "dark";
 
     // Apply settings to form elements
     if (darkModeToggle) {
@@ -69,10 +71,12 @@ export function setupAppSettingsForm() {
       geocodeTripsOnFetch.checked = gtof !== false;
     }
     if (polylineColor) {
-      polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
+      polylineColor.value =
+        pc || localStorage.getItem("polylineColor") || "#00FF00";
     }
     if (polylineOpacity) {
-      polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
+      polylineOpacity.value =
+        po || localStorage.getItem("polylineOpacity") || "0.8";
       if (opacityValue) {
         opacityValue.textContent = polylineOpacity.value;
       }
@@ -123,7 +127,10 @@ export function setupAppSettingsForm() {
         throw new Error(`Server returned ${resp.status}`);
       }
     } catch {
-      window.notificationManager?.show("Failed to save settings on server", "danger");
+      window.notificationManager?.show(
+        "Failed to save settings on server",
+        "danger",
+      );
       return;
     }
 
@@ -144,7 +151,7 @@ export function setupAppSettingsForm() {
       try {
         window.liveTracker.updatePolylineStyle(
           payload.polylineColor,
-          payload.polylineOpacity
+          payload.polylineOpacity,
         );
       } catch (error) {
         console.warn("Failed to update live tracker polyline style", error);

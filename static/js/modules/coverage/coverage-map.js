@@ -43,16 +43,17 @@ class CoverageMap {
       mapContainer.innerHTML = this.createAlertMessage(
         "Mapbox Token Missing",
         "Cannot display map. Please configure Mapbox access token.",
-        "danger"
+        "danger",
       );
       return;
     }
     mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
     try {
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-      const mapStyle
-        = theme === "light"
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const mapStyle =
+        theme === "light"
           ? "mapbox://styles/mapbox/light-v11"
           : "mapbox://styles/mapbox/dark-v11";
 
@@ -73,7 +74,7 @@ class CoverageMap {
       this.map.addControl(new mapboxgl.FullscreenControl());
       this.map.addControl(
         new mapboxgl.AttributionControl({ compact: true }),
-        "bottom-right"
+        "bottom-right",
       );
 
       this.map.on("load", () => {
@@ -82,7 +83,7 @@ class CoverageMap {
         } else {
           this.notificationManager.show(
             "No street data found for this area.",
-            "warning"
+            "warning",
           );
           this.mapBounds = null;
         }
@@ -103,12 +104,12 @@ class CoverageMap {
         console.error("Mapbox GL Error:", e.error);
         this.notificationManager.show(
           `Map error: ${e.error?.message || "Unknown map error"}`,
-          "danger"
+          "danger",
         );
         mapContainer.innerHTML = this.createAlertMessage(
           "Map Load Error",
           e.error?.message || "Could not initialize map.",
-          "danger"
+          "danger",
         );
       });
 
@@ -121,7 +122,7 @@ class CoverageMap {
       mapContainer.innerHTML = this.createAlertMessage(
         "Map Initialization Failed",
         mapInitError.message,
-        "danger"
+        "danger",
       );
     }
   }
@@ -182,7 +183,17 @@ class CoverageMap {
         "#ff5252",
       ];
 
-      const getLineWidth = ["interpolate", ["linear"], ["zoom"], 8, 1.5, 14, 4, 18, 7];
+      const getLineWidth = [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        8,
+        1.5,
+        14,
+        4,
+        18,
+        7,
+      ];
       const getLineOpacity = [
         "case",
         ["boolean", ["feature-state", "hover"], false],
@@ -234,7 +245,7 @@ class CoverageMap {
       console.error("Error adding streets source/layer:", error);
       this.notificationManager.show(
         `Failed to display streets: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -254,13 +265,13 @@ class CoverageMap {
           if (this.hoveredSegmentId !== null && this.map.getSource("streets")) {
             this.map.setFeatureState(
               { source: "streets", id: this.hoveredSegmentId },
-              { hover: false }
+              { hover: false },
             );
           }
           if (this.map.getSource("streets")) {
             this.map.setFeatureState(
               { source: "streets", id: currentHoverId },
-              { hover: true }
+              { hover: true },
             );
           }
           this.hoveredSegmentId = currentHoverId;
@@ -280,7 +291,7 @@ class CoverageMap {
       if (this.hoveredSegmentId !== null && this.map.getSource("streets")) {
         this.map.setFeatureState(
           { source: "streets", id: this.hoveredSegmentId },
-          { hover: false }
+          { hover: false },
         );
       }
       this.hoveredSegmentId = null;
@@ -293,15 +304,15 @@ class CoverageMap {
       if (e.features?.length > 0) {
         const props = e.features[0].properties;
 
-        const isMultiSelect
-          = e.originalEvent?.ctrlKey
-          || e.originalEvent?.metaKey
-          || e.originalEvent?.shiftKey;
+        const isMultiSelect =
+          e.originalEvent?.ctrlKey ||
+          e.originalEvent?.metaKey ||
+          e.originalEvent?.shiftKey;
         if (isMultiSelect) {
           const segId = props.segment_id;
           if (segId) {
             document.dispatchEvent(
-              new CustomEvent("coverageToggleSegment", { detail: segId })
+              new CustomEvent("coverageToggleSegment", { detail: segId }),
             );
           }
           return;
@@ -329,7 +340,7 @@ class CoverageMap {
                 document.dispatchEvent(
                   new CustomEvent("coverageSegmentAction", {
                     detail: { action, segmentId },
-                  })
+                  }),
                 );
                 popup.remove();
               }
@@ -348,17 +359,19 @@ class CoverageMap {
    * Create street popup content HTML
    */
   createStreetPopupContentHTML(props) {
-    const streetName
-      = props.street_name || props.name || props.display_name || "Unnamed Street";
-    const streetType = props.highway || props.inferred_highway_type || "unknown";
+    const streetName =
+      props.street_name || props.name || props.display_name || "Unnamed Street";
+    const streetType =
+      props.highway || props.inferred_highway_type || "unknown";
     const segmentLength = parseFloat(
-      props.segment_length || props.segment_length_m || props.length || 0
+      props.segment_length || props.segment_length_m || props.length || 0,
     );
     const lengthFormatted = this.distanceInUserUnits(segmentLength);
-    const isDriven
-      = props.driven === true || String(props.driven).toLowerCase() === "true";
-    const isUndriveable
-      = props.undriveable === true || String(props.undriveable).toLowerCase() === "true";
+    const isDriven =
+      props.driven === true || String(props.driven).toLowerCase() === "true";
+    const isUndriveable =
+      props.undriveable === true ||
+      String(props.undriveable).toLowerCase() === "true";
     const status = isDriven ? "Driven" : "Not Driven";
     const segmentId = props.segment_id || "N/A";
 
@@ -366,7 +379,7 @@ class CoverageMap {
       <div class="coverage-popup-content">
         <div class="popup-title">${streetName}</div>
         <div class="popup-detail"><span class="popup-label">Type:</span><span class="popup-value">${this.formatStreetType(
-          streetType
+          streetType,
         )}</span></div>
         <div class="popup-detail"><span class="popup-label">Length:</span><span class="popup-value">${lengthFormatted}</span></div>
         <div class="popup-detail"><span class="popup-label">Status:</span><span class="popup-value ${
@@ -440,13 +453,13 @@ class CoverageMap {
         console.error("Error fitting map to bounds:", e);
         this.notificationManager.show(
           "Could not zoom to area bounds. Map view may be incorrect.",
-          "warning"
+          "warning",
         );
       }
     } else if (this.map) {
       this.notificationManager.show(
         "No geographical data to display for this area.",
-        "info"
+        "info",
       );
     }
   }
@@ -481,14 +494,14 @@ class CoverageMap {
       this.map.setFilter("streets-layer", filter);
       if (updateButtons) {
         document.dispatchEvent(
-          new CustomEvent("coverageFilterChanged", { detail: filterType })
+          new CustomEvent("coverageFilterChanged", { detail: filterType }),
         );
       }
     } catch (error) {
       console.error("Error setting map filter:", error);
       this.notificationManager.show(
         `Failed to apply map filter: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -520,7 +533,7 @@ class CoverageMap {
             "line-blur": 0.5,
           },
         },
-        "streets-layer"
+        "streets-layer",
       );
     }
   }
@@ -563,7 +576,7 @@ class CoverageMap {
       this.notificationManager.show(
         "Zoom in further to view trip overlays.",
         "info",
-        2000
+        2000,
       );
       this.clearTripOverlay();
       return;
@@ -574,10 +587,10 @@ class CoverageMap {
       const tripFeatures = trips
         .map((coords, index) => {
           if (
-            !Array.isArray(coords)
-            || coords.length < 2
-            || !Array.isArray(coords[0])
-            || coords[0].length < 2
+            !Array.isArray(coords) ||
+            coords.length < 2 ||
+            !Array.isArray(coords[0]) ||
+            coords[0].length < 2
           ) {
             return null;
           }
@@ -596,7 +609,7 @@ class CoverageMap {
     } catch (error) {
       this.notificationManager.show(
         `Failed to load trip overlay: ${error.message}`,
-        "danger"
+        "danger",
       );
       this.clearTripOverlay();
     }
@@ -628,15 +641,17 @@ class CoverageMap {
       return;
     }
     const streetName = props.name || props.street_name || "Unnamed Street";
-    const streetType = props.highway || props.inferred_highway_type || "unknown";
+    const streetType =
+      props.highway || props.inferred_highway_type || "unknown";
     const segmentLength = parseFloat(
-      props.segment_length || props.segment_length_m || props.length || 0
+      props.segment_length || props.segment_length_m || props.length || 0,
     );
     const lengthFormatted = this.distanceInUserUnits(segmentLength);
-    const isDriven
-      = props.driven === true || String(props.driven).toLowerCase() === "true";
-    const isUndriveable
-      = props.undriveable === true || String(props.undriveable).toLowerCase() === "true";
+    const isDriven =
+      props.driven === true || String(props.driven).toLowerCase() === "true";
+    const isUndriveable =
+      props.undriveable === true ||
+      String(props.undriveable).toLowerCase() === "true";
     const status = isDriven ? "Driven" : "Not Driven";
     const segmentId = props.segment_id || "N/A";
 
@@ -644,7 +659,7 @@ class CoverageMap {
       <strong class="d-block mb-1">${streetName}</strong>
       ${isHover ? "" : '<hr class="panel-divider my-1">'}
       <div class="d-flex justify-content-between small"><span class="text-muted">Type:</span><span class="text-info">${this.formatStreetType(
-        streetType
+        streetType,
       )}</span></div>
       <div class="d-flex justify-content-between small"><span class="text-muted">Length:</span><span class="text-info">${lengthFormatted}</span></div>
       <div class="d-flex justify-content-between small"><span class="text-muted">Status:</span><span class="${
@@ -662,7 +677,7 @@ class CoverageMap {
           ? ""
           : `<div class="d-flex justify-content-between small mt-1"><span class="text-muted">ID:</span><span class="text-muted">${segmentId.substring(
               0,
-              12
+              12,
             )}...</span></div><div class="mt-2 small text-center text-muted opacity-75">Click segment for actions</div>`
       }`;
     if (!isHover) {
@@ -686,16 +701,19 @@ class CoverageMap {
       return;
     }
 
-    const coveragePercentage = parseFloat(coverage.coverage_percentage || 0).toFixed(1);
+    const coveragePercentage = parseFloat(
+      coverage.coverage_percentage || 0,
+    ).toFixed(1);
     const totalDist = this.distanceInUserUnits(
-      coverage.total_length_m || coverage.total_length || 0
+      coverage.total_length_m || coverage.total_length || 0,
     );
     const drivenDist = this.distanceInUserUnits(
-      coverage.driven_length_m || coverage.driven_length || 0
+      coverage.driven_length_m || coverage.driven_length || 0,
     );
 
     const controlDiv = document.createElement("div");
-    controlDiv.className = "coverage-summary-control mapboxgl-ctrl mapboxgl-ctrl-group";
+    controlDiv.className =
+      "coverage-summary-control mapboxgl-ctrl mapboxgl-ctrl-group";
     controlDiv.innerHTML = `
       <div class="summary-title">Overall Coverage</div>
       <div class="summary-percentage">${coveragePercentage}%</div>
@@ -718,8 +736,8 @@ class CoverageMap {
    * Update map theme
    */
   updateTheme(theme) {
-    const styleUrl
-      = theme === "light"
+    const styleUrl =
+      theme === "light"
         ? "mapbox://styles/mapbox/light-v11"
         : "mapbox://styles/mapbox/dark-v11";
 
@@ -779,8 +797,8 @@ class CoverageMap {
       validMeters = 0;
     }
     const miles = validMeters * 0.000621371;
-    const formatted
-      = miles < 0.1
+    const formatted =
+      miles < 0.1
         ? `${(validMeters * 3.28084).toFixed(0)} ft`
         : `${miles.toFixed(fixed)} mi`;
     this.lastDistanceLabel = formatted;
@@ -794,7 +812,9 @@ class CoverageMap {
     if (!type) {
       return "Unknown";
     }
-    const formatted = type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    const formatted = type
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
     this.lastStreetTypeLabel = formatted;
     return formatted;
   }
@@ -803,8 +823,8 @@ class CoverageMap {
    * Utility: Create alert message
    */
   createAlertMessage(title, message, type = "info") {
-    const iconClass
-      = {
+    const iconClass =
+      {
         danger: "fa-exclamation-circle",
         warning: "fa-exclamation-triangle",
         info: "fa-info-circle",

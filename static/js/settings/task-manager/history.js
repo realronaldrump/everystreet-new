@@ -25,8 +25,8 @@ export function renderTaskHistoryTable(history) {
 
   if (history.length === 0) {
     const row = document.createElement("tr");
-    row.innerHTML
-      = '<td colspan="6" class="text-center">No task history available</td>';
+    row.innerHTML =
+      '<td colspan="6" class="text-center">No task history available</td>';
     tbody.appendChild(row);
     return;
   }
@@ -75,14 +75,14 @@ export function renderTaskHistoryTable(history) {
         <i class="fas fa-exclamation-circle"></i> View Error
       </button>`;
     } else if (entry.status === "COMPLETED") {
-      detailsContent
-        = '<span class="text-success"><i class="fas fa-check-circle"></i> Completed successfully</span>';
+      detailsContent =
+        '<span class="text-success"><i class="fas fa-check-circle"></i> Completed successfully</span>';
     } else if (entry.status === "RUNNING") {
-      detailsContent
-        = '<span class="text-info"><i class="fas fa-spinner fa-spin"></i> In progress</span>';
+      detailsContent =
+        '<span class="text-info"><i class="fas fa-spinner fa-spin"></i> In progress</span>';
     } else if (entry.status === "FAILED") {
-      detailsContent
-        = '<span class="text-danger"><i class="fas fa-times-circle"></i> Failed</span>';
+      detailsContent =
+        '<span class="text-danger"><i class="fas fa-times-circle"></i> Failed</span>';
     }
 
     row.innerHTML = `

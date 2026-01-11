@@ -11,7 +11,10 @@ import { formatDateTime, getStatusHTML } from "./formatters.js";
  * @param {Object} config - Task configuration object
  * @param {Object} intervalOptions - Optional custom interval options (uses default if not provided)
  */
-export function renderTaskConfigTable(config, intervalOptions = INTERVAL_OPTIONS) {
+export function renderTaskConfigTable(
+  config,
+  intervalOptions = INTERVAL_OPTIONS,
+) {
   const tbody = document.querySelector("#taskConfigTable tbody");
   if (!tbody) {
     return;
@@ -49,7 +52,7 @@ export function renderTaskConfigTable(config, intervalOptions = INTERVAL_OPTIONS
             <option value="${opt.value}" ${opt.value === task.interval_minutes ? "selected" : ""}>
               ${opt.label}
             </option>
-          `
+          `,
             )
             .join("")}
         </select>`

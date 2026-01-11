@@ -187,16 +187,16 @@ export function getStorage(key, defaultValue = null) {
  */
 export function setStorage(key, value) {
   try {
-    const stringValue
-      = typeof value === "object" ? JSON.stringify(value) : String(value);
+    const stringValue =
+      typeof value === "object" ? JSON.stringify(value) : String(value);
     localStorage.setItem(key, stringValue);
     return true;
   } catch (e) {
     console.warn("Storage error:", e);
     clearOldCache();
     try {
-      const stringValue
-        = typeof value === "object" ? JSON.stringify(value) : String(value);
+      const stringValue =
+        typeof value === "object" ? JSON.stringify(value) : String(value);
       localStorage.setItem(key, stringValue);
       return true;
     } catch {
@@ -254,7 +254,7 @@ export async function fetchWithRetry(
   options = {},
   retries = 3,
   cacheTime = 30000,
-  abortKey = null
+  abortKey = null,
 ) {
   const cacheKey = `${url}_${JSON.stringify(options)}`;
 
@@ -282,7 +282,9 @@ export async function fetchWithRetry(
 
     if (!response.ok) {
       if (retries > 0 && response.status >= 500) {
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (4 - retries)));
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000 * (4 - retries)),
+        );
         return fetchWithRetry(url, options, retries - 1, cacheTime, abortKey);
       }
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -381,22 +383,22 @@ export function getDeviceProfile() {
     return _deviceProfile;
   }
 
-  const hasTouch
-    = typeof window !== "undefined"
-    && ("ontouchstart" in window || navigator.maxTouchPoints > 1);
-  const smallViewport
-    = typeof window !== "undefined"
-    && typeof window.matchMedia === "function"
-    && window.matchMedia("(max-width: 820px)").matches;
-  const deviceMemory
-    = typeof navigator !== "undefined" && "deviceMemory" in navigator
+  const hasTouch =
+    typeof window !== "undefined" &&
+    ("ontouchstart" in window || navigator.maxTouchPoints > 1);
+  const smallViewport =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(max-width: 820px)").matches;
+  const deviceMemory =
+    typeof navigator !== "undefined" && "deviceMemory" in navigator
       ? navigator.deviceMemory
       : null;
   const lowMemory = Number.isFinite(deviceMemory) && deviceMemory <= 4;
-  const saveData
-    = typeof navigator !== "undefined"
-    && navigator.connection
-    && navigator.connection.saveData === true;
+  const saveData =
+    typeof navigator !== "undefined" &&
+    navigator.connection &&
+    navigator.connection.saveData === true;
 
   _deviceProfile = {
     isMobile: Boolean(hasTouch || smallViewport),
@@ -436,9 +438,9 @@ export function showNotification(...args) {
  * @param {string} priority - Priority ("polite" or "assertive")
  */
 export function announce(message, priority = "polite") {
-  const announcer
-    = document.getElementById("map-announcements")
-    || document.querySelector('[aria-live="polite"]');
+  const announcer =
+    document.getElementById("map-announcements") ||
+    document.querySelector('[aria-live="polite"]');
 
   if (!announcer) {
     console.warn("No aria-live region found for announcements");
@@ -472,7 +474,10 @@ export async function measurePerformance(name, fn) {
     return await fn();
   } catch (error) {
     const duration = performance.now() - startTime;
-    console.error(`Performance: ${name} failed after ${duration.toFixed(2)}ms`, error);
+    console.error(
+      `Performance: ${name} failed after ${duration.toFixed(2)}ms`,
+      error,
+    );
     throw error;
   }
 }
@@ -489,7 +494,12 @@ export async function measurePerformance(name, fn) {
  * @param {Function|null} onComplete - Callback after handling
  * @returns {Error} The error object
  */
-export function handleError(error, context = "", level = "error", onComplete = null) {
+export function handleError(
+  error,
+  context = "",
+  level = "error",
+  onComplete = null,
+) {
   const errorObj = typeof error === "string" ? new Error(error) : error;
 
   if (level === "error") {
@@ -502,16 +512,21 @@ export function handleError(error, context = "", level = "error", onComplete = n
     let userMessage = `Error in ${context}: ${errorObj.message}`;
 
     if (
-      errorObj.name === "NetworkError"
-      || errorObj.message.includes("fetch")
-      || errorObj.message.includes("network")
+      errorObj.name === "NetworkError" ||
+      errorObj.message.includes("fetch") ||
+      errorObj.message.includes("network")
     ) {
-      userMessage = "Network error: Please check your connection and try again.";
+      userMessage =
+        "Network error: Please check your connection and try again.";
     } else if (errorObj.message.includes("timeout")) {
       userMessage = "The operation timed out. Please try again.";
     } else if (errorObj.message.includes("permission")) {
-      userMessage = "Permission denied: You don't have access to this resource.";
-    } else if (errorObj.message.includes("not found") || errorObj.status === 404) {
+      userMessage =
+        "Permission denied: You don't have access to this resource.";
+    } else if (
+      errorObj.message.includes("not found") ||
+      errorObj.status === 404
+    ) {
       userMessage = "Resource not found: The requested item doesn't exist.";
     } else if (errorObj.status >= 500) {
       userMessage = "Server error: Please try again later.";

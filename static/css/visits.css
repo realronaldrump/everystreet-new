@@ -51,7 +51,12 @@
   content: "";
   position: absolute;
   inset: -2px;
-  background: linear-gradient(45deg, var(--primary), var(--secondary), var(--primary));
+  background: linear-gradient(
+    45deg,
+    var(--primary),
+    var(--secondary),
+    var(--primary)
+  );
   border-radius: var(--radius-lg);
   opacity: 0;
   z-index: -1;
@@ -85,7 +90,11 @@
   right: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgb(var(--primary-rgb), 0.1) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgb(var(--primary-rgb), 0.1) 0%,
+    transparent 70%
+  );
   animation: pulse-subtle 8s ease-in-out infinite;
   pointer-events: none;
 }
@@ -154,7 +163,11 @@
 
 /* Enhanced Chart Container */
 .chart-container {
-  background: linear-gradient(135deg, rgb(var(--surface-2), 0.8), rgb(var(--surface-1), 0.9));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-2), 0.8),
+    rgb(var(--surface-1), 0.9)
+  );
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   box-shadow: inset 0 2px 8px rgb(0 0 0 / 10%);

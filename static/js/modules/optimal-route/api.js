@@ -57,7 +57,9 @@ export class OptimalRouteAPI {
 
   async loadExistingRoute(areaId) {
     try {
-      const data = await apiClient.get(`/api/coverage_areas/${areaId}/optimal-route`);
+      const data = await apiClient.get(
+        `/api/coverage_areas/${areaId}/optimal-route`,
+      );
       return data;
     } catch (error) {
       if (error.message?.includes("404")) {
@@ -89,7 +91,9 @@ export class OptimalRouteAPI {
 
   async checkForActiveTask(areaId) {
     try {
-      const data = await apiClient.get(`/api/coverage_areas/${areaId}/active-task`);
+      const data = await apiClient.get(
+        `/api/coverage_areas/${areaId}/active-task`,
+      );
       if (data.active && data.task_id) {
         return data;
       }
@@ -112,7 +116,7 @@ export class OptimalRouteAPI {
   async generateRoute(areaId) {
     try {
       const data = await apiClient.post(
-        `/api/coverage_areas/${areaId}/generate-optimal-route`
+        `/api/coverage_areas/${areaId}/generate-optimal-route`,
       );
       return data.task_id;
     } catch (error) {
@@ -154,7 +158,9 @@ export class OptimalRouteAPI {
       this.eventSource.close();
     }
 
-    this.eventSource = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
+    this.eventSource = new EventSource(
+      `/api/optimal-routes/${taskId}/progress/sse`,
+    );
 
     this.eventSource.onmessage = (event) => {
       try {
@@ -164,7 +170,11 @@ export class OptimalRouteAPI {
         const status = (data.status || "").toLowerCase();
         const stage = (data.stage || "").toLowerCase();
 
-        if (status === "completed" || stage === "complete" || data.progress >= 100) {
+        if (
+          status === "completed" ||
+          stage === "complete" ||
+          data.progress >= 100
+        ) {
           this.eventSource.close();
           this.eventSource = null;
           this.onComplete(data);

@@ -33,8 +33,8 @@ export function formatStageName(stage) {
     [STATUS.POST_PREPROCESSING]: "Post-processing",
   };
   return (
-    stageNames[stage]
-    || stage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+    stageNames[stage] ||
+    stage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
   );
 }
 
@@ -135,11 +135,12 @@ export function formatMetricStats(stage, metrics) {
     value,
     unit = "",
     icon = null,
-    colorClass = "text-primary"
+    colorClass = "text-primary",
   ) => {
     if (value !== undefined && value !== null && value !== "") {
       const iconHtml = icon ? `<i class="${icon} me-2 opacity-75"></i>` : "";
-      const displayValue = typeof value === "number" ? value.toLocaleString() : value;
+      const displayValue =
+        typeof value === "number" ? value.toLocaleString() : value;
       statsHtml += `
         <div class="d-flex justify-content-between py-1 border-bottom border-secondary border-opacity-10">
           <small class="text-muted">${iconHtml}${label}:</small>
@@ -150,14 +151,20 @@ export function formatMetricStats(stage, metrics) {
 
   // Common metrics
   if (metrics.total_segments !== undefined) {
-    addStat("Total Segments", metrics.total_segments, "", "fas fa-road", "text-info");
+    addStat(
+      "Total Segments",
+      metrics.total_segments,
+      "",
+      "fas fa-road",
+      "text-info",
+    );
   }
   if (metrics.total_length_m !== undefined) {
     addStat(
       "Total Length",
       distanceInUserUnits(metrics.total_length_m),
       "",
-      "fas fa-ruler-horizontal"
+      "fas fa-ruler-horizontal",
     );
   }
   if (metrics.driveable_length_m !== undefined) {
@@ -165,7 +172,7 @@ export function formatMetricStats(stage, metrics) {
       "Driveable Length",
       distanceInUserUnits(metrics.driveable_length_m),
       "",
-      "fas fa-car"
+      "fas fa-car",
     );
   }
 
@@ -184,21 +191,26 @@ export function formatMetricStats(stage, metrics) {
         metrics.initial_covered_segments,
         " segs",
         "fas fa-flag-checkered",
-        "text-success"
+        "text-success",
       );
     }
   } else if (
-    [STATUS.PROCESSING_TRIPS, STATUS.CALCULATING, STATUS.COUNTING_TRIPS].includes(stage)
+    [
+      STATUS.PROCESSING_TRIPS,
+      STATUS.CALCULATING,
+      STATUS.COUNTING_TRIPS,
+    ].includes(stage)
   ) {
     const processed = metrics.processed_trips || 0;
     const total = metrics.total_trips_to_process || 0;
-    const tripsProgress = total > 0 ? ((processed / total) * 100).toFixed(1) : 0;
+    const tripsProgress =
+      total > 0 ? ((processed / total) * 100).toFixed(1) : 0;
     addStat(
       "Trips Processed",
       `${processed.toLocaleString()}/${total.toLocaleString()} (${tripsProgress}%)`,
       "",
       "fas fa-route",
-      "text-info"
+      "text-info",
     );
     if (metrics.newly_covered_segments !== undefined) {
       addStat(
@@ -206,7 +218,7 @@ export function formatMetricStats(stage, metrics) {
         metrics.newly_covered_segments,
         "",
         "fas fa-plus-circle",
-        "text-success"
+        "text-success",
       );
     }
     if (metrics.coverage_percentage !== undefined) {
@@ -215,7 +227,7 @@ export function formatMetricStats(stage, metrics) {
         metrics.coverage_percentage.toFixed(1),
         "%",
         "fas fa-tachometer-alt",
-        "text-success"
+        "text-success",
       );
     }
     if (metrics.covered_length_m !== undefined) {
@@ -224,7 +236,7 @@ export function formatMetricStats(stage, metrics) {
         distanceInUserUnits(metrics.covered_length_m),
         "",
         "fas fa-road",
-        "text-success"
+        "text-success",
       );
     }
   } else if (
@@ -236,14 +248,15 @@ export function formatMetricStats(stage, metrics) {
       STATUS.COMPLETED,
     ].includes(stage)
   ) {
-    const finalCovered = metrics.total_covered_segments || metrics.covered_segments;
+    const finalCovered =
+      metrics.total_covered_segments || metrics.covered_segments;
     if (finalCovered !== undefined) {
       addStat(
         "Segments Covered",
         finalCovered,
         "",
         "fas fa-check-circle",
-        "text-success"
+        "text-success",
       );
     }
     if (metrics.coverage_percentage !== undefined) {
@@ -252,7 +265,7 @@ export function formatMetricStats(stage, metrics) {
         metrics.coverage_percentage.toFixed(1),
         "%",
         "fas fa-check-double",
-        "text-success"
+        "text-success",
       );
     }
     if (metrics.covered_length_m !== undefined) {
@@ -261,11 +274,12 @@ export function formatMetricStats(stage, metrics) {
         distanceInUserUnits(metrics.covered_length_m),
         "",
         "fas fa-road",
-        "text-success"
+        "text-success",
       );
     }
   } else {
-    statsHtml += '<div class="text-muted small text-center py-2">Processing...</div>';
+    statsHtml +=
+      '<div class="text-muted small text-center py-2">Processing...</div>';
   }
 
   statsHtml += "</div>";

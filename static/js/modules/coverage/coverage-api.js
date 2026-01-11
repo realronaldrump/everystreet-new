@@ -73,8 +73,8 @@ const COVERAGE_API = {
    * Update coverage for an area (full or incremental)
    */
   async updateCoverage(location, mode = "full") {
-    const endpoint
-      = mode === "incremental"
+    const endpoint =
+      mode === "incremental"
         ? "/api/street_coverage/incremental"
         : "/api/street_coverage";
     return apiClient.post(endpoint, location);
@@ -95,14 +95,18 @@ const COVERAGE_API = {
    * Cancel processing for a location
    */
   async cancelProcessing(displayName) {
-    return apiClient.post("/api/coverage_areas/cancel", { display_name: displayName });
+    return apiClient.post("/api/coverage_areas/cancel", {
+      display_name: displayName,
+    });
   },
 
   /**
    * Delete a coverage area
    */
   async deleteArea(displayName) {
-    return apiClient.post("/api/coverage_areas/delete", { display_name: displayName });
+    return apiClient.post("/api/coverage_areas/delete", {
+      display_name: displayName,
+    });
   },
 
   /**
@@ -126,7 +130,10 @@ const COVERAGE_API = {
     if (!endpoint) {
       throw new Error(`Unknown action: ${action}`);
     }
-    return apiClient.post(endpoint, { location_id: locationId, segment_id: segmentId });
+    return apiClient.post(endpoint, {
+      location_id: locationId,
+      segment_id: segmentId,
+    });
   },
 
   /**
@@ -139,7 +146,7 @@ const COVERAGE_API = {
       top_n: topN.toString(),
     });
     return apiClient.get(
-      `/api/driving-navigation/suggest-next-street/${locationId}?${params}`
+      `/api/driving-navigation/suggest-next-street/${locationId}?${params}`,
     );
   },
 
@@ -183,7 +190,9 @@ const COVERAGE_API = {
    */
   async getOptimalRoute(locationId) {
     try {
-      return await apiClient.get(`/api/coverage_areas/${locationId}/optimal-route`);
+      return await apiClient.get(
+        `/api/coverage_areas/${locationId}/optimal-route`,
+      );
     } catch (error) {
       if (error.message.includes("404")) {
         return null; // No route generated yet

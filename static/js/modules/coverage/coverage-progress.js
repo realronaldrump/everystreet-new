@@ -71,7 +71,7 @@ class CoverageProgress {
   saveProcessingState() {
     this.statePersistence.setCurrentTask(
       this.currentTaskId,
-      this.currentProcessingLocation
+      this.currentProcessingLocation,
     );
     this.statePersistence.saveState();
   }
@@ -106,7 +106,10 @@ class CoverageProgress {
    */
   async pollCoverageProgress(taskId, onUpdate) {
     this.currentTaskId = taskId;
-    this.statePersistence.setCurrentTask(taskId, this.currentProcessingLocation);
+    this.statePersistence.setCurrentTask(
+      taskId,
+      this.currentProcessingLocation,
+    );
     this._addBeforeUnloadListener();
 
     return this.poller.poll(taskId, {
@@ -139,7 +142,7 @@ class CoverageProgress {
         this.updateModalContent(data);
         this.updateStepIndicators(
           STATUS.ERROR,
-          this.currentProcessingLocation?.progress || 0
+          this.currentProcessingLocation?.progress || 0,
         );
         this._removeBeforeUnloadListener();
         this.showRetryOption(data.taskId);
@@ -219,9 +222,11 @@ class CoverageProgress {
     const modal = document.getElementById("taskProgressModal");
     if (modal) {
       // Import dynamically to avoid circular dependency issues
-      import("./progress/step-indicators.js").then(({ updateStepIndicators }) => {
-        updateStepIndicators(modal, stage, progress);
-      });
+      import("./progress/step-indicators.js").then(
+        ({ updateStepIndicators }) => {
+          updateStepIndicators(modal, stage, progress);
+        },
+      );
     }
   }
 
@@ -249,9 +254,11 @@ class CoverageProgress {
       }
     }
 
-    const elapsedTimeEl = document.querySelector("#taskProgressModal .elapsed-time");
+    const elapsedTimeEl = document.querySelector(
+      "#taskProgressModal .elapsed-time",
+    );
     const estimatedTimeEl = document.querySelector(
-      "#taskProgressModal .estimated-time"
+      "#taskProgressModal .estimated-time",
     );
 
     if (elapsedTimeEl) {
@@ -344,7 +351,7 @@ class CoverageProgress {
               location: this.currentProcessingLocation,
               taskId: this.currentTaskId,
             },
-          })
+          }),
         );
       }
     });
@@ -360,7 +367,7 @@ class CoverageProgress {
       document.dispatchEvent(
         new CustomEvent("coverageRetryTask", {
           detail: { taskId: retryTaskId },
-        })
+        }),
       );
     });
   }
@@ -374,7 +381,9 @@ class CoverageProgress {
       { threshold: 0, step: "initializing" },
     ];
 
-    const errorStep = errorSteps.find((s) => progress > s.threshold && steps[s.step]);
+    const errorStep = errorSteps.find(
+      (s) => progress > s.threshold && steps[s.step],
+    );
 
     if (!errorStep) {
       return false;
@@ -382,7 +391,12 @@ class CoverageProgress {
 
     markError(errorStep.step);
 
-    const stepOrder = ["initializing", "preprocessing", "indexing", "calculating"];
+    const stepOrder = [
+      "initializing",
+      "preprocessing",
+      "indexing",
+      "calculating",
+    ];
     const errorIndex = stepOrder.indexOf(errorStep.step);
     for (let i = 0; i < errorIndex; i++) {
       if (steps[stepOrder[i]]) {
@@ -394,7 +408,12 @@ class CoverageProgress {
   }
 
   static _markCanceledStep(steps, markError) {
-    const stepOrder = ["calculating", "indexing", "preprocessing", "initializing"];
+    const stepOrder = [
+      "calculating",
+      "indexing",
+      "preprocessing",
+      "initializing",
+    ];
     for (const stepKey of stepOrder) {
       if (steps[stepKey]?.classList.contains("active")) {
         markError(stepKey);
@@ -446,7 +465,7 @@ class CoverageProgress {
           progress,
           stage,
           markComplete,
-          markActive
+          markActive,
         );
         break;
     }
@@ -464,7 +483,10 @@ class CoverageProgress {
       markComplete("preprocessing");
       markComplete("indexing");
       markActive("calculating");
-    } else if (progress > 50 || stage?.toLowerCase().includes("preprocessing")) {
+    } else if (
+      progress > 50 ||
+      stage?.toLowerCase().includes("preprocessing")
+    ) {
       markComplete("initializing");
       markActive("preprocessing");
     } else {

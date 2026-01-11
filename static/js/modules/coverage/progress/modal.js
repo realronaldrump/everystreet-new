@@ -67,8 +67,8 @@ export class ProgressModal {
       modalProgressBar.style.width = `${progress}%`;
       modalProgressBar.setAttribute("aria-valuenow", progress);
       modalProgressBar.textContent = `${progress}%`;
-      modalProgressBar.className
-        = "progress-bar progress-bar-striped progress-bar-animated bg-primary";
+      modalProgressBar.className =
+        "progress-bar progress-bar-striped progress-bar-animated bg-primary";
     }
 
     // Set initial message
@@ -131,7 +131,10 @@ export class ProgressModal {
 
       // Remove focus from any element inside the modal to prevent
       // "Blocked aria-hidden" errors when Bootstrap adds aria-hidden=true
-      if (document.activeElement && modalElement.contains(document.activeElement)) {
+      if (
+        document.activeElement &&
+        modalElement.contains(document.activeElement)
+      ) {
         document.activeElement.blur();
       }
 
@@ -173,7 +176,7 @@ export class ProgressModal {
     if (progressBar) {
       const currentProgress = parseInt(
         progressBar.getAttribute("aria-valuenow") || "0",
-        10
+        10,
       );
 
       if (progress > currentProgress) {
@@ -195,7 +198,7 @@ export class ProgressModal {
         progressBar.classList.add(
           "progress-bar-striped",
           "progress-bar-animated",
-          "bg-primary"
+          "bg-primary",
         );
       }
     }
@@ -306,9 +309,11 @@ export class ProgressModal {
     const elapsedMs = Date.now() - this.processingStartTime;
     const elapsedText = formatElapsedTime(elapsedMs);
 
-    const elapsedTimeEl = document.querySelector("#taskProgressModal .elapsed-time");
+    const elapsedTimeEl = document.querySelector(
+      "#taskProgressModal .elapsed-time",
+    );
     const estimatedTimeEl = document.querySelector(
-      "#taskProgressModal .estimated-time"
+      "#taskProgressModal .estimated-time",
     );
 
     if (elapsedTimeEl) {
@@ -341,17 +346,18 @@ export class ProgressModal {
     if (isActive !== null) {
       currentlyActive = isActive;
     } else {
-      currentlyActive = this.lastActivityTime && now - this.lastActivityTime < 10000;
+      currentlyActive =
+        this.lastActivityTime && now - this.lastActivityTime < 10000;
     }
 
     if (currentlyActive) {
       activityIndicator.classList.add("pulsing");
-      activityIndicator.innerHTML
-        = '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
+      activityIndicator.innerHTML =
+        '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
     } else {
       activityIndicator.classList.remove("pulsing");
-      activityIndicator.innerHTML
-        = '<i class="fas fa-hourglass-half text-secondary me-1"></i>Idle';
+      activityIndicator.innerHTML =
+        '<i class="fas fa-hourglass-half text-secondary me-1"></i>Idle';
     }
 
     if (this.lastActivityTime) {

@@ -92,7 +92,10 @@ export class CoverageModals {
    * @param {number} defaults.min - Default minimum match
    * @returns {Promise<Object|null>} Settings object or null if cancelled
    */
-  askMatchSettings(locationName, defaults = { segment: 300, buffer: 50, min: 15 }) {
+  askMatchSettings(
+    locationName,
+    defaults = { segment: 300, buffer: 50, min: 15 },
+  ) {
     return new Promise((resolve) => {
       const modalEl = document.getElementById("segmentLengthModal");
       if (!modalEl) {
@@ -129,12 +132,12 @@ export class CoverageModals {
         cleanup();
         bsModal.hide();
         if (
-          Number.isNaN(segVal)
-          || segVal <= 0
-          || Number.isNaN(bufVal)
-          || bufVal <= 0
-          || Number.isNaN(minVal)
-          || minVal <= 0
+          Number.isNaN(segVal) ||
+          segVal <= 0 ||
+          Number.isNaN(bufVal) ||
+          bufVal <= 0 ||
+          Number.isNaN(minVal) ||
+          minVal <= 0
         ) {
           resolve(null);
         } else {
@@ -197,7 +200,9 @@ export class CoverageModals {
    * Initialize Bootstrap tooltips
    */
   initTooltips() {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipTriggerList = document.querySelectorAll(
+      '[data-bs-toggle="tooltip"]',
+    );
     tooltipTriggerList.forEach((tooltipTriggerEl) => {
       const existing = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
       if (existing) {
@@ -240,10 +245,11 @@ export class CoverageModals {
       const themeObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (
-            mutation.type === "attributes"
-            && mutation.attributeName === "data-bs-theme"
+            mutation.type === "attributes" &&
+            mutation.attributeName === "data-bs-theme"
           ) {
-            const newTheme = document.documentElement.getAttribute("data-bs-theme");
+            const newTheme =
+              document.documentElement.getAttribute("data-bs-theme");
             if (coverageMap) {
               coverageMap.updateTheme(newTheme);
             }

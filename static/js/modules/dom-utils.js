@@ -74,8 +74,10 @@ export function el(tag, options = {}) {
  */
 export class EventDelegator {
   constructor(container) {
-    this.container
-      = typeof container === "string" ? document.querySelector(container) : container;
+    this.container =
+      typeof container === "string"
+        ? document.querySelector(container)
+        : container;
     this.handlers = new Map();
   }
 

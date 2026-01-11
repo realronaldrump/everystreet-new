@@ -37,14 +37,17 @@ export class CoverageExport {
           .then((canvas) => {
             canvas.toBlob((blob) => {
               if (!blob) {
-                this.notificationManager.show("Failed to create image blob.", "danger");
+                this.notificationManager.show(
+                  "Failed to create image blob.",
+                  "danger",
+                );
                 return;
               }
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url;
-              const locationName
-                = selectedLocation?.location?.display_name || "coverage_map";
+              const locationName =
+                selectedLocation?.location?.display_name || "coverage_map";
               const dateStr = dateUtils.formatDateToString(new Date());
               a.download = `${locationName
                 .replace(/[^a-z0-9]/gi, "_")
@@ -62,7 +65,7 @@ export class CoverageExport {
             console.error("html2canvas export error:", error);
             this.notificationManager.show(
               `Map export failed: ${error.message}`,
-              "danger"
+              "danger",
             );
           });
       }, 500);
@@ -70,14 +73,17 @@ export class CoverageExport {
 
     if (typeof html2canvas === "undefined") {
       const script = document.createElement("script");
-      script.src
-        = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-      script.integrity
-        = "sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==";
+      script.src =
+        "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      script.integrity =
+        "sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==";
       script.crossOrigin = "anonymous";
       script.onload = doExport;
       script.onerror = () =>
-        this.notificationManager.show("Failed to load export library.", "danger");
+        this.notificationManager.show(
+          "Failed to load export library.",
+          "danger",
+        );
       document.head.appendChild(script);
     } else {
       doExport();
