@@ -12,8 +12,8 @@ from typing import Any
 from celery.utils.log import get_task_logger
 
 from date_utils import parse_timestamp
-from db.models import TaskConfig, TaskHistory
 from db import db_manager
+from db.models import TaskConfig, TaskHistory
 
 logger = get_task_logger(__name__)
 
