@@ -4,7 +4,6 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-
 from date_utils import normalize_to_utc_datetime
 from db.models import Place
 
