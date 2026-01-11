@@ -51,6 +51,7 @@ from db.models import (
     ALL_DOCUMENT_MODELS,
     AppSettings,
     ArchivedLiveTrip,
+    BouncieCredentials,
     CoverageMetadata,
     GasFillup,
     LiveTrip,

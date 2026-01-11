@@ -1,15 +1,44 @@
 """API endpoints for viewing and managing server logs."""
 
 import logging
+from datetime import timedelta, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
+from db import ServerLog
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/api/server-logs")
+class LogsResponse(BaseModel):
+    """Response model for logs endpoint."""
+
+    logs: list[dict[str, Any]]
+    total_count: int
+    returned_count: int
+    limit: int
+
+
+class ClearLogsResponse(BaseModel):
+    """Response model for clearing logs."""
+
+    message: str
+    deleted_count: int
+    filter: dict[str, Any]
+
+
+class LogsStatsResponse(BaseModel):
+    """Response model for logs statistics."""
+
+    total_count: int
+    by_level: dict[str, int]
+    oldest_timestamp: str | None
+    newest_timestamp: str | None
+
+
+@router.get("/api/server-logs", response_model=LogsResponse)
 async def get_server_logs(
     limit: int = Query(default=500, ge=1, le=5000),
     level: str | None = Query(default=None),
@@ -27,7 +56,6 @@ async def get_server_logs(
         Dictionary containing logs array and metadata
     """
     try:
-        # Build query filter
         query_filter: dict[str, Any] = {}
 
         if level:
@@ -36,15 +64,14 @@ async def get_server_logs(
         if search:
             query_filter["message"] = {"$regex": search, "$options": "i"}
 
-        # Get logs from database
-        cursor = logs_collection.find(query_filter).sort("timestamp", -1).limit(limit)
-        logs = await cursor.to_list(length=limit)
+        logs = (
+            await ServerLog.find(query_filter).sort("-timestamp").limit(limit).to_list()
+        )
 
-        # Get total count for pagination info
-        total_count = await logs_collection.count_documents(query_filter)
+        total_count = await ServerLog.find(query_filter).count()
 
         return {
-            "logs": logs,
+            "logs": [log.model_dump() for log in logs],
             "total_count": total_count,
             "returned_count": len(logs),
             "limit": limit,
@@ -58,7 +85,7 @@ async def get_server_logs(
         )
 
 
-@router.delete("/api/server-logs")
+@router.delete("/api/server-logs", response_model=ClearLogsResponse)
 async def clear_server_logs(
     level: str | None = Query(default=None),
     older_than_days: int | None = Query(default=None, ge=1),
@@ -74,30 +101,30 @@ async def clear_server_logs(
         Dictionary with deletion result
     """
     try:
-        # Build delete filter
         delete_filter: dict[str, Any] = {}
 
         if level:
             delete_filter["level"] = level.upper()
 
         if older_than_days:
-            from datetime import datetime, timedelta
-
             cutoff_date = datetime.utcnow() - timedelta(days=older_than_days)
             delete_filter["timestamp"] = {"$lt": cutoff_date}
 
-        # Delete logs
-        result = await logs_collection.delete_many(delete_filter)
+        logs_to_delete = await ServerLog.find(delete_filter).to_list()
+        deleted_count = len(logs_to_delete)
+
+        for log in logs_to_delete:
+            await log.delete()
 
         logger.info(
             "Cleared %d server log entries (filter: %s)",
-            result.deleted_count,
+            deleted_count,
             delete_filter,
         )
 
         return {
-            "message": f"Successfully cleared {result.deleted_count} log entries",
-            "deleted_count": result.deleted_count,
+            "message": f"Successfully cleared {deleted_count} log entries",
+            "deleted_count": deleted_count,
             "filter": delete_filter,
         }
 
@@ -109,7 +136,7 @@ async def clear_server_logs(
         )
 
 
-@router.get("/api/server-logs/stats")
+@router.get("/api/server-logs/stats", response_model=LogsStatsResponse)
 async def get_logs_stats() -> dict[str, Any]:
     """
     Get statistics about server logs.
@@ -118,31 +145,28 @@ async def get_logs_stats() -> dict[str, Any]:
         Dictionary containing log statistics
     """
     try:
-        # Get total count
-        total_count = await logs_collection.count_documents({})
+        total_count = await ServerLog.find().count()
 
-        # Get count by level
         pipeline = [
             {"$group": {"_id": "$level", "count": {"$sum": 1}}},
             {"$sort": {"_id": 1}},
         ]
-        level_counts = await logs_collection.aggregate(pipeline).to_list(length=None)
+        level_counts = await ServerLog.aggregate(pipeline).to_list()
 
-        # Get oldest and newest log timestamps
-        oldest_log = await logs_collection.find_one({}, sort=[("timestamp", 1)])
-        newest_log = await logs_collection.find_one({}, sort=[("timestamp", -1)])
+        oldest_log = await ServerLog.find().sort("+timestamp").first_or_none()
+        newest_log = await ServerLog.find().sort("-timestamp").first_or_none()
 
         return {
             "total_count": total_count,
             "by_level": {item["_id"]: item["count"] for item in level_counts},
             "oldest_timestamp": (
-                oldest_log.get("timestamp").isoformat()
-                if oldest_log and oldest_log.get("timestamp")
+                oldest_log.timestamp.isoformat()
+                if oldest_log and oldest_log.timestamp
                 else None
             ),
             "newest_timestamp": (
-                newest_log.get("timestamp").isoformat()
-                if newest_log and newest_log.get("timestamp")
+                newest_log.timestamp.isoformat()
+                if newest_log and newest_log.timestamp
                 else None
             ),
         }

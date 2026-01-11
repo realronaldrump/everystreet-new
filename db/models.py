@@ -365,6 +365,27 @@ class ServerLog(Document):
         extra = "allow"
 
 
+class BouncieCredentials(Document):
+    """Bouncie API credentials document."""
+
+    client_id: str | None = None
+    client_secret: str | None = None
+    redirect_uri: str | None = None
+    authorization_code: str | None = None
+    authorized_devices: list[str] = Field(default_factory=list)
+    fetch_concurrency: int = 12
+    access_token: str | None = None
+    refresh_token: str | None = None
+    expires_at: float | None = None
+
+    class Settings:
+        name = "bouncie_credentials"
+        indexes = [IndexModel([("_id", ASCENDING)], unique=True)]
+
+    class Config:
+        extra = "allow"
+
+
 # List of all document models for Beanie initialization
 ALL_DOCUMENT_MODELS = [
     Trip,
@@ -383,4 +404,5 @@ ALL_DOCUMENT_MODELS = [
     Vehicle,
     AppSettings,
     ServerLog,
+    BouncieCredentials,
 ]
