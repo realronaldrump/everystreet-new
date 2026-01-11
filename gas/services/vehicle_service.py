@@ -4,8 +4,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from core.exceptions import (DuplicateResourceException,
-                             ResourceNotFoundException)
+from core.exceptions import DuplicateResourceException, ResourceNotFoundException
 from db.models import Vehicle
 
 logger = logging.getLogger(__name__)
