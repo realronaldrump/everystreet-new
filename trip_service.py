@@ -476,7 +476,7 @@ class TripService:
         self,
         trip_ids: list[str],
         skip_if_exists: bool = True,
-        progress_callback: callable | None = None,
+        progress_callback: Callable | None = None,
     ) -> dict[str, Any]:
         """Refresh geocoding for specified trips."""
         results = {
