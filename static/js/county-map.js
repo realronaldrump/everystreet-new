@@ -272,7 +272,9 @@
       if (recalcState && isRecalculating) {
         startRecalculatePolling(recalcState.startedAt);
       }
-    } catch {}
+    } catch (error) {
+      console.warn("Failed to load visited counties", error);
+    }
   }
 
   // Format date for display

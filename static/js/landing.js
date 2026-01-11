@@ -49,7 +49,9 @@
         loadGasStats(),
         checkLiveTracking(),
       ]);
-    } catch {}
+    } catch (error) {
+      console.warn("Failed to load landing data", error);
+    }
   }
 
   /**
@@ -125,7 +127,9 @@
           valueEl.textContent = data.average_mpg.toFixed(1);
         }
       }
-    } catch {}
+    } catch (error) {
+      console.warn("Failed to load gas stats", error);
+    }
   }
 
   /**

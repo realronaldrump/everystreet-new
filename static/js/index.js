@@ -52,7 +52,9 @@ document.addEventListener("DOMContentLoaded", () => {
             updateLiveTrackingVisibility();
           }
         }
-      } catch {}
+      } catch (error) {
+        console.warn("Failed to load app settings", error);
+      }
     })();
 
     // Respond to changes from other tabs/windows or settings page

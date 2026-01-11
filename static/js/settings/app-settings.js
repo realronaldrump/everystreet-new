@@ -131,7 +131,9 @@ export function setupAppSettingsForm() {
           payload.polylineColor,
           payload.polylineOpacity
         );
-      } catch {}
+      } catch (error) {
+        console.warn("Failed to update live tracker polyline style", error);
+      }
     }
   }
 

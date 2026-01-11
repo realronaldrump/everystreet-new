@@ -53,7 +53,7 @@ class UploadManager {
           this.loadUploadSourceTrips();
           this.loadingManager.finish();
         })
-        .catch((_error) => {
+        .catch(() => {
           this.loadingManager.error("Failed to initialize upload manager");
         });
     } catch {
