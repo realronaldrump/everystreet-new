@@ -70,7 +70,8 @@ export class CoverageCRUD {
     }
 
     try {
-      const areas = await COVERAGE_API.getAllAreas();
+      // Use longer timeout for getAllAreas to prevent timeout during duplicate check
+      const areas = await COVERAGE_API.getAllAreas(false);
       const exists = areas.some(
         (area) => area.location?.display_name === locationToAdd.display_name
       );
@@ -195,7 +196,8 @@ export class CoverageCRUD {
     }
 
     try {
-      const areas = await COVERAGE_API.getAllAreas();
+      // Use longer timeout for getAllAreas to prevent timeout during duplicate check
+      const areas = await COVERAGE_API.getAllAreas(false);
       const exists = areas.some(
         (area) => area.location?.display_name === customAreaToAdd.display_name
       );

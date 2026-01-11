@@ -22,7 +22,11 @@ const COVERAGE_API = {
     if (bypassCache) {
       this.invalidateCache();
     }
-    const data = await apiClient.get("/api/coverage_areas", { cache: !bypassCache });
+    // Use longer timeout (60s) for getAllAreas as it can be slow with many areas
+    const data = await apiClient.get("/api/coverage_areas", {
+      cache: !bypassCache,
+      timeout: 60000
+    });
     if (!data.success) {
       throw new Error(data.error || "API returned failure");
     }
