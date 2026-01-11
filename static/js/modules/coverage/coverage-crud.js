@@ -11,7 +11,7 @@ export class CoverageCRUD {
     progressModule,
     confirmationDialog,
     validatorModule,
-    coverageManager // Backward ref for reload triggers
+    coverageManager, // Backward ref for reload triggers
   ) {
     this.notificationManager = notificationManager;
     this.progress = progressModule;
@@ -28,15 +28,20 @@ export class CoverageCRUD {
    */
   async addCoverageArea() {
     if (
-      !this.validator.validatedLocation
-      || !this.validator.validatedLocation.display_name
+      !this.validator.validatedLocation ||
+      !this.validator.validatedLocation.display_name
     ) {
-      this.notificationManager.show("Please validate a location first.", "warning");
+      this.notificationManager.show(
+        "Please validate a location first.",
+        "warning",
+      );
       return;
     }
 
     const addButton = document.getElementById("add-coverage-area");
-    const modal = bootstrap.Modal.getInstance(document.getElementById("addAreaModal"));
+    const modal = bootstrap.Modal.getInstance(
+      document.getElementById("addAreaModal"),
+    );
 
     if (!addButton) {
       return;
@@ -72,11 +77,14 @@ export class CoverageCRUD {
     try {
       const areas = await COVERAGE_API.getAllAreas();
       const exists = areas.some(
-        (area) => area.location?.display_name === locationToAdd.display_name
+        (area) => area.location?.display_name === locationToAdd.display_name,
       );
 
       if (exists) {
-        this.notificationManager.show("This area is already being tracked.", "warning");
+        this.notificationManager.show(
+          "This area is already being tracked.",
+          "warning",
+        );
         return;
       }
 
@@ -91,12 +99,15 @@ export class CoverageCRUD {
 
       this.progress.showProgressModal(
         `Starting processing for ${locationToAdd.display_name}...`,
-        0
+        0,
       );
 
       const taskData = await COVERAGE_API.preprocessStreets(locationToAdd);
 
-      this.notificationManager.show("Coverage area processing started.", "info");
+      this.notificationManager.show(
+        "Coverage area processing started.",
+        "info",
+      );
 
       if (taskData?.task_id) {
         this.progress.currentTaskId = taskData.task_id;
@@ -107,7 +118,7 @@ export class CoverageCRUD {
 
         this.notificationManager.show(
           `Processing for ${locationToAdd.display_name} completed.`,
-          "success"
+          "success",
         );
 
         await this.manager.loadCoverageAreas();
@@ -115,7 +126,7 @@ export class CoverageCRUD {
         this.progress.hideProgressModal();
         this.notificationManager.show(
           "Processing started, but no task ID received.",
-          "warning"
+          "warning",
         );
         await this.manager.loadCoverageAreas();
       }
@@ -131,7 +142,7 @@ export class CoverageCRUD {
       console.error("Error adding coverage area:", error);
       this.notificationManager.show(
         `Failed to add coverage area: ${error.message}`,
-        "danger"
+        "danger",
       );
       this.progress.hideProgressModal();
       await this.manager.loadCoverageAreas();
@@ -146,18 +157,20 @@ export class CoverageCRUD {
    */
   async addCustomCoverageArea() {
     if (
-      !this.validator.validatedCustomBoundary
-      || !this.validator.validatedCustomBoundary.display_name
+      !this.validator.validatedCustomBoundary ||
+      !this.validator.validatedCustomBoundary.display_name
     ) {
       this.notificationManager.show(
         "Please validate your custom boundary first.",
-        "warning"
+        "warning",
       );
       return;
     }
 
     const addButton = document.getElementById("add-custom-area");
-    const modal = bootstrap.Modal.getInstance(document.getElementById("addAreaModal"));
+    const modal = bootstrap.Modal.getInstance(
+      document.getElementById("addAreaModal"),
+    );
 
     if (!addButton) {
       return;
@@ -193,13 +206,13 @@ export class CoverageCRUD {
     try {
       const areas = await COVERAGE_API.getAllAreas();
       const exists = areas.some(
-        (area) => area.location?.display_name === customAreaToAdd.display_name
+        (area) => area.location?.display_name === customAreaToAdd.display_name,
       );
 
       if (exists) {
         this.notificationManager.show(
           "This area name is already being tracked.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -215,12 +228,16 @@ export class CoverageCRUD {
 
       this.progress.showProgressModal(
         `Starting processing for ${customAreaToAdd.display_name}...`,
-        0
+        0,
       );
 
-      const taskData = await COVERAGE_API.preprocessCustomBoundary(customAreaToAdd);
+      const taskData =
+        await COVERAGE_API.preprocessCustomBoundary(customAreaToAdd);
 
-      this.notificationManager.show("Custom coverage area processing started.", "info");
+      this.notificationManager.show(
+        "Custom coverage area processing started.",
+        "info",
+      );
 
       if (taskData?.task_id) {
         this.progress.currentTaskId = taskData.task_id;
@@ -231,7 +248,7 @@ export class CoverageCRUD {
 
         this.notificationManager.show(
           `Processing for ${customAreaToAdd.display_name} completed.`,
-          "success"
+          "success",
         );
 
         await this.manager.loadCoverageAreas();
@@ -239,7 +256,7 @@ export class CoverageCRUD {
         this.progress.hideProgressModal();
         this.notificationManager.show(
           "Processing started, but no task ID received.",
-          "warning"
+          "warning",
         );
         await this.manager.loadCoverageAreas();
       }
@@ -254,7 +271,7 @@ export class CoverageCRUD {
       console.error("Error adding custom coverage area:", error);
       this.notificationManager.show(
         `Failed to add custom coverage area: ${error.message}`,
-        "danger"
+        "danger",
       );
       this.progress.hideProgressModal();
       await this.manager.loadCoverageAreas();
@@ -267,11 +284,15 @@ export class CoverageCRUD {
   /**
    * Update coverage for area
    */
-  async updateCoverageForArea(locationId, mode = "full", showNotification = true) {
+  async updateCoverageForArea(
+    locationId,
+    mode = "full",
+    showNotification = true,
+  ) {
     if (!locationId) {
       this.notificationManager.show(
         "Invalid location ID provided for update.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -279,28 +300,28 @@ export class CoverageCRUD {
     if (this.pendingOperations.has(`update-${locationId}`)) {
       this.notificationManager.show(
         "Update already in progress for this location.",
-        "info"
+        "info",
       );
       return;
     }
 
     try {
       this.pendingOperations.set(`update-${locationId}`, () =>
-        this.updateCoverageForArea(locationId, mode, showNotification)
+        this.updateCoverageForArea(locationId, mode, showNotification),
       );
 
       const locationData = await COVERAGE_API.getArea(locationId);
 
       if (
-        this.currentProcessingLocation?.display_name
-        === locationData.location.display_name
+        this.currentProcessingLocation?.display_name ===
+        locationData.location.display_name
       ) {
         this.notificationManager.show(
           `Update already in progress for ${locationData.location.display_name}.`,
-          "info"
+          "info",
         );
         this.progress.showProgressModal(
-          `Update already running for ${locationData.location.display_name}...`
+          `Update already running for ${locationData.location.display_name}...`,
         );
         return;
       }
@@ -312,11 +333,11 @@ export class CoverageCRUD {
       this.progress.currentTaskId = null;
       this.progress._addBeforeUnloadListener();
 
-      const isUpdatingDisplayedLocation
-        = this.manager.dashboard.selectedLocation?._id === locationId;
+      const isUpdatingDisplayedLocation =
+        this.manager.dashboard.selectedLocation?._id === locationId;
 
       this.progress.showProgressModal(
-        `Requesting ${mode} update for ${processingLocation.display_name}...`
+        `Requesting ${mode} update for ${processingLocation.display_name}...`,
       );
 
       const data = await COVERAGE_API.updateCoverage(processingLocation, mode);
@@ -331,7 +352,7 @@ export class CoverageCRUD {
         if (showNotification) {
           this.notificationManager.show(
             `Coverage updated for ${processingLocation.display_name}.`,
-            "success"
+            "success",
           );
         }
 
@@ -346,7 +367,7 @@ export class CoverageCRUD {
         this.progress.hideProgressModal();
         this.notificationManager.show(
           "Update started, but no task ID received.",
-          "warning"
+          "warning",
         );
         await this.manager.loadCoverageAreas();
       }
@@ -355,7 +376,7 @@ export class CoverageCRUD {
       if (showNotification) {
         this.notificationManager.show(
           `Coverage update failed: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
       this.progress.hideProgressModal();
@@ -373,14 +394,18 @@ export class CoverageCRUD {
     const locationToCancel = location || this.currentProcessingLocation;
 
     if (!locationToCancel || !locationToCancel.display_name) {
-      this.notificationManager.show("No active processing to cancel.", "warning");
+      this.notificationManager.show(
+        "No active processing to cancel.",
+        "warning",
+      );
       return;
     }
 
     const confirmed = await this.confirmationDialog.show({
       title: "Cancel Processing",
       message: `Are you sure you want to cancel processing for <strong>${locationToCancel.display_name}</strong>?`,
-      details: "This will stop the current operation. You can restart it later.",
+      details:
+        "This will stop the current operation. You can restart it later.",
       confirmText: "Yes, Cancel",
       cancelText: "No, Continue",
       confirmButtonClass: "btn-danger",
@@ -392,7 +417,7 @@ export class CoverageCRUD {
 
     this.notificationManager.show(
       `Attempting to cancel processing for ${locationToCancel.display_name}...`,
-      "info"
+      "info",
     );
 
     try {
@@ -400,11 +425,12 @@ export class CoverageCRUD {
 
       this.notificationManager.show(
         `Processing for ${locationToCancel.display_name} cancelled.`,
-        "success"
+        "success",
       );
 
       if (
-        this.currentProcessingLocation?.display_name === locationToCancel.display_name
+        this.currentProcessingLocation?.display_name ===
+        locationToCancel.display_name
       ) {
         if (this.progress.currentTaskId) {
           this.progress.activeTaskIds.delete(this.progress.currentTaskId);
@@ -418,7 +444,7 @@ export class CoverageCRUD {
       console.error("Error cancelling processing:", error);
       this.notificationManager.show(
         `Failed to cancel processing: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -428,7 +454,10 @@ export class CoverageCRUD {
    */
   async deleteArea(location) {
     if (!location || !location.display_name) {
-      this.notificationManager.show("Invalid location data for deletion.", "warning");
+      this.notificationManager.show(
+        "Invalid location data for deletion.",
+        "warning",
+      );
       return;
     }
 
@@ -448,7 +477,7 @@ export class CoverageCRUD {
     try {
       this.notificationManager.show(
         `Deleting coverage area: ${location.display_name}...`,
-        "info"
+        "info",
       );
 
       await COVERAGE_API.deleteArea(location.display_name);
@@ -456,15 +485,15 @@ export class CoverageCRUD {
       await this.manager.loadCoverageAreas();
 
       if (
-        this.manager.dashboard.selectedLocation?.location?.display_name
-        === location.display_name
+        this.manager.dashboard.selectedLocation?.location?.display_name ===
+        location.display_name
       ) {
         this.manager.dashboard.closeCoverageDashboard();
       }
 
       this.notificationManager.show(
         `Coverage area '${location.display_name}' deleted.`,
-        "success"
+        "success",
       );
 
       this.manager.updateTotalAreasCount();
@@ -472,7 +501,7 @@ export class CoverageCRUD {
       console.error("Error deleting coverage area:", error);
       this.notificationManager.show(
         `Error deleting coverage area: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -491,24 +520,24 @@ export class CoverageCRUD {
       const metersToFeet = (value) => value * 3.28084;
       const defaults = {
         segment:
-          location.segment_length_feet
-          || (location.segment_length_meters
+          location.segment_length_feet ||
+          (location.segment_length_meters
             ? metersToFeet(location.segment_length_meters)
             : 150),
         buffer:
-          location.match_buffer_feet
-          || (location.match_buffer_meters
+          location.match_buffer_feet ||
+          (location.match_buffer_meters
             ? metersToFeet(location.match_buffer_meters)
             : 25),
         min:
-          location.min_match_length_feet
-          || (location.min_match_length_meters
+          location.min_match_length_feet ||
+          (location.min_match_length_meters
             ? metersToFeet(location.min_match_length_meters)
             : 15),
       };
       const settings = await this.manager._askMatchSettings(
         location.display_name,
-        defaults
+        defaults,
       );
       if (settings === null) {
         return;
@@ -520,16 +549,16 @@ export class CoverageCRUD {
 
       this.progress.showProgressModal(
         `Reprocessing streets for ${location.display_name} (seg ${settings.segment} ft)...`,
-        0
+        0,
       );
 
-      const isCustom
-        = location.osm_type === "custom" || location.boundary_type === "custom";
+      const isCustom =
+        location.osm_type === "custom" || location.boundary_type === "custom";
       let taskData = null;
 
       if (isCustom) {
-        const geometry
-          = location.geojson?.geometry || location.geojson || location.geometry;
+        const geometry =
+          location.geojson?.geometry || location.geojson || location.geometry;
         if (!geometry) {
           throw new Error("Custom boundary is missing geometry");
         }
@@ -555,7 +584,7 @@ export class CoverageCRUD {
 
       this.notificationManager.show(
         `Reprocessing for ${location.display_name} completed.`,
-        "success"
+        "success",
       );
       await this.manager.loadCoverageAreas(false, true);
 
@@ -567,7 +596,7 @@ export class CoverageCRUD {
       console.error("Error reprocessing streets:", error);
       this.notificationManager.show(
         `Failed to reprocess streets: ${error.message}`,
-        "danger"
+        "danger",
       );
       this.progress.hideProgressModal();
     }
