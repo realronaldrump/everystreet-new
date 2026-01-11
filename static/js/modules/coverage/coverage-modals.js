@@ -92,7 +92,10 @@ export class CoverageModals {
    * @param {number} defaults.min - Default minimum match
    * @returns {Promise<Object|null>} Settings object or null if cancelled
    */
-  askMatchSettings(locationName, defaults = { segment: 300, buffer: 50, min: 15 }) {
+  askMatchSettings(
+    locationName,
+    defaults = { segment: 300, buffer: 50, min: 15 },
+  ) {
     return new Promise((resolve) => {
       const modalEl = document.getElementById("segmentLengthModal");
       if (!modalEl) {
@@ -110,7 +113,8 @@ export class CoverageModals {
       if (segEl) segEl.value = defaults.segment;
       if (bufEl) bufEl.value = defaults.buffer;
       if (minEl) minEl.value = defaults.min;
-      if (titleEl) titleEl.textContent = `Re-segment Streets for ${locationName}`;
+      if (titleEl)
+        titleEl.textContent = `Re-segment Streets for ${locationName}`;
 
       const bsModal = new bootstrap.Modal(modalEl, { backdrop: "static" });
 
@@ -189,7 +193,9 @@ export class CoverageModals {
    * Initialize Bootstrap tooltips
    */
   initTooltips() {
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipTriggerList = document.querySelectorAll(
+      '[data-bs-toggle="tooltip"]',
+    );
     tooltipTriggerList.forEach((tooltipTriggerEl) => {
       const existing = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
       if (existing) existing.dispose();
@@ -233,7 +239,8 @@ export class CoverageModals {
             mutation.type === "attributes" &&
             mutation.attributeName === "data-bs-theme"
           ) {
-            const newTheme = document.documentElement.getAttribute("data-bs-theme");
+            const newTheme =
+              document.documentElement.getAttribute("data-bs-theme");
             if (coverageMap) coverageMap.updateTheme(newTheme);
             if (drawing) drawing.updateTheme(newTheme);
           }
