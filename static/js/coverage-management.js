@@ -31,37 +31,50 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 function setupEventListeners() {
   // Refresh button
-  document.getElementById("refresh-table-btn")?.addEventListener("click", loadAreas);
-  document.getElementById("quick-refresh-all")?.addEventListener("click", loadAreas);
+  document
+    .getElementById("refresh-table-btn")
+    ?.addEventListener("click", loadAreas);
+  document
+    .getElementById("quick-refresh-all")
+    ?.addEventListener("click", loadAreas);
 
   // Add area button
-  document.getElementById("add-coverage-area")?.addEventListener("click", addArea);
+  document
+    .getElementById("add-coverage-area")
+    ?.addEventListener("click", addArea);
 
   // Close dashboard
-  document.getElementById("close-dashboard-btn")?.addEventListener("click", () => {
-    document.getElementById("coverage-dashboard").style.display = "none";
-    currentAreaId = null;
-  });
+  document
+    .getElementById("close-dashboard-btn")
+    ?.addEventListener("click", () => {
+      document.getElementById("coverage-dashboard").style.display = "none";
+      currentAreaId = null;
+    });
 
   // Map filter buttons
   document.querySelectorAll("[data-filter]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       document.querySelectorAll("[data-filter]").forEach((b) => {
-        b.classList.remove("active", "btn-primary", "btn-success", "btn-danger");
+        b.classList.remove(
+          "active",
+          "btn-primary",
+          "btn-success",
+          "btn-danger",
+        );
         b.classList.add(
           "btn-outline-" +
             (b.dataset.filter === "all"
               ? "primary"
               : b.dataset.filter === "driven"
                 ? "success"
-                : "danger")
+                : "danger"),
         );
       });
       e.target.classList.add("active");
       e.target.classList.remove(
         "btn-outline-primary",
         "btn-outline-success",
-        "btn-outline-danger"
+        "btn-outline-danger",
       );
       e.target.classList.add(
         "btn-" +
@@ -69,7 +82,7 @@ function setupEventListeners() {
             ? "primary"
             : e.target.dataset.filter === "driven"
               ? "success"
-              : "danger")
+              : "danger"),
       );
 
       applyMapFilter(e.target.dataset.filter);
@@ -120,10 +133,14 @@ async function loadAreas() {
   try {
     const data = await apiGet("/areas");
     renderAreasTable(data.areas);
-    document.getElementById("total-areas-count").textContent = data.areas.length;
+    document.getElementById("total-areas-count").textContent =
+      data.areas.length;
   } catch (error) {
     console.error("Failed to load areas:", error);
-    showNotification("Failed to load coverage areas: " + error.message, "danger");
+    showNotification(
+      "Failed to load coverage areas: " + error.message,
+      "danger",
+    );
   }
 }
 
@@ -182,7 +199,7 @@ function renderAreasTable(areas) {
                 </div>
             </td>
         </tr>
-    `
+    `,
     )
     .join("");
 }
@@ -190,8 +207,16 @@ function renderAreasTable(areas) {
 function renderStatus(status, health) {
   const statusConfig = {
     ready: { class: "success", icon: "check-circle", text: "Ready" },
-    initializing: { class: "info", icon: "spinner fa-spin", text: "Setting up..." },
-    rebuilding: { class: "warning", icon: "sync fa-spin", text: "Rebuilding..." },
+    initializing: {
+      class: "info",
+      icon: "spinner fa-spin",
+      text: "Setting up...",
+    },
+    rebuilding: {
+      class: "warning",
+      icon: "sync fa-spin",
+      text: "Rebuilding...",
+    },
     error: { class: "danger", icon: "exclamation-circle", text: "Error" },
   };
 
@@ -212,11 +237,13 @@ async function addArea() {
 
   try {
     // Close add modal
-    bootstrap.Modal.getInstance(document.getElementById("addAreaModal"))?.hide();
+    bootstrap.Modal.getInstance(
+      document.getElementById("addAreaModal"),
+    )?.hide();
 
     // Show progress modal
     const progressModal = new bootstrap.Modal(
-      document.getElementById("taskProgressModal")
+      document.getElementById("taskProgressModal"),
     );
     progressModal.show();
     updateProgress(0, "Creating area...");
@@ -243,7 +270,9 @@ async function addArea() {
     document.getElementById("location-input").value = "";
   } catch (error) {
     console.error("Failed to add area:", error);
-    bootstrap.Modal.getInstance(document.getElementById("taskProgressModal"))?.hide();
+    bootstrap.Modal.getInstance(
+      document.getElementById("taskProgressModal"),
+    )?.hide();
     showNotification("Failed to add area: " + error.message, "danger");
   }
 }
@@ -291,7 +320,7 @@ async function rebuildArea(areaId) {
 
   try {
     const progressModal = new bootstrap.Modal(
-      document.getElementById("taskProgressModal")
+      document.getElementById("taskProgressModal"),
     );
     progressModal.show();
     updateProgress(0, "Starting rebuild...");
@@ -307,7 +336,9 @@ async function rebuildArea(areaId) {
     await loadAreas();
   } catch (error) {
     console.error("Failed to rebuild area:", error);
-    bootstrap.Modal.getInstance(document.getElementById("taskProgressModal"))?.hide();
+    bootstrap.Modal.getInstance(
+      document.getElementById("taskProgressModal"),
+    )?.hide();
     showNotification("Failed to rebuild area: " + error.message, "danger");
   }
 }
@@ -374,13 +405,13 @@ async function viewArea(areaId) {
     const area = data.area;
 
     // Update stats
-    document.getElementById("dashboard-location-name").textContent = area.display_name;
+    document.getElementById("dashboard-location-name").textContent =
+      area.display_name;
     document.getElementById("dashboard-total-length").textContent = formatMiles(
-      area.total_length_miles
+      area.total_length_miles,
     );
-    document.getElementById("dashboard-driven-length").textContent = formatMiles(
-      area.driven_length_miles
-    );
+    document.getElementById("dashboard-driven-length").textContent =
+      formatMiles(area.driven_length_miles);
     document.getElementById("dashboard-coverage-percentage").textContent =
       `${area.coverage_percentage.toFixed(1)}%`;
 
@@ -434,7 +465,7 @@ async function initOrUpdateMap(areaId, bbox) {
         [bbox[0], bbox[1]],
         [bbox[2], bbox[3]],
       ],
-      { padding: 50 }
+      { padding: 50 },
     );
     loadStreets(areaId);
   }
@@ -453,7 +484,7 @@ async function loadStreets(areaId) {
           min_lat: bounds.getSouth(),
           max_lon: bounds.getEast(),
           max_lat: bounds.getNorth(),
-        })
+        }),
     );
 
     // Update or add source
@@ -521,13 +552,13 @@ function applyMapFilter(filter) {
       map.setLayoutProperty(
         layerId,
         "visibility",
-        layerId === "streets-driven" ? "visible" : "none"
+        layerId === "streets-driven" ? "visible" : "none",
       );
     } else if (filter === "undriven") {
       map.setLayoutProperty(
         layerId,
         "visibility",
-        layerId === "streets-undriven" ? "visible" : "none"
+        layerId === "streets-undriven" ? "visible" : "none",
       );
     }
   });
