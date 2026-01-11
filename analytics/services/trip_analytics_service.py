@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from db import aggregate_with_retry, db_manager
+from db import db_manager
 from db.aggregation_utils import get_mongo_tz_expr
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ class TripAnalyticsService:
             },
         ]
 
-        results = await aggregate_with_retry(trips_collection, pipeline)
+        results = await trips_collection.aggregate(pipeline)
 
         # Organize data by different dimensions
         daily_list = TripAnalyticsService._organize_daily_data(results)
@@ -353,7 +353,7 @@ class TripAnalyticsService:
             },
         ]
 
-        results = await aggregate_with_retry(trips_collection, pipeline)
+        results = await trips_collection.aggregate(pipeline)
         if not results:
             return {
                 "totalTrips": 0,
@@ -397,5 +397,5 @@ class TripAnalyticsService:
             },
         ]
 
-        trips = await aggregate_with_retry(trips_collection, pipeline)
+        trips = await trips_collection.aggregate(pipeline)
         return trips

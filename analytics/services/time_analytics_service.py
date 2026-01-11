@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from db import aggregate_with_retry, db_manager
+from db import db_manager
 from db.aggregation_utils import get_mongo_tz_expr
 
 logger = logging.getLogger(__name__)
@@ -105,5 +105,5 @@ class TimeAnalyticsService:
             {"$limit": 100},
         ]
 
-        trips = await aggregate_with_retry(trips_collection, pipeline)
+        trips = await trips_collection.aggregate(pipeline)
         return trips

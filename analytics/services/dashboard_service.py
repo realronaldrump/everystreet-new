@@ -7,7 +7,7 @@ from typing import Any
 import pytz
 
 from core.math_utils import calculate_circular_average_hour
-from db import aggregate_with_retry, db_manager
+from db import db_manager
 
 logger = logging.getLogger(__name__)
 trips_collection = db_manager.db["trips"]
@@ -77,7 +77,7 @@ class DashboardService:
             },
         ]
 
-        trips_result = await aggregate_with_retry(trips_collection, pipeline)
+        trips_result = await trips_collection.aggregate(pipeline)
 
         # Top destinations (up to 5) with basic stats
         pipeline_top_destinations = [
@@ -334,7 +334,7 @@ class DashboardService:
             },
         ]
 
-        results = await aggregate_with_retry(trips_collection, pipeline)
+        results = await trips_collection.aggregate(pipeline)
 
         if not results:
             return {
