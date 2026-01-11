@@ -9,8 +9,8 @@ from collections.abc import AsyncIterator
 
 from bson import ObjectId
 from fastapi.encoders import jsonable_encoder
+from gridfs import AsyncGridFSBucket
 from gridfs import errors
-from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from db.manager import db_manager
 from db.models import CoverageMetadata, Street
@@ -22,7 +22,7 @@ class GridFSService:
     """Service for managing GeoJSON files in GridFS."""
 
     @property
-    def bucket(self) -> AsyncIOMotorGridFSBucket:
+    def bucket(self) -> AsyncGridFSBucket:
         """Get GridFS bucket from db_manager."""
         return db_manager.gridfs_bucket
 

@@ -72,7 +72,6 @@ export function setupAppSettingsForm() {
         const data = await res.json();
         applySettings(data);
       } else {
-        console.warn("Failed to fetch app settings. HTTP", res.status);
         applySettings();
       }
     } catch (_err) {
@@ -108,7 +107,7 @@ export function setupAppSettingsForm() {
       if (!resp.ok) {
         throw new Error(`Server returned ${resp.status}`);
       }
-    } catch (err) {
+    } catch (_err) {
       window.notificationManager?.show("Failed to save settings on server", "danger");
       return;
     }

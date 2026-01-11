@@ -163,20 +163,20 @@ class DatabaseManager:
             return None
 
     def _close_client_sync(self) -> None:
-        """Synchronously close the current client for loop change scenarios."""
+        """Synchronously reset client state for loop change scenarios.
+
+        Note: With PyMongo's AsyncMongoClient, close() is async. In sync context,
+        we just reset the references and let garbage collection handle cleanup.
+        """
         if self._client:
-            try:
-                self._client.close()
-                logger.debug("Closed MongoDB client due to event loop change")
-            except Exception as e:
-                logger.warning("Error closing MongoDB client: %s", e)
-            finally:
-                self._client = None
-                self._db = None
-                self._collections = {}
-                self._gridfs_bucket_instance = None
-                self._bound_loop = None
-                self._beanie_initialized = False
+            # Can't await close() in sync context - just reset references
+            logger.debug("Resetting MongoDB client state due to event loop change")
+            self._client = None
+            self._db = None
+            self._collections = {}
+            self._gridfs_bucket_instance = None
+            self._bound_loop = None
+            self._beanie_initialized = False
 
     def _check_loop_and_reconnect(self) -> None:
         """Check if event loop has changed and reconnect if necessary."""
@@ -212,7 +212,7 @@ class DatabaseManager:
         """Get the database instance, initializing if necessary.
 
         Returns:
-            The AsyncIOMotorDatabase instance.
+            The AsyncDatabase instance.
 
         Raises:
             ConnectionFailure: If database cannot be initialized.
@@ -226,11 +226,11 @@ class DatabaseManager:
         return self._db
 
     @property
-    def client(self) -> AsyncIOMotorClient:
+    def client(self) -> AsyncMongoClient:
         """Get the client instance, initializing if necessary.
 
         Returns:
-            The AsyncIOMotorClient instance.
+            The AsyncMongoClient instance.
 
         Raises:
             ConnectionFailure: If client cannot be initialized.
@@ -244,15 +244,15 @@ class DatabaseManager:
         return self._client
 
     @property
-    def gridfs_bucket(self) -> AsyncIOMotorGridFSBucket:
+    def gridfs_bucket(self) -> AsyncGridFSBucket:
         """Get the GridFS bucket instance.
 
         Returns:
-            The AsyncIOMotorGridFSBucket instance.
+            The AsyncGridFSBucket instance.
         """
         db_instance = self.db
         if self._gridfs_bucket_instance is None:
-            self._gridfs_bucket_instance = AsyncIOMotorGridFSBucket(db_instance)
+            self._gridfs_bucket_instance = AsyncGridFSBucket(db_instance)
         return self._gridfs_bucket_instance
 
     @property
@@ -273,7 +273,7 @@ class DatabaseManager:
         """
         return self._max_retry_attempts
 
-    def get_collection(self, collection_name: str) -> AsyncIOMotorCollection:
+    def get_collection(self, collection_name: str) -> AsyncCollection:
         """Get a collection by name with caching.
 
         Args:
@@ -510,7 +510,7 @@ class DatabaseManager:
         if error.code == 85:  # IndexOptionsConflict
             index_name_to_create = kwargs.get("name")
             if index_name_to_create and index_name_to_create in str(
-                error.details.get("errmsg", "")
+                (error.details or {}).get("errmsg", "")
             ):
                 logger.warning(
                     "IndexOptionsConflict for index '%s' on collection '%s'. "
@@ -576,6 +576,8 @@ class DatabaseManager:
 
     def _get_existing_index_name(
         self,
+        collection_name: str,
+        keys: str | list[tuple[str, int]],
     ) -> str | None:
         """Get the name of an existing index with matching keys.
 
@@ -615,7 +617,7 @@ class DatabaseManager:
         if self._client:
             try:
                 logger.info("Closing MongoDB client connections...")
-                self._client.close()
+                await self._client.close()
             except Exception as e:
                 logger.error("Error closing MongoDB client: %s", str(e))
             finally:
@@ -628,17 +630,17 @@ class DatabaseManager:
                 logger.info("MongoDB client state reset")
 
     def __del__(self) -> None:
-        """Destructor to ensure client cleanup."""
+        """Destructor to reset client references.
+
+        Note: With PyMongo's AsyncMongoClient, close() is async.
+        In __del__, we cannot await, so we just reset references.
+        """
         if hasattr(self, "_client") and self._client:
-            try:
-                self._client.close()
-            except Exception:
-                pass
-            finally:
-                self._client = None
-                self._db = None
-                self._collections = {}
-                self._gridfs_bucket_instance = None
+            # Cannot await close() in __del__ - just reset references
+            self._client = None
+            self._db = None
+            self._collections = {}
+            self._gridfs_bucket_instance = None
 
 
 # Singleton instance

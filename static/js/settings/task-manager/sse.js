@@ -29,7 +29,7 @@ export function createEventSource(callbacks) {
       } catch (_error) {}
     };
 
-    eventSource.onerror = (error) => {
+    eventSource.onerror = () => {
       if (onError) {
         onError(error);
       }

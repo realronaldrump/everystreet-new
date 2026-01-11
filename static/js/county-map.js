@@ -171,7 +171,7 @@
         hideLoading();
         setupInteractions();
         updateStats();
-      } catch (error) {
+      } catch (_error) {
         updateLoadingText(`Error: ${error.message}`);
       }
     });
@@ -335,7 +335,7 @@
         );
         clearRecalcState();
       }
-    } catch (error) {
+    } catch (_error) {
       clearRecalcState();
     }
   }
@@ -370,7 +370,7 @@
       }
 
       setTimeout(() => checkAndRefresh(startedAt), 2000);
-    } catch (error) {
+    } catch (_error) {
       setTimeout(() => checkAndRefresh(startedAt), 3000);
     }
   }

@@ -280,7 +280,6 @@ class UploadManager {
           resolve();
         }
       } catch (error) {
-        console.error("Error handling file:", error);
         this.loadingManager.error(`Error handling file: ${file.name}`);
         reject(error);
       }
@@ -728,7 +727,6 @@ class UploadManager {
         throw new Error("Invalid data format received from /api/trips");
       }
     } catch (error) {
-      console.error("Error fetching trips:", error);
       window.notificationManager.show("Error loading trips from server", "danger");
       this.loadingManager.error(`Error fetching trips: ${error.message}`);
       this.displayUploadSourceTrips([]);

@@ -182,7 +182,6 @@ document.addEventListener("DOMContentLoaded", () => {
         error.message || "Failed to perform database action",
         "danger"
       );
-      console.error("Error performing database action:", error);
       setButtonLoading(currentButton, false, currentAction);
     }
   }

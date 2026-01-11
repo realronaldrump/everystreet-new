@@ -15,7 +15,7 @@ from db.manager import db_manager
 from db.models import CoverageMetadata, ProgressStatus, Street
 
 if TYPE_CHECKING:
-    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    from gridfs import AsyncGridFSBucket
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ async def generate_and_store_geojson(
         task_id, {"stage": "generating_geojson", "message": "Creating map data..."}
     )
 
-    fs: AsyncIOMotorGridFSBucket = db_manager.gridfs_bucket
+    fs: AsyncGridFSBucket = db_manager.gridfs_bucket
     safe_name = "".join(
         (c if c.isalnum() or c in ["_", "-"] else "_") for c in location_name
     )

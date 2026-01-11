@@ -73,7 +73,7 @@
         parseInt(data.total_trips, 10) || 0,
         formatNumber
       );
-    } catch (error) {
+    } catch (_error) {
       if (elements.statMiles) elements.statMiles.textContent = "--";
       if (elements.statTrips) elements.statTrips.textContent = "--";
     }
@@ -104,7 +104,7 @@
 
       // Populate activity feed
       populateActivityFeed(trips);
-    } catch (error) {
+    } catch (_error) {
       populateActivityFeed([]);
     }
   }
@@ -147,7 +147,7 @@
           elements.liveIndicator.title = "No active tracking";
         }
       }
-    } catch (error) {
+    } catch (_error) {
       if (elements.liveIndicator) {
         elements.liveIndicator.classList.remove("active");
       }
