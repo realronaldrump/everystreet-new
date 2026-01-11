@@ -97,7 +97,6 @@ export async function runTask(taskId, context, onSuccess) {
     }
     throw new Error(result.message || "Failed to start task");
   } catch (error) {
-    console.error(`Error running task ${taskId}:`, error);
     hideLoadingOverlay();
     notifier.show(
       "Error",
@@ -159,7 +158,6 @@ export async function forceStopTask(taskId, context, onSuccess) {
     return true;
   } catch (error) {
     hideLoadingOverlay();
-    console.error(`Error force stopping task ${taskId}:`, error);
     notifier.show(
       "Error",
       `Failed to force stop task ${taskId}: ${error.message}`,
@@ -209,7 +207,6 @@ export async function scheduleManualFetch(
     return true;
   } catch (error) {
     hideLoadingOverlay();
-    console.error("Error scheduling manual fetch:", error);
     notifier.show("Error", `Failed to schedule fetch: ${error.message}`, "danger");
     throw error;
   }
@@ -265,7 +262,6 @@ export async function clearTaskHistory(context, onSuccess) {
     return true;
   } catch (error) {
     hideLoadingOverlay();
-    console.error("Error clearing task history:", error);
     notifier.show("Error", `Failed to clear history: ${error.message}`, "danger");
     return false;
   }

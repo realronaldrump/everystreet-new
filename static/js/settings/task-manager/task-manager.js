@@ -78,9 +78,7 @@ export class TaskManager {
         processSSEUpdates(updates, { notifier: this.notifier });
         this.updateActiveTasksMapFromUpdates(updates);
       },
-      onError: (error) => {
-        console.error("SSE connection error:", error);
-      },
+      onError: () => {},
       onReconnect: () => {
         this.setupEventSource();
       },
@@ -127,7 +125,6 @@ export class TaskManager {
       this.updateActiveTasksMap(config);
       await this.updateTaskHistory();
     } catch (error) {
-      console.error("Error loading task configuration:", error);
       this.notifier.show(
         "Error",
         `Failed to load task configuration: ${error.message}`,

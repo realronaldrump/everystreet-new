@@ -26,7 +26,6 @@ export class InvalidTripReview {
       this.renderTable();
       this.renderPagination();
     } catch (error) {
-      console.error("Error fetching invalid trips:", error);
       if (this.tableBody) {
         this.tableBody.innerHTML =
           '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';
@@ -97,7 +96,6 @@ export class InvalidTripReview {
       window.notificationManager?.show("Trip restored successfully", "success");
       this.fetchInvalidTrips();
     } catch (error) {
-      console.error("Error restoring trip:", error);
       window.notificationManager?.show(
         `Failed to restore trip: ${error.message}`,
         "danger"
@@ -126,7 +124,6 @@ export class InvalidTripReview {
       window.notificationManager?.show("Trip deleted permanently", "success");
       this.fetchInvalidTrips();
     } catch (error) {
-      console.error("Error deleting trip:", error);
       window.notificationManager?.show(
         `Failed to delete trip: ${error.message}`,
         "danger"

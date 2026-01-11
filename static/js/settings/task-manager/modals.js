@@ -169,7 +169,6 @@ export async function showTaskDetails(taskId) {
       </div>
     `;
   } catch (error) {
-    console.error("Error fetching task details:", error);
     modalBody.innerHTML = `
       <div class="alert alert-danger">
         Failed to load task details: ${error.message}

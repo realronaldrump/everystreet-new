@@ -26,13 +26,10 @@ export function createEventSource(callbacks) {
         if (onUpdate) {
           onUpdate(updates);
         }
-      } catch (error) {
-        console.error("Error processing SSE update:", error);
-      }
+      } catch (_error) {}
     };
 
     eventSource.onerror = (error) => {
-      console.error("SSE connection error:", error);
       if (onError) {
         onError(error);
       }
@@ -44,8 +41,7 @@ export function createEventSource(callbacks) {
     };
 
     return eventSource;
-  } catch (error) {
-    console.error("Error setting up EventSource:", error);
+  } catch (_error) {
     return null;
   }
 }
