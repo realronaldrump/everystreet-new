@@ -4,8 +4,6 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 
 from analytics.services import TimeAnalyticsService, TripAnalyticsService
 from core.api import api_route
@@ -95,4 +93,4 @@ async def get_recent_trips(
 ):
     """Get recent trips for landing page activity feed."""
     trips = await TripAnalyticsService.get_recent_trips(limit)
-    return JSONResponse(content=jsonable_encoder({"trips": trips}))
+    return {"trips": trips}
