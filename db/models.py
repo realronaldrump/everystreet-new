@@ -27,8 +27,10 @@ from datetime import datetime
 from typing import Any
 
 from beanie import Document, Indexed
-from pydantic import Field
+from pydantic import Field, field_validator
 from pymongo import ASCENDING, DESCENDING, IndexModel
+
+from date_utils import parse_timestamp
 
 
 class Trip(Document):
@@ -73,6 +75,162 @@ class Trip(Document):
     # Validation fields
     invalid: bool | None = None
     validated_at: datetime | None = None
+    validation_status: str | None = None
+    validation_message: str | None = None
+
+    # Frontend compatibility
+    coordinates: list[dict[str, Any]] | None = Field(default_factory=list)
+
+    @field_validator(
+        "startTime",
+        "endTime",
+        "lastUpdate",
+        "matched_at",
+        "validated_at",
+        mode="before",
+    )
+    @classmethod
+    def parse_datetime_fields(cls, v: Any) -> datetime | None:
+        """Parse datetime fields using the centralized date_utils."""
+        if v is None:
+            return None
+        return parse_timestamp(v)
+
+    @field_validator("gps", mode="before")
+    @classmethod
+    def validate_gps_data(cls, v: Any) -> dict[str, Any] | None:
+        """Validate and standardize GPS data."""
+        if v is None:
+            return None
+
+        # Handle string input
+        if isinstance(v, str):
+            try:
+                import json
+
+                v = json.loads(v)
+            except json.JSONDecodeError:
+                return None
+
+        # Handle list input (convert to GeoJSON)
+        if isinstance(v, list):
+            # Basic coordinate validation helper
+            def valid_coord(c):
+                if not isinstance(c, list | tuple) or len(c) < 2:
+                    return False
+                try:
+                    lon, lat = float(c[0]), float(c[1])
+                    return -180 <= lon <= 180 and -90 <= lat <= 90
+                except (ValueError, TypeError):
+                    return False
+
+            # Filter valid coordinates
+            valid_coords = [c for c in v if valid_coord(c)]
+
+            # Deduplicate consecutive points
+            unique_coords = []
+            for c in valid_coords:
+                c_list = [float(c[0]), float(c[1])]
+                if not unique_coords or c_list != unique_coords[-1]:
+                    unique_coords.append(c_list)
+
+            if not unique_coords:
+                return None
+
+            if len(unique_coords) == 1:
+                return {"type": "Point", "coordinates": unique_coords[0]}
+            return {"type": "LineString", "coordinates": unique_coords}
+
+        # Handle dict input (GeoJSON)
+        if isinstance(v, dict):
+            if "type" not in v or "coordinates" not in v:
+                return v  # Return as is, let Pydantic handle or skip
+
+            geom_type = v["type"]
+            coords = v["coordinates"]
+
+            if geom_type not in ["Point", "LineString"]:
+                return v
+
+            if not isinstance(coords, list):
+                return v
+
+            # Validate based on type
+            if geom_type == "Point":
+                if len(coords) >= 2:
+                    try:
+                        lon, lat = float(coords[0]), float(coords[1])
+                        if -180 <= lon <= 180 and -90 <= lat <= 90:
+                            v["coordinates"] = [lon, lat]
+                    except (ValueError, TypeError):
+                        pass
+            elif geom_type == "LineString":
+                validated = []
+                for point in coords:
+                    if not isinstance(point, list) or len(point) < 2:
+                        continue
+                    try:
+                        lon, lat = float(point[0]), float(point[1])
+                        if -180 <= lon <= 180 and -90 <= lat <= 90:
+                            validated.append([lon, lat])
+                    except (ValueError, TypeError):
+                        continue
+
+                # Deduplicate
+                final_coords = []
+                for p in validated:
+                    if not final_coords or p != final_coords[-1]:
+                        final_coords.append(p)
+
+                if final_coords:
+                    if len(final_coords) == 1:
+                        return {"type": "Point", "coordinates": final_coords[0]}
+                    v["coordinates"] = final_coords
+
+            return v
+
+        return None
+
+    def validate_meaningful(self) -> tuple[bool, str | None]:
+        """Validate that a trip represents actual driving."""
+        dist = self.distance if self.distance is not None else 0.0
+        max_speed = self.maxSpeed if self.maxSpeed is not None else 0.0
+
+        duration_minutes = 0.0
+        if self.startTime and self.endTime:
+            diff = (self.endTime - self.startTime).total_seconds()
+            duration_minutes = diff / 60.0
+
+        same_location = False
+        if self.gps and self.gps.get("type") == "LineString":
+            coords = self.gps.get("coordinates")
+            if coords and len(coords) >= 2:
+                first = coords[0]
+                last = coords[-1]
+                if (
+                    abs(first[0] - last[0]) < 0.0005
+                    and abs(first[1] - last[1]) < 0.0005
+                ):
+                    same_location = True
+        elif self.gps and self.gps.get("type") == "Point":
+            same_location = True
+
+        is_stationary = False
+        if (
+            dist <= 0.05
+            and same_location
+            and max_speed <= 0.5
+            and duration_minutes < 10
+        ):
+            is_stationary = True
+        if dist <= 0.01 and duration_minutes < 2:
+            is_stationary = True
+
+        if is_stationary:
+            msg = f"Stationary trip (distance: {dist:.2f} mi, duration: {duration_minutes:.1f} min)"
+            return False, msg
+
+        return True, None
 
     class Settings:
         name = "trips"

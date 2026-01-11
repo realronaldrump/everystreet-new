@@ -19,7 +19,6 @@ from pydantic import ValidationError
 from core.async_bridge import run_async_from_sync
 from db.models import Trip
 from live_tracking import cleanup_stale_trips_logic
-from models import TripDataModel
 from tasks.config import check_dependencies
 from tasks.core import task_runner
 from trip_service import TripService
@@ -97,23 +96,10 @@ async def validate_trips_async(_self) -> dict[str, Any]:
     async for trip in Trip.find(query):
         processed_count += 1
 
-        # First check: required data validation using Pydantic
-        valid = True
-        message = None
-
         try:
             # Trip document is already a Pydantic model (Beanie Document)
-            # But the validation logic in TripDataModel might be stricter or different.
-            # TripDataModel expects a dict input usually if we re-instantiate,
-            # or we can pass proper kwargs.
-            trip_dict = trip.model_dump()
-
-            # TripDataModel validation covers required fields, types, and GPS structure
-            model = TripDataModel(**trip_dict)
-
-            # Second check: functional/semantic validation (stationary logic)
-            valid, message = model.validate_meaningful()
-
+            # and now contains the validation logic from TripDataModel.
+            valid, message = trip.validate_meaningful()
         except ValidationError as e:
             valid = False
             message = str(e)
@@ -123,14 +109,7 @@ async def validate_trips_async(_self) -> dict[str, Any]:
 
         if not valid:
             # Mark as invalid
-            # We explicitly update the document and save it.
-            # This is "Beanie-only", no raw UpdateOne.
-            # It performs one write per invalid trip.
             try:
-                # We can set attributes on the Beanie object
-                # Trip model doesn't explicitly have 'invalid' field defined in db/models.py
-                # except via extra="allow".
-
                 trip.invalid = True
                 trip.validation_message = message or "Invalid data detected"
                 trip.validated_at = datetime.now(UTC)

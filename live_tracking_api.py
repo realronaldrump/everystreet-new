@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
 
 from db import db_manager
-from db.models import ArchivedLiveTrip, LiveTrip
+from db.models import ArchivedLiveTrip, LiveTrip, Trip
 from live_tracking import (
     get_active_trip,
     get_trip_updates,
@@ -33,7 +33,6 @@ from models import (
     ActiveTripResponseUnion,
     ActiveTripSuccessResponse,
     NoActiveTripResponse,
-    TripDataModel,
 )
 from redis_config import get_redis_url
 from trip_event_publisher import TRIP_UPDATES_CHANNEL
@@ -273,11 +272,9 @@ async def active_trip_endpoint():
         if not active_trip_doc:
             return NoActiveTripResponse(server_time=datetime.now(UTC))
 
-        # Create Pydantic model from document
-        trip_model = TripDataModel(**active_trip_doc)
-
+        # Use Beanie model directly
         return ActiveTripSuccessResponse(
-            trip=trip_model,
+            trip=active_trip_doc,
             server_time=datetime.now(UTC),
         )
 

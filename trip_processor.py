@@ -15,9 +15,9 @@ from shapely.geometry import Point
 
 from date_utils import get_current_utc_time
 from db import Place
+from db.models import Trip
 from external_geo_service import ExternalGeoService
 from geometry_service import GeometryService
-from models import TripDataModel
 from trip_repository import TripRepository
 
 logger = logging.getLogger(__name__)
@@ -188,11 +188,10 @@ class TripProcessor:
         """
         try:
             transaction_id = self.trip_data.get("transactionId", "unknown")
-            logger.debug("Validating trip %s", transaction_id)
-
-            # Validate using Pydantic model
-            validated_model = TripDataModel(**self.trip_data)
-            self.processed_data = validated_model.model_dump(by_alias=True)
+            # Validate using Beanie model (which is also a Pydantic model)
+            # and already contains the validation logic.
+            validated_trip = Trip(**self.trip_data)
+            self.processed_data = validated_trip.model_dump(exclude_unset=True)
 
             self.processed_data["validated_at"] = get_current_utc_time()
             self.processed_data["validation_status"] = TripState.VALIDATED.value
