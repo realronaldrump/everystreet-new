@@ -369,47 +369,49 @@ class CoverageCalculator:
             return total
         return 0.0
 
-    async def _find_intersecting_streets(self, trip_geometry: dict) -> list[str]:
+    @staticmethod
+    def _prepare_query_geometry(
+        trip_geometry: dict,
+        match_buffer: float,
+    ) -> dict[str, Any] | None:
         """
-        Find undriven streets intersecting a trip geometry using MongoDB.
+        Prepare the query geometry (buffer around trip).
 
-        Args:
-            trip_geometry: GeoJSON geometry of the trip
-
-        Returns:
-            List of segment IDs that intersect the trip
+        cpu-bound operation to be run in a thread.
         """
         try:
             # Convert GeoJSON to Shapely
             trip_shape = shape(trip_geometry)
 
             # Simple approximation: 1 degree ~ 111,139 meters
-            buffer_degrees = self.match_buffer / DEGREES_TO_METERS
+            buffer_degrees = match_buffer / DEGREES_TO_METERS
 
             # Buffer the line to create a polygon "swath"
             query_polygon = trip_shape.buffer(buffer_degrees)
 
             # Convert back to GeoJSON
-            query_geometry = mapping(query_polygon)
+            return mapping(query_polygon)
+        except Exception:
+            return None
 
-            # Query MongoDB using Beanie
-            # Using raw find to get specific fields including geometry
-            docs = await Street.find(
-                {
-                    "properties.location": self.location_name,
-                    "properties.driven": False,
-                    "geometry": {"$geoIntersects": {"$geometry": query_geometry}},
-                },
-            ).to_list()  # Fetch all matches
+    def _check_intersections(
+        self,
+        street_docs: list[Any],
+        query_geometry_dict: dict[str, Any],
+    ) -> list[str]:
+        """
+        Check intersections between segments and query geometry.
 
-            # Since we need only specific fields and Street model returns objects, we can optimize.
-            # But Beanie Street(Document) includes all fields.
+        cpu-bound operation to be run in a thread.
+        """
+        matched_segments: list[str] = []
+        try:
+            query_polygon = shape(query_geometry_dict)
 
             if self.min_match_length <= 0:
-                return [doc.properties["segment_id"] for doc in docs]
+                return [doc.properties["segment_id"] for doc in street_docs]
 
-            matched_segments: list[str] = []
-            for doc in docs:
+            for doc in street_docs:
                 segment_geom = doc.geometry
                 if not segment_geom:
                     continue
@@ -421,6 +423,57 @@ class CoverageCalculator:
 
                 if self._geometry_length_m(intersection) >= self.min_match_length:
                     matched_segments.append(doc.properties["segment_id"])
+
+        except Exception:
+            # Errors here are caught in the main Loop but we should be careful
+            pass
+
+        return matched_segments
+
+    async def _find_intersecting_streets(self, trip_geometry: dict) -> list[str]:
+        """
+        Find undriven streets intersecting a trip geometry using MongoDB.
+
+        Offloads CPU-heavy geometry operations to threads to avoid blocking the event loop.
+
+        Args:
+            trip_geometry: GeoJSON geometry of the trip
+
+        Returns:
+            List of segment IDs that intersect the trip
+        """
+        try:
+            # 1. Prepare geometry (CPU bound)
+            query_geometry = await asyncio.to_thread(
+                self._prepare_query_geometry,
+                trip_geometry,
+                self.match_buffer,
+            )
+
+            if not query_geometry:
+                return []
+
+            # 2. Query MongoDB using Beanie (IO bound)
+            # Using raw find to get specific fields including geometry
+            docs = await Street.find(
+                {
+                    "properties.location": self.location_name,
+                    "properties.driven": False,
+                    "geometry": {"$geoIntersects": {"$geometry": query_geometry}},
+                },
+            ).to_list()  # Fetch all matches
+
+            if not docs:
+                return []
+
+            # 3. Check intersections (CPU bound)
+            matched_segments = await asyncio.to_thread(
+                self._check_intersections,
+                docs,
+                query_geometry,
+            )
+
+            return matched_segments
 
         except Exception as e:
             # Rate-limit error logging to prevent spam
@@ -439,8 +492,6 @@ class CoverageCalculator:
                     self._geospatial_error_count,
                 )
             return []
-
-        return matched_segments
 
     async def process_trips(self, processed_trip_ids_set: set[str]) -> bool:
         """

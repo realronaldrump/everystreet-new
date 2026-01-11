@@ -226,18 +226,31 @@ async def sync_vehicles_from_bouncie():
 
             found_imeis.append(imei)
 
+            # Extract model info - Bouncie API returns model as either a string
+            # or an object like {"make": "TOYOTA", "name": "4-Runner", "year": 2004}
+            model_data = v.get("model")
+            if isinstance(model_data, dict):
+                model_name = model_data.get("name")
+                # Use model data for make/year if not provided at top level
+                make = v.get("make") or model_data.get("make")
+                year = v.get("year") or model_data.get("year")
+            else:
+                model_name = model_data
+                make = v.get("make")
+                year = v.get("year")
+
             # Prepare vehicle document
             vehicle_doc = {
                 "imei": imei,
                 "vin": v.get("vin"),
-                "make": v.get("make"),
-                "model": v.get("model"),
-                "year": v.get("year"),
+                "make": make,
+                "model": model_name,
+                "year": year,
                 "nickName": v.get("nickName"),
                 "standardEngine": v.get("standardEngine"),
                 # Helper field for UI display (nickName or Make Model Year)
                 "custom_name": v.get("nickName")
-                or f"{v.get('year', '')} {v.get('make', '')} {v.get('model', '')}".strip()
+                or f"{year or ''} {make or ''} {model_name or ''}".strip()
                 or f"Vehicle {imei}",
                 "is_active": True,
                 "updated_at": datetime.now(UTC),
