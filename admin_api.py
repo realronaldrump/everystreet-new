@@ -7,27 +7,15 @@ from fastapi import APIRouter, Body, HTTPException, status
 
 from core.http.geocoding import validate_location_osm
 from date_utils import ensure_utc
-from db import (
-    CollectionProxy,
-    db_manager,
-    delete_many_with_retry,
-    find_one_with_retry,
-    insert_one_with_retry,
-    serialize_datetime,
-    update_one_with_retry,
-)
+from db import db_manager
+from db.models import AppSettings, Trip
 from models import CollectionModel, LocationModel, ValidateLocationModel
 from osm_utils import generate_geojson_osm
 
-# Setup
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Collections
-trips_collection = CollectionProxy("trips")
-app_settings_collection = CollectionProxy("app_settings")
 
-# Default settings if none stored
 DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "_id": "default",
     "highlightRecentTrips": True,
@@ -40,18 +28,14 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
 
 
 async def get_persisted_app_settings() -> dict[str, Any]:
-    """Retrieve persisted application settings (creates defaults if missing)."""
-
     try:
-        doc = await find_one_with_retry(app_settings_collection, {"_id": "default"})
-        if doc is None:
-            # Initialise defaults
-            await insert_one_with_retry(app_settings_collection, DEFAULT_APP_SETTINGS)
-            doc = DEFAULT_APP_SETTINGS.copy()
-        return doc
+        settings = await AppSettings.get("default")
+        if settings is None:
+            await AppSettings(id="default", **DEFAULT_APP_SETTINGS).insert()
+            return DEFAULT_APP_SETTINGS.copy()
+        return settings.model_dump()
     except Exception as e:
         logger.exception("Error fetching app settings: %s", e)
-        # Fallback to defaults on error
         return DEFAULT_APP_SETTINGS.copy()
 
 
@@ -64,8 +48,7 @@ async def get_persisted_app_settings() -> dict[str, Any]:
 async def get_app_settings_endpoint():
     try:
         doc = await get_persisted_app_settings()
-        # Remove Mongo _id for response clarity
-        doc.pop("_id", None)
+        doc.pop("id", None)
         return doc
     except Exception as e:
         logger.exception("Error fetching app settings via API: %s", e)
@@ -79,20 +62,20 @@ async def get_app_settings_endpoint():
     "/api/app_settings",
     response_model=dict,
     summary="Update Application Settings",
-    description="Persist application settings. Fields omitted in the payload remain unchanged.",
+    description="Persist application settings. Fields omitted in payload remain unchanged.",
 )
 async def update_app_settings_endpoint(settings: dict = Body(...)):
     try:
         if not isinstance(settings, dict):
             raise HTTPException(status_code=400, detail="Invalid payload")
 
-        # Upsert merge into single document with _id = default
-        await update_one_with_retry(
-            app_settings_collection,
-            {"_id": "default"},
-            {"$set": settings},
-            upsert=True,
-        )
+        existing = await AppSettings.get("default")
+        if existing:
+            for key, value in settings.items():
+                setattr(existing, key, value)
+            await existing.save()
+        else:
+            await AppSettings(id="default", **settings, **DEFAULT_APP_SETTINGS).insert()
 
         updated_settings = await get_persisted_app_settings()
         return updated_settings
@@ -106,7 +89,6 @@ async def update_app_settings_endpoint(settings: dict = Body(...)):
 
 @router.post("/api/database/clear-collection")
 async def clear_collection(data: CollectionModel):
-    """Clear all documents from a collection."""
     try:
         name = data.collection
         if not name:
@@ -115,7 +97,8 @@ async def clear_collection(data: CollectionModel):
                 detail="Missing 'collection' field",
             )
 
-        result = await delete_many_with_retry(db_manager.db[name], {})
+        collection = db_manager.get_collection(name)
+        result = await collection.delete_many({})
 
         return {
             "message": f"Successfully cleared collection {name}",
@@ -135,7 +118,6 @@ async def clear_collection(data: CollectionModel):
 
 @router.get("/api/database/storage-info")
 async def get_storage_info():
-    """Get database storage usage information."""
     try:
         stats = await db_manager.db.command("dbStats")
         data_size = stats.get("dataSize", 0)
@@ -159,9 +141,7 @@ async def get_storage_info():
 async def validate_location(
     data: ValidateLocationModel,
 ):
-    """Validate a location using OpenStreetMap."""
     try:
-        # Hard timeout to ensure we never leave the client hanging
         validated = await asyncio.wait_for(
             validate_location_osm(
                 data.location,
@@ -200,7 +180,6 @@ async def generate_geojson_endpoint(
     location: LocationModel,
     streets_only: bool = False,
 ):
-    """Generate GeoJSON for a location using the imported function."""
     geojson_data, err = await generate_geojson_osm(
         location.dict(),
         streets_only,
@@ -215,18 +194,13 @@ async def generate_geojson_endpoint(
 
 @router.get("/api/last_trip_point")
 async def get_last_trip_point():
-    """Get coordinates of the last point in the most recent trip."""
     try:
-        most_recent = await find_one_with_retry(
-            trips_collection,
-            {},
-            sort=[("endTime", -1)],
-        )
+        most_recent = await Trip.find_all().sort(-Trip.endTime).limit(1).to_list()
 
         if not most_recent:
             return {"lastPoint": None}
 
-        gps_data = most_recent["gps"]
+        gps_data = most_recent[0].gps
 
         if "coordinates" not in gps_data or not gps_data["coordinates"]:
             return {"lastPoint": None}
@@ -245,24 +219,17 @@ async def get_last_trip_point():
 
 @router.get("/api/first_trip_date")
 async def get_first_trip_date():
-    """Get the date of the earliest trip in the database."""
     try:
-        earliest_trip = await find_one_with_retry(
-            trips_collection,
-            {},
-            sort=[("startTime", 1)],
-        )
+        earliest_trip = await Trip.find_all().sort(Trip.startTime, 1).limit(1).to_list()
 
-        if not earliest_trip or not earliest_trip.get("startTime"):
+        if not earliest_trip or not earliest_trip[0].startTime:
             now = datetime.now(UTC)
             return {"first_trip_date": now.isoformat()}
 
-        earliest_trip_date = ensure_utc(earliest_trip["startTime"])
+        earliest_trip_date = ensure_utc(earliest_trip[0].startTime)
 
         return {
-            "first_trip_date": serialize_datetime(
-                earliest_trip_date,
-            ),
+            "first_trip_date": earliest_trip_date.isoformat().replace("+00:00", "Z"),
         }
     except Exception as e:
         logger.exception(
