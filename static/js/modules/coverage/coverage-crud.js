@@ -494,12 +494,12 @@ export class CoverageCRUD {
           location.segment_length_feet
           || (location.segment_length_meters
             ? metersToFeet(location.segment_length_meters)
-            : 300),
+            : 150),
         buffer:
           location.match_buffer_feet
           || (location.match_buffer_meters
             ? metersToFeet(location.match_buffer_meters)
-            : 50),
+            : 25),
         min:
           location.min_match_length_feet
           || (location.min_match_length_meters

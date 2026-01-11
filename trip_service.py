@@ -82,20 +82,21 @@ def with_comprehensive_handling(func: Callable) -> Callable:
                     func.__name__,
                     duration,
                 )
-            return result
         except DuplicateKeyError as e:
             logger.warning("Duplicate key error in %s: %s", func.__name__, e)
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Trip already exists",
             )
-        except Exception as e:
+        except Exception:
             duration = time.time() - start_time
-            logger.exception("Error in %s after %.2fs: %s", func.__name__, duration, e)
+            logger.exception("Error in %s after %.2fs", func.__name__, duration)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Processing error: {e!s}",
+                detail="Processing error",
             )
+        else:
+            return result
 
     return wrapper
 
@@ -254,9 +255,8 @@ class TripService:
                     {"trip_id": trip.get("transactionId", "unknown"), "error": str(e)},
                 )
                 logger.exception(
-                    "Error processing trip %s: %s",
+                    "Error processing trip %s",
                     trip.get("transactionId"),
-                    str(e),
                 )
 
         return result
@@ -409,11 +409,10 @@ class TripService:
                     if result.get("saved_id"):
                         processed_trip_ids.append(transaction_id)
 
-                except Exception as trip_error:
+                except Exception:
                     logger.exception(
-                        "Failed to process Bouncie trip %s: %s",
+                        "Failed to process Bouncie trip %s",
                         transaction_id,
-                        str(trip_error),
                     )
 
             return processed_trip_ids
@@ -538,9 +537,8 @@ class TripService:
                 results["failed"] += 1
                 results["errors"].append(f"Trip {trip_id}: {e!s}")
                 logger.exception(
-                    "Error refreshing geocoding for trip %s: %s",
+                    "Error refreshing geocoding for trip %s",
                     trip_id,
-                    str(e),
                 )
 
         return results
