@@ -68,12 +68,12 @@
       animateValue(
         elements.statMiles,
         parseFloat(data.total_distance) || 0,
-        formatMiles
+        formatMiles,
       );
       animateValue(
         elements.statTrips,
         parseInt(data.total_trips, 10) || 0,
-        formatNumber
+        formatNumber,
       );
     } catch {
       if (elements.statMiles) elements.statMiles.textContent = "--";
@@ -177,7 +177,9 @@
     const activityHtml = trips
       .slice(0, CONFIG.activityLimit)
       .map((trip, index) => {
-        const distance = trip.distance ? parseFloat(trip.distance).toFixed(1) : "?";
+        const distance = trip.distance
+          ? parseFloat(trip.distance).toFixed(1)
+          : "?";
         const destination = formatDestination(trip.destination);
         const time = trip.endTime || trip.startTime;
         const timeAgo = time ? formatTimeAgo(new Date(time)) : "";
@@ -222,7 +224,8 @@
   function animateValue(element, endValue, formatter) {
     if (!element) return;
 
-    const startValue = parseFloat(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
+    const startValue =
+      parseFloat(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
     const startTime = performance.now();
     const duration = CONFIG.animationDuration;
 
