@@ -19,8 +19,6 @@ import gpxpy
 import gpxpy.gpx
 from fastapi.responses import StreamingResponse
 
-from db import json_dumps
-
 logger = logging.getLogger(__name__)
 
 
@@ -155,7 +153,7 @@ async def create_geojson(
             len(trips),
         )
 
-    return json_dumps(fc)
+    return json.dumps(fc)
 
 
 async def create_gpx(
@@ -347,7 +345,7 @@ async def export_geojson_response(data, filename: str) -> StreamingResponse:
     if isinstance(data, list):
         content = await create_geojson(data)
     else:
-        content = json_dumps(data)
+        content = json.dumps(data)
 
     return StreamingResponse(
         io.BytesIO(content.encode()),
@@ -457,7 +455,7 @@ async def create_export_response(
 
         return await export_shapefile_response(geojson_data, filename_base)
     if fmt == "json":
-        content = json_dumps(data)
+        content = json.dumps(data)
 
         return StreamingResponse(
             io.BytesIO(content.encode()),
@@ -734,7 +732,7 @@ def flatten_trip_for_csv(
     for key in CSV_GEOMETRY_FIELDS:
         if key in trip:
             if include_gps_in_csv:
-                flat[key] = json_dumps(trip[key])
+                flat[key] = json.dumps(trip[key])
             else:
                 flat[key] = "[Geometry data not included]"
 
@@ -748,9 +746,9 @@ def flatten_trip_for_csv(
     else:
         # Include locations as JSON strings
         if "startLocation" in trip:
-            flat["startLocation"] = json_dumps(trip["startLocation"])
+            flat["startLocation"] = json.dumps(trip["startLocation"])
         if "destination" in trip:
-            flat["destination"] = json_dumps(trip["destination"])
+            flat["destination"] = json.dumps(trip["destination"])
 
     # Handle all other fields
     for key, value in trip.items():
@@ -762,7 +760,7 @@ def flatten_trip_for_csv(
             continue
 
         if isinstance(value, dict | list):
-            flat[key] = json_dumps(value)
+            flat[key] = json.dumps(value)
         elif isinstance(value, datetime):
             flat[key] = value.isoformat()
         else:
