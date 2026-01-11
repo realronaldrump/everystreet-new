@@ -129,12 +129,14 @@ async def create_gpx(trips: list[dict[str, Any]]) -> str:
             geom_type = gps_data["type"]
             if geom_type == "Point":
                 if not _validate_point_coordinates(
-                    gps_data.get("coordinates", []), trip_id
+                    gps_data.get("coordinates", []),
+                    trip_id,
                 ):
                     continue
             elif geom_type == "LineString":
                 if not _validate_linestring_coordinates(
-                    gps_data.get("coordinates", []), trip_id
+                    gps_data.get("coordinates", []),
+                    trip_id,
                 ):
                     continue
             else:

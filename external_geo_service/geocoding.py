@@ -1,6 +1,4 @@
-"""
-Geocoding services for forward and reverse geocoding.
-"""
+"""Geocoding services for forward and reverse geocoding."""
 
 import logging
 import urllib.parse

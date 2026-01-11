@@ -1,6 +1,4 @@
-"""
-Rate limiting utilities for external API calls.
-"""
+"""Rate limiting utilities for external API calls."""
 
 import asyncio
 

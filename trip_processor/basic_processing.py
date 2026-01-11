@@ -83,7 +83,8 @@ class TripBasicProcessor:
             # Validate coordinates
             if not self._validate_coordinate_pair(start_coord, end_coord):
                 state_machine.set_state(
-                    TripState.FAILED, "Invalid start or end coordinates"
+                    TripState.FAILED,
+                    "Invalid start or end coordinates",
                 )
                 return False, processed_data
 

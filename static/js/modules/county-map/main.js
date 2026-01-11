@@ -4,26 +4,26 @@
  * Main entry point for the county map feature
  */
 
-import { MAP_CONFIG, getStateName } from "./constants.js";
-import CountyMapState from "./state.js";
 import CountyMapAPI from "./api.js";
+import { getStateName, MAP_CONFIG } from "./constants.js";
+import { setupInteractions } from "./interactions.js";
+import { addMapLayers, getMapStyle, updateStopLayerVisibility } from "./map-layers.js";
+import CountyMapState from "./state.js";
+import { setupStateStatsToggle } from "./state-stats.js";
 import {
+  clearStoredRecalcState,
   getStoredRecalcState,
   storeRecalcState,
-  clearStoredRecalcState,
 } from "./storage.js";
 import {
-  updateLoadingText,
   hideLoading,
-  updateRecalculateUi,
+  setupPanelToggle,
   showRecalculatePrompt,
   updateLastUpdated,
+  updateLoadingText,
+  updateRecalculateUi,
   updateStats,
-  setupPanelToggle,
 } from "./ui.js";
-import { addMapLayers, updateStopLayerVisibility, getMapStyle } from "./map-layers.js";
-import { setupInteractions } from "./interactions.js";
-import { setupStateStatsToggle } from "./state-stats.js";
 
 /**
  * Initialize the county map
@@ -113,8 +113,8 @@ async function loadVisitedCounties() {
     const countyData = CountyMapState.getCountyData();
 
     const hasVisits = data.counties && Object.keys(data.counties).length > 0;
-    const hasStops =
-      data.stoppedCounties && Object.keys(data.stoppedCounties).length > 0;
+    const hasStops
+      = data.stoppedCounties && Object.keys(data.stoppedCounties).length > 0;
 
     if (data.success && (hasVisits || hasStops)) {
       // Store county visits data (includes dates)
@@ -141,9 +141,9 @@ async function loadVisitedCounties() {
         updateLastUpdated(data.lastUpdated);
 
         if (
-          recalcState &&
-          lastUpdated > recalcState.startedAt &&
-          CountyMapState.getIsRecalculating()
+          recalcState
+          && lastUpdated > recalcState.startedAt
+          && CountyMapState.getIsRecalculating()
         ) {
           clearRecalcState();
         }
@@ -231,9 +231,9 @@ async function checkAndRefresh(startedAt) {
     const data = await CountyMapAPI.fetchCacheStatus();
 
     const lastUpdated = data.lastUpdated ? new Date(data.lastUpdated) : null;
-    const isUpdated =
-      data.cached &&
-      (startedAt
+    const isUpdated
+      = data.cached
+      && (startedAt
         ? lastUpdated && lastUpdated > startedAt
         : data.totalVisited > 0 || data.totalStopped > 0);
 

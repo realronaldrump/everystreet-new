@@ -3,8 +3,8 @@
  * Handles tooltip and hover interactions for the county map
  */
 
-import CountyMapState from "./state.js";
 import { setHoverHighlight } from "./map-layers.js";
+import CountyMapState from "./state.js";
 import { formatDate } from "./ui.js";
 
 /**

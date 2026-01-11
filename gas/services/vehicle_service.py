@@ -37,7 +37,7 @@ class VehicleService:
         if vin:
             conditions.append(Vehicle.vin == vin)
         if active_only:
-            conditions.append(Vehicle.is_active == True)
+            conditions.append(Vehicle.is_active)
 
         query = Vehicle.find(*conditions) if conditions else Vehicle.find_all()
 

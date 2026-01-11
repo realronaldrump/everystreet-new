@@ -66,10 +66,10 @@ export function parseGPX(file, gpxContent) {
     throw new Error(`Insufficient valid coordinates found in ${file.name}`);
   }
 
-  const startTime =
-    times.length > 0 ? new Date(Math.min(...times.map((t) => t.getTime()))) : null;
-  const endTime =
-    times.length > 0 ? new Date(Math.max(...times.map((t) => t.getTime()))) : null;
+  const startTime
+    = times.length > 0 ? new Date(Math.min(...times.map((t) => t.getTime()))) : null;
+  const endTime
+    = times.length > 0 ? new Date(Math.max(...times.map((t) => t.getTime()))) : null;
 
   return {
     file,
@@ -154,9 +154,9 @@ export function parseGeoJSON(file, content) {
  */
 function processGeoJSONFeature(feature, file, index) {
   if (
-    !feature.geometry ||
-    !feature.properties ||
-    feature.geometry.type !== "LineString"
+    !feature.geometry
+    || !feature.properties
+    || feature.geometry.type !== "LineString"
   ) {
     return null;
   }

@@ -3,7 +3,7 @@
  * Handles DOM manipulation and UI updates for the upload functionality
  */
 
-import { DOM_IDS, CSS_CLASSES } from "./constants.js";
+import { CSS_CLASSES, DOM_IDS } from "./constants.js";
 
 /**
  * Cache and return all relevant DOM elements
@@ -125,7 +125,7 @@ export function setUploadButtonState(uploadButton, enabled, loading = false) {
 
   if (loading) {
     uploadButton.innerHTML = `
-      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 
+      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
       Uploading...
     `;
   } else {

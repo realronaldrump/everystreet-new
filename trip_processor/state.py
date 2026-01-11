@@ -26,8 +26,8 @@ class TripStateMachine:
     """
     Manages the state transitions for trip processing.
 
-    Tracks the current state, maintains a history of state changes,
-    and records any errors that occur during processing.
+    Tracks the current state, maintains a history of state changes, and records any
+    errors that occur during processing.
     """
 
     def __init__(self) -> None:

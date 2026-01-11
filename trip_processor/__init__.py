@@ -24,15 +24,15 @@ from trip_processor.state import TripState, TripStateMachine
 from trip_processor.validators import TripValidator
 
 __all__ = [
+    # Processing components
+    "TripBasicProcessor",
+    "TripGeocoder",
+    "TripMapMatcher",
     # Main processor
     "TripProcessor",
     # State management
     "TripState",
     "TripStateMachine",
-    # Processing components
-    "TripBasicProcessor",
-    "TripGeocoder",
-    "TripMapMatcher",
     "TripValidator",
     # Utility functions
     "format_idle_time",

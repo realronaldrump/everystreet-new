@@ -22,7 +22,9 @@ class TripMapMatcher:
     """
 
     def __init__(
-        self, geo_service: ExternalGeoService, mapbox_token: str | None = None
+        self,
+        geo_service: ExternalGeoService,
+        mapbox_token: str | None = None,
     ):
         """
         Initialize the map matcher.

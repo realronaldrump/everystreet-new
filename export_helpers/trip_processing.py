@@ -1,8 +1,8 @@
 """
 Trip processing utilities for export.
 
-Provides functions to process and filter trip data for export based on
-field preferences.
+Provides functions to process and filter trip data for export based on field
+preferences.
 """
 
 from typing import Any

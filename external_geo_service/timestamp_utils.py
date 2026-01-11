@@ -1,6 +1,4 @@
-"""
-Timestamp extraction and interpolation utilities for map matching.
-"""
+"""Timestamp extraction and interpolation utilities for map matching."""
 
 from typing import Any
 

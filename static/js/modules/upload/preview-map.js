@@ -110,10 +110,10 @@ export function updatePreviewMap(map, selectedFiles) {
     .map((entry) => {
       const validCoords = entry.coordinates.filter(
         (coord) =>
-          Array.isArray(coord) &&
-          coord.length >= 2 &&
-          !Number.isNaN(coord[0]) &&
-          !Number.isNaN(coord[1])
+          Array.isArray(coord)
+          && coord.length >= 2
+          && !Number.isNaN(coord[0])
+          && !Number.isNaN(coord[1])
       );
 
       if (validCoords.length < 2) {

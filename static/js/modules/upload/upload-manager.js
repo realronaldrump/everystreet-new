@@ -3,26 +3,26 @@
  * Main orchestrator class for file upload functionality
  */
 
+import {
+  bulkDeleteTrips,
+  deleteTrip,
+  fetchUploadedTrips,
+  getBulkDeleteMessage,
+  uploadFiles,
+} from "./api.js";
 import { CSS_CLASSES } from "./constants.js";
-import { readFileAsText, getFileExtension, parseGPX, parseGeoJSON } from "./parsers.js";
+import { getFileExtension, parseGeoJSON, parseGPX, readFileAsText } from "./parsers.js";
 import { initializePreviewMap, updatePreviewMap } from "./preview-map.js";
 import {
   cacheElements,
-  renderFileList,
-  updateStats,
-  setUploadButtonState,
-  renderUploadedTrips,
   getSelectedTripIds,
-  updateBulkDeleteButtonState,
+  renderFileList,
+  renderUploadedTrips,
   resetSelectAllCheckbox,
+  setUploadButtonState,
+  updateBulkDeleteButtonState,
+  updateStats,
 } from "./ui.js";
-import {
-  uploadFiles,
-  fetchUploadedTrips,
-  deleteTrip,
-  bulkDeleteTrips,
-  getBulkDeleteMessage,
-} from "./api.js";
 
 /**
  * UploadManager class - orchestrates the upload functionality

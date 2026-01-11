@@ -1,6 +1,4 @@
-"""
-Location schema utilities for geocoding responses.
-"""
+"""Location schema utilities for geocoding responses."""
 
 from typing import Any
 

@@ -8,12 +8,12 @@ import logging
 from typing import Any
 
 from external_geo_service import ExternalGeoService
-from trip_repository import TripRepository
 from trip_processor.basic_processing import TripBasicProcessor, format_idle_time
 from trip_processor.geocoding import TripGeocoder
 from trip_processor.map_matching import TripMapMatcher
 from trip_processor.state import TripState, TripStateMachine
 from trip_processor.validators import TripValidator
+from trip_repository import TripRepository
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +138,7 @@ class TripProcessor:
             Dict with current state, history, and any errors
         """
         return self._state_machine.get_status(
-            self.trip_data.get("transactionId", "unknown")
+            self.trip_data.get("transactionId", "unknown"),
         )
 
     async def process(self, do_map_match: bool = True) -> dict[str, Any]:

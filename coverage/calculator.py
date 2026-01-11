@@ -482,7 +482,7 @@ class CoverageCalculator:
         # Manual batching using Beanie iterator
         batch: list[Trip] = []
         async for trip_doc in Trip.find(
-            base_trip_filter
+            base_trip_filter,
         ):  # Project to Trip model (includes gps, id)
             batch.append(trip_doc)
 

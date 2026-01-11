@@ -1,6 +1,4 @@
-"""
-Main ExternalGeoService class combining geocoding and map matching functionality.
-"""
+"""Main ExternalGeoService class combining geocoding and map matching functionality."""
 
 from typing import Any
 
@@ -96,7 +94,10 @@ class ExternalGeoService:
             List of normalized geocoding results
         """
         return await GeocodingService.forward_geocode_nominatim(
-            query, limit, proximity, country_codes
+            query,
+            limit,
+            proximity,
+            country_codes,
         )
 
     async def forward_geocode_mapbox(
@@ -119,7 +120,10 @@ class ExternalGeoService:
             List of normalized geocoding results
         """
         return await self._geocoding.forward_geocode_mapbox(
-            query, limit, proximity, country
+            query,
+            limit,
+            proximity,
+            country,
         )
 
     async def forward_geocode(
@@ -143,7 +147,10 @@ class ExternalGeoService:
             List of normalized geocoding results
         """
         return await self._geocoding.forward_geocode(
-            query, limit, proximity, prefer_mapbox
+            query,
+            limit,
+            proximity,
+            prefer_mapbox,
         )
 
     # Map matching methods (delegated)

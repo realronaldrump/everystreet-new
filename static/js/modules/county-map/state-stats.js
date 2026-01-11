@@ -66,16 +66,16 @@ export function calculateStateStats() {
         const lastVisit = visits.lastVisit ? new Date(visits.lastVisit) : null;
 
         if (
-          firstVisit &&
-          (!stateStats[stateFips].firstVisit ||
-            firstVisit < stateStats[stateFips].firstVisit)
+          firstVisit
+          && (!stateStats[stateFips].firstVisit
+            || firstVisit < stateStats[stateFips].firstVisit)
         ) {
           stateStats[stateFips].firstVisit = firstVisit;
         }
         if (
-          lastVisit &&
-          (!stateStats[stateFips].lastVisit ||
-            lastVisit > stateStats[stateFips].lastVisit)
+          lastVisit
+          && (!stateStats[stateFips].lastVisit
+            || lastVisit > stateStats[stateFips].lastVisit)
         ) {
           stateStats[stateFips].lastVisit = lastVisit;
         }
@@ -197,10 +197,18 @@ export function zoomToState(stateFips) {
     const coords = county.geometry.coordinates;
     const flatCoords = flattenCoordinates(coords);
     flatCoords.forEach(([lng, lat]) => {
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) {
+        minLng = lng;
+      }
+      if (lng > maxLng) {
+        maxLng = lng;
+      }
+      if (lat < minLat) {
+        minLat = lat;
+      }
+      if (lat > maxLat) {
+        maxLat = lat;
+      }
     });
   });
 
@@ -233,8 +241,8 @@ export function setupStateStatsToggle() {
 
       // Render stats on first open
       if (
-        (!isExpanded && content.innerHTML.trim() === "") ||
-        content.querySelector("#state-list").innerHTML.trim() === ""
+        (!isExpanded && content.innerHTML.trim() === "")
+        || content.querySelector("#state-list").innerHTML.trim() === ""
       ) {
         renderStateStatsList();
       }

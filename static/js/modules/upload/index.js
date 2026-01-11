@@ -3,55 +3,51 @@
  * Re-exports all upload functionality for convenient imports
  */
 
+// API
+export {
+  bulkDeleteTrips,
+  deleteTrip,
+  fetchTrips,
+  fetchUploadedTrips,
+  getBulkDeleteMessage,
+  uploadFiles,
+} from "./api.js";
 // Constants
 export {
+  API_ENDPOINTS,
+  CSS_CLASSES,
+  DOM_IDS,
   MAP_CONFIG,
+  PREVIEW_LAYER_STYLE,
   SUPPORTED_FILE_TYPES,
   UPLOAD_SOURCES,
-  API_ENDPOINTS,
-  PREVIEW_LAYER_STYLE,
-  DOM_IDS,
-  CSS_CLASSES,
 } from "./constants.js";
-
 // Parsers
 export {
-  readFileAsText,
   getFileExtension,
-  parseGPX,
   parseGeoJSON,
+  parseGPX,
+  readFileAsText,
 } from "./parsers.js";
-
 // Preview Map
 export {
-  initializePreviewMap,
-  updatePreviewMap,
-  resetMapView,
   getPreviewIds,
+  initializePreviewMap,
+  resetMapView,
+  updatePreviewMap,
 } from "./preview-map.js";
-
 // UI
 export {
   cacheElements,
   formatDate,
-  renderFileList,
-  updateStats,
-  setUploadButtonState,
-  renderUploadedTrips,
   getSelectedTripIds,
-  updateBulkDeleteButtonState,
+  renderFileList,
+  renderUploadedTrips,
   resetSelectAllCheckbox,
+  setUploadButtonState,
+  updateBulkDeleteButtonState,
+  updateStats,
 } from "./ui.js";
-
-// API
-export {
-  uploadFiles,
-  fetchTrips,
-  fetchUploadedTrips,
-  deleteTrip,
-  bulkDeleteTrips,
-  getBulkDeleteMessage,
-} from "./api.js";
 
 // Main UploadManager class
 export { UploadManager } from "./upload-manager.js";

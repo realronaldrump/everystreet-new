@@ -1,8 +1,8 @@
 """
 Base utilities and constants for export helpers.
 
-This module provides shared logging, constants, and utility functions
-used across all export format modules.
+This module provides shared logging, constants, and utility functions used across all
+export format modules.
 """
 
 import json
@@ -134,6 +134,6 @@ def serialize_value(value: Any) -> Any:
     """
     if isinstance(value, dict | list):
         return json.dumps(value)
-    elif isinstance(value, datetime):
+    if isinstance(value, datetime):
         return value.isoformat()
     return value

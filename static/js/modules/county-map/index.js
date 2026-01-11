@@ -3,91 +3,83 @@
  * Re-exports all county map modules for convenient importing
  */
 
-// Constants
-export {
-  RECALC_STORAGE_KEY,
-  MAP_CONFIG,
-  COLORS,
-  STATE_FIPS_TO_NAME,
-  getStateName,
-} from "./constants.js";
-
-// State management
-export {
-  default as CountyMapState,
-  getMap,
-  setMap,
-  getCountyVisits,
-  setCountyVisits,
-  getCountyStops,
-  setCountyStops,
-  getCountyData,
-  setCountyData,
-  getStatesData,
-  setStatesData,
-  getIsRecalculating,
-  setIsRecalculating,
-  getShowStoppedCounties,
-  setShowStoppedCounties,
-  getRecalcPollerActive,
-  setRecalcPollerActive,
-  resetState,
-} from "./state.js";
-
 // API
 export {
   default as CountyMapAPI,
+  fetchCacheStatus,
   fetchCountyTopology,
   fetchVisitedCounties,
   triggerRecalculation,
-  fetchCacheStatus,
 } from "./api.js";
-
-// Storage
+// Constants
 export {
-  default as CountyMapStorage,
-  getStoredRecalcState,
-  storeRecalcState,
-  clearStoredRecalcState,
-} from "./storage.js";
-
-// UI
-export {
-  default as CountyMapUI,
-  getRecalculateButtons,
-  updateRecalculateUi,
-  showRecalculatePrompt,
-  updateLoadingText,
-  hideLoading,
-  updateLastUpdated,
-  updateStats,
-  formatDate,
-  setupPanelToggle,
-} from "./ui.js";
-
-// Map layers
-export {
-  default as CountyMapLayers,
-  addMapLayers,
-  updateStopLayerVisibility,
-  setHoverHighlight,
-  getMapStyle,
-} from "./map-layers.js";
-
+  COLORS,
+  getStateName,
+  MAP_CONFIG,
+  RECALC_STORAGE_KEY,
+  STATE_FIPS_TO_NAME,
+} from "./constants.js";
 // Interactions
 export {
   default as CountyMapInteractions,
   setupInteractions,
 } from "./interactions.js";
-
-// State stats
-export {
-  default as CountyMapStateStats,
-  calculateStateStats,
-  renderStateStatsList,
-  zoomToState,
-  setupStateStatsToggle,
-} from "./state-stats.js";
-
 // Main
 export { default as CountyMapMain, init } from "./main.js";
+// Map layers
+export {
+  addMapLayers,
+  default as CountyMapLayers,
+  getMapStyle,
+  setHoverHighlight,
+  updateStopLayerVisibility,
+} from "./map-layers.js";
+// State management
+export {
+  default as CountyMapState,
+  getCountyData,
+  getCountyStops,
+  getCountyVisits,
+  getIsRecalculating,
+  getMap,
+  getRecalcPollerActive,
+  getShowStoppedCounties,
+  getStatesData,
+  resetState,
+  setCountyData,
+  setCountyStops,
+  setCountyVisits,
+  setIsRecalculating,
+  setMap,
+  setRecalcPollerActive,
+  setShowStoppedCounties,
+  setStatesData,
+} from "./state.js";
+// State stats
+export {
+  calculateStateStats,
+  default as CountyMapStateStats,
+  renderStateStatsList,
+  setupStateStatsToggle,
+  zoomToState,
+} from "./state-stats.js";
+// Storage
+export {
+  clearStoredRecalcState,
+  default as CountyMapStorage,
+  getStoredRecalcState,
+  storeRecalcState,
+} from "./storage.js";
+// UI
+export {
+  default as CountyMapUI,
+  formatDate,
+  getRecalculateButtons,
+  hideLoading,
+  setupPanelToggle,
+  showRecalculatePrompt,
+  updateLastUpdated,
+  updateLoadingText,
+  updateRecalculateUi,
+  updateStats,
+} from "./ui.js";

@@ -1,7 +1,8 @@
 """
 Trip Geocoding Module.
 
-Handles geocoding of trip start and end points using external services and custom places.
+Handles geocoding of trip start and end points using external services and custom
+places.
 """
 
 import logging
@@ -64,7 +65,8 @@ class TripGeocoder:
             gps_data = processed_data.get("gps")
             if not gps_data or "coordinates" not in gps_data:
                 state_machine.set_state(
-                    TripState.FAILED, "Missing GPS data for geocoding"
+                    TripState.FAILED,
+                    "Missing GPS data for geocoding",
                 )
                 return False, processed_data
 

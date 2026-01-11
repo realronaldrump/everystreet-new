@@ -1,7 +1,8 @@
 """
 External Geo Service Package.
 
-This package provides geocoding and map matching services using Mapbox and Nominatim APIs.
+This package provides geocoding and map matching services using Mapbox and Nominatim
+APIs.
 """
 
 from .geocoding import GeocodingService
@@ -24,9 +25,9 @@ __all__ = [
     # Utilities
     "extract_timestamps_for_coordinates",
     "get_empty_location_schema",
-    "parse_mapbox_response",
-    "parse_nominatim_response",
+    "map_match_semaphore",
     # Rate limiting
     "mapbox_rate_limiter",
-    "map_match_semaphore",
+    "parse_mapbox_response",
+    "parse_nominatim_response",
 ]
