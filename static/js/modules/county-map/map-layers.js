@@ -167,10 +167,10 @@ export function setHoverHighlight(fips) {
  * @returns {string} Mapbox style URL
  */
 export function getMapStyle() {
-  const isDark
-    = document.documentElement.getAttribute("data-bs-theme") === "dark"
-    || document.documentElement.classList.contains("dark-mode")
-    || !document.documentElement.classList.contains("light-mode");
+  const isDark =
+    document.documentElement.getAttribute("data-bs-theme") === "dark" ||
+    document.documentElement.classList.contains("dark-mode") ||
+    !document.documentElement.classList.contains("light-mode");
   return isDark
     ? "mapbox://styles/mapbox/dark-v11"
     : "mapbox://styles/mapbox/light-v11";

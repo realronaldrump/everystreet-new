@@ -1,977 +1,920 @@
-{% extends "base.html" %}
-
-{% block title %}
-
-Driving Insights & Analytics{%
-endblock %}
-
-  {% block extra_css %}
-
-    <style>
-        /* ===== Modern Insights Dashboard Styles ===== */
-
-        /* Animated gradient background for hero */
-        @keyframes gradientShift {
-            0% {
-                background-position: 0% 50%;
-            }
-
-            50% {
-                background-position: 100% 50%;
-            }
-
-            100% {
-                background-position: 0% 50%;
-            }
-        }
-
-        .insights-hero {
-            background: linear-gradient(135deg,
-                    rgba(var(--primary-rgb), 0.1),
-                    rgba(var(--secondary-rgb), 0.1),
-                    rgba(var(--primary-rgb), 0.05));
-            background-size: 200% 200%;
-            animation: gradientShift 15s ease infinite;
-            border-radius: var(--radius-xl);
-            padding: var(--space-8) var(--space-6);
-            margin-bottom: var(--space-6);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .insights-hero::before {
-            content: "";
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle,
-                    rgba(255, 255, 255, 0.1) 0%,
-                    transparent 70%);
-            animation: pulse-hero 8s ease-in-out infinite;
-            pointer-events: none;
-        }
-
-        /* Metric cards with hover effects */
-        .metric-card {
-            background: var(--surface-1);
-            border-radius: var(--radius-lg);
-            padding: var(--space-4);
-            border: 1px solid var(--border-color);
-            transition: all var(--transition-normal);
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .metric-card::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg,
-                    transparent,
-                    rgba(255, 255, 255, 0.1),
-                    transparent);
-            transition: left 0.6s ease;
-        }
-
-        .metric-card:hover::before {
-            left: 100%;
-        }
-
-        .metric-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg);
-            border-color: var(--primary);
-        }
-
-        .metric-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: var(--radius-md);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            margin-bottom: var(--space-3);
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: var(--text-on-primary);
-        }
-
-        .metric-value {
-            font-size: var(--font-size-3xl);
-            font-weight: var(--font-weight-bold);
-            color: var(--text-primary);
-            margin-bottom: var(--space-1);
-            font-variant-numeric: tabular-nums;
-            transition: color var(--transition-fast);
-        }
-
-        .metric-label {
-            font-size: var(--font-size-sm);
-            color: var(--text-secondary);
-            font-weight: var(--font-weight-medium);
-        }
-
-        .metric-trend {
-            position: absolute;
-            top: var(--space-3);
-            right: var(--space-3);
-            font-size: var(--font-size-xs);
-            padding: var(--space-1) var(--space-2);
-            border-radius: var(--radius-full);
-            font-weight: var(--font-weight-medium);
-        }
-
-        .metric-trend.positive {
-            background: rgba(var(--success-rgb), 0.2);
-            color: var(--success);
-        }
-
-        .metric-trend.negative {
-            background: rgba(var(--danger-rgb), 0.2);
-            color: var(--danger);
-        }
-
-        /* Chart containers with glassmorphism */
-        .chart-container {
-            background: var(--surface-glass);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: var(--space-5);
-            box-shadow: var(--shadow-md);
-            transition: all var(--transition-normal);
-            position: relative;
-            overflow: hidden;
-            max-height: 450px;
-        }
-
-        .chart-container.time-dist-container {
-            overflow: visible;
-            max-height: 500px;
-            min-height: 400px;
-        }
-
-        .chart-container.time-dist-container canvas {
-            max-height: 380px !important;
-            cursor: pointer;
-        }
-
-        .chart-container:hover {
-            box-shadow: var(--shadow-lg);
-            transform: translateY(-2px);
-        }
-
-        .chart-container canvas {
-            width: 100% !important;
-            height: 100% !important;
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: var(--space-4);
-        }
-
-        .chart-title {
-            font-size: var(--font-size-lg);
-            font-weight: var(--font-weight-semibold);
-            color: var(--text-primary);
-        }
-
-        .chart-controls {
-            display: flex;
-            gap: var(--space-2);
-        }
-
-        /* Toggle buttons */
-        .toggle-group {
-            display: inline-flex;
-            background: var(--surface-2);
-            border-radius: var(--radius-md);
-            padding: var(--space-1);
-            gap: var(--space-1);
-        }
-
-        .toggle-btn {
-            padding: var(--space-2) var(--space-3);
-            border: none;
-            background: transparent;
-            color: var(--text-secondary);
-            font-size: var(--font-size-sm);
-            font-weight: var(--font-weight-medium);
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            position: relative;
-        }
-
-        .toggle-btn.active {
-            background: var(--primary);
-            color: var(--text-on-primary);
-            box-shadow: var(--shadow-sm);
-        }
-
-        /* Loading skeleton */
-        .skeleton {
-            background: linear-gradient(90deg,
-                    var(--surface-2) 25%,
-                    var(--surface-3) 50%,
-                    var(--surface-2) 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-            border-radius: var(--radius-sm);
-        }
-
-        @keyframes loading {
-            0% {
-                background-position: 200% 0;
-            }
-
-            100% {
-                background-position: -200% 0;
-            }
-        }
-
-        /* Stat comparison */
-        .stat-comparison {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3);
-            background: var(--surface-2);
-            border-radius: var(--radius-md);
-            margin-top: var(--space-3);
-            opacity: 0;
-            max-height: 0;
-            overflow: hidden;
-            transition: all var(--transition-normal);
-        }
-
-        .stat-comparison.show {
-            opacity: 1;
-            max-height: 100px;
-        }
-
-        /* Data table enhancements */
-        .data-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: var(--font-size-sm);
-        }
-
-        .data-table thead th {
-            background: var(--surface-2);
-            color: var(--text-primary);
-            font-weight: var(--font-weight-semibold);
-            padding: var(--space-3) var(--space-4);
-            text-transform: uppercase;
-            font-size: var(--font-size-xs);
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid var(--primary);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .data-table tbody tr {
-            transition: all var(--transition-fast);
-            cursor: pointer;
-        }
-
-        .data-table tbody tr:hover {
-            background: var(--surface-2);
-            transform: scale(1.01);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .data-table tbody td {
-            padding: var(--space-3) var(--space-4);
-            border-bottom: 1px solid var(--divider-color);
-        }
-
-        /* Floating action button */
-        .fab-container {
-            position: fixed;
-            bottom: var(--space-6);
-            right: var(--space-6);
-            z-index: var(--z-sticky);
-        }
-
-        .fab {
-            width: 56px;
-            height: 56px;
-            border-radius: var(--radius-full);
-            background: var(--primary-gradient);
-            color: var(--text-on-primary);
-            border: none;
-            box-shadow: var(--shadow-lg);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            transition: all var(--transition-normal);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .fab:hover {
-            box-shadow: var(--shadow-xl);
-            transform: scale(1.1);
-        }
-
-        .fab:active {
-            transform: scale(0.95);
-        }
-
-        /* Mini fab menu */
-        .fab-menu {
-            position: absolute;
-            bottom: 70px;
-            right: 0;
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-3);
-            opacity: 0;
-            visibility: hidden;
-            transform: scale(0.8) translateY(20px);
-            transition: all var(--transition-normal);
-        }
-
-        .fab-menu.show {
-            opacity: 1;
-            visibility: visible;
-            transform: scale(1) translateY(0);
-        }
-
-        .mini-fab {
-            width: 40px;
-            height: 40px;
-            font-size: 18px;
-            background: var(--surface-2);
-            color: var(--text-primary);
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .insights-hero {
-                padding: var(--space-6) var(--space-4);
-            }
-
-            .metric-card {
-                padding: var(--space-3);
-            }
-
-            .metric-value {
-                font-size: var(--font-size-2xl);
-            }
-
-            .fab-container {
-                bottom: var(--space-4);
-                right: var(--space-4);
-            }
-        }
-
-        /* Number counter animation */
-        .counter {
-            display: inline-block;
-        }
-
-        /* Pulse animation for live indicators */
-        @keyframes pulse-live {
-
-            0%,
-            100% {
-                transform: scale(1);
-                opacity: 1;
-            }
-
-            50% {
-                transform: scale(1.2);
-                opacity: 0.7;
-            }
-        }
-
-        .live-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background: var(--success);
-            border-radius: 50%;
-            margin-left: var(--space-2);
-            animation: pulse-live 2s infinite;
-        }
-
-        /* Chart loading states */
-        .chart-loading {
-            position: relative;
-            min-height: 300px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .chart-loading-spinner {
-            width: 48px;
-            height: 48px;
-            border: 3px solid var(--surface-3);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: loading-spin 1s linear infinite;
-        }
-
-        /* Enhanced tooltips */
-        .custom-tooltip {
-            position: absolute;
-            background: var(--surface-glass);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: var(--space-3);
-            box-shadow: var(--shadow-lg);
-            pointer-events: none;
-            opacity: 0;
-            transform: translateY(10px);
-            transition: all var(--transition-fast);
-            z-index: var(--z-tooltip);
-        }
-
-        .custom-tooltip.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* Period selector */
-        .period-selector {
-            display: flex;
-            gap: var(--space-2);
-            align-items: center;
-            background: var(--surface-2);
-            padding: var(--space-2);
-            border-radius: var(--radius-md);
-        }
-
-        .period-preset {
-            padding: var(--space-2) var(--space-3);
-            background: transparent;
-            border: 1px solid transparent;
-            border-radius: var(--radius-sm);
-            color: var(--text-secondary);
-            font-size: var(--font-size-sm);
-            cursor: pointer;
-            transition: all var(--transition-fast);
-        }
-
-        .period-preset:hover {
-            background: var(--surface-3);
-            color: var(--text-primary);
-        }
-
-        .period-preset.active {
-            background: var(--primary);
-            color: var(--text-on-primary);
-            border-color: var(--primary-dark);
-        }
-
-        /* Data insight cards */
-        .insight-card {
-            background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
-            border-radius: var(--radius-lg);
-            padding: var(--space-4);
-            border: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: var(--space-4);
-            transition: all var(--transition-normal);
-        }
-
-        .insight-card:hover {
-            transform: translateX(4px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .insight-icon {
-            width: 64px;
-            height: 64px;
-            border-radius: var(--radius-full);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            flex-shrink: 0;
-        }
-
-        .insight-content h4 {
-            font-size: var(--font-size-md);
-            color: var(--text-secondary);
-            margin-bottom: var(--space-1);
-        }
-
-        .insight-content p {
-            font-size: var(--font-size-xl);
-            font-weight: var(--font-weight-semibold);
-            color: var(--text-primary);
-            margin: 0;
-        }
-    </style>
-  {% endblock %}
-
-
-  {% block content %}
-
-    <div class="container-fluid">
-      <!-- Hero Section with Key Metrics -->
-      <div class="insights-hero">
-        <div class="row align-items-center">
-          <div class="col-lg-8">
-            <h1 class="display-4 fw-bold mb-3">
+{% extends "base.html" %} {% block title %} Driving Insights & Analytics{%
+endblock %} {% block extra_css %}
+
+<style>
+  /* ===== Modern Insights Dashboard Styles ===== */
+
+  /* Animated gradient background for hero */
+  @keyframes gradientShift {
+    0% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .insights-hero {
+    background: linear-gradient(
+      135deg,
+      rgba(var(--primary-rgb), 0.1),
+      rgba(var(--secondary-rgb), 0.1),
+      rgba(var(--primary-rgb), 0.05)
+    );
+    background-size: 200% 200%;
+    animation: gradientShift 15s ease infinite;
+    border-radius: var(--radius-xl);
+    padding: var(--space-8) var(--space-6);
+    margin-bottom: var(--space-6);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .insights-hero::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.1) 0%,
+      transparent 70%
+    );
+    animation: pulse-hero 8s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* Metric cards with hover effects */
+  .metric-card {
+    background: var(--surface-1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-normal);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent
+    );
+    transition: left 0.6s ease;
+  }
+
+  .metric-card:hover::before {
+    left: 100%;
+  }
+
+  .metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
+  }
+
+  .metric-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: var(--space-3);
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: var(--text-on-primary);
+  }
+
+  .metric-value {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-primary);
+    margin-bottom: var(--space-1);
+    font-variant-numeric: tabular-nums;
+    transition: color var(--transition-fast);
+  }
+
+  .metric-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .metric-trend {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-full);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .metric-trend.positive {
+    background: rgba(var(--success-rgb), 0.2);
+    color: var(--success);
+  }
+
+  .metric-trend.negative {
+    background: rgba(var(--danger-rgb), 0.2);
+    color: var(--danger);
+  }
+
+  /* Chart containers with glassmorphism */
+  .chart-container {
+    background: var(--surface-glass);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+    max-height: 450px;
+  }
+
+  .chart-container.time-dist-container {
+    overflow: visible;
+    max-height: 500px;
+    min-height: 400px;
+  }
+
+  .chart-container.time-dist-container canvas {
+    max-height: 380px !important;
+    cursor: pointer;
+  }
+
+  .chart-container:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  .chart-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+  }
+
+  .chart-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+  }
+
+  .chart-controls {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  /* Toggle buttons */
+  .toggle-group {
+    display: inline-flex;
+    background: var(--surface-2);
+    border-radius: var(--radius-md);
+    padding: var(--space-1);
+    gap: var(--space-1);
+  }
+
+  .toggle-btn {
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+  }
+
+  .toggle-btn.active {
+    background: var(--primary);
+    color: var(--text-on-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Loading skeleton */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--surface-2) 25%,
+      var(--surface-3) 50%,
+      var(--surface-2) 75%
+    );
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: var(--radius-sm);
+  }
+
+  @keyframes loading {
+    0% {
+      background-position: 200% 0;
+    }
+
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Stat comparison */
+  .stat-comparison {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--surface-2);
+    border-radius: var(--radius-md);
+    margin-top: var(--space-3);
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: all var(--transition-normal);
+  }
+
+  .stat-comparison.show {
+    opacity: 1;
+    max-height: 100px;
+  }
+
+  /* Data table enhancements */
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  .data-table thead th {
+    background: var(--surface-2);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-semibold);
+    padding: var(--space-3) var(--space-4);
+    text-transform: uppercase;
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--primary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .data-table tbody tr {
+    transition: all var(--transition-fast);
+    cursor: pointer;
+  }
+
+  .data-table tbody tr:hover {
+    background: var(--surface-2);
+    transform: scale(1.01);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .data-table tbody td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  /* Floating action button */
+  .fab-container {
+    position: fixed;
+    bottom: var(--space-6);
+    right: var(--space-6);
+    z-index: var(--z-sticky);
+  }
+
+  .fab {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-full);
+    background: var(--primary-gradient);
+    color: var(--text-on-primary);
+    border: none;
+    box-shadow: var(--shadow-lg);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .fab:hover {
+    box-shadow: var(--shadow-xl);
+    transform: scale(1.1);
+  }
+
+  .fab:active {
+    transform: scale(0.95);
+  }
+
+  /* Mini fab menu */
+  .fab-menu {
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.8) translateY(20px);
+    transition: all var(--transition-normal);
+  }
+
+  .fab-menu.show {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1) translateY(0);
+  }
+
+  .mini-fab {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    background: var(--surface-2);
+    color: var(--text-primary);
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .insights-hero {
+      padding: var(--space-6) var(--space-4);
+    }
+
+    .metric-card {
+      padding: var(--space-3);
+    }
+
+    .metric-value {
+      font-size: var(--font-size-2xl);
+    }
+
+    .fab-container {
+      bottom: var(--space-4);
+      right: var(--space-4);
+    }
+  }
+
+  /* Number counter animation */
+  .counter {
+    display: inline-block;
+  }
+
+  /* Pulse animation for live indicators */
+  @keyframes pulse-live {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    50% {
+      transform: scale(1.2);
+      opacity: 0.7;
+    }
+  }
+
+  .live-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--success);
+    border-radius: 50%;
+    margin-left: var(--space-2);
+    animation: pulse-live 2s infinite;
+  }
+
+  /* Chart loading states */
+  .chart-loading {
+    position: relative;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chart-loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--surface-3);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: loading-spin 1s linear infinite;
+  }
+
+  /* Enhanced tooltips */
+  .custom-tooltip {
+    position: absolute;
+    background: var(--surface-glass);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    box-shadow: var(--shadow-lg);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all var(--transition-fast);
+    z-index: var(--z-tooltip);
+  }
+
+  .custom-tooltip.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Period selector */
+  .period-selector {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    background: var(--surface-2);
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+  }
+
+  .period-preset {
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .period-preset:hover {
+    background: var(--surface-3);
+    color: var(--text-primary);
+  }
+
+  .period-preset.active {
+    background: var(--primary);
+    color: var(--text-on-primary);
+    border-color: var(--primary-dark);
+  }
+
+  /* Data insight cards */
+  .insight-card {
+    background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    transition: all var(--transition-normal);
+  }
+
+  .insight-card:hover {
+    transform: translateX(4px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .insight-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    flex-shrink: 0;
+  }
+
+  .insight-content h4 {
+    font-size: var(--font-size-md);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-1);
+  }
+
+  .insight-content p {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+  }
+</style>
+{% endblock %} {% block content %}
+
+<div class="container-fluid">
+  <!-- Hero Section with Key Metrics -->
+  <div class="insights-hero">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <h1 class="display-4 fw-bold mb-3">
           Driving Insights & Analytics
-              <span class="live-indicator"></span>
-            </h1>
-            <p class="lead text-secondary mb-4">
+          <span class="live-indicator"></span>
+        </h1>
+        <p class="lead text-secondary mb-4">
           Comprehensive analysis of your driving patterns and behaviors
-            </p>
-          </div>
-          <div class="col-lg-4 text-center">
-            <div class="hero-stat">
-              <div class="display-3 text-primary counter" id="hero-total-miles">
+        </p>
+      </div>
+      <div class="col-lg-4 text-center">
+        <div class="hero-stat">
+          <div class="display-3 text-primary counter" id="hero-total-miles">
             0
-              </div>
-              <p class="text-secondary">
-Total Miles Driven
-              </p>
-            </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Primary Metrics Grid -->
-      <div class="row g-4 mb-5">
-        <div class="col-md-6 col-lg-3">
-          <div class="metric-card" data-metric="trips">
-            <div class="metric-icon">
-              <i class="fas fa-route"></i>
-            </div>
-            <div class="metric-value counter" id="total-trips">
-0
-            </div>
-            <div class="metric-label">
-Total Trips
-            </div>
-            <div class="metric-trend positive">
-              <i class="fas fa-arrow-up"></i> 12%
-            </div>
-            <div class="stat-comparison" id="trips-comparison">
-              <small>Daily Average: <span class="fw-bold">0</span></small>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-3">
-          <div class="metric-card" data-metric="distance">
-            <div class="metric-icon">
-              <i class="fas fa-road"></i>
-            </div>
-            <div class="metric-value">
-              <span class="counter" id="total-distance">0</span>
-              <small style="font-size: 0.5em">miles</small>
-            </div>
-            <div class="metric-label">
-Distance Traveled
-            </div>
-            <div class="metric-trend positive">
-              <i class="fas fa-arrow-up"></i> 8%
-            </div>
-            <div class="stat-comparison" id="distance-comparison">
-              <small>Avg per Trip: <span class="fw-bold">0</span> miles</small>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-3">
-          <div class="metric-card" data-metric="fuel">
-            <div class="metric-icon">
-              <i class="fas fa-gas-pump"></i>
-            </div>
-            <div class="metric-value">
-              <span class="counter" id="total-fuel">0</span>
-              <small style="font-size: 0.5em">gal</small>
-            </div>
-            <div class="metric-label">
-Fuel Consumed
-            </div>
-            <div class="metric-trend negative">
-              <i class="fas fa-arrow-down"></i> 5%
-            </div>
-            <div class="stat-comparison" id="fuel-comparison">
-              <small>Efficiency: <span class="fw-bold">0</span> MPG</small>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-3">
-          <div class="metric-card" data-metric="time">
-            <div class="metric-icon">
-              <i class="fas fa-clock"></i>
-            </div>
-            <div class="metric-value" id="total-time">
-0h 0m
-            </div>
-            <div class="metric-label">
-Time on Road
-            </div>
-            <div class="metric-trend neutral">
-              <i class="fas fa-minus"></i> 0%
-            </div>
-            <div class="stat-comparison" id="time-comparison">
-              <small>Avg Speed: <span class="fw-bold">0</span> mph</small>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Behavior Metrics -->
-      <div class="row g-4 mb-5">
-        <div class="col-md-4">
-          <div class="insight-card">
-            <div class="insight-icon bg-danger bg-opacity-10 text-danger">
-              <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <div class="insight-content">
-              <h4>
-Aggressive Events
-              </h4>
-              <p>
-                <span class="counter" id="hard-braking">0</span> Hard Brakes |
-                <span class="counter" id="hard-accel">0</span> Hard Accels
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="insight-card">
-            <div class="insight-icon bg-warning bg-opacity-10 text-warning">
-              <i class="fas fa-tachometer-alt"></i>
-            </div>
-            <div class="insight-content">
-              <h4>
-Speed Statistics
-              </h4>
-              <p>
-            Max: <span class="counter" id="max-speed">0</span> mph | Avg:
-                <span class="counter" id="avg-speed">0</span> mph
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="insight-card">
-            <div class="insight-icon bg-info bg-opacity-10 text-info">
-              <i class="fas fa-pause-circle"></i>
-            </div>
-            <div class="insight-content">
-              <h4>
-Idle Time
-              </h4>
-              <p id="idle-time">
-0h 0m
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Charts Section -->
-      <div class="row g-4 mb-5">
-        <!-- Combined Trends Chart -->
-        <div class="col-lg-8">
-          <div class="chart-container">
-            <div class="chart-header">
-              <h3 class="chart-title">
-Driving Trends
-              </h3>
-              <div class="chart-controls">
-                <div class="toggle-group">
-                  <button class="toggle-btn active" data-view="daily">
-Daily
-                  </button>
-                  <button class="toggle-btn" data-view="weekly">
-Weekly
-                  </button>
-                  <button class="toggle-btn" data-view="monthly">
-Monthly
-                  </button>
-                </div>
-                <button class="btn btn-sm btn-outline" id="export-chart">
-                  <i class="fas fa-download"></i>
-                </button>
-              </div>
-            </div>
-            <div class="chart-loading" id="trends-loading">
-              <div class="chart-loading-spinner">
-              </div>
-            </div>
-            <canvas id="trendsChart" style="display: none" height="400"></canvas>
-          </div>
-        </div>
-
-        <!-- Efficiency Gauges -->
-        <div class="col-lg-4">
-          <div class="chart-container">
-            <div class="chart-header">
-              <h3 class="chart-title">
-Efficiency Metrics
-              </h3>
-            </div>
-            <canvas id="efficiencyChart" height="400"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <!-- Time Distribution -->
-      <div class="row g-4 mb-5">
-        <div class="col-lg-12">
-          <div class="chart-container time-dist-container">
-            <div class="chart-header">
-              <h3 class="chart-title">
-Time Distribution
-              </h3>
-              <div class="chart-controls">
-                <div class="toggle-group">
-                  <button class="toggle-btn active" data-time="hour">
-                By Hour
-                  </button>
-                  <button class="toggle-btn" data-time="day">
-By Day
-                  </button>
-                </div>
-              </div>
-            </div>
-            <canvas id="timeDistChart" height="320"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <!-- Destinations & Routes -->
-      <div class="row g-4 mb-5">
-        <div class="col-12">
-          <div class="chart-container">
-            <div class="chart-header">
-              <h3 class="chart-title">
-Frequently Visited Locations
-              </h3>
-              <button class="btn btn-sm btn-primary" id="view-map">
-                <i class="fas fa-map"></i> View on Trips Page
-              </button>
-            </div>
-            <div class="table-responsive">
-              <table class="data-table" id="destinations-table">
-                <thead>
-                  <tr>
-                    <th>
-Location
-                    </th>
-                    <th>
-Visits
-                    </th>
-                    <th data-bs-toggle="tooltip"
-                        title="Sum of miles driven to this location during the selected date range">
-                                                                                                                                                                                                                                                  Total Distance&nbsp;<i class="fas fa-question-circle text-muted"></i>
-                  </th>
-                  <th>
-Avg Duration
-                  </th>
-                  <th>
-Last Visit
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Dynamic content -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Detailed Analytics Table -->
-    <div class="row g-4 mb-5">
-      <div class="col-12">
-        <div class="chart-container">
-          <div class="chart-header">
-            <h3 class="chart-title">
-Detailed Trip Analytics
-            </h3>
-            <div class="chart-controls">
-              <button class="btn btn-sm btn-outline" id="export-data">
-                <i class="fas fa-file-export"></i> Export
-              </button>
-            </div>
-          </div>
-          <div class="table-responsive">
-            <table class="data-table" id="analytics-table">
-              <thead>
-                <tr>
-                  <th>
-Period
-                  </th>
-                  <th>
-Trips
-                  </th>
-                  <th>
-Distance
-                  </th>
-                  <th>
-Duration
-                  </th>
-                  <th>
-Fuel
-                  </th>
-                  <th>
-Hard Events
-                  </th>
-                  <th>
-Efficiency
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Dynamic content -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Floating Action Button -->
-    <div class="fab-container">
-      <div class="fab-menu" id="fab-menu">
-        <button class="fab mini-fab" title="Refresh Data" id="refresh-data">
-          <i class="fas fa-sync"></i>
-        </button>
-        <button class="fab mini-fab" title="Download Report" id="download-report">
-          <i class="fas fa-file-pdf"></i>
-        </button>
-        <button class="fab mini-fab" title="Share Insights" id="share-insights">
-          <i class="fas fa-share-alt"></i>
-        </button>
-      </div>
-      <button class="fab" id="fab-main">
-        <i class="fas fa-plus"></i>
-      </button>
-    </div>
-
-    <!-- Custom tooltip -->
-    <div class="custom-tooltip" id="custom-tooltip">
-    </div>
-
-    <!-- Trip Details Modal -->
-    <div class="modal fade"
-         id="tripDetailsModal"
-         tabindex="-1"
-         aria-labelledby="tripDetailsModalLabel"
-         aria-hidden="true">
-      <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="tripDetailsModalLabel">
-Trips
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="table-responsive">
-              <table class="table table-striped" id="modal-trips-table">
-                <thead>
-                  <tr>
-                    <th>
-Start Time
-                    </th>
-                    <th>
-End Time
-                    </th>
-                    <th>
-Duration
-                    </th>
-                    <th>
-Distance
-                    </th>
-                    <th>
-Start Location
-                    </th>
-                    <th>
-Destination
-                    </th>
-                    <th>
-Max Speed
-                    </th>
-                    <th>
-Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <!-- Dynamic content -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-Close
-            </button>
-          </div>
+          <p class="text-secondary">Total Miles Driven</p>
         </div>
       </div>
     </div>
   </div>
-{% endblock %}
 
+  <!-- Primary Metrics Grid -->
+  <div class="row g-4 mb-5">
+    <div class="col-md-6 col-lg-3">
+      <div class="metric-card" data-metric="trips">
+        <div class="metric-icon">
+          <i class="fas fa-route"></i>
+        </div>
+        <div class="metric-value counter" id="total-trips">0</div>
+        <div class="metric-label">Total Trips</div>
+        <div class="metric-trend positive">
+          <i class="fas fa-arrow-up"></i> 12%
+        </div>
+        <div class="stat-comparison" id="trips-comparison">
+          <small>Daily Average: <span class="fw-bold">0</span></small>
+        </div>
+      </div>
+    </div>
 
-{% block extra_js %}
+    <div class="col-md-6 col-lg-3">
+      <div class="metric-card" data-metric="distance">
+        <div class="metric-icon">
+          <i class="fas fa-road"></i>
+        </div>
+        <div class="metric-value">
+          <span class="counter" id="total-distance">0</span>
+          <small style="font-size: 0.5em">miles</small>
+        </div>
+        <div class="metric-label">Distance Traveled</div>
+        <div class="metric-trend positive">
+          <i class="fas fa-arrow-up"></i> 8%
+        </div>
+        <div class="stat-comparison" id="distance-comparison">
+          <small>Avg per Trip: <span class="fw-bold">0</span> miles</small>
+        </div>
+      </div>
+    </div>
 
-  <!-- Chart.js and dependencies -->
-  <script src="{{ CDN.chartjs }}"></script>
-  <script src="{{ CDN.chartjs_adapter }}"></script>
-  <script src="{{ CDN.chartjs_datalabels }}"></script>
+    <div class="col-md-6 col-lg-3">
+      <div class="metric-card" data-metric="fuel">
+        <div class="metric-icon">
+          <i class="fas fa-gas-pump"></i>
+        </div>
+        <div class="metric-value">
+          <span class="counter" id="total-fuel">0</span>
+          <small style="font-size: 0.5em">gal</small>
+        </div>
+        <div class="metric-label">Fuel Consumed</div>
+        <div class="metric-trend negative">
+          <i class="fas fa-arrow-down"></i> 5%
+        </div>
+        <div class="stat-comparison" id="fuel-comparison">
+          <small>Efficiency: <span class="fw-bold">0</span> MPG</small>
+        </div>
+      </div>
+    </div>
 
-  <!-- DataTables -->
-  <script src="{{ CDN.datatables_js }}"></script>
-  <script src="{{ CDN.datatables_bs5_js }}"></script>
+    <div class="col-md-6 col-lg-3">
+      <div class="metric-card" data-metric="time">
+        <div class="metric-icon">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="metric-value" id="total-time">0h 0m</div>
+        <div class="metric-label">Time on Road</div>
+        <div class="metric-trend neutral"><i class="fas fa-minus"></i> 0%</div>
+        <div class="stat-comparison" id="time-comparison">
+          <small>Avg Speed: <span class="fw-bold">0</span> mph</small>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <!-- CountUp.js for number animations -->
-  <script src="{{ CDN.countup }}"></script>
+  <!-- Behavior Metrics -->
+  <div class="row g-4 mb-5">
+    <div class="col-md-4">
+      <div class="insight-card">
+        <div class="insight-icon bg-danger bg-opacity-10 text-danger">
+          <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="insight-content">
+          <h4>Aggressive Events</h4>
+          <p>
+            <span class="counter" id="hard-braking">0</span> Hard Brakes |
+            <span class="counter" id="hard-accel">0</span> Hard Accels
+          </p>
+        </div>
+      </div>
+    </div>
 
-  <!-- Driving Insights Modules (loaded in dependency order) -->
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/state.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/formatters.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/api.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/export.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/modal.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/charts.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/metrics.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/tables.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/main.js') | replace('http://', '//') }}"></script>
+    <div class="col-md-4">
+      <div class="insight-card">
+        <div class="insight-icon bg-warning bg-opacity-10 text-warning">
+          <i class="fas fa-tachometer-alt"></i>
+        </div>
+        <div class="insight-content">
+          <h4>Speed Statistics</h4>
+          <p>
+            Max: <span class="counter" id="max-speed">0</span> mph | Avg:
+            <span class="counter" id="avg-speed">0</span> mph
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="insight-card">
+        <div class="insight-icon bg-info bg-opacity-10 text-info">
+          <i class="fas fa-pause-circle"></i>
+        </div>
+        <div class="insight-content">
+          <h4>Idle Time</h4>
+          <p id="idle-time">0h 0m</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="row g-4 mb-5">
+    <!-- Combined Trends Chart -->
+    <div class="col-lg-8">
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Driving Trends</h3>
+          <div class="chart-controls">
+            <div class="toggle-group">
+              <button class="toggle-btn active" data-view="daily">Daily</button>
+              <button class="toggle-btn" data-view="weekly">Weekly</button>
+              <button class="toggle-btn" data-view="monthly">Monthly</button>
+            </div>
+            <button class="btn btn-sm btn-outline" id="export-chart">
+              <i class="fas fa-download"></i>
+            </button>
+          </div>
+        </div>
+        <div class="chart-loading" id="trends-loading">
+          <div class="chart-loading-spinner"></div>
+        </div>
+        <canvas id="trendsChart" style="display: none" height="400"></canvas>
+      </div>
+    </div>
+
+    <!-- Efficiency Gauges -->
+    <div class="col-lg-4">
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Efficiency Metrics</h3>
+        </div>
+        <canvas id="efficiencyChart" height="400"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Time Distribution -->
+  <div class="row g-4 mb-5">
+    <div class="col-lg-12">
+      <div class="chart-container time-dist-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Time Distribution</h3>
+          <div class="chart-controls">
+            <div class="toggle-group">
+              <button class="toggle-btn active" data-time="hour">
+                By Hour
+              </button>
+              <button class="toggle-btn" data-time="day">By Day</button>
+            </div>
+          </div>
+        </div>
+        <canvas id="timeDistChart" height="320"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Destinations & Routes -->
+  <div class="row g-4 mb-5">
+    <div class="col-12">
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Frequently Visited Locations</h3>
+          <button class="btn btn-sm btn-primary" id="view-map">
+            <i class="fas fa-map"></i> View on Trips Page
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="destinations-table">
+            <thead>
+              <tr>
+                <th>Location</th>
+                <th>Visits</th>
+                <th
+                  data-bs-toggle="tooltip"
+                  title="Sum of miles driven to this location during the selected date range"
+                >
+                  Total Distance&nbsp;<i
+                    class="fas fa-question-circle text-muted"
+                  ></i>
+                </th>
+                <th>Avg Duration</th>
+                <th>Last Visit</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dynamic content -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detailed Analytics Table -->
+  <div class="row g-4 mb-5">
+    <div class="col-12">
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Detailed Trip Analytics</h3>
+          <div class="chart-controls">
+            <button class="btn btn-sm btn-outline" id="export-data">
+              <i class="fas fa-file-export"></i> Export
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="analytics-table">
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Trips</th>
+                <th>Distance</th>
+                <th>Duration</th>
+                <th>Fuel</th>
+                <th>Hard Events</th>
+                <th>Efficiency</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dynamic content -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Action Button -->
+  <div class="fab-container">
+    <div class="fab-menu" id="fab-menu">
+      <button class="fab mini-fab" title="Refresh Data" id="refresh-data">
+        <i class="fas fa-sync"></i>
+      </button>
+      <button class="fab mini-fab" title="Download Report" id="download-report">
+        <i class="fas fa-file-pdf"></i>
+      </button>
+      <button class="fab mini-fab" title="Share Insights" id="share-insights">
+        <i class="fas fa-share-alt"></i>
+      </button>
+    </div>
+    <button class="fab" id="fab-main">
+      <i class="fas fa-plus"></i>
+    </button>
+  </div>
+
+  <!-- Custom tooltip -->
+  <div class="custom-tooltip" id="custom-tooltip"></div>
+
+  <!-- Trip Details Modal -->
+  <div
+    class="modal fade"
+    id="tripDetailsModal"
+    tabindex="-1"
+    aria-labelledby="tripDetailsModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="tripDetailsModalLabel">Trips</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-striped" id="modal-trips-table">
+              <thead>
+                <tr>
+                  <th>Start Time</th>
+                  <th>End Time</th>
+                  <th>Duration</th>
+                  <th>Distance</th>
+                  <th>Start Location</th>
+                  <th>Destination</th>
+                  <th>Max Speed</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Dynamic content -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+
+<!-- Chart.js and dependencies -->
+<script src="{{ CDN.chartjs }}"></script>
+<script src="{{ CDN.chartjs_adapter }}"></script>
+<script src="{{ CDN.chartjs_datalabels }}"></script>
+
+<!-- DataTables -->
+<script src="{{ CDN.datatables_js }}"></script>
+<script src="{{ CDN.datatables_bs5_js }}"></script>
+
+<!-- CountUp.js for number animations -->
+<script src="{{ CDN.countup }}"></script>
+
+<!-- Driving Insights Modules (loaded in dependency order) -->
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/state.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/formatters.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/api.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/export.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/modal.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/charts.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/metrics.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/tables.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/main.js') | replace('http://', '//') }}"
+></script>
 {% endblock %}
