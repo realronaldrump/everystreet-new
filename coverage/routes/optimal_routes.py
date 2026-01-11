@@ -157,9 +157,9 @@ async def get_optimal_route(location_id: str):
 
     return {
         "status": "success",
-        "location_name": coverage_doc.location.get("display_name")
-        if coverage_doc.location
-        else None,
+        "location_name": (
+            coverage_doc.location.get("display_name") if coverage_doc.location else None
+        ),
         **route,
     }
 
