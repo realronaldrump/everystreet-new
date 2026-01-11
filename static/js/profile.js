@@ -39,14 +39,14 @@
     const toggleSecretBtn = document.getElementById("toggleClientSecret");
     if (toggleSecretBtn) {
       toggleSecretBtn.addEventListener("click", () =>
-        togglePasswordVisibility("clientSecret", "toggleClientSecret")
+        togglePasswordVisibility("clientSecret", "toggleClientSecret"),
       );
     }
 
     const toggleAuthBtn = document.getElementById("toggleAuthCode");
     if (toggleAuthBtn) {
       toggleAuthBtn.addEventListener("click", () =>
-        togglePasswordVisibility("authorizationCode", "toggleAuthCode")
+        togglePasswordVisibility("authorizationCode", "toggleAuthCode"),
       );
     }
 
@@ -73,7 +73,7 @@
       } else {
         showStatus(
           "No credentials found. Please enter your Bouncie credentials.",
-          "warning"
+          "warning",
         );
       }
     } catch (error) {
@@ -115,9 +115,12 @@
     const fetchConcurrencyInput = document.getElementById("fetchConcurrency");
 
     if (clientIdInput) clientIdInput.value = credentials.client_id || "";
-    if (clientSecretInput) clientSecretInput.value = credentials.client_secret || "";
-    if (redirectUriInput) redirectUriInput.value = credentials.redirect_uri || "";
-    if (authCodeInput) authCodeInput.value = credentials.authorization_code || "";
+    if (clientSecretInput)
+      clientSecretInput.value = credentials.client_secret || "";
+    if (redirectUriInput)
+      redirectUriInput.value = credentials.redirect_uri || "";
+    if (authCodeInput)
+      authCodeInput.value = credentials.authorization_code || "";
     if (fetchConcurrencyInput)
       fetchConcurrencyInput.value = credentials.fetch_concurrency || "12";
 
@@ -127,10 +130,12 @@
 
     // Add CSS class for masked fields
     if (masked) {
-      if (clientSecretInput) clientSecretInput.classList.add("credential-masked");
+      if (clientSecretInput)
+        clientSecretInput.classList.add("credential-masked");
       if (authCodeInput) authCodeInput.classList.add("credential-masked");
     } else {
-      if (clientSecretInput) clientSecretInput.classList.remove("credential-masked");
+      if (clientSecretInput)
+        clientSecretInput.classList.remove("credential-masked");
       if (authCodeInput) authCodeInput.classList.remove("credential-masked");
     }
   }
@@ -213,7 +218,9 @@
     const clientId = document.getElementById("clientId").value.trim();
     const clientSecret = document.getElementById("clientSecret").value.trim();
     const redirectUri = document.getElementById("redirectUri").value.trim();
-    const authorizationCode = document.getElementById("authorizationCode").value.trim();
+    const authorizationCode = document
+      .getElementById("authorizationCode")
+      .value.trim();
     const fetchConcurrency =
       document.getElementById("fetchConcurrency")?.value.trim() || "12";
 
@@ -265,7 +272,7 @@
       } else {
         showStatus(
           `Error saving credentials: ${data.detail || data.message || "Unknown error"}`,
-          "error"
+          "error",
         );
       }
     } catch (error) {
@@ -558,9 +565,12 @@
     try {
       showStatus("Syncing vehicles from Bouncie...", "info");
 
-      const response = await fetch("/api/profile/bouncie-credentials/sync-vehicles", {
-        method: "POST",
-      });
+      const response = await fetch(
+        "/api/profile/bouncie-credentials/sync-vehicles",
+        {
+          method: "POST",
+        },
+      );
 
       const data = await response.json();
 
@@ -607,7 +617,7 @@
     const toggleMapboxBtn = document.getElementById("toggleMapboxToken");
     if (toggleMapboxBtn) {
       toggleMapboxBtn.addEventListener("click", () =>
-        togglePasswordVisibility("mapboxToken", "toggleMapboxToken")
+        togglePasswordVisibility("mapboxToken", "toggleMapboxToken"),
       );
     }
   }
@@ -679,7 +689,8 @@
     // Validate Mapbox token format
     if (!mapboxToken) {
       if (statusEl) {
-        statusEl.textContent = "Mapbox access token is required for maps to work.";
+        statusEl.textContent =
+          "Mapbox access token is required for maps to work.";
         statusEl.className = "alert alert-danger mt-3";
         statusEl.style.display = "block";
       }
