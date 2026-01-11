@@ -461,6 +461,7 @@ class TaskConfig(Document):
     last_run: datetime | None = None
     next_run: datetime | None = None
     status: str | None = None
+    last_updated: datetime | None = None
     config: dict[str, Any] = Field(default_factory=dict)
 
     class Settings:

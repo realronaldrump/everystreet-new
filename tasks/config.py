@@ -50,7 +50,7 @@ async def get_task_config() -> dict[str, Any]:
                     "last_error": c.config.get("last_error"),
                     "start_time": c.config.get("start_time"),
                     "end_time": c.config.get("end_time"),
-                    "last_updated": c.last_updated,
+                    "last_updated": getattr(c, "last_updated", None),
                     "last_success_time": c.config.get("last_success_time"),
                 }
             else:
@@ -79,7 +79,7 @@ async def get_task_config() -> dict[str, Any]:
                     "last_error": None,
                     "start_time": None,
                     "end_time": None,
-                    "last_updated": None,
+                    "last_updated": getattr(c, "last_updated", None),
                     "last_success_time": None,
                 }
 
@@ -154,7 +154,7 @@ async def check_dependencies(
                 }
 
             if dep_status == TaskStatus.FAILED.value:
-                last_updated = dep_config.last_updated
+                last_updated = getattr(dep_config, "last_updated", None)
 
                 if last_updated and (
                     datetime.now(UTC) - last_updated < timedelta(hours=1)

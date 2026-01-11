@@ -1,8 +1,11 @@
 import logging
+import asyncio
+import json
 from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from date_utils import normalize_to_utc_datetime
@@ -444,3 +447,59 @@ async def fetch_missing_trips():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
+
+@router.get("/api/background_tasks/sse")
+async def stream_background_tasks_updates():
+    """Stream real-time background task updates via Server-Sent Events."""
+
+    async def event_generator():
+        last_config = None
+        poll_count = 0
+        max_polls = 3600  # 1 hour at 1 second intervals
+
+        while poll_count < max_polls:
+            poll_count += 1
+
+            try:
+                current_config = await get_task_config()
+                current_tasks = current_config.get("tasks", {})
+
+                if last_config is not None:
+                    # Find changes
+                    updates = {}
+                    for task_id, task_data in current_tasks.items():
+                        if task_id not in last_config.get("tasks", {}):
+                            # New task
+                            updates[task_id] = task_data
+                        else:
+                            # Check for changes
+                            prev_data = last_config["tasks"][task_id]
+                            changed = False
+                            for key in ["status", "last_run", "next_run", "last_error"]:
+                                if task_data.get(key) != prev_data.get(key):
+                                    changed = True
+                                    break
+                            if changed:
+                                updates[task_id] = task_data
+
+                    # Send updates if any
+                    if updates:
+                        yield f"data: {json.dumps(updates)}\n\n"
+
+                last_config = current_config
+
+                await asyncio.sleep(1)
+
+            except Exception as e:
+                logger.exception("Error in background tasks SSE: %s", e)
+                await asyncio.sleep(1)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
