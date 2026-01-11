@@ -14,7 +14,6 @@ The package is organized into:
 from fastapi import APIRouter
 
 from visits.routes import places, stats, visits
-from visits.services.collections import Collections
 
 # Create main router that aggregates all visit-related routes
 # Note: No prefix here since individual routes already have /api/ paths
@@ -25,17 +24,3 @@ router = APIRouter(tags=["visits"])
 router.include_router(places.router, tags=["places"])
 router.include_router(visits.router, tags=["visits"])
 router.include_router(stats.router, tags=["statistics"])
-
-
-def init_collections(places_coll, trips_coll):
-    """Initialize the database collections for this module.
-
-    Args:
-        places_coll: MongoDB collection for places
-        trips_coll: MongoDB collection for trips
-    """
-    Collections.places = places_coll
-    Collections.trips = trips_coll
-
-
-__all__ = ["router", "init_collections"]

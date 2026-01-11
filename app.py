@@ -19,7 +19,7 @@ from db import db_manager, init_database
 from driving_routes import router as driving_routes_router
 from exports import router as export_api_router
 from gas import router as gas_api_router
-from live_tracking import initialize_db as initialize_live_tracking_db
+
 from live_tracking_api import router as live_tracking_api_router
 from logs_api import router as logs_api_router
 from mongodb_logging_handler import MongoDBHandler
@@ -30,7 +30,6 @@ from search_api import router as search_api_router
 from tasks_api import router as tasks_api_router
 from trips import router as trips_router
 from upload_api import router as upload_api_router
-from visits import init_collections
 from visits import router as visits_router
 
 load_dotenv()
@@ -130,11 +129,9 @@ app.include_router(visits_router)
 
 # Global Configuration and Constants (imported from config.py)
 
+
 # Database collections (for startup initialization)
-trips_collection = db_manager.db["trips"]
-places_collection = db_manager.db["places"]
-live_trips_collection = db_manager.db["live_trips"]
-app_settings_collection = db_manager.db["app_settings"]
+# Note: Raw collection initialization removed in favor of Beanie models
 
 
 # --- Application Lifecycle Events ---
@@ -158,12 +155,6 @@ async def startup_event():
         AppState.mongo_handler.setLevel(logging.INFO)  # Log INFO and above to MongoDB
         root_logger.addHandler(AppState.mongo_handler)
         logger.info("MongoDB logging handler initialized and configured.")
-
-        initialize_live_tracking_db(live_trips_collection)
-        logger.info("Live tracking DB collections initialized.")
-
-        init_collections(places_collection, trips_collection)
-        logger.info("Visits collections initialized.")
 
         # Load app settings into cache for sync access
         await ensure_settings_cached()

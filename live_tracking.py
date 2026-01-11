@@ -9,40 +9,27 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import pymongo
-from pymongo.collection import Collection
-
 from date_utils import parse_timestamp
+from db.models import ArchivedLiveTrip, LiveTrip
 from geometry_service import GeometryService
 from trip_event_publisher import publish_trip_state
 
 logger = logging.getLogger(__name__)
 
 
-class LiveTrackingState:
-    """State container for live tracking to avoid global variables."""
-
-    collection: Collection | None = None
-
-
-def initialize_db(db_live_trips):
-    """Initialize the database collection used by this module."""
-    LiveTrackingState.collection = db_live_trips
-    logger.info("Live tracking database initialized")
-
-
 async def _publish_trip_snapshot(
-    trip_doc: dict[str, Any], status: str = "active"
+    trip_doc: dict[str, Any] | LiveTrip, status: str = "active"
 ) -> None:
     """Publish trip update to WebSocket clients via Redis."""
-    transaction_id = trip_doc.get("transactionId")
+    trip_dict = trip_doc.model_dump() if isinstance(trip_doc, LiveTrip) else trip_doc
+
+    transaction_id = trip_dict.get("transactionId")
     if not transaction_id:
         logger.warning("Cannot publish trip without transactionId")
         return
 
     try:
-        serialized_trip = trip_doc
-        await publish_trip_state(transaction_id, serialized_trip, status=status)
+        await publish_trip_state(transaction_id, trip_dict, status=status)
     except Exception as e:
         logger.error("Failed to publish trip %s: %s", transaction_id, e)
 
@@ -183,8 +170,8 @@ def _calculate_trip_metrics(
 # ============================================================================
 
 
-async def process_trip_start(data: dict[str, Any], live_collection: Collection) -> None:
-    """Process tripStart event - initialize new trip."""
+async def process_trip_start(data: dict[str, Any]) -> None:
+    """Process tripStart event - initialize new trip using Beanie."""
     transaction_id = data.get("transactionId")
     start_data = data.get("start", {})
 
@@ -197,36 +184,50 @@ async def process_trip_start(data: dict[str, Any], live_collection: Collection) 
         start_time = datetime.now(UTC)
         logger.warning("Trip %s: Using current time as fallback", transaction_id)
 
-    trip = {
-        "transactionId": transaction_id,
-        "vin": data.get("vin"),
-        "imei": data.get("imei"),
-        "status": "active",
-        "startTime": start_time,
-        "startTimeZone": start_data.get("timeZone", "UTC"),
-        "startOdometer": start_data.get("odometer"),
-        "coordinates": [],
-        "distance": 0.0,
-        "currentSpeed": 0.0,
-        "maxSpeed": 0.0,
-        "avgSpeed": 0.0,
-        "duration": 0.0,
-        "pointsRecorded": 0,
-        "totalIdlingTime": 0.0,
-        "hardBrakingCounts": 0,
-        "hardAccelerationCounts": 0,
-        "lastUpdate": start_time,
-    }
+    # Check if trip already exists using Beanie
+    existing_trip = await LiveTrip.find_one(LiveTrip.transactionId == transaction_id)
+    if existing_trip:
+        logger.info("Trip %s already exists, updating start data", transaction_id)
+        trip = existing_trip
+        trip.status = "active"
+        trip.startTime = start_time
+        # Update other fields if needed, but usually start is definitive
+    else:
+        trip = LiveTrip(
+            transactionId=transaction_id,
+            vin=data.get("vin"),
+            imei=data.get("imei"),
+            status="active",
+            startTime=start_time,
+            gps={"coordinates": []},  # Initialize empty gps
+            # Add other fields as per model definition if needed
+            # For now relying on extra='allow' in config or explicit fields
+        )
+        # Manually set extra fields not in model definition but used in logic
+        # Since LiveTrip has extra="allow", we can set attributes dynamically
+        # or use a dict if we were just using PyMongo. Beanie models support this
+        # if configured.
+        trip.startTimeZone = start_data.get("timeZone", "UTC")
+        trip.startOdometer = start_data.get("odometer")
+        trip.coordinates = []
+        trip.distance = 0.0
+        trip.currentSpeed = 0.0
+        trip.maxSpeed = 0.0
+        trip.avgSpeed = 0.0
+        trip.duration = 0.0
+        trip.pointsRecorded = 0
+        trip.totalIdlingTime = 0.0
+        trip.hardBrakingCounts = 0
+        trip.hardAccelerationCounts = 0
+        trip.lastUpdate = start_time
 
-    await live_collection.replace_one(
-        {"transactionId": transaction_id}, trip, upsert=True
-    )
+    await trip.save()
 
     logger.info("Trip %s started", transaction_id)
     await _publish_trip_snapshot(trip, status="active")
 
 
-async def process_trip_data(data: dict[str, Any], live_collection: Collection) -> None:
+async def process_trip_data(data: dict[str, Any]) -> None:
     """Process tripData event - update coordinates and metrics."""
     transaction_id = data.get("transactionId")
     data_points = data.get("data", [])
@@ -236,8 +237,8 @@ async def process_trip_data(data: dict[str, Any], live_collection: Collection) -
         return
 
     # Fetch existing trip
-    trip = await live_collection.find_one(
-        {"transactionId": transaction_id, "status": "active"}
+    trip = await LiveTrip.find_one(
+        LiveTrip.transactionId == transaction_id, LiveTrip.status == "active"
     )
 
     if not trip:
@@ -251,42 +252,34 @@ async def process_trip_data(data: dict[str, Any], live_collection: Collection) -
         return
 
     # Merge with existing, deduplicate
-    existing_coords = trip.get("coordinates", [])
+    # Access extra fields via getattr/setattr or dict access if supported
+    existing_coords = getattr(trip, "coordinates", [])
     all_coords = _deduplicate_coordinates(existing_coords, new_coords)
 
     # Calculate metrics
-    start_time = trip.get("startTime")
+    start_time = trip.startTime
     if not isinstance(start_time, datetime):
         start_time = all_coords[0]["timestamp"]
 
     metrics = _calculate_trip_metrics(all_coords, start_time)
 
-    # Update trip
-    update_fields = {
-        "coordinates": all_coords,
-        **metrics,
-    }
+    # Update trip fields
+    trip.coordinates = all_coords
+    for key, value in metrics.items():
+        setattr(trip, key, value)
 
-    updated_trip = await live_collection.find_one_and_update(
-        {"transactionId": transaction_id, "status": "active"},
-        {"$set": update_fields},
-        return_document=pymongo.ReturnDocument.AFTER,
+    await trip.save()
+
+    logger.info(
+        "Trip %s updated: %d points, %.2fmi",
+        transaction_id,
+        len(all_coords),
+        metrics["distance"],
     )
-
-    if updated_trip:
-        logger.info(
-            "Trip %s updated: %d points, %.2fmi",
-            transaction_id,
-            len(all_coords),
-            metrics["distance"],
-        )
-        await _publish_trip_snapshot(updated_trip, status="active")
+    await _publish_trip_snapshot(trip, status="active")
 
 
-async def process_trip_metrics(
-    data: dict[str, Any],
-    live_collection: Collection,
-) -> None:
+async def process_trip_metrics(data: dict[str, Any]) -> None:
     """Process tripMetrics event - update summary metrics from Bouncie."""
     transaction_id = data.get("transactionId")
     metrics_data = data.get("metrics", {})
@@ -296,8 +289,8 @@ async def process_trip_metrics(
         return
 
     # Check if trip exists
-    trip = await live_collection.find_one(
-        {"transactionId": transaction_id, "status": "active"}
+    trip = await LiveTrip.find_one(
+        LiveTrip.transactionId == transaction_id, LiveTrip.status == "active"
     )
 
     if not trip:
@@ -307,48 +300,42 @@ async def process_trip_metrics(
         )
         return
 
-    # Build update from Bouncie metrics
-    update_fields = {}
+    # Update fields from Bouncie metrics
+    updates_made = False
 
-    # Use Bouncie's metrics when available (more accurate)
     if "averageSpeed" in metrics_data:
-        update_fields["avgSpeed"] = float(metrics_data["averageSpeed"])
+        trip.avgSpeed = float(metrics_data["averageSpeed"])
+        updates_made = True
     if "idlingTime" in metrics_data:
-        update_fields["totalIdlingTime"] = float(metrics_data["idlingTime"])
+        trip.totalIdlingTime = float(metrics_data["idlingTime"])
+        updates_made = True
     if "hardBraking" in metrics_data:
-        update_fields["hardBrakingCounts"] = int(metrics_data["hardBraking"])
+        trip.hardBrakingCounts = int(metrics_data["hardBraking"])
+        updates_made = True
     if "hardAcceleration" in metrics_data:
-        update_fields["hardAccelerationCounts"] = int(metrics_data["hardAcceleration"])
+        trip.hardAccelerationCounts = int(metrics_data["hardAcceleration"])
+        updates_made = True
 
     # Update lastUpdate timestamp
     metrics_timestamp = _parse_timestamp(metrics_data.get("timestamp"))
     if metrics_timestamp:
-        update_fields["lastUpdate"] = metrics_timestamp
+        trip.lastUpdate = metrics_timestamp
+        updates_made = True
 
-    if not update_fields:
-        return
-
-    # Use $max for maxSpeed to ensure it only increases
-    update_operation = {"$set": update_fields}
     if "maxSpeed" in metrics_data:
-        update_operation["$max"] = {"maxSpeed": float(metrics_data["maxSpeed"])}
+        new_max = float(metrics_data["maxSpeed"])
+        current_max = getattr(trip, "maxSpeed", 0.0) or 0.0
+        if new_max > current_max:
+            trip.maxSpeed = new_max
+            updates_made = True
 
-    updated_trip = await live_collection.find_one_and_update(
-        {"transactionId": transaction_id, "status": "active"},
-        update_operation,
-        return_document=pymongo.ReturnDocument.AFTER,
-    )
-
-    if updated_trip:
+    if updates_made:
+        await trip.save()
         logger.info("Trip %s metrics updated", transaction_id)
-        await _publish_trip_snapshot(updated_trip, status="active")
+        await _publish_trip_snapshot(trip, status="active")
 
 
-async def process_trip_end(
-    data: dict[str, Any],
-    live_collection: Collection,
-    archive_collection: Collection | None = None,
-) -> None:
+async def process_trip_end(data: dict[str, Any]) -> None:
     """Process tripEnd event - mark trip as completed and archive it."""
     transaction_id = data.get("transactionId")
     end_data = data.get("end", {})
@@ -363,8 +350,8 @@ async def process_trip_end(
         logger.warning("Trip %s: Using current time for end", transaction_id)
 
     # Fetch active trip
-    trip = await live_collection.find_one(
-        {"transactionId": transaction_id, "status": "active"}
+    trip = await LiveTrip.find_one(
+        LiveTrip.transactionId == transaction_id, LiveTrip.status == "active"
     )
 
     if not trip:
@@ -372,96 +359,102 @@ async def process_trip_end(
         return
 
     # Calculate final duration
-    start_time = trip.get("startTime")
+    start_time = trip.startTime
     if isinstance(start_time, datetime):
         duration = (end_time - start_time).total_seconds()
     else:
-        duration = trip.get("duration", 0.0)
+        duration = getattr(trip, "duration", 0.0)
 
     # Convert coordinates to GeoJSON for storage
-    coordinates = trip.get("coordinates", [])
+    coordinates = getattr(trip, "coordinates", [])
     gps = GeometryService.geometry_from_coordinate_dicts(coordinates)
 
     # Update trip as completed
-    update_fields = {
-        "status": "completed",
-        "endTime": end_time,
-        "endTimeZone": end_data.get("timeZone", "UTC"),
-        "endOdometer": end_data.get("odometer"),
-        "fuelConsumed": end_data.get("fuelConsumed"),
-        "duration": duration,
-        "lastUpdate": end_time,
-        "gps": gps,
-    }
+    trip.status = "completed"
+    trip.endTime = end_time
+    # trip.endTimeZone = end_data.get("timeZone", "UTC") # Not in model, but extra allowed
+    trip.endTimeZone = end_data.get("timeZone", "UTC")
+    trip.endOdometer = end_data.get("odometer")
+    trip.fuelConsumed = end_data.get("fuelConsumed")
+    trip.duration = duration
+    trip.lastUpdate = end_time
+    trip.gps = gps
 
-    # Update in live collection first (to get full document state)
-    updated_trip = await live_collection.find_one_and_update(
-        {"transactionId": transaction_id},
-        {"$set": update_fields},
-        return_document=pymongo.ReturnDocument.AFTER,
+    await trip.save()
+
+    logger.info(
+        "Trip %s completed: %.0fs, %.2fmi",
+        transaction_id,
+        duration,
+        getattr(trip, "distance", 0),
     )
+    await _publish_trip_snapshot(trip, status="completed")
 
-    if updated_trip:
-        logger.info(
-            "Trip %s completed: %.0fs, %.2fmi",
-            transaction_id,
-            duration,
-            trip.get("distance", 0),
+    # Archive the trip
+    try:
+        # Create ArchivedLiveTrip from LiveTrip data
+        trip_data = trip.model_dump()
+        trip_data.pop(
+            "_id", None
+        )  # Remove _id to let new one be generated or use same?
+        # ArchivedLiveTrip might have specific fields, let's map what we can
+        # The model definition in models.py shows ArchivedLiveTrip has similar fields.
+
+        # We can just construct it.
+        archived_trip = ArchivedLiveTrip(
+            transactionId=trip.transactionId,
+            imei=trip.imei,
+            status=trip.status,
+            startTime=trip.startTime,
+            endTime=trip.endTime,
+            gps=trip.gps,
+            archived_at=datetime.now(UTC),
         )
-        await _publish_trip_snapshot(updated_trip, status="completed")
+        # Copy extra fields
+        for k, v in trip_data.items():
+            if not hasattr(archived_trip, k):
+                setattr(archived_trip, k, v)
 
-        # Archive the trip if collection is provided
-        if archive_collection is not None:
-            try:
-                # Insert into archive
-                await archive_collection.replace_one(
-                    {"transactionId": transaction_id}, updated_trip, upsert=True
-                )
-                # Delete from live
-                await live_collection.delete_one({"transactionId": transaction_id})
-                logger.info("Trip %s archived and removed from live", transaction_id)
-            except Exception as archive_err:
-                logger.error(
-                    "Failed to archive trip %s: %s", transaction_id, archive_err
-                )
+        await archived_trip.save()
 
-        # Trigger periodic fetch for this specific trip range
-        # This eliminates the delay between trip end and it appearing in history
-        try:
-            # Import here to avoid circular dependency (celery_app imports live_tracking)
-            from celery_app import app as celery_app
+        # Delete from live
+        await trip.delete()
+        logger.info("Trip %s archived and removed from live", transaction_id)
+    except Exception as archive_err:
+        logger.error("Failed to archive trip %s: %s", transaction_id, archive_err)
 
-            celery_task_id = f"fetch_trip_{transaction_id}_{uuid.uuid4()}"
+    # Trigger periodic fetch
+    try:
+        from celery_app import app as celery_app
 
-            # Pass specific time range to avoid full sync
-            # Add small buffer to start/end times to safely catch all points
-            fetch_start = start_time - timedelta(minutes=5) if start_time else None
-            fetch_end = end_time + timedelta(minutes=5)
+        celery_task_id = f"fetch_trip_{transaction_id}_{uuid.uuid4()}"
 
-            task_kwargs = {"manual_run": False, "trigger_source": "trip_end"}
+        fetch_start = start_time - timedelta(minutes=5) if start_time else None
+        fetch_end = end_time + timedelta(minutes=5)
 
-            if fetch_start and fetch_end:
-                task_kwargs["start_time_iso"] = fetch_start.isoformat()
-                task_kwargs["end_time_iso"] = fetch_end.isoformat()
+        task_kwargs = {"manual_run": False, "trigger_source": "trip_end"}
 
-            celery_app.send_task(
-                "tasks.periodic_fetch_trips",
-                kwargs=task_kwargs,
-                task_id=celery_task_id,
-                queue="default",
-            )
-            logger.info(
-                "Triggered targeted fetch for trip %s (task_id: %s)",
-                transaction_id,
-                celery_task_id,
-            )
-        except Exception as trigger_err:
-            # Log error but don't fail the tripEnd processing
-            logger.warning(
-                "Failed to trigger fetch after trip %s ended: %s",
-                transaction_id,
-                trigger_err,
-            )
+        if fetch_start and fetch_end:
+            task_kwargs["start_time_iso"] = fetch_start.isoformat()
+            task_kwargs["end_time_iso"] = fetch_end.isoformat()
+
+        celery_app.send_task(
+            "tasks.periodic_fetch_trips",
+            kwargs=task_kwargs,
+            task_id=celery_task_id,
+            queue="default",
+        )
+        logger.info(
+            "Triggered targeted fetch for trip %s (task_id: %s)",
+            transaction_id,
+            celery_task_id,
+        )
+    except Exception as trigger_err:
+        logger.warning(
+            "Failed to trigger fetch after trip %s ended: %s",
+            transaction_id,
+            trigger_err,
+        )
 
 
 # ============================================================================
@@ -471,15 +464,11 @@ async def process_trip_end(
 
 async def get_active_trip() -> dict[str, Any] | None:
     """Get the currently active trip."""
-    if LiveTrackingState.collection is None:
-        logger.error("Live trips collection not initialized")
-        return None
-
     try:
-        trip = await LiveTrackingState.collection.find_one(
-            {"status": "active"}, sort=[("lastUpdate", -1)]
-        )
-        return trip
+        trip = await LiveTrip.find_one(LiveTrip.status == "active").sort("-lastUpdate")
+        if trip:
+            return trip.model_dump()
+        return None
     except Exception as e:
         logger.error("Error fetching active trip: %s", e)
         return None
@@ -494,11 +483,10 @@ async def get_trip_updates(_last_sequence: int = 0) -> dict[str, Any]:
     trip = await get_active_trip()
 
     if trip:
-        serialized = trip
         return {
             "status": "success",
             "has_update": True,
-            "trip": serialized,
+            "trip": trip,
         }
     return {
         "status": "success",
@@ -507,13 +495,13 @@ async def get_trip_updates(_last_sequence: int = 0) -> dict[str, Any]:
     }
 
 
-async def cleanup_old_trips(live_collection: Collection, max_age_days: int = 30) -> int:
+async def cleanup_old_trips(max_age_days: int = 30) -> int:
     """Remove completed trips older than max_age_days."""
     threshold = datetime.now(UTC) - timedelta(days=max_age_days)
 
-    result = await live_collection.delete_many(
-        {"status": "completed", "endTime": {"$lt": threshold}}
-    )
+    result = await LiveTrip.find(
+        LiveTrip.status == "completed", LiveTrip.endTime < threshold
+    ).delete()
 
     count = result.deleted_count
     if count > 0:
@@ -523,7 +511,6 @@ async def cleanup_old_trips(live_collection: Collection, max_age_days: int = 30)
 
 
 async def cleanup_stale_trips_logic(
-    live_collection: Collection,
     stale_minutes: int = 15,
     max_archive_age_days: int = 30,
 ) -> dict[str, int]:
@@ -532,34 +519,29 @@ async def cleanup_stale_trips_logic(
     stale_threshold = now - timedelta(minutes=stale_minutes)
 
     # Find stale active trips
-    stale_trips = await live_collection.find(
-        {"status": "active", "lastUpdate": {"$lt": stale_threshold}}
+    stale_trips = await LiveTrip.find(
+        LiveTrip.status == "active", LiveTrip.lastUpdate < stale_threshold
     ).to_list(length=100)
 
     stale_count = 0
     for trip in stale_trips:
-        transaction_id = trip.get("transactionId")
+        transaction_id = trip.transactionId
         logger.warning("Marking stale trip as completed: %s", transaction_id)
 
         # Convert to GeoJSON
-        coordinates = trip.get("coordinates", [])
+        coordinates = getattr(trip, "coordinates", [])
         gps = GeometryService.geometry_from_coordinate_dicts(coordinates)
 
-        await live_collection.update_one(
-            {"transactionId": transaction_id},
-            {
-                "$set": {
-                    "status": "completed",
-                    "endTime": trip.get("lastUpdate"),
-                    "closed_reason": "stale",
-                    "gps": gps,
-                }
-            },
-        )
+        trip.status = "completed"
+        trip.endTime = trip.lastUpdate
+        trip.closed_reason = "stale"
+        trip.gps = gps
+
+        await trip.save()
         stale_count += 1
 
     # Cleanup old completed trips
-    old_removed = await cleanup_old_trips(live_collection, max_archive_age_days)
+    old_removed = await cleanup_old_trips(max_archive_age_days)
 
     logger.info(
         "Cleanup: %d stale trips, %d old trips removed", stale_count, old_removed
