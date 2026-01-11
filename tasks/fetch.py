@@ -79,7 +79,7 @@ async def periodic_fetch_trips_async(
         try:
             logger.info("Looking for the most recent trip in the database (any source)")
             # Use Beanie to find latest trip
-            latest_trip = await Trip.find_one(sort="-endTime")
+            latest_trip = await Trip.find().sort("-endTime").first_or_none()
 
             if latest_trip:
                 latest_trip_id = latest_trip.transactionId or "unknown"
@@ -337,7 +337,7 @@ async def get_earliest_trip_date() -> datetime | None:
     """Find the start time of the earliest trip in the database."""
     try:
         # Use Beanie
-        earliest_trip = await Trip.find_one(sort=[("startTime", 1)])
+        earliest_trip = await Trip.find().sort("startTime").first_or_none()
         if earliest_trip and earliest_trip.startTime:
             return earliest_trip.startTime
     except Exception as e:

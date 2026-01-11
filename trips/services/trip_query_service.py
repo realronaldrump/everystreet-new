@@ -3,6 +3,8 @@
 import logging
 from typing import Any
 
+from beanie.operators import In
+
 from date_utils import parse_timestamp
 from db import build_calendar_date_expr
 from db.models import Trip, Vehicle
@@ -214,7 +216,7 @@ class TripQueryService:
         imeis = {trip.get("imei") for trip in formatted_data if trip.get("imei")}
         vehicle_map: dict[str, dict] = {}
         if imeis:
-            vehicles = await Vehicle.find(Vehicle.imei.in_(list(imeis))).to_list()
+            vehicles = await Vehicle.find(In(Vehicle.imei, list(imeis))).to_list()
             for vehicle in vehicles:
                 vehicle_map[vehicle.imei] = vehicle.model_dump()
 

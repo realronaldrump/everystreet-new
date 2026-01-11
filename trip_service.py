@@ -6,6 +6,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
+from beanie.operators import In
 from fastapi import HTTPException, status
 from pymongo.errors import DuplicateKeyError
 
@@ -329,7 +330,7 @@ class TripService:
 
                 # Query existing trips to check their status using Beanie
                 existing_docs = (
-                    await Trip.find(Trip.transactionId.in_(incoming_ids))
+                    await Trip.find(In(Trip.transactionId, incoming_ids))
                     .project(Trip.transactionId, Trip.matchedGps)
                     .to_list()
                 )

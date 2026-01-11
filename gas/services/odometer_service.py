@@ -45,7 +45,9 @@ class OdometerService:
 
             # Fallback to most recent trip if Bouncie API fails
             logger.info("Falling back to local trip data for IMEI %s", imei)
-            trip = await Trip.find_one(Trip.imei == imei).sort(-Trip.endTime)
+            trip = (
+                await Trip.find(Trip.imei == imei).sort(-Trip.endTime).first_or_none()
+            )
         else:
             # Parse timestamp
             target_time = parse_iso_datetime(timestamp)
@@ -60,17 +62,25 @@ class OdometerService:
 
             # If no trip contains the timestamp, find the closest trip before it
             if not trip:
-                trip = await Trip.find_one(
-                    Trip.imei == imei,
-                    Trip.endTime <= target_time,
-                ).sort(-Trip.endTime)
+                trip = (
+                    await Trip.find(
+                        Trip.imei == imei,
+                        Trip.endTime <= target_time,
+                    )
+                    .sort(-Trip.endTime)
+                    .first_or_none()
+                )
 
             # If still no trip, find the closest trip after it
             if not trip:
-                trip = await Trip.find_one(
-                    Trip.imei == imei,
-                    Trip.startTime >= target_time,
-                ).sort(Trip.startTime)
+                trip = (
+                    await Trip.find(
+                        Trip.imei == imei,
+                        Trip.startTime >= target_time,
+                    )
+                    .sort(Trip.startTime)
+                    .first_or_none()
+                )
 
         if not trip:
             logger.warning(

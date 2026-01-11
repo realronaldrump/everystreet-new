@@ -208,7 +208,7 @@ async def get_current_position(request_data: dict) -> tuple[float, float, str]:
     except Exception:
         pass
 
-    last_trip = await Trip.find_one().sort(-Trip.endTime).limit(1).to_list()
+    last_trip = await Trip.find().sort(-Trip.endTime).limit(1).to_list()
     if not last_trip:
         return await get_current_position(request_data)
 

@@ -900,7 +900,6 @@ class UploadManager {
               throw new Error(data.message || `Failed to delete trip ${tripId}`);
             }
           } catch (error) {
-            console.error(`Error deleting trip ${tripId}:`, error);
             window.notificationManager.show(
               `Error deleting trip ${tripId}: ${error.message}`,
               "warning"
