@@ -203,9 +203,7 @@ class FillupService:
         return fillup
 
     @staticmethod
-    async def update_fillup(
-        fillup_id: str, update_data: dict[str, Any]
-    ) -> GasFillup:
+    async def update_fillup(fillup_id: str, update_data: dict[str, Any]) -> GasFillup:
         """Update a gas fill-up record.
 
         Args:
@@ -274,9 +272,7 @@ class FillupService:
 
         # Recalculate total cost if price or gallons changed
         if update_data.get("price_per_gallon") and update_data.get("gallons"):
-            fillup.total_cost = (
-                update_data["price_per_gallon"] * update_data["gallons"]
-            )
+            fillup.total_cost = update_data["price_per_gallon"] * update_data["gallons"]
 
         # Apply all update_data fields to the fillup model
         for key, value in update_data.items():
@@ -352,7 +348,11 @@ class FillupService:
 
             # Calculate new stats for next_fillup
             next_odo = next_fillup.odometer
-            next_is_full = next_fillup.is_full_tank if next_fillup.is_full_tank is not None else True
+            next_is_full = (
+                next_fillup.is_full_tank
+                if next_fillup.is_full_tank is not None
+                else True
+            )
             next_missed_prev = next_fillup.missed_previous or False
 
             if prev_fillup and next_odo is not None:
@@ -373,7 +373,9 @@ class FillupService:
                 # Broken chain
                 next_fillup.miles_since_last_fillup = None
                 next_fillup.calculated_mpg = None
-                next_fillup.previous_odometer = prev_fillup.odometer if prev_fillup else None
+                next_fillup.previous_odometer = (
+                    prev_fillup.odometer if prev_fillup else None
+                )
 
             await next_fillup.save()
             logger.info("Recalculated stats for fill-up %s", next_fillup.id)

@@ -100,7 +100,9 @@ async def get_trips(request: Request):
                 "endOdometer": trip_dict.get("endOdometer"),
                 "averageSpeed": trip_dict.get("averageSpeed"),
                 "pointsRecorded": num_points,
-                "estimated_cost": TripCostService.calculate_trip_cost(trip_dict, price_map),
+                "estimated_cost": TripCostService.calculate_trip_cost(
+                    trip_dict, price_map
+                ),
                 "matchedGps": matched_geom,
                 "matchStatus": trip_dict.get("matchStatus"),
             }

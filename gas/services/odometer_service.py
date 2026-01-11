@@ -255,16 +255,28 @@ class OdometerService:
             diff_prev = abs((target_time - prev_fillup.fillup_time).total_seconds())
             diff_next = abs((next_fillup.fillup_time - target_time).total_seconds())
             if diff_prev < diff_next:
-                best_anchor = {"fillup_time": prev_fillup.fillup_time, "odometer": prev_fillup.odometer}
+                best_anchor = {
+                    "fillup_time": prev_fillup.fillup_time,
+                    "odometer": prev_fillup.odometer,
+                }
                 anchor_type = "prev"
             else:
-                best_anchor = {"fillup_time": next_fillup.fillup_time, "odometer": next_fillup.odometer}
+                best_anchor = {
+                    "fillup_time": next_fillup.fillup_time,
+                    "odometer": next_fillup.odometer,
+                }
                 anchor_type = "next"
         elif prev_fillup:
-            best_anchor = {"fillup_time": prev_fillup.fillup_time, "odometer": prev_fillup.odometer}
+            best_anchor = {
+                "fillup_time": prev_fillup.fillup_time,
+                "odometer": prev_fillup.odometer,
+            }
             anchor_type = "prev"
         elif next_fillup:
-            best_anchor = {"fillup_time": next_fillup.fillup_time, "odometer": next_fillup.odometer}
+            best_anchor = {
+                "fillup_time": next_fillup.fillup_time,
+                "odometer": next_fillup.odometer,
+            }
             anchor_type = "next"
 
         # 2. If no fill-up anchor, try to find a trip anchor

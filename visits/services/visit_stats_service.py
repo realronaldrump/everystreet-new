@@ -133,7 +133,11 @@ class VisitStatsService:
                 {
                     "id": arrival_trip_id,
                     "transactionId": transaction_id,
-                    "endTime": visit["arrival_time"].isoformat() if visit["arrival_time"] else None,
+                    "endTime": (
+                        visit["arrival_time"].isoformat()
+                        if visit["arrival_time"]
+                        else None
+                    ),
                     "departureTime": (
                         visit["departure_time"].isoformat()
                         if visit["departure_time"]
@@ -238,8 +242,12 @@ class VisitStatsService:
             {
                 "name": doc["_id"],
                 "totalVisits": doc["totalVisits"],
-                "firstVisit": doc["firstVisit"].isoformat() if doc.get("firstVisit") else None,
-                "lastVisit": doc["lastVisit"].isoformat() if doc.get("lastVisit") else None,
+                "firstVisit": (
+                    doc["firstVisit"].isoformat() if doc.get("firstVisit") else None
+                ),
+                "lastVisit": (
+                    doc["lastVisit"].isoformat() if doc.get("lastVisit") else None
+                ),
             }
             for doc in results
         ]
@@ -395,8 +403,12 @@ class VisitStatsService:
                 {
                     "suggestedName": f"Area near {round(center_lat, 3)}, {round(center_lng, 3)}",
                     "totalVisits": c["totalVisits"],
-                    "firstVisit": c["firstVisit"].isoformat() if c.get("firstVisit") else None,
-                    "lastVisit": c["lastVisit"].isoformat() if c.get("lastVisit") else None,
+                    "firstVisit": (
+                        c["firstVisit"].isoformat() if c.get("firstVisit") else None
+                    ),
+                    "lastVisit": (
+                        c["lastVisit"].isoformat() if c.get("lastVisit") else None
+                    ),
                     "centroid": [center_lng, center_lat],
                     "boundary": boundary,
                 }

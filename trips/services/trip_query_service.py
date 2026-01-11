@@ -200,7 +200,9 @@ class TripQueryService:
                 "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
                 "totalIdleDuration": trip_dict.get("totalIdleDuration", 0),
                 "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
-                "estimated_cost": TripCostService.calculate_trip_cost(trip_dict, price_map),
+                "estimated_cost": TripCostService.calculate_trip_cost(
+                    trip_dict, price_map
+                ),
             }
             formatted_data.append(formatted_trip)
 
@@ -252,10 +254,15 @@ class TripQueryService:
             dict with status, trips list, and count
         """
         # Use Beanie projection
-        trips = await Trip.find(
-            Trip.invalid == True,
-            projection_model=None,  # Use dict projection
-        ).sort(-Trip.validated_at).limit(1000).to_list()
+        trips = (
+            await Trip.find(
+                Trip.invalid == True,
+                projection_model=None,  # Use dict projection
+            )
+            .sort(-Trip.validated_at)
+            .limit(1000)
+            .to_list()
+        )
 
         # Convert Beanie models to dicts for response
         trips_data = []
@@ -337,9 +344,7 @@ class TripQueryService:
                 if geometry is not None:
                     feature = GeometryService.feature_from_geometry(
                         geometry,
-                        properties={
-                            "transactionId": trip.transactionId or "N/A"
-                        },
+                        properties={"transactionId": trip.transactionId or "N/A"},
                     )
                     trip_features.append(feature)
 
