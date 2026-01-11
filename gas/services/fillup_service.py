@@ -4,9 +4,10 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from beanie import PydanticObjectId
 from core.exceptions import ResourceNotFoundException, ValidationException
+from date_utils import parse_timestamp
 from db.models import GasFillup, Vehicle
-from gas.serializers import parse_iso_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +44,13 @@ class FillupService:
 
         # Date filtering
         if start_date:
-            start_dt = parse_iso_datetime(start_date)
-            conditions.append(GasFillup.fillup_time >= start_dt)
+            start_dt = parse_timestamp(start_date)
+            if start_dt:
+                conditions.append(GasFillup.fillup_time >= start_dt)
         if end_date:
-            end_dt = parse_iso_datetime(end_date)
-            conditions.append(GasFillup.fillup_time <= end_dt)
+            end_dt = parse_timestamp(end_date)
+            if end_dt:
+                conditions.append(GasFillup.fillup_time <= end_dt)
 
         query = GasFillup.find(*conditions) if conditions else GasFillup.find_all()
 
@@ -64,7 +67,7 @@ class FillupService:
         Returns:
             GasFillup model or None if not found
         """
-        if not ObjectId.is_valid(fillup_id):
+        if not PydanticObjectId.is_valid(fillup_id):
             raise ValidationException("Invalid fillup ID")
 
         return await GasFillup.get(fillup_id)
@@ -129,7 +132,9 @@ class FillupService:
             Created GasFillup model
         """
         # Convert string datetime to datetime object if needed
-        fillup_time = parse_iso_datetime(fillup_data["fillup_time"])
+        fillup_time = parse_timestamp(fillup_data["fillup_time"])
+        if not fillup_time:
+            raise ValidationException("Invalid fillup_time format")
 
         # Get vehicle info if available
         vehicle = await Vehicle.find_one(Vehicle.imei == fillup_data["imei"])
@@ -211,7 +216,7 @@ class FillupService:
         Raises:
             ValueError: If fill-up not found
         """
-        if not ObjectId.is_valid(fillup_id):
+        if not PydanticObjectId.is_valid(fillup_id):
             raise ValidationException("Invalid fillup ID")
 
         # Check if fillup exists
@@ -296,7 +301,7 @@ class FillupService:
         Raises:
             ValueError: If fill-up not found
         """
-        if not ObjectId.is_valid(fillup_id):
+        if not PydanticObjectId.is_valid(fillup_id):
             raise ValidationException("Invalid fillup ID")
 
         # Get existing to find IMEI and time

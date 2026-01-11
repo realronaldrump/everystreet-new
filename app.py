@@ -15,7 +15,7 @@ from app_settings import ensure_settings_cached
 from core.http.session import cleanup_session
 from county_api import router as county_api_router
 from coverage_api import router as coverage_api_router
-from db import db_manager, init_database
+from db import db_manager
 from driving_routes import router as driving_routes_router
 from exports import router as export_api_router
 from gas import router as gas_api_router
@@ -142,8 +142,8 @@ async def startup_event():
         await db_manager.init_beanie()
         logger.info("Beanie ODM initialized successfully.")
 
-        await init_database()  # This already creates many indexes
-        logger.info("Core database initialized successfully (indexes, etc.).")
+        # Core database initialization is now handled by Beanie
+        # await init_database()
 
         # Set up MongoDB logging handler
         AppState.mongo_handler = MongoDBHandler(db_manager.db, "server_logs")
