@@ -108,7 +108,7 @@ async def generate_and_store_geojson(
                 "geometry": street.geometry,
                 "properties": street.properties,
             }
-            json_str = json.dumps(feature)
+            json_str = json.dumps(feature, default=str)
             prefix = b"" if first else b",\n"
             await upload_stream.write(prefix + json_str.encode("utf-8"))
             first = False
@@ -140,7 +140,7 @@ async def generate_and_store_geojson(
         logger.info("Task %s: GeoJSON generation complete.", task_id)
 
     except Exception as e:
-        logger.exception("Task %s: GeoJSON generation failed: %s", task_id, e)
+        logger.exception("Task %s: GeoJSON generation failed", task_id)
         if upload_stream:
             await upload_stream.abort()
 

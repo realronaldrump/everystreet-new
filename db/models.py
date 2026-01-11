@@ -27,7 +27,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from beanie import Document, Indexed
+from beanie import Document, Indexed, PydanticObjectId
 from pydantic import Field, field_validator
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
@@ -452,6 +452,7 @@ class Place(Document):
 class TaskConfig(Document):
     """Task configuration document for scheduled tasks."""
 
+    id: str | PydanticObjectId | None = Field(default=None, alias="_id")
     task_id: Indexed(str) | None = None
     enabled: bool = True
     interval_minutes: int | None = None
