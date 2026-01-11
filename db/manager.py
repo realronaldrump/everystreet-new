@@ -280,7 +280,7 @@ class DatabaseManager:
             collection_name: Name of the collection.
 
         Returns:
-            The AsyncIOMotorCollection instance.
+            The AsyncCollection instance.
         """
         if collection_name not in self._collections or not self._connection_healthy:
             self._collections[collection_name] = self.db[collection_name]
