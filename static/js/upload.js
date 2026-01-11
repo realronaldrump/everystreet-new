@@ -1,4 +1,4 @@
-/* global mapboxgl, confirmationDialog, handleError, loadingManager, mapBase, notificationManager */
+/* global mapboxgl, confirmationDialog */
 
 class UploadManager {
   constructor() {

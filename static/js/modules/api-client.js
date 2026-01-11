@@ -225,7 +225,7 @@ class APIClient {
           try {
             const error = JSON.parse(xhr.responseText);
             reject(new Error(error.detail || error.error || `HTTP ${xhr.status}`));
-          } catch (_e) {
+          } catch {
             reject(new Error(`HTTP ${xhr.status}`));
           }
         }

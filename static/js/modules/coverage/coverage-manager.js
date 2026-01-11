@@ -3,7 +3,7 @@
  * Coordinates all coverage management modules
  */
 
-/* global bootstrap, Chart, mapboxgl */
+/* global Chart, mapboxgl */
 
 import COVERAGE_API from "./coverage-api.js";
 import { CoverageAutoRefresh } from "./coverage-auto-refresh.js";
@@ -32,7 +32,7 @@ class CoverageManager {
     // Initialize notification and confirmation dialog
     this.notificationManager = window.notificationManager || {
       // Fallback: log when notification manager is missing so actions remain traceable
-      show: (message, type = "info", _duration = 3000) => {
+      show: (message, type = "info") => {
         console.info(`[Coverage notice:${type}]`, message);
       },
     };
@@ -212,7 +212,7 @@ class CoverageManager {
     if (locationStr) {
       try {
         locationData = JSON.parse(locationStr);
-      } catch (_parseError) {
+      } catch {
         this.notificationManager.show(
           "Action failed: Invalid location data.",
           "danger"

@@ -183,7 +183,7 @@ export class CoverageEvents {
         this.manager.progress.activeTaskIds.add(e.detail.taskId);
         this.manager.progress._addBeforeUnloadListener();
         this.manager.progress
-          .pollCoverageProgress(e.detail.taskId, (_data) => {
+          .pollCoverageProgress(e.detail.taskId, () => {
             // Handle update
           })
           .catch(console.error);

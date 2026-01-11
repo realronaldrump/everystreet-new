@@ -1,5 +1,3 @@
-/* global confirmationDialog, notificationManager */
-
 /**
  * InvalidTripReview - Handles display and management of invalid trips
  */

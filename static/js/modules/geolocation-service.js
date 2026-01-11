@@ -194,7 +194,7 @@ class GeolocationService {
       try {
         const result = await navigator.permissions.query({ name: "geolocation" });
         return result.state; // 'granted', 'denied', or 'prompt'
-      } catch (_error) {
+      } catch {
         // Permissions API not fully supported, fall back to trying getCurrentPosition
         return "prompt";
       }
@@ -208,7 +208,7 @@ class GeolocationService {
   async getPositionWithFallback(primaryOptions = {}, fallbackOptions = {}) {
     try {
       return await this.getCurrentPosition(primaryOptions);
-    } catch (_error) {
+    } catch {
       // Try with less strict options as fallback
       const relaxedOptions = {
         enableHighAccuracy: false,

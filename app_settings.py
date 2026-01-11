@@ -48,8 +48,8 @@ async def get_app_settings() -> dict[str, Any]:
         }
 
     try:
-        # Using string ID "app_settings" as per legacy schema
-        settings = await AppSettings.get("app_settings")
+        # Get the single settings document from the collection
+        settings = await AppSettings.find_one()
 
         if settings:
             logger.debug("Retrieved app settings from database")
@@ -104,8 +104,8 @@ async def update_app_settings(settings: dict[str, Any]) -> bool:
             return False
 
         # Update via Beanie
-        # We try to get the document first
-        doc = await AppSettings.get("app_settings")
+        # We try to get the single settings document first
+        doc = await AppSettings.find_one()
         if doc:
             # Update fields
             for k, v in update_data.items():
@@ -114,11 +114,8 @@ async def update_app_settings(settings: dict[str, Any]) -> bool:
             await doc.save()
             success = True
         else:
-            # Insert new document with specific ID
-            # Beanie Document init with id argument
-            new_doc = AppSettings(
-                id="app_settings", updated_at=datetime.now(UTC), **update_data
-            )
+            # Insert new document (MongoDB will auto-generate ObjectId)
+            new_doc = AppSettings(updated_at=datetime.now(UTC), **update_data)
             await new_doc.insert()
             success = True
 

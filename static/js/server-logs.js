@@ -1,5 +1,3 @@
-/* global confirmationDialog, notificationManager */
-
 document.addEventListener("DOMContentLoaded", () => {
   // DOM elements
   const logsContainer = document.getElementById("logs-container");

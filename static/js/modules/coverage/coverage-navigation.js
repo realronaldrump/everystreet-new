@@ -33,7 +33,7 @@ class CoverageNavigation {
       currentLat = position.coords.latitude;
       currentLon = position.coords.longitude;
       positionSource = "browser";
-    } catch (_error) {
+    } catch {
       try {
         const activeTripResponse = await fetch("/api/trip/active");
         if (activeTripResponse.ok) {
@@ -51,7 +51,7 @@ class CoverageNavigation {
             positionSource = "active-trip";
           }
         }
-      } catch (_tripError) {
+      } catch {
         try {
           const lastTripResponse = await fetch("/api/trips?limit=1");
           if (lastTripResponse.ok) {
@@ -65,7 +65,7 @@ class CoverageNavigation {
               }
             }
           }
-        } catch (_lastTripError) {
+        } catch {
           this.notificationManager.show(
             "Unable to determine current position. Please enable location services or start a trip.",
             "warning"
@@ -429,7 +429,7 @@ class CoverageNavigation {
                   { source: "streets", id: segmentId },
                   "efficientRank"
                 );
-              } catch (_e) {
+              } catch {
                 // Silently ignore feature state removal errors
               }
             }
@@ -760,7 +760,7 @@ class CoverageNavigation {
         this.currentOptimalRouteLocationId = locationId;
         await this.displayOptimalRoute(locationId);
       }
-    } catch (_error) {
+    } catch {
       // No existing route, which is fine
     }
   }

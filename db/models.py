@@ -345,7 +345,9 @@ class Vehicle(Document):
 class AppSettings(Document):
     """Application settings document."""
 
-    # We use a fixed ID "app_settings" typically.
+    # Use string ID to support legacy documents with string _id values
+    id: str | None = Field(default=None, alias="_id")
+
     # We define specific fields for known settings to allow validation,
     # but allow extra fields for extensibility.
     mapbox_access_token: str | None = None
@@ -358,6 +360,7 @@ class AppSettings(Document):
 
     class Settings:
         name = "app_settings"
+        use_state_management = True
 
     class Config:
         extra = "allow"

@@ -1,4 +1,4 @@
-/* global showLoadingOverlay, hideLoadingOverlay, bootstrap, flatpickr, DateUtils, notificationManager */
+/* global showLoadingOverlay, hideLoadingOverlay, bootstrap, flatpickr */
 
 import {
   escapeHtml,

@@ -3,7 +3,7 @@
  * Handles dashboard, tables, charts, and UI components
  */
 
-/* global Chart, $, bootstrap */
+/* global Chart, $ */
 
 class CoverageUI {
   constructor(notificationManager) {
@@ -245,7 +245,7 @@ class CoverageUI {
   /**
    * Create street type chart
    */
-  createStreetTypeChart(streetTypes, formatStreetType, _distanceInUserUnits) {
+  createStreetTypeChart(streetTypes, formatStreetType) {
     const chartContainer = document.getElementById("street-type-chart");
     if (!chartContainer) return;
     if (this.streetTypeChartInstance) this.streetTypeChartInstance.destroy();

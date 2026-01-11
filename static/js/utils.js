@@ -1,4 +1,4 @@
-/* global bootstrap, DateUtils, confirmationDialog, handleError, notificationManager */
+/* global bootstrap */
 
 // Consolidated utility functions that will be used across the application
 const utils = {
@@ -144,7 +144,6 @@ const utils = {
     const startTime = performance.now();
     try {
       const result = await fn();
-      const _duration = performance.now() - startTime;
 
       return result;
     } catch (error) {

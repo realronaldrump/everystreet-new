@@ -223,7 +223,6 @@ const heatmapUtils = {
         ? visibleTripCount
         : tripCount;
     const glowLayers = this.generateGlowLayers(styleTripCount, opacity, theme);
-    const _settings = this.getAdaptiveSettings(styleTripCount);
 
     return {
       tripCount,

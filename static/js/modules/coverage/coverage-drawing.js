@@ -208,14 +208,14 @@ class CoverageDrawing {
   /**
    * Handle drawing delete
    */
-  handleDrawingDelete(_e) {
+  handleDrawingDelete() {
     this.clearDrawingValidationState();
   }
 
   /**
    * Update drawing validation state
    */
-  updateDrawingValidationState(_feature) {
+  updateDrawingValidationState() {
     const validateButton = document.getElementById("validate-drawing");
     const addButton = document.getElementById("add-custom-area");
 

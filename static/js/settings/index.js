@@ -1,4 +1,4 @@
-/* global showLoadingOverlay, hideLoadingOverlay, bootstrap, notificationManager */
+/* global showLoadingOverlay, hideLoadingOverlay, bootstrap */
 
 /**
  * Settings Page Entry Point
@@ -394,7 +394,7 @@ function init() {
   initAppSettings();
 
   // Initialize InvalidTripReview
-  const _invalidTripReview = new InvalidTripReview();
+  new InvalidTripReview();
 
   // Load initial task config
   taskManager.loadTaskConfig();

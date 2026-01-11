@@ -193,7 +193,7 @@ export class CoverageModals {
     tooltipTriggerList.forEach((tooltipTriggerEl) => {
       const existing = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
       if (existing) existing.dispose();
-      const _tooltip = new bootstrap.Tooltip(tooltipTriggerEl, {
+      new bootstrap.Tooltip(tooltipTriggerEl, {
         animation: true,
         delay: { show: 500, hide: 100 },
         html: true,

@@ -1,4 +1,4 @@
-/* global showLoadingOverlay, hideLoadingOverlay, flatpickr, DateUtils, notificationManager */
+/* global showLoadingOverlay, hideLoadingOverlay, flatpickr */
 
 /**
  * Setup functions for trip geocoding and remapping functionality

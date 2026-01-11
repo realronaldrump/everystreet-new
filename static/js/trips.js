@@ -1,5 +1,3 @@
-/* global confirmationDialog, notificationManager */
-
 /**
  * Trips Page Logic
  * Handles trip listing, filtering, and bulk operations

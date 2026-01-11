@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from shapely.geometry import Point
 
 from date_utils import get_current_utc_time
-from db import places_collection
+from db import Place
 from external_geo_service import ExternalGeoService
 from geometry_service import GeometryService
 from models import TripDataModel
@@ -344,7 +344,7 @@ class TripProcessor:
         query = {"geometry": {"$geoIntersects": {"$geometry": point_geojson}}}
 
         try:
-            return await places_collection.find_one(query)
+            return await Place.find_one(query)
         except Exception as e:
             logger.error("Error finding place at point: %s", str(e))
             return None

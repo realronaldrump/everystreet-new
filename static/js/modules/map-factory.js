@@ -5,6 +5,8 @@
  * Built on top of map-pool for efficient resource management
  */
 
+/* global mapboxgl */
+
 import { CONFIG } from "./config.js";
 import mapPool from "./map-pool.js";
 

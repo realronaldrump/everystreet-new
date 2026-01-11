@@ -637,7 +637,7 @@ class CoverageMap {
     if (this.coverageSummaryControl && this.map?.removeControl) {
       try {
         this.map.removeControl(this.coverageSummaryControl);
-      } catch (_e) {
+      } catch {
         /* ignore */
       }
       this.coverageSummaryControl = null;
@@ -721,7 +721,7 @@ class CoverageMap {
     if (this.coverageSummaryControl && this.map) {
       try {
         this.map.removeControl(this.coverageSummaryControl);
-      } catch (_e) {
+      } catch {
         /* ignore */
       }
       this.coverageSummaryControl = null;
