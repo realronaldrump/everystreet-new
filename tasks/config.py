@@ -11,65 +11,66 @@ from typing import Any
 
 from celery.utils.log import get_task_logger
 
-from date_utils import parse_timestamp
+
 from db.models import TaskConfig, TaskHistory
 
 logger = get_task_logger(__name__)
 
 
 async def get_task_config() -> dict[str, Any]:
-    """Retrieves global task configuration document from database.
-
-    If document doesn't exist, it creates a default configuration based
-    on TASK_METADATA. It also ensures that all tasks defined in TASK_METADATA
-    have a corresponding entry in the configuration.
+    """Retrieves all task configurations as a dictionary.
 
     Returns:
-        The task configuration dictionary. Returns a default structure on error.
+        A dictionary where the 'tasks' key contains a map of task_id to its configuration.
     """
     from tasks.core import TASK_METADATA, TaskStatus
 
     try:
-        cfg = await TaskConfig.get("global_background_task_config")
+        # Fetch all existing task configs
+        all_configs = await TaskConfig.find_all().to_list()
 
-        if not cfg:
-            logger.info("No task config found, creating default.")
-            cfg_dict = {
-                "id": "global_background_task_config",
-                "disabled": False,
-                "tasks": {
-                    t_id: {
-                        "enabled": True,
-                        "interval_minutes": t_def["default_interval_minutes"],
-                        "status": TaskStatus.IDLE.value,
-                        "last_run": None,
-                        "next_run": None,
+        # Create a map for easy lookup
+        config_map = {cfg.task_id: cfg for cfg in all_configs if cfg.task_id}
+
+        tasks_output = {}
+
+        for t_id, t_def in TASK_METADATA.items():
+            if t_id in config_map:
+                # Use existing config
+                c = config_map[t_id]
+                tasks_output[t_id] = {
+                    "enabled": c.enabled,
+                    "interval_minutes": c.interval_minutes,
+                    "status": c.status,
+                    "last_run": c.last_run,
+                    "next_run": c.next_run,
+                    # Retrieve the extra fields we stored in config dict
+                    "last_error": c.config.get("last_error"),
+                    "start_time": c.config.get("start_time"),
+                    "end_time": c.config.get("end_time"),
+                    "last_updated": c.last_updated,
+                    "last_success_time": c.config.get("last_success_time"),
+                }
+            else:
+                # Create default if missing
+                default_interval = t_def["default_interval_minutes"]
+                new_config = TaskConfig(
+                    task_id=t_id,
+                    enabled=True,
+                    interval_minutes=default_interval,
+                    status=TaskStatus.IDLE.value,
+                    config={
                         "last_error": None,
                         "start_time": None,
                         "end_time": None,
-                        "last_updated": None,
                         "last_success_time": None,
-                    }
-                    for t_id, t_def in TASK_METADATA.items()
-                },
-            }
-            await TaskConfig(**cfg_dict).insert()
-            cfg_dict["_id"] = cfg_dict.pop("id")
-            return cfg_dict
+                    },
+                )
+                await new_config.save()
 
-        cfg_dict = cfg.model_dump()
-        cfg_dict["_id"] = cfg_dict.pop("id")
-
-        updated = False
-        if "tasks" not in cfg_dict:
-            cfg_dict["tasks"] = {}
-            updated = True
-
-        for t_id, t_def in TASK_METADATA.items():
-            if t_id not in cfg_dict["tasks"]:
-                cfg_dict["tasks"][t_id] = {
+                tasks_output[t_id] = {
                     "enabled": True,
-                    "interval_minutes": t_def["default_interval_minutes"],
+                    "interval_minutes": default_interval,
                     "status": TaskStatus.IDLE.value,
                     "last_run": None,
                     "next_run": None,
@@ -79,20 +80,15 @@ async def get_task_config() -> dict[str, Any]:
                     "last_updated": None,
                     "last_success_time": None,
                 }
-                updated = True
 
-        if updated:
-            await TaskConfig(
-                id="global_background_task_config",
-                disabled=cfg_dict["disabled"],
-                tasks=cfg_dict["tasks"],
-            ).save()
+        return {
+            "disabled": False,  # Global disable flag logic might need a dedicated place if needed, or we assume False
+            "tasks": tasks_output,
+        }
 
-        return cfg_dict
     except Exception as e:
         logger.exception("Error getting task config: %s", e)
         return {
-            "_id": "global_background_task_config",
             "disabled": False,
             "tasks": {},
         }
@@ -127,19 +123,23 @@ async def check_dependencies(
         if not dependencies:
             return {"can_run": True}
 
-        config = await get_task_config()
-        tasks_config = config.get("tasks", {})
+        # Query all dependencies at once
+        dep_configs = await TaskConfig.find(
+            TaskConfig.task_id.in_(dependencies)
+        ).to_list()
+        dep_map = {d.task_id: d for d in dep_configs}
 
         for dep_id in dependencies:
-            if dep_id not in tasks_config:
+            if dep_id not in dep_map:
                 logger.warning(
-                    "Task %s dependency %s not found in configuration.",
+                    "Task %s dependency %s not found in database.",
                     task_id,
                     dep_id,
                 )
                 continue
 
-            dep_status = tasks_config[dep_id].get("status")
+            dep_config = dep_map[dep_id]
+            dep_status = dep_config.status
 
             if dep_status in [
                 TaskStatus.RUNNING.value,
@@ -151,8 +151,7 @@ async def check_dependencies(
                 }
 
             if dep_status == TaskStatus.FAILED.value:
-                last_updated_any = tasks_config[dep_id].get("last_updated")
-                last_updated = parse_timestamp(last_updated_any)
+                last_updated = dep_config.last_updated
 
                 if last_updated and (
                     datetime.now(UTC) - last_updated < timedelta(hours=1)

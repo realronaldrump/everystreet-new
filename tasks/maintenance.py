@@ -16,10 +16,8 @@ from celery import shared_task
 from celery.utils.log import get_task_logger
 from pydantic import ValidationError
 from pymongo import UpdateOne
-from pymongo.errors import BulkWriteError, ConnectionFailure
-
+from pymongo.errors import BulkWriteError
 from core.async_bridge import run_async_from_sync
-from db import db_manager
 from db.models import Trip
 from live_tracking import cleanup_stale_trips_logic
 from models import TripDataModel
@@ -33,26 +31,8 @@ logger = get_task_logger(__name__)
 @task_runner
 async def cleanup_stale_trips_async(_self) -> dict[str, Any]:
     """Async logic for cleaning up stale live tracking trips."""
-    # Ensure we can access the database
-    _ = db_manager.client
-    logger.debug("Database client accessed for cleanup task.")
 
-    live_collection = db_manager.get_collection("live_trips")
-
-    if live_collection is None:
-        logger.critical(
-            "DB collection 'live_trips' could not be obtained in cleanup task!",
-        )
-        raise ConnectionFailure(
-            "Could not get required collection for cleanup task.",
-        )
-    logger.debug(
-        "Successfully obtained live_trips collection.",
-    )
-
-    cleanup_result = await cleanup_stale_trips_logic(
-        live_collection=live_collection,
-    )
+    cleanup_result = await cleanup_stale_trips_logic()
 
     stale_archived_count = cleanup_result.get("stale_trips_archived", 0)
     old_removed_count = cleanup_result.get("old_archives_removed", 0)
@@ -138,7 +118,6 @@ async def validate_trips_async(_self) -> dict[str, Any]:
     )
 
     batch_updates = []
-    trips_updated_count = 0
 
     # We iterate the motor cursor for efficiency in this batch job
     async for trip in cursor:

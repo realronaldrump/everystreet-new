@@ -1,11 +1,3 @@
-"""Centralized Trip Service.
-
-This module provides a unified TripService class that consolidates all trip
-processing logic, eliminating duplications across the codebase. It wraps
-TripProcessor and provides batch processing, validation, geocoding, and
-map matching capabilities for both Bouncie and uploaded trips.
-"""
-
 import asyncio
 import json
 import logging
@@ -19,7 +11,7 @@ from pymongo.errors import DuplicateKeyError
 
 from admin_api import get_persisted_app_settings
 from config import get_mapbox_token
-from db import find_with_retry, get_trip_by_id, trips_collection
+from db.models import Trip
 from trip_processor import TripProcessor, TripState
 
 logger = logging.getLogger(__name__)
@@ -107,16 +99,14 @@ class TripService:
 
     def __init__(self, mapbox_token: str = None):
         self.mapbox_token = mapbox_token or get_mapbox_token()
-        self._init_collections()
-
-    def _init_collections(self):
-        """Initialize database collections."""
-        self.trips_collection = trips_collection
 
     @with_comprehensive_handling
     async def get_trip_by_id(self, trip_id: str) -> dict[str, Any] | None:
         """Retrieve a trip by its ID."""
-        return await get_trip_by_id(trip_id, self.trips_collection)
+        trip = await Trip.find_one(Trip.transactionId == trip_id)
+        if trip:
+            return trip.model_dump()
+        return None
 
     @with_comprehensive_handling
     async def process_single_trip(
@@ -222,13 +212,14 @@ class TripService:
         limit = min(limit, 500)
 
         # Find trips matching query
-        trips = await find_with_retry(self.trips_collection, query, limit=limit)
+        trips = await Trip.find(query).limit(limit).to_list()
         if not trips:
             return result
 
         result.total = len(trips)
 
-        for i, trip in enumerate(trips):
+        for i, trip_model in enumerate(trips):
+            trip = trip_model.model_dump()
             if progress_tracker:
                 progress = int((i / len(trips)) * 100)
                 progress_tracker["progress"] = progress
@@ -331,6 +322,7 @@ class TripService:
                 seen_incoming.add(tx)
                 unique_trips.append(t)
 
+            trips_to_process = []
             if unique_trips:
                 incoming_ids = [
                     t.get("transactionId")
@@ -338,20 +330,19 @@ class TripService:
                     if t.get("transactionId")
                 ]
 
-                # Query existing trips to check their status
-                existing_docs = await find_with_retry(
-                    self.trips_collection,
-                    {"transactionId": {"$in": incoming_ids}},
-                    projection={"transactionId": 1, "matchedGps": 1, "_id": 0},
-                    limit=len(incoming_ids),
+                # Query existing trips to check their status using Beanie
+                existing_docs = (
+                    await Trip.find(Trip.transactionId.in_(incoming_ids))
+                    .project(Trip.transactionId, Trip.matchedGps)
+                    .to_list()
                 )
-                existing_by_id = {d.get("transactionId"): d for d in existing_docs}
 
-                # Determine which trips need processing:
-                # - If map matching is enabled: process trips that don't exist OR
-                #   exist but don't have matchedGps yet
-                # - If map matching is disabled: only process trips that don't exist
-                trips_to_process = []
+                existing_by_id = {}
+                for d in existing_docs:
+                    d_dict = d.model_dump() if hasattr(d, "model_dump") else dict(d)
+                    existing_by_id[d_dict.get("transactionId")] = d_dict
+
+                # Determine which trips need processing
                 for trip in unique_trips:
                     transaction_id = trip.get("transactionId")
                     if not transaction_id:
@@ -363,16 +354,8 @@ class TripService:
                         # New trip - always process
                         trips_to_process.append(trip)
                     elif do_map_match and not existing_trip.get("matchedGps"):
-                        # Map matching requested - check if trip already has matched
-                        # data. Trip exists but lacks matchedGps - process for map
-                        # matching
+                        # Map matching requested and missing - process
                         trips_to_process.append(trip)
-                        # else: trip already has matchedGps - skip to avoid redundant
-                        # processing
-                    # else: trip exists and map matching not requested - skip to avoid
-                    # duplicates
-            else:
-                trips_to_process = []
 
             skipped_count = len(seen_incoming) - len(trips_to_process)
             logger.info(
@@ -418,8 +401,6 @@ class TripService:
                     )
 
                     if result.get("saved_id"):
-                        # Track the trip by its transactionId for callers that expect
-                        # transaction IDs
                         processed_trip_ids.append(transaction_id)
 
                 except Exception as trip_error:
@@ -452,19 +433,33 @@ class TripService:
         limit: int = 100,
     ) -> dict[str, Any]:
         """Remap trips using map matching."""
+        trips = []
         if trip_ids:
-            trips = []
             for trip_id in trip_ids:
                 trip = await self.get_trip_by_id(trip_id)
                 if trip:
                     trips.append(trip)
         elif query:
-            trips = await find_with_retry(self.trips_collection, query, limit=limit)
+            # Beanie find with query
+            trip_models = await Trip.find(query).limit(limit).to_list()
+            trips = [t.model_dump() for t in trip_models]
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Either trip_ids or query must be provided",
             )
+
+        # process_batch_trips expects dict query, but here we already fetched the trips
+        # actually process_batch_trips takes a query, NOT a list of trips.
+        # So we should call process_single_trip in a loop here, OR reuse process_batch_trips logic.
+
+        # But wait, original code did:
+        # result = await self.process_batch_trips({}, options, limit=len(trips))
+        # That {} query is WRONG if we wanted to process specific trips.
+        # process_batch_trips uses "find_with_retry(..., query)".
+
+        # We need to adapt logic. process_batch_trips is designed to find by query.
+        # But if we have specific IDs, constructing a query is better.
 
         options = ProcessingOptions(
             validate=False,
@@ -472,8 +467,20 @@ class TripService:
             map_match=True,
         )
 
-        result = await self.process_batch_trips({}, options, limit=len(trips))
-        return result.to_dict()
+        # If we have trip_ids, we can pass a query to process_batch_trips
+        if trip_ids:
+            batch_query = {"transactionId": {"$in": trip_ids}}
+            result = await self.process_batch_trips(
+                batch_query, options, limit=len(trip_ids)
+            )
+            return result.to_dict()
+        if query:
+            # Just pass the query
+            result = await self.process_batch_trips(query, options, limit=limit)
+            return result.to_dict()
+
+        # If we reached here (shouldn't happen due to check above)
+        return BatchProcessingResult().to_dict()
 
     @with_comprehensive_handling
     async def refresh_geocoding(
@@ -482,14 +489,7 @@ class TripService:
         skip_if_exists: bool = True,
         progress_callback: callable = None,
     ) -> dict[str, Any]:
-        """Refresh geocoding for specified trips.
-
-        Args:
-            trip_ids: List of trip IDs to geocode
-            skip_if_exists: If True, skip geocoding if address already exists
-            progress_callback: Optional callback function(current, total, trip_id) for
-            progress updates
-        """
+        """Refresh geocoding for specified trips."""
         results = {
             "total": len(trip_ids),
             "updated": 0,

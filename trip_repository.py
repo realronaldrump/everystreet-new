@@ -123,23 +123,24 @@ class TripRepository:
 
             transaction_id = trip_to_save.get("transactionId")
 
-            await self.trips_collection.update_one(
-                {"transactionId": transaction_id},
-                {"$set": trip_to_save},
-                upsert=True,
-            )
+            # Use Beanie to find and update or create
+            trip = await Trip.find_one(Trip.transactionId == transaction_id)
+            if trip:
+                # Update existing fields
+                for key, value in trip_to_save.items():
+                    setattr(trip, key, value)
+                await trip.save()
+            else:
+                # Create new
+                trip = Trip(**trip_to_save)
+                await trip.insert()
 
             logger.debug(
-                "Saved trip %s to %s successfully",
+                "Saved trip %s successfully",
                 transaction_id,
-                self.trips_collection.name,
             )
 
-            saved_doc = await self.trips_collection.find_one(
-                {"transactionId": transaction_id},
-            )
-
-            return str(saved_doc["_id"]) if saved_doc else None
+            return str(trip.id)
 
         except Exception as e:
             logger.error("Error saving trip: %s", e)

@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 from celery.utils.log import get_task_logger
 
-from db import db_manager
 
 logger = get_task_logger(__name__)
 T = TypeVar("T")
@@ -126,7 +125,7 @@ class TaskStatusManager:
         status: str,
         error: str | None = None,
     ) -> bool:
-        """Updates the status of a specific task in the global task configuration document.
+        """Updates the status of a specific task using the TaskConfig Beanie model.
 
         Args:
             task_id: The identifier of the task (e.g., 'periodic_fetch_trips').
@@ -134,42 +133,60 @@ class TaskStatusManager:
             error: An optional error message if the status is FAILED.
 
         Returns:
-            True if the update was successful (document modified or upserted),
-            False otherwise.
+            True if the update was successful, False otherwise.
         """
         try:
-            now = datetime.now(UTC)
-            update_data = {
-                f"tasks.{task_id}.status": status,
-                f"tasks.{task_id}.last_updated": now,
-            }
-            if status == TaskStatus.RUNNING.value:
-                update_data[f"tasks.{task_id}.start_time"] = now
-                update_data[f"tasks.{task_id}.end_time"] = None
-                update_data[f"tasks.{task_id}.last_error"] = None
-            elif status == TaskStatus.COMPLETED.value:
-                update_data[f"tasks.{task_id}.last_run"] = now
-                update_data[f"tasks.{task_id}.end_time"] = now
-                update_data[f"tasks.{task_id}.last_error"] = None
-            elif status == TaskStatus.FAILED.value:
-                update_data[f"tasks.{task_id}.last_error"] = error
-                update_data[f"tasks.{task_id}.end_time"] = now
-            elif status == TaskStatus.PENDING.value:
-                update_data[f"tasks.{task_id}.start_time"] = now
-                update_data[f"tasks.{task_id}.end_time"] = None
-                update_data[f"tasks.{task_id}.last_error"] = None
-            elif status == TaskStatus.IDLE.value:
-                update_data[f"tasks.{task_id}.start_time"] = None
-                update_data[f"tasks.{task_id}.end_time"] = None
-                update_data[f"tasks.{task_id}.last_error"] = None
+            from db.models import TaskConfig
 
-            task_config_coll = db_manager.get_collection("task_config")
-            result = await task_config_coll.update_one(
-                {"_id": "global_background_task_config"},
-                {"$set": update_data},
-                upsert=True,
-            )
-            return result.modified_count > 0 or result.upserted_id is not None
+            now = datetime.now(UTC)
+
+            # Find existing config or create new one
+            task_config = await TaskConfig.find_one(TaskConfig.task_id == task_id)
+            if not task_config:
+                task_config = TaskConfig(task_id=task_id)
+
+            task_config.status = status
+            task_config.last_updated = now
+
+            if status == TaskStatus.RUNNING.value:
+                # For RUNNING, we set the start time in the 'config' dict or a specific field?
+                # The model has 'last_run', 'next_run', 'status' fields.
+                # It does NOT have start_time/end_time/last_error top-level fields in the model definition I saw earlier,
+                # except 'last_run'.
+                # Let me re-read the model.
+                # Model has: task_id, enabled, interval_minutes, last_run, next_run, status, config.
+                # It does NOT have execution-specific fields like start_time, end_time at root.
+                # I should probably store these in the 'config' dict or update the model.
+                # Actually, looking at the previous code, it stored them in tasks.{task_id}.start_time etc.
+                # Let's put them in the 'config' dict for now to avoid changing the model definition if possible,
+                # OR update the model to include them.
+                # Updating the model is cleaner.
+                # logic:
+                task_config.config["start_time"] = now
+                task_config.config["end_time"] = None
+                task_config.config["last_error"] = None
+
+            elif status == TaskStatus.COMPLETED.value:
+                task_config.last_run = now
+                task_config.config["end_time"] = now
+                task_config.config["last_error"] = None
+
+            elif status == TaskStatus.FAILED.value:
+                task_config.config["last_error"] = error
+                task_config.config["end_time"] = now
+
+            elif status == TaskStatus.PENDING.value:
+                task_config.config["start_time"] = now
+                task_config.config["end_time"] = None
+                task_config.config["last_error"] = None
+
+            elif status == TaskStatus.IDLE.value:
+                task_config.config["start_time"] = None
+                task_config.config["end_time"] = None
+                task_config.config["last_error"] = None
+
+            await task_config.save()
+            return True
 
         except Exception as e:
             logger.exception("Error updating task status for %s: %s", task_id, e)

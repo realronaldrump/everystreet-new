@@ -19,7 +19,7 @@ from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from config import get_bouncie_config
 from core.async_bridge import run_async_from_sync
 from date_utils import parse_timestamp
-from db import db_manager
+
 from db.models import Trip
 from tasks.core import task_runner
 
@@ -165,19 +165,23 @@ async def periodic_fetch_trips_async(
         raise
 
     logger.info("Updating last_success_time in task config...")
+    logger.info("Updating last_success_time in task config...")
     try:
-        # Use raw collection for singleton config
-        task_config_coll = db_manager.get_collection("task_config")
-        update_result = await task_config_coll.update_one(
-            {"_id": "global_background_task_config"},
-            {"$set": {"tasks.periodic_fetch_trips.last_success_time": now_utc}},
-            upsert=True,
+        from db.models import TaskConfig
+
+        # Update specific task config
+        task_config = await TaskConfig.find_one(
+            TaskConfig.task_id == "periodic_fetch_trips"
         )
-        logger.info(
-            "Config update result: modified_count=%s, upserted_id=%s",
-            update_result.modified_count,
-            update_result.upserted_id,
-        )
+        if not task_config:
+            task_config = TaskConfig(task_id="periodic_fetch_trips")
+
+        task_config.config["last_success_time"] = now_utc
+        task_config.last_updated = now_utc
+
+        await task_config.save()
+        logger.info("Successfully updated last_success_time")
+
     except Exception as update_err:
         logger.exception("Error updating task config: %s", update_err)
 
