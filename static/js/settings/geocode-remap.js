@@ -227,7 +227,7 @@ export function setupGeocodeTrips() {
             }
           }
         } catch (pollErr) {
-          console.error("Error polling progress:", pollErr);
+          // Error polling progress - silently ignore
           clearInterval(pollInterval);
           geocodeBtn.disabled = false;
           if (statusEl) {
@@ -241,7 +241,7 @@ export function setupGeocodeTrips() {
         }
       }, 1000); // Poll every second
     } catch (err) {
-      console.error("Error starting geocoding:", err);
+      // Error starting geocoding - silently ignore
       geocodeBtn.disabled = false;
       if (statusEl) {
         statusEl.textContent = "Error starting geocoding. See console.";
@@ -322,7 +322,6 @@ export function setupRemapMatchedTrips() {
       window.notificationManager.show(data.message, "success");
     } catch (error) {
       hideLoadingOverlay();
-      console.error("Error re-matching trips:", error);
       document.getElementById("remap-status").textContent = "Error re-matching trips.";
       window.notificationManager.show("Failed to re-match trips", "danger");
     }

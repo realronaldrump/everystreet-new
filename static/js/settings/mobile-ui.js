@@ -208,7 +208,7 @@ export function updateMobileHistoryList(history, taskManager) {
           card.dataset.isRunning = "true";
         }
       } catch (e) {
-        console.error("Error calculating elapsed time:", e);
+        // Error calculating elapsed time - silently ignore
       }
     }
 
@@ -471,7 +471,7 @@ async function pollGeocodeProgress(context) {
       handleGeocodeCompletion(context, progressData);
     }
   } catch (pollErr) {
-    console.error("Error polling progress:", pollErr);
+    // Error polling progress - silently ignore
     clearInterval(pollGeocodeProgress.pollInterval);
     geocodeBtn.disabled = false;
     if (statusEl) {
@@ -798,7 +798,6 @@ export function setupMobileRemapTrips() {
         window.notificationManager.show(data.message, "success");
       } catch (error) {
         hideLoadingOverlay();
-        console.error("Error re-matching trips:", error);
         if (remapStatus) {
           remapStatus.classList.remove("info");
           remapStatus.classList.add("error");
@@ -861,7 +860,7 @@ export function setupMobileSaveFAB(taskManager) {
         taskManager.loadTaskConfig();
       })
       .catch((error) => {
-        console.error("Error updating task config:", error);
+        // Error updating task config - notification shown below
         window.notificationManager.show(
           `Error updating task config: ${error.message}`,
           "danger"

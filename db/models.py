@@ -257,6 +257,8 @@ class TaskHistory(Document):
 class ProgressStatus(Document):
     """Progress status document for long-running operations."""
 
+    # Use string ID for task_id (UUID strings)
+    id: str | None = Field(default=None, alias="_id")
     operation_id: str | None = None
     operation_type: str | None = None
     status: str | None = None

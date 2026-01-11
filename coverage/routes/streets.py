@@ -6,7 +6,8 @@ Handles fetching streets, marking segments, and street-related queries.
 import logging
 from typing import Any
 
-from bson import ObjectId
+from beanie import PydanticObjectId
+from bson import ObjectId as BsonObjectId
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from gridfs import errors
@@ -22,15 +23,13 @@ router = APIRouter()
 
 
 @router.get("/api/coverage_areas/{location_id}/geojson/gridfs")
-async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Response):
+async def get_coverage_area_geojson_from_gridfs(
+    location_id: PydanticObjectId, response: Response
+):
     """Stream raw GeoJSON from GridFS for a given coverage area."""
     logger.info("[%s] Request received for GridFS GeoJSON stream.", location_id)
-    try:
-        obj_location_id = ObjectId(location_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid location_id format")
 
-    coverage_doc = await CoverageMetadata.get(obj_location_id)
+    coverage_doc = await CoverageMetadata.get(location_id)
 
     if not coverage_doc:
         logger.warning("[%s] Coverage area metadata not found for ID.", location_id)
@@ -54,13 +53,14 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
         )
         import asyncio
 
-        asyncio.create_task(gridfs_service.regenerate_streets_geojson(obj_location_id))
+        asyncio.create_task(gridfs_service.regenerate_streets_geojson(location_id))
         streets_data = await get_coverage_area_streets(location_id)
         return JSONResponse(content=streets_data, media_type="application/json")
 
+    # GridFS needs bson.ObjectId for its API
     if isinstance(gridfs_id, str):
         try:
-            gridfs_id = ObjectId(gridfs_id)
+            gridfs_id = BsonObjectId(gridfs_id)
         except Exception:
             logger.error("[%s] Invalid GridFS ID format: %s", location_id, gridfs_id)
             raise HTTPException(status_code=400, detail="Invalid GridFS ID format.")
@@ -76,9 +76,7 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
             )
             import asyncio
 
-            asyncio.create_task(
-                gridfs_service.regenerate_streets_geojson(obj_location_id)
-            )
+            asyncio.create_task(gridfs_service.regenerate_streets_geojson(location_id))
             streets_data = await get_coverage_area_streets(location_id)
             return JSONResponse(content=streets_data, media_type="application/json")
 
@@ -90,7 +88,9 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
             response.headers["Content-Length"] = str(grid_out_file_metadata["length"])
 
         async def stream_geojson_data():
-            async for chunk in gridfs_service.stream_geojson(gridfs_id, location_id):
+            async for chunk in gridfs_service.stream_geojson(
+                gridfs_id, str(location_id)
+            ):
                 yield chunk
 
         return StreamingResponse(stream_geojson_data(), media_type="application/json")
@@ -104,7 +104,7 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
         )
         import asyncio
 
-        asyncio.create_task(gridfs_service.regenerate_streets_geojson(obj_location_id))
+        asyncio.create_task(gridfs_service.regenerate_streets_geojson(location_id))
         streets_data = await get_coverage_area_streets(location_id)
         return JSONResponse(content=streets_data, media_type="application/json")
     except Exception as e:
@@ -123,15 +123,12 @@ async def get_coverage_area_geojson_from_gridfs(location_id: str, response: Resp
 
 @router.get("/api/coverage_areas/{location_id}/streets")
 async def get_coverage_area_streets(
-    location_id: str, undriven: bool = Query(False), driven: bool = Query(False)
+    location_id: PydanticObjectId,
+    undriven: bool = Query(False),
+    driven: bool = Query(False),
 ):
     """Get updated street GeoJSON for a coverage area."""
-    try:
-        obj_location_id = ObjectId(location_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid location_id format")
-
-    meta = await CoverageMetadata.get(obj_location_id)
+    meta = await CoverageMetadata.get(location_id)
     if not meta:
         raise HTTPException(
             status_code=404,
@@ -141,36 +138,14 @@ async def get_coverage_area_streets(
     if not name:
         raise HTTPException(status_code=500, detail="Coverage area has no display name")
 
-    query = {"properties.location": name}
+    query: dict[str, Any] = {"properties.location": name}
     if undriven:
         query["properties.driven"] = False
         query["properties.undriveable"] = {"$ne": True}
     elif driven:
         query["properties.driven"] = True
 
-    cursor = Street.find(query).project(
-        {
-            "_id": 0,
-            "geometry": 1,
-            "properties.segment_id": 1,
-            "properties.street_name": 1,
-            "properties.highway": 1,
-            "properties.segment_length": 1,
-            "properties.driven": 1,
-            "properties.undriveable": 1,
-        }
-    )
-    features = await cursor.to_list()
-    # Beanie Projection returns dicts if projection is dict-like or result of .project()
-    # Actually Beanie .project(Model) returns Model. project(dict) might be different or unsupported directly in finding objects?
-    # Street.find(query) returns FindMany.
-    # Beanie's FindMany.project supports a Pydantic model.
-    # To get a subset of fields as dict, we can use `await Street.find(query).to_list()` and then map.
-    # Or, we can use `Street.find(query).project(ProjectionModel)` if we had one.
-    # Since we don't have a partial model handy, let's fetch full objects and dump with include/exclude.
-    # Or rely on MongoDB projection via aggregations if performance matters.
-    # But for now, let's just fetch full objects and let sanitization happen.
-
+    # Beanie doesn't support dict projections - fetch full docs and map to dicts
     features_list = await Street.find(query).to_list()
     features = [
         {"geometry": f.geometry, "properties": f.properties} for f in features_list
@@ -182,7 +157,7 @@ async def get_coverage_area_streets(
 
 @router.get("/api/coverage_areas/{location_id}/streets/viewport")
 async def get_coverage_area_streets_viewport(
-    location_id: str,
+    location_id: PydanticObjectId,
     west: float = Query(..., description="Viewport min longitude"),
     south: float = Query(..., description="Viewport min latitude"),
     east: float = Query(..., description="Viewport max longitude"),
@@ -191,12 +166,7 @@ async def get_coverage_area_streets_viewport(
     driven: bool = Query(False),
 ):
     """Return streets intersecting the current map viewport."""
-    try:
-        obj_location_id = ObjectId(location_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid location_id format")
-
-    meta = await CoverageMetadata.get(obj_location_id)
+    meta = await CoverageMetadata.get(location_id)
     if not meta:
         raise HTTPException(status_code=404, detail="Coverage area not found")
     name = meta.location.get("display_name") if meta.location else None

@@ -53,7 +53,6 @@ async function initializePage() {
     // Set current time as default
     setCurrentTime();
   } catch (error) {
-    console.error("Error initializing gas tracking page:", error);
     showError("Failed to initialize page");
   }
 }
@@ -193,7 +192,6 @@ async function loadVehicles(options = {}) {
     }
     return vehicles;
   } catch (error) {
-    console.error("Error loading vehicles:", error);
     setVehicleStatus(
       "Could not load vehicles automatically. Please sync from Profile.",
       "danger"

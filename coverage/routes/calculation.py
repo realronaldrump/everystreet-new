@@ -8,7 +8,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from bson import ObjectId
+from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
@@ -115,22 +115,15 @@ async def get_incremental_street_coverage(location: LocationModel):
 
 
 @router.post("/api/coverage_areas/{location_id}/refresh_stats")
-async def refresh_coverage_stats(location_id: str):
+async def refresh_coverage_stats(location_id: PydanticObjectId):
     """Refresh statistics for a coverage area after manual modifications."""
     logger.info(
         "Received request to refresh stats for location_id: %s",
         location_id,
     )
-    try:
-        obj_location_id = ObjectId(location_id)
-    except Exception:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid location_id format",
-        )
 
     updated_coverage_data = await coverage_stats_service.recalculate_stats(
-        obj_location_id,
+        location_id,
     )
 
     if updated_coverage_data is None:
@@ -146,6 +139,6 @@ async def refresh_coverage_stats(location_id: str):
 
     encoded_content = jsonable_encoder(response_content)
 
-    asyncio.create_task(gridfs_service.regenerate_streets_geojson(obj_location_id))
+    asyncio.create_task(gridfs_service.regenerate_streets_geojson(location_id))
 
     return JSONResponse(content=encoded_content)
