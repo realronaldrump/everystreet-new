@@ -101,7 +101,7 @@ export function renderTaskHistoryTable(history) {
   // Attach error button handlers
   const errorButtons = tbody.querySelectorAll(".view-error-btn");
   errorButtons.forEach((btn) => {
-    btn.addEventListener("mousedown", (_e) => {
+    btn.addEventListener("mousedown", () => {
       const errorMessage = btn.dataset.error;
       showErrorModal(errorMessage);
     });

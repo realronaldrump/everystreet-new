@@ -407,6 +407,41 @@ class BouncieCredentials(Document):
         extra = "allow"
 
 
+class CountyVisitedCache(Document):
+    """Cache document for visited county data."""
+
+    # Use string ID to match the existing pattern with "visited_counties" as _id
+    id: str = Field(default="visited_counties", alias="_id")
+    counties: dict[str, Any] = Field(default_factory=dict)
+    stopped_counties: dict[str, Any] = Field(default_factory=dict)
+    trips_analyzed: int = 0
+    updated_at: datetime | None = None
+    calculation_time_seconds: float | None = None
+
+    class Settings:
+        name = "county_visited_cache"
+
+    class Config:
+        extra = "allow"
+
+
+class CountyTopology(Document):
+    """County TopoJSON topology data document."""
+
+    # Use string ID for topology variant IDs like "counties_10m"
+    id: str = Field(..., alias="_id")
+    projection: str | None = None
+    source: str | None = None
+    topology: dict[str, Any] = Field(default_factory=dict)
+    updated_at: datetime | None = None
+
+    class Settings:
+        name = "county_topology"
+
+    class Config:
+        extra = "allow"
+
+
 # List of all document models for Beanie initialization
 ALL_DOCUMENT_MODELS = [
     Trip,
@@ -426,4 +461,6 @@ ALL_DOCUMENT_MODELS = [
     AppSettings,
     ServerLog,
     BouncieCredentials,
+    CountyVisitedCache,
+    CountyTopology,
 ]

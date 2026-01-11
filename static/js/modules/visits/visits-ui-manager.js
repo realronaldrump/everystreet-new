@@ -20,7 +20,7 @@
               if (target) {
                 target.scrollIntoView({ behavior: "smooth", block: "start" });
               }
-            } catch (_e) {
+            } catch {
               console.warn("Invalid selector for smooth scroll:", href);
             }
           }

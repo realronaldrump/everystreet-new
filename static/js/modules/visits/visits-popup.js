@@ -163,7 +163,7 @@
      * @param {Object} popup - Mapbox popup instance
      * @param {string} placeId - Place ID
      */
-    _bindPopupButtons(popup, _placeId) {
+    _bindPopupButtons(popup) {
       const popupNode = popup?.getElement();
       if (!popupNode) return;
 

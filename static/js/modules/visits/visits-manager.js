@@ -374,7 +374,7 @@
         const trip = await this.dataLoader.loadTrip(tripId);
         window.VisitsHelpers.extractTripGeometry(trip);
         this.tripViewer.showTrip(trip);
-      } catch (_error) {
+      } catch {
         // Error already handled in dataLoader
       } finally {
         document.querySelectorAll(".view-trip-btn.loading").forEach((btn) => {
