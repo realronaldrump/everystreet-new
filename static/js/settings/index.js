@@ -52,7 +52,6 @@ function setupTaskConfigEventListeners(taskManager) {
           taskManager.loadTaskConfig();
         })
         .catch((error) => {
-          console.error("Error updating task config:", error);
           window.notificationManager.show(
             `Error updating task config: ${error.message}`,
             "danger"
@@ -80,7 +79,6 @@ function setupTaskConfigEventListeners(taskManager) {
         taskManager.loadTaskConfig();
       } catch (error) {
         hideLoadingOverlay();
-        console.error("Error resetting tasks:", error);
         window.notificationManager.show("Failed to reset tasks", "danger");
       }
     });
@@ -115,7 +113,6 @@ function setupTaskConfigEventListeners(taskManager) {
         taskManager.loadTaskConfig();
       } catch (error) {
         hideLoadingOverlay();
-        console.error("Error pausing tasks:", error);
         window.notificationManager.show("Failed to pause tasks", "danger");
       }
     });
@@ -138,7 +135,6 @@ function setupTaskConfigEventListeners(taskManager) {
         taskManager.loadTaskConfig();
       } catch (error) {
         hideLoadingOverlay();
-        console.error("Error resuming tasks:", error);
         window.notificationManager.show("Failed to resume tasks", "danger");
       }
     });
@@ -161,7 +157,6 @@ function setupTaskConfigEventListeners(taskManager) {
         taskManager.loadTaskConfig();
       } catch (error) {
         hideLoadingOverlay();
-        console.error("Error stopping tasks:", error);
         window.notificationManager.show("Failed to stop tasks", "danger");
       }
     });
@@ -184,7 +179,6 @@ function setupTaskConfigEventListeners(taskManager) {
         taskManager.loadTaskConfig();
       } catch (error) {
         hideLoadingOverlay();
-        console.error("Error enabling tasks:", error);
         window.notificationManager.show("Failed to enable tasks", "danger");
       }
     });
@@ -207,7 +201,6 @@ function setupTaskConfigEventListeners(taskManager) {
         taskManager.loadTaskConfig();
       } catch (error) {
         hideLoadingOverlay();
-        console.error("Error disabling tasks:", error);
         window.notificationManager.show("Failed to disable tasks", "danger");
       }
     });
@@ -315,7 +308,6 @@ function setupFetchAllMissingModal(taskManager) {
           }
         }
       } catch (error) {
-        console.error("Error fetching earliest date:", error);
         if (fetchAllMissingStartInput) {
           fetchAllMissingStartInput.value = "2020-01-01T00:00";
         }
@@ -363,7 +355,6 @@ function setupFetchAllMissingModal(taskManager) {
         }
       } catch (error) {
         hideLoadingOverlay();
-        console.error("Error starting fetch all missing trips:", error);
         taskManager.notifier.show("Error", error.message, "danger");
         if (statusSpan) statusSpan.textContent = "Error starting task";
         if (openFetchAllMissingModalBtn) openFetchAllMissingModalBtn.disabled = false;

@@ -49,7 +49,7 @@ export function renderTaskHistoryTable(history) {
           row.dataset.isRunning = "true";
         }
       } catch (e) {
-        console.error("Error calculating elapsed time:", e);
+        // Error calculating elapsed time - silently ignore
       }
     }
 

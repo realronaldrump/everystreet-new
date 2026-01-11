@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 import osmnx as ox
-from bson import ObjectId
+from beanie import PydanticObjectId
+from bson import ObjectId as BsonObjectId
 
 from db.models import CoverageMetadata, OptimalRouteProgress, Street
 from progress_tracker import ProgressTracker
@@ -60,8 +61,10 @@ async def generate_optimal_route_with_progress(
         await update_progress("initializing", 0, "Starting optimal route generation...")
 
         # Find coverage area by ID
-        # location_id is likely an ObjectId string
-        area = await CoverageMetadata.get(ObjectId(location_id))
+        # location_id may be str (from Celery) or PydanticObjectId
+        if isinstance(location_id, str):
+            location_id = PydanticObjectId(location_id)
+        area = await CoverageMetadata.get(location_id)
         if not area:
             raise ValueError(f"Coverage area {location_id} not found")
 
@@ -589,20 +592,27 @@ async def generate_optimal_route(
     location_id: str,
     start_coords: tuple[float, float] | None = None,
 ) -> dict[str, Any]:
-    task_id = f"manual_{ObjectId()}"
+    import uuid
+
+    task_id = f"manual_{uuid.uuid4()}"
     return await generate_optimal_route_with_progress(
         location_id, task_id, start_coords
     )
 
 
-async def save_optimal_route(location_id: str, route_result: dict[str, Any]) -> None:
+async def save_optimal_route(
+    location_id: str | PydanticObjectId, route_result: dict[str, Any]
+) -> None:
     if route_result.get("status") != "success":
         return
 
     try:
         route_doc = dict(route_result)
         # Use Beanie CoverageMetadata model
-        metadata = await CoverageMetadata.get(ObjectId(location_id))
+        # location_id may be str (from Celery) or PydanticObjectId
+        if isinstance(location_id, str):
+            location_id = PydanticObjectId(location_id)
+        metadata = await CoverageMetadata.get(location_id)
         if metadata:
             # metadata.optimal_route is not defined in the model explicitly as a dict field?
             # But 'extra="allow"' is on.

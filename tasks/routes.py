@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from bson import ObjectId
+from beanie import PydanticObjectId
+from bson import ObjectId as BsonObjectId
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
@@ -39,8 +40,10 @@ async def generate_optimal_route_async(
     Returns:
         Dict with route coordinates, distances, and stats
     """
+    import uuid
+
     # Get the Celery task ID for progress tracking
-    task_id = getattr(_self.request, "id", None) or str(ObjectId())
+    task_id = getattr(_self.request, "id", None) or str(uuid.uuid4())
 
     logger.info(
         "Starting optimal route generation for location %s (task: %s, start: %s, %s)",
