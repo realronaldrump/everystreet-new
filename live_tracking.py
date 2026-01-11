@@ -464,7 +464,11 @@ async def process_trip_end(data: dict[str, Any]) -> None:
 async def get_active_trip() -> dict[str, Any] | None:
     """Get the currently active trip."""
     try:
-        trip = await LiveTrip.find_one(LiveTrip.status == "active").sort("-lastUpdate")
+        trip = (
+            await LiveTrip.find(LiveTrip.status == "active")
+            .sort("-lastUpdate")
+            .first_or_none()
+        )
         if trip:
             return trip.model_dump()
         return None
