@@ -235,6 +235,37 @@ class Trip(Document):
     class Settings:
         name = "trips"
         use_state_management = True
+        indexes = [
+            IndexModel([("startTime", ASCENDING)], name="trips_startTime_asc_idx"),
+            IndexModel([("endTime", ASCENDING)], name="trips_endTime_asc_idx"),
+            IndexModel([("endTime", DESCENDING)], name="trips_endTime_desc_idx"),
+            IndexModel([("gps", "2dsphere")], name="trips_gps_2dsphere_idx"),
+            IndexModel(
+                [("startGeoPoint", "2dsphere")], name="trips_startGeoPoint_2dsphere_idx"
+            ),
+            IndexModel(
+                [("destinationGeoPoint", "2dsphere")],
+                name="trips_destinationGeoPoint_2dsphere_idx",
+            ),
+            IndexModel(
+                [
+                    ("startGeoPoint", "2dsphere"),
+                    ("destinationGeoPoint", "2dsphere"),
+                    ("_id", 1),
+                ],
+                name="trips_coverage_query_idx",
+            ),
+            IndexModel(
+                [("destinationPlaceId", ASCENDING)],
+                name="trips_destinationPlaceId_idx",
+                sparse=True,
+            ),
+            IndexModel(
+                [("destinationPlaceName", ASCENDING)],
+                name="trips_destinationPlaceName_idx",
+                sparse=True,
+            ),
+        ]
 
     class Config:
         extra = "allow"
@@ -289,6 +320,15 @@ class ArchivedLiveTrip(Document):
 
     class Settings:
         name = "archived_live_trips"
+        indexes = [
+            IndexModel([("gps", "2dsphere")], name="archived_gps_2dsphere_idx"),
+            IndexModel(
+                [("transactionId", ASCENDING)],
+                name="archived_transactionId_idx",
+                unique=True,
+            ),
+            IndexModel([("endTime", ASCENDING)], name="archived_endTime_idx"),
+        ]
 
     class Config:
         extra = "allow"
@@ -320,6 +360,17 @@ class CoverageMetadata(Document):
 
     class Settings:
         name = "coverage_metadata"
+        indexes = [
+            IndexModel(
+                [("location.display_name", ASCENDING)],
+                name="coverage_metadata_display_name_idx",
+                unique=True,
+            ),
+            IndexModel(
+                [("status", ASCENDING), ("last_updated", ASCENDING)],
+                name="coverage_metadata_status_updated_idx",
+            ),
+        ]
 
     class Config:
         extra = "allow"
@@ -334,6 +385,20 @@ class Street(Document):
 
     class Settings:
         name = "streets"
+        indexes = [
+            IndexModel(
+                [("properties.location", ASCENDING), ("geometry", "2dsphere")],
+                name="streets_location_geo_idx",
+            ),
+            IndexModel(
+                [
+                    ("properties.location", ASCENDING),
+                    ("properties.segment_id", ASCENDING),
+                ],
+                name="streets_location_segment_id_unique_idx",
+                unique=True,
+            ),
+        ]
 
     class Config:
         extra = "allow"
@@ -417,6 +482,12 @@ class TaskHistory(Document):
 
     class Settings:
         name = "task_history"
+        indexes = [
+            IndexModel(
+                [("task_id", ASCENDING), ("timestamp", DESCENDING)],
+                name="task_history_task_timestamp_idx",
+            )
+        ]
 
     class Config:
         extra = "allow"
@@ -479,6 +550,16 @@ class GasFillup(Document):
 
     class Settings:
         name = "gas_fillups"
+        indexes = [
+            IndexModel(
+                [("imei", ASCENDING), ("fillup_time", DESCENDING)],
+                name="gas_fillups_imei_time_idx",
+            ),
+            IndexModel(
+                [("fillup_time", DESCENDING)], name="gas_fillups_fillup_time_idx"
+            ),
+            IndexModel([("vin", ASCENDING)], name="gas_fillups_vin_idx", sparse=True),
+        ]
 
     class Config:
         extra = "allow"
@@ -500,12 +581,9 @@ class Vehicle(Document):
     class Settings:
         name = "vehicles"
         indexes = [
-            IndexModel(
-                [("imei", ASCENDING)],
-                name="vehicles_imei_idx",
-                unique=True,
-                background=True,
-            )
+            IndexModel([("imei", ASCENDING)], name="vehicles_imei_idx", unique=True),
+            IndexModel([("vin", ASCENDING)], name="vehicles_vin_idx", sparse=True),
+            IndexModel([("is_active", ASCENDING)], name="vehicles_is_active_idx"),
         ]
 
     class Config:
@@ -550,6 +628,14 @@ class ServerLog(Document):
 
     class Settings:
         name = "server_logs"
+        indexes = [
+            IndexModel([("level", ASCENDING)], name="server_logs_level_idx"),
+            IndexModel(
+                [("timestamp", ASCENDING)],
+                name="server_logs_ttl_idx",
+                expireAfterSeconds=30 * 24 * 60 * 60,
+            ),
+        ]
 
     class Config:
         extra = "allow"
