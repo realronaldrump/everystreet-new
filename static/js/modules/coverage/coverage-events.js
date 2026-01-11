@@ -30,16 +30,20 @@ export class CoverageEvents {
    */
   _setupValidationListeners() {
     // Location validation
-    document.getElementById("validate-location")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.manager.validator.validateLocation();
-    });
+    document
+      .getElementById("validate-location")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.manager.validator.validateLocation();
+      });
 
     // Drawing validation
-    document.getElementById("validate-drawing")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.manager.validator.validateCustomBoundary();
-    });
+    document
+      .getElementById("validate-drawing")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.manager.validator.validateCustomBoundary();
+      });
 
     // Clear drawing
     document.getElementById("clear-drawing")?.addEventListener("click", (e) => {
@@ -48,22 +52,28 @@ export class CoverageEvents {
     });
 
     // Add coverage area
-    document.getElementById("add-coverage-area")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.manager.crud.addCoverageArea();
-    });
+    document
+      .getElementById("add-coverage-area")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.manager.crud.addCoverageArea();
+      });
 
     // Add custom area
-    document.getElementById("add-custom-area")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.manager.crud.addCustomCoverageArea();
-    });
+    document
+      .getElementById("add-custom-area")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.manager.crud.addCustomCoverageArea();
+      });
 
     // Cancel processing
-    document.getElementById("cancel-processing")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.manager.crud.cancelProcessing();
-    });
+    document
+      .getElementById("cancel-processing")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.manager.crud.cancelProcessing();
+      });
   }
 
   /**
@@ -108,54 +118,62 @@ export class CoverageEvents {
       });
 
     // Add area modal shown
-    document.getElementById("addAreaModal")?.addEventListener("shown.bs.modal", () => {
-      if (this.manager.currentAreaDefinitionType === "draw") {
-        this.manager.drawing.initializeDrawingMap();
-      }
-    });
+    document
+      .getElementById("addAreaModal")
+      ?.addEventListener("shown.bs.modal", () => {
+        if (this.manager.currentAreaDefinitionType === "draw") {
+          this.manager.drawing.initializeDrawingMap();
+        }
+      });
 
     // Add area modal hidden
-    document.getElementById("addAreaModal")?.addEventListener("hidden.bs.modal", () => {
-      this.manager.drawing.cleanupDrawingMap();
-      this.manager.modals.resetModalState(
-        this.manager.validator,
-        this.manager.drawing,
-        (type) => this.manager.handleAreaDefinitionTypeChange(type)
-      );
-    });
+    document
+      .getElementById("addAreaModal")
+      ?.addEventListener("hidden.bs.modal", () => {
+        this.manager.drawing.cleanupDrawingMap();
+        this.manager.modals.resetModalState(
+          this.manager.validator,
+          this.manager.drawing,
+          (type) => this.manager.handleAreaDefinitionTypeChange(type),
+        );
+      });
   }
 
   /**
    * Setup area definition type radio listeners
    */
   _setupAreaDefinitionListeners() {
-    document.querySelectorAll('input[name="area-definition-type"]').forEach((radio) => {
-      radio.addEventListener("change", (e) => {
-        this.manager.handleAreaDefinitionTypeChange(e.target.value);
+    document
+      .querySelectorAll('input[name="area-definition-type"]')
+      .forEach((radio) => {
+        radio.addEventListener("change", (e) => {
+          this.manager.handleAreaDefinitionTypeChange(e.target.value);
+        });
       });
-    });
   }
 
   /**
    * Setup table action listeners
    */
   _setupTableListeners() {
-    document.querySelector("#coverage-areas-table")?.addEventListener("click", (e) => {
-      const targetButton = e.target.closest("button[data-action]");
-      const targetLink = e.target.closest("a.location-name-link");
-      if (targetButton) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.manager.handleTableAction(targetButton);
-      } else if (targetLink) {
-        e.preventDefault();
-        e.stopPropagation();
-        const { locationId } = targetLink.dataset;
-        if (locationId) {
-          this.manager.displayCoverageDashboard(locationId);
+    document
+      .querySelector("#coverage-areas-table")
+      ?.addEventListener("click", (e) => {
+        const targetButton = e.target.closest("button[data-action]");
+        const targetLink = e.target.closest("a.location-name-link");
+        if (targetButton) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.manager.handleTableAction(targetButton);
+        } else if (targetLink) {
+          e.preventDefault();
+          e.stopPropagation();
+          const { locationId } = targetLink.dataset;
+          if (locationId) {
+            this.manager.displayCoverageDashboard(locationId);
+          }
         }
-      }
-    });
+      });
   }
 
   /**
@@ -163,10 +181,14 @@ export class CoverageEvents {
    */
   _setupDashboardListeners() {
     document.addEventListener("click", (e) => {
-      const filterButton = e.target.closest(".map-controls button[data-filter]");
+      const filterButton = e.target.closest(
+        ".map-controls button[data-filter]",
+      );
       if (filterButton) {
         this.manager.coverageMap.setMapFilter(filterButton.dataset.filter);
-        this.manager.dashboard.updateFilterButtonStates(filterButton.dataset.filter);
+        this.manager.dashboard.updateFilterButtonStates(
+          filterButton.dataset.filter,
+        );
       }
 
       const exportButton = e.target.closest("#export-coverage-map");
@@ -192,7 +214,7 @@ export class CoverageEvents {
     document.addEventListener("coverageSegmentAction", (e) => {
       this.manager.segmentActions.handleMarkSegmentAction(
         e.detail.action,
-        e.detail.segmentId
+        e.detail.segmentId,
       );
     });
 
@@ -244,12 +266,16 @@ export class CoverageEvents {
         this.manager.findMostEfficientStreets();
       });
 
-    document.getElementById("refresh-table-btn")?.addEventListener("click", () => {
-      this.manager.loadCoverageAreas(true, false, false, true);
-    });
+    document
+      .getElementById("refresh-table-btn")
+      ?.addEventListener("click", () => {
+        this.manager.loadCoverageAreas(true, false, false, true);
+      });
 
-    document.getElementById("close-dashboard-btn")?.addEventListener("click", () => {
-      this.manager.dashboard.closeCoverageDashboard();
-    });
+    document
+      .getElementById("close-dashboard-btn")
+      ?.addEventListener("click", () => {
+        this.manager.dashboard.closeCoverageDashboard();
+      });
   }
 }
