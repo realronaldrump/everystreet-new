@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from analytics.services import TimeAnalyticsService, TripAnalyticsService
 from core.api import api_route
-from db import build_query_from_request, serialize_for_json
+from db import build_query_from_request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -59,7 +59,7 @@ async def get_time_period_trips(request: Request):
         trips = await TimeAnalyticsService.get_time_period_trips(
             query, time_type, time_value
         )
-        return JSONResponse(content=serialize_for_json(trips))
+        return JSONResponse(content=trips)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -77,7 +77,7 @@ async def driver_behavior_analytics(request: Request):
     """
     query = await build_query_from_request(request)
     combined = await TripAnalyticsService.get_driver_behavior_analytics(query)
-    return JSONResponse(content=serialize_for_json(combined))
+    return JSONResponse(content=combined)
 
 
 @router.get("/api/trips/history")
@@ -87,4 +87,4 @@ async def get_recent_trips(
 ):
     """Get recent trips for landing page activity feed."""
     trips = await TripAnalyticsService.get_recent_trips(limit)
-    return JSONResponse(content={"trips": serialize_for_json(trips)})
+    return JSONResponse(content={"trips": trips})
