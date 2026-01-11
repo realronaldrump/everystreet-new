@@ -81,6 +81,10 @@ export class CoverageCRUD {
       }
 
       if (modal) {
+        // Remove focus from any active element before hiding modal to prevent aria-hidden warning
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
         modal.hide();
       }
 
@@ -205,6 +209,10 @@ export class CoverageCRUD {
       }
 
       if (modal) {
+        // Remove focus from any active element before hiding modal to prevent aria-hidden warning
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
         modal.hide();
       }
 
