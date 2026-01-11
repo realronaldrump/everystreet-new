@@ -13,7 +13,6 @@ import pymongo
 from pymongo.collection import Collection
 
 from date_utils import parse_timestamp
-
 from geometry_service import GeometryService
 from trip_event_publisher import publish_trip_state
 
