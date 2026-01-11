@@ -26,6 +26,7 @@ from coverage.constants import (
     MAX_TRIPS_PER_BATCH,
     MAX_UPDATE_BATCH_SIZE,
     METERS_TO_MILES,
+    MAX_CONCURRENT_DB_OPS,
 )
 from db.models import CoverageMetadata, ProgressStatus, Street, Trip
 from geometry_service import GeometryService
@@ -76,6 +77,9 @@ class CoverageCalculator:
         # Sets to track coverage during this run
         self.initial_covered_segments: set[str] = set()
         self.newly_covered_segments: set[str] = set()
+
+        # Concurrency control
+        self._db_semaphore = asyncio.Semaphore(MAX_CONCURRENT_DB_OPS)
 
     @staticmethod
     def _get_match_buffer(location: dict[str, Any]) -> float:
@@ -455,13 +459,14 @@ class CoverageCalculator:
 
             # 2. Query MongoDB using Beanie (IO bound)
             # Using raw find to get specific fields including geometry
-            docs = await Street.find(
-                {
-                    "properties.location": self.location_name,
-                    "properties.driven": False,
-                    "geometry": {"$geoIntersects": {"$geometry": query_geometry}},
-                },
-            ).to_list()  # Fetch all matches
+            async with self._db_semaphore:
+                docs = await Street.find(
+                    {
+                        "properties.location": self.location_name,
+                        "properties.driven": False,
+                        "geometry": {"$geoIntersects": {"$geometry": query_geometry}},
+                    },
+                ).to_list()  # Fetch all matches
 
             if not docs:
                 return []
