@@ -19,7 +19,8 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
 
-from db import db_manager, json_dumps, serialize_document
+from db import db_manager
+from db.models import ArchivedLiveTrip, LiveTrip
 from live_tracking import (
     get_active_trip,
     get_trip_updates,
@@ -58,31 +59,16 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
         logger.warning("Unknown event type: %s", event_type)
         return {"status": "unknown", "event": event_type}
 
-    # Get database collection (may raise exception if DB unavailable)
-    try:
-        live_collection = db_manager.get_collection("live_trips")
-    except Exception as db_error:
-        logger.error("Failed to get live_trips collection: %s", db_error)
-        raise RuntimeError(f"Database unavailable: {db_error}") from db_error
-
-    # Route to appropriate handler
+    # Route to appropriate handler using Beanie models
     if event_type == "tripStart":
-        await process_trip_start(data, live_collection)
+        await process_trip_start(data, LiveTrip)
     elif event_type == "tripData":
-        await process_trip_data(data, live_collection)
+        await process_trip_data(data, LiveTrip)
     elif event_type == "tripMetrics":
-        await process_trip_metrics(data, live_collection)
+        await process_trip_metrics(data, LiveTrip)
     elif event_type == "tripEnd":
-        # Get archive collection for archiving completed trips
-        try:
-            archive_collection = db_manager.get_collection("archived_live_trips")
-            await process_trip_end(data, live_collection, archive_collection)
-        except Exception as archive_db_error:
-            logger.error(
-                "Failed to get archived_live_trips collection: %s", archive_db_error
-            )
-            # Fallback to just processing end (no archive) if collection fails
-            await process_trip_end(data, live_collection)
+        # Process end with both LiveTrip and ArchivedLiveTrip models
+        await process_trip_end(data, LiveTrip, ArchivedLiveTrip)
 
     return {"status": "processed", "event": event_type, "transactionId": transaction_id}
 
@@ -127,10 +113,10 @@ async def websocket_endpoint(websocket: WebSocket):
         initial_trip = await get_active_trip()
         if initial_trip:
             await websocket.send_text(
-                json_dumps(
+                json.dumps(
                     {
                         "type": "trip_state",
-                        "trip": serialize_document(initial_trip),
+                        "trip": initial_trip,
                         "status": initial_trip.get("status", "active"),
                     }
                 )
@@ -164,7 +150,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     break
 
                 await websocket.send_text(
-                    json_dumps(
+                    json.dumps(
                         {
                             "type": "trip_state",
                             "trip": trip_payload,
@@ -287,11 +273,8 @@ async def active_trip_endpoint():
         if not active_trip_doc:
             return NoActiveTripResponse(server_time=datetime.now(UTC))
 
-        # Serialize document to ensure ObjectId and datetime are properly converted
-        serialized_trip = serialize_document(active_trip_doc)
-
-        # Create Pydantic model from serialized document
-        trip_model = TripDataModel(**serialized_trip)
+        # Create Pydantic model from document
+        trip_model = TripDataModel(**active_trip_doc)
 
         return ActiveTripSuccessResponse(
             trip=trip_model,
