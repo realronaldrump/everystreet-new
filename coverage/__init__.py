@@ -28,15 +28,15 @@ Usage:
     await emit_trip_completed(trip_id, user_id)
 """
 
-from coverage.models import CoverageArea, CoverageState, Job, Street
-from coverage.ingestion import create_area, delete_area, rebuild_area
-from coverage.events import register_handlers, emit_trip_completed
-from coverage.stats import update_area_stats
 from coverage.constants import (
-    SEGMENT_LENGTH_METERS,
     MATCH_BUFFER_METERS,
     MIN_OVERLAP_METERS,
+    SEGMENT_LENGTH_METERS,
 )
+from coverage.events import emit_trip_completed, register_handlers
+from coverage.ingestion import create_area, delete_area, rebuild_area
+from coverage.models import CoverageArea, CoverageState, Job, Street
+from coverage.stats import update_area_stats
 
 __all__ = [
     # Models

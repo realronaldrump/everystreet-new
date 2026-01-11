@@ -123,9 +123,9 @@ async def list_areas():
                     total_segments=area.total_segments,
                     driven_segments=area.driven_segments,
                     created_at=area.created_at.isoformat(),
-                    last_synced=area.last_synced.isoformat()
-                    if area.last_synced
-                    else None,
+                    last_synced=(
+                        area.last_synced.isoformat() if area.last_synced else None
+                    ),
                 )
             )
 
