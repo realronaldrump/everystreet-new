@@ -147,12 +147,15 @@ async def get_optimal_route(location_id: PydanticObjectId):
             detail="No optimal route generated yet. Use POST to generate one.",
         )
 
+    # Prepare route data (handle dict or Pydantic model)
+    route_data = route if isinstance(route, dict) else route.model_dump(by_alias=True)
+
     return {
         "status": "success",
         "location_name": (
             coverage_doc.location.get("display_name") if coverage_doc.location else None
         ),
-        **route.model_dump(by_alias=True),
+        **route_data,
     }
 
 
