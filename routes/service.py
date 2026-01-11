@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 import networkx as nx
 import osmnx as ox
 from beanie import PydanticObjectId
-from bson import ObjectId as BsonObjectId
 
 from db.models import CoverageMetadata, OptimalRouteProgress, Street
 from progress_tracker import ProgressTracker

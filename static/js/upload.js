@@ -53,10 +53,10 @@ class UploadManager {
           this.loadUploadSourceTrips();
           this.loadingManager.finish();
         })
-        .catch((error) => {
+        .catch((_error) => {
           this.loadingManager.error("Failed to initialize upload manager");
         });
-    } catch (error) {
+    } catch (_error) {
       this.loadingManager.error("Failed to initialize upload manager");
     }
   }
@@ -243,7 +243,7 @@ class UploadManager {
       this.updateFileList();
       this.updatePreviewMap();
       this.updateStats();
-    } catch (error) {
+    } catch (_error) {
       this.loadingManager.error("Error during file processing.");
     } finally {
       this.loadingManager.finish();
@@ -557,7 +557,7 @@ class UploadManager {
           padding: 50,
           maxZoom: 15,
         });
-      } catch (e) {
+      } catch (_e) {
         previewMap.setCenter(this.config.map.defaultCenter);
         previewMap.setZoom(this.config.map.defaultZoom);
       }

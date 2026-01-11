@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from beanie import PydanticObjectId
-from bson import ObjectId as BsonObjectId
 from celery import shared_task
 from celery.utils.log import get_task_logger
 

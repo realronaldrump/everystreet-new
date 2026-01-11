@@ -664,33 +664,6 @@ export function setupMobileGeocodeTrips() {
       if (progressMessage) progressMessage.textContent = "Initializing...";
       if (progressMetrics) progressMetrics.textContent = "";
 
-      const _response = await fetch("/api/geocode_trips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ start_date, end_date, interval_days }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to start geocoding");
-      }
-
-      const _data = await response.json();
-      const _taskId = data.task_id;
-
-      // Start polling for progress
-      const _pollInterval = setInterval(
-        pollGeocodeProgress.bind(null, {
-          taskId,
-          pollInterval: null,
-          geocodeBtn,
-          statusEl,
-          progressBar,
-          progressMessage,
-          progressMetrics,
-        }),
-        1000
-      );
-
       const response = await fetch("/api/geocode_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

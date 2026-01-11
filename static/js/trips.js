@@ -57,7 +57,7 @@ async function loadVehicles() {
       option.textContent = formatVehicleName(v);
       vehicleSelect.appendChild(option);
     });
-  } catch (error) {
+  } catch (_error) {
     window.notificationManager?.show("Failed to load vehicles list", "warning");
   }
 }
@@ -485,7 +485,7 @@ async function deleteTrip(id) {
     window.notificationManager?.show("Trip deleted successfully", "success");
     selectedTripIds.delete(id);
     tripsTable.reload();
-  } catch (e) {
+  } catch (_e) {
     window.notificationManager?.show("Failed to delete trip", "danger");
   }
 }
@@ -506,7 +506,7 @@ async function bulkDeleteTrips(ids) {
     const selectAllEl = document.getElementById("select-all-trips");
     if (selectAllEl) selectAllEl.checked = false;
     tripsTable.reload();
-  } catch (e) {
+  } catch (_e) {
     window.notificationManager?.show("Failed to delete trips", "danger");
   }
 }

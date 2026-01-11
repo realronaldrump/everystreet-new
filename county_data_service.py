@@ -115,17 +115,16 @@ async def _download_and_store_topology(
         await existing.save()
         logger.info("Updated county topology variant '%s' in MongoDB", variant_key)
         return existing.model_dump()
-    else:
-        new_doc = CountyTopology(
-            id=variant["id"],
-            projection=variant.get("projection", variant_key),
-            source=variant["source"],
-            topology=topology_data,
-            updated_at=datetime.now(UTC),
-        )
-        await new_doc.insert()
-        logger.info("Stored county topology variant '%s' in MongoDB", variant_key)
-        return new_doc.model_dump()
+    new_doc = CountyTopology(
+        id=variant["id"],
+        projection=variant.get("projection", variant_key),
+        source=variant["source"],
+        topology=topology_data,
+        updated_at=datetime.now(UTC),
+    )
+    await new_doc.insert()
+    logger.info("Stored county topology variant '%s' in MongoDB", variant_key)
+    return new_doc.model_dump()
 
 
 async def refresh_county_topology(projection: str | None = None) -> dict[str, Any]:
